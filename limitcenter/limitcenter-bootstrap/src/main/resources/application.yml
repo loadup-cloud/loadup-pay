@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: limitcenter
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

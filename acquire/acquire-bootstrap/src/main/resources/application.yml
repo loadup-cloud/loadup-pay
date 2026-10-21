@@ -1,0 +1,25 @@
+spring:
+  grpc:
+    server:
+      enabled: false
+    client:
+      channel:
+        payment:
+          target: ${pay.payment-target}
+          ssl:
+            enabled: false
+  application:
+    name: acquire
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+pay:
+  payment-target: ${PAYMENT_TARGET:dns:///localhost:9090}

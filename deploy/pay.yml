@@ -1,0 +1,314 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: loadup-pay
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: payment}
+  template:
+    metadata:
+      labels: {app: payment}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: payment
+          image: loadup-pay/payment:dev
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: grpc, containerPort: 9090}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment
+  namespace: loadup-pay
+spec:
+  selector: {app: payment}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+    - {name: grpc, port: 9090, targetPort: grpc, appProtocol: kubernetes.io/h2c}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acquire
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: acquire}
+  template:
+    metadata:
+      labels: {app: acquire}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: acquire
+          image: loadup-pay/acquire:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+            - name: MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS
+              value: always
+            - name: PAYMENT_TARGET
+              value: dns:///payment.loadup-pay.svc.cluster.local:9090
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: acquire
+  namespace: loadup-pay
+spec:
+  selector: {app: acquire}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: customer}
+  template:
+    metadata:
+      labels: {app: customer}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: customer
+          image: loadup-pay/customer:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer
+  namespace: loadup-pay
+spec:
+  selector: {app: customer}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: product}
+  template:
+    metadata:
+      labels: {app: product}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: product
+          image: loadup-pay/product:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product
+  namespace: loadup-pay
+spec:
+  selector: {app: product}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: limitcenter
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: limitcenter}
+  template:
+    metadata:
+      labels: {app: limitcenter}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: limitcenter
+          image: loadup-pay/limitcenter:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: limitcenter
+  namespace: loadup-pay
+spec:
+  selector: {app: limitcenter}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: realtime}
+  template:
+    metadata:
+      labels: {app: realtime}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: realtime
+          image: loadup-pay/realtime:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: JAVA_TOOL_OPTIONS
+              value: -Duser.timezone=Asia/Shanghai
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime
+  namespace: loadup-pay
+spec:
+  selector: {app: realtime}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
