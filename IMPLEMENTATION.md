@@ -205,3 +205,48 @@ Converter，核对策略头、额度桶、执行中预占及 INIT/PUBLISHING/ACT
 使用 Java 25、MapStruct 1.6.3 和全新临时目录执行 javac -proc:only：customer、product、limitcenter 当前全部九个 Converter
 成功生成，生成代码未调用上述领域行为；反向样例仍对真实缺失字段 requiredField 报错。四个修改 Java 文件的 IDEA 错误检查通过，git
 diff --check 通过。该验证仅覆盖 MapStruct 注解生成，新增 JUnit 未执行，未运行 Maven 构建、数据库迁移或部署。
+
+
+## 16. P2 第六批：acquire 普通创单与查询
+
+新增 acquire-app、acquire-infrastructure、acquire-adapter，AcquireOrderCreationFacade 实现 POST create/detail；完整 AcquireOrderFacade 继承此独立切片，未暴露其他占位方法。A0 唯一意图先提交，原身份委托 product，在 A1 intent 行锁内重读并验证准入，原子写 INIT 订单、不可变条款、INIT 整单费用及 COMPLETED。依赖失败保留稳定 orderId；拒绝/精确截止到期先持久化终态再返回错误，已完成请求无需当前合约依赖即可回放。
+
+新增加法迁移 V20261021210000 创建本服务4表；不创建后续付款、会话或退款调整表。原 compiled_terms_hash 保留可信 product 关联，本地完整准入 DTO 另以 payload_hash 校验，不声称可由省略字段来源的 DTO 重算原编译哈希。仓储使用生成 Mapper/Tables，复用框架 BaseDO、ID、Money/JSON、JWT、HTTP 和数据库事务。业务 Maven/Spring profile 为 acquire-business，运行配置与尚缺的付款/任务入口见[acquire说明](acquire/README.md)。
+
+新增4类23个测试方法源码，未编译或执行。关键编排/Converter/适配/测试的 IDEA 错误检查完成；仓储仍待业务 target 生成类型。38个 POM XML解析、git diff --check 完成；在全新临时 Maven 目录用 Java 25 javac -proc:only 成功生成两个 Converter、四个 Mapper、四个 TableDef 和 Tables。此验证仅覆盖注解生成，不代替业务编译、JUnit、真实MySQL事务/JWT/HTTP验收。本批未运行 Maven 构建、DDL 或部署，不属于此前已部署镜像。
+
+
+## 17. P2 第七批：原单会话与收银台只读摘要
+
+实现 CheckoutSessionFacade.create、CashierSummaryFacade.summary，CashierFacade 继承摘要切片。商户 JWT 会话签发锁原订单、检查原主体与冻结回跳 code，新会话按原条款/订单等待策略计算期限；相同 requestKey 回放原 session/nonce/keyVersion/token/expiry，不因过期或订单终态续期。会话凭证复用框架 HMAC，scope 版本1只允许摘要，数据库只存 token 摘要；密钥缺失/漂移拒绝重建。
+
+新增加法迁移 V20261021220000 创建 checkout_session，本服务实际合计5表。独立 cashier 安全链将 opaque capability 与商户 JWT 分开，tenant 仅作定位，摘要服务逐次认证 token/状态/期限/Origin 与订单 scope，不允许读其他订单。GET /checkout 提供无第三方资源的只读页面，fragment 立即移除，凭证只留页面内存；CSP/no-store/no-referrer、纯文本标题及精确整数分值展示已补。未暴露付款或 CheckoutCreateCommand 一步创单占位入口。
+
+新增5类29个测试方法源码，未执行 JUnit。关键源码/测试 IDEA 检查、38个POM XML解析、git diff --check 完成；临时 Maven 样式目录的 Java25 javac -proc:only 成功生成两个新 Converter 与 session Mapper/TableDef/Tables，未向业务 target 写生成类。真实页面JS语法及无网络 Node VM 样例通过，验证大整数不舍入、缺失能力不请求API、标题纯文本与 fragment 清除；不是浏览器或服务端业务集成验收。未执行 Maven、DDL、部署。所需新增外部 Secret/公开URL配置及剩余付款范围见[acquire说明](acquire/README.md)。
+
+
+## 18. P2 第八批：Checkout 一步创单
+
+实现 CheckoutOrderFacade.checkout 及 POST /api/acquire/checkout/create，完整 AcquireOrderFacade 继承该切片。A0 保存 CHECKOUT 入口、初始 sessionId 和完整请求；ORDER 原 v1 不变，两入口共用商户订单唯一键且互相冲突。A1 复核准入后准备签名/可信 URL，原子写入订单、条款、整单费用、首次会话及完成标记。独立 session.create 复用同一会话准备/重建逻辑，保持原事务边界。
+
+完成重放固定原会话及期限，不把原会话丢失或密钥失效当作续发机会。业务拒绝先提交意图结果，基础设施失败回滚 A1 并保留 A0 的稳定 ID。新增 V20261022010000 扩展 intent 字段/约束；旧迁移不改动，五张表不增减。按新增前期开发规则统一使用当前模型，不要求旧模型或混合版本兼容。
+
+新增14个测试方法源码，覆盖原子提交调用顺序、原会话回放、跨入口冲突、回跳冲突、签名故障恢复、会话落库失败、准入拒绝/截止、权限和原 ORDER 摘要固定向量。IDE 检查关键源码与测试；未执行构建、注解处理、JUnit、DDL 或部署。mock 事务边界不是实际 MySQL 行回滚证明，当前收银台继续仅摘要展示；DirectPay、付款占用/结果、关单任务和通知仍待实现。
+
+
+## 19. 创单意图映射与前期开发规则
+
+显式声明 OrderCreationStorageConverter 的 entryMode/initialSessionId 双向映射，保留严格目标检查；移除 OrderCreateIntent 的旧模型兼容构造器，测试改用完整当前模型，新增2个持久化往返回归用例。排查发现本地安装的 acquire-domain JAR 仍缺字段，而 target 中模型已更新；构建需将 infrastructure 及依赖放入同一 reactor，命令见 acquire/README.md。
+
+AGENTS.md 已加入前期无需兼容、允许直接重构/删除的规则，并同步去除本批 Checkout 文档中的混合版本发布要求。本轮仅静态检查，未运行构建、JUnit、DDL 或部署。
+
+
+## 20. P2 第九批：payment 持久受理与查询
+
+新增 payment-app、payment-infrastructure、payment-adapter，PaymentAcceptanceFacade.accept/detail 与 /api/payment/executions 下同名 POST 入口；完整 PaymentExecutionFacade 继承该切片。框架已验证 SERVICE JWT 绑定 tenant/sub/service_id，应用进一步限定 acquire-service-id 及独立权限。强制完整原准入条款、原订单/商户/金额/币种/能力绑定，持久完整命令及副本校验和。
+
+READ_COMMITTED 事务按父门禁→单笔门禁→付款记录顺序建立首个 INIT，冻结 initiatedAt 与额度 operationId；既有非 OPEN 门禁禁止首次受理。同 paymentId 重放原事实而不再开门禁或执行渠道，同摘要改参仍冲突，同 allocation 不能绑定第二笔付款。三张表由 V20261022020000 创建，MapStruct/MyBatis-Flex 沿用框架配置与生成接口。
+
+Maven/Spring payment-business 双 profile 及脚本入口已装配。当前只实现 durable acceptance，尚无后台执行器，action/attempt 为空；acquire 付款金额占用及调用、额度/渠道/输入准备、封禁写入口、可信结果和退款均未接通，不能视为可收款链路。
+
+IDEA MCP 未在等待窗口内返回，按新协作规则使用 mvnd：clean compile -pl payment/payment-bootstrap -am -Ppayment-business 通过（9模块），clean test-compile -pl payment/payment-app,payment/payment-infrastructure,payment/payment-adapter -am 通过（8模块）。两次均跳过测试及无关检查；新增4类24个方法已编译，未执行 JUnit、数据库迁移或部署。范围与运行变量见[payment说明](payment/README.md)。

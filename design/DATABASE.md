@@ -1220,3 +1220,41 @@ V20261021200000__product_policy_publication_intent.sql
 发布锁框架merchant_contract后复核原意图，新增publication与框架loadup_outbox_event同数据源事务提交；ACK事务只锁publication/CAS，不反向申请合约行锁。网络在两次本地事务之间，无跨库事务；远端幂等抵御响应丢失及租约重复。ACTIVE且本地schema1是可信工作流结果，不用手工填标记替代。队列重放由框架独立审计事务负责，禁止包在持有publication行锁的外层事务中。
 
 本次未执行迁移；真实验证需包含旧schema0拒绝、同商户/同policy竞争、事务中途失败同时回滚事件与意图、远端成功本地失败再投，以及合约暂停与准入互斥。单元端口mock不证明数据源绑定或真实MySQL锁行为。
+
+
+## 10. Acquire 首批实际迁移范围
+
+`V20261021210000__acquire_order_creation.sql` 新增 order_create_intent、acquire_order、order_contract_snapshot、order_fee 四表。该迁移的创建入口仅 ORDER（后续 CHECKOUT 扩展见第12节），intent 实际保存 INIT/COMPLETED/REJECTED/EXPIRED；ADMITTED 是同一 A1 内的决定，不单独持久化中间状态。付款占用、会话、费用调整等设计表后续按切片新增迁移，不直接执行草案。
+
+与第3节目标模型的差异：intent 新增 caller_scope_hash CHAR(64) 绑定原调用者，intent_payload 使用 LONGTEXT；snapshot.configuration 使用 LONGTEXT 保存完整 OrderAdmissionDTO，另新增 payload_hash CHAR(64) 校验该本地副本；fee_rule_snapshot 使用 LONGTEXT 保留精确规则。原 compiled_terms_hash 是 product 可信编译引用，与本地 payload_hash 含义不同。来源字段 provenance 保留在 product 原 compiled_terms 中，当前对外DTO未提供其可独立重算的完整表示。
+
+三项唯一键分别保护商户意图/orderId、订单商户号/admission、整单ORDER_AMOUNT费用；所有写入在主库READ_COMMITTED事务内，A1先锁创建意图再原子落库。所有业务唯一键不包含deleted。未运行迁移；仍需真实MySQL验证唯一键竞争、提交故障、四表全回滚、跨租户隔离与截止竞态。
+
+
+## 11. Checkout 会话实际迁移
+
+`V20261021220000__checkout_session.sql` 新增本服务第5张表 checkout_session，沿用第3节唯一键、token摘要/nonce/key引用/版本与原期限模型，scope_snapshot 实际使用 LONGTEXT。scope 格式1保存原调用主体 hash、归一化回跳 code 与唯一 ORDER_SUMMARY 权限；allowed_origin 从可信托管URL计算且当前必填，expires_at 强制整秒。
+
+新会话在订单行锁内插入 ACTIVE（领域先 INIT 后激活，合并于同一事务），不与原订单A1混为一个跨请求事务。同 requestKey 不刷新 nonce、密钥版本、期限或状态。鉴权依赖数据库原摘要与期限/状态，不依赖扫描器改 EXPIRED；暂未提供取消/撤销管理写入口。当前只需 INSERT/查询，后续状态变更应沿订单→session 锁顺序及 row_version 进行。
+
+未执行迁移或真实并发验收；仍需验证同键争抢、订单终态竞态、租户隔离、回滚、密钥轮换和HTTP能力边界。
+
+
+## 12. Checkout 一步创单结构
+
+`V20261022010000__checkout_order_creation.sql` 在原表增加可空 `initial_session_id VARCHAR(64)` 与唯一键 `(tenant_id,initial_session_id)`；ORDER 旧行保持 NULL，CHECKOUT 的 INIT 起即固定非空首次会话 ID。一个 ALTER 同时放宽原入口约束为 ORDER/CHECKOUT，并加入入口与 sessionId 的配对约束。原行不改写、原 ORDER v1 摘要及 JSON 不重算，原状态/版本约束继续生效；不新增或删除业务表。
+
+迁移基线是 V20261021210000 未被改动的 MySQL 表，首个匿名 CHECK 的生成名为 `order_create_intent_chk_1`，命名规则见 [MySQL CHECK 约束文档](https://dev.mysql.com/doc/refman/8.4/en/create-table-check-constraints.html)。执行前核对 SHOW CREATE TABLE 与 Flyway 历史；若存在自定义改名/漂移，先处理基线，不盲目重跑或修改已应用迁移。Flyway 负责版本执行；失败先检查 schema 与历史状态，不靠忽略错误继续上线。DDL 未在本轮执行。
+
+首次 Checkout 会话由 A0 的固定 ID 关联，A1 持意图行锁，先准备 token/URL，再同数据源写订单/快照/费用/session/COMPLETED。会话 requestKey 为 `initial/<initialSessionId>`，原会话丢失视为快照损坏，不能在回放中补建。独立续发继续锁订单，后续生命周期写入沿订单→session 锁顺序执行；初次未提交订单尚不可被外部续发访问。数据库不设置跨表状态 CHECK，真实五表原子性需通过集成测试证明。
+
+前期开发直接按当前模型更新应用与数据库，不要求旧应用或旧模型兼容，也不保留混合版本滚动发布方案。ORDER 和 CHECKOUT 是两个当前有效的业务入口，而不是新旧版本分支。相关调用方、测试、文档随模型同步调整。结构变更仍使用版本化脚本记录，本轮未执行 DDL。
+
+
+## 13. Payment 首批实际迁移
+
+V20261022020000__payment_acceptance.sql 新增 payment_parent_gate、payment_gate、payment_order 三表，使用本地 DATETIME(6)。同事务初始化 OPEN 门禁与 INIT 付款，按 parent_gate→payment_gate→payment_order 锁顺序；唯一键竞争回滚后重读。tenant+orderId 父门禁、tenant+paymentId 单笔门禁、tenant+allocationId 与 tenant+limitOperationId 唯一，业务唯一键不含 deleted。
+
+相对第4节目标模型：三表均增加 caller_service_id；单笔门禁还显式保存 payee_merchant_id，避免父单/商户/服务被改绑。payment_order 使用 intent_payload LONGTEXT 保存强类型完整 PaymentExecuteCommand（包含原条款及选择/输入引用），payload_hash CHAR(64) 校验该副本；不单独保存 order_terms JSON。initiated_at/limit_operation_id 首次受理固定。父门禁的退款汇总、attempt、输入、退款和事件等表尚未迁移，目标草案不直接执行。
+
+CHECK 限定门禁状态/epoch、金额币种、付款生命周期及成功 attempt 绑定；应用读取继续校验原快照与头记录，不直接以状态或摘要当作可信资金事实。原始付款码/openId/渠道密钥/JWT 不落本批表。MapStruct 与生成 Mapper/TableDef/Tables 已通过真实 Maven 编译；尚未执行 DDL 或真实事务/并发验收。需验证三表任一写点失败全回滚、跨租户隔离、相同 paymentId/不同 payment 同 allocation 的竞争以及先封禁后受理。

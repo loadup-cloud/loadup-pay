@@ -1,0 +1,162 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.acquire.infrastructure.codec;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.pay.acquire.client.command.*;
+import io.github.loadup.pay.acquire.domain.model.*;
+import jakarta.validation.*;
+import java.math.*;
+import java.time.OffsetDateTime;
+import org.junit.jupiter.api.*;
+import tools.jackson.databind.json.JsonMapper;
+import static org.junit.jupiter.api.Assertions.*;
+
+class OrderCreationCodecImplTest {
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
+    final OrderCreationCodecImpl codec = new OrderCreationCodecImpl(mapper, validation.getValidator());
+
+    @AfterEach
+    void close() {
+        validation.close();
+    }
+
+    AcquireOrderCreateCommand command(OffsetDateTime due) {
+        return new AcquireOrderCreateCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", due);
+    }
+
+    OrderCreateIntent intent(String payload) {
+        return new OrderCreateIntent(
+                "intent",
+                "order",
+                "merchant",
+                "M001",
+                "a".repeat(64),
+                "b".repeat(64),
+                "ORDER",
+                null,
+                payload,
+                "INIT",
+                null,
+                null,
+                null,
+                0);
+    }
+
+    @Test
+    void frozenCreatePayloadRetainsIntegersAboveDoublePrecision() {
+        var value = command(null);
+        assertEquals(value, codec.decodeIntent(intent(codec.encodeIntent(value))));
+    }
+
+    @Test
+    void digestBindsTenantCallerEntryAndAllMerchantIntentFields() {
+        var value = command(null);
+        var original = codec.requestDigest("tenant", "actor", value);
+        assertNotEquals(original, codec.requestDigest("another", "actor", value));
+        assertNotEquals(original, codec.requestDigest("tenant", "another", value));
+        assertNotEquals(
+                original,
+                codec.requestDigest(
+                        "tenant",
+                        "actor",
+                        new AcquireOrderCreateCommand(
+                                "merchant", "M001", "scope", value.amountMinor(), "CNY", "changed", null)));
+    }
+
+    @Test
+    void equivalentOffsetsNormalizeToTheSameDeadlineAndDigest() {
+        var first = command(OffsetDateTime.parse("2026-10-21T12:00:00.123456+08:00"));
+        var second = command(OffsetDateTime.parse("2026-10-21T04:00:00.123456Z"));
+        assertEquals(first, second);
+        assertEquals(codec.requestDigest("tenant", "actor", first), codec.requestDigest("tenant", "actor", second));
+    }
+
+    @Test
+    void corruptOrUnboundStoredIntentCannotBeReplayed() {
+        assertThrows(CommonException.class, () -> codec.decodeIntent(intent("not-json")));
+        assertThrows(
+                CommonException.class,
+                () -> codec.decodeIntent(intent(codec.encodeIntent(
+                        new AcquireOrderCreateCommand("other-merchant", "M001", "scope", 100, "CNY", "order", null)))));
+        assertThrows(CommonException.class, () -> codec.decodeAdmission("{}", "a".repeat(64)));
+    }
+
+    @Test
+    void ordinaryV1DigestRemainsCompatibleWithTheOriginalStoredProtocol() {
+        assertEquals(
+                "222a9db073ac1fafb4f2347a059eedab4829ec6c51a421453462a655383a99c4",
+                codec.requestDigest("tenant", "actor", command(null)));
+    }
+
+    @Test
+    void checkoutPayloadBindsEntryAndRequestedReturnTargetWithoutChangingOrdinaryPayloads() {
+        var value =
+                new CheckoutCreateCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, null);
+        String digest = codec.checkoutDigest("tenant", "actor", value);
+        var intent = new OrderCreateIntent(
+                "intent",
+                "order",
+                "merchant",
+                "M001",
+                digest,
+                "b".repeat(64),
+                "CHECKOUT",
+                "session",
+                codec.encodeCheckout(value),
+                "INIT",
+                null,
+                null,
+                null,
+                0);
+        assertEquals(value, codec.decodeCheckout(intent));
+        assertNotEquals(codec.requestDigest("tenant", "actor", command(null)), digest);
+        assertNotEquals(
+                digest,
+                codec.checkoutDigest(
+                        "tenant",
+                        "actor",
+                        new CheckoutCreateCommand(
+                                "merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, "return-v1")));
+        assertNotEquals(digest, codec.checkoutDigest("other", "actor", value));
+        assertNotEquals(digest, codec.checkoutDigest("tenant", "other", value));
+        assertThrows(CommonException.class, () -> codec.decodeIntent(intent));
+        assertThrows(CommonException.class, () -> codec.decodeCheckout(intent(codec.encodeIntent(command(null)))));
+        var finished =
+                intent.finish("COMPLETED", "admission", java.time.LocalDateTime.of(2026, 10, 22, 12, 0), "SUCCESS");
+        assertEquals("CHECKOUT", finished.entryMode());
+        assertEquals("session", finished.initialSessionId());
+    }
+
+    @Test
+    void feeSnapshotRetainsExactDecimalRateAndOriginalTotalCalculation() {
+        var policy = new OrderFeePolicy(
+                new BigDecimal("0.003000000000000000000001"),
+                1,
+                RoundingMode.HALF_UP,
+                0,
+                null,
+                FeeRefundPolicy.NO_RETURN);
+        var payload = codec.encodeFee(policy);
+        var restored = mapper.readValue(payload, OrderFeePolicy.class);
+        assertEquals(policy, restored);
+        assertEquals(
+                policy.calculate(io.github.loadup.pay.common.DomainChecks.amount(9007199254740993L, "CNY")),
+                restored.calculate(io.github.loadup.pay.common.DomainChecks.amount(9007199254740993L, "CNY")));
+    }
+}

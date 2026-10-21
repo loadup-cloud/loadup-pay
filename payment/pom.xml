@@ -15,6 +15,9 @@
     <modules>
         <module>payment-client</module>
         <module>payment-domain</module>
+        <module>payment-app</module>
+        <module>payment-infrastructure</module>
+        <module>payment-adapter</module>
         <module>payment-bootstrap</module>
     </modules>
 </project>

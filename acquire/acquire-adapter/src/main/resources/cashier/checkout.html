@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>订单详情</title>
+  <link rel="stylesheet" href="/checkout.css">
+  <script src="/checkout.js" defer></script>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">收银台</p>
+    <h1>订单详情</h1>
+    <p id="message" role="status" aria-live="polite">正在读取订单…</p>
+    <section id="order" hidden>
+      <h2 id="subject"></h2>
+      <dl>
+        <div><dt>订单号</dt><dd id="order-id"></dd></div>
+        <div><dt>订单总额</dt><dd id="amount"></dd></div>
+        <div><dt>累计付款</dt><dd id="paid"></dd></div>
+        <div><dt>付款处理中</dt><dd id="held"></dd></div>
+        <div><dt>可付金额</dt><dd id="available"></dd></div>
+        <div><dt>订单状态</dt><dd id="state"></dd></div>
+      </dl>
+    </section>
+    <button id="refresh" type="button" disabled>刷新状态</button>
+  </main>
+</body>
+</html>

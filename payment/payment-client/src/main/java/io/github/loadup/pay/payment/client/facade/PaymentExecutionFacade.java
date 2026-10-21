@@ -15,26 +15,14 @@
  */
 package io.github.loadup.pay.payment.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
-import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
-public interface PaymentExecutionFacade {
-    PaymentExecutionDTO accept(PaymentExecuteCommand command);
-
-    PaymentExecutionDTO detail(IdQuery query);
-
-    PaymentExecutionDTO close(PaymentCloseCommand command);
-
-    ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);
-
-    ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query);
-
+public interface PaymentExecutionFacade extends PaymentAcceptanceFacade, PaymentControlFacade {
     PaymentExecutionDTO startAttempt(PaymentAttemptStartCommand command);
 }

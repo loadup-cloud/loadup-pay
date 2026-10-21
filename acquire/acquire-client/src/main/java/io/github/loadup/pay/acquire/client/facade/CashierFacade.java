@@ -22,9 +22,7 @@ import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
-public interface CashierFacade {
-    CashierOrderDTO summary(IdQuery query);
-
+public interface CashierFacade extends CashierSummaryFacade {
     PaymentStartDTO startPayment(CashierPaymentStartCommand command);
 
     PaymentProgressDTO paymentProgress(IdQuery query);

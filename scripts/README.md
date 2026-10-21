@@ -71,3 +71,11 @@ profile、product数据库/JWT及customer业务地址与委托audience。现有�
 
 limitcenter 业务 JAR/镜像可沿用 `./limitcenter/build.sh -Plimitcenter-business`
 ；需另行注入数据库、签发方和同名运行时profile，见[业务说明](../limitcenter/README.md)。默认部署清单仍为基础骨架，本批没有发布业务镜像。
+
+
+acquire 普通创单业务包使用 `./acquire/build.sh -Pacquire-business`，运行时同时设置 `SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product HTTP 配置见[acquire说明](../acquire/README.md)。现有部署清单仍需业务 Secret/ConfigMap 覆盖层，本轮未构建或部署该业务镜像。
+
+acquire-business 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、`/checkout.js`、`/checkout.css` 和 `/api/cashier/order/summary`。仅提供会话签发及只读摘要，不代表付款链路已部署。
+
+
+payment 业务 JAR/镜像使用 `./payment/build.sh -Ppayment-business`，运行时启用同名 Spring profile 并注入 PAYMENT_JDBC_*、PAYMENT_JWT_* 和可选 PAYMENT_ACQUIRE_SERVICE_ID。当前受理只持久化 INIT，未对接渠道；现有部署清单仍需配置覆盖层，详见[payment说明](../payment/README.md)。本批仅完成窄范围源码/测试源码编译，没有打包部署业务镜像。

@@ -26,7 +26,15 @@ public enum AcquireResultCodeEnum implements ResultCode {
     CONTRACT_NOT_ADMITTING("ACQUIRE_CONTRACT_NOT_ADMITTING", "Contract is not admitting new orders"),
     ORDER_NOT_PAYABLE("ACQUIRE_ORDER_NOT_PAYABLE", "Order cannot accept a new payment"),
     AMOUNT_EXCEEDED("ACQUIRE_AMOUNT_EXCEEDED", "Amount exceeds available order allocation"),
-    VERSION_CONFLICT("ACQUIRE_VERSION_CONFLICT", "Order version changed");
+    VERSION_CONFLICT("ACQUIRE_VERSION_CONFLICT", "Order version changed"),
+    ACTION_FORBIDDEN("ACQUIRE_ACTION_FORBIDDEN", "Caller cannot perform this action"),
+    INVALID_STATE("ACQUIRE_INVALID_STATE", "Operation cannot run in the current state"),
+    DEPENDENCY_UNAVAILABLE("ACQUIRE_DEPENDENCY_UNAVAILABLE", "Order admission dependency unavailable"),
+    ADMISSION_EXPIRED("ACQUIRE_ADMISSION_EXPIRED", "Original admission materialization window expired"),
+    SNAPSHOT_INVALID("ACQUIRE_SNAPSHOT_INVALID", "Stored order intent or snapshot is invalid"),
+    CONCURRENT_UPDATE("ACQUIRE_CONCURRENT_UPDATE", "Concurrent update; retry with the original intent"),
+    SESSION_UNAUTHORIZED("ACQUIRE_SESSION_UNAUTHORIZED", "Invalid or expired checkout session"),
+    SESSION_UNAVAILABLE("ACQUIRE_SESSION_UNAVAILABLE", "Original checkout credential cannot be replayed");
 
     private final String code;
     private final String message;

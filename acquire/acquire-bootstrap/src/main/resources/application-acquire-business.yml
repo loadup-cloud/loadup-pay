@@ -1,0 +1,60 @@
+# Build with -Pacquire-business, then activate this runtime profile.
+spring:
+  datasource:
+    url: ${ACQUIRE_JDBC_URL}
+    username: ${ACQUIRE_JDBC_USERNAME}
+    password: ${ACQUIRE_JDBC_PASSWORD}
+    hikari:
+      connection-init-sql: "SET time_zone = '+08:00'"
+loadup:
+  modules:
+    acquire:
+      product-audience: ${PRODUCT_JWT_AUDIENCE}
+      checkout:
+        page-url: ${ACQUIRE_CHECKOUT_PAGE_URL}
+        key-ref: acquire-checkout
+        active-key-version: ${ACQUIRE_CHECKOUT_ACTIVE_KEY_VERSION:v1}
+        keys:
+          v1: ${ACQUIRE_CHECKOUT_SECRET}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        parameter-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${ACQUIRE_JWT_ISSUER_URI}
+      audience: ${ACQUIRE_JWT_AUDIENCE}
+      jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI}
+  http:
+    enabled: true
+    clients:
+      product:
+        base-url: ${PRODUCT_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 16384
+        max-response-bytes: 262144
+        operations:
+          authorize:
+            method: POST
+            path: /api/product/admissions/authorize
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: [readinessState, db]

@@ -28,7 +28,7 @@ public record CheckoutDTO(
         @Schema(description = "Order") @Valid AcquireOrderDTO order,
         @Schema(description = "Session id") @Size(max = 64) String sessionId,
 
-        @Schema(description = "Checkout url") @Size(max = 64) @DiagnosticHidden
+        @Schema(description = "Checkout URL with capability only in its fragment") @Size(max = 2048) @DiagnosticHidden
         String checkoutUrl,
 
         @Schema(description = "Session expires at") OffsetDateTime sessionExpiresAt) {

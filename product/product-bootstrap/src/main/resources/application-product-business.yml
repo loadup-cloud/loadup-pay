@@ -1,0 +1,84 @@
+# Assemble the artifact with Maven profile product-business and activate this Spring profile.
+spring:
+  datasource:
+    url: ${PRODUCT_JDBC_URL}
+    username: ${PRODUCT_JDBC_USERNAME}
+    password: ${PRODUCT_JDBC_PASSWORD}
+    hikari:
+      connection-init-sql: "SET time_zone = '+08:00'"
+loadup:
+  modules:
+    contract:
+      enabled: false
+    product:
+      materialize-seconds: ${PRODUCT_MATERIALIZE_SECONDS:300}
+      customer-audience: ${CUSTOMER_JWT_AUDIENCE}
+      publication:
+        tenant-id: ${PRODUCT_PUBLICATION_TENANT_ID}
+        token-file: ${PRODUCT_LIMITCENTER_TOKEN_FILE}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        subdomain-enabled: false
+  outbox:
+    enabled: true
+    worker-enabled: true
+    poll-interval: 1s
+    lease: 2m
+    retry-delay: 5s
+    max-attempts: 8
+    batch-size: 20
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${PRODUCT_JWT_ISSUER_URI}
+      audience: ${PRODUCT_JWT_AUDIENCE}
+      jwk-set-uri: ${PRODUCT_JWT_JWK_SET_URI}
+  http:
+    enabled: true
+    clients:
+      limitcenter:
+        base-url: ${LIMITCENTER_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 65536
+        max-response-bytes: 16384
+        operations:
+          activate:
+            method: POST
+            path: /api/limitcenter/policies/activate
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+      customer:
+        base-url: ${CUSTOMER_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 16384
+        max-response-bytes: 65536
+        operations:
+          authorize:
+            method: POST
+            path: /api/customer/eligibility/authorize
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include:
+            - readinessState
+            - db

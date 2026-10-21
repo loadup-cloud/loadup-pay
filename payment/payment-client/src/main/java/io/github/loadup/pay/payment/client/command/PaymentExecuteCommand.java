@@ -48,7 +48,7 @@ public record PaymentExecuteCommand(
         @Schema(description = "Currency") @NotBlank @Size(max = 64) @Pattern(regexp = "CNY")
         String currency,
 
-        @Schema(description = "Request digest") @NotBlank @Size(max = 64)
+        @Schema(description = "Acquiring action SHA-256 digest") @NotBlank @Pattern(regexp = "[0-9a-f]{64}")
         String requestDigest,
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,

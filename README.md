@@ -121,3 +121,11 @@ product 已补齐持久订单准入、条款编译和认证HTTP入口源码，�
 
 limitcenter 已补齐规则激活、全部额度桶原子预占与幂等查询的业务源码，见[limitcenter说明](limitcenter/README.md)
 。执行许可/校验与显式未执行预占过期源码已补；支付结果确认/释放、退款恢复及自动扫描继续后续实现，两批均未构建或部署。
+
+acquire 已补齐普通创单/查询、稳定创建意图、订单与条款/费用持久化源码；业务 profile 和验收范围见[acquire说明](acquire/README.md)。付款执行、收银台及自动关单仍待后续实施。
+
+acquire 原单会话签发/幂等重放、订单范围能力认证和只读 `/checkout` 页面已有源码；实际付款入口仍待接入。新增公开地址及会话密钥配置见[acquire说明](acquire/README.md)。
+
+acquire 已补 Checkout 一步创单源码：订单、条款、费用与首次会话在 A1 同事务提交，重试返回原链接；前期按当前模型直接迭代，详见[结构说明](design/DATABASE.md#12-checkout-一步创单结构)。本批仅静态检查，未构建、执行测试、迁移或部署。
+
+payment 已补付款受理/查询、服务身份授权及父/单笔门禁检查的 COLA 业务源码；受理只落 INIT，不代表向渠道扣款。payment-business bootstrap 与新增测试源码已通过窄范围 mvnd 编译，测试未执行，详见[payment说明](payment/README.md)。

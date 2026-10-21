@@ -1,0 +1,65 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.infrastructure.dataobject;
+
+import com.mybatisflex.annotation.Table;
+import io.github.loadup.commons.dataobject.BaseDO;
+import io.github.loadup.commons.json.ToStringAsJson;
+
+@Table("payment_control_receipt")
+public class PaymentControlReceiptDO extends BaseDO {
+    private String kind;
+    public String getKind() { return kind; }
+    public void setKind(String value) { kind = value; }
+
+    private String targetId;
+    public String getTargetId() { return targetId; }
+    public void setTargetId(String value) { targetId = value; }
+
+    private String orderId;
+    public String getOrderId() { return orderId; }
+    public void setOrderId(String value) { orderId = value; }
+
+    private String payeeMerchantId;
+    public String getPayeeMerchantId() { return payeeMerchantId; }
+    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
+
+    private String callerServiceId;
+    public String getCallerServiceId() { return callerServiceId; }
+    public void setCallerServiceId(String value) { callerServiceId = value; }
+
+    private String requestKey;
+    public String getRequestKey() { return requestKey; }
+    public void setRequestKey(String value) { requestKey = value; }
+
+    private String requestDigest;
+    public String getRequestDigest() { return requestDigest; }
+    public void setRequestDigest(String value) { requestDigest = value; }
+
+    private Long requestedEpoch;
+    public Long getRequestedEpoch() { return requestedEpoch; }
+    public void setRequestedEpoch(Long value) { requestedEpoch = value; }
+
+    private String reasonCode;
+    public String getReasonCode() { return reasonCode; }
+    public void setReasonCode(String value) { reasonCode = value; }
+
+    private String noCollectionEvidenceId;
+    public String getNoCollectionEvidenceId() { return noCollectionEvidenceId; }
+    public void setNoCollectionEvidenceId(String value) { noCollectionEvidenceId = value; }
+
+    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+}

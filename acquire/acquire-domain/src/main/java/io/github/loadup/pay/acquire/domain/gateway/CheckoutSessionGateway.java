@@ -15,13 +15,15 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 
 import java.util.Optional;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface CheckoutSessionGateway {
-    Optional<CheckoutSession> find(String tenantId, String sessionId);
+    Optional<StoredCheckoutSession> find(String tenantId, String sessionId);
 
-    void save(String tenantId, CheckoutSession session);
+    Optional<StoredCheckoutSession> findRequest(String tenantId, String orderId, String requestKey);
+
+    void insert(String tenantId, StoredCheckoutSession session);
 }

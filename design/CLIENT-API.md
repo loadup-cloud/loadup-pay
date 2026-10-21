@@ -671,3 +671,54 @@ LimitPolicyPublishCommand固定payeeMerchantId、productScopeKey、expectedContr
 ，replay接受publicationId与最长512字符审核理由，只重放FAILED事件。DTO分别返回本地state与deliveryStatus/attempts，PUBLISHING+FAILED不代表已激活。
 
 冻结激活命令与来源同事务写入并发框架Outbox；ACK只从服务身份HTTP成功响应获取，核对policy/version/hash后短事务落ACTIVE，重试不换payload/event。背景凭证使用挂载文件轮换，不保存操作者JWT。初始单revision/单商户绑定、迁移兼容与未验收范围见[product说明](../product/README.md)。
+
+
+## 17. Acquire 首批普通创单适配
+
+AcquireOrderCreationFacade 已实现 create/detail，完整 AcquireOrderFacade 继承该切片。POST `/api/acquire/orders/create`、`/detail` 分别要求 pay:acquire:create/read，并限定签名原调用主体范围；detail 的 IdQuery 为 orderId。原 JWT 需具备 acquire/product/customer 的 audience 与权限，product 的 customer 授权仍以原主体执行。
+
+create 以 tenant+payee+merchantOrderNo 固定 ORDER 意图，固定字段 UTF-8 长度分帧摘要协议 v1 包含原主体范围、总额/币种、标题、产品scope和原请求截止时间。相同命令复用 A0 分配的 orderId；改参冲突，换主体拒绝。网络调用位于事务外，依赖失败保留 INIT；原准入 DENIED/首次落单超 materializeBefore 分别提交 REJECTED/EXPIRED，之后同号重试固定拒绝。A1订单/快照/INIT整单费用/COMPLETED在同一数据库事务完成，完成后回放不再请求当前合约。
+
+当前不注册全量 AcquireOrderFacade 实现，不暴露 directPay/startPayment/close/extend 占位接口；Checkout 已按第19节实现。自动关单、事件、付款结果和真正收款验收仍待实施。运行和证据边界见[acquire说明](../acquire/README.md)。
+
+
+## 18. 原单 Checkout 会话与只读 Cashier 首批适配
+
+POST `/api/acquire/session/create` 实现 CheckoutSessionFacade.create，要求原商户主体和 pay:acquire:session；POST `/api/cashier/order/summary` 实现 CashierSummaryFacade.summary，依赖 Authorization 会话能力及 X-Checkout-Tenant 定位值，IdQuery 必须属于已验证 scope。GET `/checkout` 与两项本地静态资源提供同源只读页面。完整 CashierFacade 继承摘要切片，尚未注册 startPayment/paymentProgress 实现。
+
+独立续发使用 create→session.create 两步；CheckoutCreateCommand 一步创单/A1同事务签发见第19节。签发按原订单/冻结条款进行，普通合约停单不重新判定；同 requestKey 返回同 session/token/expiry，不因过期、取消或订单终态而重开会话；新 requestKey 只允许仍可续付订单。returnTargetCode 为原合约默认或同一审核 code，不能指定任意 URL。
+
+scope 版本1仅 ORDER_SUMMARY。opaque token 沿用2.5 HMAC协议，nonce/密钥引用和版本持久化，固定期限按秒对齐。恒定时间匹配原摘要并检查 ACTIVE/COMPLETED、严格未过期、Origin 后，才建立订单scope；查询后再次检查期限。其他 cashier API 拒绝，商户API仍用框架JWT。PAID/CLOSED 可只读，摘要不含条款/凭证，choices 暂为空。详见[acquire运行说明](../acquire/README.md)。
+
+
+## 19. Checkout 一步创单实际适配
+
+`CheckoutOrderFacade.checkout(CheckoutCreateCommand)` 已实现 POST `/api/acquire/checkout/create`，权限 `pay:acquire:checkout`；完整 AcquireOrderFacade 继承此切片但仍未注册其余方法。请求字段见2.1，金额为正整数人民币分，currency 默认 CNY，requestedDueAt 统一上海偏移且最多微秒。回跳仅接受冻结合约 code；返回 `SuccessResponse<CheckoutDTO>`，业务失败为固定 FailureResponse，凭证响应设置 no-store。
+
+```json
+{
+  "payeeMerchantId": "merchant-demo",
+  "merchantOrderNo": "CHECKOUT-20261022-001",
+  "productScopeKey": "acquiring",
+  "amountMinor": 10000,
+  "currency": "CNY",
+  "subject": "示例订单"
+}
+```
+
+商户订单幂等身份与普通 create 共用，入口类型不同即冲突；Checkout 的原始 returnTargetCode（省略值也固定）参与摘要及载荷比较。原生 ORDER 的摘要版本及持久 JSON 不变。A0 固定 orderId/initialSessionId，A1 同事务写订单/条款/费用/首次 ACTIVE 会话和完成标记；网络准入不占本地事务。首次会话不发起渠道支付，scope 仍仅 ORDER_SUMMARY。
+
+同号同参重试返回当前订单视图和原 sessionId/checkoutUrl/sessionExpiresAt，不是重建订单或刷新会话；订单视图可随后续交易推进。过期/取消/终态不续期，密钥不可用返回 SESSION_UNAVAILABLE，原首次会话缺失返回 SNAPSHOT_INVALID。独立 `/api/acquire/session/create` 的新 requestKey 是续发入口，不改变创单请求或迁移付款动作。
+
+持久拒绝结果含 CONTRACT_NOT_ADMITTING、ADMISSION_EXPIRED、ACTION_FORBIDDEN（回跳 code 不匹配）、ORDER_NOT_PAYABLE（签发时已无可用窗口）；同号之后不重新准入。签名/存储等系统失败保留 INIT，可同参重试。上线需遵循 DATABASE 第12节，源码与新增测试尚未运行环境验收。
+
+
+## 20. Payment 受理与查询实际适配
+
+PaymentAcceptanceFacade.accept/detail 已实现 POST `/api/payment/executions/accept`、`/detail`；完整 PaymentExecutionFacade 继承此切片，其余方法尚未注册。accept 接 PaymentExecuteCommand，detail 接 IdQuery(paymentId)，返回 SuccessResponse<PaymentExecutionDTO>，业务失败沿用固定错误码 FailureResponse。
+
+仅允许已验证 SERVICE JWT 的指定 acquire-service-id；sub 必须等于 service_id，租户从 tenant_id 获取，分别要求 pay:payment:accept/read。不能将商户 JWT 或自填请求头当作服务身份。AdmittedOrderTermsDTO 的来源字段、原条款、compiledTermsHash 均必填，generation 从1开始；requestDigest 为64位小写十六进制。绑定关系及本笔金额上界由 payment 校验，跨笔占用仍由 acquire 负责。
+
+首次受理返回 INIT/version0、空 activeAttemptId/action/terminalEvidenceId，不代表额度已预占或渠道已提交。重放比较原服务、摘要及完整解码命令，返回原 initiatedAt/operation 对应的付款视图；allocation 不能改绑新 payment。detail 为内部权威查询，不是商户查询或 cashier 能力入口。不存在本地记录时仅返回 NOT_FOUND，不构造“渠道未扣款”证明。
+
+完整命令由本地 intent_payload/payload_hash 持久，服务信任来自资源服务器身份授权，副本校验和不替代身份与跨服务占用验证。preparedInputRef 只冻结引用，后续执行必须核对其绑定和有效性。既有门禁封禁阻止首次受理，已受理记录的查询/幂等重放不重新开门禁或触发扣款；封禁/关闭写入口与渠道工作流仍待实现。运行及编译证据见[payment说明](../payment/README.md)。

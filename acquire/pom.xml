@@ -15,6 +15,9 @@
     <modules>
         <module>acquire-client</module>
         <module>acquire-domain</module>
+        <module>acquire-app</module>
+        <module>acquire-infrastructure</module>
+        <module>acquire-adapter</module>
         <module>acquire-bootstrap</module>
     </modules>
 </project>

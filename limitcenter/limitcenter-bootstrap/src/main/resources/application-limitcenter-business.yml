@@ -1,0 +1,41 @@
+# Assemble the artifact with Maven profile limitcenter-business and activate this Spring profile.
+spring:
+  datasource:
+    url: ${LIMITCENTER_JDBC_URL}
+    username: ${LIMITCENTER_JDBC_USERNAME}
+    password: ${LIMITCENTER_JDBC_PASSWORD}
+    hikari:
+      connection-init-sql: "SET time_zone = '+08:00'"
+loadup:
+  modules:
+    limitcenter:
+      reserve-seconds: ${LIMITCENTER_RESERVE_SECONDS:120}
+      permit:
+        active-key-id: ${LIMITCENTER_PERMIT_ACTIVE_KEY_ID:v1}
+        keys:
+          v1: ${LIMITCENTER_PERMIT_SECRET}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${LIMITCENTER_JWT_ISSUER_URI}
+      audience: ${LIMITCENTER_JWT_AUDIENCE}
+      jwk-set-uri: ${LIMITCENTER_JWT_JWK_SET_URI}
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include:
+            - readinessState
+            - db
