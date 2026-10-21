@@ -11,7 +11,7 @@ LoadUp 收单支付平台：面向商户及子商户的外部渠道收单、付�
 
 P0/P1源码结果与优先级见 [第一阶段实施说明](IMPLEMENTATION.md)。Money复用`loadup-commons-dto`的`io.github.loadup.commons.money.Money`；CNY/非负约束由收单领域校验，金额仍为整数分。业务数据对象的toString统一调用`ToStringAsJson.reflectionToString`，敏感字段使用`DiagnosticHidden`。当前无RPC协议模块或gRPC运行依赖，Java业务client保持与传输无关。
 
-P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原桶恢复、授权撤销和完整投影事件，保留15类37个单测源码。本轮未构建、运行测试或部署，当前源码尚未进行运行验收。
+P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原桶恢复、授权撤销和完整投影事件，保留15类37个单测源码。六应用已完成JAR/镜像构建及本地Kubernetes启动验收；本轮未编译或执行单元测试，业务功能仍为契约层。
 
 ## 架构设计
 
@@ -21,25 +21,25 @@ P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原�
 
 ## 构建及本地 Kubernetes 部署
 
-2026-10-21 已统一源码、模块、配置、部署清单及设计标识。本次未构建或发布，新名称下的部署尚未验收；本次未查询集群状态。
-
-在本目录执行（本机 Java 25 由 mise 管理）：
+六应用目录均提供`build.sh`和`deploy.sh`，也可在根目录使用统一脚本。Java 25自动使用项目mise运行时；默认显式操作`orbstack` Docker/Kubernetes context，不改变全局context。
 
 ```bash
-export JAVA_HOME=/Users/lise/.local/share/mise/installs/java/liberica-25.0.4.1+1
-mvnd clean package -DskipTests
-docker build --build-arg APP=payment -t loadup-pay/payment:dev .
-docker build --build-arg APP=acquire -t loadup-pay/acquire:bootstrap .
-for app in customer product limitcenter realtime; do
-  docker build --build-arg APP="$app" -t "loadup-pay/$app:bootstrap" .
-done
-kubectl --context orbstack apply -f deploy/pay.yml
+# 全量打包、构建镜像、部署与就绪验收
+./scripts/deploy.sh all
+
+# 单应用：仅构建，或构建并部署
+./payment/build.sh
+./payment/deploy.sh
+
+# 独立就绪验收
 ./scripts/verify.sh
 ```
 
-镜像使用本地 OrbStack 共享镜像存储，imagePullPolicy 为 Never；其他集群需推送镜像并修改 image 和拉取策略。脚本使用当前 kubectl context，运行前确认目标集群。
+构建使用`mvnd clean package -pl <bootstrap列表> -am`，默认跳过测试编译/执行。全量只执行一次Maven，再构建六个镜像；发布使用独立时间戳标签，原始清单不被改写。单应用只应用自己的Deployment/Service和namespace。脚本用法、变量和镜像复用见[脚本说明](scripts/README.md)。
 
-启动JAR现位于`<service>/<service>-bootstrap/target/<service>-bootstrap-0.0.1-SNAPSHOT.jar`。本地同时启动需分别设置SERVER_PORT；各进程main与业务Clock均使用Asia/Shanghai。IDE重新加载根pom后使用对应`*-bootstrap`模块运行。
+镜像使用本地 OrbStack 共享镜像存储，imagePullPolicy 为 Never；其他集群需推送镜像并修改拉取策略。不要直接重新应用清单中的bootstrap示例标签覆盖脚本生成的发布标签。
+
+启动JAR位于`<service>/<service>-bootstrap/target/`，Docker脚本自动定位实际版本。用户本地同时启动需分别设置SERVER_PORT；各进程main与业务Clock均使用Asia/Shanghai。IDE重新加载根pom后使用对应`*-bootstrap`模块运行。
 
 ## 验收
 
@@ -88,7 +88,7 @@ Token 请求有效期为 8 小时，以 API Server 签发期限为准；不写�
 
 ## 本地时区约定
 
-本项目 Kubernetes 工作负载统一使用 `Asia/Shanghai`（UTC+08:00）。acquire/payment 设置 `TZ=Asia/Shanghai` 及 `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Shanghai`，确保容器与 JVM 默认时区一致。Headlamp 镜像不包含时区数据库，通过同 namespace 的 `headlamp-timezone` ConfigMap 挂载 Shanghai TZif 文件到 `/etc/localtime` 和标准 zoneinfo 路径，同时设置 TZ；无需依赖节点 hostPath。时区二进制数据取自本机 `/usr/share/zoneinfo/Asia/Shanghai`。
+本项目 Kubernetes 工作负载统一使用 `Asia/Shanghai`（UTC+08:00）。六个应用均设置 `TZ=Asia/Shanghai` 及 `JAVA_TOOL_OPTIONS=-Duser.timezone=Asia/Shanghai`，确保容器与 JVM 默认时区一致。Headlamp 镜像不包含时区数据库，通过同 namespace 的 `headlamp-timezone` ConfigMap 挂载 Shanghai TZif 文件到 `/etc/localtime` 和标准 zoneinfo 路径，同时设置 TZ；无需依赖节点 hostPath。时区二进制数据取自本机 `/usr/share/zoneinfo/Asia/Shanghai`。
 
 Kubernetes API 中 creationTimestamp 等标准时间戳仍采用 UTC/RFC3339 协议格式；这不受容器 TZ 控制。节点、CoreDNS 等系统组件不在本项目应用时区配置范围内。
 

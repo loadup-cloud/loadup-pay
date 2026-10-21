@@ -1,12 +1,12 @@
 # 第一阶段：应用初始化与契约层
 
-日期：2026-10-21 ｜ 基线：[详细设计](DETAILED-DESIGN.md) ｜ 状态：P1契约与纯领域行为已补齐，待本地构建验收
+日期：2026-10-21 ｜ 基线：[详细设计](DETAILED-DESIGN.md) ｜ 状态：P0/P1源码及六应用构建、镜像、Kubernetes启动验收完成；单测与业务执行待验收
 
 ## 1. 优先级与完成范围
 
 | 优先级 | 本阶段结果 | 后续工作 |
 |---|---|---|
-| P0 应用初始化 | 六服务client/domain/bootstrap、根依赖管理、独立启动入口、Clock与Asia/Shanghai；六应用Deployment/Service和Headlamp范围 | 本地构建、启动与部署验收 |
+| P0 应用初始化 | 六服务client/domain/bootstrap、根依赖管理、独立启动入口、Clock与Asia/Shanghai；六应用构建/镜像/Kubernetes启动及就绪验收通过 | 业务运行验收随P2实施；Headlamp本轮未发布 |
 | P1 client契约 | Facade、Command/Query/DTO、错误码、强类型条款及跨字段校验、授权撤销、完整投影事件和消费接口 | 权限/幂等/事务应用服务及传输适配 |
 | P1 domain契约 | 聚合生命周期、可信结果收敛、退款容量、原桶恢复、Gateway、纯计算规则和定向单测源码 | 持久化、可靠执行、数据库并发证明 |
 | P2 执行闭环 | 已定义相应接口 | DB/Flyway、app/infrastructure、Outbox/Inbox、DelayedTask、业务gRPC、真实渠道 |
@@ -81,11 +81,25 @@ JSAPI/APP方法枚举作为目标能力保留；本阶段PaymentActionData仅提
 
 累计15个JUnit测试类、37个测试方法源码，覆盖多笔付款、关单回执、累计延期、条款范围、渠道身份/金额、安全换尝试、固定退款顺序/容量幂等、乱序退款恢复、商户授权撤销、完整快照及信封绑定等。本次补充框架Money的币种/负数边界与分单位费用、领域对象及嵌套信封脱敏的4个用例。product-client/payment-client的JUnit仍为test scope。
 
-按项目约定未运行构建、测试、镜像构建、DDL或部署。上一批IDE检查返回outside project content roots，本次定向IDE检查未返回结果，已停止等待，不能当作检查通过。需要完成根Maven项目导入后由本地构建完成编译/装配验收；已有两个IDE运行配置已指向bootstrap模块。
+本次按用户明确要求执行Java 25/mvnd clean package、六镜像构建和OrbStack部署，生产源码编译及应用启动验收通过。构建使用`-Dmaven.test.skip=true`，未编译或执行上述37个单测，未执行DDL或业务交易验收。此前IDE检查未完成，不能当作检查通过；本次以实际打包和启动结果验证装配。
 
 静态检查覆盖Maven模块/依赖图、纯domain依赖方向、Java包路径和公开类型引用、配置绑定、YAML/RBAC引用、脚本语法、Docker目标及文档链接。静态证据不能代替Spring启动、JUnit执行或真实MySQL并发测试。
 
-## 7. 下一实施批次（P2）
+## 7. 构建脚本与部署记录
+
+六应用各有`build.sh`和`deploy.sh`，公共库另有`pay-common/build.sh`；统一逻辑见[scripts说明](scripts/README.md)。全量应用构建使用一次`mvnd clean package -pl <六bootstrap> -am`，随后构建六个镜像；独立部署只选择该应用的Deployment/Service及namespace，不改其他应用。构建自动采用mise固定的Java 25，清理了pay-common重复JSON依赖声明。
+
+2026-10-21实测：
+
+- 目标：Docker/Kubernetes context均为`orbstack`，namespace为`loadup-pay`。
+- 全量发布标签：`20261021144823-43940`，镜像为`loadup-pay/<service>:<tag>`；六应用Deployment均1/1就绪，Pod Running、零重启，Service均有ready端点。
+- 六应用HTTP `/actuator/health`均返回UP；六个Service DNS从acquire容器解析成功；六容器均为CST +0800；payment Service已仅暴露8080，测试RPC未恢复。
+- 用已有镜像单独执行payment/deploy.sh成功，其他五个应用的完整spec前后相同；重复构建已有标签在Maven前被拒绝，避免原标签被覆盖但Pod未更新。
+- 本次修复部署前六应用因本地镜像缺失产生的ErrImageNeverPull。使用本地共享镜像，不向远程registry推送，不发布Headlamp或修改其他namespace工作负载。
+
+原始deploy/pay.yml保留示例标签，部署脚本经kubectl本地dry-run和JSON资源选择绑定本次标签，不修改源码中的镜像版本。不要再直接apply示例标签覆盖已发布版本。每次build默认产生新标签，回用已有镜像需显式SKIP_BUILD=1与IMAGE_TAG。
+
+## 8. 下一实施批次（P2）
 
 1. product/customer权威事实与OrderAdmission、limitcenter规则激活和全部桶事务；配套Flyway与数据库Gateway。
 2. acquire的创建意图、原合约快照、金额占用/幂等、费用和到期任务，payment的执行门禁/回调/查证及Outbox事实。

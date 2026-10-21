@@ -19,7 +19,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: payment
-          image: loadup-pay/payment:dev
+          image: loadup-pay/payment:bootstrap
           imagePullPolicy: Never
           ports:
             - {name: http, containerPort: 8080}

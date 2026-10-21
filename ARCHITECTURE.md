@@ -6,11 +6,11 @@
 
 **本轮决策已收敛：固定订单总额，付款金额手动输入，多笔成功付款累计恰好等于订单总额才 PAID；合约停止禁止新单，原 pending 订单继续完成；未全额付款按原合约关闭或保持 PENDING。退款独立建模，不修改订单状态/总额/累计已付；费用统一以订单总额计算。风控默认放行，仅预留渠道提交前咨询和支付后异步结果反馈。支付宝/微信/银联为目标渠道，默认币种 CNY。**
 
-术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)。当前代码仍为 acquire/payment 连通骨架及 Headlamp，本文新增业务能力尚未实现。
+术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)。当前为六应用启动骨架及client/domain源码，已完成本地部署，本文业务执行闭环仍待实施。
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)及[合约配置](design/CONTRACT-SCHEMA.md)；业务语义仍以本稿D01—D10为基线，新增物理结构和接口为待实现方案。
 
-2026-10-21实施更新：六核心应用的client/domain/bootstrap已完成P0/P1源码，补齐关单证据、生命周期、顺序退款/容量、原额度桶恢复、授权撤销和完整投影快照，见[实施说明](IMPLEMENTATION.md)及[client补充契约](design/CLIENT-API.md#11-p1源码契约补充)；未运行构建/测试/部署，数据库事务与真实渠道闭环仍在P2阶段。
+2026-10-21实施更新：六核心应用的client/domain/bootstrap已完成P0/P1源码，补齐关单证据、生命周期、顺序退款/容量、原额度桶恢复、授权撤销和完整投影快照，见[实施说明](IMPLEMENTATION.md)及[client补充契约](design/CLIENT-API.md#11-p1源码契约补充)。六应用已完成脚本、生产源码打包、镜像及OrbStack启动/健康验收；单测未编译或执行，数据库事务与真实渠道闭环仍在P2阶段。
 
 ## 1. 服务划分与设计结论
 
