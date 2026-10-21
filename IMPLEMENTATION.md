@@ -250,3 +250,14 @@ READ_COMMITTED 事务按父门禁→单笔门禁→付款记录顺序建立首�
 Maven/Spring payment-business 双 profile 及脚本入口已装配。当前只实现 durable acceptance，尚无后台执行器，action/attempt 为空；acquire 付款金额占用及调用、额度/渠道/输入准备、封禁写入口、可信结果和退款均未接通，不能视为可收款链路。
 
 IDEA MCP 未在等待窗口内返回，按新协作规则使用 mvnd：clean compile -pl payment/payment-bootstrap -am -Ppayment-business 通过（9模块），clean test-compile -pl payment/payment-app,payment/payment-infrastructure,payment/payment-adapter -am 通过（8模块）。两次均跳过测试及无关检查；新增4类24个方法已编译，未执行 JUnit、数据库迁移或部署。范围与运行变量见[payment说明](payment/README.md)。
+
+
+## 21. P2 第十批：payment 执行封禁与本地安全关闭
+
+实现 PaymentControlFacade.close/fenceParent/parentFenceStatus 与内部同名 HTTP 适配，增加独立 close/fence/fence:read 权限，继续仅允许指定 acquire SERVICE 身份。父/单笔 gate 和付款按原顺序加锁，gate rowVersion/付款 version 执行 CAS；父封禁代次单调，status 要求代次覆盖及全部子付款具备终结证据，不能把 fenced 当作收敛。
+
+新增不可变 PaymentControlReceipt 与 V20261022030000：控制请求服务端摘要固定参数，同 key 改参拒绝。未创建付款先保存 tombstone+未收款回执；已有 gate 而缺付款时必须有原证据，不用缺记录推断安全。仅 INIT/version0/无 activeAttempt 可本地 CLOSED 并记录证明；PROCESSING/UNKNOWN 只进 CLOSING，SUCCEEDED/FAILED/CLOSED 不重写终态。当前模型直接调整 PaymentCloseCommand 新增 payee 且 epoch 必须正数，close 返回 PaymentCloseDTO，避免伪造未知付款。
+
+受理/查询 DTO 已携带原 terminalEvidenceId，关闭后 accept 重放仍只返回原 CLOSED。当前4表；渠道扫描、真实关闭/查询、acquire 占用释放、limitcenter 释放及 Outbox 结果仍未接通。
+
+IDEA MCP 已恢复，关键 app/domain/client/adapter、Converter、测试源码检查无错误；仓储生成类型在 IDEA 索引中仍未解析，未声称其检查通过。必要的窄范围 mvnd clean test-compile -pl payment/payment-bootstrap -am -Ppayment-business 已通过9模块，MapStruct/Flex 真实生成通过；修正编译发现的关闭 DTO 嵌套映射后复验。新增2类22个测试方法已编译，累计6类46个新增业务方法，未运行 JUnit、DDL 或部署。详细协议见[payment说明](payment/README.md)。

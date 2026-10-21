@@ -22,44 +22,107 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("payment_control_receipt")
 public class PaymentControlReceiptDO extends BaseDO {
     private String kind;
-    public String getKind() { return kind; }
-    public void setKind(String value) { kind = value; }
+
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String value) {
+        kind = value;
+    }
 
     private String targetId;
-    public String getTargetId() { return targetId; }
-    public void setTargetId(String value) { targetId = value; }
+
+    public String getTargetId() {
+        return targetId;
+    }
+
+    public void setTargetId(String value) {
+        targetId = value;
+    }
 
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
 
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
 
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
 
     private String requestKey;
-    public String getRequestKey() { return requestKey; }
-    public void setRequestKey(String value) { requestKey = value; }
+
+    public String getRequestKey() {
+        return requestKey;
+    }
+
+    public void setRequestKey(String value) {
+        requestKey = value;
+    }
 
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
 
     private Long requestedEpoch;
-    public Long getRequestedEpoch() { return requestedEpoch; }
-    public void setRequestedEpoch(Long value) { requestedEpoch = value; }
+
+    public Long getRequestedEpoch() {
+        return requestedEpoch;
+    }
+
+    public void setRequestedEpoch(Long value) {
+        requestedEpoch = value;
+    }
 
     private String reasonCode;
-    public String getReasonCode() { return reasonCode; }
-    public void setReasonCode(String value) { reasonCode = value; }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public void setReasonCode(String value) {
+        reasonCode = value;
+    }
 
     private String noCollectionEvidenceId;
-    public String getNoCollectionEvidenceId() { return noCollectionEvidenceId; }
-    public void setNoCollectionEvidenceId(String value) { noCollectionEvidenceId = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getNoCollectionEvidenceId() {
+        return noCollectionEvidenceId;
+    }
+
+    public void setNoCollectionEvidenceId(String value) {
+        noCollectionEvidenceId = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

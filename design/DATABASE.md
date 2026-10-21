@@ -1258,3 +1258,16 @@ V20261022020000__payment_acceptance.sql 新增 payment_parent_gate、payment_gat
 相对第4节目标模型：三表均增加 caller_service_id；单笔门禁还显式保存 payee_merchant_id，避免父单/商户/服务被改绑。payment_order 使用 intent_payload LONGTEXT 保存强类型完整 PaymentExecuteCommand（包含原条款及选择/输入引用），payload_hash CHAR(64) 校验该副本；不单独保存 order_terms JSON。initiated_at/limit_operation_id 首次受理固定。父门禁的退款汇总、attempt、输入、退款和事件等表尚未迁移，目标草案不直接执行。
 
 CHECK 限定门禁状态/epoch、金额币种、付款生命周期及成功 attempt 绑定；应用读取继续校验原快照与头记录，不直接以状态或摘要当作可信资金事实。原始付款码/openId/渠道密钥/JWT 不落本批表。MapStruct 与生成 Mapper/TableDef/Tables 已通过真实 Maven 编译；尚未执行 DDL 或真实事务/并发验收。需验证三表任一写点失败全回滚、跨租户隔离、相同 paymentId/不同 payment 同 allocation 的竞争以及先封禁后受理。
+
+
+## 14. Payment 控制回执与关闭实际迁移
+
+V20261022030000__payment_control.sql 新增 payment_control_receipt，本服务实际4张表；另添加 ck_payment_no_collection，要求 payment_order 的 CLOSED/FAILED 持有 terminal_evidence_id。原父/单笔门禁 row_version 已贯通到 domain 并在控制写入时CAS，付款终结证据贯通查询 DTO；不新建假付款来承载关闭前 tombstone。
+
+回执公共字段以外包含 kind VARCHAR(24)、target_id/order_id/payee_merchant_id/caller_service_id VARCHAR(64)、request_key VARCHAR(128)、request_digest CHAR(64)、requested_epoch BIGINT、可空 reason_code/no_collection_evidence_id VARCHAR(64)。唯一键 tenant+kind+target+requestKey 不含deleted；kind 为 PARENT_FENCE 或 PAYMENT_CLOSE，epoch 正数，父回执 target=order 且无原因/未收款证明，单笔关闭必含原因。
+
+关闭锁顺序 parent_gate→payment_gate→payment_order；控制回执读为普通幂等预查，持门禁锁后重读，写回执与门禁/付款同事务提交。付款本地 INIT→CLOSING→CLOSED 合并于一个事务，版本从0推进到2，保存未收款证据；可能已执行的付款只写 CLOSING。相同请求回放用原证据，原回执存在但门禁缺失时拒绝补建；已有门禁缺付款时，必须有原持久未收款回执才能继续返回证明。
+
+parentFenceStatus 持父门禁锁，统计未终态、终态缺证据及可能在途子付款；fenced 与 allChildrenConverged 独立，不读空集合就推断未封禁父单安全。未来 attempt/Y2/结果写者必须继续遵守父/单笔门禁锁顺序与 sourceVersion 协议，不能绕过本地 fence 提交渠道请求。
+
+本批 IDEA 检查与9模块窄范围 clean test-compile 完成，生成 Mapper/Tables 已编译；IDEA 生成源索引尚未刷新。迁移、真实 SQL 锁/唯一键竞争/事务回滚未执行，不能将单元端口 mock 或编译成功当作数据库原子性验收。

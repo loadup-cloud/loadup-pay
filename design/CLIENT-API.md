@@ -246,7 +246,7 @@ policy激活，普通停单与新准入在product本地串行。DENIED结果以�
 public interface PaymentExecutionFacade {
     PaymentExecutionDTO accept(PaymentExecuteCommand command);
     PaymentExecutionDTO detail(IdQuery query);
-    PaymentExecutionDTO close(PaymentCloseCommand command);
+    PaymentCloseDTO close(PaymentCloseCommand command);
     ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);
     ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query);
 }
@@ -258,8 +258,8 @@ public record PaymentExecuteCommand(
         AdmittedOrderTermsDTO admittedTerms) {}
 
 public record PaymentCloseCommand(
-        String paymentId, String orderId, String requestKey,
-        long fenceEpoch, String reasonCode) {}
+        String paymentId, String orderId, String payeeMerchantId,
+        String requestKey, long fenceEpoch, String reasonCode) {}
 
 public record ParentPaymentFenceCommand(
         String orderId, String payeeMerchantId, long closeEpoch, String requestKey) {}
@@ -715,10 +715,33 @@ scope 版本1仅 ORDER_SUMMARY。opaque token 沿用2.5 HMAC协议，nonce/密�
 
 ## 20. Payment 受理与查询实际适配
 
-PaymentAcceptanceFacade.accept/detail 已实现 POST `/api/payment/executions/accept`、`/detail`；完整 PaymentExecutionFacade 继承此切片，其余方法尚未注册。accept 接 PaymentExecuteCommand，detail 接 IdQuery(paymentId)，返回 SuccessResponse<PaymentExecutionDTO>，业务失败沿用固定错误码 FailureResponse。
+PaymentAcceptanceFacade.accept/detail 已实现 POST `/api/payment/executions/accept`、`/detail`；完整 PaymentExecutionFacade 继承此切片；关闭与父门禁见第21节，startAttempt 尚未注册。accept 接 PaymentExecuteCommand，detail 接 IdQuery(paymentId)，返回 SuccessResponse<PaymentExecutionDTO>，业务失败沿用固定错误码 FailureResponse。
 
 仅允许已验证 SERVICE JWT 的指定 acquire-service-id；sub 必须等于 service_id，租户从 tenant_id 获取，分别要求 pay:payment:accept/read。不能将商户 JWT 或自填请求头当作服务身份。AdmittedOrderTermsDTO 的来源字段、原条款、compiledTermsHash 均必填，generation 从1开始；requestDigest 为64位小写十六进制。绑定关系及本笔金额上界由 payment 校验，跨笔占用仍由 acquire 负责。
 
 首次受理返回 INIT/version0、空 activeAttemptId/action/terminalEvidenceId，不代表额度已预占或渠道已提交。重放比较原服务、摘要及完整解码命令，返回原 initiatedAt/operation 对应的付款视图；allocation 不能改绑新 payment。detail 为内部权威查询，不是商户查询或 cashier 能力入口。不存在本地记录时仅返回 NOT_FOUND，不构造“渠道未扣款”证明。
 
-完整命令由本地 intent_payload/payload_hash 持久，服务信任来自资源服务器身份授权，副本校验和不替代身份与跨服务占用验证。preparedInputRef 只冻结引用，后续执行必须核对其绑定和有效性。既有门禁封禁阻止首次受理，已受理记录的查询/幂等重放不重新开门禁或触发扣款；封禁/关闭写入口与渠道工作流仍待实现。运行及编译证据见[payment说明](../payment/README.md)。
+完整命令由本地 intent_payload/payload_hash 持久，服务信任来自资源服务器身份授权，副本校验和不替代身份与跨服务占用验证。preparedInputRef 只冻结引用，后续执行必须核对其绑定和有效性。既有门禁封禁阻止首次受理，已受理记录的查询/幂等重放不重新开门禁或触发扣款；封禁/关闭写入口见第21节，渠道工作流仍待实现。运行及编译证据见[payment说明](../payment/README.md)。
+
+
+## 21. Payment 封禁、收敛与关闭实际适配
+
+PaymentControlFacade 已实现：POST `/api/payment/executions/close`、`/fence-parent`、`/parent-fence-status`，分别要求 pay:payment:close、pay:payment:fence、pay:payment:fence:read。仅接受同受理入口指定的 acquire SERVICE 身份，租户来自已验证 JWT。
+
+```java
+public record PaymentCloseCommand(
+        String paymentId, String orderId, String payeeMerchantId,
+        String requestKey, long fenceEpoch, String reasonCode) {}
+
+public record PaymentCloseDTO(
+        String paymentId, String orderId, long fenceEpoch, boolean fenced,
+        PaymentExecutionDTO payment, String noCollectionEvidenceId) {}
+```
+
+上述为当前关闭契约；payee 必填、fenceEpoch 必须大于0。父封禁/查询沿用 ParentPaymentFenceCommand/ParentFenceStatusQuery，实际响应 closeEpoch 为当前持久代次，低代次不覆盖高代次。控制摘要由 payment 计算，kind+target+requestKey 的唯一回执固定原请求，相同 key 改代次/原因/商户等均冲突。
+
+close 返回 SuccessResponse<PaymentCloseDTO>。payment=null 表示没有可返回的付款记录，只有持久 tombstone 与未收款回执；不创建假付款。INIT/version0/无尝试可在门禁下本地 CLOSED，并同时返回 payment.terminalEvidenceId 和 noCollectionEvidenceId。处理中/未知只进入 CLOSING，后者为空；成功付款仍 SUCCEEDED，成功证据与未收款证据不混用。终态及原支付金额不会因关闭或独立退款改写。
+
+先关闭后受理的新请求因单笔门禁拒绝；已受理再关闭的 accept 同号重放返回原 CLOSED/证据而不重启。既有 gate 缺付款且无原未收款证据，或有回执却缺 gate，返回 SNAPSHOT_INVALID。相同 key 重放不补 gate、不换证据，返回当前付款视图；不同 key 对未创建付款复用原证据。
+
+父 status 只在 gate 的代次覆盖请求时返回 fenced=true；没有 gate 或请求高于当前代次均为false。allChildrenConverged 还要求全部已有付款终结且证据存在；unknownCount 保守包含有 activeAttempt 的处理中/未知/关闭中及终态证据缺失。父 gate 与回执同事务，status 持父行锁；它不替代逐笔未收款证明、acquire 金额占用释放或 limitcenter 额度释放。当前没有渠道关闭扫描器，CLOSING 保留待后续可信工作流推进。

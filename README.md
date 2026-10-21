@@ -129,3 +129,5 @@ acquire 原单会话签发/幂等重放、订单范围能力认证和只读 `/ch
 acquire 已补 Checkout 一步创单源码：订单、条款、费用与首次会话在 A1 同事务提交，重试返回原链接；前期按当前模型直接迭代，详见[结构说明](design/DATABASE.md#12-checkout-一步创单结构)。本批仅静态检查，未构建、执行测试、迁移或部署。
 
 payment 已补付款受理/查询、服务身份授权及父/单笔门禁检查的 COLA 业务源码；受理只落 INIT，不代表向渠道扣款。payment-business bootstrap 与新增测试源码已通过窄范围 mvnd 编译，测试未执行，详见[payment说明](payment/README.md)。
+
+payment 已补父订单封禁、收敛查询和单笔关闭：未创建或从未尝试的 INIT 可持久产生未收款证据；处理中/未知只进 CLOSING。控制回执固定请求与证据，终态不重开。IDEA 检查及窄范围业务/测试源码编译记录见[payment说明](payment/README.md)，渠道关闭和金额释放仍待接入。

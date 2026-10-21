@@ -21,19 +21,40 @@ import static io.github.loadup.pay.common.DomainViolation.require;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
 /** Immutable local command receipt. The digest is calculated by payment, never accepted from the caller. */
-public record PaymentControlReceipt(String id, String kind, String targetId, String orderId,
-        String payeeMerchantId, String callerServiceId, String requestKey, String requestDigest,
-        long requestedEpoch, String reasonCode, String noCollectionEvidenceId) {
+public record PaymentControlReceipt(
+        String id,
+        String kind,
+        String targetId,
+        String orderId,
+        String payeeMerchantId,
+        String callerServiceId,
+        String requestKey,
+        String requestDigest,
+        long requestedEpoch,
+        String reasonCode,
+        String noCollectionEvidenceId) {
     public PaymentControlReceipt {
-        DomainChecks.id(id); DomainChecks.id(targetId); DomainChecks.id(orderId);
-        DomainChecks.id(payeeMerchantId); DomainChecks.id(callerServiceId); DomainChecks.text(requestKey, 128);
-        require(("PARENT_FENCE".equals(kind) || "PAYMENT_CLOSE".equals(kind)) && requestedEpoch > 0
-                && requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
+        DomainChecks.id(id);
+        DomainChecks.id(targetId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.id(callerServiceId);
+        DomainChecks.text(requestKey, 128);
+        require(
+                ("PARENT_FENCE".equals(kind) || "PAYMENT_CLOSE".equals(kind))
+                        && requestedEpoch > 0
+                        && requestDigest != null
+                        && requestDigest.matches("[0-9a-f]{64}"),
+                INVALID_ARGUMENT);
         if (reasonCode != null) DomainChecks.text(reasonCode, 64);
         if (noCollectionEvidenceId != null) DomainChecks.id(noCollectionEvidenceId);
-        if ("PARENT_FENCE".equals(kind)) require(targetId.equals(orderId) && reasonCode == null
-                && noCollectionEvidenceId == null, INVALID_ARGUMENT);
+        if ("PARENT_FENCE".equals(kind))
+            require(targetId.equals(orderId) && reasonCode == null && noCollectionEvidenceId == null, INVALID_ARGUMENT);
         else require(reasonCode != null, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

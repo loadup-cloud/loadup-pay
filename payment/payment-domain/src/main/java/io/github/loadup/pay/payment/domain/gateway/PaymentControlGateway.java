@@ -21,11 +21,18 @@ import java.util.Optional;
 /** Caller holds the parent and, for payment updates, the single-payment gate lock. */
 public interface PaymentControlGateway {
     Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId);
+
     void updatePayment(String tenant, StoredPaymentAcceptance value, long expectedVersion);
+
     void updateParent(String tenant, StoredPaymentGate value, long expectedVersion);
+
     void updateGate(String tenant, StoredPaymentGate value, long expectedVersion);
+
     Optional<PaymentControlReceipt> findReceipt(String tenant, String kind, String targetId, String requestKey);
+
     Optional<PaymentControlReceipt> findNoCollectionReceipt(String tenant, String paymentId);
+
     void insertReceipt(String tenant, PaymentControlReceipt value);
+
     PaymentChildrenStatus childrenStatus(String tenant, String orderId);
 }

@@ -21,6 +21,8 @@ import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentControlFacade {
     PaymentCloseDTO close(PaymentCloseCommand command);
+
     ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);
+
     ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query);
 }
