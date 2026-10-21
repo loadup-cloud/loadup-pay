@@ -16,10 +16,13 @@
 package io.github.loadup.pay.customer.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record MerchantActionGrant(
@@ -70,22 +73,47 @@ public record MerchantActionGrant(
                                 && relationship.activeAt(now));
     }
 
-    public static MerchantActionGrant init(String id, PrincipalType type, String principal, String payee,
-            String relationship, MerchantAction action, LocalDateTime from, LocalDateTime to) {
+    public static MerchantActionGrant init(
+            String id,
+            PrincipalType type,
+            String principal,
+            String payee,
+            String relationship,
+            MerchantAction action,
+            LocalDateTime from,
+            LocalDateTime to) {
         return new MerchantActionGrant(id, type, principal, payee, relationship, action, GrantState.INIT, from, to, 0);
     }
 
     public MerchantActionGrant activate() {
         if (state == GrantState.ACTIVE) return this;
         require(state == GrantState.INIT, INVALID_STATE);
-        return new MerchantActionGrant(id, principalType, principalId, payeeMerchantId, relationshipId,
-                action, GrantState.ACTIVE, validFrom, validTo, Math.incrementExact(version));
+        return new MerchantActionGrant(
+                id,
+                principalType,
+                principalId,
+                payeeMerchantId,
+                relationshipId,
+                action,
+                GrantState.ACTIVE,
+                validFrom,
+                validTo,
+                Math.incrementExact(version));
     }
 
     public MerchantActionGrant revoke() {
         if (state == GrantState.REVOKED) return this;
-        return new MerchantActionGrant(id, principalType, principalId, payeeMerchantId, relationshipId,
-                action, GrantState.REVOKED, validFrom, validTo, Math.incrementExact(version));
+        return new MerchantActionGrant(
+                id,
+                principalType,
+                principalId,
+                payeeMerchantId,
+                relationshipId,
+                action,
+                GrantState.REVOKED,
+                validFrom,
+                validTo,
+                Math.incrementExact(version));
     }
 
     @Override

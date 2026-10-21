@@ -15,22 +15,22 @@ metadata:
   name: headlamp-pay-operator
   namespace: loadup-pay
 rules:
-  - apiGroups: [""]
-    resources: [pods, services, events]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [pods/log]
-    verbs: [get]
-  - apiGroups: [apps]
-    resources: [deployments, replicasets]
-    verbs: [get, list, watch]
-  - apiGroups: [apps]
-    resources: [deployments, deployments/scale]
-    resourceNames: [acquire, payment, customer, product, limitcenter, realtime]
-    verbs: [get, patch, update]
-  - apiGroups: [discovery.k8s.io]
-    resources: [endpointslices]
-    verbs: [get, list, watch]
+  - apiGroups: [ "" ]
+    resources: [ pods, services, events ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ "" ]
+    resources: [ pods/log ]
+    verbs: [ get ]
+  - apiGroups: [ apps ]
+    resources: [ deployments, replicasets ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ apps ]
+    resources: [ deployments, deployments/scale ]
+    resourceNames: [ acquire, payment, customer, product, limitcenter, realtime ]
+    verbs: [ get, patch, update ]
+  - apiGroups: [ discovery.k8s.io ]
+    resources: [ endpointslices ]
+    verbs: [ get, list, watch ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -51,9 +51,9 @@ kind: ClusterRole
 metadata:
   name: headlamp-pay-namespaces
 rules:
-  - apiGroups: [""]
-    resources: [namespaces]
-    verbs: [get, list, watch]
+  - apiGroups: [ "" ]
+    resources: [ namespaces ]
+    verbs: [ get, list, watch ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -74,9 +74,9 @@ metadata:
   name: headlamp
   namespace: headlamp
 spec:
-  selector: {app: headlamp}
+  selector: { app: headlamp }
   ports:
-    - {name: http, port: 80, targetPort: http}
+    - { name: http, port: 80, targetPort: http }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -86,15 +86,15 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: headlamp}
+    matchLabels: { app: headlamp }
   template:
     metadata:
-      labels: {app: headlamp}
+      labels: { app: headlamp }
     spec:
       containers:
         - name: headlamp
           image: ghcr.io/headlamp-k8s/headlamp:v0.46.0
-          args: ["-in-cluster", "-plugins-dir=/headlamp/plugins"]
+          args: [ "-in-cluster", "-plugins-dir=/headlamp/plugins" ]
           env:
             - name: TZ
               value: Asia/Shanghai
@@ -108,19 +108,19 @@ spec:
               subPath: Shanghai
               readOnly: true
           ports:
-            - {name: http, containerPort: 4466}
+            - { name: http, containerPort: 4466 }
           readinessProbe:
-            httpGet: {path: /, port: http}
+            httpGet: { path: /, port: http }
             initialDelaySeconds: 5
           livenessProbe:
-            httpGet: {path: /, port: http}
+            httpGet: { path: /, port: http }
             initialDelaySeconds: 30
           resources:
-            requests: {cpu: 50m, memory: 64Mi}
-            limits: {memory: 256Mi}
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
       volumes:
         - name: timezone
           configMap:

@@ -17,11 +17,13 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PaymentMethod;
+
+import java.util.Objects;
+import java.util.Set;
 
 /** References a channel-specific immutable identity; never a universal channel wire payload. */
 public record ChannelBindingRevision(

@@ -15,4 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
-public enum RefundCountRestorePolicy { NO_RESTORE, FULL_PAYMENT_REFUNDED_ONCE }
+public enum RefundCountRestorePolicy {
+    NO_RESTORE,
+    FULL_PAYMENT_REFUNDED_ONCE
+}

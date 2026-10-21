@@ -16,15 +16,15 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy;
+import io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record LimitPolicyRefDTO(
         @Schema(description = "Policy id") @Size(max = 64) @NotBlank
@@ -32,12 +32,20 @@ public record LimitPolicyRefDTO(
 
         @Schema(description = "Policy version") @Positive int policyVersion,
 
-        @Schema(description = "Policy hash") @Size(max = 64) @NotBlank
+        @Schema(description = "Canonical lower-case SHA-256 policy hash") @Pattern(regexp = "[0-9a-f]{64}") @NotBlank
         String policyHash,
 
         @Schema(description = "Parent aggregation enabled") boolean parentAggregationEnabled,
+
+        @Schema(description = "Versioned parent policy reference") @Size(max = 128)
+        String parentPolicyRef,
+
         @Schema(description = "Amount restore") @NotNull RefundAmountRestorePolicy amountRestore,
         @Schema(description = "Count restore") @NotNull RefundCountRestorePolicy countRestore) {
+    public LimitPolicyRefDTO {
+        if (parentAggregationEnabled) DomainChecks.text(parentPolicyRef, 128);
+    }
+
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

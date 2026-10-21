@@ -16,10 +16,9 @@
 package io.github.loadup.pay.customer.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Only the trusted facts needed by the acquiring domain; full profile belongs to the reused merchant module. */

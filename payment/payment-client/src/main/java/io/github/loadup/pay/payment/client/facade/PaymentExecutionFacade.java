@@ -16,10 +16,13 @@
 package io.github.loadup.pay.payment.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.query.*;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface PaymentExecutionFacade {

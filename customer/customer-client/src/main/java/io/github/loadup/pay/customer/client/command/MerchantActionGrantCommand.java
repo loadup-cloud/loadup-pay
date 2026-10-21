@@ -16,15 +16,15 @@
 package io.github.loadup.pay.customer.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.customer.client.dto.*;
-import io.github.loadup.pay.customer.client.enums.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.customer.client.enums.MerchantAction;
+import io.github.loadup.pay.customer.client.enums.PrincipalType;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record MerchantActionGrantCommand(
         @Schema(description = "Principal type") @NotNull PrincipalType principalType,

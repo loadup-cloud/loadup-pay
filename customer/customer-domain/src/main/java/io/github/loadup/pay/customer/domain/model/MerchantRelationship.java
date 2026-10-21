@@ -16,10 +16,13 @@
 package io.github.loadup.pay.customer.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record MerchantRelationship(
@@ -47,22 +50,34 @@ public record MerchantRelationship(
         return state == GrantState.ACTIVE && !now.isBefore(validFrom) && (validTo == null || now.isBefore(validTo));
     }
 
-    public static MerchantRelationship init(String id, String parent, String child,
-            LocalDateTime from, LocalDateTime to) {
+    public static MerchantRelationship init(
+            String id, String parent, String child, LocalDateTime from, LocalDateTime to) {
         return new MerchantRelationship(id, parent, child, GrantState.INIT, from, to, 0);
     }
 
     public MerchantRelationship activate() {
         if (state == GrantState.ACTIVE) return this;
         require(state == GrantState.INIT, INVALID_STATE);
-        return new MerchantRelationship(id, parentMerchantId, childMerchantId, GrantState.ACTIVE,
-                validFrom, validTo, Math.incrementExact(version));
+        return new MerchantRelationship(
+                id,
+                parentMerchantId,
+                childMerchantId,
+                GrantState.ACTIVE,
+                validFrom,
+                validTo,
+                Math.incrementExact(version));
     }
 
     public MerchantRelationship revoke() {
         if (state == GrantState.REVOKED) return this;
-        return new MerchantRelationship(id, parentMerchantId, childMerchantId, GrantState.REVOKED,
-                validFrom, validTo, Math.incrementExact(version));
+        return new MerchantRelationship(
+                id,
+                parentMerchantId,
+                childMerchantId,
+                GrantState.REVOKED,
+                validFrom,
+                validTo,
+                Math.incrementExact(version));
     }
 
     @Override

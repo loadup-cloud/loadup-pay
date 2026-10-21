@@ -15,12 +15,7 @@
  */
 package io.github.loadup.pay.product.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.product.domain.model.MerchantEligibilityFacts;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface MerchantEligibilityGateway {

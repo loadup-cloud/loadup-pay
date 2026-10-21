@@ -15,13 +15,21 @@
  */
 package io.github.loadup.pay.product.client;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.dto.*;
-import io.github.loadup.pay.product.client.enums.*;
-import java.util.*;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.enums.FeeRefundPolicy;
+import io.github.loadup.pay.product.client.enums.UnpaidOrderAction;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
-import java.math.*;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 class AcquiringTermsTest {
 
     @Test
@@ -34,13 +42,17 @@ class AcquiringTermsTest {
 
     @Test
     void configuredFeeBoundsAndNotificationIdentityMustBeUsable() {
-        assertThrows(DomainViolation.class,
-                () -> new FeeTermsDTO(new BigDecimal("0.006"), 0, RoundingMode.HALF_UP, 10, 5L, FeeRefundPolicy.NO_RETURN));
-        assertThrows(DomainViolation.class,
+        assertThrows(
+                DomainViolation.class,
+                () -> new FeeTermsDTO(
+                        new BigDecimal("0.006"), 0, RoundingMode.HALF_UP, 10, 5L, FeeRefundPolicy.NO_RETURN));
+        assertThrows(
+                DomainViolation.class,
                 () -> new NotificationTermsDTO(true, null, null, 3000, 1, BigDecimal.valueOf(2), 60, 10, 3600));
-        assertThrows(DomainViolation.class,
+        assertThrows(
+                DomainViolation.class,
                 () -> new NotificationTermsDTO(true, "target", "signer", 3000, 1, new BigDecimal("0.5"), 60, 10, 3600));
-        assertDoesNotThrow(() -> new NotificationTermsDTO(false, null, null, 3000, 1, BigDecimal.valueOf(2), 60, 10, 3600));
+        assertDoesNotThrow(
+                () -> new NotificationTermsDTO(false, null, null, 3000, 1, BigDecimal.valueOf(2), 60, 10, 3600));
     }
-
 }

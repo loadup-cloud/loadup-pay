@@ -15,16 +15,20 @@
  */
 package io.github.loadup.pay.customer.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.customer.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.customer.domain.model.MerchantAction;
+import io.github.loadup.pay.customer.domain.model.MerchantActionGrant;
+import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
+import io.github.loadup.pay.customer.domain.model.PrincipalType;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+import java.util.Optional;
+
+/** Persistence port; application owns the transaction and adapters enforce explicit tenant isolation. */
 public interface MerchantAuthorizationGateway {
     Optional<MerchantRelationship> findRelationship(String tenantId, String relationshipId);
+
+    Optional<MerchantRelationship> findLiveRelationship(String tenantId, String parentId, String childId);
+
+    Optional<MerchantActionGrant> findGrantById(String tenantId, String grantId);
 
     MerchantRelationship lockRelationship(String tenantId, String relationshipId);
 
@@ -33,7 +37,9 @@ public interface MerchantAuthorizationGateway {
     Optional<MerchantActionGrant> findGrant(
             String tenantId, PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
 
+    /** An expected version of -1 inserts a new resource; other values require a matching persisted version. */
     void saveRelationship(String tenantId, MerchantRelationship relationship, long expectedVersion);
 
+    /** An expected version of -1 inserts a new resource; other values require a matching persisted version. */
     void saveGrant(String tenantId, MerchantActionGrant grant, long expectedVersion);
 }

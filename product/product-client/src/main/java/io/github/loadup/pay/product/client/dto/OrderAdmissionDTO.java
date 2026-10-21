@@ -16,15 +16,13 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.product.client.enums.AdmissionDecision;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record OrderAdmissionDTO(
         @Schema(description = "Admission id") @Size(max = 64)

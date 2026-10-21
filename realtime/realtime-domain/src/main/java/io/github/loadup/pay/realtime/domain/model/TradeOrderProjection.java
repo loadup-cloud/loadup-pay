@@ -17,10 +17,13 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record TradeOrderProjection(
@@ -54,10 +57,16 @@ public record TradeOrderProjection(
                         && "acquire".equals(source.producer())
                         && "AcquireOrder".equals(source.aggregateType()),
                 INVALID_ARGUMENT);
-        require(amount.getCent() > 0 && state != null
-                && Set.of("INIT", "PENDING", "CLOSING", "PAID", "CLOSED").contains(state), INVALID_ARGUMENT);
-        require("PAID".equals(state) == (paidMinor == amount.getCent())
-                && (!"CLOSED".equals(state) || reservedMinor == 0), INVALID_ARGUMENT);
+        require(
+                amount.getCent() > 0
+                        && state != null
+                        && Set.of("INIT", "PENDING", "CLOSING", "PAID", "CLOSED")
+                                .contains(state),
+                INVALID_ARGUMENT);
+        require(
+                "PAID".equals(state) == (paidMinor == amount.getCent())
+                        && (!"CLOSED".equals(state) || reservedMinor == 0),
+                INVALID_ARGUMENT);
     }
 
     @Override

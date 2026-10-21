@@ -21,8 +21,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 public record LimitItemRestore(LimitReservationItem item, long delta) {
     public LimitItemRestore {
         java.util.Objects.requireNonNull(item);
-        io.github.loadup.pay.common.DomainViolation.require(delta >= 0,
-                io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
+        io.github.loadup.pay.common.DomainViolation.require(
+                delta >= 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

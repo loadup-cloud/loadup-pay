@@ -16,15 +16,13 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+
+import java.util.Set;
 
 public record RefundOutcomeEventDTO(
         @Schema(description = "Refund id") String refundId,
@@ -49,8 +47,9 @@ public record RefundOutcomeEventDTO(
         DomainChecks.id(orderId);
         DomainChecks.id(operationId);
         DomainChecks.id(payeeMerchantId);
-        DomainViolation.require(amountMinor > 0 && refundVersion > 0 && state != null
-                && cumulativePaymentRefundedMinor >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
+                amountMinor > 0 && refundVersion > 0 && state != null && cumulativePaymentRefundedMinor >= 0,
+                DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.amount(amountMinor, currency);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(evidenceId);
         if (state == RefundState.SUCCEEDED)
@@ -58,7 +57,8 @@ public record RefundOutcomeEventDTO(
     }
 
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
-        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.refund.limit.v1").contains(envelope.eventType()),
+        DomainViolation.require(
+                equals(envelope.data()) && Set.of("pay.payment.refund.limit.v1").contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", refundId, refundVersion);
     }

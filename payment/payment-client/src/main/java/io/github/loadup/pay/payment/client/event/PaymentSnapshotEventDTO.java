@@ -16,12 +16,20 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Complete source-owned snapshot; no synchronous source lookup is required by realtime. */
@@ -29,13 +37,24 @@ public record PaymentSnapshotEventDTO(
         @Schema(description = "Payment id") String paymentId,
         @Schema(description = "Order id") String orderId,
         @Schema(description = "Payee merchant id") String payeeMerchantId,
-        @Schema(description = "Fixed payment amount in minor units") long amountMinor,
+
+        @Schema(description = "Fixed payment amount in minor units")
+        long amountMinor,
+
         @Schema(description = "Currency") String currency,
         @Schema(description = "Payment lifecycle state") PaymentState state,
-        @Schema(description = "Active or successful channel") Channel channel,
+
+        @Schema(description = "Active or successful channel")
+        Channel channel,
+
         @Schema(description = "Channel access mode") AccessMode accessMode,
-        @Schema(description = "Original payment acceptance time") OffsetDateTime initiatedAt,
-        @Schema(description = "Verified payment success time") OffsetDateTime succeededAt,
+
+        @Schema(description = "Original payment acceptance time")
+        OffsetDateTime initiatedAt,
+
+        @Schema(description = "Verified payment success time")
+        OffsetDateTime succeededAt,
+
         @Schema(description = "Source aggregate version") long sourceVersion) {
     public PaymentSnapshotEventDTO {
 
@@ -48,8 +67,10 @@ public record PaymentSnapshotEventDTO(
         require((state == PaymentState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(initiatedAt);
         if (succeededAt != null) require(channel != null && !succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
-        if (initiatedAt != null) initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
-        if (succeededAt != null) succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+        if (initiatedAt != null)
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+        if (succeededAt != null)
+            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
     }
 
     public void requireEnvelope(PayEventEnvelope<?> envelope) {

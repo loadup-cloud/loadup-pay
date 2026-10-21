@@ -16,10 +16,15 @@
 package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Pure all-or-none proposal; the persistence gateway must commit every resulting row atomically. */
@@ -38,6 +43,23 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
             updated.put(
                     change.key(),
                     buckets.get(change.key()).reserve(change.requested(), change.threshold(), change.enforce()));
+        }
+        return new LimitBucketSet(updated);
+    }
+
+    /** Releases only a not-yet-executing reservation's complete original allocation. */
+    public LimitBucketSet releaseReserved(List<LimitReservationItem> items) {
+        require(!items.isEmpty() && items.size() == buckets.size(), CONFLICT);
+        Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);
+        Set<LimitBucketKey> seen = new HashSet<>();
+        for (var item : items) {
+            require(
+                    seen.add(item.bucket())
+                            && buckets.containsKey(item.bucket())
+                            && item.consumed() == 0
+                            && item.restored() == 0,
+                    CONFLICT);
+            updated.put(item.bucket(), buckets.get(item.bucket()).release(item.reserved()));
         }
         return new LimitBucketSet(updated);
     }

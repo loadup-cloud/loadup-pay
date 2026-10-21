@@ -16,10 +16,13 @@
 package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.DEPENDENCY_NOT_READY;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record LimitReservationItem(
@@ -40,14 +43,22 @@ public record LimitReservationItem(
     }
 
     /** The cumulative snapshot is a high-water mark, so duplicates and older refunds restore no extra quota. */
-    public LimitItemRestore restoreRefund(LimitReservation reservation, long cumulativeRefundedMinor,
-            RefundAmountRestorePolicy amountPolicy, RefundCountRestorePolicy countPolicy) {
+    public LimitItemRestore restoreRefund(
+            LimitReservation reservation,
+            long cumulativeRefundedMinor,
+            RefundAmountRestorePolicy amountPolicy,
+            RefundCountRestorePolicy countPolicy) {
         Objects.requireNonNull(amountPolicy);
         Objects.requireNonNull(countPolicy);
-        require(reservationId.equals(reservation.id()) && bucket.currency().equals(reservation.amount().getCurrencyValue()),
+        require(
+                reservationId.equals(reservation.id())
+                        && bucket.currency().equals(reservation.amount().getCurrencyValue()),
                 CONFLICT);
         require(reservation.state() == LimitReservationState.CONFIRMED && consumed == reserved, DEPENDENCY_NOT_READY);
-        require(cumulativeRefundedMinor > 0 && cumulativeRefundedMinor <= reservation.amount().getCent(), INVALID_ARGUMENT);
+        require(
+                cumulativeRefundedMinor > 0
+                        && cumulativeRefundedMinor <= reservation.amount().getCent(),
+                INVALID_ARGUMENT);
         long target;
         if (bucket.metric() == LimitMetric.AMOUNT) {
             require(reserved == reservation.amount().getCent(), CONFLICT);
@@ -55,11 +66,14 @@ public record LimitReservationItem(
         } else {
             require(reserved == 1, CONFLICT);
             target = countPolicy == RefundCountRestorePolicy.FULL_PAYMENT_REFUNDED_ONCE
-                    && cumulativeRefundedMinor == reservation.amount().getCent() ? 1 : 0;
+                            && cumulativeRefundedMinor == reservation.amount().getCent()
+                    ? 1
+                    : 0;
         }
         long delta = Math.max(0, target - restored);
-        return new LimitItemRestore(delta == 0 ? this
-                : new LimitReservationItem(id, reservationId, bucket, reserved, consumed, target), delta);
+        return new LimitItemRestore(
+                delta == 0 ? this : new LimitReservationItem(id, reservationId, bucket, reserved, consumed, target),
+                delta);
     }
 
     @Override

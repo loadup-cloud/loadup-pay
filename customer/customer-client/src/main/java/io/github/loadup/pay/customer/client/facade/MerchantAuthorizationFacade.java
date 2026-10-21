@@ -15,10 +15,12 @@
  */
 package io.github.loadup.pay.customer.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.customer.client.command.*;
-import io.github.loadup.pay.customer.client.dto.*;
+import io.github.loadup.pay.customer.client.command.MerchantActionGrantCommand;
+import io.github.loadup.pay.customer.client.command.MerchantActionGrantRevokeCommand;
+import io.github.loadup.pay.customer.client.command.MerchantRelationshipCreateCommand;
+import io.github.loadup.pay.customer.client.command.MerchantRelationshipRevokeCommand;
+import io.github.loadup.pay.customer.client.dto.MerchantActionGrantDTO;
+import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantAuthorizationFacade {

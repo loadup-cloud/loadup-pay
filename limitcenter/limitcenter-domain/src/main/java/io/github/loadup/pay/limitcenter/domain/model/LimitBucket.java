@@ -16,10 +16,12 @@
 package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record LimitBucket(LimitBucketKey key, long used, long held, long version) {

@@ -15,14 +15,14 @@
  */
 package io.github.loadup.pay.customer.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.customer.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.customer.domain.model.MerchantFacts;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+import java.util.Optional;
+
+/** Persistence port; application owns the transaction and adapters enforce explicit tenant isolation. */
 public interface MerchantFactsGateway {
+    /** Serializes eligibility and authorization changes for this payee in the current transaction. */
+    MerchantFacts lock(String tenantId, String merchantId);
+
     Optional<MerchantFacts> find(String tenantId, String merchantId);
 }

@@ -17,26 +17,41 @@ package io.github.loadup.pay.payment.domain;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
+import org.junit.jupiter.api.Test;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiagnosticOutputTest {
     private ChannelBindingRevision binding() {
-        return new ChannelBindingRevision("binding", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
-                "account-hash", "credential-reference-must-stay-hidden", Set.of(PaymentMethod.QR));
+        return new ChannelBindingRevision(
+                "binding",
+                "merchant",
+                Channel.ALIPAY,
+                AccessMode.DIRECT,
+                "account-hash",
+                "credential-reference-must-stay-hidden",
+                Set.of(PaymentMethod.QR));
     }
 
     @Test
     void domainRecordsUseBoundedJsonAndRedactNestedSensitiveReferences() {
         var binding = binding();
-        var identity = new ChannelPaymentIdentity("payment", "attempt", Channel.ALIPAY, "binding", "account-hash", "request");
-        var prepared = new PreparedChannelPayment(identity, Money.ofMinor(100, "CNY"), PaymentMethod.QR, 1,
-                "prepared-input-must-stay-hidden");
+        var identity =
+                new ChannelPaymentIdentity("payment", "attempt", Channel.ALIPAY, "binding", "account-hash", "request");
+        var prepared = new PreparedChannelPayment(
+                identity, Money.ofMinor(100, "CNY"), PaymentMethod.QR, 1, "prepared-input-must-stay-hidden");
         assertTrue(binding.toString().startsWith("{"));
         assertTrue(binding.toString().contains("\"credentialReference\":\"******\""));
         assertTrue(prepared.toString().contains("\"preparedInputRef\":\"******\""));
@@ -47,8 +62,16 @@ class DiagnosticOutputTest {
 
     @Test
     void integrationEnvelopeKeepsJsonHeadersWithoutDisclosingPayload() {
-        var event = new PayEventEnvelope<>("delivery", "event", "payment", "pay.payment.snapshot.realtime.v1", 1,
-                "payment", 1, OffsetDateTime.parse("2026-10-21T02:00:00Z"), binding());
+        var event = new PayEventEnvelope<>(
+                "delivery",
+                "event",
+                "payment",
+                "pay.payment.snapshot.realtime.v1",
+                1,
+                "payment",
+                1,
+                OffsetDateTime.parse("2026-10-21T02:00:00Z"),
+                binding());
         var json = event.toString();
         assertTrue(json.startsWith("{"));
         assertTrue(json.contains("\"producer\":\"payment\""));

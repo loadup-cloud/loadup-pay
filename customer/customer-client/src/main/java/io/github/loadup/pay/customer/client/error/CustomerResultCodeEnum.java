@@ -20,8 +20,12 @@ import io.github.loadup.commons.result.ResultCode;
 
 public enum CustomerResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("CUSTOMER_INVALID_ARGUMENT", "Invalid argument"),
+    CONFLICT("CUSTOMER_CONFLICT", "Resource version conflicts"),
+    INVALID_STATE("CUSTOMER_INVALID_STATE", "Resource state does not allow this operation"),
+    IDEMPOTENCY_CONFLICT("CUSTOMER_IDEMPOTENCY_CONFLICT", "Idempotency key has different input"),
+    GRANT_CONFLICT("CUSTOMER_GRANT_CONFLICT", "A live grant already exists"),
     INVALID_PAGE("CUSTOMER_INVALID_PAGE", "Invalid page"),
-    NOT_FOUND("CUSTOMER_NOT_FOUND", "Merchant not found"),
+    NOT_FOUND("CUSTOMER_NOT_FOUND", "Merchant or authorization resource not found"),
     ACTION_FORBIDDEN("CUSTOMER_ACTION_FORBIDDEN", "Merchant action is not authorized"),
     RELATIONSHIP_CONFLICT("CUSTOMER_RELATIONSHIP_CONFLICT", "Merchant relationship conflicts"),
     MERCHANT_INACTIVE("CUSTOMER_MERCHANT_INACTIVE", "Merchant is not active");

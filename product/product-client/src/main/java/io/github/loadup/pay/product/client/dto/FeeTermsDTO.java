@@ -16,15 +16,15 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.product.client.enums.FeeRefundPolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.OffsetDateTime;
-import java.util.*;
 
 public record FeeTermsDTO(
         @Schema(description = "Rate") @DecimalMin("0") @NotNull
@@ -39,8 +39,14 @@ public record FeeTermsDTO(
         @Schema(description = "Maximum minor") Long maximumMinor,
         @Schema(description = "Refund policy") @NotNull FeeRefundPolicy refundPolicy) {
     public FeeTermsDTO {
-        DomainViolation.require(rate != null && rate.signum() >= 0 && fixedMinor >= 0 && minimumMinor >= 0
-                && (maximumMinor == null || maximumMinor >= minimumMinor) && rounding != null && refundPolicy != null,
+        DomainViolation.require(
+                rate != null
+                        && rate.signum() >= 0
+                        && fixedMinor >= 0
+                        && minimumMinor >= 0
+                        && (maximumMinor == null || maximumMinor >= minimumMinor)
+                        && rounding != null
+                        && refundPolicy != null,
                 DomainViolation.Reason.INVALID_ARGUMENT);
     }
 

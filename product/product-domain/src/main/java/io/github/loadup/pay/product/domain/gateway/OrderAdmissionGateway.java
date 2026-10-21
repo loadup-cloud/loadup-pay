@@ -15,18 +15,14 @@
  */
 package io.github.loadup.pay.product.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
+import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/** Application owns transactions; duplicate inserts must roll back before reading the winner. */
 public interface OrderAdmissionGateway {
-    Optional<OrderAdmission> findByOrder(String tenantId, String orderId);
+    Optional<StoredOrderAdmission> findByOrder(String tenantId, String orderId);
 
-    MerchantContractFacts lockCurrentContract(String tenantId, String merchantId, String productScopeKey);
+    Optional<StoredOrderAdmission> findById(String tenantId, String admissionId);
 
-    void save(String tenantId, OrderAdmission admission);
+    void insert(String tenantId, StoredOrderAdmission admission);
 }

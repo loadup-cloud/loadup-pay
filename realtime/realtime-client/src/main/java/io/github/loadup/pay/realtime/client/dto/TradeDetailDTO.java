@@ -16,21 +16,22 @@
 package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.pay.realtime.client.enums.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.List;
 
 public record TradeDetailDTO(
         @Schema(description = "Order") @Valid TradeOrderDTO order,
         @Schema(description = "Payments") @Valid List<TradePaymentDTO> payments,
         @Schema(description = "Refunds") @Valid List<TradeRefundDTO> refunds,
-        @Schema(description = "Independent complete refund summary") @Valid OrderRefundSummaryEventDTO refundSummary,
+
+        @Schema(description = "Independent complete refund summary") @Valid
+        OrderRefundSummaryEventDTO refundSummary,
+
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {
         payments = payments == null ? List.of() : List.copyOf(payments);

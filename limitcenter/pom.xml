@@ -15,6 +15,9 @@
     <modules>
         <module>limitcenter-client</module>
         <module>limitcenter-domain</module>
+        <module>limitcenter-app</module>
+        <module>limitcenter-infrastructure</module>
+        <module>limitcenter-adapter</module>
         <module>limitcenter-bootstrap</module>
     </modules>
 </project>

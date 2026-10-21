@@ -16,16 +16,9 @@
 package io.github.loadup.pay.acquire.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.enums.*;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
 
 public record PaymentProgressDTO(
         @Schema(description = "Payment") @Valid PaymentExecutionDTO payment,

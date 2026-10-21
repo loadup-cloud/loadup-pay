@@ -16,15 +16,13 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.OffsetDateTime;
-import java.util.*;
 
 public record NotificationTermsDTO(
         @Schema(description = "Enabled") boolean enabled,
@@ -49,9 +47,14 @@ public record NotificationTermsDTO(
         @Schema(description = "Retry window seconds") @Positive
         long retryWindowSeconds) {
     public NotificationTermsDTO {
-        DomainViolation.require(timeoutMillis > 0 && retryInitialSeconds > 0
-                && retryMaximumSeconds >= retryInitialSeconds && retryMaxAttempts > 0 && retryWindowSeconds > 0
-                && retryMultiplier != null && retryMultiplier.compareTo(BigDecimal.ONE) >= 0,
+        DomainViolation.require(
+                timeoutMillis > 0
+                        && retryInitialSeconds > 0
+                        && retryMaximumSeconds >= retryInitialSeconds
+                        && retryMaxAttempts > 0
+                        && retryWindowSeconds > 0
+                        && retryMultiplier != null
+                        && retryMultiplier.compareTo(BigDecimal.ONE) >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
         if (enabled) {
             DomainChecks.text(targetRef, 128);

@@ -15,11 +15,8 @@
  */
 package io.github.loadup.pay.limitcenter.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
-import io.github.loadup.pay.limitcenter.client.query.*;
+import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface LimitPolicyFacade {

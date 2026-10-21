@@ -17,10 +17,19 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RefundRequest(
@@ -50,7 +59,8 @@ public record RefundRequest(
             require(
                     id.equals(child.refundRequestId())
                             && amount.getCurrencyValue().equals(child.amount().getCurrencyValue())
-                            && ids.add(child.id()) && payments.add(child.paymentId()),
+                            && ids.add(child.id())
+                            && payments.add(child.paymentId()),
                     CONFLICT);
             if (unfinishedSeen) require(child.state() == RefundState.INIT, INVALID_STATE);
             if (!child.terminal()) unfinishedSeen = true;
@@ -58,8 +68,10 @@ public record RefundRequest(
         }
         require(total == amount.getCent(), CONFLICT);
         if (state == RefundRequestState.PROCESSING)
-            require(children.stream().anyMatch(c -> !c.terminal())
-                    && children.stream().anyMatch(c -> c.state() != RefundState.INIT), INVALID_STATE);
+            require(
+                    children.stream().anyMatch(c -> !c.terminal())
+                            && children.stream().anyMatch(c -> c.state() != RefundState.INIT),
+                    INVALID_STATE);
         if (state == RefundRequestState.INIT)
             require(children.stream().allMatch(c -> c.state() == RefundState.INIT), INVALID_STATE);
         if (state == RefundRequestState.SUCCEEDED)
@@ -104,8 +116,7 @@ public record RefundRequest(
 
     /** List order is the frozen sequenceNo order; an unknown or running child blocks later children. */
     public Optional<RefundOrder> nextExecutable() {
-        return children.stream().filter(c -> !c.terminal()).findFirst()
-                .filter(c -> c.state() == RefundState.INIT);
+        return children.stream().filter(c -> !c.terminal()).findFirst().filter(c -> c.state() == RefundState.INIT);
     }
 
     public RefundRequest apply(RefundOrder updated) {

@@ -15,12 +15,11 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
+import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface PaymentChannelGateway {

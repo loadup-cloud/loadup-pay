@@ -16,31 +16,48 @@
 package io.github.loadup.pay.acquire.domain;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.common.DomainViolation;
+import org.junit.jupiter.api.Test;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SharedMoneyTest {
     private AcquireOrder order(Money amount) {
-        return AcquireOrder.init("order", "merchant", amount, LocalDateTime.of(2026, 10, 21, 12, 0),
-                UnpaidOrderAction.CLOSE, new OrderPaymentPolicy(1, 10000, null, false));
+        return AcquireOrder.init(
+                "order",
+                "merchant",
+                amount,
+                LocalDateTime.of(2026, 10, 21, 12, 0),
+                UnpaidOrderAction.CLOSE,
+                new OrderPaymentPolicy(1, 10000, null, false));
     }
 
     @Test
     void frameworkMoneyDoesNotWeakenAcquiringCurrencyOrSignGuards() {
         var foreign = Money.ofMinor(100, "USD");
         var negative = Money.ofMinor(-1, "CNY");
-        assertEquals(DomainViolation.Reason.CURRENCY_MISMATCH,
+        assertEquals(
+                DomainViolation.Reason.CURRENCY_MISMATCH,
                 assertThrows(DomainViolation.class, () -> order(foreign)).reason());
-        assertEquals(DomainViolation.Reason.INVALID_ARGUMENT,
+        assertEquals(
+                DomainViolation.Reason.INVALID_ARGUMENT,
                 assertThrows(DomainViolation.class, () -> order(negative)).reason());
-        assertEquals(DomainViolation.Reason.CURRENCY_MISMATCH,
-                assertThrows(DomainViolation.class, () -> DomainChecks.amount(100, "XXX")).reason());
+        assertEquals(
+                DomainViolation.Reason.CURRENCY_MISMATCH,
+                assertThrows(DomainViolation.class, () -> DomainChecks.amount(100, "XXX"))
+                        .reason());
         assertEquals(0, DomainChecks.amount(0, "CNY").getCent());
     }
 
@@ -48,8 +65,9 @@ class SharedMoneyTest {
     void sharedMoneyKeepsIntegerMinorUnitsAndOriginalFeeRounding() {
         var amount = Money.ofMinor(10000, "CNY");
         assertSame(amount, order(amount).amount());
-        var fee = new OrderFeePolicy(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP,
-                0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE).calculate(amount);
+        var fee = new OrderFeePolicy(
+                        new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE)
+                .calculate(amount);
         assertEquals(30, fee.getCent());
         assertEquals("CNY", fee.getCurrencyValue());
         assertEquals(Money.ofMinor(30, "CNY"), fee);

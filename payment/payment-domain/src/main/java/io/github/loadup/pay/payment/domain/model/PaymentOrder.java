@@ -17,10 +17,15 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Refunds have independent aggregates and cannot rewrite this successful amount or state. */
@@ -104,26 +109,33 @@ public record PaymentOrder(
     }
 
     public PaymentOrder applyAttempt(PaymentAttempt attempt) {
-        require(id.equals(attempt.paymentId()) && amount.equals(attempt.amount())
-                && payeeMerchantId.equals(attempt.binding().payeeMerchantId())
-                && Objects.equals(activeAttemptId, attempt.id()), CONFLICT);
+        require(
+                id.equals(attempt.paymentId())
+                        && amount.equals(attempt.amount())
+                        && payeeMerchantId.equals(attempt.binding().payeeMerchantId())
+                        && Objects.equals(activeAttemptId, attempt.id()),
+                CONFLICT);
         if (state == PaymentState.SUCCEEDED) {
             require(attempt.state() == PaymentAttemptState.SUCCEEDED, CONFLICT);
             return this;
         }
         require(state != PaymentState.CLOSED && state != PaymentState.FAILED, CONFLICT);
-        var nextState = attempt.state() == PaymentAttemptState.SUCCEEDED ? PaymentState.SUCCEEDED
-                : state == PaymentState.CLOSING ? PaymentState.CLOSING
-                : attempt.state() == PaymentAttemptState.UNKNOWN
-                        || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
-                        ? PaymentState.UNKNOWN : PaymentState.PROCESSING;
+        var nextState = attempt.state() == PaymentAttemptState.SUCCEEDED
+                ? PaymentState.SUCCEEDED
+                : state == PaymentState.CLOSING
+                        ? PaymentState.CLOSING
+                        : attempt.state() == PaymentAttemptState.UNKNOWN
+                                        || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
+                                ? PaymentState.UNKNOWN
+                                : PaymentState.PROCESSING;
         if (nextState == state) return this;
         return copy(nextState, nextState == PaymentState.SUCCEEDED ? attempt.id() : null);
     }
 
     public PaymentOrder requestClose() {
         if (state == PaymentState.CLOSING) return this;
-        require(state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
+        require(
+                state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
                 INVALID_STATE);
         return copy(PaymentState.CLOSING, null);
     }
@@ -139,14 +151,25 @@ public record PaymentOrder(
     public PaymentOrder fail(NoCollectionEvidence evidence) {
         require(id.equals(evidence.paymentId()), CONFLICT);
         if (state == PaymentState.FAILED) return this;
-        require(state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
+        require(
+                state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
                 INVALID_STATE);
         return copy(PaymentState.FAILED, null);
     }
 
     private PaymentOrder copy(PaymentState target, String success) {
-        return new PaymentOrder(id, orderId, allocationId, payeeMerchantId, amount, limitOperationId,
-                initiatedAt, target, activeAttemptId, success, Math.incrementExact(version));
+        return new PaymentOrder(
+                id,
+                orderId,
+                allocationId,
+                payeeMerchantId,
+                amount,
+                limitOperationId,
+                initiatedAt,
+                target,
+                activeAttemptId,
+                success,
+                Math.incrementExact(version));
     }
 
     @Override

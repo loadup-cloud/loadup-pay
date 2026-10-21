@@ -16,9 +16,8 @@
 package io.github.loadup.pay.product.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.product.client.command.*;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface OrderAdmissionFacade {

@@ -16,15 +16,16 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.dto.RefundRequestSummaryDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public record OrderRefundSummaryEventDTO(
         @Schema(description = "Order id") String orderId,
@@ -33,12 +34,14 @@ public record OrderRefundSummaryEventDTO(
         @Schema(description = "Refunded minor") long refundedMinor,
         @Schema(description = "Refund reserved minor") long refundReservedMinor,
         @Schema(description = "Refund summary version") long refundSummaryVersion,
+
         @Schema(description = "Complete refund request progress snapshots") @Valid
         List<RefundRequestSummaryDTO> requests) {
     public OrderRefundSummaryEventDTO {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainViolation.require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundSummaryVersion >= 0,
+        DomainViolation.require(
+                refundedMinor >= 0 && refundReservedMinor >= 0 && refundSummaryVersion >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.amount(refundedMinor, currency);
         requests = List.copyOf(requests);
@@ -50,12 +53,15 @@ public record OrderRefundSummaryEventDTO(
             succeeded = Math.addExact(succeeded, request.succeededMinor());
             reserved = Math.addExact(reserved, request.reservedMinor());
         }
-        DomainViolation.require(succeeded == refundedMinor && reserved == refundReservedMinor,
-                DomainViolation.Reason.CONFLICT);
+        DomainViolation.require(
+                succeeded == refundedMinor && reserved == refundReservedMinor, DomainViolation.Reason.CONFLICT);
     }
 
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
-        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1").contains(envelope.eventType()),
+        DomainViolation.require(
+                equals(envelope.data())
+                        && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
+                                .contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
     }

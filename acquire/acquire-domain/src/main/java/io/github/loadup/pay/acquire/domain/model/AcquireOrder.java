@@ -17,10 +17,16 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.CURRENCY_MISMATCH;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Gross successful receipts are immutable with respect to independent refunds. */
@@ -213,23 +219,52 @@ public record AcquireOrder(
             return this;
         if (unpaidAction == UnpaidOrderAction.CLOSE) return requestClose();
         if (state == AcquireOrderState.PENDING) return this;
-        return new AcquireOrder(id, payeeMerchantId, amount, paidAmountMinor, paymentReservedMinor,
-                successfulPaymentCount, reservedPaymentCount, AcquireOrderState.PENDING, orderDueAt,
-                unpaidAction, paymentPolicy, closeEpoch, Math.incrementExact(version));
+        return new AcquireOrder(
+                id,
+                payeeMerchantId,
+                amount,
+                paidAmountMinor,
+                paymentReservedMinor,
+                successfulPaymentCount,
+                reservedPaymentCount,
+                AcquireOrderState.PENDING,
+                orderDueAt,
+                unpaidAction,
+                paymentPolicy,
+                closeEpoch,
+                Math.incrementExact(version));
     }
 
     /** The deadline is derived from the original due time and the frozen cumulative extension allowance. */
-    public AcquireOrder extend(LocalDateTime requestedDueAt, LocalDateTime originalDueAt,
-            boolean extensionAllowed, long extensionMaxSeconds, LocalDateTime now) {
+    public AcquireOrder extend(
+            LocalDateTime requestedDueAt,
+            LocalDateTime originalDueAt,
+            boolean extensionAllowed,
+            long extensionMaxSeconds,
+            LocalDateTime now) {
         Objects.requireNonNull(requestedDueAt);
         Objects.requireNonNull(originalDueAt);
         require(extensionMaxSeconds >= 0 && !originalDueAt.isAfter(orderDueAt), INVALID_ARGUMENT);
         require(canAcceptNewPayment(now) && extensionAllowed, INVALID_STATE);
-        require(requestedDueAt.isAfter(orderDueAt) && requestedDueAt.isAfter(now)
-                && !requestedDueAt.isAfter(originalDueAt.plusSeconds(extensionMaxSeconds)), INVALID_ARGUMENT);
-        return new AcquireOrder(id, payeeMerchantId, amount, paidAmountMinor, paymentReservedMinor,
-                successfulPaymentCount, reservedPaymentCount, state, requestedDueAt, unpaidAction,
-                paymentPolicy, closeEpoch, Math.incrementExact(version));
+        require(
+                requestedDueAt.isAfter(orderDueAt)
+                        && requestedDueAt.isAfter(now)
+                        && !requestedDueAt.isAfter(originalDueAt.plusSeconds(extensionMaxSeconds)),
+                INVALID_ARGUMENT);
+        return new AcquireOrder(
+                id,
+                payeeMerchantId,
+                amount,
+                paidAmountMinor,
+                paymentReservedMinor,
+                successfulPaymentCount,
+                reservedPaymentCount,
+                state,
+                requestedDueAt,
+                unpaidAction,
+                paymentPolicy,
+                closeEpoch,
+                Math.incrementExact(version));
     }
 
     @Override

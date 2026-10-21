@@ -15,12 +15,6 @@
  */
 package io.github.loadup.pay.customer.domain.model;
 
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
-
 public enum MerchantAction {
     CREATE_ORDER,
     REFUND,

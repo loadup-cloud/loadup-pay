@@ -15,12 +15,19 @@
  */
 package io.github.loadup.pay.realtime.domain;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.realtime.domain.model.*;
-import java.time.*;
-import java.util.*;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.realtime.domain.model.RefundRequestProgress;
+import io.github.loadup.pay.realtime.domain.model.SourceVersion;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SourceVersionTest {
     @Test
@@ -36,13 +43,23 @@ class SourceVersionTest {
     @Test
     void fullRefundSummaryKeepsOriginalOrderIdentityAndIndependentRequestProgress() {
         var request = new RefundRequestProgress("request", "merchant-refund", 100, "PARTIAL_SUCCEEDED", 40, 60, 0, 3);
-        var summary = new TradeRefundSummary("order", "merchant", "CNY", 40, 0, List.of(request),
-                new SourceVersion("payment", "OrderRefundSummary", "order", 2), LocalDateTime.of(2026, 10, 21, 10, 0));
+        var summary = new TradeRefundSummary(
+                "order",
+                "merchant",
+                "CNY",
+                40,
+                0,
+                List.of(request),
+                new SourceVersion("payment", "OrderRefundSummary", "order", 2),
+                LocalDateTime.of(2026, 10, 21, 10, 0));
         assertEquals(40, summary.refundedMinor());
         assertEquals("merchant", summary.payeeMerchantId());
-        assertThrows(DomainViolation.class, () -> new TradeRefundSummary("order", "merchant", "CNY", 40, 0, List.of(),
-                summary.source(), summary.snapshotAt()));
-        assertThrows(DomainViolation.class, () -> new RefundRequestProgress("request", "merchant-refund", 100,
-                "PAID", 40, 0, 0, 3));
+        assertThrows(
+                DomainViolation.class,
+                () -> new TradeRefundSummary(
+                        "order", "merchant", "CNY", 40, 0, List.of(), summary.source(), summary.snapshotAt()));
+        assertThrows(
+                DomainViolation.class,
+                () -> new RefundRequestProgress("request", "merchant-refund", 100, "PAID", 40, 0, 0, 3));
     }
 }

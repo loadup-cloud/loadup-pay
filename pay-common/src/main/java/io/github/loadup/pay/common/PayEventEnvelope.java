@@ -50,8 +50,12 @@ public record PayEventEnvelope<T>(
 
     /** Structural binding only; authenticate the producer and tenant at the transport boundary. */
     public void requireSource(String expectedType, String expectedProducer, String expectedId, long expectedVersion) {
-        DomainViolation.require(eventType.equals(expectedType) && producer.equals(expectedProducer)
-                && aggregateId.equals(expectedId) && aggregateVersion == expectedVersion && schemaVersion == 1,
+        DomainViolation.require(
+                eventType.equals(expectedType)
+                        && producer.equals(expectedProducer)
+                        && aggregateId.equals(expectedId)
+                        && aggregateVersion == expectedVersion
+                        && schemaVersion == 1,
                 DomainViolation.Reason.CONFLICT);
     }
 }

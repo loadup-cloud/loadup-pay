@@ -15,13 +15,23 @@
  */
 package io.github.loadup.pay.product.domain;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.domain.model.*;
+import io.github.loadup.pay.common.ContractReference;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.ContractAdmissionState;
+import io.github.loadup.pay.product.domain.model.MerchantContractFacts;
+import io.github.loadup.pay.product.domain.model.MerchantEligibilityFacts;
+import io.github.loadup.pay.product.domain.model.OrderAdmission;
 import io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy;
-import java.time.*;
-import java.util.*;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderAdmissionTest {
     @Test
@@ -51,19 +61,40 @@ class OrderAdmissionTest {
         var reference = new ContractReference("contract", 1, 1, "snapshot", "compiled");
         var eligible = new MerchantEligibilityFacts("merchant", true, "ALLOW", 1, 2);
         var policy = new OrderAdmissionPolicy();
-        var current = new MerchantContractFacts("merchant", reference, ContractAdmissionState.ACTIVE,
-                now.minusDays(1), now.plusDays(1), true);
-        assertEquals(AdmissionDecision.ADMITTED, policy.authorize("admission", "order", "merchant", "digest",
-                current, eligible, now, now.plusMinutes(5)).decision());
-        var notActivated = new MerchantContractFacts("merchant", reference, ContractAdmissionState.ACTIVE,
-                now.minusDays(1), null, false);
-        assertEquals(AdmissionDecision.DENIED, policy.authorize("admission", "order", "merchant", "digest",
-                notActivated, eligible, now, now.plusMinutes(5)).decision());
-        var denied = policy.authorize("admission", "order", "merchant", "digest", current,
-                new MerchantEligibilityFacts("merchant", false, "MERCHANT_SUSPENDED", 2, 2), now, now.plusMinutes(5));
+        var current = new MerchantContractFacts(
+                "merchant", reference, ContractAdmissionState.ACTIVE, now.minusDays(1), now.plusDays(1), true);
+        assertEquals(
+                AdmissionDecision.ADMITTED,
+                policy.authorize("admission", "order", "merchant", "digest", current, eligible, now, now.plusMinutes(5))
+                        .decision());
+        var notActivated = new MerchantContractFacts(
+                "merchant", reference, ContractAdmissionState.ACTIVE, now.minusDays(1), null, false);
+        assertEquals(
+                AdmissionDecision.DENIED,
+                policy.authorize(
+                                "admission",
+                                "order",
+                                "merchant",
+                                "digest",
+                                notActivated,
+                                eligible,
+                                now,
+                                now.plusMinutes(5))
+                        .decision());
+        var denied = policy.authorize(
+                "admission",
+                "order",
+                "merchant",
+                "digest",
+                current,
+                new MerchantEligibilityFacts("merchant", false, "MERCHANT_SUSPENDED", 2, 2),
+                now,
+                now.plusMinutes(5));
         assertEquals("MERCHANT_SUSPENDED", denied.reasonCode());
         assertNull(denied.contract());
-        assertThrows(NullPointerException.class, () -> policy.authorize("admission", "order", "merchant", "digest",
-                current, null, now, now.plusMinutes(5)));
+        assertThrows(
+                NullPointerException.class,
+                () -> policy.authorize(
+                        "admission", "order", "merchant", "digest", current, null, now, now.plusMinutes(5)));
     }
 }

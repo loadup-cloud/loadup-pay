@@ -16,14 +16,13 @@
 package io.github.loadup.pay.customer.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.customer.client.enums.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.customer.client.enums.GrantState;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record MerchantRelationshipDTO(
         @Schema(description = "Id") @Size(max = 64) String id,

@@ -16,24 +16,42 @@
 package io.github.loadup.pay.acquire.domain;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentChange;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.ParentCloseEvidence;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.common.DomainViolation;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AcquireOrderTest {
     private static final LocalDateTime DUE = LocalDateTime.of(2026, 10, 21, 12, 0);
 
     private AcquireOrder order(UnpaidOrderAction action) {
         return AcquireOrder.init(
-                "order", "merchant", Money.ofMinor(10000, "CNY"), DUE, action, new OrderPaymentPolicy(1, 10000, null, false));
+                "order",
+                "merchant",
+                Money.ofMinor(10000, "CNY"),
+                DUE,
+                action,
+                new OrderPaymentPolicy(1, 10000, null, false));
     }
 
     private OrderPaymentChange pay(AcquireOrder order, String id, long minor) {
         var held = order.reservePayment(
-                new PaymentIntent("a" + id, id, "merchant", id, "digest", Money.ofMinor(minor, "CNY")), DUE.minusMinutes(1));
+                new PaymentIntent("a" + id, id, "merchant", id, "digest", Money.ofMinor(minor, "CNY")),
+                DUE.minusMinutes(1));
         return held.order()
                 .applyPaymentOutcome(
                         held.allocation(),
@@ -80,7 +98,13 @@ class AcquireOrderTest {
                 .applyPaymentOutcome(
                         held.allocation(),
                         new VerifiedPaymentOutcome(
-                                "order", "p1", Money.ofMinor(7000, "CNY"), VerifiedPaymentOutcome.Kind.UNKNOWN, 1, null, false));
+                                "order",
+                                "p1",
+                                Money.ofMinor(7000, "CNY"),
+                                VerifiedPaymentOutcome.Kind.UNKNOWN,
+                                1,
+                                null,
+                                false));
         assertEquals(7000, unknown.order().paymentReservedMinor());
         assertThrows(
                 DomainViolation.class,

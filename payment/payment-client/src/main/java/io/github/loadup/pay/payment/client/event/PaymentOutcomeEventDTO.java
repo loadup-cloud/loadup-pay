@@ -16,15 +16,13 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+
+import java.util.Set;
 
 public record PaymentOutcomeEventDTO(
         @Schema(description = "Payment id") String paymentId,
@@ -44,8 +42,8 @@ public record PaymentOutcomeEventDTO(
         DomainChecks.id(allocationId);
         DomainChecks.id(operationId);
         DomainChecks.id(payeeMerchantId);
-        DomainViolation.require(amountMinor > 0 && paymentVersion > 0 && state != null,
-                DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
+                amountMinor > 0 && paymentVersion > 0 && state != null, DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.amount(amountMinor, currency);
         if (state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED)
             DomainChecks.id(evidenceId);
@@ -54,7 +52,10 @@ public record PaymentOutcomeEventDTO(
     }
 
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
-        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1").contains(envelope.eventType()),
+        DomainViolation.require(
+                equals(envelope.data())
+                        && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1")
+                                .contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", paymentId, paymentVersion);
     }

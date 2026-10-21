@@ -16,12 +16,18 @@
 package io.github.loadup.pay.acquire.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.acquire.client.enums.*;
+import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Complete source-owned snapshot; no synchronous source lookup is required by realtime. */
@@ -29,12 +35,18 @@ public record OrderSnapshotEventDTO(
         @Schema(description = "Order id") String orderId,
         @Schema(description = "Payee merchant id") String payeeMerchantId,
         @Schema(description = "Merchant order number") String merchantOrderNo,
-        @Schema(description = "Fixed order amount in minor units") long amountMinor,
+
+        @Schema(description = "Fixed order amount in minor units")
+        long amountMinor,
+
         @Schema(description = "Currency") String currency,
         @Schema(description = "Gross successful amount") long paidAmountMinor,
         @Schema(description = "Held payment amount") long paymentReservedMinor,
         @Schema(description = "Order lifecycle state") AcquireOrderState state,
-        @Schema(description = "Original order creation time") OffsetDateTime orderCreatedAt,
+
+        @Schema(description = "Original order creation time")
+        OffsetDateTime orderCreatedAt,
+
         @Schema(description = "Source update time") OffsetDateTime sourceUpdatedAt,
         @Schema(description = "Source aggregate version") long sourceVersion) {
     public OrderSnapshotEventDTO {
@@ -43,16 +55,27 @@ public record OrderSnapshotEventDTO(
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantOrderNo, 64);
         DomainChecks.amount(amountMinor, currency);
-        require(amountMinor > 0 && paidAmountMinor >= 0 && paymentReservedMinor >= 0
-                && paidAmountMinor <= amountMinor && paymentReservedMinor <= amountMinor - paidAmountMinor
-                && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
-        require((state == AcquireOrderState.PAID) == (paidAmountMinor == amountMinor)
-                && (state != AcquireOrderState.CLOSED || paymentReservedMinor == 0), INVALID_STATE);
+        require(
+                amountMinor > 0
+                        && paidAmountMinor >= 0
+                        && paymentReservedMinor >= 0
+                        && paidAmountMinor <= amountMinor
+                        && paymentReservedMinor <= amountMinor - paidAmountMinor
+                        && sourceVersion >= 0
+                        && state != null,
+                INVALID_ARGUMENT);
+        require(
+                (state == AcquireOrderState.PAID) == (paidAmountMinor == amountMinor)
+                        && (state != AcquireOrderState.CLOSED || paymentReservedMinor == 0),
+                INVALID_STATE);
         Objects.requireNonNull(orderCreatedAt);
         Objects.requireNonNull(sourceUpdatedAt);
         require(!sourceUpdatedAt.isBefore(orderCreatedAt), INVALID_ARGUMENT);
-        if (orderCreatedAt != null) orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
-        if (sourceUpdatedAt != null) sourceUpdatedAt = sourceUpdatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+        if (orderCreatedAt != null)
+            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+        if (sourceUpdatedAt != null)
+            sourceUpdatedAt =
+                    sourceUpdatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
     }
 
     public void requireEnvelope(PayEventEnvelope<?> envelope) {

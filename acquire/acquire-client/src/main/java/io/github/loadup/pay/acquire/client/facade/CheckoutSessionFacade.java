@@ -15,10 +15,8 @@
  */
 package io.github.loadup.pay.acquire.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.command.CheckoutSessionCreateCommand;
+import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface CheckoutSessionFacade {

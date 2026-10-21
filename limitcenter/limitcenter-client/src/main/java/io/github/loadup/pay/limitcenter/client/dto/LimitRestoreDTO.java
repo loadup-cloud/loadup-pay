@@ -16,14 +16,9 @@
 package io.github.loadup.pay.limitcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.limitcenter.client.enums.*;
+import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.Size;
 
 public record LimitRestoreDTO(
         @Schema(description = "Refund id") @Size(max = 64) String refundId,

@@ -2,21 +2,24 @@
 
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 基线：[架构 v1.4](ARCHITECTURE.md)、[D01—D10](DESIGN-DECISIONS.md) ｜ 状态：待实现的设计稿
 
-2026-10-21实施进度：六应用client/domain/bootstrap、P1生命周期与结果收敛、顺序退款/容量、额度恢复及完整快照契约已落源码，见[第一阶段实施说明](IMPLEMENTATION.md)。已完成构建/部署脚本、生产源码打包、六镜像及OrbStack启动验收，未编译或执行单测；本设计中的数据库事务、业务应用服务及渠道执行仍待实现。以下“本轮”指2026-10-20的设计编写阶段。
+2026-10-21实施进度：六应用client/domain/bootstrap、P1生命周期与结果收敛、顺序退款/容量、额度恢复及完整快照契约已落源码，见[第一阶段实施说明](IMPLEMENTATION.md)
+。已完成构建/部署脚本、生产源码打包、六镜像及OrbStack启动验收，未编译或执行单测；本设计中的数据库事务、业务应用服务及渠道执行仍待实现。以下“本轮”指2026-10-20的设计编写阶段。
 
-本文把已确认的架构细化为 COLA DDD 模型、事务、数据库和 client 契约。当前程序仍是 acquire/payment Ping 骨架；文中的业务接口、表、任务和渠道适配均不表示已经实现。本轮未修改运行代码、数据库或 Kubernetes 部署。
+本文把已确认的架构细化为 COLA DDD 模型、事务、数据库和 client 契约。当前程序仍是 acquire/payment Ping
+骨架；文中的业务接口、表、任务和渠道适配均不表示已经实现。本轮未修改运行代码、数据库或 Kubernetes 部署。
 
 ## 1. 文档入口与范围
 
-| 文档 | 内容 |
-|---|---|
-| 本文 | 工程分层、聚合、不变量、事务、执行和故障恢复 |
-| [数据库设计](design/DATABASE.md) | 六服务数据归属、完整新增表字段/类型、唯一键/索引、锁与迁移 |
-| [Client API 设计](design/CLIENT-API.md) | Java Facade、Command/Query/DTO、HTTP/gRPC、事件和通知协议 |
-| [合约配置设计](design/CONTRACT-SCHEMA.md) | 复用框架合约的参数路径、类型、校验、快照与发布 |
-| [新增表 DDL 草案](design/schema/) | 按服务分开的 MySQL 建表草案，仅用于评审，不是可直接应用的 Flyway 迁移 |
+| 文档                                      | 内容                                                                  |
+|-------------------------------------------|-----------------------------------------------------------------------|
+| 本文                                      | 工程分层、聚合、不变量、事务、执行和故障恢复                          |
+| [数据库设计](design/DATABASE.md)          | 六服务数据归属、完整新增表字段/类型、唯一键/索引、锁与迁移            |
+| [Client API 设计](design/CLIENT-API.md)   | Java Facade、Command/Query/DTO、HTTP/gRPC、事件和通知协议             |
+| [合约配置设计](design/CONTRACT-SCHEMA.md) | 复用框架合约的参数路径、类型、校验、快照与发布                        |
+| [新增表 DDL 草案](design/schema/)         | 按服务分开的 MySQL 建表草案，仅用于评审，不是可直接应用的 Flyway 迁移 |
 
-范围为外部渠道收单；ALIPAY/WECHAT/UNIONPAY，默认 CNY，支持直连与服务商下实际商户/子商户收款。无消费者会员、用户限额、余额、充值、提现、转账，也不引入资金 auth/capture。risk 只保留提交前默认放行咨询和结果后异步确认接口；reconciliation 继续后置，不创建空应用或提前设计账单解析表。
+范围为外部渠道收单；ALIPAY/WECHAT/UNIONPAY，默认 CNY，支持直连与服务商下实际商户/子商户收款。无消费者会员、用户限额、余额、充值、提现、转账，也不引入资金
+auth/capture。risk 只保留提交前默认放行咨询和结果后异步确认接口；reconciliation 继续后置，不创建空应用或提前设计账单解析表。
 
 ## 2. COLA DDD 工程设计
 
@@ -32,7 +35,8 @@ acquire/
   acquire-bootstrap/       Spring Boot 启动与装配
 ```
 
-payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选 web 层，并同时承载未来业务 gRPC 入站。2026-10-21源码更新：测试用Ping及协议模块已删除，当前启动应用不依赖gRPC；业务适配在P2按实际用例接入，Java业务client不引入传输协议依赖。
+payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选
+web 层，并同时承载未来业务 gRPC 入站。2026-10-21源码更新：测试用Ping及协议模块已删除，当前启动应用不依赖gRPC；业务适配在P2按实际用例接入，Java业务client不引入传输协议依赖。
 
 ```mermaid
 flowchart LR
@@ -46,29 +50,37 @@ flowchart LR
   I --> TC[被调用服务 client / 生成的 proto]
 ```
 
-- client 表达完整用例，不暴露 Mapper、表结构、Spring、gRPC stub、HTTP envelope。app 的 `XxxService` 直接实现 Facade，不增加只透传的 Service/Impl。
-- domain 为普通Java对象；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。复用LoadUp commons-dto的Money与commons-json的ToStringAsJson/DiagnosticHidden基础能力；收单层保留CNY/非负金额规则。聚合执行状态与金额规则；app 管理权限、事务、跨服务调用和恢复编排。
-- infrastructure 实现 domain Gateway，用 MyBatis-Flex、生成的 Tables/Mapper 和 MapStruct 完成持久化；远程 Gateway 将本地领域入参映射为被调用方 client/proto，不把目标服务仓储引入本地。
-- adapter 验证请求、建立可信租户/调用者上下文，再调用 Facade；出站 RPC 由 infrastructure 持有。app 可装配 infrastructure 的自动配置，业务源码依赖 domain 接口。
-- Command/Query/DTO 使用 record；公开字段使用英文 OpenAPI Schema；构造器注入，无 Lombok。普通 DTO 按框架使用 JSON toString；敏感输入单独脱敏，禁止 record 默认 toString 泄露付款码。
-- domain 不重复包一层没有行为的贫血对象；金额、状态迁移、退款计划、额度归桶是必须保留的领域行为。映射使用 `LoadUpMapStructConfig`，不在 Controller 中计算金额。
+- client 表达完整用例，不暴露 Mapper、表结构、Spring、gRPC stub、HTTP envelope。app 的 `XxxService` 直接实现 Facade，不增加只透传的
+  Service/Impl。
+- domain 为普通Java对象；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。复用LoadUp
+  commons-dto的Money与commons-json的ToStringAsJson/DiagnosticHidden基础能力；收单层保留CNY/非负金额规则。聚合执行状态与金额规则；app
+  管理权限、事务、跨服务调用和恢复编排。
+- infrastructure 实现 domain Gateway，用 MyBatis-Flex、生成的 Tables/Mapper 和 MapStruct 完成持久化；远程 Gateway
+  将本地领域入参映射为被调用方 client/proto，不把目标服务仓储引入本地。
+- adapter 验证请求、建立可信租户/调用者上下文，再调用 Facade；出站 RPC 由 infrastructure 持有。app 可装配 infrastructure
+  的自动配置，业务源码依赖 domain 接口。
+- Command/Query/DTO 使用 record；公开字段使用英文 OpenAPI Schema；构造器注入，无 Lombok。普通 DTO 按框架使用 JSON
+  toString；敏感输入单独脱敏，禁止 record 默认 toString 泄露付款码。
+- domain 不重复包一层没有行为的贫血对象；金额、状态迁移、退款计划、额度归桶是必须保留的领域行为。映射使用
+  `LoadUpMapStructConfig`，不在 Controller 中计算金额。
 
 ## 3. 聚合与行为归属
 
-| 服务 | 聚合/策略 | 主要行为与不变量 |
-|---|---|---|
-| acquire | AcquireOrder，内含 allocation 协调 | 固定总额/币种/收款主体；reservePayment、applyPaymentOutcome、requestClose、finishClose；paid+reserved≤amount |
-| acquire | OrderFee | 原总额一次计算；付清唯一确认；退费作为独立 adjustment |
-| acquire | CheckoutSession | 订单级访问授权；会话到期与订单可付性分别判断；不保存消费者身份 |
-| payment | PaymentOrder + PaymentAttempt | 固定单笔金额；单个 activeAttempt；稳定渠道请求号；一个 paymentId 最多一次正常成功 |
-| payment | ChannelMerchantBinding | 类型化渠道身份和不可变 revision；当前可用性与历史查证/退款身份分开 |
-| payment | RefundRequest + AllocationPlan + RefundOrder | 固定计划，原付款可退容量原子预占；跨渠道子退款独立收敛 |
-| customer | 复用 Merchant，新增 MerchantActionGrant | 商户基本事实；父子关系与代操作授权分开，不创建消费者模型 |
-| product | 复用 MerchantContract，新增 OrderAdmission | 新单按当前主库准入；原订单按冻结条款履约；停单和新准入共用合约锁 |
-| limitcenter | LimitReservation + BucketSet | 所有商户/窗口/指标一次原子预占；先执行授权、后提交渠道；成功 held→used |
-| realtime | Order/Payment/RefundProjection | 按各来源聚合版本更新完整投影；不裁决支付成功、剩余额或额度 |
+| 服务        | 聚合/策略                                    | 主要行为与不变量                                                                                             |
+|-------------|----------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| acquire     | AcquireOrder，内含 allocation 协调           | 固定总额/币种/收款主体；reservePayment、applyPaymentOutcome、requestClose、finishClose；paid+reserved≤amount |
+| acquire     | OrderFee                                     | 原总额一次计算；付清唯一确认；退费作为独立 adjustment                                                        |
+| acquire     | CheckoutSession                              | 订单级访问授权；会话到期与订单可付性分别判断；不保存消费者身份                                               |
+| payment     | PaymentOrder + PaymentAttempt                | 固定单笔金额；单个 activeAttempt；稳定渠道请求号；一个 paymentId 最多一次正常成功                            |
+| payment     | ChannelMerchantBinding                       | 类型化渠道身份和不可变 revision；当前可用性与历史查证/退款身份分开                                           |
+| payment     | RefundRequest + AllocationPlan + RefundOrder | 固定计划，原付款可退容量原子预占；跨渠道子退款独立收敛                                                       |
+| customer    | 复用 Merchant，新增 MerchantActionGrant      | 商户基本事实；父子关系与代操作授权分开，不创建消费者模型                                                     |
+| product     | 复用 MerchantContract，新增 OrderAdmission   | 新单按当前主库准入；原订单按冻结条款履约；停单和新准入共用合约锁                                             |
+| limitcenter | LimitReservation + BucketSet                 | 所有商户/窗口/指标一次原子预占；先执行授权、后提交渠道；成功 held→used                                       |
+| realtime    | Order/Payment/RefundProjection               | 按各来源聚合版本更新完整投影；不裁决支付成功、剩余额或额度                                                   |
 
-订单金额占用和商户周期限额是两类不同资源。领域事务只在单服务数据源内成立；多个聚合需原子协调时，由同服务应用事务固定锁顺序完成，不宣称跨库 ACID。
+订单金额占用和商户周期限额是两类不同资源。领域事务只在单服务数据源内成立；多个聚合需原子协调时，由同服务应用事务固定锁顺序完成，不宣称跨库
+ACID。
 
 ### 3.1 领域接口与适配位置
 
@@ -95,7 +107,8 @@ public interface PaymentChannelGateway {
 }
 ```
 
-Gateway.lock表达当前应用事务内取写锁；仅infrastructure使用QueryWrapper.forUpdate，domain不感知SQL。OrderChange携带此次真正发生的领域事件，app在同事务按目标发布Outbox。Money使用框架的不可变金额类型；PaymentIntent、VerifiedPaymentOutcome为本地domain值对象，不复用业务client record作为内部可变模型。
+Gateway.lock表达当前应用事务内取写锁；仅infrastructure使用QueryWrapper.forUpdate，domain不感知SQL。OrderChange携带此次真正发生的领域事件，app在同事务按目标发布Outbox。Money使用框架的不可变金额类型；PaymentIntent、VerifiedPaymentOutcome为本地domain值对象，不复用业务client
+record作为内部可变模型。
 
 PaymentChannelGateway有真实的支付宝/微信/银联及沙箱adapter替换点。返回类型必须区分已受理等待交互、确定无收款风险、结果未知和成功事实；close返回还需区分仅停止未收款交易与带资金退回的撤销。不能把所有HTTP非2xx映射成可释放FAILED。纯计算的OrderFeePolicy、RefundAllocationPolicy、LimitWindowPolicy可直接用领域对象验证，无需启动Spring。
 
@@ -110,9 +123,11 @@ outstandingAmount = amountMinor - paidAmountMinor
 PAID <=> paidAmountMinor == amountMinor  （正常订单收敛路径）
 ```
 
-所有金额用正/非负有符号 BIGINT 存储，Java long，计算使用 checked arithmetic；CNY 单位为分。费率使用 BigDecimal 十进制字符串，舍入到整数分，禁止 double。首期只开放 CNY；显式其他币种必须先实现并开通能力。金额业务上限由平台产品定义并校验，不能等到数据库溢出才拒绝。
+所有金额用正/非负有符号 BIGINT 存储，Java long，计算使用 checked arithmetic；CNY 单位为分。费率使用 BigDecimal
+十进制字符串，舍入到整数分，禁止 double。首期只开放 CNY；显式其他币种必须先实现并开通能力。金额业务上限由平台产品定义并校验，不能等到数据库溢出才拒绝。
 
-退款不减少 `paidAmountMinor`，不改变上述公式。净收款 `paid-refunded` 只在查询组合中展示。原成功付款的金额/成功状态不因退款改写，可退容量在 payment 独立表维护。
+退款不减少 `paidAmountMinor`，不改变上述公式。净收款 `paid-refunded` 只在查询组合中展示。原成功付款的金额/成功状态不因退款改写，可退容量在
+payment 独立表维护。
 
 例如100元订单先收30再退30，原paid仍30、可收未占用余额仍70；后续成功收70后按历史成功合计进入PAID，净收显示70。退款事实须独立呈现给商户，不能为了补回退款额再向原订单收30。
 
@@ -131,90 +146,114 @@ stateDiagram-v2
   CLOSED --> [*]
 ```
 
-INIT/PENDING 可以取得新付款占用；CLOSING 禁止新占用，但处理原付款结果。PAID/CLOSED 禁止新付款、改额、延期、重开和新关单；查询、已提交命令的幂等返回、独立退款不改订单，继续允许。
+INIT/PENDING 可以取得新付款占用；CLOSING 禁止新占用，但处理原付款结果。PAID/CLOSED
+禁止新付款、改额、延期、重开和新关单；查询、已提交命令的幂等返回、独立退款不改订单，继续允许。
 
-| 对象 | 过程状态 |
-|---|---|
-| allocation | INIT→HELD→CONSUMED / RELEASED；正常终态只转换一次 |
-| PaymentOrder | INIT→PROCESSING / UNKNOWN / CLOSING→SUCCEEDED / FAILED / CLOSED；UNKNOWN可回到查证后的处理中或终态 |
-| PaymentAttempt | INIT→SUBMITTING→PENDING / UNKNOWN→SUCCEEDED / FAILED / CLOSED；可靠同步结果可以直接从SUBMITTING收敛 |
-| RefundRequest | INIT→PROCESSING→SUCCEEDED / PARTIAL_SUCCEEDED / FAILED；UNKNOWN子项未收敛时保持PROCESSING并显示unknownCount |
-| RefundOrder | INIT→PROCESSING / UNKNOWN→SUCCEEDED / FAILED；确定失败后才释放该子项可退预占 |
-| LimitReservation | INIT→RESERVED→EXECUTING→CONFIRMED / RELEASED；未执行RESERVED也可EXPIRED |
+| 对象             | 过程状态                                                                                                    |
+|------------------|-------------------------------------------------------------------------------------------------------------|
+| allocation       | INIT→HELD→CONSUMED / RELEASED；正常终态只转换一次                                                           |
+| PaymentOrder     | INIT→PROCESSING / UNKNOWN / CLOSING→SUCCEEDED / FAILED / CLOSED；UNKNOWN可回到查证后的处理中或终态          |
+| PaymentAttempt   | INIT→SUBMITTING→PENDING / UNKNOWN→SUCCEEDED / FAILED / CLOSED；可靠同步结果可以直接从SUBMITTING收敛         |
+| RefundRequest    | INIT→PROCESSING→SUCCEEDED / PARTIAL_SUCCEEDED / FAILED；UNKNOWN子项未收敛时保持PROCESSING并显示unknownCount |
+| RefundOrder      | INIT→PROCESSING / UNKNOWN→SUCCEEDED / FAILED；确定失败后才释放该子项可退预占                                |
+| LimitReservation | INIT→RESERVED→EXECUTING→CONFIRMED / RELEASED；未执行RESERVED也可EXPIRED                                     |
 
-PaymentOrder 的 FAILED/CLOSED 只有在不再允许新 attempt、所有旧 attempt 不可能收款后才能形成。单 attempt 失败但允许下一尝试，不提前终结整个 PaymentOrder 或释放 acquire allocation。成功后再收到互相矛盾的退款/撤销事实，记录独立证据与补偿，不把原成功任意倒改。
+PaymentOrder 的 FAILED/CLOSED 只有在不再允许新 attempt、所有旧 attempt 不可能收款后才能形成。单 attempt 失败但允许下一尝试，不提前终结整个
+PaymentOrder 或释放 acquire allocation。成功后再收到互相矛盾的退款/撤销事实，记录独立证据与补偿，不把原成功任意倒改。
 
 ### 4.3 时间约定
 
-应用 Clock、JVM、任务、JDBC 和数据库会话统一 Asia/Shanghai；业务持久化 DATETIME(6)，跨服务 DTO 用 OffsetDateTime，必须携带 +08:00。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
+应用 Clock、JVM、任务、JDBC 和数据库会话统一 Asia/Shanghai；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime，必须携带
++08:00。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
 
-orderDueAt 是未付清处理检查点；sessionExpiresAt 是访问凭证期限；actionExpiresAt 是渠道参数期限。KEEP_PENDING 不把 orderDueAt 当成隐蔽停付时间，也不会延长旧二维码。延期按原条款修改检查点，不改总额或合约版本。
+orderDueAt 是未付清处理检查点；sessionExpiresAt 是访问凭证期限；actionExpiresAt 是渠道参数期限。KEEP_PENDING 不把
+orderDueAt 当成隐蔽停付时间，也不会延长旧二维码。延期按原条款修改检查点，不改总额或合约版本。
 
 ## 5. 关键事务与锁顺序
 
-网络调用一律在本地短事务之外执行。表字段、唯一约束及事务锁顺序见[数据库设计](design/DATABASE.md)。推荐交易事务使用 READ COMMITTED，所有金额决策显式锁行/CAS，不能依赖隔离级别隐含保护。死锁只做有界整事务重试，保持所有业务ID/请求号不变。
+网络调用一律在本地短事务之外执行。表字段、唯一约束及事务锁顺序见[数据库设计](design/DATABASE.md)。推荐交易事务使用 READ
+COMMITTED，所有金额决策显式锁行/CAS，不能依赖隔离级别隐含保护。死锁只做有界整事务重试，保持所有业务ID/请求号不变。
 
-| 编号 | 本地事务 | 同事务的持久副作用 |
-|---|---|---|
-| A0 | 取得商户订单号创建意图 | 固定orderId、规范化摘要和首个请求意图；并发唯一键胜出者是所有重试的唯一身份 |
-| P1 | product权威新单准入 | 合约锁、有效性、可信商户事实、OrderAdmission快照与幂等记录 |
-| A1 | 正式创单 | order、snapshot、fee、可选session、到期任务、订单投影Outbox、创建意图完成 |
-| A2 | 新付款受理 | 锁order；验证原条款/时间/金额/次数；生成paymentId、HELD allocation；reserved增加；输入齐备时写执行意图Outbox，缺输入则由恢复用例补齐后同事务发布 |
-| Y1 | payment接受执行意图 | 锁parent gate、payment gate；验证allocation；插入PaymentOrder、首attempt、稳定渠道请求号；登记执行任务 |
-| L1/L2 | Reserve / BeginExecution | 全部桶held预占 / reservation执行状态及执行凭证；互斥过期释放 |
-| Y2 | 提交渠道前 | 锁gate→payment→attempt，CAS INIT→SUBMITTING、记录执行凭证与风险结果；提交事务后才发渠道请求 |
-| Y3 | 付款结果 | 验证证据，锁gate→payment→attempt；成功事实、退款容量、各独立目标Outbox；失败/未知证据和查证任务 |
-| A3 | 消费付款结果 | Inbox去重，锁order→allocation；逐笔CONSUMED/RELEASED，paid/reserved、订单状态、fee确认、订单通知和投影Outbox |
-| R1 | 退款计划 | 锁parent gate→成功付款容量（paymentId排序）；申请、固定计划/子退款、各容量reserved、执行任务 |
-| R2 | 子退款结果 | 锁parent gate→refund_request→capacity→refund_order；退款金额、容量reserved→refunded、申请累计、退款事件/退费/额度恢复Outbox |
+| 编号  | 本地事务                 | 同事务的持久副作用                                                                                                                               |
+|-------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| A0    | 取得商户订单号创建意图   | 固定orderId、规范化摘要和首个请求意图；并发唯一键胜出者是所有重试的唯一身份                                                                      |
+| P1    | product权威新单准入      | 合约锁、有效性、可信商户事实、OrderAdmission快照与幂等记录                                                                                       |
+| A1    | 正式创单                 | order、snapshot、fee、可选session、到期任务、订单投影Outbox、创建意图完成                                                                        |
+| A2    | 新付款受理               | 锁order；验证原条款/时间/金额/次数；生成paymentId、HELD allocation；reserved增加；输入齐备时写执行意图Outbox，缺输入则由恢复用例补齐后同事务发布 |
+| Y1    | payment接受执行意图      | 锁parent gate、payment gate；验证allocation；插入PaymentOrder、首attempt、稳定渠道请求号；登记执行任务                                           |
+| L1/L2 | Reserve / BeginExecution | 全部桶held预占 / reservation执行状态及执行凭证；互斥过期释放                                                                                     |
+| Y2    | 提交渠道前               | 锁gate→payment→attempt，CAS INIT→SUBMITTING、记录执行凭证与风险结果；提交事务后才发渠道请求                                                      |
+| Y3    | 付款结果                 | 验证证据，锁gate→payment→attempt；成功事实、退款容量、各独立目标Outbox；失败/未知证据和查证任务                                                  |
+| A3    | 消费付款结果             | Inbox去重，锁order→allocation；逐笔CONSUMED/RELEASED，paid/reserved、订单状态、fee确认、订单通知和投影Outbox                                     |
+| R1    | 退款计划                 | 锁parent gate→成功付款容量（paymentId排序）；申请、固定计划/子退款、各容量reserved、执行任务                                                     |
+| R2    | 子退款结果               | 锁parent gate→refund_request→capacity→refund_order；退款金额、容量reserved→refunded、申请累计、退款事件/退费/额度恢复Outbox                      |
 
-R2 在parent gate之后先锁申请，容量锁按 paymentId 取锁，多个子项批量处理时先统一锁request，再按同一顺序锁全部capacity；禁止先锁refund_order再反向锁request。payment成功与退款规划共用parent gate，使“本次规划看到了哪些成功付款”有清楚的串行点；跨订单之间仍能并行。
+R2 在parent gate之后先锁申请，容量锁按 paymentId
+取锁，多个子项批量处理时先统一锁request，再按同一顺序锁全部capacity；禁止先锁refund_order再反向锁request。payment成功与退款规划共用parent
+gate，使“本次规划看到了哪些成功付款”有清楚的串行点；跨订单之间仍能并行。
 
 ## 6. 创单、准入与 DirectPay
 
 ### 6.1 可靠的创建身份
 
-唯一业务键是 `(tenantId,payeeMerchantId,merchantOrderNo)`。A0 创建 `order_create_intent`，保留稳定 orderId/requestDigest，而不是先插一个绕过准入的可付订单。规范化 CNY、默认业务字段后计算摘要；不把稍后服务端生成的时间重新代入重试摘要。
+唯一业务键是 `(tenantId,payeeMerchantId,merchantOrderNo)`。A0 创建 `order_create_intent`，保留稳定
+orderId/requestDigest，而不是先插一个绕过准入的可付订单。规范化 CNY、默认业务字段后计算摘要；不把稍后服务端生成的时间重新代入重试摘要。
 
 同键同摘要返回原意图/订单；同键不同摘要为 IDEMPOTENCY_CONFLICT。A0唯一键冲突后先回滚当前事务，再读胜出记录，不继续持有失败的创建事务去调用product。
 
-product 以稳定 orderId 请求进行 P1：锁当前merchant_contract，再判断状态、半开有效区间、revision/generation和已验证商户事实。合约停单使用同一锁。先读取已存在相同准入结果再判断当前资格，保证停单后的原请求重试返回原准入，不生成另一订单。拒绝的意图不能悄悄因重试变成新订单；修正业务须新商户订单号。
+product 以稳定 orderId 请求进行
+P1：锁当前merchant_contract，再判断状态、半开有效区间、revision/generation和已验证商户事实。合约停单使用同一锁。先读取已存在相同准入结果再判断当前资格，保证停单后的原请求重试返回原准入，不生成另一订单。拒绝的意图不能悄悄因重试变成新订单；修正业务须新商户订单号。
 
-准入绑定orderId/payee/requestDigest/revision，返回admissionId和不可变快照。跨库截止点是 **P1提交时**：此前已准入但A1尚未完成的请求，可在准入的materializeBefore内按原ID完成；其后新准入拒绝。该期限是创建意图恢复期限，不是存量订单的续付截止。恢复超期而A1从未完成时终结意图，不能用旧admission新建其他订单；已持久化订单不因此作废。A1超时应查询原orderId，不立即假定失败。
+准入绑定orderId/payee/requestDigest/revision，返回admissionId和不可变快照。跨库截止点是 **P1提交时**
+：此前已准入但A1尚未完成的请求，可在准入的materializeBefore内按原ID完成；其后新准入拒绝。该期限是创建意图恢复期限，不是存量订单的续付截止。恢复超期而A1从未完成时终结意图，不能用旧admission新建其他订单；已持久化订单不因此作废。A1超时应查询原orderId，不立即假定失败。
 
 customer经营状态为P1读取到的可信事实，跨服务不承诺与customer变更全局零窗口原子截止。用户要求的合约停止门禁通过product自己的合约锁实现；未来紧急冻结存量交易是另外的能力。
 
 ### 6.2 Checkout与DirectPay
 
-Checkout 在 A1 保存订单/费用/会话并返回托管URL；渠道单尚未创建。session token只保存摘要，页面使用订单受限权限；重放创建命令不在已失效会话上重新发放更高权限token，商户通过独立session创建命令续发。
+Checkout 在 A1 保存订单/费用/会话并返回托管URL；渠道单尚未创建。session
+token只保存摘要，页面使用订单受限权限；重放创建命令不在已失效会话上重新发放更高权限token，商户通过独立session创建命令续发。
 
-DirectPay 是同模型的便利入口：创建意图冻结首笔金额、actionKey、方式和输入摘要；A1/A2可以合并成本地事务，然后可靠发起首笔付款。接受后返回orderId/paymentId及当前PaymentAction或WAIT；不承诺RPC超时等于失败或扫码枪一定同步成功。新merchantOrderNo必须当前准入，已有合法pending的后续付款用StartPayment。
+DirectPay
+是同模型的便利入口：创建意图冻结首笔金额、actionKey、方式和输入摘要；A1/A2可以合并成本地事务，然后可靠发起首笔付款。接受后返回orderId/paymentId及当前PaymentAction或WAIT；不承诺RPC超时等于失败或扫码枪一定同步成功。新merchantOrderNo必须当前准入，已有合法pending的后续付款用StartPayment。
 
-付款码等敏感输入只通过HTTPS/可信RPC进入payment的短期加密input存储，返回绑定paymentId/attempt意图的opaque inputRef；acquire只持引用。敏感输入准备与A2之间允许存在未使用input，按期限清理；未取得input时不发送执行命令，A2恢复必须重用原paymentId。业务摘要使用服务端keyed摘要，不存可离线枚举的短付款码明文散列。原输入到期且尚未提交时，先封禁原attempt，再由明确的新尝试补充输入；不得让Outbox无限重放已过期付款码。
+付款码等敏感输入只通过HTTPS/可信RPC进入payment的短期加密input存储，返回绑定paymentId/attempt意图的opaque
+inputRef；acquire只持引用。敏感输入准备与A2之间允许存在未使用input，按期限清理；未取得input时不发送执行命令，A2恢复必须重用原paymentId。业务摘要使用服务端keyed摘要，不存可离线枚举的短付款码明文散列。原输入到期且尚未提交时，先封禁原attempt，再由明确的新尝试补充输入；不得让Outbox无限重放已过期付款码。
 
 ## 7. 多笔付款执行与结果收敛
 
-1. acquire先查actionKey幂等，再锁order。校验原snapshot、等待策略、允许方式、手动金额、最大成功笔数；CLOSE已到检查点时当场持久进入CLOSING并拒绝新付款，不依赖延时任务准时到达；金额和笔数在途一起预占。同一动作返回同paymentId，新付款动作才用新actionKey。
+1.
+acquire先查actionKey幂等，再锁order。校验原snapshot、等待策略、允许方式、手动金额、最大成功笔数；CLOSE已到检查点时当场持久进入CLOSING并拒绝新付款，不依赖延时任务准时到达；金额和笔数在途一起预占。同一动作返回同paymentId，新付款动作才用新actionKey。
 2. allocation保存不可变paymentId、金额/币种/主体和执行意图摘要；A2同事务产生执行目标Outbox。payment仅接受可信acquire的绑定，不能让页面直接提交任意金额或渠道商户号。
 
    缺少必须的敏感输入时，A2保留NEED_INPUT且不发布可执行意图；恢复用例以同paymentId补齐inputRef后，在占用仍HELD/订单可执行的事务内发布一次。渠道请求号由adapter按对应产品字符集/长度生成并先持久化，不直接截断或假设平台64位ID必然能作为渠道商户订单号。
-3. payment持久化Y1后再准备渠道绑定/attempt；咨询risk（当前DEFAULT_ALLOW），Reserve与BeginExecution商户限额。operationId固定到PaymentOrder，attempt重试不重复计成功笔数；执行凭证额外绑定当前attempt和executionEpoch。
+3.
+payment持久化Y1后再准备渠道绑定/attempt；咨询risk（当前DEFAULT_ALLOW），Reserve与BeginExecution商户限额。operationId固定到PaymentOrder，attempt重试不重复计成功笔数；执行凭证额外绑定当前attempt和executionEpoch。
 4. payment进行Y2检查并进入SUBMITTING，然后调用渠道。claim租约仅调度互斥，不能证明旧worker不会继续。进入SUBMITTING即按可能已发送处理；响应丢失为UNKNOWN，不自动重新扣款或换渠道。
-5. 回调验签、解密和初步解析在事务外；Y3重新核对实际收款身份、金额币种、稳定请求号和渠道交易号，保存可审计receipt/证据。只有提交成功后返回渠道ACK。同receipt的规范化资金事实冲突进入anomaly，不静默覆盖；只改变签名/重发时间等非资金信息的合法重复不误报新的付款。
+5.
+回调验签、解密和初步解析在事务外；Y3重新核对实际收款身份、金额币种、稳定请求号和渠道交易号，保存可审计receipt/证据。只有提交成功后返回渠道ACK。同receipt的规范化资金事实冲突进入anomaly，不静默覆盖；只改变签名/重发时间等非资金信息的合法重复不误报新的付款。
 6. 一次成功原子提交：PaymentOrder/attempt成功、refund_capacity初始化、acquire结果、limit确认、realtime快照、risk结果各自目标Outbox。若某目标不可用，不阻止其他目标收敛。
-7. acquire以paymentId/allocationId消费完整结果：HELD→CONSUMED，reserved减该笔、paid加该笔，成功笔数加一；状态变PAID时唯一确认整单费用并发OrderFullyPaid。重复成功为无操作；不同paymentId不能共享一个去重键。
+7.
+acquire以paymentId/allocationId消费完整结果：HELD→CONSUMED，reserved减该笔、paid加该笔，成功笔数加一；状态变PAID时唯一确认整单费用并发OrderFullyPaid。重复成功为无操作；不同paymentId不能共享一个去重键。
 
-同payment下一attempt仅在旧attempt有渠道确定不收款证据且旧发送路径安全终结后准备；金额/币种/原allocation保持不变。PaymentOrder的activeAttemptId在锁下更新，旧回调仍按原attempt处理；单纯查询NOT_FOUND不足以证明一个暂停的SUBMITTING worker以后不会提交。
+同payment下一attempt仅在旧attempt有渠道确定不收款证据且旧发送路径安全终结后准备；金额/币种/原allocation保持不变。PaymentOrder的activeAttemptId在锁下更新，旧回调仍按原attempt处理；单纯查询NOT_FOUND不足以证明一个暂停的SUBMITTING
+worker以后不会提交。
 
 ## 8. 关单与迟到执行
 
-acquire锁order进入CLOSING，设置closeEpoch，并持久化关闭目标Outbox；从此A2拒绝全部新付款。payment接收父订单关闭时先持久化parent gate（即使没有任何PaymentOrder），在同一锁下封禁之后抵达的新paymentId。迟到execute若对应付款从未准备/提交，在门禁下按原绑定持久化最小CLOSED PaymentOrder和本地NO_SUBMISSION_GATE证据并可靠返回结果，使acquire能释放原allocation；已有SUBMITTING不能走此捷径。单笔取消也先写payment gate tombstone，再检查PaymentOrder是否已创建。
+acquire锁order进入CLOSING，设置closeEpoch，并持久化关闭目标Outbox；从此A2拒绝全部新付款。payment接收父订单关闭时先持久化parent
+gate（即使没有任何PaymentOrder），在同一锁下封禁之后抵达的新paymentId。迟到execute若对应付款从未准备/提交，在门禁下按原绑定持久化最小CLOSED
+PaymentOrder和本地NO_SUBMISSION_GATE证据并可靠返回结果，使acquire能释放原allocation；已有SUBMITTING不能走此捷径。单笔取消也先写payment
+gate tombstone，再检查PaymentOrder是否已创建。
 
-INIT且能证明从未进入SUBMITTING的attempt可在持久门禁下取消。已经SUBMITTING/PENDING/UNKNOWN的attempt必须按原渠道请求号查证/关闭/撤销；**本地CANCELLED、任务租约到期、RPC超时或渠道NOT_FOUND都不能单独证明可释放金额**。已放行而暂停的worker仍可能恢复，不能靠“发送前再查一次”宣称消除了检查与发送间隙。
+INIT且能证明从未进入SUBMITTING的attempt可在持久门禁下取消。已经SUBMITTING/PENDING/UNKNOWN的attempt必须按原渠道请求号查证/关闭/撤销；
+**本地CANCELLED、任务租约到期、RPC超时或渠道NOT_FOUND都不能单独证明可释放金额**
+。已放行而暂停的worker仍可能恢复，不能靠“发送前再查一次”宣称消除了检查与发送间隙。
 
 适配器必须给出渠道支持的确定关闭/无收款风险证据，且覆盖同一请求号的迟到提交；若渠道不能保证，保持CLOSING/UNKNOWN并继续受控查证或人工处理，不强行承诺到固定时间必然CLOSED。已成功的付款保留；带资金退回的渠道撤销按实际资金事实分开记录。
 
-payment仅在父gate已封禁、每笔旧付款已成功或最终无收款风险、没有可提交旧尝试时发出可收敛结果。acquire必须逐笔取得最终结果并消除HELD，不能只凭parent fence ACK释放尚未到达payment的执行意图；之后全部付清为PAID，否则CLOSED，保留部分paid。随后异常成功仍在payment保存anomaly及独立补偿，不能重开CLOSED或对已释放allocation再次做减法。
+payment仅在父gate已封禁、每笔旧付款已成功或最终无收款风险、没有可提交旧尝试时发出可收敛结果。acquire必须逐笔取得最终结果并消除HELD，不能只凭parent
+fence ACK释放尚未到达payment的执行意图；之后全部付清为PAID，否则CLOSED，保留部分paid。随后异常成功仍在payment保存anomaly及独立补偿，不能重开CLOSED或对已释放allocation再次做减法。
 
 KEEP_PENDING的到期任务只记录策略检查并维持可续付状态，不发送父级关闭；重放任务必须重读当前状态与deadlineVersion。已CLOSED不受后来合约修改影响。
 
@@ -224,7 +263,8 @@ KEEP_PENDING的到期任务只记录策略检查并维持可续付状态，不�
 
 每笔PaymentOrder第一次被payment受理时固定initiatedAt。以此计算Asia/Shanghai自然日/周/月，终生使用固定哨兵区间；成功、退款和重试都引用原bucketId，不按通知到达日重新归桶。metric为AMOUNT与PAYMENT_COUNT，预占时分别持有本笔金额和1，成功才转used。
 
-product先发布limit policy并收到激活ACK，才允许对应合约新准入。历史已激活policy持续服务原pending订单。ruleScopeId是稳定累计身份，policyVersion只是配置解释；阈值调整不生成空桶。当前runtime阈值在原稳定范围生效，降低后used+held可能已经超过阈值，此时只拒绝新预占，不回滚真实付款。
+product先发布limit
+policy并收到激活ACK，才允许对应合约新准入。历史已激活policy持续服务原pending订单。ruleScopeId是稳定累计身份，policyVersion只是配置解释；阈值调整不生成空桶。当前runtime阈值在原稳定范围生效，降低后used+held可能已经超过阈值，此时只拒绝新预占，不回滚真实付款。
 
 周起点/统计口径属于桶形状，不能对活跃规则直接覆盖后漏计。首期提供发布校验：有已用/在途桶时禁止原地改形状；变更需独立迁移方案，包含原窗口结转/重叠双校验，在实现该算法前不开放此类在线修改。阈值和启停仍正常可配置；终生累计始终保留。
 
@@ -238,7 +278,8 @@ BeginExecution只对未过期RESERVED成功，并与过期任务锁同reservatio
 
 Confirm持可信payment成功版本，把每个item的held转used，只生效一次；Release需要payment最终无收款风险证据，不能接受商户自报失败。payment成功先落库，limitcenter不可用只使held继续保留并重投Confirm。对相互矛盾的CONFIRMED/RELEASED事实拒绝自动覆盖并生成差异，不能依靠消息先后抵销。
 
-所有额度操作先锁稳定operation gate，再锁reservation/runtime/bucket。Release若先于Reserve到达，保存FENCED tombstone和证据，即使尚无reservation也不只返回NOT_FOUND；迟到Reserve/Begin不能创建新held。Confirm若发现相反的已释放门禁必须进入差异查证，不能在未验证真实成功来源时重新开放该operation。
+所有额度操作先锁稳定operation gate，再锁reservation/runtime/bucket。Release若先于Reserve到达，保存FENCED
+tombstone和证据，即使尚无reservation也不只返回NOT_FOUND；迟到Reserve/Begin不能创建新held。Confirm若发现相反的已释放门禁必须进入差异查证，不能在未验证真实成功来源时重新开放该operation。
 
 默认NO_RESTORE；若原policy允许成功退款恢复，必须同时有原Confirm与RefundSucceeded。退款先到时返回依赖未就绪并可靠重试，不标记已成功消费；按原reservation_item逐桶恢复，累计不超过原consume。默认不恢复笔数；启用全额退款恢复笔数时只有该PaymentOrder累计退款全额且首次满足条件才恢复1，不能每个子退款都减1。
 
@@ -246,7 +287,9 @@ Confirm持可信payment成功版本，把每个item的held转used，只生效一
 
 RefundFacade在payment落库。原条款退款策略由首次可信执行意图在payment保存的订单条款摘要/退款配置提供，不能信任商户新传的fee/refund规则，也不要求当前合约仍活跃。调用方权限独立校验，允许对PAID和部分收款CLOSED引用原成功付款退款；订单状态不作为回写对象。
 
-R1在parent gate下固定成功付款集合，按paymentId锁可退容量，再按FIFO（succeededAt、paymentId）排序规划。每笔容量遵守 `refundedMinor+reservedMinor≤succeededAmountMinor`。将申请、plan version、每个子退款id/固定channelRefundNo和所有预占一次提交。部分退款不允许时，只接受该申请时已成功可退款范围的全额退款；不能把未收的订单应收差额当成可退资金。
+R1在parent gate下固定成功付款集合，按paymentId锁可退容量，再按FIFO（succeededAt、paymentId）排序规划。每笔容量遵守
+`refundedMinor+reservedMinor≤succeededAmountMinor`。将申请、plan
+version、每个子退款id/固定channelRefundNo和所有预占一次提交。部分退款不允许时，只接受该申请时已成功可退款范围的全额退款；不能把未收的订单应收差额当成可退资金。
 
 首期按计划sequenceNo串行执行；前一子项确定成功/失败后才启动下一项，UNKNOWN先查证并等待，确定失败保留其失败并继续固定计划下一项，不把失败额重新分配。R2使UNKNOWN保留reserved；确定失败释放，成功转refunded。申请全部完成后汇总SUCCEEDED/FAILED/PARTIAL_SUCCEEDED，存在未确定子项则不终结。通信重放/查证重用固定子退款，不重开确定FAILED子项，也不自动改退其他付款；首期不提供自动重规划接口，需重新申请的业务必须确认原子项不可迟到成功并使用新merchantRefundNo。
 
@@ -262,20 +305,23 @@ outbox.publish(new OutboxMessage(tenantId,
 delayedTasks.register("pay.order.due", orderId + ":" + deadlineVersion, dueAt);
 ```
 
-二者均在同一DataSource的本地写事务注册。`OutboxMessage.version`是载荷schemaVersion，业务aggregateVersion在payload；不能把两者混用。`publish`不按businessId去重，应用业务唯一键/状态迁移负责只产生一次领域事实。
+二者均在同一DataSource的本地写事务注册。`OutboxMessage.version`是载荷schemaVersion，业务aggregateVersion在payload；不能把两者混用。
+`publish`不按businessId去重，应用业务唯一键/状态迁移负责只产生一次领域事实。
 
 Outbox每type仅支持一个handler。一次支付结果必须显式创建acquire/limitcenter/realtime/risk等独立投递记录，而不是一个handler串行调用所有目标。定义稳定businessEventId（在成功事实事务内一次生成），各投递记录有自己的outboxId；后续重放保持各ID不变，不能把目标重投误认为新的付款事实。
 
-远程消费者在本地事务中把受信事件映射成`OutboxEvent`，调用 `OutboxInbox.consume(consumerId,event,databaseWork)`；保留生产方outboxId/type/schemaVersion/occurredAt，并以业务事实ID和状态约束作第二道去重。Tenant必须与认证出的服务授权范围匹配，不能直接信任payload。回调不得做外部扣款/HTTP后宣称恰好一次。
+远程消费者在本地事务中把受信事件映射成`OutboxEvent`，调用 `OutboxInbox.consume(consumerId,event,databaseWork)`
+；保留生产方outboxId/type/schemaVersion/occurredAt，并以业务事实ID和状态约束作第二道去重。Tenant必须与认证出的服务授权范围匹配，不能直接信任payload。回调不得做外部扣款/HTTP后宣称恰好一次。
 
-| 所有者 | 持久任务 | 处理要求 |
-|---|---|---|
-| acquire | 创建意图恢复、order.due、关闭收敛、待发送input恢复 | 当前state/deadlineVersion/意图摘要复核；旧任务无操作 |
-| payment | execute/query/close、refund.execute/query、额度/订单差异修复 | 外部操作固定请求号；每次执行前重新验门禁 |
-| limitcenter | reservation.expire、未确认占用差异核查 | 只自动过期RESERVED；EXECUTING查证，不盲目释放 |
-| realtime | projection.repair | 从权威完整快照修复；不回写交易库 |
+| 所有者      | 持久任务                                                     | 处理要求                                             |
+|-------------|--------------------------------------------------------------|------------------------------------------------------|
+| acquire     | 创建意图恢复、order.due、关闭收敛、待发送input恢复           | 当前state/deadlineVersion/意图摘要复核；旧任务无操作 |
+| payment     | execute/query/close、refund.execute/query、额度/订单差异修复 | 外部操作固定请求号；每次执行前重新验门禁             |
+| limitcenter | reservation.expire、未确认占用差异核查                       | 只自动过期RESERVED；EXECUTING查证，不盲目释放        |
+| realtime    | projection.repair                                            | 从权威完整快照修复；不回写交易库                     |
 
-DelayedTask唯一键为tenant/type/bizId；已完成任务不能依赖同键register获得再次调度。每次新查证用`attemptId:querySequence`，订单延期用`orderId:deadlineVersion`。任务状态由组件维护，不强制改成INIT。handler自身短事务、幂等、可重复；框架当前无租约续期，长HTTP超时必须受控，不能拿租约当资金锁。
+DelayedTask唯一键为tenant/type/bizId；已完成任务不能依赖同键register获得再次调度。每次新查证用`attemptId:querySequence`
+，订单延期用`orderId:deadlineVersion`。任务状态由组件维护，不强制改成INIT。handler自身短事务、幂等、可重复；框架当前无租约续期，长HTTP超时必须受控，不能拿租约当资金锁。
 
 realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版本忽略。一个投影行若组合多来源，必须分别保留acquireVersion/paymentRefundVersion，不能比较两个服务的数字版本。退款汇总在payment_parent_gate下递增refundSummaryVersion并发送完整累计快照；不得按到达顺序简单“加退款额”。查询展示snapshotAt与来源位点，不回源交易主库给列表补齐；付款结果页查acquire/payment权威接口。
 
@@ -283,24 +329,26 @@ realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版
 
 以下已核对当前仓库README与源码。链接是设计依据，不表示收单平台已经接入。
 
-| 现有能力 | 具体复用 | 收单平台新增 |
-|---|---|---|
-| [merchant](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md) | MerchantFacade、MerchantQueryFacade、merchant_profile | customer远程事实、关系和逐项授权；不另建重复商户主档 |
-| [contract](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md) | catalog/contract/revision、ContractResolveFacade和强类型配置合并 | OrderAdmission持久决策、合约停单锁、收单参数编译、limit激活协议；现有resolve不能直接代替准入 |
-| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md) | BaseDO、MyBatis-Flex、IdGenerator、sequence、Flyway | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL |
-| [database-processor](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md) | wrapper processor生成Mapper/Tables | 不编写空Mapper或重复处理器配置 |
-| [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md) | OutboxTemplate/Message/Inbox/Handler及组件迁移 | 目标类型、业务事实ID、事件内容、重投/差异流程 |
-| [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md) | 事务register、handler、失败管理 | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务 |
-| [gRPC binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/README.md) | 原生spring.grpc、BindableService、GrpcChannelFactory | 生成proto/stub、身份和tenant拦截器、deadline/幂等/业务结果映射 |
-| [signature](../loadup-framework/loadup-components/security/loadup-components-signature/README.md) / KMS | RequestSigner/Verifier、原始字节签名、nonce store、密钥引用 | 商户身份映射和通知语义ACK；渠道签名仍由各渠道adapter负责 |
-| resource-server / authorization / UPMS | 操作员与调用者令牌、动作授权 | payee与父子商户作用域校验；cashier订单scope，不新增付款人账号 |
-| webmvc / springdoc / commons | SuccessResponse、FailureResponse、PageDTO/PageResponse、统一异常 | 业务ResultCode及外部渠道回调专用ACK适配 |
-| http / observability / resilience4j | HTTP连接、超时、Micrometer/Observation、LogUtil | 只对可安全重试的操作配置策略，不能给扣款POST加盲目自动重试 |
-| file/DFS（后置） | 对账文件存储引用、任务基础设施 | reconciliation完整领域后置 |
+| 现有能力                                                                                                                           | 具体复用                                                         | 收单平台新增                                                                                 |
+|------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [merchant](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md)                                                   | MerchantFacade、MerchantQueryFacade、merchant_profile            | customer远程事实、关系和逐项授权；不另建重复商户主档                                         |
+| [contract](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md)                                             | catalog/contract/revision、ContractResolveFacade和强类型配置合并 | OrderAdmission持久决策、合约停单锁、收单参数编译、limit激活协议；现有resolve不能直接代替准入 |
+| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                        | BaseDO、MyBatis-Flex、IdGenerator、sequence、Flyway              | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
+| [database-processor](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md)                    | wrapper processor生成Mapper/Tables                               | 不编写空Mapper或重复处理器配置                                                               |
+| [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)                                     | OutboxTemplate/Message/Inbox/Handler及组件迁移                   | 目标类型、业务事实ID、事件内容、重投/差异流程                                                |
+| [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)                           | 事务register、handler、失败管理                                  | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务                            |
+| [gRPC binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/README.md) | 原生spring.grpc、BindableService、GrpcChannelFactory             | 生成proto/stub、身份和tenant拦截器、deadline/幂等/业务结果映射                               |
+| [signature](../loadup-framework/loadup-components/security/loadup-components-signature/README.md) / KMS                            | RequestSigner/Verifier、原始字节签名、nonce store、密钥引用      | 商户身份映射和通知语义ACK；渠道签名仍由各渠道adapter负责                                     |
+| resource-server / authorization / UPMS                                                                                             | 操作员与调用者令牌、动作授权                                     | payee与父子商户作用域校验；cashier订单scope，不新增付款人账号                                |
+| webmvc / springdoc / commons                                                                                                       | SuccessResponse、FailureResponse、PageDTO/PageResponse、统一异常 | 业务ResultCode及外部渠道回调专用ACK适配                                                      |
+| http / observability / resilience4j                                                                                                | HTTP连接、超时、Micrometer/Observation、LogUtil                  | 只对可安全重试的操作配置策略，不能给扣款POST加盲目自动重试                                   |
+| file/DFS（后置）                                                                                                                   | 对账文件存储引用、任务基础设施                                   | reconciliation完整领域后置                                                                   |
 
-框架contract阶段一是扁平字段路径和STRING/INTEGER/DECIMAL/BOOLEAN强类型值，不支持任意对象/数组Schema。收单平台按[配置设计](design/CONTRACT-SCHEMA.md)编译，不能把一个尚不存在的JSON Schema引擎写成已复用能力。
+框架contract阶段一是扁平字段路径和STRING/INTEGER/DECIMAL/BOOLEAN强类型值，不支持任意对象/数组Schema。收单平台按[配置设计](design/CONTRACT-SCHEMA.md)
+编译，不能把一个尚不存在的JSON Schema引擎写成已复用能力。
 
-继续使用Kubernetes Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部gRPC生产需TLS/服务身份；不能把metadata中自报tenant等同于认证。
+继续使用Kubernetes
+Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部gRPC生产需TLS/服务身份；不能把metadata中自报tenant等同于认证。
 
 ## 13. 实施顺序与验收设计
 

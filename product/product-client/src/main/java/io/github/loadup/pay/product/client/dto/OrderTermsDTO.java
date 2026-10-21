@@ -16,15 +16,12 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.product.client.enums.UnpaidOrderAction;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 public record OrderTermsDTO(
         @Schema(description = "Wait seconds") @Positive long waitSeconds,
@@ -37,9 +34,14 @@ public record OrderTermsDTO(
 
         @Schema(description = "Session seconds") @Positive long sessionSeconds) {
     public OrderTermsDTO {
-        DomainViolation.require(waitSeconds > 0 && maxWaitSeconds >= waitSeconds && sessionSeconds > 0
-                && extensionMaxSeconds >= 0 && (extensionAllowed ? extensionMaxSeconds > 0 : extensionMaxSeconds == 0)
-                && unpaidAction != null, DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
+                waitSeconds > 0
+                        && maxWaitSeconds >= waitSeconds
+                        && sessionSeconds > 0
+                        && extensionMaxSeconds >= 0
+                        && (extensionAllowed ? extensionMaxSeconds > 0 : extensionMaxSeconds == 0)
+                        && unpaidAction != null,
+                DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

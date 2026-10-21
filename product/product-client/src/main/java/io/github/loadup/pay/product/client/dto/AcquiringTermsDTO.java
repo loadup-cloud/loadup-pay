@@ -16,15 +16,15 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.product.client.enums.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
+import java.util.List;
 
 public record AcquiringTermsDTO(
         @Schema(description = "Schema version") @Positive int schemaVersion,
@@ -37,7 +37,15 @@ public record AcquiringTermsDTO(
         NotificationTermsDTO notification,
 
         @Schema(description = "Limits") @Valid @NotNull LimitPolicyRefDTO limits,
-        @Schema(description = "Capabilities") @Valid List<ChannelCapabilityDTO> capabilities) {
+
+        @Schema(description = "Capabilities") @Valid @NotEmpty
+        List<ChannelCapabilityDTO> capabilities,
+
+        @Schema(description = "Versioned routing profile reference") @NotBlank @Size(max = 128)
+        String routingProfileRef,
+
+        @Schema(description = "Approved cashier return target code") @NotBlank @Size(max = 128)
+        String returnTargetCode) {
     public AcquiringTermsDTO {
         capabilities = capabilities == null ? List.of() : List.copyOf(capabilities);
     }

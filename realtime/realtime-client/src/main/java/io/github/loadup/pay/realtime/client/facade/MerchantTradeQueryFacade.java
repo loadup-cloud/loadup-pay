@@ -15,10 +15,15 @@
  */
 package io.github.loadup.pay.realtime.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.realtime.client.dto.*;
-import io.github.loadup.pay.realtime.client.query.*;
+import io.github.loadup.pay.realtime.client.dto.TradeDetailDTO;
+import io.github.loadup.pay.realtime.client.dto.TradeOrderDTO;
+import io.github.loadup.pay.realtime.client.dto.TradePaymentDTO;
+import io.github.loadup.pay.realtime.client.dto.TradeRefundDTO;
+import io.github.loadup.pay.realtime.client.query.TradeDetailQuery;
+import io.github.loadup.pay.realtime.client.query.TradeOrderPageQuery;
+import io.github.loadup.pay.realtime.client.query.TradePaymentPageQuery;
+import io.github.loadup.pay.realtime.client.query.TradeRefundPageQuery;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantTradeQueryFacade {

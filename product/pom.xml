@@ -15,6 +15,9 @@
     <modules>
         <module>product-client</module>
         <module>product-domain</module>
+        <module>product-app</module>
+        <module>product-infrastructure</module>
+        <module>product-adapter</module>
         <module>product-bootstrap</module>
     </modules>
 </project>

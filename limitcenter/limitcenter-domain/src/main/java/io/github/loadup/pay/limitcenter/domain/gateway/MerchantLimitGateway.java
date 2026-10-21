@@ -15,31 +15,44 @@
  */
 package io.github.loadup.pay.limitcenter.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketSet;
+import io.github.loadup.pay.limitcenter.domain.model.LimitExecutionGrant;
+import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+import java.util.List;
+import java.util.Optional;
+
+/** Mutations join one caller transaction; all bucket changes and the operation transition commit together. */
 public interface MerchantLimitGateway {
-    LimitOperationGate lockOrCreateGate(String tenantId, String operationId, String paymentId);
+    LimitOperationGate lockOrCreateGate(String tenant, String operationId, String paymentId);
 
-    Optional<LimitReservation> findByOperation(String tenantId, String operationId);
+    Optional<LimitOperationGate> lockGate(String tenant, String operationId);
 
-    LimitReservation lockReservation(String tenantId, String operationId);
+    Optional<LimitExecutionGrant> findExecutionGrant(String tenant, String operationId, long epoch);
 
-    List<LimitReservationItem> lockItems(String tenantId, String reservationId);
+    void insertExecutionGrant(String tenant, LimitExecutionGrant grant);
 
-    LimitBucketSet lockBuckets(String tenantId, List<LimitBucketKey> keys);
+    List<LimitReservationItem> loadItems(String tenant, String reservationId);
 
-    void saveGate(String tenantId, LimitOperationGate gate);
+    LimitBucketSet lockExistingBuckets(String tenant, List<LimitBucketKey> keys);
 
-    void saveReservation(
-            String tenantId,
-            LimitReservation reservation,
+    void updateBuckets(String tenant, LimitBucketSet before, LimitBucketSet after);
+
+    void updateReservation(String tenant, StoredLimitReservation stored, long expectedVersion);
+
+    Optional<StoredLimitReservation> findByOperation(String tenant, String operationId);
+
+    LimitBucketSet lockBuckets(String tenant, List<LimitBucketKey> keys);
+
+    void saveGate(String tenant, LimitOperationGate gate);
+
+    void insertReservation(
+            String tenant,
+            StoredLimitReservation stored,
             List<LimitReservationItem> items,
-            LimitBucketSet buckets,
-            long expectedVersion);
+            LimitBucketSet before,
+            LimitBucketSet after);
 }

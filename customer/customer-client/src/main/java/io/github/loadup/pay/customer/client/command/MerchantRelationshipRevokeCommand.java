@@ -22,9 +22,14 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 public record MerchantRelationshipRevokeCommand(
-        @Schema(description = "Resource id") @NotBlank @Size(max = 64) String id,
-        @Schema(description = "Idempotency key") @NotBlank @Size(max = 128) String requestKey,
-        @Schema(description = "Expected resource version") @PositiveOrZero long expectedVersion) {
+        @Schema(description = "Resource id") @NotBlank @Size(max = 64)
+        String id,
+
+        @Schema(description = "Idempotency key") @NotBlank @Size(max = 128)
+        String requestKey,
+
+        @Schema(description = "Expected resource version") @PositiveOrZero
+        long expectedVersion) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

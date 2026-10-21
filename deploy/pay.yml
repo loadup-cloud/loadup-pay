@@ -11,10 +11,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: payment}
+    matchLabels: { app: payment }
   template:
     metadata:
-      labels: {app: payment}
+      labels: { app: payment }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -22,26 +22,26 @@ spec:
           image: loadup-pay/payment:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -49,9 +49,9 @@ metadata:
   name: payment
   namespace: loadup-pay
 spec:
-  selector: {app: payment}
+  selector: { app: payment }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,10 +61,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: acquire}
+    matchLabels: { app: acquire }
   template:
     metadata:
-      labels: {app: acquire}
+      labels: { app: acquire }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -72,26 +72,26 @@ spec:
           image: loadup-pay/acquire:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -99,9 +99,9 @@ metadata:
   name: acquire
   namespace: loadup-pay
 spec:
-  selector: {app: acquire}
+  selector: { app: acquire }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }
 
 ---
 apiVersion: apps/v1
@@ -112,10 +112,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: customer}
+    matchLabels: { app: customer }
   template:
     metadata:
-      labels: {app: customer}
+      labels: { app: customer }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -123,26 +123,26 @@ spec:
           image: loadup-pay/customer:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -150,9 +150,9 @@ metadata:
   name: customer
   namespace: loadup-pay
 spec:
-  selector: {app: customer}
+  selector: { app: customer }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }
 
 ---
 apiVersion: apps/v1
@@ -163,10 +163,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: product}
+    matchLabels: { app: product }
   template:
     metadata:
-      labels: {app: product}
+      labels: { app: product }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -174,26 +174,26 @@ spec:
           image: loadup-pay/product:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -201,9 +201,9 @@ metadata:
   name: product
   namespace: loadup-pay
 spec:
-  selector: {app: product}
+  selector: { app: product }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }
 
 ---
 apiVersion: apps/v1
@@ -214,10 +214,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: limitcenter}
+    matchLabels: { app: limitcenter }
   template:
     metadata:
-      labels: {app: limitcenter}
+      labels: { app: limitcenter }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -225,26 +225,26 @@ spec:
           image: loadup-pay/limitcenter:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -252,9 +252,9 @@ metadata:
   name: limitcenter
   namespace: loadup-pay
 spec:
-  selector: {app: limitcenter}
+  selector: { app: limitcenter }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }
 
 ---
 apiVersion: apps/v1
@@ -265,10 +265,10 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: realtime}
+    matchLabels: { app: realtime }
   template:
     metadata:
-      labels: {app: realtime}
+      labels: { app: realtime }
     spec:
       terminationGracePeriodSeconds: 30
       containers:
@@ -276,26 +276,26 @@ spec:
           image: loadup-pay/realtime:bootstrap
           imagePullPolicy: Never
           ports:
-            - {name: http, containerPort: 8080}
+            - { name: http, containerPort: 8080 }
           env:
             - name: TZ
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
             periodSeconds: 2
           readinessProbe:
-            httpGet: {path: /actuator/health/readiness, port: http}
+            httpGet: { path: /actuator/health/readiness, port: http }
           livenessProbe:
-            httpGet: {path: /actuator/health/liveness, port: http}
+            httpGet: { path: /actuator/health/liveness, port: http }
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {memory: 512Mi}
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities: {drop: [ALL]}
+            capabilities: { drop: [ ALL ] }
 ---
 apiVersion: v1
 kind: Service
@@ -303,6 +303,6 @@ metadata:
   name: realtime
   namespace: loadup-pay
 spec:
-  selector: {app: realtime}
+  selector: { app: realtime }
   ports:
-    - {name: http, port: 8080, targetPort: http}
+    - { name: http, port: 8080, targetPort: http }

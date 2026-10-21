@@ -17,10 +17,14 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record TradeRefundProjection(
@@ -47,8 +51,12 @@ public record TradeRefundProjection(
         Objects.requireNonNull(refundCreatedAt);
         require("SUCCEEDED".equals(state) == (succeededAt != null), INVALID_STATE);
         if (succeededAt != null) require(!succeededAt.isBefore(refundCreatedAt), INVALID_ARGUMENT);
-        require(amount.getCent() > 0 && state != null
-                && Set.of("INIT", "PROCESSING", "UNKNOWN", "SUCCEEDED", "FAILED").contains(state), INVALID_ARGUMENT);
+        require(
+                amount.getCent() > 0
+                        && state != null
+                        && Set.of("INIT", "PROCESSING", "UNKNOWN", "SUCCEEDED", "FAILED")
+                                .contains(state),
+                INVALID_ARGUMENT);
         require(
                 refundId.equals(source.aggregateId())
                         && "payment".equals(source.producer())

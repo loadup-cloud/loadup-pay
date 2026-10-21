@@ -15,16 +15,28 @@
  */
 package io.github.loadup.pay.limitcenter.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
+import io.github.loadup.pay.limitcenter.domain.model.LimitPolicyHead;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRule;
+import io.github.loadup.pay.limitcenter.domain.model.RuntimeLimitRule;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+import java.util.Optional;
+
+/** Mutations and locks join the caller's database transaction. */
 public interface LimitPolicyGateway {
-    List<LimitRule> loadActivated(String tenantId, String policyId, int version, String policyHash);
+    LimitPolicyHead lockOrCreateHead(String tenant, String policyId, String payeeMerchantId);
 
-    void activate(String tenantId, String policyId, int version, String policyHash, List<LimitRule> rules);
+    Optional<LimitPolicyHead> lockHead(String tenant, String policyId);
+
+    Optional<ActivatedLimitPolicy> findRevision(String tenant, String policyId, int revision);
+
+    Optional<RuntimeLimitRule> lockRule(String tenant, LimitRule identity);
+
+    void insertRule(String tenant, RuntimeLimitRule rule);
+
+    void updateRule(String tenant, RuntimeLimitRule rule, long expectedVersion);
+
+    void insertRevision(String tenant, ActivatedLimitPolicy policy);
+
+    void updateHead(String tenant, LimitPolicyHead head, long expectedVersion);
 }

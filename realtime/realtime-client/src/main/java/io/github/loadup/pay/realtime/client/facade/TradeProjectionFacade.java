@@ -15,15 +15,11 @@
  */
 package io.github.loadup.pay.realtime.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.pay.realtime.client.dto.*;
-import io.github.loadup.pay.realtime.client.query.*;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface TradeProjectionFacade {

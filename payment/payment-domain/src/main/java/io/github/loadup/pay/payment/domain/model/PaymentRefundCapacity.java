@@ -17,10 +17,14 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record PaymentRefundCapacity(
@@ -67,16 +71,26 @@ public record PaymentRefundCapacity(
 
     /** Call with the locked persisted child, then commit the child/request/capacity together. */
     public RefundCapacityChange applyOutcome(RefundOrder current, ChannelRefundOutcome outcome) {
-        require(paymentId.equals(current.paymentId()) && succeededAmount.getCurrencyValue().equals(current.amount().getCurrencyValue()),
+        require(
+                paymentId.equals(current.paymentId())
+                        && succeededAmount
+                                .getCurrencyValue()
+                                .equals(current.amount().getCurrencyValue()),
                 CONFLICT);
         var updated = current.recordOutcome(outcome);
         if (!current.terminal()) require(current.amount().getCent() <= reservedMinor, CONFLICT);
         if (current.terminal() || !updated.terminal()) return new RefundCapacityChange(this, updated);
         long minor = current.amount().getCent();
         require(reservedMinor >= minor, CONFLICT);
-        var next = new PaymentRefundCapacity(paymentId, orderId, payeeMerchantId, succeededAt, succeededAmount,
+        var next = new PaymentRefundCapacity(
+                paymentId,
+                orderId,
+                payeeMerchantId,
+                succeededAt,
+                succeededAmount,
                 updated.state() == RefundState.SUCCEEDED ? Math.addExact(refundedMinor, minor) : refundedMinor,
-                reservedMinor - minor, Math.incrementExact(version));
+                reservedMinor - minor,
+                Math.incrementExact(version));
         return new RefundCapacityChange(next, updated);
     }
 

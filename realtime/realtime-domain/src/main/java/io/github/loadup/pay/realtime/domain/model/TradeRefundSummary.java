@@ -16,15 +16,26 @@
 package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record TradeRefundSummary(
-        String orderId, String payeeMerchantId, String currency, long refundedMinor, long reservedMinor,
-        List<RefundRequestProgress> requests, SourceVersion source, LocalDateTime snapshotAt) {
+        String orderId,
+        String payeeMerchantId,
+        String currency,
+        long refundedMinor,
+        long reservedMinor,
+        List<RefundRequestProgress> requests,
+        SourceVersion source,
+        LocalDateTime snapshotAt) {
     public TradeRefundSummary {
         requests = List.copyOf(requests);
         var ids = new HashSet<String>();

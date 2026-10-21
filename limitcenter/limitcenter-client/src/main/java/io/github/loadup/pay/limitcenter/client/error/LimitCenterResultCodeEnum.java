@@ -19,6 +19,11 @@ import io.github.loadup.commons.enums.ResultStatusEnum;
 import io.github.loadup.commons.result.ResultCode;
 
 public enum LimitCenterResultCodeEnum implements ResultCode {
+    ACTION_FORBIDDEN("LIMIT_ACTION_FORBIDDEN", "Service invocation is not permitted"),
+    NOT_FOUND("LIMIT_NOT_FOUND", "Limit operation was not found"),
+    POLICY_CONFLICT("LIMIT_POLICY_CONFLICT", "Limit policy identity, revision or rule lineage conflicts"),
+    SNAPSHOT_INVALID("LIMIT_SNAPSHOT_INVALID", "Stored limit policy is invalid"),
+    CONCURRENT_UPDATE("LIMIT_CONCURRENT_UPDATE", "Concurrent update; retry the unchanged request"),
     INVALID_ARGUMENT("LIMIT_INVALID_ARGUMENT", "Invalid argument"),
     INVALID_PAGE("LIMIT_INVALID_PAGE", "Invalid page"),
     EXCEEDED("LIMIT_EXCEEDED", "Merchant limit exceeded"),
@@ -27,6 +32,9 @@ public enum LimitCenterResultCodeEnum implements ResultCode {
     RESERVATION_EXPIRED("LIMIT_RESERVATION_EXPIRED", "Reservation expired before execution"),
     DEPENDENCY_NOT_READY("LIMIT_DEPENDENCY_NOT_READY", "Original payment confirmation is not ready"),
     IDEMPOTENCY_CONFLICT("LIMIT_IDEMPOTENCY_CONFLICT", "Limit operation payload changed"),
+    INVALID_STATE("LIMIT_INVALID_STATE", "Limit operation state does not permit this action"),
+    OUTCOME_UNKNOWN("LIMIT_OUTCOME_UNKNOWN", "Previous channel attempt requires trusted no-collection evidence"),
+    PERMIT_UNAVAILABLE("LIMIT_PERMIT_UNAVAILABLE", "Execution permit signing key is unavailable"),
     OUTCOME_CONFLICT("LIMIT_OUTCOME_CONFLICT", "Payment outcome conflicts with stored evidence");
 
     private final String code;

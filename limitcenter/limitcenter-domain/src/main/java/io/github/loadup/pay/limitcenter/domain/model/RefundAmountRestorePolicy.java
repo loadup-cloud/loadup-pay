@@ -15,4 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
-public enum RefundAmountRestorePolicy { NO_RESTORE, ORIGINAL_BUCKETS }
+public enum RefundAmountRestorePolicy {
+    NO_RESTORE,
+    ORIGINAL_BUCKETS
+}

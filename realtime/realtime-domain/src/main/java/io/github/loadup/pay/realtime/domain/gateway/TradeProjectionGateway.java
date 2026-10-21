@@ -15,12 +15,12 @@
  */
 package io.github.loadup.pay.realtime.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.realtime.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+
+import java.util.Optional;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface TradeProjectionGateway {

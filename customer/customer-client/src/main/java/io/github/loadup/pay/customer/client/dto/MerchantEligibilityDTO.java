@@ -17,14 +17,9 @@ package io.github.loadup.pay.customer.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.customer.client.enums.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.Size;
 
 public record MerchantEligibilityDTO(
         @Schema(description = "Allowed") boolean allowed,

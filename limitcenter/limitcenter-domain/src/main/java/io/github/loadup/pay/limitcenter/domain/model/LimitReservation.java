@@ -17,10 +17,15 @@ package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record LimitReservation(
@@ -113,9 +118,13 @@ public record LimitReservation(
         Objects.requireNonNull(now);
         if (state == LimitReservationState.EXECUTING && attemptId.equals(activeAttemptId)) return this;
         if (state == LimitReservationState.EXECUTING) {
-            require(previous != null && operationId.equals(previous.operationId())
-                    && paymentId.equals(previous.paymentId()) && activeAttemptId.equals(previous.previousAttemptId())
-                    && executionEpoch == previous.previousExecutionEpoch(), OUTCOME_UNKNOWN);
+            require(
+                    previous != null
+                            && operationId.equals(previous.operationId())
+                            && paymentId.equals(previous.paymentId())
+                            && activeAttemptId.equals(previous.previousAttemptId())
+                            && executionEpoch == previous.previousExecutionEpoch(),
+                    OUTCOME_UNKNOWN);
         } else {
             require(state == LimitReservationState.RESERVED && now.isBefore(reserveExpiresAt), INVALID_STATE);
             require(previous == null, INVALID_ARGUMENT);
@@ -136,11 +145,23 @@ public record LimitReservation(
         return copy(LimitReservationState.CONFIRMED, activeAttemptId, executionEpoch, sourceVersion);
     }
 
-    public void requireSameIntent(String sourcePayment, String sourceOrder, String sourcePayee, Money requested,
-            String sourcePolicy, int sourcePolicyVersion, LocalDateTime sourceInitiatedAt) {
-        require(paymentId.equals(sourcePayment) && orderId.equals(sourceOrder) && payeeMerchantId.equals(sourcePayee)
-                && amount.equals(requested) && policyId.equals(sourcePolicy) && policyVersion == sourcePolicyVersion
-                && initiatedAt.equals(sourceInitiatedAt), CONFLICT);
+    public void requireSameIntent(
+            String sourcePayment,
+            String sourceOrder,
+            String sourcePayee,
+            Money requested,
+            String sourcePolicy,
+            int sourcePolicyVersion,
+            LocalDateTime sourceInitiatedAt) {
+        require(
+                paymentId.equals(sourcePayment)
+                        && orderId.equals(sourceOrder)
+                        && payeeMerchantId.equals(sourcePayee)
+                        && amount.equals(requested)
+                        && policyId.equals(sourcePolicy)
+                        && policyVersion == sourcePolicyVersion
+                        && initiatedAt.equals(sourceInitiatedAt),
+                CONFLICT);
     }
 
     private LimitReservation copy(LimitReservationState target, String attempt, long epoch, long sourceVersion) {

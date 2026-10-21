@@ -17,7 +17,9 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RefundRequestProgress(
@@ -32,21 +34,35 @@ public record RefundRequestProgress(
     public RefundRequestProgress {
         DomainChecks.id(refundRequestId);
         DomainChecks.text(merchantRefundNo, 64);
-        require(amountMinor > 0 && succeededMinor >= 0 && failedMinor >= 0
-                && succeededMinor <= amountMinor && failedMinor <= amountMinor - succeededMinor
-                && unknownCount >= 0 && version >= 0 && state != null, INVALID_ARGUMENT);
+        require(
+                amountMinor > 0
+                        && succeededMinor >= 0
+                        && failedMinor >= 0
+                        && succeededMinor <= amountMinor
+                        && failedMinor <= amountMinor - succeededMinor
+                        && unknownCount >= 0
+                        && version >= 0
+                        && state != null,
+                INVALID_ARGUMENT);
         switch (state) {
             case "INIT" -> require(succeededMinor == 0 && failedMinor == 0 && unknownCount == 0, INVALID_STATE);
             case "PROCESSING" -> require(succeededMinor + failedMinor < amountMinor, INVALID_STATE);
             case "SUCCEEDED" -> require(succeededMinor == amountMinor && unknownCount == 0, INVALID_STATE);
             case "FAILED" -> require(failedMinor == amountMinor && unknownCount == 0, INVALID_STATE);
-            case "PARTIAL_SUCCEEDED" -> require(succeededMinor > 0 && failedMinor > 0
-                    && succeededMinor + failedMinor == amountMinor && unknownCount == 0, INVALID_STATE);
+            case "PARTIAL_SUCCEEDED" ->
+                require(
+                        succeededMinor > 0
+                                && failedMinor > 0
+                                && succeededMinor + failedMinor == amountMinor
+                                && unknownCount == 0,
+                        INVALID_STATE);
             default -> throw new io.github.loadup.pay.common.DomainViolation(INVALID_ARGUMENT);
         }
     }
 
-    public long reservedMinor() { return amountMinor - succeededMinor - failedMinor; }
+    public long reservedMinor() {
+        return amountMinor - succeededMinor - failedMinor;
+    }
 
     @Override
     public String toString() {

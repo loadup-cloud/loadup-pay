@@ -15,10 +15,8 @@
  */
 package io.github.loadup.pay.customer.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.customer.client.command.*;
-import io.github.loadup.pay.customer.client.dto.*;
+import io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand;
+import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface MerchantEligibilityFacade {

@@ -15,4 +15,8 @@
  */
 package io.github.loadup.pay.customer.client.enums;
 
-public enum GrantState { INIT, ACTIVE, REVOKED }
+public enum GrantState {
+    INIT,
+    ACTIVE,
+    REVOKED
+}

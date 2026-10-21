@@ -16,10 +16,13 @@
 package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Token generation and hashing belong to the security adapter, not this aggregate. */
@@ -67,7 +70,8 @@ public record CheckoutSession(String id, String orderId, CheckoutSessionState st
     }
 
     private boolean terminal() {
-        return state == CheckoutSessionState.COMPLETED || state == CheckoutSessionState.CANCELLED
+        return state == CheckoutSessionState.COMPLETED
+                || state == CheckoutSessionState.CANCELLED
                 || state == CheckoutSessionState.EXPIRED;
     }
 

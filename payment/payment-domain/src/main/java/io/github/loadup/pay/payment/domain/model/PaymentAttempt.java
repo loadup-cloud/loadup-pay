@@ -17,10 +17,17 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PaymentMethod;
+
+import java.util.Objects;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record PaymentAttempt(
@@ -73,15 +80,21 @@ public record PaymentAttempt(
                 null);
     }
 
-    public static PaymentAttempt init(String id, String paymentId, int attemptNo, Money amount,
-            ChannelBindingRevision binding, PaymentMethod method, String channelRequestNo) {
-        return new PaymentAttempt(id, paymentId, attemptNo, amount, binding, method, channelRequestNo,
-                PaymentAttemptState.INIT, 0, null);
+    public static PaymentAttempt init(
+            String id,
+            String paymentId,
+            int attemptNo,
+            Money amount,
+            ChannelBindingRevision binding,
+            PaymentMethod method,
+            String channelRequestNo) {
+        return new PaymentAttempt(
+                id, paymentId, attemptNo, amount, binding, method, channelRequestNo, PaymentAttemptState.INIT, 0, null);
     }
 
     public ChannelPaymentIdentity identity() {
-        return new ChannelPaymentIdentity(paymentId, id, binding.channel(), binding.id(),
-                binding.accountScopeHash(), channelRequestNo);
+        return new ChannelPaymentIdentity(
+                paymentId, id, binding.channel(), binding.id(), binding.accountScopeHash(), channelRequestNo);
     }
 
     /** The adapter supplies verified facts; NOT_FOUND and transport failures must be UNKNOWN. */
@@ -106,12 +119,22 @@ public record PaymentAttempt(
         if (target == PaymentAttemptState.FAILED) require(executionFenced, OUTCOME_UNKNOWN);
         if (state == target || state == PaymentAttemptState.UNKNOWN && target == PaymentAttemptState.PENDING)
             return this;
-        return new PaymentAttempt(id, paymentId, attemptNo, amount, binding, method, channelRequestNo,
-                target, executionEpoch, target == PaymentAttemptState.FAILED ? outcome.evidenceId() : null);
+        return new PaymentAttempt(
+                id,
+                paymentId,
+                attemptNo,
+                amount,
+                binding,
+                method,
+                channelRequestNo,
+                target,
+                executionEpoch,
+                target == PaymentAttemptState.FAILED ? outcome.evidenceId() : null);
     }
 
     private boolean terminal() {
-        return state == PaymentAttemptState.SUCCEEDED || state == PaymentAttemptState.FAILED
+        return state == PaymentAttemptState.SUCCEEDED
+                || state == PaymentAttemptState.FAILED
                 || state == PaymentAttemptState.CLOSED;
     }
 

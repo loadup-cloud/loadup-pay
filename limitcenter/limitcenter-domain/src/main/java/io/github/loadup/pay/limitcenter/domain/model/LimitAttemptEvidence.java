@@ -21,8 +21,13 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Trusted proof that the prior attempt cannot collect or submit again; not a payment-wide release. */
-public record LimitAttemptEvidence(String operationId, String paymentId, String previousAttemptId,
-        long previousExecutionEpoch, String evidenceId, boolean executionFenced) {
+public record LimitAttemptEvidence(
+        String operationId,
+        String paymentId,
+        String previousAttemptId,
+        long previousExecutionEpoch,
+        String evidenceId,
+        boolean executionFenced) {
     public LimitAttemptEvidence {
         DomainChecks.id(operationId);
         DomainChecks.id(paymentId);

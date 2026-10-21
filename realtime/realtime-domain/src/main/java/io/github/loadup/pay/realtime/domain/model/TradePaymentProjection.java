@@ -17,10 +17,16 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record TradePaymentProjection(
@@ -45,8 +51,11 @@ public record TradePaymentProjection(
         Objects.requireNonNull(initiatedAt);
         require("SUCCEEDED".equals(state) == (succeededAt != null), INVALID_STATE);
         if (succeededAt != null) require(!succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
-        require(amount.getCent() > 0 && state != null
-                && Set.of("INIT", "PROCESSING", "UNKNOWN", "CLOSING", "SUCCEEDED", "FAILED", "CLOSED").contains(state),
+        require(
+                amount.getCent() > 0
+                        && state != null
+                        && Set.of("INIT", "PROCESSING", "UNKNOWN", "CLOSING", "SUCCEEDED", "FAILED", "CLOSED")
+                                .contains(state),
                 INVALID_ARGUMENT);
         require((channel == null) == (accessMode == null), INVALID_ARGUMENT);
         require(

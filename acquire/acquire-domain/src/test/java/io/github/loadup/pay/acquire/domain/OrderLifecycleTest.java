@@ -16,18 +16,37 @@
 package io.github.loadup.pay.acquire.domain;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import java.time.*;
-import java.util.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.ParentCloseEvidence;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.common.DomainViolation;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderLifecycleTest {
 
     private static final LocalDateTime DUE = LocalDateTime.of(2026, 10, 21, 12, 0);
+
     private AcquireOrder order(UnpaidOrderAction action) {
-        return AcquireOrder.init("order", "merchant", Money.ofMinor(1000, "CNY"), DUE, action, new OrderPaymentPolicy(1, 1000, null, true));
+        return AcquireOrder.init(
+                "order",
+                "merchant",
+                Money.ofMinor(1000, "CNY"),
+                DUE,
+                action,
+                new OrderPaymentPolicy(1, 1000, null, true));
     }
 
     @Test
@@ -47,10 +66,9 @@ class OrderLifecycleTest {
         var order = order(UnpaidOrderAction.CLOSE);
         var once = order.extend(DUE.plusSeconds(30), DUE, true, 60, DUE.minusSeconds(1));
         var twice = once.extend(DUE.plusSeconds(60), DUE, true, 60, DUE.plusSeconds(1));
-        assertThrows(DomainViolation.class,
-                () -> twice.extend(DUE.plusSeconds(90), DUE, true, 60, DUE.plusSeconds(2)));
-        assertThrows(DomainViolation.class,
-                () -> order.extend(DUE.plusSeconds(30), DUE, false, 0, DUE.minusSeconds(1)));
+        assertThrows(DomainViolation.class, () -> twice.extend(DUE.plusSeconds(90), DUE, true, 60, DUE.plusSeconds(2)));
+        assertThrows(
+                DomainViolation.class, () -> order.extend(DUE.plusSeconds(30), DUE, false, 0, DUE.minusSeconds(1)));
         assertEquals(order.amount(), twice.amount());
     }
 
@@ -63,7 +81,9 @@ class OrderLifecycleTest {
         assertFalse(session.permits("order", DUE));
         var expired = session.expire(DUE);
         assertThrows(DomainViolation.class, () -> expired.activate(DUE.minusSeconds(1)));
-        assertEquals(AcquireOrderState.CLOSING, order(UnpaidOrderAction.CLOSE).checkDue(DUE).state());
+        assertEquals(
+                AcquireOrderState.CLOSING,
+                order(UnpaidOrderAction.CLOSE).checkDue(DUE).state());
     }
 
     @Test
@@ -71,8 +91,12 @@ class OrderLifecycleTest {
         var intent = new PaymentIntent("allocation", "payment", "scope", "key", "digest", Money.ofMinor(1000, "CNY"));
         var change = order(UnpaidOrderAction.CLOSE).reservePayment(intent, DUE.minusSeconds(1));
         assertDoesNotThrow(() -> change.allocation().requireSameAction("order", intent));
-        assertThrows(DomainViolation.class, () -> change.allocation().requireSameAction("order",
-                new PaymentIntent("unused", "unused", "scope", "key", "changed", Money.ofMinor(1000, "CNY"))));
+        assertThrows(
+                DomainViolation.class,
+                () -> change.allocation()
+                        .requireSameAction(
+                                "order",
+                                new PaymentIntent(
+                                        "unused", "unused", "scope", "key", "changed", Money.ofMinor(1000, "CNY"))));
     }
-
 }

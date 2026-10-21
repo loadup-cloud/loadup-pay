@@ -16,11 +16,19 @@
 package io.github.loadup.pay.payment.domain.policy;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundPlanItem;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** The application persists this result and all capacity reservations in one transaction. */
@@ -58,7 +66,9 @@ public final class FifoRefundPolicy {
             long portion = Math.min(remaining, capacity.availableMinor());
             if (portion > 0) {
                 result.add(new RefundPlanItem(
-                        result.size() + 1, capacity.paymentId(), DomainChecks.amount(portion, amount.getCurrencyValue())));
+                        result.size() + 1,
+                        capacity.paymentId(),
+                        DomainChecks.amount(portion, amount.getCurrencyValue())));
                 remaining -= portion;
             }
             if (remaining == 0) break;

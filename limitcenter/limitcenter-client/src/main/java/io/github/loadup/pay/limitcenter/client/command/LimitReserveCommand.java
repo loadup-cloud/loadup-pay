@@ -16,15 +16,15 @@
 package io.github.loadup.pay.limitcenter.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
-import io.github.loadup.pay.limitcenter.client.enums.*;
+import io.github.loadup.pay.common.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record LimitReserveCommand(
         @Schema(description = "Operation id") @NotBlank @Size(max = 64)
@@ -51,7 +51,10 @@ public record LimitReserveCommand(
 
         @Schema(description = "Policy version") @Positive int policyVersion,
 
-        @Schema(description = "Request digest") @NotBlank @Size(max = 64)
+        @Schema(description = "Frozen policy SHA-256") @NotBlank @Pattern(regexp = "[0-9a-f]{64}")
+        String policyHash,
+
+        @Schema(description = "Original payment intent SHA-256") @NotBlank @Pattern(regexp = "[0-9a-f]{64}")
         String requestDigest) {
     public LimitReserveCommand {
         if (initiatedAt != null)

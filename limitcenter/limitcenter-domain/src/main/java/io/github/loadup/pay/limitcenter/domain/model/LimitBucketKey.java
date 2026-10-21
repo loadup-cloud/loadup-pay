@@ -16,10 +16,11 @@
 package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+import io.github.loadup.pay.common.DomainChecks;
+
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CURRENCY_MISMATCH;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** Commercial policyVersion is deliberately excluded from counter identity. */

@@ -16,20 +16,9 @@
 package io.github.loadup.pay.realtime.client.query;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.pay.payment.client.enums.RefundState;
-import io.github.loadup.pay.realtime.client.dto.*;
-import io.github.loadup.pay.realtime.client.enums.*;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record TradeDetailQuery(
         @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)

@@ -21,8 +21,8 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 /** A successful customer call returns authoritative facts; dependency failure must propagate. */
-public record MerchantEligibilityFacts(String payeeMerchantId, boolean eligible, String reasonCode,
-        long merchantVersion, long authorizationVersion) {
+public record MerchantEligibilityFacts(
+        String payeeMerchantId, boolean eligible, String reasonCode, long merchantVersion, long authorizationVersion) {
     public MerchantEligibilityFacts {
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(reasonCode, 64);

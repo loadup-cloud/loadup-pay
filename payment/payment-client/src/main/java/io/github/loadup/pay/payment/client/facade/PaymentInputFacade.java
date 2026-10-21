@@ -15,11 +15,8 @@
  */
 package io.github.loadup.pay.payment.client.facade;
 
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.query.*;
+import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface PaymentInputFacade {

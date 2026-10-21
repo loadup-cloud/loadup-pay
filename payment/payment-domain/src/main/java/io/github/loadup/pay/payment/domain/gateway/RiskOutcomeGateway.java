@@ -15,12 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import java.time.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.payment.domain.model.RiskOutcome;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface RiskOutcomeGateway {

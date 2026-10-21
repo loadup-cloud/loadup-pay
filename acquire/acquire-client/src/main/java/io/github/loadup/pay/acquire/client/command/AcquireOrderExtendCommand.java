@@ -16,15 +16,14 @@
 package io.github.loadup.pay.acquire.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.dto.*;
-import io.github.loadup.pay.acquire.client.enums.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record AcquireOrderExtendCommand(
         @Schema(description = "Id") @NotBlank @Size(max = 64)

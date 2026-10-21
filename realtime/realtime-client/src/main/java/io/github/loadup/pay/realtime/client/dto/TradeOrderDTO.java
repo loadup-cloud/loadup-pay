@@ -17,17 +17,10 @@ package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.pay.payment.client.enums.RefundState;
-import io.github.loadup.pay.realtime.client.enums.*;
+import io.github.loadup.pay.common.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+
 import java.time.OffsetDateTime;
-import java.util.*;
 
 public record TradeOrderDTO(
         @Schema(description = "Order id") String orderId,
@@ -38,7 +31,10 @@ public record TradeOrderDTO(
         @Schema(description = "Gross successful amount") long paidAmountMinor,
         @Schema(description = "Held payment amount") long paymentReservedMinor,
         @Schema(description = "Original order state") AcquireOrderState state,
-        @Schema(description = "Original order creation time") OffsetDateTime orderCreatedAt,
+
+        @Schema(description = "Original order creation time")
+        OffsetDateTime orderCreatedAt,
+
         @Schema(description = "Refunded minor") long refundedMinor,
         @Schema(description = "Net received minor") long netReceivedMinor,
         @Schema(description = "Order source version") long orderSourceVersion,

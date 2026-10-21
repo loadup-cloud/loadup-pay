@@ -20,11 +20,18 @@ import io.github.loadup.commons.result.ResultCode;
 
 public enum ProductResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("PRODUCT_INVALID_ARGUMENT", "Invalid argument"),
+    ACTION_FORBIDDEN("PRODUCT_ACTION_FORBIDDEN", "Product action is not authorized"),
+    INVALID_STATE("PRODUCT_INVALID_STATE", "Operation cannot execute in the current state"),
+    DEPENDENCY_UNAVAILABLE("PRODUCT_DEPENDENCY_UNAVAILABLE", "Required business dependency is unavailable"),
+    SNAPSHOT_INVALID("PRODUCT_SNAPSHOT_INVALID", "Stored business snapshot is inconsistent"),
     INVALID_PAGE("PRODUCT_INVALID_PAGE", "Invalid page"),
-    NOT_FOUND("PRODUCT_NOT_FOUND", "Admission not found"),
+    NOT_FOUND("PRODUCT_NOT_FOUND", "Product resource not found"),
     CONTRACT_NOT_ADMITTING("PRODUCT_CONTRACT_NOT_ADMITTING", "Contract is not admitting new orders"),
     POLICY_NOT_ACTIVE("PRODUCT_POLICY_NOT_ACTIVE", "Limit policy is not active"),
-    IDEMPOTENCY_CONFLICT("PRODUCT_IDEMPOTENCY_CONFLICT", "Admission payload changed"),
+    IDEMPOTENCY_CONFLICT("PRODUCT_IDEMPOTENCY_CONFLICT", "Product operation payload changed"),
+    POLICY_PUBLICATION_CONFLICT(
+            "PRODUCT_POLICY_PUBLICATION_CONFLICT", "Initial policy is already bound to another contract or merchant"),
+    REPLAY_NOT_ALLOWED("PRODUCT_REPLAY_NOT_ALLOWED", "Only failed Outbox delivery can be replayed"),
     UNSUPPORTED_POLICY("PRODUCT_UNSUPPORTED_POLICY", "Policy is not implemented");
 
     private final String code;

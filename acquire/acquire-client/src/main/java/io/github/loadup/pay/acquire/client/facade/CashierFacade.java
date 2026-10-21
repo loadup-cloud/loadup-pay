@@ -16,9 +16,10 @@
 package io.github.loadup.pay.acquire.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
+import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
 public interface CashierFacade {
