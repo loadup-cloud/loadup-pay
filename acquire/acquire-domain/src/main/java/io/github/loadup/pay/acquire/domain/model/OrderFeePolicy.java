@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,15 +45,16 @@ public record OrderFeePolicy(
     }
 
     public Money calculate(Money orderAmount) {
-        require(orderAmount.minor() > 0, INVALID_ARGUMENT);
-        long rounded = BigDecimal.valueOf(orderAmount.minor())
+        DomainChecks.amount(orderAmount);
+        require(orderAmount.getCent() > 0, INVALID_ARGUMENT);
+        long rounded = BigDecimal.valueOf(orderAmount.getCent())
                 .multiply(rate)
                 .add(BigDecimal.valueOf(fixedMinor))
                 .setScale(0, rounding)
                 .longValueExact();
         long fee = Math.max(minimumMinor, rounded);
         if (maximumMinor != null) fee = Math.min(maximumMinor, fee);
-        return new Money(fee, orderAmount.currency());
+        return DomainChecks.amount(fee, orderAmount.getCurrencyValue());
     }
 
     public long refundableFee(long originalFee, long orderAmount, long cumulativeRefund) {
@@ -67,5 +70,10 @@ public record OrderFeePolicy(
                         .divide(BigDecimal.valueOf(orderAmount), 0, rounding)
                         .longValueExact();
         };
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

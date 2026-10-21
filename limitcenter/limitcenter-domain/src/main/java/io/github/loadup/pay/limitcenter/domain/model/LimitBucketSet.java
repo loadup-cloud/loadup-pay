@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -39,5 +40,10 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
                     buckets.get(change.key()).reserve(change.requested(), change.threshold(), change.enforce()));
         }
         return new LimitBucketSet(updated);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

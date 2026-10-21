@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -24,7 +26,12 @@ import static io.github.loadup.pay.common.DomainViolation.require;
 public record RefundPlanItem(int sequenceNo, String paymentId, Money amount) {
     public RefundPlanItem {
         DomainChecks.id(paymentId);
-        Objects.requireNonNull(amount);
-        require(sequenceNo > 0 && amount.minor() > 0, INVALID_ARGUMENT);
+        DomainChecks.amount(amount);
+        require(sequenceNo > 0 && amount.getCent() > 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

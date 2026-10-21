@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -29,5 +30,10 @@ public record RiskDecision(RiskDecisionType decision, String reasonCode, String 
 
     public static RiskDecision notConnected() {
         return new RiskDecision(RiskDecisionType.DEFAULT_ALLOW, "NOT_CONNECTED", null);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

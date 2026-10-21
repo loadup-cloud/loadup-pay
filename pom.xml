@@ -16,7 +16,6 @@
     <description>External acquiring applications and COLA client and domain contracts.</description>
     <modules>
         <module>pay-common</module>
-        <module>pay-contract</module>
         <module>customer</module>
         <module>limitcenter</module>
         <module>product</module>
@@ -40,11 +39,6 @@
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>pay-common</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>pay-contract</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -15,6 +15,9 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -26,16 +29,16 @@ public record PreparedChannelPayment(
         Money amount,
         PaymentMethod method,
         long executionEpoch,
-        String preparedInputRef) {
+        @DiagnosticHidden String preparedInputRef) {
     public PreparedChannelPayment {
         Objects.requireNonNull(identity);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(method);
-        require(amount.minor() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
     }
 
     @Override
     public String toString() {
-        return "PreparedChannelPayment[identity=" + identity + ",input=<hidden>]";
+        return ToStringAsJson.reflectionToString(this);
     }
 }

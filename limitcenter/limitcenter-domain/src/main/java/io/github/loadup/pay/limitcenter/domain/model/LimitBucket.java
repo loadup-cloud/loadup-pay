@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -49,5 +50,10 @@ public record LimitBucket(LimitBucketKey key, long used, long held, long version
     public LimitBucket restore(long quantity) {
         require(quantity > 0 && quantity <= used, CONFLICT);
         return new LimitBucket(key, used - quantity, held, Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

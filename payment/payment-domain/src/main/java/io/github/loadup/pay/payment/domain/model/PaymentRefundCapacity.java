@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -35,19 +37,19 @@ public record PaymentRefundCapacity(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         Objects.requireNonNull(succeededAt);
-        Objects.requireNonNull(succeededAmount);
+        DomainChecks.amount(succeededAmount);
         require(
-                succeededAmount.minor() > 0
+                succeededAmount.getCent() > 0
                         && refundedMinor >= 0
                         && reservedMinor >= 0
-                        && refundedMinor <= succeededAmount.minor()
-                        && reservedMinor <= succeededAmount.minor() - refundedMinor
+                        && refundedMinor <= succeededAmount.getCent()
+                        && reservedMinor <= succeededAmount.getCent() - refundedMinor
                         && version >= 0,
                 INVALID_ARGUMENT);
     }
 
     public long availableMinor() {
-        return succeededAmount.minor() - refundedMinor - reservedMinor;
+        return succeededAmount.getCent() - refundedMinor - reservedMinor;
     }
 
     public PaymentRefundCapacity reserve(long minor) {
@@ -65,15 +67,21 @@ public record PaymentRefundCapacity(
 
     /** Call with the locked persisted child, then commit the child/request/capacity together. */
     public RefundCapacityChange applyOutcome(RefundOrder current, ChannelRefundOutcome outcome) {
-        require(paymentId.equals(current.paymentId()) && succeededAmount.currency().equals(current.amount().currency()),
+        require(paymentId.equals(current.paymentId()) && succeededAmount.getCurrencyValue().equals(current.amount().getCurrencyValue()),
                 CONFLICT);
         var updated = current.recordOutcome(outcome);
+        if (!current.terminal()) require(current.amount().getCent() <= reservedMinor, CONFLICT);
         if (current.terminal() || !updated.terminal()) return new RefundCapacityChange(this, updated);
-        long minor = current.amount().minor();
+        long minor = current.amount().getCent();
         require(reservedMinor >= minor, CONFLICT);
         var next = new PaymentRefundCapacity(paymentId, orderId, payeeMerchantId, succeededAt, succeededAmount,
                 updated.state() == RefundState.SUCCEEDED ? Math.addExact(refundedMinor, minor) : refundedMinor,
                 reservedMinor - minor, Math.incrementExact(version));
         return new RefundCapacityChange(next, updated);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

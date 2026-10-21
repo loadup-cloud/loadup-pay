@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -28,7 +30,7 @@ public record ChannelBindingRevision(
         Channel channel,
         AccessMode accessMode,
         String accountScopeHash,
-        String credentialReference,
+        @DiagnosticHidden String credentialReference,
         Set<PaymentMethod> capabilities) {
     public ChannelBindingRevision {
         DomainChecks.id(id);
@@ -42,6 +44,6 @@ public record ChannelBindingRevision(
 
     @Override
     public String toString() {
-        return "ChannelBindingRevision[id=" + id + ",channel=" + channel + ",credential=<hidden>]";
+        return ToStringAsJson.reflectionToString(this);
     }
 }

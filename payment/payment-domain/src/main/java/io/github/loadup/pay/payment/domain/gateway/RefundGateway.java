@@ -28,6 +28,9 @@ public interface RefundGateway {
 
     Optional<RefundRequest> findMerchantRefund(String tenantId, String payeeMerchantId, String merchantRefundNo);
 
+    /** Lock parent gate, then request, capacity by paymentId, then child; never reverse that order. */
+    RefundRequest lock(String tenantId, String refundRequestId);
+
     List<PaymentRefundCapacity> lockCapacities(String tenantId, String orderId);
 
     void savePlan(String tenantId, RefundRequest request, List<PaymentRefundCapacity> capacities);

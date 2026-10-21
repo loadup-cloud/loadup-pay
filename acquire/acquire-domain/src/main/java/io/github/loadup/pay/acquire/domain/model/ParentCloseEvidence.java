@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -26,5 +27,10 @@ public record ParentCloseEvidence(String orderId, long closeEpoch, boolean fence
     public ParentCloseEvidence {
         DomainChecks.id(orderId);
         require(closeEpoch > 0 && fenced && allChildrenConverged, OUTCOME_UNKNOWN);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

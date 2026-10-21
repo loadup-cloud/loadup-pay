@@ -42,7 +42,7 @@ public record OrderSnapshotEventDTO(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantOrderNo, 64);
-        new Money(amountMinor, currency);
+        DomainChecks.amount(amountMinor, currency);
         require(amountMinor > 0 && paidAmountMinor >= 0 && paymentReservedMinor >= 0
                 && paidAmountMinor <= amountMinor && paymentReservedMinor <= amountMinor - paidAmountMinor
                 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
@@ -61,5 +61,7 @@ public record OrderSnapshotEventDTO(
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -32,5 +33,10 @@ public record RiskOutcome(
         Objects.requireNonNull(decision);
         Objects.requireNonNull(paymentState);
         require(sourceVersion > 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

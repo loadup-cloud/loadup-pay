@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.policy;
 
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.payment.domain.model.*;
 import java.time.*;
@@ -32,7 +33,8 @@ public final class FifoRefundPolicy {
             List<PaymentRefundCapacity> candidates) {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        require(amount.minor() > 0, INVALID_ARGUMENT);
+        DomainChecks.amount(amount);
+        require(amount.getCent() > 0, INVALID_ARGUMENT);
         var sorted = candidates.stream()
                 .sorted(Comparator.comparing(PaymentRefundCapacity::succeededAt)
                         .thenComparing(PaymentRefundCapacity::paymentId))
@@ -43,20 +45,20 @@ public final class FifoRefundPolicy {
             require(
                     capacity.orderId().equals(orderId)
                             && capacity.payeeMerchantId().equals(payeeMerchantId)
-                            && capacity.succeededAmount().currency().equals(amount.currency())
+                            && capacity.succeededAmount().getCurrencyValue().equals(amount.getCurrencyValue())
                             && seen.add(capacity.paymentId()),
                     CONFLICT);
             available = Math.addExact(available, capacity.availableMinor());
             if (!partialAllowed) require(capacity.reservedMinor() == 0, CONFLICT);
         }
-        require(amount.minor() <= available && (partialAllowed || amount.minor() == available), AMOUNT_EXCEEDED);
+        require(amount.getCent() <= available && (partialAllowed || amount.getCent() == available), AMOUNT_EXCEEDED);
         List<RefundPlanItem> result = new ArrayList<>();
-        long remaining = amount.minor();
+        long remaining = amount.getCent();
         for (var capacity : sorted) {
             long portion = Math.min(remaining, capacity.availableMinor());
             if (portion > 0) {
                 result.add(new RefundPlanItem(
-                        result.size() + 1, capacity.paymentId(), new Money(portion, amount.currency())));
+                        result.size() + 1, capacity.paymentId(), DomainChecks.amount(portion, amount.getCurrencyValue())));
                 remaining -= portion;
             }
             if (remaining == 0) break;

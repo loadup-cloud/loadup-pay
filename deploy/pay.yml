@@ -23,7 +23,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - {name: http, containerPort: 8080}
-            - {name: grpc, containerPort: 9090}
           env:
             - name: TZ
               value: Asia/Shanghai
@@ -53,7 +52,6 @@ spec:
   selector: {app: payment}
   ports:
     - {name: http, port: 8080, targetPort: http}
-    - {name: grpc, port: 9090, targetPort: grpc, appProtocol: kubernetes.io/h2c}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -80,10 +78,6 @@ spec:
               value: Asia/Shanghai
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
-            - name: MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS
-              value: always
-            - name: PAYMENT_TARGET
-              value: dns:///payment.loadup-pay.svc.cluster.local:9090
           startupProbe:
             httpGet: {path: /actuator/health/liveness, port: http}
             failureThreshold: 60

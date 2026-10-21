@@ -4,25 +4,24 @@ LoadUp 收单支付平台：面向商户及子商户的外部渠道收单、付�
 
 当前为六应用初始化与契约层：Java 25、Spring Boot 4.1.1，通过 LoadUp BOM 管理依赖。独立于框架集成测试启动器。启动装配暂不依赖数据库、Redis 或注册中心。
 
-- payment：HTTP 8080，gRPC 9090，提供 `loadup.pay.v1.PaymentProbe/Ping`。
-- acquire：HTTP 8080，通过 Kubernetes Service DNS 调用 payment。
-- customer、product、limitcenter、realtime：独立Bootstrap，HTTP 8080与Actuator基础健康入口。
-- pay-contract：共享 protobuf wire contract，使用 gRPC MethodDescriptor，无需生成代码。
+- acquire、payment、customer、product、limitcenter、realtime：独立Bootstrap，HTTP 8080与Actuator基础健康入口。
 - 每个服务已拆为client/domain/bootstrap；业务Facade仍是接口，尚未提供下单、支付、退款的应用服务或Controller。
 
-当前仅验证连通性，不创建支付、不记账。gRPC 为集群内明文通信，生产上线前需补充认证、TLS 与业务契约。
+当前仅提供应用骨架与业务契约，不创建支付、不记账。测试用Ping RPC及协议模块已删除；业务gRPC在实际用例落地时接入。
 
-本轮结果与优先级见 [第一阶段实施说明](IMPLEMENTATION.md)。acquire/payment已迁到LoadUp原生gRPC binder，Ping报文保持不变；本轮未构建、运行测试或部署，当前源码尚未进行运行验收。
+P0/P1源码结果与优先级见 [第一阶段实施说明](IMPLEMENTATION.md)。Money复用`loadup-commons-dto`的`io.github.loadup.commons.money.Money`；CNY/非负约束由收单领域校验，金额仍为整数分。业务数据对象的toString统一调用`ToStringAsJson.reflectionToString`，敏感字段使用`DiagnosticHidden`。当前无RPC协议模块或gRPC运行依赖，Java业务client保持与传输无关。
+
+P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原桶恢复、授权撤销和完整投影事件，保留15类37个单测源码。本轮未构建、运行测试或部署，当前源码尚未进行运行验收。
 
 ## 架构设计
 
 详细设计入口：[COLA DDD与关键流程](DETAILED-DESIGN.md)、[数据库与DDL草案](design/DATABASE.md)、[Client API与通知协议](design/CLIENT-API.md)、[合约参数](design/CONTRACT-SCHEMA.md)。均为待实现的设计，不改变当前部署。
 
-后续业务实现以 [架构设计v1.4](ARCHITECTURE.md)、[已确认决策](DESIGN-DECISIONS.md) 和 [领域术语](GLOSSARY.md) 为准。Checkout固定总额、手动多笔付款，累计恰好付清才PAID；原pending交易在合约停止后继续完成，终态不重开。退款独立表/流程，不改订单状态与已付金额；费用按订单总额统一计算，默认顺序FIFO退款。商户日/周/月/终生限额规则可配置；风控默认放行并预留提交前咨询/结果后异步通知；reconciliation后置。目标支付宝/微信/银联、默认CNY，无消费者用户/余额/充值/提现/转账。当前运行仍为两应用Ping骨架，以上业务设计尚未实现。
+后续业务实现以 [架构设计v1.4](ARCHITECTURE.md)、[已确认决策](DESIGN-DECISIONS.md) 和 [领域术语](GLOSSARY.md) 为准。Checkout固定总额、手动多笔付款，累计恰好付清才PAID；原pending交易在合约停止后继续完成，终态不重开。退款独立表/流程，不改订单状态与已付金额；费用按订单总额统一计算，默认顺序FIFO退款。商户日/周/月/终生限额规则可配置；风控默认放行并预留提交前咨询/结果后异步通知；reconciliation后置。目标支付宝/微信/银联、默认CNY，无消费者用户/余额/充值/提现/转账。业务闭环仍待后续实施。
 
 ## 构建及本地 Kubernetes 部署
 
-2026-10-21 已统一源码、模块、配置、部署清单及设计标识；迁移步骤见 [重命名说明](RENAMING.md)。本次未构建或发布，新名称下的部署尚未验收。OrbStack API 当前连接被拒绝，无法确认已有工作负载状态。
+2026-10-21 已统一源码、模块、配置、部署清单及设计标识。本次未构建或发布，新名称下的部署尚未验收；本次未查询集群状态。
 
 在本目录执行（本机 Java 25 由 mise 管理）：
 
@@ -44,19 +43,18 @@ kubectl --context orbstack apply -f deploy/pay.yml
 
 ## 验收
 
-`verify.sh` 检查六个 Deployment 就绪及对应 Service 的 ready EndpointSlice，再通过 acquire 的 `/actuator/health/paymentRpc` 发起真实 gRPC 请求。只接受 `payment:acquire` 的响应。RPC 超时为 3 秒，失败返回健康状态 DOWN 和 HTTP 503。依赖探针独立于 liveness/readiness，避免 payment 故障导致 acquire 重启。其余四服务此阶段仅验收启动与技术健康，不代表业务接口可调用。
+`verify.sh` 检查六个 Deployment 就绪及对应 Service 的 ready EndpointSlice。各应用保留Actuator liveness/readiness与Kubernetes探针；此阶段仅验收启动与技术健康，不包含RPC调用或业务接口验收。
 
 服务注册采用 Kubernetes 原生模型：Deployment labels → Service selector → EndpointSlice → DNS，无 Nacos/Eureka 客户端。可用 `kubectl -n loadup-pay get pods,svc,endpointslices` 查看。
 
-参考：[Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)、[gRPC Java](https://grpc.io/docs/languages/java/basics/)。
+参考：[Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)。
 
 ## 历史验收（2026-10-20，重命名前）
 
 - Java 25 下 `mvnd clean package -DskipTests` 成功，未执行单元测试或框架全量构建。
 - 两个容器镜像构建成功，部署至本机 OrbStack 的旧 `loadup-wallet` namespace。
 - 两个 Deployment rollout 成功，Service 均有 ready EndpointSlice。
-- `scripts/verify.sh` 实际执行成功：acquire 经 DNS 访问 payment，gRPC 响应校验为 `payment:acquire`。
-- acquire 部署通过 `MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS=always` 开启子健康检查入口。
+- 当时测试用RPC连通性验收成功；该测试RPC及专用健康检查现已删除。
 
 以上为重命名前的验收记录。重新构建并部署新版本后，使用当前 `scripts/verify.sh` 验收 `loadup-pay` namespace。
 

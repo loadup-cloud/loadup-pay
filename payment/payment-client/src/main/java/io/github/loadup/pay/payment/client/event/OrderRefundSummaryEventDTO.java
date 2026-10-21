@@ -32,13 +32,32 @@ public record OrderRefundSummaryEventDTO(
         @Schema(description = "Currency") String currency,
         @Schema(description = "Refunded minor") long refundedMinor,
         @Schema(description = "Refund reserved minor") long refundReservedMinor,
-        @Schema(description = "Refund summary version") long refundSummaryVersion) {
+        @Schema(description = "Refund summary version") long refundSummaryVersion,
+        @Schema(description = "Complete refund request progress snapshots") @Valid
+        List<RefundRequestSummaryDTO> requests) {
     public OrderRefundSummaryEventDTO {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainViolation.require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundSummaryVersion > 0,
+        DomainViolation.require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundSummaryVersion >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
-        new Money(refundedMinor, currency);
+        DomainChecks.amount(refundedMinor, currency);
+        requests = List.copyOf(requests);
+        var ids = new HashSet<String>();
+        long succeeded = 0;
+        long reserved = 0;
+        for (var request : requests) {
+            DomainViolation.require(ids.add(request.refundRequestId()), DomainViolation.Reason.CONFLICT);
+            succeeded = Math.addExact(succeeded, request.succeededMinor());
+            reserved = Math.addExact(reserved, request.reservedMinor());
+        }
+        DomainViolation.require(succeeded == refundedMinor && reserved == refundReservedMinor,
+                DomainViolation.Reason.CONFLICT);
+    }
+
+    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1").contains(envelope.eventType()),
+                DomainViolation.Reason.CONFLICT);
+        envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
     }
 
     @Override

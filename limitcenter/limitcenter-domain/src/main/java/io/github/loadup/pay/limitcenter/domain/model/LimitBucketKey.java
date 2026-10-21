@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -36,5 +37,10 @@ public record LimitBucketKey(
         Objects.requireNonNull(window);
         Objects.requireNonNull(bounds);
         require("CNY".equals(currency), CURRENCY_MISMATCH);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

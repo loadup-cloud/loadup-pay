@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.realtime.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -29,6 +31,8 @@ public record TradeRefundProjection(
         String payeeMerchantId,
         Money amount,
         String state,
+        LocalDateTime refundCreatedAt,
+        LocalDateTime succeededAt,
         SourceVersion source,
         LocalDateTime snapshotAt) {
     public TradeRefundProjection {
@@ -37,15 +41,23 @@ public record TradeRefundProjection(
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(source);
         Objects.requireNonNull(snapshotAt);
-        require(amount.minor() > 0 && state != null
+        Objects.requireNonNull(refundCreatedAt);
+        require("SUCCEEDED".equals(state) == (succeededAt != null), INVALID_STATE);
+        if (succeededAt != null) require(!succeededAt.isBefore(refundCreatedAt), INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && state != null
                 && Set.of("INIT", "PROCESSING", "UNKNOWN", "SUCCEEDED", "FAILED").contains(state), INVALID_ARGUMENT);
         require(
                 refundId.equals(source.aggregateId())
                         && "payment".equals(source.producer())
                         && "RefundOrder".equals(source.aggregateType()),
                 INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

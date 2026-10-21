@@ -26,6 +26,10 @@ import static io.github.loadup.pay.common.DomainViolation.require;
 public interface MerchantAuthorizationGateway {
     Optional<MerchantRelationship> findRelationship(String tenantId, String relationshipId);
 
+    MerchantRelationship lockRelationship(String tenantId, String relationshipId);
+
+    MerchantActionGrant lockGrant(String tenantId, String grantId);
+
     Optional<MerchantActionGrant> findGrant(
             String tenantId, PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
 

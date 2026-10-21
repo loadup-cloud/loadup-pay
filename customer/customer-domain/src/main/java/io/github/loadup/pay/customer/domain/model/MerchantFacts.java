@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.customer.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -26,5 +27,10 @@ public record MerchantFacts(String merchantId, boolean active, long version) {
     public MerchantFacts {
         DomainChecks.id(merchantId);
         require(version >= 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

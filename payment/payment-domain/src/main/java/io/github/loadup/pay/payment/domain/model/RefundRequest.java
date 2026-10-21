@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -36,10 +38,10 @@ public record RefundRequest(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantRefundNo, 64);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(state);
         children = List.copyOf(children);
-        require(amount.minor() > 0 && planVersion > 0 && version >= 0 && !children.isEmpty(), INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && planVersion > 0 && version >= 0 && !children.isEmpty(), INVALID_ARGUMENT);
         long total = 0;
         Set<String> ids = new HashSet<>();
         Set<String> payments = new HashSet<>();
@@ -47,14 +49,14 @@ public record RefundRequest(
         for (var child : children) {
             require(
                     id.equals(child.refundRequestId())
-                            && amount.currency().equals(child.amount().currency())
+                            && amount.getCurrencyValue().equals(child.amount().getCurrencyValue())
                             && ids.add(child.id()) && payments.add(child.paymentId()),
                     CONFLICT);
             if (unfinishedSeen) require(child.state() == RefundState.INIT, INVALID_STATE);
             if (!child.terminal()) unfinishedSeen = true;
-            total = Math.addExact(total, child.amount().minor());
+            total = Math.addExact(total, child.amount().getCent());
         }
-        require(total == amount.minor(), CONFLICT);
+        require(total == amount.getCent(), CONFLICT);
         if (state == RefundRequestState.PROCESSING)
             require(children.stream().anyMatch(c -> !c.terminal())
                     && children.stream().anyMatch(c -> c.state() != RefundState.INIT), INVALID_STATE);
@@ -85,14 +87,14 @@ public record RefundRequest(
     public long succeededMinor() {
         return children.stream()
                 .filter(c -> c.state() == RefundState.SUCCEEDED)
-                .mapToLong(c -> c.amount().minor())
+                .mapToLong(c -> c.amount().getCent())
                 .reduce(0, Math::addExact);
     }
 
     public long failedMinor() {
         return children.stream()
                 .filter(c -> c.state() == RefundState.FAILED)
-                .mapToLong(c -> c.amount().minor())
+                .mapToLong(c -> c.amount().getCent())
                 .reduce(0, Math::addExact);
     }
 
@@ -123,6 +125,7 @@ public record RefundRequest(
             return this;
         }
         require(!current.terminal(), CONFLICT);
+        require(updated.state() != RefundState.INIT, INVALID_STATE);
         for (var child : children) {
             if (child.id().equals(updated.id())) break;
             require(child.terminal(), OUTCOME_UNKNOWN);
@@ -148,5 +151,10 @@ public record RefundRequest(
                 next,
                 nextState,
                 Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -10,7 +10,7 @@
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)及[合约配置](design/CONTRACT-SCHEMA.md)；业务语义仍以本稿D01—D10为基线，新增物理结构和接口为待实现方案。
 
-2026-10-21实施更新：六核心应用的client/domain/bootstrap、核心纯领域规则及启动/部署源码已完成第一阶段，见[实施说明](IMPLEMENTATION.md)；未运行构建/测试/部署，数据库事务与真实渠道闭环仍在后续阶段。
+2026-10-21实施更新：六核心应用的client/domain/bootstrap已完成P0/P1源码，补齐关单证据、生命周期、顺序退款/容量、原额度桶恢复、授权撤销和完整投影快照，见[实施说明](IMPLEMENTATION.md)及[client补充契约](design/CLIENT-API.md#11-p1源码契约补充)；未运行构建/测试/部署，数据库事务与真实渠道闭环仍在P2阶段。
 
 ## 1. 服务划分与设计结论
 
@@ -564,12 +564,14 @@ loadup-pay/
 ├── reconciliation/          # 后置目标服务，当前不创建空应用
 ├── cashier/                 # 可选：托管页面/薄适配
 ├── cashier-sdk/             # 可选：浏览器薄 SDK
-├── pay-contract/         # 业务 proto 过渡模块，当前仍为 Ping
+├── pay-common/              # 基础词汇、时间及收单金额约束；复用LoadUp Money/JSON
 ├── deploy/
 └── scripts/
 ```
 
-代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器。当前手动 Ping Server/Channel 后续迁到框架原生 binder 与生成 proto；该迁移与新业务实现需单独验收。
+代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器。测试用Ping RPC与协议模块已删除，当前只保留应用与契约层。Java业务client不依赖gRPC；未来各服务的业务传输适配按实际用例接入框架binder，generated proto、身份与业务接口绑定仍待实施和验收。
+
+金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不在pay-common重定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
 
 ## 15. K8s、配置与本地时区
 

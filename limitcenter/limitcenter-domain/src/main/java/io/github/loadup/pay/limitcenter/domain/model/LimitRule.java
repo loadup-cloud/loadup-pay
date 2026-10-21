@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -38,5 +39,10 @@ public record LimitRule(
         Objects.requireNonNull(window);
         Objects.requireNonNull(weekStart);
         require("CNY".equals(currency) && threshold >= 0 && meteringEnabled, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.product.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -54,5 +55,10 @@ public record OrderAdmission(
 
     public boolean canMaterialize(LocalDateTime now) {
         return decision == AdmissionDecision.ADMITTED && !now.isBefore(admittedAt) && now.isBefore(materializeBefore);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

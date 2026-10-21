@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -38,9 +40,9 @@ public record OrderPaymentAllocation(
         DomainChecks.text(actorScope, 128);
         DomainChecks.text(actionKey, 128);
         DomainChecks.text(requestDigest, 64);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(state);
-        require(amount.minor() > 0 && paymentSourceVersion >= 0, INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && paymentSourceVersion >= 0, INVALID_ARGUMENT);
     }
 
     public static OrderPaymentAllocation init(String orderId, PaymentIntent intent) {
@@ -76,5 +78,10 @@ public record OrderPaymentAllocation(
                 INVALID_STATE);
         return new OrderPaymentAllocation(
                 id, orderId, paymentId, actorScope, actionKey, requestDigest, amount, target, sourceVersion);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

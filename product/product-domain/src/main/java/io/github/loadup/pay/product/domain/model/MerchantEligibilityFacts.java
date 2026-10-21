@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.product.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
@@ -26,5 +27,10 @@ public record MerchantEligibilityFacts(String payeeMerchantId, boolean eligible,
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(reasonCode, 64);
         require(merchantVersion >= 0 && authorizationVersion >= 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

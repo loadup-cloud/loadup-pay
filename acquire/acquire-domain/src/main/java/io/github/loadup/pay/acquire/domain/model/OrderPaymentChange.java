@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -27,5 +28,10 @@ public record OrderPaymentChange(AcquireOrder order, OrderPaymentAllocation allo
         Objects.requireNonNull(order);
         Objects.requireNonNull(allocation);
         require(order.id().equals(allocation.orderId()), CONFLICT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

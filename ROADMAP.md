@@ -1,9 +1,6 @@
 # Pay remaining work
 
-v1.4已将D01—D10收敛为可实施设计。2026-10-21完成第一阶段源码，见[实施说明](IMPLEMENTATION.md)；未构建、测试或部署，容量等指标不展开。
-
-- [x] 六核心应用初始化、COLA client/domain/bootstrap、统一依赖与本地时区、六应用部署清单和Headlamp范围（待运行验收）。
-- [x] 关键Java client API、强类型参数/DTO/事件、稳定错误码、领域模型/Gateway、纯规则及定向单测源码。
+v1.4已将D01—D10收敛为可实施设计。2026-10-21完成P0/P1源码，见[实施说明](IMPLEMENTATION.md)：六应用初始化及client/domain契约已补齐，包括关单/延期、可信付款结果、顺序退款与容量、额度原桶恢复、授权撤销和完整投影快照。累计15类37个单测源码；未构建、测试或部署，容量等指标不展开。复用框架Money/JSON诊断；测试RPC及协议模块已删除，业务RPC按P2实际用例接入。以下保留尚未完成的执行与验收工作。
 - [ ] 实现业务proto/HTTP适配、应用编排、数据库唯一约束/原子事务、事件和任务；构建、单测及启动验收。
 - [ ] acquire：INIT/PENDING/PAID/CLOSING/CLOSED；固定总额/手动多笔付款、原子金额占用、CLOSE/KEEP_PENDING、终态写命令禁入。
 - [ ] product/customer：新单权威准入、商户/子商户逐项授权；普通合约停止仍允许原INIT/PENDING续付，冻结原条款。

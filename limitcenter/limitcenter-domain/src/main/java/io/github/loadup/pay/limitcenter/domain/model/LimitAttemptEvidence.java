@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
@@ -28,5 +29,10 @@ public record LimitAttemptEvidence(String operationId, String paymentId, String 
         DomainChecks.id(previousAttemptId);
         DomainChecks.id(evidenceId);
         require(previousExecutionEpoch > 0 && executionFenced, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

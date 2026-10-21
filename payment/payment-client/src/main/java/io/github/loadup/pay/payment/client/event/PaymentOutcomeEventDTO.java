@@ -46,11 +46,17 @@ public record PaymentOutcomeEventDTO(
         DomainChecks.id(payeeMerchantId);
         DomainViolation.require(amountMinor > 0 && paymentVersion > 0 && state != null,
                 DomainViolation.Reason.INVALID_ARGUMENT);
-        new Money(amountMinor, currency);
+        DomainChecks.amount(amountMinor, currency);
         if (state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED)
             DomainChecks.id(evidenceId);
         if (state == PaymentState.FAILED || state == PaymentState.CLOSED)
             DomainViolation.require(executionFenced, DomainViolation.Reason.OUTCOME_UNKNOWN);
+    }
+
+    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1").contains(envelope.eventType()),
+                DomainViolation.Reason.CONFLICT);
+        envelope.requireSource(envelope.eventType(), "payment", paymentId, paymentVersion);
     }
 
     @Override

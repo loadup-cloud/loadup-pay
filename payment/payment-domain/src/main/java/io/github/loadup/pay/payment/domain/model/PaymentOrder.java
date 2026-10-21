@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -41,9 +43,9 @@ public record PaymentOrder(
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(limitOperationId);
         Objects.requireNonNull(initiatedAt);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(state);
-        require(amount.minor() > 0 && version >= 0, INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (successfulAttemptId != null), INVALID_STATE);
         if (successfulAttemptId != null) DomainChecks.id(successfulAttemptId);
         if (activeAttemptId != null) DomainChecks.id(activeAttemptId);
@@ -112,7 +114,9 @@ public record PaymentOrder(
         require(state != PaymentState.CLOSED && state != PaymentState.FAILED, CONFLICT);
         var nextState = attempt.state() == PaymentAttemptState.SUCCEEDED ? PaymentState.SUCCEEDED
                 : state == PaymentState.CLOSING ? PaymentState.CLOSING
-                : attempt.state() == PaymentAttemptState.UNKNOWN ? PaymentState.UNKNOWN : PaymentState.PROCESSING;
+                : attempt.state() == PaymentAttemptState.UNKNOWN
+                        || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
+                        ? PaymentState.UNKNOWN : PaymentState.PROCESSING;
         if (nextState == state) return this;
         return copy(nextState, nextState == PaymentState.SUCCEEDED ? attempt.id() : null);
     }
@@ -143,5 +147,10 @@ public record PaymentOrder(
     private PaymentOrder copy(PaymentState target, String success) {
         return new PaymentOrder(id, orderId, allocationId, payeeMerchantId, amount, limitOperationId,
                 initiatedAt, target, activeAttemptId, success, Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

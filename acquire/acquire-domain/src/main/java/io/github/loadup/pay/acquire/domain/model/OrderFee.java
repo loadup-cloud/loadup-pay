@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -34,23 +36,23 @@ public record OrderFee(
     public OrderFee {
         DomainChecks.id(id);
         DomainChecks.id(orderId);
-        Objects.requireNonNull(baseAmount);
-        Objects.requireNonNull(feeAmount);
+        DomainChecks.amount(baseAmount);
+        DomainChecks.amount(feeAmount);
         Objects.requireNonNull(policy);
         Objects.requireNonNull(state);
-        baseAmount.sameCurrency(feeAmount);
+        require(baseAmount.getCurrencyValue().equals(feeAmount.getCurrencyValue()), CURRENCY_MISMATCH);
         require(
                 policy.calculate(baseAmount).equals(feeAmount)
                         && refundBasisVersion >= 0
                         && refundBasisMinor >= 0
-                        && refundBasisMinor <= baseAmount.minor()
+                        && refundBasisMinor <= baseAmount.getCent()
                         && adjustedMinor >= 0
-                        && adjustedMinor <= feeAmount.minor(),
+                        && adjustedMinor <= feeAmount.getCent(),
                 INVALID_ARGUMENT);
         require(state == FeeState.CONFIRMED || adjustedMinor == 0, INVALID_STATE);
         if (state == FeeState.CONFIRMED)
             require(
-                    adjustedMinor <= policy.refundableFee(feeAmount.minor(), baseAmount.minor(), refundBasisMinor),
+                    adjustedMinor <= policy.refundableFee(feeAmount.getCent(), baseAmount.getCent(), refundBasisMinor),
                     CONFLICT);
     }
 
@@ -82,7 +84,7 @@ public record OrderFee(
 
     public long adjustmentDueMinor() {
         return state == FeeState.CONFIRMED
-                ? policy.refundableFee(feeAmount.minor(), baseAmount.minor(), refundBasisMinor) - adjustedMinor
+                ? policy.refundableFee(feeAmount.getCent(), baseAmount.getCent(), refundBasisMinor) - adjustedMinor
                 : 0;
     }
 
@@ -97,5 +99,10 @@ public record OrderFee(
                 refundBasisVersion,
                 refundBasisMinor,
                 Math.addExact(adjustedMinor, adjustmentDueMinor()));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

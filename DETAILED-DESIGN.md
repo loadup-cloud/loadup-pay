@@ -2,7 +2,7 @@
 
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 基线：[架构 v1.4](ARCHITECTURE.md)、[D01—D10](DESIGN-DECISIONS.md) ｜ 状态：待实现的设计稿
 
-2026-10-21实施进度：六应用client/domain/bootstrap与核心纯领域规则已落源码，见[第一阶段实施说明](IMPLEMENTATION.md)；本设计中的数据库事务、业务应用服务及渠道执行仍待实现。以下“本轮”指2026-10-20的设计编写阶段。
+2026-10-21实施进度：六应用client/domain/bootstrap、P1生命周期与结果收敛、顺序退款/容量、额度恢复及完整快照契约已落源码，见[第一阶段实施说明](IMPLEMENTATION.md)；本设计中的数据库事务、业务应用服务及渠道执行仍待实现。以下“本轮”指2026-10-20的设计编写阶段。
 
 本文把已确认的架构细化为 COLA DDD 模型、事务、数据库和 client 契约。当前程序仍是 acquire/payment Ping 骨架；文中的业务接口、表、任务和渠道适配均不表示已经实现。本轮未修改运行代码、数据库或 Kubernetes 部署。
 
@@ -32,7 +32,7 @@ acquire/
   acquire-bootstrap/       Spring Boot 启动与装配
 ```
 
-payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选 web 层，并同时承载 gRPC 入站。现有两应用和 pay-contract 的迁移单独实施，不在文档阶段调整 POM。
+payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选 web 层，并同时承载未来业务 gRPC 入站。2026-10-21源码更新：测试用Ping及协议模块已删除，当前启动应用不依赖gRPC；业务适配在P2按实际用例接入，Java业务client不引入传输协议依赖。
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,7 @@ flowchart LR
 ```
 
 - client 表达完整用例，不暴露 Mapper、表结构、Spring、gRPC stub、HTTP envelope。app 的 `XxxService` 直接实现 Facade，不增加只透传的 Service/Impl。
-- domain 为纯 Java POJO；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。聚合执行状态与金额规则；app 管理权限、事务、跨服务调用和恢复编排。
+- domain 为普通Java对象；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。复用LoadUp commons-dto的Money与commons-json的ToStringAsJson/DiagnosticHidden基础能力；收单层保留CNY/非负金额规则。聚合执行状态与金额规则；app 管理权限、事务、跨服务调用和恢复编排。
 - infrastructure 实现 domain Gateway，用 MyBatis-Flex、生成的 Tables/Mapper 和 MapStruct 完成持久化；远程 Gateway 将本地领域入参映射为被调用方 client/proto，不把目标服务仓储引入本地。
 - adapter 验证请求、建立可信租户/调用者上下文，再调用 Facade；出站 RPC 由 infrastructure 持有。app 可装配 infrastructure 的自动配置，业务源码依赖 domain 接口。
 - Command/Query/DTO 使用 record；公开字段使用英文 OpenAPI Schema；构造器注入，无 Lombok。普通 DTO 按框架使用 JSON toString；敏感输入单独脱敏，禁止 record 默认 toString 泄露付款码。
@@ -95,7 +95,7 @@ public interface PaymentChannelGateway {
 }
 ```
 
-Gateway.lock表达当前应用事务内取写锁；仅infrastructure使用QueryWrapper.forUpdate，domain不感知SQL。OrderChange携带此次真正发生的领域事件，app在同事务按目标发布Outbox。Money、PaymentIntent、VerifiedPaymentOutcome均为domain值对象，不复用client record作为内部可变模型。
+Gateway.lock表达当前应用事务内取写锁；仅infrastructure使用QueryWrapper.forUpdate，domain不感知SQL。OrderChange携带此次真正发生的领域事件，app在同事务按目标发布Outbox。Money使用框架的不可变金额类型；PaymentIntent、VerifiedPaymentOutcome为本地domain值对象，不复用业务client record作为内部可变模型。
 
 PaymentChannelGateway有真实的支付宝/微信/银联及沙箱adapter替换点。返回类型必须区分已受理等待交互、确定无收款风险、结果未知和成功事实；close返回还需区分仅停止未收款交易与带资金退回的撤销。不能把所有HTTP非2xx映射成可释放FAILED。纯计算的OrderFeePolicy、RefundAllocationPolicy、LimitWindowPolicy可直接用领域对象验证，无需启动Spring。
 

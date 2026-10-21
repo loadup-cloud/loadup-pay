@@ -1,4 +1,0 @@
-syntax = "proto3";
-package loadup.pay.v1;
-import "google/protobuf/wrappers.proto";
-service PaymentProbe {rpc Ping(google.protobuf.StringValue) returns (google.protobuf.StringValue);}

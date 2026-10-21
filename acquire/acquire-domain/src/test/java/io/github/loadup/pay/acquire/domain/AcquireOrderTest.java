@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain;
 
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.acquire.domain.model.*;
 import io.github.loadup.pay.common.*;
 import java.time.*;
@@ -27,19 +28,19 @@ class AcquireOrderTest {
 
     private AcquireOrder order(UnpaidOrderAction action) {
         return AcquireOrder.init(
-                "order", "merchant", Money.cny(10000), DUE, action, new OrderPaymentPolicy(1, 10000, null, false));
+                "order", "merchant", Money.ofMinor(10000, "CNY"), DUE, action, new OrderPaymentPolicy(1, 10000, null, false));
     }
 
     private OrderPaymentChange pay(AcquireOrder order, String id, long minor) {
         var held = order.reservePayment(
-                new PaymentIntent("a" + id, id, "merchant", id, "digest", Money.cny(minor)), DUE.minusMinutes(1));
+                new PaymentIntent("a" + id, id, "merchant", id, "digest", Money.ofMinor(minor, "CNY")), DUE.minusMinutes(1));
         return held.order()
                 .applyPaymentOutcome(
                         held.allocation(),
                         new VerifiedPaymentOutcome(
                                 "order",
                                 id,
-                                Money.cny(minor),
+                                Money.ofMinor(minor, "CNY"),
                                 VerifiedPaymentOutcome.Kind.SUCCEEDED,
                                 1,
                                 "evidence",
@@ -60,7 +61,7 @@ class AcquireOrderTest {
                         new VerifiedPaymentOutcome(
                                 "order",
                                 "p3",
-                                Money.cny(5000),
+                                Money.ofMinor(5000, "CNY"),
                                 VerifiedPaymentOutcome.Kind.SUCCEEDED,
                                 2,
                                 "evidence",
@@ -73,19 +74,19 @@ class AcquireOrderTest {
     void unknownKeepsAllocationAndCloseRequiresConvergence() {
         var held = order(UnpaidOrderAction.CLOSE)
                 .reservePayment(
-                        new PaymentIntent("a1", "p1", "merchant", "action", "digest", Money.cny(7000)),
+                        new PaymentIntent("a1", "p1", "merchant", "action", "digest", Money.ofMinor(7000, "CNY")),
                         DUE.minusMinutes(1));
         var unknown = held.order()
                 .applyPaymentOutcome(
                         held.allocation(),
                         new VerifiedPaymentOutcome(
-                                "order", "p1", Money.cny(7000), VerifiedPaymentOutcome.Kind.UNKNOWN, 1, null, false));
+                                "order", "p1", Money.ofMinor(7000, "CNY"), VerifiedPaymentOutcome.Kind.UNKNOWN, 1, null, false));
         assertEquals(7000, unknown.order().paymentReservedMinor());
         assertThrows(
                 DomainViolation.class,
                 () -> unknown.order()
                         .reservePayment(
-                                new PaymentIntent("a2", "p2", "merchant", "next", "digest", Money.cny(4000)),
+                                new PaymentIntent("a2", "p2", "merchant", "next", "digest", Money.ofMinor(4000, "CNY")),
                                 DUE.minusMinutes(1)));
         var closing = unknown.order().requestClose();
         assertThrows(

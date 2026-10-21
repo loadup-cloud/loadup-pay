@@ -30,6 +30,8 @@ public interface MerchantLimitGateway {
 
     LimitReservation lockReservation(String tenantId, String operationId);
 
+    List<LimitReservationItem> lockItems(String tenantId, String reservationId);
+
     LimitBucketSet lockBuckets(String tenantId, List<LimitBucketKey> keys);
 
     void saveGate(String tenantId, LimitOperationGate gate);

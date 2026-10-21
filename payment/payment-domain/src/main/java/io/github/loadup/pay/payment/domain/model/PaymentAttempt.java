@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -36,13 +38,13 @@ public record PaymentAttempt(
         DomainChecks.id(id);
         DomainChecks.id(paymentId);
         DomainChecks.text(channelRequestNo, 64);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(binding);
         Objects.requireNonNull(method);
         Objects.requireNonNull(state);
         require(
                 attemptNo > 0
-                        && amount.minor() > 0
+                        && amount.getCent() > 0
                         && executionEpoch >= 0
                         && binding.capabilities().contains(method),
                 INVALID_ARGUMENT);
@@ -116,5 +118,10 @@ public record PaymentAttempt(
     public boolean canSafelyReplace() {
         return (state == PaymentAttemptState.FAILED || state == PaymentAttemptState.CLOSED)
                 && noCollectionEvidenceId != null;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

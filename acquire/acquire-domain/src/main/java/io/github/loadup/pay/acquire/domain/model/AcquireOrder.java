@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -39,23 +41,23 @@ public record AcquireOrder(
     public AcquireOrder {
         DomainChecks.id(id);
         DomainChecks.id(payeeMerchantId);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(state);
         Objects.requireNonNull(orderDueAt);
         Objects.requireNonNull(unpaidAction);
         Objects.requireNonNull(paymentPolicy);
         require(
-                amount.minor() > 0
+                amount.getCent() > 0
                         && paidAmountMinor >= 0
                         && paymentReservedMinor >= 0
-                        && paidAmountMinor <= amount.minor()
-                        && paymentReservedMinor <= amount.minor() - paidAmountMinor
+                        && paidAmountMinor <= amount.getCent()
+                        && paymentReservedMinor <= amount.getCent() - paidAmountMinor
                         && successfulPaymentCount >= 0
                         && reservedPaymentCount >= 0
                         && closeEpoch >= 0
                         && version >= 0,
                 INVALID_ARGUMENT);
-        require((state == AcquireOrderState.PAID) == (paidAmountMinor == amount.minor()), INVALID_STATE);
+        require((state == AcquireOrderState.PAID) == (paidAmountMinor == amount.getCent()), INVALID_STATE);
         if (state == AcquireOrderState.CLOSED)
             require(paymentReservedMinor == 0 && reservedPaymentCount == 0, INVALID_STATE);
         if (state == AcquireOrderState.INIT)
@@ -78,7 +80,7 @@ public record AcquireOrder(
     }
 
     public long outstandingAmountMinor() {
-        return amount.minor() - paidAmountMinor;
+        return amount.getCent() - paidAmountMinor;
     }
 
     public long unallocatedAmountMinor() {
@@ -98,7 +100,7 @@ public record AcquireOrder(
     public OrderPaymentChange reservePayment(PaymentIntent intent, LocalDateTime now) {
         Objects.requireNonNull(intent);
         require(canAcceptNewPayment(now), INVALID_STATE);
-        amount.sameCurrency(intent.amount());
+        require(amount.getCurrencyValue().equals(intent.amount().getCurrencyValue()), CURRENCY_MISMATCH);
         paymentPolicy.validate(
                 intent.amount(), unallocatedAmountMinor(), (long) successfulPaymentCount + reservedPaymentCount);
         var allocation = OrderPaymentAllocation.init(id, intent).hold();
@@ -107,7 +109,7 @@ public record AcquireOrder(
                 payeeMerchantId,
                 amount,
                 paidAmountMinor,
-                Math.addExact(paymentReservedMinor, intent.amount().minor()),
+                Math.addExact(paymentReservedMinor, intent.amount().getCent()),
                 successfulPaymentCount,
                 Math.incrementExact(reservedPaymentCount),
                 AcquireOrderState.PENDING,
@@ -138,11 +140,11 @@ public record AcquireOrder(
                         && state != AcquireOrderState.CLOSED,
                 CONFLICT);
         long paid = target == AllocationState.CONSUMED
-                ? Math.addExact(paidAmountMinor, current.amount().minor())
+                ? Math.addExact(paidAmountMinor, current.amount().getCent())
                 : paidAmountMinor;
-        long held = Math.subtractExact(paymentReservedMinor, current.amount().minor());
+        long held = Math.subtractExact(paymentReservedMinor, current.amount().getCent());
         require(held >= 0 && reservedPaymentCount > 0, CONFLICT);
-        var nextState = paid == amount.minor() ? AcquireOrderState.PAID : state;
+        var nextState = paid == amount.getCent() ? AcquireOrderState.PAID : state;
         var next = new AcquireOrder(
                 id,
                 payeeMerchantId,
@@ -228,5 +230,10 @@ public record AcquireOrder(
         return new AcquireOrder(id, payeeMerchantId, amount, paidAmountMinor, paymentReservedMinor,
                 successfulPaymentCount, reservedPaymentCount, state, requestedDueAt, unpaidAction,
                 paymentPolicy, closeEpoch, Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

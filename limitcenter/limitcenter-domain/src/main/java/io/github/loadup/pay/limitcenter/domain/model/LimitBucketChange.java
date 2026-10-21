@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -25,5 +26,10 @@ public record LimitBucketChange(LimitBucketKey key, long requested, long thresho
     public LimitBucketChange {
         Objects.requireNonNull(key);
         require(requested > 0 && threshold >= 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

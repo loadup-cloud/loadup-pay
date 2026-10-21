@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.realtime.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -37,5 +38,10 @@ public record SourceVersion(String producer, String aggregateType, String aggreg
                         && aggregateId.equals(previous.aggregateId),
                 CONFLICT);
         return number > previous.number;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -1,9 +1,4 @@
 spring:
-  grpc:
-    server:
-      port: ${pay.grpc-port}
-      ssl:
-        enabled: false
   application:
     name: payment
 server:
@@ -17,5 +12,3 @@ management:
     health:
       probes:
         enabled: true
-pay:
-  grpc-port: ${GRPC_PORT:9090}

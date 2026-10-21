@@ -17,6 +17,7 @@ package io.github.loadup.pay.product.domain;
 
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.product.domain.model.*;
+import io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy;
 import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -42,5 +43,27 @@ class OrderAdmissionTest {
                 start.plusMinutes(5));
         assertTrue(original.canMaterialize(start.plusMinutes(1)));
         assertThrows(DomainViolation.class, () -> original.requireSameIntent("another-order", "merchant", "digest"));
+    }
+
+    @Test
+    void newAdmissionRequiresMerchantCurrentContractAndActivatedLimits() {
+        var now = LocalDateTime.of(2026, 10, 21, 10, 0);
+        var reference = new ContractReference("contract", 1, 1, "snapshot", "compiled");
+        var eligible = new MerchantEligibilityFacts("merchant", true, "ALLOW", 1, 2);
+        var policy = new OrderAdmissionPolicy();
+        var current = new MerchantContractFacts("merchant", reference, ContractAdmissionState.ACTIVE,
+                now.minusDays(1), now.plusDays(1), true);
+        assertEquals(AdmissionDecision.ADMITTED, policy.authorize("admission", "order", "merchant", "digest",
+                current, eligible, now, now.plusMinutes(5)).decision());
+        var notActivated = new MerchantContractFacts("merchant", reference, ContractAdmissionState.ACTIVE,
+                now.minusDays(1), null, false);
+        assertEquals(AdmissionDecision.DENIED, policy.authorize("admission", "order", "merchant", "digest",
+                notActivated, eligible, now, now.plusMinutes(5)).decision());
+        var denied = policy.authorize("admission", "order", "merchant", "digest", current,
+                new MerchantEligibilityFacts("merchant", false, "MERCHANT_SUSPENDED", 2, 2), now, now.plusMinutes(5));
+        assertEquals("MERCHANT_SUSPENDED", denied.reasonCode());
+        assertNull(denied.contract());
+        assertThrows(NullPointerException.class, () -> policy.authorize("admission", "order", "merchant", "digest",
+                current, null, now, now.plusMinutes(5)));
     }
 }

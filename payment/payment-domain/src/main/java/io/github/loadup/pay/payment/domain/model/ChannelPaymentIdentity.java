@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -35,5 +36,10 @@ public record ChannelPaymentIdentity(
         Objects.requireNonNull(channel);
         DomainChecks.text(accountScopeHash, 64);
         DomainChecks.text(channelRequestNo, 64);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

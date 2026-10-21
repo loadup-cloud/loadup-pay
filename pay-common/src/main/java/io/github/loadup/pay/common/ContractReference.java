@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.common;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+
 /** Original commercial revision and separately compiled typed terms. */
 public record ContractReference(
         String contractId, int revision, long generation, String snapshotHash, String compiledTermsHash) {
@@ -29,5 +31,10 @@ public record ContractReference(
                         && compiledTermsHash != null
                         && !compiledTermsHash.isBlank(),
                 DomainViolation.Reason.INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

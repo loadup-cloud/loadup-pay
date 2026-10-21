@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -51,5 +52,10 @@ public record PaymentExecutionGate(String orderId, String paymentId, GateState s
 
     public void requireOpen() {
         require(state == GateState.OPEN, INVALID_STATE);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

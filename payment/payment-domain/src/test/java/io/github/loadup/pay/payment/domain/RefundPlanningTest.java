@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain;
 
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.payment.domain.model.*;
 import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
@@ -27,36 +28,36 @@ class RefundPlanningTest {
     @Test
     void fifoPlanUsesStableTimeAndPaymentIdOrderingAndNeverExceedsCapacity() {
         var first = new PaymentRefundCapacity(
-                "p1", "order", "merchant", LocalDateTime.of(2026, 10, 21, 10, 0), Money.cny(3000), 0, 0, 0);
+                "p1", "order", "merchant", LocalDateTime.of(2026, 10, 21, 10, 0), Money.ofMinor(3000, "CNY"), 0, 0, 0);
         var second =
-                new PaymentRefundCapacity("p2", "order", "merchant", first.succeededAt(), Money.cny(2000), 0, 0, 0);
+                new PaymentRefundCapacity("p2", "order", "merchant", first.succeededAt(), Money.ofMinor(2000, "CNY"), 0, 0, 0);
         var third = new PaymentRefundCapacity(
-                "p3", "order", "merchant", first.succeededAt().plusMinutes(1), Money.cny(5000), 0, 0, 0);
+                "p3", "order", "merchant", first.succeededAt().plusMinutes(1), Money.ofMinor(5000, "CNY"), 0, 0, 0);
         var policy = new FifoRefundPolicy();
-        var plan = policy.plan("order", "merchant", Money.cny(4000), true, List.of(third, second, first));
+        var plan = policy.plan("order", "merchant", Money.ofMinor(4000, "CNY"), true, List.of(third, second, first));
         assertEquals(
                 List.of("p1", "p2"),
                 plan.stream().map(RefundPlanItem::paymentId).toList());
         assertEquals(
                 List.of(3000L, 1000L),
-                plan.stream().map(p -> p.amount().minor()).toList());
+                plan.stream().map(p -> p.amount().getCent()).toList());
         assertThrows(
                 DomainViolation.class,
                 () -> policy.plan(
-                        "order", "merchant", Money.cny(8000), true, List.of(first.reserve(3000), second, third)));
+                        "order", "merchant", Money.ofMinor(8000, "CNY"), true, List.of(first.reserve(3000), second, third)));
         assertEquals(3000, first.availableMinor());
     }
 
     @Test
     void unknownChildCannotBecomeACompletedRefundRequest() {
-        var child = RefundOrder.init("r1", "request", "p1", Money.cny(1000), "channel-refund");
+        var child = RefundOrder.init("r1", "request", "p1", Money.ofMinor(1000, "CNY"), "channel-refund");
         var request =
-                RefundRequest.init("request", "order", "merchant", "merchant-refund", Money.cny(1000), List.of(child));
-//        var unknown = child.recordOutcome(RefundState.UNKNOWN, Money.cny(1000), null);
+                RefundRequest.init("request", "order", "merchant", "merchant-refund", Money.ofMinor(1000, "CNY"), List.of(child));
+//        var unknown = child.recordOutcome(new ChannelRefundOutcome("r1", ChannelRefundOutcome.Kind.UNKNOWN, Money.ofMinor(1000, "CNY"), null));
 //        request = request.apply(unknown);
 //        assertEquals(RefundRequestState.PROCESSING, request.state());
 //        assertEquals(1, request.unknownCount());
-//        request = request.apply(unknown.recordOutcome(RefundState.SUCCEEDED, Money.cny(1000), "refund-evidence"));
+//        request = request.apply(unknown.recordOutcome(new ChannelRefundOutcome("r1", ChannelRefundOutcome.Kind.SUCCEEDED, Money.ofMinor(1000, "CNY"), "refund-evidence")));
 //        assertEquals(RefundRequestState.SUCCEEDED, request.state());
     }
 }

@@ -42,7 +42,7 @@ public record PaymentSnapshotEventDTO(
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        new Money(amountMinor, currency);
+        DomainChecks.amount(amountMinor, currency);
         require(amountMinor > 0 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
         require((channel == null) == (accessMode == null), INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
@@ -58,5 +58,7 @@ public record PaymentSnapshotEventDTO(
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

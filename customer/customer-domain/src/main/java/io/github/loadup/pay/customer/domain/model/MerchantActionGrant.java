@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.customer.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -85,5 +86,10 @@ public record MerchantActionGrant(
         if (state == GrantState.REVOKED) return this;
         return new MerchantActionGrant(id, principalType, principalId, payeeMerchantId, relationshipId,
                 action, GrantState.REVOKED, validFrom, validTo, Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain;
 
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.acquire.domain.model.*;
 import io.github.loadup.pay.common.*;
 import java.math.*;
@@ -28,14 +29,14 @@ class OrderFeeTest {
     void earlyRefundBasisIsRetainedUntilTheFeeIsConfirmed() {
         var policy = new OrderFeePolicy(
                 new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
-        var fee = OrderFee.init("fee", "order", Money.cny(10000), policy).recordRefundBasis(1, 3000);
-        assertEquals(30, fee.feeAmount().minor());
+        var fee = OrderFee.init("fee", "order", Money.ofMinor(10000, "CNY"), policy).recordRefundBasis(1, 3000);
+        assertEquals(30, fee.feeAmount().getCent());
         assertEquals(0, fee.adjustmentDueMinor());
         fee = fee.confirm();
         assertEquals(9, fee.adjustmentDueMinor());
         fee = fee.acknowledgeAdjustment().recordRefundBasis(2, 10000);
         assertEquals(21, fee.adjustmentDueMinor());
         assertEquals(0, fee.acknowledgeAdjustment().adjustmentDueMinor());
-        assertEquals(30, fee.feeAmount().minor());
+        assertEquals(30, fee.feeAmount().getCent());
     }
 }

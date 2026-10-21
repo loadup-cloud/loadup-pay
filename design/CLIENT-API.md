@@ -2,7 +2,7 @@
 
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 对应[详细设计](../DETAILED-DESIGN.md)与[数据库设计](DATABASE.md)
 
-2026-10-21：主要Java Facade、Command/Query/DTO、错误码与结果事件已在各服务client模块落源码，见[实施说明](../IMPLEMENTATION.md)。本文保留目标协议；HTTP/业务gRPC适配及Facade实现尚未完成，真实渠道原生Action参数后续扩展。
+2026-10-21：P1 Java Facade、Command/Query/DTO、错误码、条款校验、授权撤销和完整结果/投影事件已落源码，补充差异见第11节及[实施说明](../IMPLEMENTATION.md)。本文保留目标协议；HTTP/业务gRPC适配及Facade实现尚未完成，真实渠道原生Action参数后续扩展。
 
 本文为待实现的业务契约。`client`指COLA公开Java业务接口；HTTP与gRPC是其适配。示例省略package/import及重复的Schema/toString，不表示已有可编译SDK。框架已有接口保持原名，下面收单平台新增接口不伪称为框架现成功能。
 
@@ -443,7 +443,7 @@ target/签名引用/超时/退避/最大窗口来自原冻结通知策略。独�
 
 ## 9. gRPC映射与错误
 
-服务间采用LoadUp gRPC binder：generated BindableService Bean + GrpcChannelFactory + `spring.grpc.*`，DNS目标如`static://payment.loadup-pay.svc.cluster.local:9090`。client Java record与proto分别维护，由MapStruct/适配器转换，不以proto取代domain模型。pay-contract按服务package分proto，不建包含所有服务Java Facade的共享领域大包。
+服务间计划采用LoadUp gRPC binder：generated BindableService Bean + GrpcChannelFactory + `spring.grpc.*`，DNS目标与端口在业务适配时配置。client Java record与proto分别维护，由MapStruct/适配器转换，不以proto取代domain模型。协议归提供方的业务适配，不向业务client添加gRPC依赖，也不预生成空协议模块。测试Ping及其协议模块已删除，当前没有RPC接口；以下业务proto示例、stub与适配仍待P2实现。
 
 示例wire骨架（其余Command按上文同名字段类型化展开）：
 
@@ -451,7 +451,7 @@ target/签名引用/超时/退避/最大窗口来自原冻结通知策略。独�
 syntax = "proto3";
 package loadup.pay.payment.v1;
 option java_multiple_files = true;
-option java_package = "io.github.loadup.pay.contract.payment.v1";
+option java_package = "io.github.loadup.pay.payment.grpc.v1";
 import "google/protobuf/timestamp.proto";
 
 service PaymentExecution {
@@ -537,3 +537,46 @@ domain只预留`RiskConsultGateway.consult(RiskConsultation)`与`RiskOutcomeGate
 reconciliation后置消费独立事件镜像/受控权威快照。预留`SubmitEvidenceForVerification`用例时只允许提交来源和证据引用，由payment验证/主动查证后做自己的状态迁移；不提供UpdatePaymentStatus、直接退款或改额度接口。账单文件schema、导入和差错审批在该服务实施时另写详细设计。
 
 本稿的API示例用于契约评审，未生成SDK/proto或运行接口测试。真实渠道JSAPI/银联细节在适配材料确定后按类型扩展，不影响以上订单、付款、退款和额度契约。
+
+## 11. P1源码契约补充
+
+以下为本阶段已落源码的接口；不表示已经注册业务实现、对外发布或具备数据库事务。
+
+```java
+public interface TradeProjectionFacade {
+    void applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
+    void applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event);
+    void applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event);
+    void applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
+}
+```
+
+| 载荷 | 完整快照中的主要事实 |
+|---|---|
+| OrderSnapshotEventDTO | order/payee/merchantOrderNo、原总额币种、gross paid/held、state、orderCreatedAt/sourceUpdatedAt、sourceVersion |
+| PaymentSnapshotEventDTO | payment/order/payee、原付款金额币种、state、channel/accessMode、initiatedAt/succeededAt、sourceVersion |
+| RefundSnapshotEventDTO | refund/request/payment/order/payee、原退款金额币种、state、refundCreatedAt/succeededAt、sourceVersion |
+| OrderRefundSummaryEventDTO | order/payee/currency、refunded/held、独立summaryVersion、完整requests进度列表 |
+
+不再用商户查询DTO替代这些投影事件。RefundOutcomeEventDTO专供额度恢复事实，不能充当缺少原创建/成功时间的退款完整快照。RefundRequestSummaryDTO包含申请/商户退款号、申请额、state、成功/失败额、unknownCount/version；各申请成功额之和等于refunded，各未收敛额之和等于refundReserved。列表是完整替换快照，不能发送增量列表或空列表却声明非零累计。
+
+快照的`requireEnvelope`核对载荷、生产方、固定投递type、schemaVersion=1、聚合ID和版本；结果事件也提供相应检查。入站适配必须另行核验经过认证的服务身份/租户，app在本地事务中处理Inbox与版本CAS。信封中的producer和业务Evidence本身不授予可信权限。
+
+realtime的TradeOrderDTO改为独立扁平读模型，保留原订单/商户/金额/状态/创建时间、退款额、净收款和各来源版本；不从投影伪造`canAcceptNewPayment`或权威`availableToPay`。TradeDetailDTO增加独立完整refundSummary。立即付款决策仍读取acquire/payment权威接口。
+
+```java
+public interface MerchantAuthorizationFacade {
+    MerchantRelationshipDTO createRelationship(MerchantRelationshipCreateCommand command);
+    MerchantActionGrantDTO grant(MerchantActionGrantCommand command);
+    MerchantRelationshipDTO revokeRelationship(MerchantRelationshipRevokeCommand command);
+    MerchantActionGrantDTO revokeGrant(MerchantActionGrantRevokeCommand command);
+}
+
+// Both revoke commands contain id, requestKey and expectedVersion.
+```
+
+关系/授权输出`GrantState(INIT, ACTIVE, REVOKED)`，替代丢失生命周期的active布尔值。代操作校验还要求可信principal的所属商户匹配关系parentMerchantId；不能在公开Command中自填该所属商户。撤销后不可激活原记录；如需重新授权，另建明确的新授权。
+
+条款DTO补充构造时的跨字段约束：wait≤maxWait，关闭延期时累计上限为0，开启时上限为正，付款min≤max，费用minimum≤maximum，通知启用时须配置目标/签名引用且重试倍率≥1。输入/结果事件也验证金额、币种、版本和终结证据。DomainViolation仍由后续app/adapter映射至对应模块稳定ResultCode，不能把原始领域异常直接作为HTTP响应。
+
+安全换attempt时，limitcenter领域入口接收可信的LimitAttemptEvidence，匹配operation/payment/旧attempt/旧epoch后才能递增epoch。该证据由payment事实适配获得，不在公网提供可自填的“已封禁”开关；原LimitBeginExecutionCommand只传previousAttemptEvidenceId。

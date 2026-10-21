@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -35,9 +37,9 @@ public record RefundOrder(
         DomainChecks.id(refundRequestId);
         DomainChecks.id(paymentId);
         DomainChecks.text(channelRefundNo, 64);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(state);
-        require(amount.minor() > 0 && version >= 0, INVALID_ARGUMENT);
+        require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(terminalEvidenceId);
     }
 
@@ -72,5 +74,10 @@ public record RefundOrder(
                 outcome,
                 verified.evidenceId(),
                 Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

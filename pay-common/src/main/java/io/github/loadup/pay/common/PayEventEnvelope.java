@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.common;
 
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
@@ -28,7 +30,7 @@ public record PayEventEnvelope<T>(
         String aggregateId,
         long aggregateVersion,
         OffsetDateTime occurredAt,
-        T data) {
+        @DiagnosticHidden T data) {
     public PayEventEnvelope {
         DomainChecks.id(deliveryId);
         DomainChecks.id(businessEventId);
@@ -43,7 +45,7 @@ public record PayEventEnvelope<T>(
 
     @Override
     public String toString() {
-        return "PayEventEnvelope[producer=" + producer + ",type=" + eventType + ",payload=<hidden>]";
+        return ToStringAsJson.reflectionToString(this);
     }
 
     /** Structural binding only; authenticate the producer and tenant at the transport boundary. */

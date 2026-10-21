@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -44,12 +46,12 @@ public record LimitReservation(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(policyId);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(initiatedAt);
         Objects.requireNonNull(reserveExpiresAt);
         Objects.requireNonNull(state);
         require(
-                amount.minor() > 0
+                amount.getCent() > 0
                         && policyVersion > 0
                         && reserveExpiresAt.isAfter(initiatedAt)
                         && executionEpoch >= 0
@@ -158,5 +160,10 @@ public record LimitReservation(
                 epoch,
                 sourceVersion,
                 Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

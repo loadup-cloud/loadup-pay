@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.realtime.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -29,27 +31,37 @@ public record TradeOrderProjection(
         long paidMinor,
         long reservedMinor,
         String state,
+        LocalDateTime orderCreatedAt,
+        LocalDateTime sourceUpdatedAt,
         SourceVersion source,
         LocalDateTime snapshotAt) {
     public TradeOrderProjection {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantOrderNo, 64);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(source);
         Objects.requireNonNull(snapshotAt);
+        Objects.requireNonNull(orderCreatedAt);
+        Objects.requireNonNull(sourceUpdatedAt);
+        require(!sourceUpdatedAt.isBefore(orderCreatedAt), INVALID_ARGUMENT);
         require(
                 paidMinor >= 0
                         && reservedMinor >= 0
-                        && paidMinor <= amount.minor()
-                        && reservedMinor <= amount.minor() - paidMinor
+                        && paidMinor <= amount.getCent()
+                        && reservedMinor <= amount.getCent() - paidMinor
                         && orderId.equals(source.aggregateId())
                         && "acquire".equals(source.producer())
                         && "AcquireOrder".equals(source.aggregateType()),
                 INVALID_ARGUMENT);
-        require(amount.minor() > 0 && state != null
+        require(amount.getCent() > 0 && state != null
                 && Set.of("INIT", "PENDING", "CLOSING", "PAID", "CLOSED").contains(state), INVALID_ARGUMENT);
-        require("PAID".equals(state) == (paidMinor == amount.minor())
+        require("PAID".equals(state) == (paidMinor == amount.getCent())
                 && (!"CLOSED".equals(state) || reservedMinor == 0), INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

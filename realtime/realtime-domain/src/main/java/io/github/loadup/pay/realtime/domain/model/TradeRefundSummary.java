@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.realtime.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -23,8 +24,18 @@ import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record TradeRefundSummary(
         String orderId, String payeeMerchantId, String currency, long refundedMinor, long reservedMinor,
-        SourceVersion source, LocalDateTime snapshotAt) {
+        List<RefundRequestProgress> requests, SourceVersion source, LocalDateTime snapshotAt) {
     public TradeRefundSummary {
+        requests = List.copyOf(requests);
+        var ids = new HashSet<String>();
+        long succeeded = 0;
+        long reserved = 0;
+        for (var request : requests) {
+            require(ids.add(request.refundRequestId()), CONFLICT);
+            succeeded = Math.addExact(succeeded, request.succeededMinor());
+            reserved = Math.addExact(reserved, request.reservedMinor());
+        }
+        require(succeeded == refundedMinor && reserved == reservedMinor, CONFLICT);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         require("CNY".equals(currency), INVALID_ARGUMENT);
@@ -37,5 +48,10 @@ public record TradeRefundSummary(
                         && "payment".equals(source.producer())
                         && "OrderRefundSummary".equals(source.aggregateType()),
                 INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -51,10 +51,16 @@ public record RefundOutcomeEventDTO(
         DomainChecks.id(payeeMerchantId);
         DomainViolation.require(amountMinor > 0 && refundVersion > 0 && state != null
                 && cumulativePaymentRefundedMinor >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
-        new Money(amountMinor, currency);
+        DomainChecks.amount(amountMinor, currency);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(evidenceId);
         if (state == RefundState.SUCCEEDED)
             DomainViolation.require(cumulativePaymentRefundedMinor >= amountMinor, DomainViolation.Reason.CONFLICT);
+    }
+
+    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+        DomainViolation.require(equals(envelope.data()) && Set.of("pay.payment.refund.limit.v1").contains(envelope.eventType()),
+                DomainViolation.Reason.CONFLICT);
+        envelope.requireSource(envelope.eventType(), "payment", refundId, refundVersion);
     }
 
     @Override

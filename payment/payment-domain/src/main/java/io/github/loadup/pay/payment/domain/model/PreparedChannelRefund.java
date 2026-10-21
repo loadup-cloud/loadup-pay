@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -27,7 +29,12 @@ public record PreparedChannelRefund(
         Objects.requireNonNull(original);
         DomainChecks.id(refundId);
         DomainChecks.text(channelRefundNo, 64);
-        Objects.requireNonNull(amount);
-        require(amount.minor() > 0, INVALID_ARGUMENT);
+        DomainChecks.amount(amount);
+        require(amount.getCent() > 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

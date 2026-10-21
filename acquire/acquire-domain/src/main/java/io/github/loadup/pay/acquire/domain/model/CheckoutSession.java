@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -68,5 +69,10 @@ public record CheckoutSession(String id, String orderId, CheckoutSessionState st
     private boolean terminal() {
         return state == CheckoutSessionState.COMPLETED || state == CheckoutSessionState.CANCELLED
                 || state == CheckoutSessionState.EXPIRED;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

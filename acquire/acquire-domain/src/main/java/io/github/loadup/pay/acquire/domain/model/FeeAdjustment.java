@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -28,7 +30,12 @@ public record FeeAdjustment(
         DomainChecks.id(feeId);
         DomainChecks.id(orderId);
         DomainChecks.text(triggerKey, 128);
-        Objects.requireNonNull(adjustment);
+        DomainChecks.amount(adjustment);
         require(refundSourceVersion >= 0, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -33,5 +34,10 @@ public record OrderAdmissionProof(
 
     public void requireBoundTo(String order, String payee, String digest) {
         require(orderId.equals(order) && payeeMerchantId.equals(payee) && requestDigest.equals(digest), CONFLICT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

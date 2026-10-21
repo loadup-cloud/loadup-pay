@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -39,10 +41,15 @@ public record VerifiedPaymentOutcome(
     public VerifiedPaymentOutcome {
         DomainChecks.id(orderId);
         DomainChecks.id(paymentId);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         Objects.requireNonNull(kind);
         require(paymentVersion > 0, INVALID_ARGUMENT);
         if (kind != Kind.UNKNOWN) DomainChecks.id(evidenceId);
         if (kind == Kind.NO_COLLECTION) require(executionFenced, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

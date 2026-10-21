@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -33,8 +35,13 @@ public record ChannelPaymentOutcome(Kind kind, ChannelPaymentIdentity identity, 
     public ChannelPaymentOutcome {
         Objects.requireNonNull(kind);
         Objects.requireNonNull(identity);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         if (kind == Kind.SUCCEEDED || kind == Kind.NO_COLLECTION || kind == Kind.CLOSED_WITH_FUNDS_RETURNED)
             DomainChecks.id(evidenceId);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

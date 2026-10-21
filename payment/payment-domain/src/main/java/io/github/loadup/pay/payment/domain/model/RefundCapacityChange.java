@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import java.util.Objects;
 
 /** Persist the refund child, request aggregate and capacity in the same local transaction. */
@@ -22,5 +23,10 @@ public record RefundCapacityChange(PaymentRefundCapacity capacity, RefundOrder r
     public RefundCapacityChange {
         Objects.requireNonNull(capacity);
         Objects.requireNonNull(refund);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

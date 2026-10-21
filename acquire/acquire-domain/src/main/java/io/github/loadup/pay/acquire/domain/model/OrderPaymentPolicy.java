@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -32,12 +34,18 @@ public record OrderPaymentPolicy(
     }
 
     public void validate(Money payment, long available, long occupiedCount) {
+        DomainChecks.amount(payment);
         require(
-                payment.minor() > 0 && payment.minor() <= available && payment.minor() <= maxAmountMinor,
+                payment.getCent() > 0 && payment.getCent() <= available && payment.getCent() <= maxAmountMinor,
                 AMOUNT_EXCEEDED);
         require(
-                payment.minor() >= minAmountMinor || allowExactRemainderBelowMin && payment.minor() == available,
+                payment.getCent() >= minAmountMinor || allowExactRemainderBelowMin && payment.getCent() == available,
                 INVALID_ARGUMENT);
         require(maxSuccessfulPayments == null || occupiedCount < maxSuccessfulPayments, AMOUNT_EXCEEDED);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

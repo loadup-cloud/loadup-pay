@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -54,5 +55,10 @@ public record LimitOperationGate(
         if (state == GateState.OPEN) return this;
         require(state == GateState.INIT, INVALID_STATE);
         return new LimitOperationGate(operationId, paymentId, GateState.OPEN, 0, null);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

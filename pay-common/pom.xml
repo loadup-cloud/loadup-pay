@@ -10,5 +10,19 @@
     </parent>
     <artifactId>pay-common</artifactId>
     <name>LoadUp Pay Common</name>
-    <description>Small JDK-only payment vocabulary, money and time invariants.</description>
+    <description>Payment vocabulary and business guards reusing LoadUp money and JSON diagnostics.</description>
+    <dependencies>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-dto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-json</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-json</artifactId>
+        </dependency>
+    </dependencies>
 </project>

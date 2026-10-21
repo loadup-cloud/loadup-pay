@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -27,5 +28,10 @@ public record NoCollectionEvidence(String evidenceId, String paymentId, boolean 
         DomainChecks.id(evidenceId);
         DomainChecks.id(paymentId);
         require(executionFenced, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

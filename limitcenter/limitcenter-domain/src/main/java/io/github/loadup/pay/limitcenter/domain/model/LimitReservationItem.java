@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -43,21 +44,26 @@ public record LimitReservationItem(
             RefundAmountRestorePolicy amountPolicy, RefundCountRestorePolicy countPolicy) {
         Objects.requireNonNull(amountPolicy);
         Objects.requireNonNull(countPolicy);
-        require(reservationId.equals(reservation.id()) && bucket.currency().equals(reservation.amount().currency()),
+        require(reservationId.equals(reservation.id()) && bucket.currency().equals(reservation.amount().getCurrencyValue()),
                 CONFLICT);
         require(reservation.state() == LimitReservationState.CONFIRMED && consumed == reserved, DEPENDENCY_NOT_READY);
-        require(cumulativeRefundedMinor > 0 && cumulativeRefundedMinor <= reservation.amount().minor(), INVALID_ARGUMENT);
+        require(cumulativeRefundedMinor > 0 && cumulativeRefundedMinor <= reservation.amount().getCent(), INVALID_ARGUMENT);
         long target;
         if (bucket.metric() == LimitMetric.AMOUNT) {
-            require(reserved == reservation.amount().minor(), CONFLICT);
+            require(reserved == reservation.amount().getCent(), CONFLICT);
             target = amountPolicy == RefundAmountRestorePolicy.ORIGINAL_BUCKETS ? cumulativeRefundedMinor : 0;
         } else {
             require(reserved == 1, CONFLICT);
             target = countPolicy == RefundCountRestorePolicy.FULL_PAYMENT_REFUNDED_ONCE
-                    && cumulativeRefundedMinor == reservation.amount().minor() ? 1 : 0;
+                    && cumulativeRefundedMinor == reservation.amount().getCent() ? 1 : 0;
         }
         long delta = Math.max(0, target - restored);
         return new LimitItemRestore(delta == 0 ? this
                 : new LimitReservationItem(id, reservationId, bucket, reserved, consumed, target), delta);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

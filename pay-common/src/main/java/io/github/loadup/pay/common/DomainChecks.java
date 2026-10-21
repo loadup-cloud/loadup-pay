@@ -15,6 +15,9 @@
  */
 package io.github.loadup.pay.common;
 
+import io.github.loadup.commons.money.Money;
+import java.util.Objects;
+
 public final class DomainChecks {
     private DomainChecks() {}
 
@@ -35,5 +38,19 @@ public final class DomainChecks {
     public static long positive(long value) {
         DomainViolation.require(value > 0, DomainViolation.Reason.INVALID_ARGUMENT);
         return value;
+    }
+
+    /** Acquiring accepts non-negative CNY amounts; the framework Money type also supports other cases. */
+    public static void amount(Money value) {
+        Objects.requireNonNull(value);
+        DomainViolation.require("CNY".equals(value.getCurrencyValue()), DomainViolation.Reason.CURRENCY_MISMATCH);
+        DomainViolation.require(value.getCent() >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
+    }
+
+    /** Validate the acquiring boundary before creating the shared immutable Money value. */
+    public static Money amount(long minor, String currency) {
+        DomainViolation.require("CNY".equals(currency), DomainViolation.Reason.CURRENCY_MISMATCH);
+        DomainViolation.require(minor >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
+        return Money.ofMinor(minor, currency);
     }
 }

@@ -16,7 +16,6 @@
 package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.payment.client.dto.*;
@@ -31,13 +30,23 @@ import java.time.OffsetDateTime;
 import java.util.*;
 
 public record TradeOrderDTO(
-        @Schema(description = "Order") @Valid AcquireOrderDTO order,
+        @Schema(description = "Order id") String orderId,
+        @Schema(description = "Payee merchant id") String payeeMerchantId,
+        @Schema(description = "Merchant order number") String merchantOrderNo,
+        @Schema(description = "Currency") String currency,
+        @Schema(description = "Original total amount") long amountMinor,
+        @Schema(description = "Gross successful amount") long paidAmountMinor,
+        @Schema(description = "Held payment amount") long paymentReservedMinor,
+        @Schema(description = "Original order state") AcquireOrderState state,
+        @Schema(description = "Original order creation time") OffsetDateTime orderCreatedAt,
         @Schema(description = "Refunded minor") long refundedMinor,
         @Schema(description = "Net received minor") long netReceivedMinor,
         @Schema(description = "Order source version") long orderSourceVersion,
         @Schema(description = "Refund source version") long refundSourceVersion,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeOrderDTO {
+        if (orderCreatedAt != null)
+            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
         if (snapshotAt != null)
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
     }

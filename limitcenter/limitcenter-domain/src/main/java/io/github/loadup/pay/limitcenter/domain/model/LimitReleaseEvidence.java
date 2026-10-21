@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -27,7 +29,12 @@ public record LimitReleaseEvidence(
     public LimitReleaseEvidence {
         DomainChecks.id(paymentId);
         DomainChecks.id(evidenceId);
-        Objects.requireNonNull(amount);
+        DomainChecks.amount(amount);
         require(paymentVersion > 0 && executionFenced, INVALID_ARGUMENT);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }

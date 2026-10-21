@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain;
 
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.limitcenter.domain.model.*;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
@@ -59,7 +60,7 @@ class MerchantLimitTest {
                 "payment",
                 "order",
                 "merchant",
-                Money.cny(100),
+                Money.ofMinor(100, "CNY"),
                 "policy",
                 1,
                 now,

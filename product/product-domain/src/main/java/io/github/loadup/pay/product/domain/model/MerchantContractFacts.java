@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.product.domain.model;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.*;
 import java.time.*;
 import java.util.*;
@@ -42,5 +43,10 @@ public record MerchantContractFacts(
                 && limitPolicyActivated
                 && !now.isBefore(validFrom)
                 && (validTo == null || now.isBefore(validTo));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
     }
 }
