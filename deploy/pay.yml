@@ -14,6 +14,10 @@ spec:
     matchLabels: { app: payment }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: payment }
     spec:
       terminationGracePeriodSeconds: 30
@@ -24,8 +28,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
@@ -64,6 +72,10 @@ spec:
     matchLabels: { app: acquire }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: acquire }
     spec:
       terminationGracePeriodSeconds: 30
@@ -74,8 +86,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
@@ -115,6 +131,10 @@ spec:
     matchLabels: { app: customer }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: customer }
     spec:
       terminationGracePeriodSeconds: 30
@@ -125,8 +145,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
@@ -166,6 +190,10 @@ spec:
     matchLabels: { app: product }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: product }
     spec:
       terminationGracePeriodSeconds: 30
@@ -176,8 +204,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
@@ -217,6 +249,10 @@ spec:
     matchLabels: { app: limitcenter }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: limitcenter }
     spec:
       terminationGracePeriodSeconds: 30
@@ -227,8 +263,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:
@@ -268,6 +308,10 @@ spec:
     matchLabels: { app: realtime }
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
       labels: { app: realtime }
     spec:
       terminationGracePeriodSeconds: 30
@@ -278,8 +322,12 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
           env:
+            - name: METRICS_ENABLED
+              value: "true"
             - name: TZ
               value: Asia/Shanghai
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
             - name: JAVA_TOOL_OPTIONS
               value: -Duser.timezone=Asia/Shanghai
           startupProbe:

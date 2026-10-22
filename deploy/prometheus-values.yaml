@@ -1,0 +1,23 @@
+server:
+  retention: "7d"
+  strategy:
+    type: Recreate
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    # 没有默认 StorageClass 时，填写实际名称
+    # storageClass: local-path
+  service:
+    type: ClusterIP
+
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
