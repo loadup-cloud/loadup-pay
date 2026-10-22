@@ -338,4 +338,16 @@ DirectPaymentFacade/Service/Controller 已组合纯 API create→start→detail�
 
 账户财务唯一范围改为真实收款账户，排除 tenant/app/模式/凭证别名，避免后续实际交易号被分范围重复认领。原完整身份仍由不可变 revision 校验。新增14个测试方法源码，旧构造器/账户范围夹具已同步；未运行检查、编译、JUnit、DDL、镜像或部署。
 
-后续继续：版本化 routingProfileRef 资源校验、实际渠道发送/结果动作/交易号 claim、查单/关闭、接受后的自动调度、quota 终态和风险结果 Outbox、退款及其余 BUSINESS-IMPLEMENTATION.md 全部范围。本批未将目标缩为“仅能准备”。
+版本化 routingProfileRef 运行时资源校验已补；后续继续：实际渠道发送/结果动作/交易号 claim、查单/关闭、接受后的自动调度、quota 终态和风险结果 Outbox、退款及其余 BUSINESS-IMPLEMENTATION.md 全部范围。本批未将目标缩为“仅能准备”。
+
+## 2026-10-22 不可变选路方案续批
+
+已补 RoutingProfile 的全分层源码、受信管理发布/查询、规范编码/哈希、持久化及 V20261022120000__routing_profile.sql。Y1 强制读取冻结 routingProfileRef，在原租户/收款商户/合约能力与有序绑定白名单内选择 ACTIVE revision；缺失引用明确失败，不绕过合约或重选既有 attempt。22个新增测试方法仅有源码；按暂停验证要求未运行检查/构建/测试/DDL/镜像/部署。
+
+接下来仍需真实渠道发送/动作/可信结果、交易号 claim、查单/关闭、自动调度与异步额度/风险结果通知；product 发布前引用/能力校验仍在 B02 后续范围。完整目标和状态见 BUSINESS-IMPLEMENTATION.md。
+
+## 2026-10-22 Y3 与独立终态事务消息续批
+
+已补内部结果应用、规范资金摘要、不可变回执/差错、全局渠道交易号认领、成功时间/退款容量、四目标事务 Outbox，以及本地未提交关单/风控拒绝的事件生产源码。支付成功状态/证据/渠道时间为同一行 CAS；跨租户同真实账户也不能重认领交易号，资金冲突只记录差错。新增 V20261022130000__payment_results.sql 四表与付款成功事实约束，复用框架 Outbox 迁移及同 DataSource 事务。
+
+新增25个测试方法源码，并同步原编排构造器和本地终态事件断言；未执行检查/编译/测试/DDL/部署。当前没有真实渠道协议/验签/发送器，Y3 仅供后续受信适配器调用；四目标 Outbox 只有生产端，投递/接收幂等仍待闭环。其余完整范围保持 BUSINESS-IMPLEMENTATION.md 中的待办状态。

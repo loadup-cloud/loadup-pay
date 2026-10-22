@@ -16,18 +16,18 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.payment.domain.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface PaymentChannelGateway {
-    ChannelPaymentOutcome submit(PreparedChannelPayment payment);
+    PaymentObservation submit(PreparedChannelPayment payment);
 
-    ChannelPaymentOutcome query(ChannelPaymentIdentity identity);
+    PaymentObservation query(ChannelPaymentIdentity identity);
 
-    ChannelPaymentOutcome close(ChannelPaymentIdentity identity);
+    PaymentObservation close(ChannelPaymentIdentity identity);
 
     ChannelRefundOutcome submitRefund(PreparedChannelRefund refund);
 

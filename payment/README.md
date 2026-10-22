@@ -132,13 +132,13 @@ V20261022090000__payment_input.sql 新增 payment_input，本服务实际5表。
 
 发布命令包含 payeeMerchantId/bindingCode/channel/accessMode、类型化 identity、credentialReference/credentialVersion、capabilities、priority、requestKey/expectedVersion。支付宝 ALIPAY_V1 固定签名 appId、实际 sellerId、可选 operatorAppId，服务商额外使用版本化商户授权引用；微信 WECHAT_V1 固定 appId/merchantId，服务商再固定 subMerchantId 和可选 subAppId。所有密钥及授权 token 均在 Secret/KMS 资源中，只传引用与版本。依据 [微信服务商 JSAPI 文档](https://pay.wechatpay.cn/doc/v3/partner/4012759974) 和[支付宝多商家收款说明](https://github.com/AlipayDocs/open-docs/blob/main/support/支付宝小程序/案例分析/小程序支付如何实现多商家收款.md)区分实际收款与应用作用域；不将渠道身份合并为通用 wire 参数。
 
-bindingCode 在同 tenant/payee 下唯一，channel/accessMode 不可在原 code 上变更。第一次 expectedVersion=0，领域先 INIT，再原子提交 ACTIVE 头、不可变 revision 和变更回执；后续发布须匹配当前 head.rowVersion，新增 revision 后切换当前指针。priority 越小越优先，同优先级按 bindingId 稳定排序。状态/指针/优先级只通过列白名单与 CAS 更新，不覆盖旧 revision。普通暂停 SUSPENDED 可通过发布新版本恢复；永久 REVOKED 不能重新发布或退回暂停，需要新 bindingCode。暂停/撤销不删除旧版本，旧查单/原路退款依然能通过 revisionId 查找。
+bindingCode 在同 tenant/payee 下唯一，channel/accessMode 不可在原 code 上变更。第一次 expectedVersion=0，领域先 INIT，再原子提交 ACTIVE 头、不可变 revision 和变更回执；后续发布须匹配当前 head.rowVersion，新增 revision 后切换当前指针。priority 保留为通用绑定元数据；冻结选路方案内的候选顺序由 rules 数组决定。状态/指针/优先级只通过列白名单与 CAS 更新，不覆盖旧 revision。普通暂停 SUSPENDED 可通过发布新版本恢复；永久 REVOKED 不能重新发布或退回暂停，需要新 bindingCode。暂停/撤销不删除旧版本，旧查单/原路退款依然能通过 revisionId 查找。
 
 tenant+bindingId+requestKey 对发布、暂停、撤销共用唯一键；相同 key 改参数/操作类型拒绝。重放返回该操作当时的 appliedVersion/state/revision，不把旧发布重放成当前激活操作；detail 才返回当前头。摘要绑定租户、指定服务、完整命令和 expectedVersion，能力集合排序后计算，避免 Set 顺序造成假冲突。头、revision、回执在同一 READ_COMMITTED 事务提交，唯一键冲突先回滚再重读赢家。
 
 账户范围哈希按渠道与实际收款账户计算（支付宝 sellerId、微信实际 mchid/sub_mchid），排除租户、接入模式、应用和凭证/授权版本。同一实际账户的不同别名必须共用财务唯一范围；完整应用/服务商身份仍由不可变 identityPayload/identityHash 冻结，不以去重范围代替请求验签或身份校验。身份负载保存完整非秘密元数据与版本化授权引用，identityHash 使用类型化规范编码；MySQL JSON 重排空白/键序不会破坏校验。读取严格拒绝未知字段、篡改、错误模式/身份及损坏能力位。
 
-新增 PaymentRouteSelector，供后续 Y1 创建 attempt 时在 parent/payment 锁内调用。它仅从原冻结合约允许的 accessMode 和选择的 channel/method 查询当前 ACTIVE 绑定，按稳定锁序读取头及原 revision，再按优先级返回。没有合法绑定返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE，不换收款商户或任意兜底。该选择器已接入后文的 Y1 首笔 attempt 创建；真实渠道提交/结果及版本化 routingProfileRef 的受控资源校验仍待完成。accept 本身仍只持久受理 INIT。
+PaymentRouteSelector 已接入 Y1，在 parent/payment 锁内读取原冻结 routingProfileRef，并按原合约允许的 accessMode 和 channel/method 筛选当前 ACTIVE 绑定。候选头按稳定顺序加锁，最终按不可变方案 rules 的顺序选择并冻结 revision。没有合法绑定返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE；缺失或归属不匹配的方案返回 PAYMENT_ROUTING_PROFILE_UNAVAILABLE。真实渠道提交/结果仍待完成，accept 本身仍只持久受理 INIT。
 
 V20261022100000__channel_bindings.sql 新增 channel_merchant_binding/channel_binding_revision/channel_binding_change_receipt，payment 当前实际迁移共8表。银联身份/产品/接入机构尚未确定，本轮不提供可发布的银联 identity。ACTIVE 表示受信运维允许路由，不证明已完成渠道进件、产品开通、Secret 引用可用性或真实协议适配；这些发布校验与实际接入仍在 B02/B08 后续范围。撤销路由也不声称中止已冻结的在途请求。
 
@@ -158,6 +158,34 @@ V20261022100000__channel_bindings.sql 新增 channel_merchant_binding/channel_bi
 
 DefaultRiskGateway 只在未配置 RiskConsultGateway 时装配，兼供未连接风控的结果确认；它不会吞掉已配置外部风控的异常。最终结果异步通知、外部接入规则和失败策略仍后续完成。新增出站 PaymentLimitClient 复用 LoadUp HttpTemplate 与独立挂载 SERVICE JWT，单部署显式限制出站 tenant，不转发商户凭证。需 pay:limit:reserve/execute/verify，接收侧验证签名/issuer/audience；读取文件支持凭证轮换。
 
-新环境为 PAYMENT_LIMITCENTER_TENANT_ID、PAYMENT_SERVICE_ID（默认 payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE 和 LIMITCENTER_BASE_URL。V20261022110000__payment_attempt.sql 新增第9表，所有时间 DATETIME(6) 本地时区，主键复用框架 IdGenerator。支付受理仍未自动调度 attempt/Y2；真实提交器、版本化路由资源验证、渠道结果/查单/关闭/交易号 claim、quota 终态投递和恢复扫描继续后续实现。
+新环境为 PAYMENT_LIMITCENTER_TENANT_ID、PAYMENT_SERVICE_ID（默认 payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE 和 LIMITCENTER_BASE_URL。V20261022110000__payment_attempt.sql 新增第9表，所有时间 DATETIME(6) 本地时区，主键复用框架 IdGenerator。支付受理仍未自动调度 attempt/Y2；真实提交器、渠道结果/查单/关闭/交易号 claim、quota 终态投递和恢复扫描继续后续实现。
 
 本批新增14个测试方法源码，覆盖准备/重放/拒绝盲替换、Y2一次性、风险拒绝、许可错配、过期/关单竞争与事务边界；账户范围测试与原控制构造器已同步。按用户要求未执行 IDEA 检查、构建、JUnit、DDL、镜像或部署。mock 边界不是 MySQL 实际锁、回滚与并发验收。
+
+## 不可变选路方案（新增源码）
+
+RoutingProfileFacade 提供 POST `/api/payment/routing-profiles/publish|detail`，仅允许配置的 PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID（默认 pay-ops）受信 SERVICE，分别要求 `pay:payment:routing:publish|read`。publish 输入 spec(profileRef/payeeMerchantId/rules) 和 requestKey；每个 rule 为 bindingCode/channel/accessMode/method，数组顺序决定优先级。最多100条、禁止完全重复；不接收任意商户绑定或渠道身份负载。
+
+profileRef 在同 tenant 内唯一并表示不可变版本；调整规则必须发布新引用并通过新合约使用。tenant/caller/requestKey 唯一，原键重放返回原定义和首次时间，不重查绑定或写入；相同 key 改定义/顺序、同 ref 改 key 均拒绝。发布在本地事务锁定同 payee 的绑定头并核对 ACTIVE/真实 revision/方式能力，锁序按 head.id，避免规则优先级成为锁顺序。没有跨服务网络调用。
+
+Y1 的 PaymentRouteSelector 现已强制读取原 routingProfileRef，校验租户、实际 payee 和冻结引用。先与原合约渠道/方式/接入模式求交，再按方案顺序选取当前 ACTIVE 头的不可变 revision。方案不存在或属于其他商户返回 PAYMENT_ROUTING_PROFILE_UNAVAILABLE；方案没有允许组合返回 PAYMENT_UNSUPPORTED_CAPABILITY；没有可用的列名绑定返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE。方案明确列出的后续候选可用于尚未建立的 attempt，不会绕到任意活跃绑定；binding head 的通用 priority 不覆盖方案顺序。不能据此替换已可能提交的 attempt。
+
+方案引用稳定绑定 code；绑定凭证/身份轮换后，新 attempt 读取新 revision，已有 attempt 继续保留原 revision。暂停/撤销使该头不再参与新选路，重放发布方案不能恢复它；恢复须通过原绑定生命周期规则。此机制不声称能够中止已在途渠道调用或证明 Secret、进件与真实协议可用。
+
+V20261022120000__routing_profile.sql 新增 payment 第10表。LONGTEXT 保存规范化强类型定义，SHA-256保护顺序、商户及引用；读取拒绝未知字段和错配，容忍JSON对象键序/空白变化。模型与 DO 转换继续使用 Spring MapStruct、BaseDO 和生成 Mapper/TableDef。新增22个测试方法源码；按用户暂停验证要求，未运行 IDEA、编译、测试、DDL 或部署。product 合约发布前的跨服务引用/能力全集验收仍待接入；真实渠道发送、查证、结果与退款尚未完成。
+
+## Y3 结果应用、交易号认领与终态事务事件（新增源码）
+
+新增内部 PaymentResultService.record(tenant, PaymentObservation)，不暴露商户/运维 HTTP 成功上报入口。PaymentChannelGateway 的支付 submit/query/close 返回类型已改为包含完整规范事实的 PaymentObservation；旧 ChannelPaymentOutcome 保留为领域状态迁移输入。适配器必须先完成验签/解密及实际 app/商户/子商户身份校验，随后构造观察值；当前尚无真实渠道适配器，也没有将类型名称、sourceDigest 或客户端 evidenceId 当作真实性证明。超时、NOT_FOUND 和无验签响应不能产生 NO_COLLECTION。
+
+观察值包含原 payment/attempt/channel/bindingRevision/accountScopeHash/requestNo、金额币种、结果、可空真实交易号/渠道成功时间、来源、稳定 receiptKey 和已验签原包摘要。只保存规范化非敏感字段和原包哈希，不落原始签名包/付款码/凭证。成功和资金已退回观察必须有交易号与时间。金额固定、CNY，时间规范为本地微秒。factsDigest 排除签名/来源/重发键，只比较完整资金事实；同回执只换签名/重发元数据可幂等，改资金事实记录差错。
+
+Y3 先 parent_gate→payment_gate→payment_order，再锁原 attempt，核对活跃尝试、原金额、商户、意图摘要、服务和额度 operation。成功原子提交：真实交易号 claim、PaymentOrder/attempt 成功、原渠道 succeeded_at 和本地 terminalEvidenceId、独立 refund_capacity、不可变 receipt，以及 acquire/limit/realtime/risk 四个独立 LoadUp Outbox。succeeded_at 与状态/证据用同一付款行 CAS，不分两次状态写入。既有 CLOSING 中的真实收款仍记录为成功，供 acquire 后续按冻结迟到收款策略处置；不能改成未收款释放。
+
+channel_transaction_claim 以 channel/实际 accountScopeHash/channelTransactionNo 全局唯一，再约束 tenant/attempt 和 tenant/payment 唯一。同账户跨租户/app/凭证别名也不能重复认领。仓储只有这一个精确财务键查询使用 TenantManager.withoutTenantCondition，其他回执/容量/差错均按原租户；不向调用方返回其他租户的认领信息。并发冲突经既有事务回滚/有限重试重读赢家后写差错，不生成第二成功。已有成功的新合法回执不重复初始化容量或发事件，也不修改原交易号/证据/时间。
+
+NO_COLLECTION 仅在真实适配器证明终局不可收款后使用；本批首笔 attempt 下同事务封禁单笔 gate、结束 attempt、将付款置 FAILED 或完成 CLOSING→CLOSED，并发四目标事件。多 attempt 的付款全局证明仍须后续安全替换机制；不能只凭一个失败尝试释放整笔。UNKNOWN 保留在途，不初始化容量；迟到中间态不能撤销终态。身份/金额、原回执资金事实、全局交易号归属、终态冲突和渠道冲正均保存不可变差错，不改正常金额；冲正需后续独立补偿流程。
+
+原本地 INIT 付款关单、INIT attempt 未跨 Y2 的关单，以及风控/额度拒绝产生的本地终态，也已接入同事务四目标事件。原键重放及已终态查询不重复发事件。每个目标有独立 deliveryId，同一终态共用 businessEventId/付款版本；复用框架 OutboxTemplate 和同 DataSource 事务，任一写入失败回滚整笔 Y3。本批只完成生产端；四目标投递 handler/接收方 Inbox、重放管理和真实链路尚待闭环，不以任务已入库宣称送达。框架对未注册 handler 的事件会保留失败/重试记录，不应手工 ACK。
+
+V20261022130000__payment_results.sql 新增四张业务表，payment 累计14张业务表；Outbox 标准表复用组件自带迁移。MapStruct/BaseDO/生成 Mapper 和 QueryWrapper 延续原规范。新增25个测试方法源码，覆盖成功原子边界、回执幂等、金额/身份冲突、跨租户认领、终态顺序、关单竞争、四目标事件和失败回滚边界；旧本地关单/风控测试源码同步。按暂停验证要求未运行 IDEA、编译、测试、DDL、镜像或部署，mock 事务边界不能代替真实 MySQL 并发/回滚验收。

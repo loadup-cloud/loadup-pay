@@ -50,14 +50,16 @@ public class PaymentSubmissionPreparation {
     private final PaymentAcceptanceTransactions transactions;
     private final IdGenerator ids;
     private final Clock clock;
+    private final PaymentResultEvents events;
     public PaymentSubmissionPreparation(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
             PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
             RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
             PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
-            @Qualifier("paymentClock") Clock clock) {
+            @Qualifier("paymentClock") Clock clock, PaymentResultEvents events) {
         this.payments = payments; this.changes = changes; this.attempts = attempts; this.locks = locks; this.inputs = inputs;
         this.limits = limits; this.risk = risk; this.codec = codec; this.converter = converter; this.updates = updates;
         this.transactions = transactions; this.ids = ids; this.clock = clock;
+        this.events = events;
     }
     /** Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit. */
     public Optional<PaymentSubmissionTicket> prepare(String tenant, String paymentId, String attemptId) {
@@ -162,6 +164,7 @@ public class PaymentSubmissionPreparation {
             var proof = new NoCollectionEvidence(evidence, order.id(), true);
             var failed = order.state() == PaymentState.CLOSING ? order.close(proof) : order.fail(proof);
             changes.updatePayment(tenant, updates.withPayment(locked.payment(), failed, evidence), order.version());
+            events.publish(tenant, updates.withPayment(locked.payment(), failed, evidence), true, now());
             return true;
         });
     }

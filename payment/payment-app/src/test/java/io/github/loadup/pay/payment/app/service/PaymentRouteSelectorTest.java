@@ -18,8 +18,9 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
+import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
 import io.github.loadup.pay.payment.domain.model.*;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -29,7 +30,27 @@ import static org.mockito.Mockito.*;
 
 class PaymentRouteSelectorTest {
     final ChannelBindingGateway bindings = mock(ChannelBindingGateway.class);
-    final PaymentRouteSelector selector = new PaymentRouteSelector(bindings);
+    final RoutingProfileGateway profiles = mock(RoutingProfileGateway.class);
+    final PaymentRouteSelector selector = new PaymentRouteSelector(bindings, profiles);
+    RoutingRule rule(String code) {
+        return new RoutingRule(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5);
+    }
+    RoutingProfile profile(String merchant, List<RoutingRule> rules) {
+        return new RoutingProfile("profile", new RoutingProfileSpec("routing-v1", merchant, rules),
+                "a".repeat(64), "pay-ops", "publish", "b".repeat(64), LocalDateTime.of(2026, 10, 22, 12, 0));
+    }
+    RoutableChannelBinding candidate(String code, int priority) {
+        var binding = new ChannelBindingRevision("revision-" + code, "merchant", Channel.WECHAT, AccessMode.DIRECT,
+                "a".repeat(64), "credential", "v1", new WechatAccountIdentity("app", "mchid", null, null), Set.of(PaymentMethod.H5));
+        var head = new ChannelMerchantBinding("binding-" + code, "merchant", code, binding.channel(), binding.accessMode(),
+                ChannelBindingState.ACTIVE, binding.id(), 1, priority, 1);
+        return new RoutableChannelBinding(head, new StoredChannelBindingRevision(binding, head.id(), 1, "b".repeat(64),
+                "pay-ops", LocalDateTime.of(2026, 10, 22, 12, 0)));
+    }
+    @BeforeEach void setup() {
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule("primary")))));
+    }
+    @AfterEach void clearTransaction() { TransactionSynchronizationManager.setActualTransactionActive(false); }
     @Test void selectionUsesOriginalPayeeChannelMethodAndFrozenAccessModes() {
         var command = PaymentFixtures.command();
         var mode = command.admittedTerms().terms().capabilities().iterator().next().accessMode();
@@ -57,6 +78,48 @@ class PaymentRouteSelectorTest {
     }
     @Test void selectionRequiresTheCallersLocalTransactionBeforeTakingRouteLocks() {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
+                () -> selector.select("tenant", PaymentFixtures.command())).getResultCode());
+        verifyNoInteractions(bindings, profiles);
+    }
+    @Test void missingProfileCannotFallBackToAnArbitraryActiveBinding() {
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.empty());
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertSame(ROUTING_PROFILE_UNAVAILABLE, assertThrows(CommonException.class,
+                () -> selector.select("tenant", PaymentFixtures.command())).getResultCode());
+        verifyNoInteractions(bindings);
+    }
+    @Test void anotherMerchantsProfileCannotRouteEvenWhenBindingsWouldMatch() {
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("other-merchant", List.of(rule("primary")))));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertSame(ROUTING_PROFILE_UNAVAILABLE, assertThrows(CommonException.class,
+                () -> selector.select("tenant", PaymentFixtures.command())).getResultCode());
+        verifyNoInteractions(bindings);
+    }
+    @Test void profileOrderWinsOverGlobalBindingPriority() {
+        var first = candidate("first", 999); var second = candidate("second", 1);
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
+        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any())).thenReturn(List.of(second, first));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertEquals(first.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
+    }
+    @Test void missingFirstCandidateMayUseOnlyAnExplicitFollowingCandidate() {
+        var second = candidate("second", 100);
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule("first"), rule("second")))));
+        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any())).thenReturn(List.of(second));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertEquals(second.revision().binding(), selector.select("tenant", PaymentFixtures.command()));
+    }
+    @Test void activeUnlistedBindingCannotBeUsedAsImplicitFallback() {
+        when(bindings.lockActive(anyString(), anyString(), any(), anySet(), any())).thenReturn(List.of(candidate("unlisted", 0)));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertSame(CHANNEL_BINDING_UNAVAILABLE, assertThrows(CommonException.class,
+                () -> selector.select("tenant", PaymentFixtures.command())).getResultCode());
+    }
+    @Test void profileCannotExpandTheFrozenContractAccessMode() {
+        var rule = new RoutingRule("provider", Channel.WECHAT, AccessMode.SERVICE_PROVIDER, PaymentMethod.H5);
+        when(profiles.find("tenant", "routing-v1")).thenReturn(Optional.of(profile("merchant", List.of(rule))));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        assertSame(UNSUPPORTED_CAPABILITY, assertThrows(CommonException.class,
                 () -> selector.select("tenant", PaymentFixtures.command())).getResultCode());
         verifyNoInteractions(bindings);
     }

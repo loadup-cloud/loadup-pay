@@ -29,9 +29,12 @@ import io.github.loadup.pay.payment.domain.gateway.*;
 import io.github.loadup.pay.payment.domain.model.*;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
 @Service
@@ -47,6 +50,8 @@ public class PaymentControlService implements PaymentControlFacade {
     private final IdGenerator ids;
     private final Validator validator;
     private final String acquireService;
+    private final PaymentResultEvents events;
+    private final Clock clock;
 
     public PaymentControlService(
             PaymentActorProvider actors,
@@ -59,6 +64,8 @@ public class PaymentControlService implements PaymentControlFacade {
             PaymentAcceptanceTransactions transactions,
             IdGenerator ids,
             Validator validator,
+            PaymentResultEvents events,
+            @Qualifier("paymentClock") Clock clock,
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.gates = gates;
@@ -70,6 +77,8 @@ public class PaymentControlService implements PaymentControlFacade {
         this.transactions = transactions;
         this.ids = ids;
         this.validator = validator;
+        this.events = events;
+        this.clock = clock;
         DomainChecks.id(acquireService);
         this.acquireService = acquireService;
     }
@@ -197,6 +206,7 @@ public class PaymentControlService implements PaymentControlFacade {
                     var closed = order.requestClose().close(new NoCollectionEvidence(evidence, order.id(), true));
                     var updated = converter.withPayment(previous, closed, evidence);
                     store.updatePayment(actor.tenantId(), updated, order.version());
+                    events.publish(actor.tenantId(), updated, true, now());
                     payment = Optional.of(updated);
                 } else if (order.state() == PaymentState.INIT
                         || order.state() == PaymentState.PROCESSING
@@ -219,6 +229,8 @@ public class PaymentControlService implements PaymentControlFacade {
                     }
                     var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
                     store.updatePayment(actor.tenantId(), updated, order.version());
+                    if (updatedOrder.state() == PaymentState.CLOSED)
+                        events.publish(actor.tenantId(), updated, true, now());
                     payment = Optional.of(updated);
                 } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)
                     evidence = previous.terminalEvidenceId();
@@ -363,6 +375,9 @@ public class PaymentControlService implements PaymentControlFacade {
 
     private void validate(Object value) {
         if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+    }
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }
 
     private void validateIds(String order, String payee, String key) {

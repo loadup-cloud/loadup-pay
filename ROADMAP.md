@@ -13,7 +13,7 @@ v1.4已将D01—D10收敛为可实施设计。2026-10-21完成P0/P1源码及六�
   product：执行准入编排/持久化/HTTP及条款编译器的窄范围构建、单测与真实MySQL/JWT验收；初始额度策略可靠发布/ACK/重放源码已补；继续多revision/多产品共享策略演进、实际渠道及受控引用的发布校验，完成与acquire
   A0/A1集成验收。
 - [ ] 费用：创单已冻结独立INIT order_fee和原总额规则；付清确认已接入 A3 同事务源码；继续退款累计基数与退费调整。
-- [ ] payment：受理/查询及门禁检查已编译，完成真实MySQL/JWT/HTTP和并发验收；acquire 金额占用/accept调用及outcome权威结果刷新源码已补；敏感输入准备/固定引用/单 attempt 绑定及纯 API 接入源码已补；绑定管理/不可变身份版本/内部选路器源码已补；durable attempt/路由冻结/额度 Reserve-Begin-Verify/默认risk/Y2 CAS 源码已补；继续版本化路由资源、真实渠道提交/动作/结果/交易号claim、渠道关闭收敛及可信结果。
+- [ ] payment：受理/查询及门禁检查已编译，完成真实MySQL/JWT/HTTP和并发验收；acquire 金额占用/accept调用及outcome权威结果刷新源码已补；敏感输入准备/固定引用/单 attempt 绑定及纯 API 接入源码已补；绑定管理/不可变身份版本/内部选路器源码已补；durable attempt/路由冻结/额度 Reserve-Begin-Verify/默认risk/Y2 CAS 源码已补；不可变版本化路由资源/按序选路源码已补；继续真实渠道提交/动作/结果/交易号claim、渠道关闭收敛及可信结果。
 - [ ] payment退款子域：独立refund_request/plan/refund_order、FIFO固定分配/原付款可退预占，不更新订单生命周期和支付金额。
 - [ ] limitcenter：激活/原子预占/查询源码已补，完成窄范围构建及真实MySQL并发/JWT验收；执行许可/校验/显式过期源码已补；继续实现payment
   Y2/可信事实、安全换attempt、确认/释放与权威事实核验/终态回执源码已补；继续过期扫描、退款恢复、父级共享规则及历史记录。
@@ -32,4 +32,8 @@ v1.4已将D01—D10收敛为可实施设计。2026-10-21完成P0/P1源码及六�
 
 本批新增首笔 attempt 与 Y2 单次提交权、额度 HTTP 客户端、未提交关单及14个测试方法源码；尚未运行检查/编译/测试。实际发送、自动执行/查证、quota 终态投递和全部剩余业务继续推进。
 
+2026-10-22 继续业务实现：新增不可变 RoutingProfile 的 client/domain/app/infra/adapter、发布/查询及一表迁移；Y1 选路强制读取原冻结 routingProfileRef，仅在同租户/实际收款商户、原合约渠道/方式/接入模式和方案有序白名单内选择 ACTIVE 绑定。方案不可覆盖，重放不重新启用绑定；新 attempt 冻结当前 revision，旧 attempt 保留原身份。新增22个测试方法源码，未运行 IDEA 检查、编译、测试、DDL 或部署。product 发布前引用/能力校验和真实渠道发送等仍待完成。
+
 2026-10-22 编辑错误修复：依据用户“先修复编辑错误”，使用 IDEA MCP 检查当前192个改动 Java 文件；修复 OrderClosureConverter 两处 MapStruct 表达式的嵌套引号语法错误，改用 closeRequestKey 命名标量转换，保持 order-close/intentId 幂等键。修复文件 IDEA 复查无错误。其余7个仓储文件仍有未生成 MyBatis-Flex Mapper/TableDef 导致的解析错误；未手写生成类，未运行构建、注解处理或测试，不能将此次编辑器检查当作编译通过。
+
+2026-10-22 Y3 续批：新增内部规范化结果应用、永久回执/资金差错、跨租户真实账户交易号唯一认领、同事务成功时间/退款容量与 acquire/limit/realtime/risk 四目标 Outbox。原本地未提交终态也接入可靠事件生产，重放不重复投递任务。新增四表迁移和25个测试方法源码；按用户暂停要求未执行任何检查/构建/测试/DDL/部署。真实渠道发送/验签/动作、自动调度/查证、四目标消费者、退款申请/执行和全部其他待办继续推进。

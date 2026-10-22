@@ -45,6 +45,7 @@ class PaymentControlServiceTest {
     final PaymentControlGateway store = mock(PaymentControlGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
+    final PaymentResultEvents events = mock(PaymentResultEvents.class);
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(), gate = new AtomicReference<>();
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
     final Map<String, PaymentControlReceipt> receipts = new HashMap<>();
@@ -67,6 +68,8 @@ class PaymentControlServiceTest {
             transactions,
             () -> "id-" + ids.incrementAndGet(),
             validation.getValidator(),
+            events,
+            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE),
             "acquire");
 
     @BeforeEach
@@ -275,6 +278,8 @@ class PaymentControlServiceTest {
                 original.payment().limitOperationId(), payment.get().payment().limitOperationId());
         assertEquals(2, payment.get().payment().version());
         assertEquals(result.payment(), acceptance().accept(PaymentFixtures.command()));
+        service.close(close("close", 1));
+        verify(events, times(1)).publish(eq("tenant"), eq(payment.get()), eq(true), any());
     }
 
     @Test
@@ -286,6 +291,7 @@ class PaymentControlServiceTest {
         assertNotNull(result.noCollectionEvidenceId());
         verify(attempts).update(eq("tenant"), argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED
                 && value.attempt().executionEpoch() == 0 && value.attempt().noCollectionEvidenceId() != null), eq(0L));
+        verify(events).publish(eq("tenant"), eq(payment.get()), eq(true), any());
     }
 
     @Test
@@ -297,6 +303,7 @@ class PaymentControlServiceTest {
         assertEquals("CLOSING", result.payment().state().name());
         assertNull(result.noCollectionEvidenceId());
         verify(attempts, never()).update(anyString(), any(), anyLong());
+        verifyNoInteractions(events);
     }
 
     @Test
@@ -320,6 +327,7 @@ class PaymentControlServiceTest {
         assertEquals("terminal-proof", result.payment().terminalEvidenceId());
         assertNull(result.noCollectionEvidenceId());
         verify(store, never()).updatePayment(anyString(), any(), anyLong());
+        verifyNoInteractions(events);
     }
 
     @Test
@@ -332,6 +340,7 @@ class PaymentControlServiceTest {
             assertEquals("terminal-proof", result.noCollectionEvidenceId());
         }
         verify(store, never()).updatePayment(anyString(), any(), anyLong());
+        verifyNoInteractions(events);
     }
 
     @Test

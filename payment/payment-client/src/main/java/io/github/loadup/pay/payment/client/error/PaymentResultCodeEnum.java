@@ -25,6 +25,7 @@ public enum PaymentResultCodeEnum implements ResultCode {
     LIMIT_RESERVATION_EXPIRED("PAYMENT_LIMIT_RESERVATION_EXPIRED", "Merchant limit reservation expired before submission"),
     EXECUTION_PERMIT_INVALID("PAYMENT_EXECUTION_PERMIT_INVALID", "Execution permit does not match the original payment attempt"),
     CHANNEL_BINDING_UNAVAILABLE("PAYMENT_CHANNEL_BINDING_UNAVAILABLE", "No active channel binding matches the frozen payment terms"),
+    ROUTING_PROFILE_UNAVAILABLE("PAYMENT_ROUTING_PROFILE_UNAVAILABLE", "Routing profile is missing or belongs to another collecting merchant"),
     INPUT_EXPIRED("PAYMENT_INPUT_EXPIRED", "Prepared channel input has expired"),
     INPUT_ALREADY_BOUND("PAYMENT_INPUT_ALREADY_BOUND", "Prepared input is bound to another attempt"),
     INPUT_UNAVAILABLE("PAYMENT_INPUT_UNAVAILABLE", "Secure channel input storage is unavailable"),

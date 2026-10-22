@@ -1355,3 +1355,32 @@ Y1 在父门禁→单笔门禁→付款锁下冻结路由/尝试，与付款 PRO
 修正 accountScopeHash 的财务含义：仅按渠道和实际收款 sellerId/mchid/sub_mchid 计算，不包含 tenant、app、直连/服务商模式或可轮换 Secret/授权版本。同一外部收款账户在不同租户/应用下不能产生不同的财务去重范围。完整请求身份与原 revision 仍分别冻结；后续 channel_transaction_claim 应继续按真实账户范围约束，尚未在本批创建 claim 表或确认渠道成功。
 
 risk/Reserve/Begin/Verify 都在本地事务外。获得远端许可后关单先完成时，本地 Y2 被挡住；额度可能暂留 EXECUTING，后续终态通知/恢复器依据本地正版本权威未收款事实释放，而非 TTL 或 HTTP 失败。未运行 DDL、检查、编译、测试或真实数据库并发/回滚验收。
+
+## 23. 不可变选路方案实际迁移
+
+V20261022120000__routing_profile.sql 新增 payment 第10表 routing_profile。BaseDO 公共字段外保存 profile_ref、payee_merchant_id、spec_payload（LONGTEXT）、content_hash、caller_service_id、request_key、request_digest、published_at。本地时间 DATETIME(6)，主键复用 IdGenerator。唯一键 tenant/profileRef 和 tenant/callerServiceId/requestKey 不含 deleted，CHECK deleted=0，既有版本不能软删除后重用引用或幂等键。
+
+spec_payload 是强类型 spec 的规范编码，哈希包括原引用、实际 payee 和有序规则；校验 LONGTEXT 为合法JSON且不超过65536字符。读取规范解码、拒绝未知字段/重复规则并重新计算 hash/requestDigest，核对列中的引用和商户；不会把JSON字段重排当篡改。DAO仅有查询和插入，没有更新/删除入口。
+
+发布事务以同 merchant 的现有 binding 头为资源锁，按 head.id 稳定顺序读取/加锁，校验 ACTIVE 和原 revision 对应声明能力后插入。并发同 ref/同 key 发布由唯一键仲裁；冲突回滚后通过既有有限事务重试读取赢家。Y1 已持 payment 门禁/付款锁时读取不可变 profile，再稳定锁候选头；管理端不请求 payment 锁、无网络调用。方案规则顺序决定选择，既有 binding priority 只为通用头元数据，不覆盖该方案。
+
+绑定 code 的当前 revision 仅在新 attempt 时冻结；原 profile 不因轮换改写，旧 attempt 不跟随当前头。没有增加渠道成功、退款或交易号 claim 表。DDL、MySQL真实锁/并发/回滚、注解处理与测试均未运行。
+
+## 24. Y3 结果与真实交易号的实际迁移
+
+V20261022130000__payment_results.sql 新增 payment 第11—14张业务表：
+
+| 表 | 不可变事实或计数 | 唯一键/约束 |
+|---|---|---|
+| payment_channel_receipt | 原完整付款身份、来源/receiptKey、资金摘要、原包摘要、规范观察负载、APPLIED/IGNORED/CONFLICT、原因/接收时间 | tenant/attempt/source/receiptKey；不因逻辑删除复用 |
+| payment_result_anomaly | 原 payment/attempt/receipt、原因、冲突资金摘要、规范负载与时间 | tenant/receipt/factsDigest/reason；同一差错重入不重复记录 |
+| channel_transaction_claim | 原租户/付款/attempt、完整渠道财务范围及稳定请求号、真实交易号、金额/CNY、渠道成功时间、首个成功receipt | 全局 channel/accountScopeHash/transactionNo；tenant/attempt、tenant/payment 分别唯一 |
+| payment_refund_capacity | payment/order/payee、原成功时间/金额/CNY、refunded/reserved/version | tenant/payment 唯一；FIFO 查询索引 tenant/order/succeededAt/payment；refunded+reserved<=succeeded |
+
+四表均继承 BaseDO；receipt/anomaly/claim 无更新/删除入口且 CHECK deleted=0。规范负载为合法JSON LONGTEXT，限32768字符；不是原始敏感渠道包。资金摘要使用UTF-8长度分帧，不含签名/来源/重发键；真实金额、完整请求身份、交易号和成功时间均参与。渠道时间规范到本地 DATETIME(6) 微秒。
+
+同一迁移收紧 payment_order：SUCCEEDED 必须有 succeeded_at 和 terminal_evidence_id，其他状态 succeeded_at 为空。成功时专用列白名单 CAS 同时设置状态/成功attempt/证据/渠道时间/新版本；其他意图、金额和首次受理时间不改。退款容量以原成功金额初始化0 refunded/0 reserved/version0，后续退款仍独立管理，不回写总支付金额。
+
+Y3 在 parent gate→payment gate→payment→attempt 锁下核对事实，认领交易号、成功/失败状态、容量、receipt 与四个目标Outbox 同事务。全局认领精确查询有意绕过租户过滤，仅用于检测同真实账户跨租户别名重复；结果不外泄。并发唯一冲突回滚再读赢家，形成差错事实；不捕获冲突后继续提交部分成功。receiptKey 复用而资金事实变化时保留原回执并追加差错；新回执若与已成功事实完全相符，只加回执，不再加容量或重复事件。
+
+资金差额、身份错误、终态矛盾、交易号重认领、资金已退回均不修改正常资金计数。仅有框架/源码级事务设计，未运行DDL/编译/测试或真实数据库隔离与回滚验收；原途退款申请/计划/执行、差错复核后台和下游投递仍待完成。

@@ -54,7 +54,8 @@ public record PaymentOutcomeEventDTO(
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
         DomainViolation.require(
                 equals(envelope.data())
-                        && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1")
+                        && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1",
+                                "pay.payment.outcome.realtime.v1", "pay.payment.outcome.risk.v1")
                                 .contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", paymentId, paymentVersion);

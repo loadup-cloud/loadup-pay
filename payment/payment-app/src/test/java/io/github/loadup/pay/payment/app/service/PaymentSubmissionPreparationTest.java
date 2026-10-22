@@ -44,6 +44,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentLimitClient limits = mock(PaymentLimitClient.class);
     final RiskConsultGateway risk = mock(RiskConsultGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
+    final PaymentResultEvents events = mock(PaymentResultEvents.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));
     final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>(AttemptFixtures.prepared());
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>(AttemptFixtures.gate(false));
@@ -51,7 +52,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentSubmissionPreparation service = new PaymentSubmissionPreparation(payments, changes, attempts, locks, inputs, limits,
             risk, codec, context.getBean(PaymentSubmissionConverter.class), context.getBean(PaymentControlConverter.class),
             new PaymentAcceptanceTransactions(manager), () -> "local-no-submission-proof",
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE));
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), events);
     LimitReservationDTO reservation(LimitReservationState state) {
         var policy = AttemptFixtures.command().admittedTerms().terms().limits();
         return new LimitReservationDTO("reservation", "operation", "payment", state, policy.policyId(), policy.policyVersion(),
@@ -121,6 +122,8 @@ class PaymentSubmissionPreparationTest {
         assertEquals(GateState.FENCED, gate.get().gate().state());
         assertNotNull(accepted.get().terminalEvidenceId());
         verify(limits, never()).reserve(anyString(), any());
+        assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
+        verify(events, times(1)).publish(eq("tenant"), eq(accepted.get()), eq(true), any());
     }
     @Test void mismatchedPermitCannotCrossY2OrConsumeInput() {
         when(limits.begin(eq("tenant"), any())).thenReturn(new LimitExecutionPermitDTO("other-operation", "payment", "attempt", 1, "a".repeat(64)));

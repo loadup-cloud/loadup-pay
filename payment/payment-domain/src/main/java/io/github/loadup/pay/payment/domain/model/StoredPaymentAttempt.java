@@ -56,5 +56,12 @@ public record StoredPaymentAttempt(PaymentAttempt attempt, String limitOperation
                 requestKey, requestDigest, paymentRequestDigest, preparedInputRef, decision, null, preparedAt, null,
                 Math.incrementExact(rowVersion));
     }
+    public StoredPaymentAttempt applyOutcome(ChannelPaymentOutcome outcome, boolean executionFenced) {
+        var updated = attempt.recordOutcome(outcome, executionFenced);
+        if (updated.equals(attempt)) return this;
+        return new StoredPaymentAttempt(updated, limitOperationId, callerServiceId, requestKey, requestDigest,
+                paymentRequestDigest, preparedInputRef, riskDecision, executionPermitHash, preparedAt,
+                submissionStartedAt, Math.incrementExact(rowVersion));
+    }
     @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

@@ -853,16 +853,39 @@ POST `/api/acquire/payments/direct-pay` 由 DirectPaymentFacade 实现，复用 
 
 首次版本0发布；后续 CAS 当前 headVersion。相同 requestKey 跨 publish/suspend/revoke 不能复用；重放返回原操作已应用快照，detail 返回当前头。SUSPENDED 可发布新 revision 恢复，REVOKED 不能恢复原 code。头可变但历史 revision 不变，原付款/退款使用冻结版本，不能按当前头改收款身份。
 
-PaymentRouteSelector 为内部 app 能力，不开放商户 bindingId 参数。它取原冻结合约允许的渠道/方式/接入模式，锁当前 ACTIVE 头、核对原 revision，再按 priority/bindingId 选择。无候选返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE。本轮尚未接入 attempt 创建或 Y2；额度、风控和真实渠道执行继续后续实现。源码和17个新测试方法均未运行验证。
+PaymentRouteSelector 为内部 app 能力，不开放商户 bindingId 参数。它已接入 attempt 创建，读取原冻结 routingProfileRef 和允许的渠道/方式/接入模式，锁当前 ACTIVE 头、核对原 revision，再按方案 rules 顺序选择。无候选返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE；方案缺失/归属错误返回 PAYMENT_ROUTING_PROFILE_UNAVAILABLE。额度/风控/Y2 准备源码见下一节；真实渠道执行仍待完成。源码未运行验证。
 
 ## 30. 首笔支付尝试与额度准备实际契约
 
 PaymentAttemptFacade.startAttempt 已注册 POST `/api/payment/executions/start-attempt`，指定 acquire SERVICE+pay:payment:attempt:start，返回 SuccessResponse<PaymentExecutionDTO>。首笔 previousAttemptEvidenceId 为空，choice/inputRef 等于原受理命令；接口只建立固定 INIT attempt 与 PROCESSING 付款，不声明渠道提交/成功。原 requestKey 重放读取当前状态；新的 key 不能绕过活跃 attempt 进行盲重扣。安全换 attempt 尚待权威旧尝试查证和输入生命周期，不接受客户端 evidenceId 作为证明。
 
-PaymentExecutionFacade 继续聚合各独立用例接口，Spring Controller 注入对应 Facade。Y1 已调用 PaymentRouteSelector，在原单服务权限和两级门禁锁内冻结实际 bindingRevision/requestNo。原 routingProfileRef 的版本化资源校验尚未完成，不以候选筛选代替整个路由策略实现。
+PaymentExecutionFacade 继续聚合各独立用例接口，Spring Controller 注入对应 Facade。Y1 已调用 PaymentRouteSelector，在原单服务权限和两级门禁锁内冻结实际 bindingRevision/requestNo。原 routingProfileRef 的不可变资源发布、归属校验与按序选路已补，见第31节；product 发布前跨服务资源验收仍待完成。
 
 内部 PaymentSubmissionPreparation（无 HTTP）对固定 attempt 执行 risk → Reserve → BeginExecution → Verify → 本地 Y2。Reserve 参数来自原付款/冻结策略；Begin 的 key 固定 attempt/attemptId。新 PaymentLimitClient 使用专属 SERVICE JWT 和 tenant 配置，仅调用原额度公开 Facade 对应 HTTP 入口。对 operation/payment/attempt、epoch、金额/币种/策略/initiatedAt 逐项复核后，再锁原 payment/attempt、绑定输入并 CAS INIT→SUBMITTING。原始 permit 不存储、不返回商户，仅保存哈希；内存提交票据只给本地 CAS 赢家，不可持久重建或重放。
 
 Y2 已提交视为可能发渠道；超时/崩溃/票据丢失不能换号或重发。默认风控明确 DEFAULT_ALLOW/NOT_CONNECTED；配置外部 provider 的错误不自动放行。DENY/超限/输入或额度过期仅在锁内确认从未跨 Y2 后生成本地未收款事实。显式关单新增相同边界，不能把已有 SUBMITTING 当本地失败。
 
 该批只是首笔准备与提交权边界，真实渠道执行、结果动作、自动调度/查证/额度终态通知仍待完成；14个新测试方法及源码均未验证。
+
+## 31. 不可变选路方案实际契约
+
+RoutingProfileFacade：
+
+| POST 路径 | 请求 | 指定管理 SERVICE 权限 | 返回 |
+|---|---|---|---|
+| /api/payment/routing-profiles/publish | RoutingProfilePublishCommand | pay:payment:routing:publish | SuccessResponse<RoutingProfileDTO> |
+| /api/payment/routing-profiles/detail | RoutingProfileDetailQuery | pay:payment:routing:read | SuccessResponse<RoutingProfileDTO> |
+
+指定 SERVICE 继续复用 PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID；商户/acquire 不可发布、查询管理资源或自行选择 bindingId。发布命令为 spec(profileRef/payeeMerchantId/rules) + requestKey。rules 是1—100条有序 bindingCode/channel/accessMode/method，优先级由数组顺序决定，不使用任意表达式或隐式兜底。引用和商户都是定义哈希的一部分，完全相同规则不可重复。
+
+profileRef 在租户内唯一且不可覆盖；tenant/caller/requestKey 唯一。原键原定义重放返回首次 id/hash/时间，不重验当前绑定或改变其状态；原键改参数或新键覆盖旧 ref 返回 PAYMENT_IDEMPOTENCY_CONFLICT。首次发布只接受当前 ACTIVE 且归属匹配、具有声明能力的绑定。新定义使用新 profileRef。detail 要求给定 payee 与原定义一致。
+
+原 Y1 选路不再忽略冻结 routingProfileRef：缺失/归属错误返回 PAYMENT_ROUTING_PROFILE_UNAVAILABLE；规则不能扩大原合约允许模式/渠道/方式。按显式候选顺序选择当前活跃 binding revision，全部不可用返回 PAYMENT_CHANNEL_BINDING_UNAVAILABLE。已建立的 attempt 重放不重新选路。该版本资源运行时验证不等于 product 发布前跨服务验收或真实渠道可用性证明；后两项仍待完成。源码及新增测试未运行验证。
+
+## 32. 内部渠道结果应用与事件生产
+
+PaymentResultService.record 为应用内部用例，不新增公共 HTTP 成功确认、人工 evidenceId 记账或原始回调接收端点。PaymentChannelGateway 的支付 submit/query/close 已返回 PaymentObservation（真实适配器尚待实现），包含完整固定身份、金额/CNY、结果、可空交易号/渠道成功时间、source/receiptKey/sourceDigest。退款方法仍使用独立 ChannelRefundOutcome 契约。原 ChannelPaymentOutcome 是纯领域迁移输入，由本地用例绑定持久 evidenceId。
+
+未来渠道回调只能先完成验签/解密/账户校验再调用该内部入口，并在事务提交之后判断返回 PaymentResultApplication：APPLIED/IGNORED 表示已保存回执，CONFLICT 表示差错事实，不能伪装普通成功 ACK。身份/金额不一致和交易号归属冲突不会更新正常付款金额。NOT_FOUND、网络错误、未认证响应均不能证明 NO_COLLECTION；资金已退回需独立补偿。
+
+终态事件复用 PaymentOutcomeEventDTO 和 PayEventEnvelope。类型为 pay.payment.outcome.acquire.v1、pay.payment.outcome.limit.v1、pay.payment.outcome.realtime.v1、pay.payment.outcome.risk.v1；每目标独立 deliveryId，共用首个终态 evidenceId 作为 businessEventId。完整原 payment/order/allocation/limitOperation/payee/金额币种、正源版本和 executionFenced 冻结在事务消息中。事件生产者字符串只作结构校验，后续消费仍需受信传输身份及各自权威事实核验。投递 handler、接收方 Inbox、商户通知签名/ACK 尚未完成，不能将入队当作送达或宣称四服务已联通。新增源码及测试未执行验证。
