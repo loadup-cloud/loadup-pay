@@ -26,7 +26,7 @@ import jakarta.validation.constraints.Size;
 public record ChannelIdentityInteractionDTO(
         @Schema(description = "Channel") @NotNull Channel channel,
 
-        @Schema(description = "Authorization ticket") @NotBlank @Size(max = 4096) @DiagnosticHidden
+        @Schema(description = "Authorization ticket", accessMode = Schema.AccessMode.WRITE_ONLY) @NotBlank @Size(max = 4096) @DiagnosticHidden
         String authorizationTicket,
 
         @Schema(description = "App scope") @NotBlank @Size(max = 64)

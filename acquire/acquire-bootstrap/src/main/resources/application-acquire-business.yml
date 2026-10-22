@@ -10,6 +10,11 @@ loadup:
   modules:
     acquire:
       product-audience: ${PRODUCT_JWT_AUDIENCE}
+      payment:
+        tenant-id: ${ACQUIRE_PAYMENT_TENANT_ID}
+        service-id: ${ACQUIRE_SERVICE_ID:acquire}
+        audience: ${PAYMENT_JWT_AUDIENCE}
+        token-file: ${ACQUIRE_PAYMENT_TOKEN_FILE}
       checkout:
         page-url: ${ACQUIRE_CHECKOUT_PAGE_URL}
         key-ref: acquire-checkout
@@ -37,6 +42,57 @@ loadup:
   http:
     enabled: true
     clients:
+      payment:
+        base-url: ${PAYMENT_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 262144
+        max-response-bytes: 262144
+        operations:
+          input-prepare:
+            method: POST
+            path: /api/payment/inputs/prepare
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          accept:
+            method: POST
+            path: /api/payment/executions/accept
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          detail:
+            method: POST
+            path: /api/payment/executions/detail
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          outcome:
+            method: POST
+            path: /api/payment/executions/outcome
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          close:
+            method: POST
+            path: /api/payment/executions/close
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          fence-parent:
+            method: POST
+            path: /api/payment/executions/fence-parent
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          parent-fence-status:
+            method: POST
+            path: /api/payment/executions/parent-fence-status
+            headers:
+              Content-Type: application/json
+              Accept: application/json
       product:
         base-url: ${PRODUCT_BASE_URL}
         allow-private-addresses: true

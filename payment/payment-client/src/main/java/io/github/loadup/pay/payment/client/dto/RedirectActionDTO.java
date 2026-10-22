@@ -19,9 +19,10 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
 
 public record RedirectActionDTO(
-        @Schema(description = "Redirect url") @Size(max = 64) @DiagnosticHidden
+        @Schema(description = "Redirect url") @NotBlank @Size(max = 8192) @DiagnosticHidden
         String redirectUrl) implements PaymentActionDataDTO {
     @Override
     public String toString() {

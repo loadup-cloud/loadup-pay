@@ -1,6 +1,6 @@
 # Acquire 收单订单
 
-已实现普通创单/原调用主体查询，以及原单会话签发、能力认证和收银台只读摘要的 COLA app、infrastructure、adapter。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为 CNY，订单、数据库会话与业务 Clock 使用 Asia/Shanghai。
+已实现普通创单/原调用主体查询、原单会话签发/能力认证/收银台只读摘要，并补齐商户付款发起、金额占用及权威结果刷新落账的 COLA 源码。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为 CNY，订单、数据库会话与业务 Clock 使用 Asia/Shanghai。
 
 ## 接口与身份
 
@@ -9,9 +9,14 @@
 | `/api/acquire/orders/create` | AcquireOrderCreationFacade.create | `pay:acquire:create` |
 | `/api/acquire/orders/detail` | AcquireOrderCreationFacade.detail | `pay:acquire:read` |
 | `/api/acquire/session/create` | CheckoutSessionFacade.create | `pay:acquire:session` |
+| `/api/acquire/checkout/create` | CheckoutOrderFacade.checkout | `pay:acquire:checkout` |
+| `/api/acquire/payments/start` | PaymentInitiationFacade.startPayment | `pay:acquire:payment:start` |
+| `/api/acquire/payments/refresh` | PaymentProgressFacade.refresh | `pay:acquire:payment:refresh` |
+| `/api/acquire/orders/close` | AcquireOrderClosureFacade.close | `pay:acquire:close` |
+| `/api/acquire/orders/extend` | AcquireOrderExtensionFacade.extend | `pay:acquire:extend` |
 | `/api/cashier/order/summary` | CashierSummaryFacade.summary | 已验证的订单会话能力 |
 
-detail 使用 IdQuery，id 为 orderId。Controller 返回 SuccessResponse/FailureResponse；完整 AcquireOrderFacade 继承创单切片，CashierFacade 继承独立摘要切片。两者其余方法未注册实现，不暴露占位付款入口。
+detail 使用 IdQuery，id 为 orderId。Controller 返回 SuccessResponse/FailureResponse；完整 AcquireOrderFacade 继承创单、Checkout、付款发起和进度刷新切片，CashierFacade 继承独立摘要切片。关闭、延期均提供独立已实现切片；DirectPay 及 cashier 付款方法尚未注册实现。
 
 资源服务器负责签名、issuer/audience、期限及 access-token 校验。入口额外要求签名 tenant_id、principal_type（MERCHANT_APP/MERCHANT/OPERATOR）及 sub；商户主体还需 merchant_id，MERCHANT 的 sub 必须等于该商户。身份不能由请求头或请求体覆盖。订单固定原调用主体范围；同商户其他应用和其他操作员也不能直接重用或查询该范围的订单。后续更宽的商户读权限需要独立授权设计。
 
@@ -29,15 +34,15 @@ A0/A1 拒绝外层本地事务。唯一键竞争或瞬态数据库冲突最多�
 
 ## 持久化与快照
 
-实际迁移 `V20261021210000__acquire_order_creation.sql` 只创建4张本服务表：order_create_intent、acquire_order、order_contract_snapshot、order_fee。后续 V20261021220000 新增 checkout_session，实际合计5张表；付款占用和退款调整表尚未创建。
+实际迁移 `V20261021210000__acquire_order_creation.sql` 只创建4张本服务表：order_create_intent、acquire_order、order_contract_snapshot、order_fee。后续 V20261021220000 新增 checkout_session，随后 V20261022040000 新增 order_payment_allocation、V20261022050000 新增 order_payment_outcome，V20261022060000 再新增 order_close_intent，V20261022070000 新增 order_extension_receipt，实际合计9张表；退款调整表尚未创建。
 
 configuration 保存 product 当前返回的完整 OrderAdmissionDTO 和强类型条款，使用 LONGTEXT，配套 payload_hash 校验本地持久副本，读取时逐项核对 intent、金额、主体、准入及合约元数据。product 的 compiled_terms_hash 作为可信上游编译结果引用原样保留；它包含 product 内部字段来源，不能由当前 DTO 独立重算，因此不将本地 payload_hash 冒充原编译哈希。字段来源仍由 product 的原 compiled_terms 保存。快照格式当前为1；前期按当前模型直接演进。
 
-DO 继承 BaseDO，仓储仅使用生成 Mapper 和 Tables 常量，显式添加 tenant/deleted 条件。四类 DO 的 Mapper/TableDef/Tables 由 LoadUp 包装处理器生成。POM 显式提供其上游 mybatis-flex-processor 的隔离处理器路径，仅执行包装处理器一次，不增加业务 mybatis-flex.config。
+DO 继承 BaseDO，仓储仅使用生成 Mapper 和 Tables 常量，显式添加 tenant/deleted 条件。各类 DO 的 Mapper/TableDef/Tables 由 LoadUp 包装处理器生成。POM 显式提供其上游 mybatis-flex-processor 的隔离处理器路径，仅执行包装处理器一次，不增加业务 mybatis-flex.config。
 
 ## 构建与运行
 
-默认 acquire-bootstrap 仍为基础骨架；业务包需要 Maven 和 Spring 两端启用 acquire-business。以下供开发者执行，本轮未运行：
+默认 acquire-bootstrap 仍为基础骨架；业务包需要 Maven 和 Spring 两端启用 acquire-business。以下供开发者按需执行：
 
 ```bash
 # 在 loadup-pay 根目录，按需执行窄范围构建及相关测试。
@@ -56,6 +61,10 @@ TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
 | ACQUIRE_JDBC_URL / ACQUIRE_JDBC_USERNAME / ACQUIRE_JDBC_PASSWORD | 独立 MySQL 业务库及外部 Secret 凭证 |
 | ACQUIRE_JWT_ISSUER_URI / ACQUIRE_JWT_AUDIENCE / ACQUIRE_JWT_JWK_SET_URI | 本服务已验证资源服务器 |
 | PRODUCT_BASE_URL / PRODUCT_JWT_AUDIENCE | 固定 product HTTP 目标及委托 audience |
+| PAYMENT_BASE_URL / PAYMENT_JWT_AUDIENCE | 固定 payment HTTP 目标与服务凭证 audience |
+| ACQUIRE_PAYMENT_TENANT_ID | 当前出站服务凭证所属租户；其他租户在占用前拒绝 |
+| ACQUIRE_SERVICE_ID | 出站 SERVICE 身份，默认 acquire，须匹配 payment 的受信配置 |
+| ACQUIRE_PAYMENT_TOKEN_FILE | 外部 Secret 挂载的服务 JWT 文件；每次请求重新读取以支持轮换 |
 | ACQUIRE_CHECKOUT_PAGE_URL | 同源托管 `/checkout` 的公开 HTTPS 地址；本地 loopback 可用 HTTP |
 | ACQUIRE_CHECKOUT_SECRET | v1会话 HMAC 密钥，至少32个随机 UTF-8 字节，由外部 Secret 注入 |
 | ACQUIRE_CHECKOUT_ACTIVE_KEY_VERSION | 默认v1；切换版本须同时配置 checkout.keys 对应条目 |
@@ -68,7 +77,7 @@ TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
 
 IDE 已检查关键编排、Converter、适配和测试源码；仓储因未在业务 target 生成 Mapper/Tables 仍有未解析类型。独立临时 Maven 目录中，以 Java 25 执行 javac -proc:only 验证两个 Converter、四个 Mapper、四个 TableDef 和 Tables 的注解生成；不等于业务编译通过。未运行 Maven、JUnit、DDL 或部署。
 
-后续继续 DirectPay/多次部分付款、订单占用与 payment 可信结果、付清费用确认、延期/自动关单、Outbox/等待任务及商户通知。当前收银台只展示订单，不发起付款或自动关单，不能视为可对外收款的完整主链路。
+DirectPay 受理、付清费用确认与延期源码已补；后续继续完整渠道执行、结果后台收敛、自动关单、Outbox/等待任务及商户通知。当前收银台只展示订单，不发起付款或自动关单，不能视为可对外收款的完整主链路。
 
 
 ## 会话签发、重放与托管页面
@@ -119,3 +128,79 @@ mvnd clean compile -pl acquire/acquire-infrastructure -am -Pacquire-business \
 ```
 
 此命令供本地执行，本轮未运行构建或 JUnit。IDE 检查不等于注解处理成功。
+
+## 商户付款发起与 A2 金额占用
+
+POST `/api/acquire/payments/start` 接收 PaymentStartCommand，必须是原订单调用主体且具有 `pay:acquire:payment:start` 权限。当前受理支持 H5 + NONE、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；选择必须属于原冻结合约能力。敏感输入由 payment 加密准备，不写入 acquire 数据库。商户手工指定正整数人民币分值，不改变订单固定总额。
+
+A2 在主库独立 READ_COMMITTED 事务中先锁原订单，以 tenant+orderId+merchant/原主体hash+actionKey 定位动作。新动作固定 allocationId/paymentId，领域校验可付款窗口、剩余金额、单笔上下限/尾款例外和成功笔数上限（包含已占用笔数），同事务增加订单占用/笔数并插入 HELD allocation 与固定付款意图。H5 命令可直接受理；敏感方式先保存无原始输入的固定标识/条款，再在独立步骤附加已加密引用。订单进入 PENDING，已付金额仍为0。只更新占用/状态/版本四列，不覆盖原截止版本或条款。
+
+提交后才调用 payment.accept；同 actionKey 重试先校验摘要、金额、选择和原条款，始终沿用原 paymentId/命令。原动作恢复不受当前订单截止影响，也不重查当前合约；新动作仍遵守原订单期限。同键改参返回幂等冲突。非 HELD 动作只查询既有付款，不能重新占用或另建付款。网络失败、远端拒绝、响应错配均保留已提交占用，不能据此释放。
+
+跨服务调用复用 LoadUp HttpTemplate，使用独立挂载的 SERVICE JWT，不转发商户令牌；每次读取文件，预检租户/服务身份/sub/audience/exp/nbf，最终签名/issuer 校验由 payment 资源服务器负责。目前单个部署显式配置一个出站租户凭证，其他租户在占用前拒绝；多租户凭证解析后续再实现。令牌和原输入不持久化、不输出诊断。
+
+## 权威付款结果刷新与 A3 落账
+
+POST `/api/acquire/payments/refresh` 接收 `{ "orderId": "...", "paymentId": "..." }`，要求原订单主体及独立 `pay:acquire:payment:refresh` 权限。先读取原订单/占用并核验归属和冻结命令，在本地事务外请求 payment.outcome；不接收商户提交的付款状态、证据或金额作为资金事实。
+
+远端返回 PaymentOutcomeDTO：一致的付款视图和持久执行封禁标志。INIT/PROCESSING/UNKNOWN/CLOSING 不推进订单。成功要求正 sourceVersion、成功 attempt 和终结证据；FAILED/CLOSED 还要求单笔执行门禁已持久 FENCED，才允许释放。不存在记录、HTTP 超时、终态无证据或未封禁，均不能把占用变成可付余额。
+
+A3 锁序为 acquire_order → order_payment_allocation。在锁内重新核验原命令/主体，按领域 applyPaymentOutcome 更新订单和原占用，并插入唯一不可变 order_payment_outcome 回执，三者同事务提交。成功将 HELD→CONSUMED、减少占用并累计 gross 已付金额/成功笔数，恰好付清转 PAID；明确未收款将 HELD→RELEASED，已付金额不减少。订单截止不阻止原在途结果落账。paid_at 为本服务首次确认付清的本地时间，不冒充渠道支付时间。
+
+重复刷新必须与原回执的付款、金额、版本和证据完全一致，只返回当前订单，不重复累计/释放；冲突或倒退的远端结果拒绝覆盖。成功后的 gate 封禁不会改变已经确认的成功资金事实。PAID/CLOSED 订单不重开，退款继续独立。
+
+当前仅请求触发刷新，start 返回本身不落账；仍需调用 refresh，后台扫描/可信事件、Outbox 通知、整单费用确认及 limitcenter 确认/释放后续接入。收银台页面与会话 scope 继续仅摘要，不因商户接口增加而得到付款权限。
+
+## 本批开发状态
+
+付款发起批次新增3类23个测试方法源码；在本次暂停验证指令之前，其 acquire-business 窄范围 `mvnd clean test-compile -pl acquire/acquire-bootstrap -am -Pacquire-business` 已通过10模块，MapStruct 与 allocation Mapper/TableDef 已真实生成，JUnit 未执行。随后新增的 outcome/refresh/回执落账源码按用户要求暂不做 IDEA 检查、构建或测试，不能沿用前批编译结论。两项新迁移均未执行，业务镜像未打包部署。
+
+## 商户显式关单与可恢复收敛
+
+POST `/api/acquire/orders/close` 接收 AcquireOrderCloseCommand(id/requestKey/reasonCode)，要求原订单主体及 `pay:acquire:close` 权限。C0 在原订单行锁下持久化首个 order_close_intent，并将 INIT/PENDING 转 CLOSING、固定 closeEpoch；新付款/会话不能再进入。关闭请求固定租户、主体、订单、key 和原因；相同请求继续原工作流，换 key 或改原因均冲突。首次请求遇到 PAID/CLOSED 拒绝，已经存在的原关闭请求允许只读回放当前终态。
+
+C0 提交后用独立 SERVICE JWT 调 payment.fenceParent，再逐笔调用 payment.close，所有网络调用都在本地事务外。远端 requestKey 固定为 order-close/closeIntentId，不直接拼接最长128字符的商户 key。服务凭证新增需要 pay:payment:close/fence/fence:read 权限，出站租户及 audience 限制保持不变。
+
+每次最多处理16笔 HELD，按 paymentId 排序并持久推进扫描游标；空字符串代表新一轮扫描。处理中/未知付款保留 HELD 和 CLOSING，仍推进游标，避免第一批未知付款阻塞后面付款。并发重试按 intent.rowVersion 判断，过期响应不能回退游标。网络或数据库失败保留 C0 和已落账结果，原请求可重试；当前尚无自动调度器。
+
+已受理付款复用 PaymentOutcomeOperations 的同一 A3 落账逻辑，成功累计 gross、明确未收款才释放。尚未受理的付款必须由 payment.close 返回 payment=null、持久封禁及 noCollectionEvidenceId，才记录独立 NOT_ACCEPTED 事实并释放原占用。其 paymentSourceVersion=0，表示没有付款记录，不把 fenceEpoch 冒充付款版本，也不构造假 CLOSED payment。
+
+NOT_ACCEPTED 原动作再次 start 返回 ORDER_NOT_PAYABLE；refresh 返回 payment=null 和当前真实订单视图，并核对原回执。已受理的 CLOSED/FAILED 仍使用正付款版本的 NO_COLLECTION 事实。
+
+最终再次获取 parentFenceStatus，再锁订单重读；仅当父门禁覆盖原 closeEpoch、全部远端子付款收敛、金额和笔数占用均为0、全部本地 allocation 均有唯一终态回执时才写 CLOSED/closedAt。否则返回 CLOSING，调用方保留原请求继续推进。在途成功可能先将订单付清为 PAID，关闭流程保留该成功终态；已经累计的支付金额不因关闭或独立退款减少。部分收款后显式关单不自动发起退款。
+
+PaymentProgressService 已将资金事实落账提取为内部 PaymentOutcomeOperations，供刷新和关单复用。刷新会写入资金事实，因此公开入参统一改为 PaymentProgressRefreshCommand，不保留旧 Query 别名。新增 order_close_intent 为本服务第8张表；此前尚未执行的结果回执迁移按当前模型直接加入 NOT_ACCEPTED 和0版本配对约束，execution_fenced 使用 TINYINT(0/1)。
+
+本批按用户要求仅开发，未运行 IDEA 检查、编译、测试、DDL 或部署。真实渠道关闭、未知结果后台收敛、额度确认/释放、费用确认、到期任务和通知仍待接入。
+
+## 原订单延期与不可变回执
+
+POST `/api/acquire/orders/extend`，输入 AcquireOrderExtendCommand(id/requestKey/requestedDueAt/expectedVersion)，要求原订单调用主体和 `pay:acquire:extend` 权限。requestedDueAt 必须显式带偏移，归一到本地时区后使用微秒精度，超出 MySQL 年份范围或微秒精度的值拒绝，不静默截断。expectedVersion 是原订单视图的 version，区别于内部 deadlineVersion。
+
+同订单行锁内先查 tenant+orderId+requestKey 回执：同参返回当前订单，不能再次延期；改变截止时间或 expectedVersion 均冲突。已有回执重放不检查当前可延期窗口，订单随后到期、CLOSING/PAID/CLOSED 或再次延期也不重新执行；当前订单及 deadlineVersion 必须覆盖回执，否则视为快照损坏。首次请求若 expectedVersion 已落后，返回 VERSION_CONFLICT；修改参数后提交必须使用新 requestKey。
+
+新请求读取本地冻结合约，要求原条款 extensionAllowed=true、订单仍为可续付 INIT/PENDING。CLOSE 策略在精确截止时刻即禁止延期；KEEP_PENDING 可在原截止之后延期，但新截止仍必须晚于当前时刻。CLOSING/PAID/CLOSED 不可创建新延期回执。
+
+原始截止由持久 ORDER/CHECKOUT 创单意图和原准入恢复：商户指定值优先，否则为原 admittedAt+waitSeconds。累计上限始终是 originalDueAt+extensionMaxSeconds，多次延期不把上一次截止当作新基准。新截止必须严格晚于当前截止，不能缩短期限、重置累计额度或修改原创单意图。当前 product/customer/合约停单状态不参与原订单延期重判。
+
+同一事务只更新 orderDueAt、deadlineVersion+1 和 order.version+1，并插入不可变 order_extension_receipt。回执冻结主体、请求摘要、原始/前次/新截止、expectedOrderVersion、新 deadlineVersion 与 appliedAt；两项唯一键保护动作和截止版本。延期与付款/结果落账/关单使用同一订单锁；任一写入失败整事务回滚，不保留半个延期。
+
+本批不调整订单金额、占用、状态、费用、原条款或已有付款执行时限；也不延长原收银台会话 token 的有效期。需新链接时仍通过 session.create 的新 requestKey 签发。deadlineVersion 已为后续到期任务提供变更代次，自动任务注册与旧任务淘汰尚未实现。
+
+新增 V20261022070000__order_extension_receipt.sql，acquire 实际9表。按用户要求本批未运行 IDEA 检查、构建、测试、DDL 或部署。
+
+## 整单费用确认
+
+PaymentOutcomeOperations 在订单恰好付清的 A3 事务中确认原 order_fee。按订单→allocation→fee 锁顺序，复核原总额、冻结费率/舍入规则与原费用金额，只从 INIT 更新为 CONFIRMED，保存与本次付清确认相同的本地时间；部分付款不分次计费。原占用、订单、终态回执和费用任一写入失败均回滚。
+
+确认使用原合约费用策略，保持 baseAmount/feeAmount/ruleSnapshot 不变，不把退款从 gross 已付金额扣除。重复事实回放不会重复确认。退款累计基数与独立退费调整后续接入。本批未运行检查、构建或测试。
+
+## 扫码枪输入与纯 API DirectPay（新增源码）
+
+`startPayment` 已接入付款码和 JSAPI 输入准备。A2 提交固定 allocationId/paymentId、金额和原条款后，在事务外调用 payment.inputs.prepare；只将返回的不透明 inputRef 在原订单锁下附加到 HELD 意图，CAS 仅更新 intent_payload/payload_hash/row_version，不改变金额或笔数。附加最多一次；关单或释放先完成时不能再附加。远端 prepare/accept 失败保留原占用，原 actionKey 重试；已准备输入的敏感值一致性由 payment 的原 HMAC 指纹核验，不在 acquire 存明文或原始码普通哈希。过期不会自动换码或自动释放；须安全关闭原付款后用新 action 发起。
+
+新增 DirectPaymentFacade 与 POST `/api/acquire/payments/direct-pay`，输入 DirectPayCommand，返回 DirectPayDTO。直接组合已有 create → startPayment → detail，各步骤独立提交，不创建 CheckoutSession，不承诺跨服务原子扣款。要求 `pay:acquire:create/read/payment:start`，首笔金额为正且不超过固定总额；支持首笔部分付款和后续 start。merchantOrderNo 固定创单幂等，actionKey 固定付款幂等，重试保留两者。后续确需另一笔付款应使用不同 actionKey；网络异常不得换 key 盲重扣。返回读取 A2 后的当前订单与实际付款受理结果；当前 payment 仍只受理 INIT，真实扣款执行/动作尚未接通。
+
+普通 create→startPayment 同样是纯 API，付款码由商户扫码枪读取后放入 type=PAYMENT_CODE 的 interaction；JSAPI 传同渠道票据，H5 使用 NONE。JSAPI/H5 后续执行返回的 action 仍需商户前端交互，不能将 API 返回 INIT 当作收款成功。SERVICE 出站 JWT 新增 `pay:payment:input:prepare` 权限，复用同一 payment HTTP 客户端和租户限制。
+
+该批源码未运行 IDEA 检查、构建、测试或部署；新的敏感输入路径、只附加引用的 CAS、DirectPay 和真实 MySQL 事务/竞争验收仍待执行。

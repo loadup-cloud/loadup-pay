@@ -52,11 +52,13 @@ class PaymentLifecycleTest {
                 "merchant",
                 Channel.ALIPAY,
                 AccessMode.SERVICE_PROVIDER,
-                "account",
+                "a".repeat(64),
                 "secret-reference",
-                Set.of(PaymentMethod.PAYMENT_CODE));
+                "v1",
+                new io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity("app", "seller", null, "auth-reference", "v1"),
+                Set.of(PaymentMethod.H5));
         return PaymentAttempt.init(
-                id, "payment", number, Money.ofMinor(1000, "CNY"), binding, PaymentMethod.PAYMENT_CODE, "req-" + id);
+                id, "payment", number, Money.ofMinor(1000, "CNY"), binding, PaymentMethod.H5, "req-" + id);
     }
 
     private ChannelPaymentOutcome outcome(PaymentAttempt attempt, ChannelPaymentOutcome.Kind kind) {

@@ -23,6 +23,5 @@ import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
-public interface PaymentExecutionFacade extends PaymentAcceptanceFacade, PaymentControlFacade {
-    PaymentExecutionDTO startAttempt(PaymentAttemptStartCommand command);
+public interface PaymentExecutionFacade extends PaymentAcceptanceFacade, PaymentControlFacade, PaymentOutcomeFacade, PaymentAttemptFacade {
 }

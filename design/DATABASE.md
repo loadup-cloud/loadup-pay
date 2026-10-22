@@ -396,7 +396,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 | `attempt_no`             | `INT NOT NULL`              | 递增序号                                                            |
 | `channel`                | `VARCHAR(24) NOT NULL`      | ALIPAY / WECHAT / UNIONPAY                                          |
 | `access_mode`            | `VARCHAR(24) NOT NULL`      | DIRECT / SERVICE_PROVIDER                                           |
-| `payment_method`         | `VARCHAR(32) NOT NULL`      | PAYMENT_CODE / QR / JSAPI / H5 / APP                                |
+| `payment_method`         | `VARCHAR(32) NOT NULL`      | PAYMENT_CODE / JSAPI / H5                                |
 | `binding_revision_id`    | `VARCHAR(64) NOT NULL`      | 冻结实际收款/服务商/授权身份                                        |
 | `account_scope_hash`     | `CHAR(64) NOT NULL`         | 规范化真实渠道账户作用域摘要                                        |
 | `channel_request_no`     | `VARCHAR(64) NOT NULL`      | 此attempt的稳定商户请求号                                           |
@@ -1271,3 +1271,87 @@ V20261022030000__payment_control.sql 新增 payment_control_receipt，本服务�
 parentFenceStatus 持父门禁锁，统计未终态、终态缺证据及可能在途子付款；fenced 与 allChildrenConverged 独立，不读空集合就推断未封禁父单安全。未来 attempt/Y2/结果写者必须继续遵守父/单笔门禁锁顺序与 sourceVersion 协议，不能绕过本地 fence 提交渠道请求。
 
 本批 IDEA 检查与9模块窄范围 clean test-compile 完成，生成 Mapper/Tables 已编译；IDEA 生成源索引尚未刷新。迁移、真实 SQL 锁/唯一键竞争/事务回滚未执行，不能将单元端口 mock 或编译成功当作数据库原子性验收。
+
+## 15. Acquire 付款金额占用实际迁移
+
+V20261022040000__order_payment_allocation.sql 新增本服务第6张表 order_payment_allocation。除 BaseDO 公共字段，保存 orderId/paymentId/actorScope/actionKey/requestDigest/callerScopeHash、正整数人民币分值、状态、paymentSourceVersion、完整 intent_payload/payload_hash 及 rowVersion。tenant+paymentId、tenant+orderId+actorScope+actionKey 唯一，业务唯一键不含 deleted。
+
+A2 在 acquire_order 行锁下校验可付款窗口和冻结策略，金额占用/笔数与 HELD allocation 同事务提交，提交后才访问 payment。状态/版本 CAS 且只更新必要列，不覆盖原 admission/deadlineVersion/成功付款事实。副本哈希不能代替服务授权；JWT 与敏感付款输入不落表。原条款及精确金额保留在完整命令中，恢复不依赖当前 product 合约。
+
+## 16. Acquire 终态结果回执实际迁移
+
+V20261022050000__order_payment_outcome.sql 新增第7张表 order_payment_outcome，不改变既有迁移。保存 allocation/order/payment、金额/币种、outcomeKind(SUCCEEDED/NO_COLLECTION/NOT_ACCEPTED)、按事实类型约束的 paymentSourceVersion、终结 evidenceId、executionFenced 和 observedAt。tenant+allocation、tenant+payment 唯一；NO_COLLECTION/NOT_ACCEPTED 必须 executionFenced=true，版本规则见第17节。回执不可变，按原付款事实幂等。
+
+A3 锁序 acquire_order→order_payment_allocation；订单金额/成功笔数/占用、allocation 的终态/sourceVersion 和回执在同一数据库事务写入。成功 CONSUMED，明确未收款 RELEASED；处理中/未知不写终态回执。订单付清时 paid_at 记录本地首次确认时间。更新使用列白名单与 rowVersion CAS，不改截止版本、合约、原金额、原命令或退款事实。
+
+重复请求先核对原回执及当前 allocation；金额、终态证据或 sourceVersion 冲突拒绝覆盖，不能依靠逻辑删除重新消费。未成功提交的 A3 可重新拉取原权威事实恢复。当前未写 Outbox/费用确认/额度确认，后续结果投递需与本地结果事实协调；不得把本批回执当作已投递通知。
+
+两项新迁移均未执行；本次新增结果收敛源码按用户要求暂停检查/编译/测试/部署。真实 MySQL 行锁、并发、唯一键、三表回滚和跨租户隔离仍未验收。
+
+## 17. Acquire 关闭意图与未受理释放事实
+
+新增 V20261022060000__order_close_intent.sql，创建第8张表 order_close_intent。BaseDO 公共字段以外保存 orderId/payeeMerchantId/callerScopeHash/requestKey/requestDigest/reasonCode/closeEpoch/requestedAt/cursorPaymentId/rowVersion；tenant+orderId 唯一，业务唯一键不含 deleted。原关闭请求字段不可变，只有扫描游标与 rowVersion 可推进。
+
+C0 锁 acquire_order 后写 CLOSING/closeEpoch/rowVersion 并插入 intent，同事务提交。关闭不覆盖金额、成功笔数、截止版本、合约或费用。游标使用空字符串代表从头扫描，真实值为原 paymentId；两列白名单更新避免 null 被忽略造成无法重置。并发关闭请求先锁订单，再重读 intent；旧 rowVersion 不覆盖其他请求已推进的游标。
+
+结果回执增加 NOT_ACCEPTED 表达可信服务证明“从未创建付款且已持久封禁”。其 paymentSourceVersion 必须为0；SUCCEEDED/NO_COLLECTION 则必须为正数。未收款类事实必须 executionFenced=1，数据库使用 TINYINT 并 CHECK 限定0/1。不把 gate epoch 当作 payment version，也不伪造付款记录。对应修改直接纳入此前本轮新增的 V20261022050000 迁移；本次没有执行任何 DDL。
+
+A3 继续按订单→allocation 加锁，NOT_ACCEPTED 与普通未收款结果一样将原占用转 RELEASED，但保留0付款版本；同事务保存原证据的唯一回执。终态复核先锁订单，再确认无 INIT/HELD allocation 且回执数量与 allocation 数量一致，金额/笔数占用清零，并持可信父收敛证明才 CAS 关闭。远端调用、状态查询、分页扫描均不持本地数据库事务。
+
+本节仅源码实现，未运行编译、测试、迁移、真实 MySQL 并发/锁/回滚或部署。费用确认、额度释放及结果 Outbox 不在本批实现范围。
+
+## 18. Acquire 延期回执实际迁移
+
+V20261022070000__order_extension_receipt.sql 新增第9张表 order_extension_receipt。BaseDO 公共字段以外为 order_id、caller_scope_hash、request_key、request_digest、original_due_at、previous_due_at、requested_due_at、expected_order_version、deadline_version、applied_at。时间统一 DATETIME(6)；expected_order_version 非负，deadline_version 大于1；新截止必须晚于前次截止和 applied_at，前次截止不得早于原始截止。
+
+唯一键 tenant+orderId+requestKey 防止重复延期，tenant+orderId+deadlineVersion 防止同一截止代次被复用，均不含 deleted。回执插入后不可变。acquire_order 已有 deadline_version 初始为1，本批不新增或重置该列；新延期增加 deadlineVersion 和订单 rowVersion，两者的含义独立。
+
+写入先锁 acquire_order，读取原冻结准入与持久创单意图以恢复 originalDueAt；先查原回执再验证新动作。CAS 同时匹配旧 rowVersion、旧 deadlineVersion、前次截止及 INIT/PENDING，只更新截止和两个版本；与回执同事务提交。不存在网络调用或跨库事务，不修改金额/成功事实/关单代次/费用/原意图/会话。
+
+同参重放核对当前订单版本、deadlineVersion 和截止必须覆盖原回执；后续正常延期、付款或关闭不导致旧请求再次写入。原始累计上限不因多次请求或合约更新改变。未来自动到期任务应携带 deadlineVersion 并在订单锁内复核，本批尚未注册任务。
+
+此迁移未执行；按用户要求未运行 IDEA 检查、构建、测试、真实 MySQL 锁/回滚/并发或部署。
+
+## 19. 费用确认与额度终态回执
+
+费用确认复用原 order_fee，不增加表。A3 在订单与 allocation 变更后锁原 ORDER_AMOUNT 费用，验证金额/币种/完整原策略，CAS 更新 CONFIRMED/confirmed_at/row_version；原费用规则、总额基数和金额保持不变。
+
+V20261022080000__limit_settlement_receipt.sql 新增 limit_settlement_receipt（LimitCenter 第9表）：公共字段外保存 operation_id/payment_id/kind/business_event_id/request_digest/payment_version/evidence_id。tenant+operation 唯一，tenant+businessEvent 唯一，kind 为 CONFIRM/RELEASE，源版本必须正数。回执不可变，不因逻辑删除复用操作。
+
+额度写者先获取权威付款快照再进入本地事务。锁 operation gate→policy head→原桶稳定顺序，桶数值、item consumed/restored、reservation 状态/源版本、必要的 FENCED gate 与回执同事务提交。明细 CAS 使用原 reserved/consumed/restored；gate 使用 rowVersion CAS，不重开已封禁操作。先 Release 无预占时只保存 gate/回执；晚到 Reserve 被挡住。
+
+本批未执行 DDL、检查、编译、测试或部署；金额回滚/并发和跨服务证明仍待验证。
+
+## 20. 短期加密输入及 acquire 引用附加
+
+V20261022090000__payment_input.sql 新增 payment 第5表 payment_input。BaseDO 公共字段外保存固定 payment/order/allocation/payee、分值/CNY、input_key、channel/method、caller_service_id、fingerprint_key_id/input_digest、encryption_key/version/ciphertext、prepared_at/expires_at、state/bound_attempt_id/row_version。id 为256位随机不透明引用；tenant+paymentId 唯一，逻辑删除不复用。DATETIME(6) 本地时间；金额必须正、有效期严格递增，INIT/空attempt/version0 或 BOUND/非空attempt/version1。
+
+加密在事务外执行，密文负载含租户/服务/inputRef/完整原输入命令；原敏感数据不进入普通付款/订单意图。新记录写入时重读唯一键，竞争先回滚再读赢家；原 key version 指纹检查重放，不更新 expiry。首次受理锁序为 parent_gate→payment_gate→input，后续 Y2 在既有付款/attempt同一事务固定绑定 input，CAS 只更新 state/bound_attempt_id/row_version。解密在事务外且只允许已绑定活跃 attempt，必须验证密文内部作用域和 HMAC。
+
+acquire 不增加表。现有 order_payment_allocation 的敏感意图可先有固定标识/金额/条款但 preparedInputRef=null；此阶段禁止提交 payment.accept。远端 prepare 完成后锁 acquire_order，重读原 HELD allocation，以 row_version/payload_hash/state/sourceVersion CAS 只附加 inputRef 并重算本地 payloadHash，不改资金占用或订单版本。引用最多附加一次；关闭/释放后不附加，不能凭本地引用缺失判定未收款。后续恢复执行器必须先区分输入未准备与已受理。
+
+迁移、唯一键/回滚/CAS/并发隔离及密文清理未运行验收。到期检查已编码，物理清理仍待后续后台任务；保留业务幂等身份，不能删除后重新给相同付款准备输入。
+
+## 21. 渠道绑定的实际迁移与版本回执
+
+V20261022100000__channel_bindings.sql 新增 payment 的第6—8表：
+
+- channel_merchant_binding：tenant/payee/bindingCode 唯一，固定 channel/accessMode，current_revision_id/current_revision、priority、state、row_version 可通过事务/CAS 更新。INIT 只为领域构造态；首次发布三表原子提交后持久状态为 ACTIVE，后续 SUSPENDED/REVOKED。REVOKED 不重新激活。
+- channel_binding_revision：tenant/bindingId/revision 唯一，冗余冻结 payee/channel/mode，identity_payload JSON、identity_hash、account_scope_hash、credential_reference/version、三个 method 的 TINYINT 能力位、caller_service_id/published_at。记录仅插入，不更新。身份 payload 使用类型化 schema；identityHash 对规范解码后再编码的负载校验，容忍 MySQL JSON 的键序/空白变化，严格拒绝未知字段和数据改动。
+- channel_binding_change_receipt：tenant/bindingId/requestKey 唯一且不含 deleted，固定 PUBLISH/SUSPEND/REVOKE、request_digest、服务身份、原 revisionId/ordinal、applied state/version/时间。重放不能修改当前路由或生成另一版本。
+
+所有表均有 BaseDO 公共五字段，时间为本地 DATETIME(6)，主键为框架 IdGenerator；不手写 Mapper。MapStruct 转换 domain/DO/DTO，MyBatis-Flex 使用生成列、显式 tenant/deleted 约束及 CAS 白名单。管理事务先锁 head，再写 revision/头/回执；选路在持有父/单笔门禁之后按 head.id 稳定加锁，读取不可变 revision，再按 priority/id 排候选。管理操作不持有 payment 锁或发网络请求。
+
+本批实际 revision 使用支付宝/微信 identity，凭证与授权只有资源引用/版本；Secret 存在性、渠道产品开通及真实协议验证仍待接入。草案中的后续支付尝试、回调及退款表不因新增绑定而已实现；本批没有执行 DDL 或验证真实数据库事务/并发。
+
+## 22. Payment attempt 实际迁移及 Y2
+
+V20261022110000__payment_attempt.sql 新增 payment 第9表。除 BaseDO 公共字段，保存 payment/attemptNo、原分值/CNY、bindingRevision/channel/mode/accountScopeHash/method、32位稳定渠道 requestNo、state/epoch/noCollectionEvidenceId、limitOperationId、原服务/requestKey/动作摘要/原付款摘要、敏感 inputRef、可空真实 risk 三字段、permitHash、preparedAt/submissionStartedAt/rowVersion。
+
+唯一键 tenant+payment+attemptNo、tenant+payment+requestKey，以及全局 channel+accountScopeHash+channelRequestNo，均不因 deleted 复用。INIT 仅 epoch0、空风险/许可/提交时间、version0；本地从未提交的 CLOSED 可 epoch0，但必须有未收款证据和正版本。正 epoch 的 SUBMITTING/PENDING/UNKNOWN/最终结果必须有已允许的真实风险、许可哈希和本地 Y2 时间；FAILED/CLOSED 必须有证据。时间不冒充渠道收款时间。
+
+Y1 在父门禁→单笔门禁→付款锁下冻结路由/尝试，与付款 PROCESSING/activeAttempt 同事务。Y2 相同锁序后锁 attempt/input，仅一笔 INIT CAS 能获得提交权；状态、风险、许可哈希、输入绑定同事务提交。只更新状态白名单，不改原金额、身份/请求号或首次时间。关单和拒绝前的本地证明必须持相同锁并确认 INIT/epoch0；跨 Y2 后只能保守查单/关单，不能本地释放。
+
+修正 accountScopeHash 的财务含义：仅按渠道和实际收款 sellerId/mchid/sub_mchid 计算，不包含 tenant、app、直连/服务商模式或可轮换 Secret/授权版本。同一外部收款账户在不同租户/应用下不能产生不同的财务去重范围。完整请求身份与原 revision 仍分别冻结；后续 channel_transaction_claim 应继续按真实账户范围约束，尚未在本批创建 claim 表或确认渠道成功。
+
+risk/Reserve/Begin/Verify 都在本地事务外。获得远端许可后关单先完成时，本地 Y2 被挡住；额度可能暂留 EXECUTING，后续终态通知/恢复器依据本地正版本权威未收款事实释放，而非 TTL 或 HTTP 失败。未运行 DDL、检查、编译、测试或真实数据库并发/回滚验收。

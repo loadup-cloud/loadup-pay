@@ -47,7 +47,19 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         return new LimitBucketSet(updated);
     }
 
-    /** Releases only a not-yet-executing reservation's complete original allocation. */
+    public LimitBucketSet confirm(List<LimitReservationItem> items) {
+        require(!items.isEmpty() && items.size() == buckets.size(), CONFLICT);
+        Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);
+        Set<LimitBucketKey> seen = new HashSet<>();
+        for (var item : items) {
+            require(seen.add(item.bucket()) && buckets.containsKey(item.bucket())
+                    && item.consumed() == 0 && item.restored() == 0, CONFLICT);
+            updated.put(item.bucket(), buckets.get(item.bucket()).confirm(item.reserved()));
+        }
+        return new LimitBucketSet(updated);
+    }
+
+    /** Requires a trusted release decision at the application boundary. */
     public LimitBucketSet releaseReserved(List<LimitReservationItem> items) {
         require(!items.isEmpty() && items.size() == buckets.size(), CONFLICT);
         Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);

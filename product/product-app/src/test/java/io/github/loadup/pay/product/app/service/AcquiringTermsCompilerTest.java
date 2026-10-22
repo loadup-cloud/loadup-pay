@@ -107,7 +107,7 @@ class AcquiringTermsCompilerTest {
     @Test
     void aRuleWithoutAnyAllowedPaymentMethodCannotBePublished() {
         var values = AcquiringFixtures.values();
-        values.put("channel.WECHAT.DIRECT.QR.enabled", TypedValue.bool(false));
+        values.put("channel.WECHAT.DIRECT.H5.enabled", TypedValue.bool(false));
         assertThrows(CommonException.class, () -> compiler.compile(AcquiringFixtures.configuration(values), policy));
     }
 }

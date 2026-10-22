@@ -43,6 +43,7 @@ class PaymentControlServiceTest {
             new AnnotationConfigApplicationContext(PaymentControlConverter.class.getPackageName());
     final PaymentAcceptanceGateway gates = mock(PaymentAcceptanceGateway.class);
     final PaymentControlGateway store = mock(PaymentControlGateway.class);
+    final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(), gate = new AtomicReference<>();
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
@@ -59,6 +60,7 @@ class PaymentControlServiceTest {
             actor::get,
             gates,
             store,
+            attempts,
             codec,
             context.getBean(PaymentAcceptanceConverter.class),
             context.getBean(PaymentControlConverter.class),
@@ -197,6 +199,7 @@ class PaymentControlServiceTest {
         return new PaymentAcceptanceService(
                 actor::get,
                 gates,
+                mock(PaymentInputAccess.class),
                 codec,
                 context.getBean(PaymentAcceptanceConverter.class),
                 transactions,
@@ -272,6 +275,28 @@ class PaymentControlServiceTest {
                 original.payment().limitOperationId(), payment.get().payment().limitOperationId());
         assertEquals(2, payment.get().payment().version());
         assertEquals(result.payment(), acceptance().accept(PaymentFixtures.command()));
+    }
+
+    @Test
+    void anInitAttemptCanCloseLocallyOnlyBeforeY2Committed() {
+        accept(PaymentState.PROCESSING);
+        when(attempts.lock("tenant", "attempt")).thenReturn(Optional.of(AttemptFixtures.prepared()));
+        var result = service.close(close("before-y2", 1));
+        assertEquals("CLOSED", result.payment().state().name());
+        assertNotNull(result.noCollectionEvidenceId());
+        verify(attempts).update(eq("tenant"), argThat(value -> value.attempt().state() == PaymentAttemptState.CLOSED
+                && value.attempt().executionEpoch() == 0 && value.attempt().noCollectionEvidenceId() != null), eq(0L));
+    }
+
+    @Test
+    void aCommittedY2AttemptCannotReceiveLocalNoCollectionProof() {
+        accept(PaymentState.PROCESSING);
+        var submitting = AttemptFixtures.prepared().beginSubmission(1, "b".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
+        when(attempts.lock("tenant", "attempt")).thenReturn(Optional.of(submitting));
+        var result = service.close(close("after-y2", 1));
+        assertEquals("CLOSING", result.payment().state().name());
+        assertNull(result.noCollectionEvidenceId());
+        verify(attempts, never()).update(anyString(), any(), anyLong());
     }
 
     @Test

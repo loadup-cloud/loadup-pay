@@ -24,6 +24,7 @@ public record RiskDecision(RiskDecisionType decision, String reasonCode, String 
     public RiskDecision {
         Objects.requireNonNull(decision);
         DomainChecks.text(reasonCode, 64);
+        if (consultationRef != null) DomainChecks.text(consultationRef, 128);
     }
 
     public static RiskDecision notConnected() {

@@ -95,8 +95,8 @@ class CompiledTermsCodecImplTest {
     private List<ChannelCapabilityDTO> capabilities() {
         return List.of(
                 new ChannelCapabilityDTO(
-                        Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.QR, PaymentMethod.JSAPI)),
-                new ChannelCapabilityDTO(Channel.ALIPAY, AccessMode.SERVICE_PROVIDER, Set.of(PaymentMethod.QR)));
+                        Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5, PaymentMethod.JSAPI)),
+                new ChannelCapabilityDTO(Channel.ALIPAY, AccessMode.SERVICE_PROVIDER, Set.of(PaymentMethod.H5)));
     }
 
     private CompiledAcquiringTerms compiled(AcquiringTermsDTO terms, String contract) {

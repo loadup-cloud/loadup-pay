@@ -26,15 +26,17 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 
 public record AcquireOrderExtendCommand(
-        @Schema(description = "Id") @NotBlank @Size(max = 64)
+        @Schema(description = "Original order id") @NotBlank @Size(max = 64)
         String id,
 
-        @Schema(description = "Request key") @NotBlank @Size(max = 128)
+        @Schema(description = "Extension request key; retries retain the original parameters") @NotBlank @Size(max = 128)
         String requestKey,
 
-        @Schema(description = "Requested due at") @NotNull OffsetDateTime requestedDueAt,
+        @Schema(description = "New deadline with explicit offset and at most six fractional second digits",
+                type = "string", format = "date-time", example = "2026-10-22T18:30:00.123456+08:00")
+        @NotNull OffsetDateTime requestedDueAt,
 
-        @Schema(description = "Expected version") @PositiveOrZero
+        @Schema(description = "Original order version precondition; do not replace it on a retry") @PositiveOrZero
         long expectedVersion) {
     public AcquireOrderExtendCommand {
         if (requestedDueAt != null)

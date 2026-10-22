@@ -18,12 +18,22 @@ package io.github.loadup.pay.payment.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.domain.model.*;
 import org.mapstruct.*;
 import java.time.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceConverter {
+    @Mapping(target = "payment", source = "payment")
+    @Mapping(target = "limitOperationId", source = "value.payment.limitOperationId")
+    @Mapping(target = "payeeMerchantId", source = "value.payment.payeeMerchantId")
+    PaymentSettlementFactsDTO toSettlementFacts(StoredPaymentAcceptance value, PaymentExecutionDTO payment, boolean executionFenced);
+
+    @Mapping(target = "payment", source = "payment")
+    PaymentOutcomeDTO toOutcome(PaymentExecutionDTO payment, boolean executionFenced);
+
     @Mapping(target = "paymentId", source = "payment.id")
     @Mapping(target = "orderId", source = "payment.orderId")
     @Mapping(target = "allocationId", source = "payment.allocationId")

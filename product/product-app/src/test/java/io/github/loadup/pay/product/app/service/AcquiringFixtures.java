@@ -80,7 +80,7 @@ final class AcquiringFixtures {
                         false,
                         "notify.enabled",
                         false,
-                        "channel.WECHAT.DIRECT.QR.enabled",
+                        "channel.WECHAT.DIRECT.H5.enabled",
                         true)
                 .forEach((key, value) -> v.put(key, TypedValue.bool(value)));
         v.put("fee.rate", TypedValue.decimal("0.003"));

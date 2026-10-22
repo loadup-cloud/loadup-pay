@@ -18,8 +18,16 @@ package io.github.loadup.pay.payment.domain.gateway;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Set;
+import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;
 
 /** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface ChannelBindingGateway {
+    /** Lock route heads in a stable order before selecting a new attempt's immutable binding. */
+    List<RoutableChannelBinding> lockActive(String tenantId, String payeeMerchantId, Channel channel,
+            Set<AccessMode> allowedModes, PaymentMethod method);
+
     Optional<ChannelBindingRevision> findRevision(String tenantId, String bindingRevisionId);
 }

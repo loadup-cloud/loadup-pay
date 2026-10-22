@@ -36,7 +36,7 @@ public record PaymentAttemptStartCommand(
         @Schema(description = "Prepared input ref") @Size(max = 64) @DiagnosticHidden
         String preparedInputRef,
 
-        @Schema(description = "Previous attempt evidence id") @NotBlank @Size(max = 64)
+        @Schema(description = "Verified previous attempt evidence id; absent for the first attempt") @Size(max = 64)
         String previousAttemptEvidenceId) {
     @Override
     public String toString() {

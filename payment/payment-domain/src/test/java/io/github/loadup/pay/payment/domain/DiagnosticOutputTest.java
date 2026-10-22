@@ -40,9 +40,11 @@ class DiagnosticOutputTest {
                 "merchant",
                 Channel.ALIPAY,
                 AccessMode.DIRECT,
-                "account-hash",
+                "a".repeat(64),
                 "credential-reference-must-stay-hidden",
-                Set.of(PaymentMethod.QR));
+                "v1",
+                new io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity("app", "seller", null, null, null),
+                Set.of(PaymentMethod.H5));
     }
 
     @Test
@@ -51,7 +53,7 @@ class DiagnosticOutputTest {
         var identity =
                 new ChannelPaymentIdentity("payment", "attempt", Channel.ALIPAY, "binding", "account-hash", "request");
         var prepared = new PreparedChannelPayment(
-                identity, Money.ofMinor(100, "CNY"), PaymentMethod.QR, 1, "prepared-input-must-stay-hidden");
+                identity, Money.ofMinor(100, "CNY"), PaymentMethod.H5, 1, "prepared-input-must-stay-hidden");
         assertTrue(binding.toString().startsWith("{"));
         assertTrue(binding.toString().contains("\"credentialReference\":\"******\""));
         assertTrue(prepared.toString().contains("\"preparedInputRef\":\"******\""));

@@ -53,6 +53,7 @@ class PaymentAcceptanceServiceTest {
     final PaymentAcceptanceService service = new PaymentAcceptanceService(
             actor::get,
             store,
+            mock(PaymentInputAccess.class),
             codec,
             context.getBean(PaymentAcceptanceConverter.class),
             new PaymentAcceptanceTransactions(manager),
@@ -324,7 +325,7 @@ class PaymentAcceptanceServiceTest {
                 command.currency(),
                 command.requestDigest(),
                 new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
-                        io.github.loadup.pay.common.Channel.ALIPAY, io.github.loadup.pay.common.PaymentMethod.QR),
+                        io.github.loadup.pay.common.Channel.ALIPAY, io.github.loadup.pay.common.PaymentMethod.H5),
                 null,
                 command.admittedTerms());
         assertSame(

@@ -25,7 +25,7 @@ import java.util.*;
 final class PaymentFixtures {
     static PaymentExecuteCommand command() {
         return new PaymentExecuteCommand("payment", "order", "allocation", "admission", "merchant", 4000, "CNY",
-                "a".repeat(64), new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.QR), null,
+                "a".repeat(64), new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), null,
                 new AdmittedOrderTermsDTO("admission", "order", "merchant", 10000, "CNY", "contract", 1, 1,
                         "snapshot", "b".repeat(64), terms()));
     }
@@ -53,7 +53,7 @@ final class PaymentFixtures {
                         null,
                         io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
                         io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
-                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.QR))),
+                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
     }

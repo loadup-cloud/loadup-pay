@@ -36,6 +36,7 @@ public record VerifiedPaymentOutcome(
     public enum Kind {
         SUCCEEDED,
         NO_COLLECTION,
+        NOT_ACCEPTED,
         UNKNOWN
     }
 
@@ -44,9 +45,10 @@ public record VerifiedPaymentOutcome(
         DomainChecks.id(paymentId);
         DomainChecks.amount(amount);
         Objects.requireNonNull(kind);
-        require(paymentVersion > 0, INVALID_ARGUMENT);
+        // A tombstone has no payment row or invented payment version.
+        require(kind == Kind.NOT_ACCEPTED ? paymentVersion == 0 : paymentVersion > 0, INVALID_ARGUMENT);
         if (kind != Kind.UNKNOWN) DomainChecks.id(evidenceId);
-        if (kind == Kind.NO_COLLECTION) require(executionFenced, INVALID_ARGUMENT);
+        if (kind == Kind.NO_COLLECTION || kind == Kind.NOT_ACCEPTED) require(executionFenced, INVALID_ARGUMENT);
     }
 
     @Override

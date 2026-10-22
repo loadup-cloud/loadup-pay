@@ -21,10 +21,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record AcquireOrderCloseCommand(
-        @Schema(description = "Id") @NotBlank @Size(max = 64)
+        @Schema(description = "Original order id") @NotBlank @Size(max = 64)
         String id,
 
-        @Schema(description = "Request key") @NotBlank @Size(max = 128)
+        @Schema(description = "Original close request key; reuse it while closure is pending") @NotBlank @Size(max = 128)
         String requestKey,
 
         @Schema(description = "Reason code") @NotBlank @Size(max = 64)

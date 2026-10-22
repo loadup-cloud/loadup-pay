@@ -9,11 +9,35 @@ spring:
 loadup:
   modules:
     limitcenter:
+      payment-service-id: ${LIMITCENTER_PAYMENT_SERVICE_ID:payment}
+      payment-evidence:
+        tenant-id: ${LIMITCENTER_PAYMENT_TENANT_ID}
+        service-id: ${LIMITCENTER_SERVICE_ID:limitcenter}
+        audience: ${PAYMENT_JWT_AUDIENCE}
+        token-file: ${LIMITCENTER_PAYMENT_TOKEN_FILE}
       reserve-seconds: ${LIMITCENTER_RESERVE_SECONDS:120}
       permit:
         active-key-id: ${LIMITCENTER_PERMIT_ACTIVE_KEY_ID:v1}
         keys:
           v1: ${LIMITCENTER_PERMIT_SECRET}
+  http:
+    enabled: true
+    clients:
+      payment-evidence:
+        base-url: ${PAYMENT_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 16384
+        max-response-bytes: 262144
+        operations:
+          payment:
+            method: POST
+            path: /api/payment/facts/payment
+            headers:
+              Content-Type: application/json
+              Accept: application/json
   database:
     multi-tenant:
       enabled: true

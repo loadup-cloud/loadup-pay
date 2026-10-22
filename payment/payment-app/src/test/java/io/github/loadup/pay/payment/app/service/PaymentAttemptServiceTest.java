@@ -1,0 +1,104 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.app.service;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.payment.app.model.LockedPayment;
+import io.github.loadup.pay.payment.app.port.*;
+import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
+import io.github.loadup.pay.payment.domain.gateway.*;
+import io.github.loadup.pay.payment.domain.model.*;
+import jakarta.validation.*;
+import org.junit.jupiter.api.*;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.*;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class PaymentAttemptServiceTest {
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentAttemptConverter.class.getPackageName());
+    final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
+    final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
+    final PaymentControlGateway payments = mock(PaymentControlGateway.class);
+    final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
+    final PaymentRouteSelector routes = mock(PaymentRouteSelector.class);
+    final PaymentInputAccess inputs = mock(PaymentInputAccess.class);
+    final PaymentLimitClient limits = mock(PaymentLimitClient.class);
+    final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(false));
+    final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>();
+    final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
+    final PaymentAttemptService service = new PaymentAttemptService(
+            () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")), locks, attempts, payments, codec,
+            routes, inputs, limits, context.getBean(PaymentAttemptConverter.class), context.getBean(PaymentControlConverter.class),
+            context.getBean(PaymentAcceptanceConverter.class), new PaymentAcceptanceTransactions(manager), () -> "attempt",
+            validation.getValidator(), Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), "acquire");
+    PaymentAttemptStartCommand command(String key) {
+        var original = AttemptFixtures.command();
+        return new PaymentAttemptStartCommand(original.paymentId(), key, original.choice(), original.preparedInputRef(), null);
+    }
+    @BeforeEach void setup() {
+        when(limits.supportsTenant("tenant")).thenReturn(true);
+        when(locks.lock(eq("tenant"), anyString(), eq("acquire"))).thenAnswer(call -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        });
+        when(codec.decode(any())).thenReturn(AttemptFixtures.command());
+        when(codec.checksum(anyString())).thenAnswer(call -> HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(((String)call.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
+        when(attempts.findRequest(eq("tenant"), anyString(), anyString())).thenAnswer(call ->
+                stored.get() != null && stored.get().requestKey().equals(call.getArgument(2)) ? Optional.of(stored.get()) : Optional.empty());
+        when(routes.select(eq("tenant"), any())).thenReturn(AttemptFixtures.binding());
+        doAnswer(call -> { stored.set(call.getArgument(1)); return null; }).when(attempts).insert(eq("tenant"), any());
+        doAnswer(call -> { accepted.set(call.getArgument(1)); return null; }).when(payments).updatePayment(eq("tenant"), any(), anyLong());
+    }
+    @AfterEach void close() { context.close(); validation.close(); }
+    @Test void freezesRouteAndThirtyTwoCharacterRequestBeforeAnyRemoteExecution() {
+        var result = service.startAttempt(command("initial"));
+        assertEquals("PROCESSING", result.state().name()); assertEquals("attempt", result.activeAttemptId());
+        assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
+        assertTrue(stored.get().attempt().channelRequestNo().matches("[0-9a-f]{32}"));
+        assertEquals("binding-revision", stored.get().attempt().binding().id());
+        assertNull(stored.get().riskDecision()); assertEquals(1, manager.commits);
+        verify(limits, never()).reserve(anyString(), any()); verify(limits, never()).begin(anyString(), any());
+    }
+    @Test void replayDoesNotSelectAnotherRouteOrRequestNumber() {
+        var first = service.startAttempt(command("initial"));
+        var original = stored.get(); clearInvocations(routes, attempts, payments);
+        assertEquals(first, service.startAttempt(command("initial"))); assertSame(original, stored.get());
+        verifyNoInteractions(routes); verify(attempts, never()).insert(anyString(), any());
+        verify(payments, never()).updatePayment(anyString(), any(), anyLong());
+    }
+    @Test void anotherKeyCannotCreateABlindReplacementAttempt() {
+        service.startAttempt(command("initial"));
+        assertSame(OUTCOME_UNKNOWN, assertThrows(CommonException.class, () -> service.startAttempt(command("other"))).getResultCode());
+        verify(attempts, times(1)).insert(anyString(), any());
+    }
+    @Test void failureRollsBackBothAttemptAndPaymentUpdateBoundary() {
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(payments).updatePayment(eq("tenant"), any(), anyLong());
+        assertSame(CONCURRENT_UPDATE, assertThrows(CommonException.class, () -> service.startAttempt(command("initial"))).getResultCode());
+        assertEquals(0, manager.commits); assertEquals(1, manager.rollbacks);
+    }
+}

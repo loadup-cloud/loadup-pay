@@ -50,7 +50,7 @@ class PaymentAcceptanceCodecImplTest {
                 9007199254740993L,
                 "CNY",
                 "a".repeat(64),
-                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.QR),
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
                 "prepared-input",
                 new AdmittedOrderTermsDTO(
                         "admission",
@@ -146,7 +146,7 @@ class PaymentAcceptanceCodecImplTest {
                         null,
                         io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
                         io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
-                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.QR))),
+                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
     }

@@ -13,18 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.loadup.pay.payment.client.dto;
+package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Size;
+import io.github.loadup.commons.json.*;
 
-public record QrActionDTO(
-        @Schema(description = "Qr content") @Size(max = 64) @DiagnosticHidden
-        String qrContent) implements PaymentActionDataDTO {
-    @Override
-    public String toString() {
-        return ToStringAsJson.reflectionToString(this);
-    }
+/** Transport-neutral encryption envelope produced by the infrastructure cryptographic port. */
+public record EncryptedPaymentInput(String encryptionKey, int encryptionVersion,
+        @DiagnosticHidden String ciphertext) {
+    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

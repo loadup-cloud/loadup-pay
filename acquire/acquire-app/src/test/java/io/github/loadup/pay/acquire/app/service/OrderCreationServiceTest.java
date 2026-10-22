@@ -202,7 +202,7 @@ class OrderCreationServiceTest {
                         null,
                         io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
                         io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
-                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.QR))),
+                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
     }

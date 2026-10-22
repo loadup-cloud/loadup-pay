@@ -846,3 +846,13 @@ D01—D10的语义已确认，不再作为待业务选择的P0问题反复询问
 - [微信 JSAPI 开发指引](https://pay.wechatpay.cn/doc/v3/merchant/4012791870)、[回调与查单](https://pay.wechatpay.cn/doc/v2/merchant/4011984682)、[撤销说明](https://pay.wechatpay.cn/doc/v2/merchant/4011937361)
   ：动作/结果、主动查询及撤销语义分别处理。
 - [gRPC 状态码](https://grpc.io/docs/guides/status-codes/)：deadline 失败不能证明写操作未完成，幂等与主动查询由业务负责。
+
+## 当前支付方式与接入边界（2026-10-22 修订）
+
+按最新决策，付款方式保留 PAYMENT_CODE（商户扫码枪读取付款人付款码）、JSAPI、H5；移除 Native 二维码展示及原生 APP 支付。扫码枪属于商户设备，平台接收商户 API 提交的短期付款码，不要求扫码枪接入托管收银台。
+
+接入方式与付款方式是两条独立维度。纯 API 可通过 DirectPay 完成创单及首笔发起，也可通过 create→startPayment 分两步完成，均无需创建 checkout session。托管收银台是商户可选的交互适配，共用订单、付款、退款、限额与结果事实，不是 API 支付的强制前置。
+
+纯 API 不等于所有方式都能后台无交互扣款：付款码由商户采集后提交；JSAPI/H5 由 API 返回受信调起参数或地址，商户自己的前端负责调起，付款人完成授权。最终支付结果以验签回调/权威查单为准，不以前端返回或 HTTP 超时推断成功/失败。
+
+DirectPay 继续作为 API 便利入口，扫码枪流程保留；Native 的 code_url/展示二维码动作移除。上述范围覆盖直连及服务商/子商户模式，但具体渠道能力受实际开通产品限制。当前 DirectPay、付款码输入准备及真实渠道执行仍需实现，契约恢复不代表业务链路已经完成。

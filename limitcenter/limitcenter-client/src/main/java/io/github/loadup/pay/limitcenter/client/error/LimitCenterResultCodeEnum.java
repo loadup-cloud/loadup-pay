@@ -31,6 +31,7 @@ public enum LimitCenterResultCodeEnum implements ResultCode {
     EXECUTION_FENCED("LIMIT_EXECUTION_FENCED", "Limit operation is fenced"),
     RESERVATION_EXPIRED("LIMIT_RESERVATION_EXPIRED", "Reservation expired before execution"),
     DEPENDENCY_NOT_READY("LIMIT_DEPENDENCY_NOT_READY", "Original payment confirmation is not ready"),
+    DEPENDENCY_UNAVAILABLE("LIMIT_DEPENDENCY_UNAVAILABLE", "Authoritative payment evidence is unavailable"),
     IDEMPOTENCY_CONFLICT("LIMIT_IDEMPOTENCY_CONFLICT", "Limit operation payload changed"),
     INVALID_STATE("LIMIT_INVALID_STATE", "Limit operation state does not permit this action"),
     OUTCOME_UNKNOWN("LIMIT_OUTCOME_UNKNOWN", "Previous channel attempt requires trusted no-collection evidence"),

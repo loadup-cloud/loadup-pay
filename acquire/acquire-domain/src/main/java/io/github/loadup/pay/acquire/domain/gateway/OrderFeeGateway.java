@@ -15,11 +15,10 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.*;
+import java.time.LocalDateTime;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
 public interface OrderFeeGateway {
-    OrderFee lockByOrder(String tenantId, String orderId);
-
-    void save(String tenantId, OrderFee fee);
+    /** Joins the original order transaction; amount and policy remain frozen. */
+    void confirmPaid(String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt);
 }

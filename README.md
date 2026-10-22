@@ -131,3 +131,11 @@ acquire 已补 Checkout 一步创单源码：订单、条款、费用与首次�
 payment 已补付款受理/查询、服务身份授权及父/单笔门禁检查的 COLA 业务源码；受理只落 INIT，不代表向渠道扣款。payment-business bootstrap 与新增测试源码已通过窄范围 mvnd 编译，测试未执行，详见[payment说明](payment/README.md)。
 
 payment 已补父订单封禁、收敛查询和单笔关闭：未创建或从未尝试的 INIT 可持久产生未收款证据；处理中/未知只进 CLOSING。控制回执固定请求与证据，终态不重开。IDEA 检查及窄范围业务/测试源码编译记录见[payment说明](payment/README.md)，渠道关闭和金额释放仍待接入。
+
+acquire 已补商户 `/api/acquire/payments/start` 的固定金额占用及 payment 服务受理调用，并新增 `/refresh` 权威结果收敛源码：成功累计已付、具备未收款证据且单笔执行封禁后才释放。回执防止重复落账，详见[acquire说明](acquire/README.md)。尚无实际渠道执行；最新结果收敛修改按用户要求暂停验证，未部署。
+
+acquire 已新增 `/api/acquire/orders/close` 显式关单源码：先持久禁止新付款，再推进父封禁/逐笔关闭/结果落账，满足远端收敛及本地占用清零后才 CLOSED；未知保留 CLOSING，原请求可继续推进。从未受理的付款以独立可信事实释放，不伪造付款版本。详见[acquire说明](acquire/README.md)，本批按要求暂未验证或部署。
+
+acquire 已新增 `/api/acquire/orders/extend` 延期源码：按原冻结合约和首次截止计算累计上限，订单锁内更新截止/版本及幂等回执，不延长已有收银台会话。详见[acquire说明](acquire/README.md)；本批暂未验证、迁移或部署。
+
+当前付款范围为付款码（商户扫码枪输入）、JSAPI、H5，支持商户纯 API 调用；托管收银台为可选接入。Native 二维码和原生 APP 支付不在本次范围，最新边界见[架构说明](ARCHITECTURE.md)。付款码/JSAPI 安全输入准备、纯 API start 与 DirectPay 受理编排源码已补；真实渠道执行仍待接通，新增源码未验证。

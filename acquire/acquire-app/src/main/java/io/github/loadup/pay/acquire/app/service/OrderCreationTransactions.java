@@ -63,7 +63,12 @@ public class OrderCreationTransactions {
             return TenantUtil.callWithTenant(tenant, work::get);
         } catch (DomainViolation invalid) {
             throw new CommonException(
-                    invalid.reason() == DomainViolation.Reason.CONFLICT ? IDEMPOTENCY_CONFLICT : INVALID_ARGUMENT);
+                    switch (invalid.reason()) {
+                        case CONFLICT -> IDEMPOTENCY_CONFLICT;
+                        case AMOUNT_EXCEEDED ->
+                            io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
+                        default -> INVALID_ARGUMENT;
+                    });
         } catch (java.time.DateTimeException | ArithmeticException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }

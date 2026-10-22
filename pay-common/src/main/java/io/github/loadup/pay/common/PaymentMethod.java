@@ -17,8 +17,6 @@ package io.github.loadup.pay.common;
 
 public enum PaymentMethod {
     PAYMENT_CODE,
-    QR,
     JSAPI,
-    H5,
-    APP
+    H5
 }

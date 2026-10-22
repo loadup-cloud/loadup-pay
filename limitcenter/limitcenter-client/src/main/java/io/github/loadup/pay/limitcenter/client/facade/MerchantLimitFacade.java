@@ -22,10 +22,6 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
-public interface MerchantLimitFacade extends LimitReservationFacade, LimitExecutionFacade {
-    LimitReservationDTO confirm(LimitConfirmCommand command);
-
-    LimitReservationDTO release(LimitReleaseCommand command);
-
+public interface MerchantLimitFacade extends LimitReservationFacade, LimitExecutionFacade, LimitSettlementFacade {
     LimitRestoreDTO restoreRefund(LimitRefundRestoreCommand command);
 }

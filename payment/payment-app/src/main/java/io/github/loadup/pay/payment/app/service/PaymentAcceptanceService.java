@@ -24,7 +24,9 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.*;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentAcceptanceFacade;
+import io.github.loadup.pay.payment.client.facade.PaymentOutcomeFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.*;
 import jakarta.validation.Validator;
@@ -36,9 +38,10 @@ import java.time.temporal.ChronoUnit;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
 @Service
-public class PaymentAcceptanceService implements PaymentAcceptanceFacade {
+public class PaymentAcceptanceService implements PaymentAcceptanceFacade, PaymentOutcomeFacade {
     private final PaymentActorProvider actors;
     private final PaymentAcceptanceGateway store;
+    private final PaymentInputAccess inputs;
     private final PaymentAcceptanceCodec codec;
     private final PaymentAcceptanceConverter converter;
     private final PaymentAcceptanceTransactions transactions;
@@ -50,6 +53,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade {
     public PaymentAcceptanceService(
             PaymentActorProvider actors,
             PaymentAcceptanceGateway store,
+            PaymentInputAccess inputs,
             PaymentAcceptanceCodec codec,
             PaymentAcceptanceConverter converter,
             PaymentAcceptanceTransactions transactions,
@@ -59,6 +63,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade {
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.store = store;
+        this.inputs = inputs;
         this.codec = codec;
         this.converter = converter;
         this.transactions = transactions;
@@ -109,6 +114,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade {
                 if (prior.isPresent()) return replay(actor, command, prior.get());
                 if (store.findAllocation(actor.tenantId(), command.allocationId())
                         .isPresent()) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                inputs.requireNewAcceptance(actor.tenantId(), actor.serviceId(), command, now());
                 var payment = PaymentOrder.init(
                         command.paymentId(),
                         command.orderId(),
@@ -142,6 +148,39 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade {
             codec.decode(stored);
             return converter.toDTO(stored);
         });
+    }
+
+    @Override
+    public PaymentOutcomeDTO outcome(IdQuery query) {
+        validate(query);
+        var actor = actor("pay:payment:read");
+        return transactions.write(actor.tenantId(), () -> {
+            DomainChecks.id(query.id());
+            var initial = store.find(actor.tenantId(), query.id())
+                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            if (!actor.serviceId().equals(initial.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            var parent = store.lockParent(actor.tenantId(), initial.payment().orderId())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var gate = store.lockPayment(actor.tenantId(), query.id())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            // All payment writers hold these gates before changing a payment or its terminal proof.
+            var current = store.find(actor.tenantId(), query.id())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var command = codec.decode(current);
+            if (!actor.serviceId().equals(current.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            checkOutcomeGate(actor, command, parent, null);
+            checkOutcomeGate(actor, command, gate, query.id());
+            return converter.toOutcome(converter.toDTO(current), gate.gate().state() == GateState.FENCED);
+        });
+    }
+
+    private void checkOutcomeGate(
+            PaymentActor actor, PaymentExecuteCommand command, StoredPaymentGate gate, String paymentId) {
+        if (!gate.gate().orderId().equals(command.orderId())
+                || !java.util.Objects.equals(gate.gate().paymentId(), paymentId)
+                || !gate.payeeMerchantId().equals(command.payeeMerchantId())
+                || !gate.callerServiceId().equals(actor.serviceId())
+                || gate.gate().state() == GateState.INIT) throw new CommonException(SNAPSHOT_INVALID);
     }
 
     private PaymentExecutionDTO replay(

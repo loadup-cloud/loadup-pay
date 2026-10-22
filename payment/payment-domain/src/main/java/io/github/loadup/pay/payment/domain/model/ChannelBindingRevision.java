@@ -33,15 +33,29 @@ public record ChannelBindingRevision(
         AccessMode accessMode,
         String accountScopeHash,
         @DiagnosticHidden String credentialReference,
+        @DiagnosticHidden String credentialVersion,
+        @DiagnosticHidden ChannelAccountIdentity identity,
         Set<PaymentMethod> capabilities) {
     public ChannelBindingRevision {
         DomainChecks.id(id);
         DomainChecks.id(payeeMerchantId);
         Objects.requireNonNull(channel);
         Objects.requireNonNull(accessMode);
-        DomainChecks.text(accountScopeHash, 64);
+        io.github.loadup.pay.common.DomainViolation.require(accountScopeHash != null
+                && accountScopeHash.matches("[0-9a-f]{64}"), io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.text(credentialReference, 128);
+        DomainChecks.id(credentialVersion);
+        Objects.requireNonNull(identity);
+        boolean valid = switch (identity) {
+            case AlipayAccountIdentity alipay -> channel == Channel.ALIPAY
+                    && (accessMode == AccessMode.SERVICE_PROVIDER) == (alipay.authorizationReference() != null);
+            case WechatAccountIdentity wechat -> channel == Channel.WECHAT
+                    && (accessMode == AccessMode.SERVICE_PROVIDER) == (wechat.subMerchantId() != null);
+        };
+        io.github.loadup.pay.common.DomainViolation.require(valid, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
         capabilities = Set.copyOf(capabilities);
+        io.github.loadup.pay.common.DomainViolation.require(!capabilities.isEmpty(),
+                io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

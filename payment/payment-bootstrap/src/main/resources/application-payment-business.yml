@@ -9,7 +9,59 @@ spring:
 loadup:
   modules:
     payment:
+      limitcenter-service-id: ${PAYMENT_LIMITCENTER_SERVICE_ID:limitcenter}
       acquire-service-id: ${PAYMENT_ACQUIRE_SERVICE_ID:acquire}
+      channel-management-service-id: ${PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID:pay-ops}
+      limitcenter:
+        tenant-id: ${PAYMENT_LIMITCENTER_TENANT_ID}
+        service-id: ${PAYMENT_SERVICE_ID:payment}
+        audience: ${LIMITCENTER_JWT_AUDIENCE}
+        token-file: ${PAYMENT_LIMITCENTER_TOKEN_FILE}
+      input:
+        lifetime-seconds: ${PAYMENT_INPUT_LIFETIME_SECONDS:120}
+        encryption-key: ${PAYMENT_INPUT_ENCRYPTION_KEY:payment-input}
+        active-fingerprint-key-id: ${PAYMENT_INPUT_FINGERPRINT_KEY_ID:v1}
+        fingerprint-keys:
+          v1: ${PAYMENT_INPUT_FINGERPRINT_KEY}
+  http:
+    enabled: true
+    clients:
+      limitcenter:
+        base-url: ${LIMITCENTER_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 65536
+        max-response-bytes: 65536
+        operations:
+          reserve:
+            method: POST
+            path: /api/limitcenter/reservations/reserve
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          begin:
+            method: POST
+            path: /api/limitcenter/executions/begin
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          verify:
+            method: POST
+            path: /api/limitcenter/executions/verify
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+  kms:
+    enabled: true
+    endpoint: ${PAYMENT_KMS_ENDPOINT}
+    token-env: PAYMENT_KMS_TOKEN
+    management-enabled: false
+    allow-insecure-http: ${PAYMENT_KMS_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: 2s
+    read-timeout: 2s
+    max-input-bytes: 65536
   database:
     multi-tenant:
       enabled: true

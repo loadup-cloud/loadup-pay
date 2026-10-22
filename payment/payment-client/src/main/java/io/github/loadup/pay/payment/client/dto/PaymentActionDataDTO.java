@@ -22,7 +22,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
     @JsonSubTypes.Type(value = NoActionDTO.class, name = "NONE"),
     @JsonSubTypes.Type(value = WaitActionDTO.class, name = "WAIT"),
-    @JsonSubTypes.Type(value = QrActionDTO.class, name = "DISPLAY_QR"),
-    @JsonSubTypes.Type(value = RedirectActionDTO.class, name = "REDIRECT")
+    @JsonSubTypes.Type(value = RedirectActionDTO.class, name = "REDIRECT"),
+    @JsonSubTypes.Type(value = WechatJsapiActionDTO.class, name = "WECHAT_JSAPI"),
+    @JsonSubTypes.Type(value = AlipayJsapiActionDTO.class, name = "ALIPAY_JSAPI")
 })
-public sealed interface PaymentActionDataDTO permits NoActionDTO, WaitActionDTO, QrActionDTO, RedirectActionDTO {}
+public sealed interface PaymentActionDataDTO permits NoActionDTO, WaitActionDTO, RedirectActionDTO, WechatJsapiActionDTO, AlipayJsapiActionDTO {}

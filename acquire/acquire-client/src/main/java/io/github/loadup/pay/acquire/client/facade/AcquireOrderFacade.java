@@ -15,21 +15,8 @@
  */
 package io.github.loadup.pay.acquire.client.facade;
 
-import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
-import io.github.loadup.pay.acquire.client.command.AcquireOrderExtendCommand;
-import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
-import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
-import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
-import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
-import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 
 /** Business use cases; identity and authorization come from a trusted invocation context. */
-public interface AcquireOrderFacade extends AcquireOrderCreationFacade, CheckoutOrderFacade {
-    DirectPayDTO directPay(DirectPayCommand command);
+public interface AcquireOrderFacade extends DirectPaymentFacade, AcquireOrderCreationFacade, CheckoutOrderFacade, PaymentInitiationFacade, PaymentProgressFacade, AcquireOrderClosureFacade, AcquireOrderExtensionFacade {
 
-    PaymentStartDTO startPayment(PaymentStartCommand command);
-
-    AcquireOrderDTO close(AcquireOrderCloseCommand command);
-
-    AcquireOrderDTO extend(AcquireOrderExtendCommand command);
 }

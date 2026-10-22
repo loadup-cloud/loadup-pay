@@ -20,6 +20,14 @@ import io.github.loadup.commons.result.ResultCode;
 
 public enum PaymentResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("PAYMENT_INVALID_ARGUMENT", "Invalid argument"),
+    DEPENDENCY_UNAVAILABLE("PAYMENT_DEPENDENCY_UNAVAILABLE", "Payment dependency is unavailable"),
+    LIMIT_EXCEEDED("PAYMENT_LIMIT_EXCEEDED", "Merchant limit exceeded"),
+    LIMIT_RESERVATION_EXPIRED("PAYMENT_LIMIT_RESERVATION_EXPIRED", "Merchant limit reservation expired before submission"),
+    EXECUTION_PERMIT_INVALID("PAYMENT_EXECUTION_PERMIT_INVALID", "Execution permit does not match the original payment attempt"),
+    CHANNEL_BINDING_UNAVAILABLE("PAYMENT_CHANNEL_BINDING_UNAVAILABLE", "No active channel binding matches the frozen payment terms"),
+    INPUT_EXPIRED("PAYMENT_INPUT_EXPIRED", "Prepared channel input has expired"),
+    INPUT_ALREADY_BOUND("PAYMENT_INPUT_ALREADY_BOUND", "Prepared input is bound to another attempt"),
+    INPUT_UNAVAILABLE("PAYMENT_INPUT_UNAVAILABLE", "Secure channel input storage is unavailable"),
     INVALID_PAGE("PAYMENT_INVALID_PAGE", "Invalid page"),
     NOT_FOUND("PAYMENT_NOT_FOUND", "Payment or refund not found"),
     IDEMPOTENCY_CONFLICT("PAYMENT_IDEMPOTENCY_CONFLICT", "Idempotency key payload changed"),

@@ -65,6 +65,14 @@ public record PaymentAttempt(
             DomainChecks.id(noCollectionEvidenceId);
     }
 
+    /** Parent/payment gates and this INIT attempt are locked, so no Y2 submission can have committed. */
+    public PaymentAttempt closeBeforeSubmission(String evidenceId) {
+        DomainChecks.id(evidenceId);
+        require(state == PaymentAttemptState.INIT && executionEpoch == 0, INVALID_STATE);
+        return new PaymentAttempt(id, paymentId, attemptNo, amount, binding, method, channelRequestNo,
+                PaymentAttemptState.CLOSED, 0, evidenceId);
+    }
+
     public PaymentAttempt beginSubmission(long epoch) {
         require(state == PaymentAttemptState.INIT && epoch > 0, INVALID_STATE);
         return new PaymentAttempt(

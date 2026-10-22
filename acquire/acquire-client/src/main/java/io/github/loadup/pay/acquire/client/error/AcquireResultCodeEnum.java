@@ -19,6 +19,8 @@ import io.github.loadup.commons.enums.ResultStatusEnum;
 import io.github.loadup.commons.result.ResultCode;
 
 public enum AcquireResultCodeEnum implements ResultCode {
+    UNSUPPORTED_CAPABILITY("ACQUIRE_UNSUPPORTED_CAPABILITY", "Payment input or method is not implemented"),
+    PAYMENT_INPUT_EXPIRED("ACQUIRE_PAYMENT_INPUT_EXPIRED", "Original channel input expired; close the original payment safely before a new action"),
     INVALID_ARGUMENT("ACQUIRE_INVALID_ARGUMENT", "Invalid argument"),
     INVALID_PAGE("ACQUIRE_INVALID_PAGE", "Invalid page"),
     NOT_FOUND("ACQUIRE_NOT_FOUND", "Order not found"),
@@ -29,7 +31,7 @@ public enum AcquireResultCodeEnum implements ResultCode {
     VERSION_CONFLICT("ACQUIRE_VERSION_CONFLICT", "Order version changed"),
     ACTION_FORBIDDEN("ACQUIRE_ACTION_FORBIDDEN", "Caller cannot perform this action"),
     INVALID_STATE("ACQUIRE_INVALID_STATE", "Operation cannot run in the current state"),
-    DEPENDENCY_UNAVAILABLE("ACQUIRE_DEPENDENCY_UNAVAILABLE", "Order admission dependency unavailable"),
+    DEPENDENCY_UNAVAILABLE("ACQUIRE_DEPENDENCY_UNAVAILABLE", "Acquiring dependency unavailable"),
     ADMISSION_EXPIRED("ACQUIRE_ADMISSION_EXPIRED", "Original admission materialization window expired"),
     SNAPSHOT_INVALID("ACQUIRE_SNAPSHOT_INVALID", "Stored order intent or snapshot is invalid"),
     CONCURRENT_UPDATE("ACQUIRE_CONCURRENT_UPDATE", "Concurrent update; retry with the original intent"),

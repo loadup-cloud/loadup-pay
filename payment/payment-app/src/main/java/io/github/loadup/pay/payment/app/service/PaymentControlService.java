@@ -39,6 +39,7 @@ public class PaymentControlService implements PaymentControlFacade {
     private final PaymentActorProvider actors;
     private final PaymentAcceptanceGateway gates;
     private final PaymentControlGateway store;
+    private final PaymentAttemptGateway attempts;
     private final PaymentAcceptanceCodec codec;
     private final PaymentAcceptanceConverter payments;
     private final PaymentControlConverter converter;
@@ -51,6 +52,7 @@ public class PaymentControlService implements PaymentControlFacade {
             PaymentActorProvider actors,
             PaymentAcceptanceGateway gates,
             PaymentControlGateway store,
+            PaymentAttemptGateway attempts,
             PaymentAcceptanceCodec codec,
             PaymentAcceptanceConverter payments,
             PaymentControlConverter converter,
@@ -61,6 +63,7 @@ public class PaymentControlService implements PaymentControlFacade {
         this.actors = actors;
         this.gates = gates;
         this.store = store;
+        this.attempts = attempts;
         this.codec = codec;
         this.payments = payments;
         this.converter = converter;
@@ -198,7 +201,23 @@ public class PaymentControlService implements PaymentControlFacade {
                 } else if (order.state() == PaymentState.INIT
                         || order.state() == PaymentState.PROCESSING
                         || order.state() == PaymentState.UNKNOWN) {
-                    var updated = converter.withPayment(previous, order.requestClose(), previous.terminalEvidenceId());
+                    var unsubmitted = order.activeAttemptId() == null ? Optional.<StoredPaymentAttempt>empty()
+                            : attempts.lock(actor.tenantId(), order.activeAttemptId());
+                    var updatedOrder = order.requestClose();
+                    if (unsubmitted.isPresent() && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
+                            && unsubmitted.get().attempt().executionEpoch() == 0) {
+                        var attempt = unsubmitted.get();
+                        if (!order.id().equals(attempt.attempt().paymentId())
+                                || !order.amount().equals(attempt.attempt().amount())
+                                || !order.payeeMerchantId().equals(attempt.attempt().binding().payeeMerchantId())
+                                || !order.limitOperationId().equals(attempt.limitOperationId())
+                                || !previous.requestDigest().equals(attempt.paymentRequestDigest())
+                                || !actor.serviceId().equals(attempt.callerServiceId())) throw new CommonException(SNAPSHOT_INVALID);
+                        evidence = ids.generate();
+                        attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
+                        updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
+                    }
+                    var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
                     store.updatePayment(actor.tenantId(), updated, order.version());
                     payment = Optional.of(updated);
                 } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)

@@ -12,6 +12,10 @@
     <name>LoadUp Pay LimitCenter App</name>
     <description>Durable merchant limit policy activation and reservation.</description>
     <dependencies>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>payment-client</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

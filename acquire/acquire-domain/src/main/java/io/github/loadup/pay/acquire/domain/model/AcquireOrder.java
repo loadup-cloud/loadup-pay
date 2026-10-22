@@ -134,8 +134,10 @@ public record AcquireOrder(
                         && current.paymentId().equals(outcome.paymentId())
                         && current.amount().equals(outcome.amount()),
                 CONFLICT);
-        if (outcome.paymentVersion() <= current.paymentSourceVersion()
-                || outcome.kind() == VerifiedPaymentOutcome.Kind.UNKNOWN) return new OrderPaymentChange(this, current);
+        if (outcome.kind() == VerifiedPaymentOutcome.Kind.UNKNOWN) return new OrderPaymentChange(this, current);
+        if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED)
+            require(current.paymentSourceVersion() == 0, CONFLICT);
+        else if (outcome.paymentVersion() <= current.paymentSourceVersion()) return new OrderPaymentChange(this, current);
         var target = outcome.kind() == VerifiedPaymentOutcome.Kind.SUCCEEDED
                 ? AllocationState.CONSUMED
                 : AllocationState.RELEASED;

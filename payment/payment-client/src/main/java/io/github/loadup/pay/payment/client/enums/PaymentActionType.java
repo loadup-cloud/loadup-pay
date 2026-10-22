@@ -18,8 +18,6 @@ package io.github.loadup.pay.payment.client.enums;
 public enum PaymentActionType {
     NONE,
     WAIT,
-    DISPLAY_QR,
     REDIRECT,
-    INVOKE_JSAPI,
-    INVOKE_APP
+    INVOKE_JSAPI
 }

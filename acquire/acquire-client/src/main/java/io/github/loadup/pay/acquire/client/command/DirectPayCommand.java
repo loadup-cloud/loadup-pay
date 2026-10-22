@@ -32,6 +32,7 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 
+/** Merchant API convenience entry; a hosted checkout session is not a prerequisite. */
 public record DirectPayCommand(
         @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
         String payeeMerchantId,
@@ -60,7 +61,7 @@ public record DirectPayCommand(
 
         @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
 
-        @Schema(description = "Interaction") @Valid @DiagnosticHidden
+        @Schema(description = "Sensitive payer input for the chosen payment method", accessMode = Schema.AccessMode.WRITE_ONLY) @Valid @DiagnosticHidden
         PaymentInteractionDTO interaction) {
     public DirectPayCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);
