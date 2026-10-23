@@ -17,12 +17,17 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** Immutable terminal fact committed with the order and its original allocation. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Immutable terminal fact committed with the order and its original allocation.
+ */
 public record PaymentOutcomeReceipt(
         String id, String allocationId, VerifiedPaymentOutcome outcome, LocalDateTime observedAt) {
     public PaymentOutcomeReceipt {
@@ -40,7 +45,7 @@ public record PaymentOutcomeReceipt(
                 && outcome.amount().equals(allocation.amount())
                 && outcome.paymentVersion() == allocation.paymentSourceVersion()
                 && allocation.state() == (outcome.kind() == VerifiedPaymentOutcome.Kind.SUCCEEDED
-                        ? AllocationState.CONSUMED : AllocationState.RELEASED), CONFLICT);
+                ? AllocationState.CONSUMED : AllocationState.RELEASED), CONFLICT);
     }
 
     public void requireSameOutcome(VerifiedPaymentOutcome observed) {
@@ -48,5 +53,7 @@ public record PaymentOutcomeReceipt(
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

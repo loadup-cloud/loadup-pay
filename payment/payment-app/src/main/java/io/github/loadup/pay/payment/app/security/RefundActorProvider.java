@@ -15,4 +15,6 @@
  */
 package io.github.loadup.pay.payment.app.security;
 
-public interface RefundActorProvider { RefundActor current(); }
+public interface RefundActorProvider {
+    RefundActor current();
+}

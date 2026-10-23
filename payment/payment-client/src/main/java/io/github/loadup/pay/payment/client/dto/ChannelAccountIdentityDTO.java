@@ -15,13 +15,15 @@
  */
 package io.github.loadup.pay.payment.client.dto;
 
-import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = AlipayAccountIdentityDTO.class, name = "ALIPAY_V1"),
-    @JsonSubTypes.Type(value = WechatAccountIdentityDTO.class, name = "WECHAT_V1")
+        @JsonSubTypes.Type(value = AlipayAccountIdentityDTO.class, name = "ALIPAY_V1"),
+        @JsonSubTypes.Type(value = WechatAccountIdentityDTO.class, name = "WECHAT_V1")
 })
 @Schema(description = "Immutable channel account identity; secrets are referenced, never supplied inline")
-public sealed interface ChannelAccountIdentityDTO permits AlipayAccountIdentityDTO, WechatAccountIdentityDTO {}
+public sealed interface ChannelAccountIdentityDTO permits AlipayAccountIdentityDTO, WechatAccountIdentityDTO {
+}

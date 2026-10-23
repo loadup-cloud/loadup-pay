@@ -52,7 +52,8 @@ LoadUp 是一个 **被消费的框架/SDK**，通过 `loadup-dependencies` BOM �
   `mvn`。
 
 - IDEA MCP 可用时直接使用其代码检查能力，不编写临时手动 check 脚本代替 IDE 检查。
-- IDEA MCP 不可用或检查超时时，使用 `mvnd clean compile` 验证受影响模块及其依赖（`-pl` / `-am`）；不以手动核对代码替代检查。测试源码需验证时使用 `clean test-compile`，默认不执行测试。
+- IDEA MCP 不可用或检查超时时，使用 `mvnd clean compile` 验证受影响模块及其依赖（`-pl` / `-am`）；不以手动核对代码替代检查。测试源码需验证时使用
+  `clean test-compile`，默认不执行测试。
 - 测试补齐按批次集中编写与审查，先使用 IDEA MCP 批量检查，再合并受影响模块执行必要的 `mvnd clean` 验证；避免每新增一个用例就单独运行
   Maven。
 - 需要验证编译、注解处理或依赖装配时使用 Maven build；不完全禁止构建。优先选择受影响模块及其依赖，用户要求整体构建时执行整体构建。
@@ -474,8 +475,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   UTF-8 bytes, matching BCrypt's byte limit. Create, register, change and reset entry points validate before encoding or
   persistence; login accepts existing credentials without applying a new-password policy.
 - Public business pagination defaults to page 1 and size 20; explicit invalid values are rejected and size is capped at
-  100. Sort fields use declared whitelists and generated MyBatis-Flex columns; never pass user input to SQL ordering.
-  Audit Controller and Facade share AuditPageQuery; trusted tenant identity is supplied by the application layer.
+    100. Sort fields use declared whitelists and generated MyBatis-Flex columns; never pass user input to SQL ordering.
+         Audit Controller and Facade share AuditPageQuery; trusted tenant identity is supplied by the application layer.
 - Database listeners own persistence createdAt/updatedAt. Business event and expiry timestamps use injected Clock with
   Clock.systemDefaultZone () defaults and convert using clock.getZone (). Each module qualifies its named
   `<module>Clock`; infrastructure lease clocks are separately qualified. Verification-code createdAt is an in-memory

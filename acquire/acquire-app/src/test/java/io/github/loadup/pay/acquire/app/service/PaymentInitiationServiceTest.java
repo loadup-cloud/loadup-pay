@@ -17,28 +17,78 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.converter.PaymentInitiationConverter;
-import io.github.loadup.pay.acquire.app.port.*;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
+import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentInitiationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
-import jakarta.validation.*;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import org.junit.jupiter.api.*;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.admission;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentInitiationServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -98,24 +148,24 @@ class PaymentInitiationServiceTest {
         when(allocations.findAction(eq("tenant"), eq("order"), anyString(), anyString()))
                 .thenAnswer(c -> Optional.ofNullable(saved.get(c.getArgument(3))));
         doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    AcquireOrder changed = c.getArgument(1);
-                    assertEquals(order.get().order().version(), (long) c.getArgument(3));
-                    var old = order.get();
-                    order.set(new StoredAcquireOrder(
-                            changed,
-                            old.merchantOrderNo(),
-                            old.subject(),
-                            old.admission(),
-                            old.admittedAt(),
-                            old.callerScopeHash(),
-                            old.snapshotId(),
-                            old.admissionPayload(),
-                            old.payloadHash()));
-                    StoredPaymentAllocation value = c.getArgument(2);
-                    saved.put(value.allocation().actionKey(), value);
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            AcquireOrder changed = c.getArgument(1);
+            assertEquals(order.get().order().version(), (long) c.getArgument(3));
+            var old = order.get();
+            order.set(new StoredAcquireOrder(
+                    changed,
+                    old.merchantOrderNo(),
+                    old.subject(),
+                    old.admission(),
+                    old.admittedAt(),
+                    old.callerScopeHash(),
+                    old.snapshotId(),
+                    old.admissionPayload(),
+                    old.payloadHash()));
+            StoredPaymentAllocation value = c.getArgument(2);
+            saved.put(value.allocation().actionKey(), value);
+            return null;
+        })
                 .when(allocations)
                 .reserve(eq("tenant"), any(), any(), anyLong());
         when(payment.accept(eq("tenant"), any())).thenAnswer(c -> {
@@ -243,8 +293,8 @@ class PaymentInitiationServiceTest {
         assertSame(
                 ORDER_NOT_PAYABLE,
                 assertThrows(
-                                CommonException.class,
-                                () -> service(clock(NOW.plusHours(1))).startPayment(command("new", 1000)))
+                        CommonException.class,
+                        () -> service(clock(NOW.plusHours(1))).startPayment(command("new", 1000)))
                         .getResultCode());
         assertEquals(1, saved.size());
     }
@@ -321,8 +371,8 @@ class PaymentInitiationServiceTest {
             assertSame(
                     INVALID_STATE,
                     assertThrows(
-                                    CommonException.class,
-                                    () -> service(clock(NOW)).startPayment(command("one", 4000)))
+                            CommonException.class,
+                            () -> service(clock(NOW)).startPayment(command("one", 4000)))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

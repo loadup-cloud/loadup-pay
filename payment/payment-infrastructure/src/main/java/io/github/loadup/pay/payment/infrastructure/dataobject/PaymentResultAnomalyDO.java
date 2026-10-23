@@ -17,39 +17,80 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("payment_result_anomaly")
 public class PaymentResultAnomalyDO extends BaseDO {
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String attemptId;
-    public String getAttemptId() { return attemptId; }
-    public void setAttemptId(String value) { attemptId = value; }
-
     private String receiptId;
-    public String getReceiptId() { return receiptId; }
-    public void setReceiptId(String value) { receiptId = value; }
-
     private String reasonCode;
-    public String getReasonCode() { return reasonCode; }
-    public void setReasonCode(String value) { reasonCode = value; }
-
     private String factsDigest;
-    public String getFactsDigest() { return factsDigest; }
-    public void setFactsDigest(String value) { factsDigest = value; }
-
     @DiagnosticHidden
     private String observationPayload;
-    public String getObservationPayload() { return observationPayload; }
-    public void setObservationPayload(String value) { observationPayload = value; }
-
     private LocalDateTime receivedAt;
-    public LocalDateTime getReceivedAt() { return receivedAt; }
-    public void setReceivedAt(LocalDateTime value) { receivedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getAttemptId() {
+        return attemptId;
+    }
+
+    public void setAttemptId(String value) {
+        attemptId = value;
+    }
+
+    public String getReceiptId() {
+        return receiptId;
+    }
+
+    public void setReceiptId(String value) {
+        receiptId = value;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public void setReasonCode(String value) {
+        reasonCode = value;
+    }
+
+    public String getFactsDigest() {
+        return factsDigest;
+    }
+
+    public void setFactsDigest(String value) {
+        factsDigest = value;
+    }
+
+    public String getObservationPayload() {
+        return observationPayload;
+    }
+
+    public void setObservationPayload(String value) {
+        observationPayload = value;
+    }
+
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+
+    public void setReceivedAt(LocalDateTime value) {
+        receivedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

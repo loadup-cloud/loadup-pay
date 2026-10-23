@@ -17,15 +17,20 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** The original close request is immutable; only the bounded scan cursor advances. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * The original close request is immutable; only the bounded scan cursor advances.
+ */
 public record OrderCloseIntent(String id, String orderId, String payeeMerchantId, String callerScopeHash,
-        String requestKey, String requestDigest, String reasonCode, long closeEpoch,
-        LocalDateTime requestedAt, String cursorPaymentId, long rowVersion) {
+                               String requestKey, String requestDigest, String reasonCode, long closeEpoch,
+                               LocalDateTime requestedAt, String cursorPaymentId, long rowVersion) {
     public OrderCloseIntent {
         DomainChecks.id(id);
         DomainChecks.id(orderId);
@@ -50,5 +55,7 @@ public record OrderCloseIntent(String id, String orderId, String payeeMerchantId
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

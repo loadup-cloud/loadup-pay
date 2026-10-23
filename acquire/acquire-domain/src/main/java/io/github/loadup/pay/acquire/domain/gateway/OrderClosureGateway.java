@@ -15,15 +15,24 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
 
 public interface OrderClosureGateway {
     Optional<OrderCloseIntent> findIntent(String tenant, String orderId);
+
     void start(String tenant, AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion);
+
     List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit);
+
     void advanceCursor(String tenant, OrderCloseIntent updated, long expectedVersion);
+
     boolean allAllocationsSettled(String tenant, String orderId);
+
     void finish(String tenant, AcquireOrder closed, long expectedOrderVersion, LocalDateTime closedAt);
 }

@@ -17,7 +17,8 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record WechatAccountIdentityDTO(
         @Schema(description = "Direct merchant appid or provider sp_appid") @NotBlank @Size(max = 32) String appId,
@@ -25,5 +26,8 @@ public record WechatAccountIdentityDTO(
         @Schema(description = "Provider sub_appid, when using the sub-merchant application") @Size(max = 32) String subAppId,
         @Schema(description = "Provider sub_mchid; absent in direct mode") @Size(max = 32) String subMerchantId)
         implements ChannelAccountIdentityDTO {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

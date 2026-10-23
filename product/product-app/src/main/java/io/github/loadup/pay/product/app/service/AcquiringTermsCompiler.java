@@ -51,13 +51,19 @@ import java.util.Set;
 
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
-/** Version one accepts a closed scalar vocabulary and a trusted, matching policy receipt. */
+/**
+ * Version one accepts a closed scalar vocabulary and a trusted, matching policy receipt.
+ */
 @Component
 public class AcquiringTermsCompiler {
     private final Validator validator;
 
     public AcquiringTermsCompiler(Validator validator) {
         this.validator = validator;
+    }
+
+    private static CommonException unsupported() {
+        return new CommonException(UNSUPPORTED_POLICY);
     }
 
     public AcquiringTermsDTO compile(ResolvedConfiguration configuration, ActivatedLimitPolicy policy) {
@@ -161,10 +167,6 @@ public class AcquiringTermsCompiler {
         } catch (IllegalArgumentException | ArithmeticException failure) {
             throw unsupported();
         }
-    }
-
-    private static CommonException unsupported() {
-        return new CommonException(UNSUPPORTED_POLICY);
     }
 
     private static final class Reader {

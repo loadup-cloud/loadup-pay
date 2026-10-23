@@ -17,7 +17,9 @@ package io.github.loadup.pay.product.domain.gateway;
 
 import io.github.loadup.pay.product.domain.model.MerchantEligibilityFacts;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface MerchantEligibilityGateway {
     MerchantEligibilityFacts authorizeNewOrder(String tenantId, String payeeMerchantId);
 }

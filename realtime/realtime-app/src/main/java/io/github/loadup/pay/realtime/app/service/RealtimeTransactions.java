@@ -18,42 +18,61 @@ package io.github.loadup.pay.realtime.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.common.DomainViolation;
-import org.springframework.dao.*;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.*;
-import org.springframework.transaction.support.*;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
 import java.util.function.Supplier;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.*;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
 
 @Component
 public class RealtimeTransactions {
     private final TransactionTemplate writes;
     private final TransactionTemplate reads;
+
     public RealtimeTransactions(PlatformTransactionManager manager) {
-        writes = new TransactionTemplate(manager); writes.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        writes = new TransactionTemplate(manager);
+        writes.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         writes.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        reads = new TransactionTemplate(manager); reads.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        reads.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); reads.setReadOnly(true);
+        reads = new TransactionTemplate(manager);
+        reads.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        reads.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        reads.setReadOnly(true);
     }
+
     public <T> T write(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return scoped(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
-                try { return writes.execute(status -> work.get()); }
-                catch (DuplicateKeyException | TransientDataAccessException conflict) {
+                try {
+                    return writes.execute(status -> work.get());
+                } catch (DuplicateKeyException | TransientDataAccessException conflict) {
                     if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
                 }
             }
             throw new AssertionError("Unreachable retry");
         });
     }
+
     public <T> T read(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return scoped(tenant, () -> reads.execute(status -> work.get()));
     }
+
     private <T> T scoped(String tenant, Supplier<T> work) {
-        try { return TenantUtil.callWithTenant(tenant, work::get); }
-        catch (DomainViolation invalid) { throw new CommonException(INVALID_ARGUMENT); }
-        catch (java.time.DateTimeException | ArithmeticException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        try {
+            return TenantUtil.callWithTenant(tenant, work::get);
+        } catch (DomainViolation invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        } catch (java.time.DateTimeException | ArithmeticException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 }

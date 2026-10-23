@@ -32,7 +32,8 @@ public record PreparedChannelRefund(
         DomainChecks.id(refundId);
         DomainChecks.text(channelRefundNo, 64);
         DomainChecks.amount(amount);
-        DomainChecks.amount(originalAmount); DomainChecks.text(originalChannelTransactionNo, 128);
+        DomainChecks.amount(originalAmount);
+        DomainChecks.text(originalChannelTransactionNo, 128);
         require(amount.getCent() > 0 && amount.getCent() <= originalAmount.getCent()
                 && amount.getCurrencyValue().equals(originalAmount.getCurrencyValue()), INVALID_ARGUMENT);
     }

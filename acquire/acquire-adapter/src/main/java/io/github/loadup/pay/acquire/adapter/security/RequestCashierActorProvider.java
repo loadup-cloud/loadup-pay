@@ -16,11 +16,14 @@
 package io.github.loadup.pay.acquire.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.security.CashierActor;
+import io.github.loadup.pay.acquire.app.security.CashierActorProvider;
 import io.github.loadup.pay.acquire.app.service.CheckoutAuthenticationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
+
 import java.util.Collections;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
 @Component

@@ -15,12 +15,16 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** The held amount and exact internal payment command are committed together. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * The held amount and exact internal payment command are committed together.
+ */
 public record StoredPaymentAllocation(
         OrderPaymentAllocation allocation,
         String callerScopeHash,

@@ -19,7 +19,13 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 
-/** A future callback may acknowledge only a committed accepted receipt, never a conflict. */
-public record PaymentResultApplication(PaymentReceiptDisposition disposition, String receiptId, PaymentExecutionDTO payment) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+/**
+ * A future callback may acknowledge only a committed accepted receipt, never a conflict.
+ */
+public record PaymentResultApplication(PaymentReceiptDisposition disposition, String receiptId,
+                                       PaymentExecutionDTO payment) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

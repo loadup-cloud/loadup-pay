@@ -15,8 +15,10 @@
  */
 package io.github.loadup.pay.payment.client.facade;
 
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentControlFacade {

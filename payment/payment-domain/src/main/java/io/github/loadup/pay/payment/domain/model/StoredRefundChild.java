@@ -17,18 +17,28 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** Frozen original collecting identity; a refund never selects a new payment route. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Frozen original collecting identity; a refund never selects a new payment route.
+ */
 public record StoredRefundChild(RefundOrder refund, int sequenceNo, ChannelPaymentIdentity original,
-        String channelTransactionNo, LocalDateTime originalSucceededAt) {
+                                String channelTransactionNo, LocalDateTime originalSucceededAt) {
     public StoredRefundChild {
-        Objects.requireNonNull(refund); Objects.requireNonNull(original); Objects.requireNonNull(originalSucceededAt);
+        Objects.requireNonNull(refund);
+        Objects.requireNonNull(original);
+        Objects.requireNonNull(originalSucceededAt);
         DomainChecks.text(channelTransactionNo, 128);
         require(sequenceNo > 0 && refund.paymentId().equals(original.paymentId()), CONFLICT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

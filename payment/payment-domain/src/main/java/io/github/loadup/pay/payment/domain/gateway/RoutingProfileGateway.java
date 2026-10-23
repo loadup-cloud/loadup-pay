@@ -16,11 +16,16 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.RoutingProfile;
+
 import java.util.Optional;
 
-/** Tenant-local immutable resources; publication uniqueness is enforced by the database. */
+/**
+ * Tenant-local immutable resources; publication uniqueness is enforced by the database.
+ */
 public interface RoutingProfileGateway {
     Optional<RoutingProfile> find(String tenantId, String profileRef);
+
     Optional<RoutingProfile> findRequest(String tenantId, String callerServiceId, String requestKey);
+
     void insert(String tenantId, RoutingProfile profile);
 }

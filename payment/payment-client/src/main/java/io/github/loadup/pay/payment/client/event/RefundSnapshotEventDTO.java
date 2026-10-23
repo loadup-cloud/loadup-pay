@@ -30,7 +30,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Complete source-owned snapshot; no synchronous source lookup is required by realtime. */
+/**
+ * Complete source-owned snapshot; no synchronous source lookup is required by realtime.
+ */
 public record RefundSnapshotEventDTO(
         @Schema(description = "Child refund id") String refundId,
         @Schema(description = "Refund request id") String refundRequestId,

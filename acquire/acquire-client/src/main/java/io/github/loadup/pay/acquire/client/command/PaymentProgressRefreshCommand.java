@@ -24,5 +24,7 @@ public record PaymentProgressRefreshCommand(
         @Schema(description = "Original order id") @NotBlank @Size(max = 64) String orderId,
         @Schema(description = "Original payment id") @NotBlank @Size(max = 64) String paymentId) {
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

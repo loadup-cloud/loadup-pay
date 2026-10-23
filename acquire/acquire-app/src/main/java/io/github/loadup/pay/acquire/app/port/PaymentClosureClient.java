@@ -15,13 +15,18 @@
  */
 package io.github.loadup.pay.acquire.app.port;
 
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentClosureClient {
     boolean supportsTenant(String tenant);
+
     ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command);
+
     PaymentCloseDTO close(String tenant, PaymentCloseCommand command);
+
     ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query);
 }

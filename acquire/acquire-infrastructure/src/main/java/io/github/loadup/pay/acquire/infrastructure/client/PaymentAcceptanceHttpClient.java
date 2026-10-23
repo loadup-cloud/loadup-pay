@@ -19,31 +19,39 @@ import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.components.http.*;
+import io.github.loadup.components.http.HttpCall;
+import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
-import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
-import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
+import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
-import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
-import java.util.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+import java.util.Map;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
 
 @Component
 public class PaymentAcceptanceHttpClient implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
@@ -70,41 +78,50 @@ public class PaymentAcceptanceHttpClient implements PaymentAcceptanceClient, Pay
 
     @Override
     public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
-        return exchange(tenant, "input-prepare", command, new TypeReference<SuccessResponse<PaymentInputDTO>>() {});
+        return exchange(tenant, "input-prepare", command, new TypeReference<SuccessResponse<PaymentInputDTO>>() {
+        });
     }
 
     @Override
     public PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command) {
-        return exchange(tenant, "accept", command, new TypeReference<SuccessResponse<PaymentExecutionDTO>>() {});
+        return exchange(tenant, "accept", command, new TypeReference<SuccessResponse<PaymentExecutionDTO>>() {
+        });
     }
 
     @Override
     public PaymentExecutionDTO detail(String tenant, String paymentId) {
-        return exchange(tenant, "detail", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentExecutionDTO>>() {});
+        return exchange(tenant, "detail", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentExecutionDTO>>() {
+        });
     }
 
     @Override
     public PaymentOutcomeDTO outcome(String tenant, String paymentId) {
-        return exchange(tenant, "outcome", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentOutcomeDTO>>() {});
+        return exchange(tenant, "outcome", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentOutcomeDTO>>() {
+        });
     }
+
     @Override
     public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
-        return exchange(tenant, "facts", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentSettlementFactsDTO>>() {});
+        return exchange(tenant, "facts", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentSettlementFactsDTO>>() {
+        });
     }
 
     @Override
     public ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command) {
-        return exchange(tenant, "fence-parent", command, new TypeReference<SuccessResponse<ParentFenceDTO>>() {});
+        return exchange(tenant, "fence-parent", command, new TypeReference<SuccessResponse<ParentFenceDTO>>() {
+        });
     }
 
     @Override
     public PaymentCloseDTO close(String tenant, PaymentCloseCommand command) {
-        return exchange(tenant, "close", command, new TypeReference<SuccessResponse<PaymentCloseDTO>>() {});
+        return exchange(tenant, "close", command, new TypeReference<SuccessResponse<PaymentCloseDTO>>() {
+        });
     }
 
     @Override
     public ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query) {
-        return exchange(tenant, "parent-fence-status", query, new TypeReference<SuccessResponse<ParentFenceDTO>>() {});
+        return exchange(tenant, "parent-fence-status", query, new TypeReference<SuccessResponse<ParentFenceDTO>>() {
+        });
     }
 
     private <T> T exchange(String tenant, String operation, Object command, TypeReference<SuccessResponse<T>> responseType) {

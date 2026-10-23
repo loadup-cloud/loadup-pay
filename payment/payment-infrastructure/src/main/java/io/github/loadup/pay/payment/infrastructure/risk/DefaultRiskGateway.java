@@ -15,15 +15,26 @@
  */
 package io.github.loadup.pay.payment.infrastructure.risk;
 
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RiskOutcomeGateway;
+import io.github.loadup.pay.payment.domain.model.RiskConsultation;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.RiskOutcome;
+
 import java.util.Objects;
 
-/** Explicit NOT_CONNECTED policy, never a fallback for errors from a configured external provider. */
+/**
+ * Explicit NOT_CONNECTED policy, never a fallback for errors from a configured external provider.
+ */
 public class DefaultRiskGateway implements RiskConsultGateway, RiskOutcomeGateway {
-    @Override public RiskDecision consult(RiskConsultation consultation) {
+    @Override
+    public RiskDecision consult(RiskConsultation consultation) {
         Objects.requireNonNull(consultation);
         return RiskDecision.notConnected();
     }
-    @Override public void confirm(RiskOutcome outcome) { Objects.requireNonNull(outcome); }
+
+    @Override
+    public void confirm(RiskOutcome outcome) {
+        Objects.requireNonNull(outcome);
+    }
 }

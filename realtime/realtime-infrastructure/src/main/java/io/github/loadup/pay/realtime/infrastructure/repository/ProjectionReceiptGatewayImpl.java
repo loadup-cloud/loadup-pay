@@ -23,23 +23,38 @@ import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConver
 import io.github.loadup.pay.realtime.infrastructure.mapper.ProjectionReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.PROJECTION_RECEIPT_DO;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.*;
 
 @Repository
 public class ProjectionReceiptGatewayImpl implements ProjectionReceiptGateway {
     private final ProjectionReceiptDOMapper mapper;
     private final TradeStorageConverter converter;
-    public ProjectionReceiptGatewayImpl(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) { this.mapper = mapper; this.converter = converter; }
-    @Override public Optional<ProjectionReceipt> find(String tenant, String producer, String delivery) {
+
+    public ProjectionReceiptGatewayImpl(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) {
+        this.mapper = mapper;
+        this.converter = converter;
+    }
+
+    @Override
+    public Optional<ProjectionReceipt> find(String tenant, String producer, String delivery) {
         var row = mapper.selectOneByQuery(QueryWrapper.create().where(PROJECTION_RECEIPT_DO.TENANT_ID.eq(tenant))
                 .and(PROJECTION_RECEIPT_DO.DELETED.eq(0)).and(PROJECTION_RECEIPT_DO.PRODUCER.eq(producer))
                 .and(PROJECTION_RECEIPT_DO.DELIVERY_ID.eq(delivery)));
-        try { return Optional.ofNullable(row).map(converter::toReceipt); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toReceipt);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insert(String tenant, ProjectionReceipt receipt) {
+
+    @Override
+    public void insert(String tenant, ProjectionReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (mapper.insert(converter.toDO(tenant, receipt)) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }

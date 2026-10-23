@@ -16,17 +16,23 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import io.github.loadup.pay.common.DomainChecks;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record WechatAccountIdentity(String appId, String merchantId, String subAppId, String subMerchantId)
         implements ChannelAccountIdentity {
     public WechatAccountIdentity {
-        DomainChecks.text(appId, 32); DomainChecks.text(merchantId, 32);
+        DomainChecks.text(appId, 32);
+        DomainChecks.text(merchantId, 32);
         if (subAppId != null) DomainChecks.text(subAppId, 32);
         if (subMerchantId != null) DomainChecks.text(subMerchantId, 32);
         require(subAppId == null || subMerchantId != null, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

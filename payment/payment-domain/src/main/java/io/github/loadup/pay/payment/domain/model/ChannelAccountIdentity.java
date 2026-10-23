@@ -15,4 +15,5 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public sealed interface ChannelAccountIdentity permits AlipayAccountIdentity, WechatAccountIdentity {}
+public sealed interface ChannelAccountIdentity permits AlipayAccountIdentity, WechatAccountIdentity {
+}

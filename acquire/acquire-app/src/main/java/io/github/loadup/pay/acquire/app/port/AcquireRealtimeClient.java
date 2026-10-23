@@ -15,11 +15,12 @@
  */
 package io.github.loadup.pay.acquire.app.port;
 
-import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 
 public interface AcquireRealtimeClient {
     boolean supportsTenant(String tenant);
+
     ProjectionAckDTO apply(String tenant, PayEventEnvelope<OrderSnapshotEventDTO> event);
 }

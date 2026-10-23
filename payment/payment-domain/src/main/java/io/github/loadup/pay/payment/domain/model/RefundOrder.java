@@ -54,7 +54,9 @@ public record RefundOrder(
         return state == RefundState.SUCCEEDED || state == RefundState.FAILED;
     }
 
-    /** A durable one-way boundary: only the transaction winner may make the first network submission. */
+    /**
+     * A durable one-way boundary: only the transaction winner may make the first network submission.
+     */
     public RefundOrder beginSubmission() {
         require(state == RefundState.INIT && version == 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE);
         return new RefundOrder(id, refundRequestId, paymentId, amount, channelRefundNo, RefundState.PROCESSING, null, Math.incrementExact(version));

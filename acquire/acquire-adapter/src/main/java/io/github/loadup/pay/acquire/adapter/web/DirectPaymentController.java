@@ -22,14 +22,21 @@ import io.github.loadup.pay.acquire.client.facade.DirectPaymentFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/acquire/payments")
 @Tag(name = "Merchant direct payments")
 public class DirectPaymentController {
     private final DirectPaymentFacade facade;
-    public DirectPaymentController(DirectPaymentFacade facade) { this.facade = facade; }
+
+    public DirectPaymentController(DirectPaymentFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/direct-pay")
     @Operation(summary = "Create or replay an order and initiate a fixed payment action without a cashier session")
     public SuccessResponse<DirectPayDTO> directPay(@Valid @RequestBody DirectPayCommand command) {

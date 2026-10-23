@@ -16,8 +16,11 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
@@ -28,6 +31,6 @@ public interface PaymentAttemptConverter {
     @Mapping(target = "submissionStartedAt", ignore = true)
     @Mapping(target = "rowVersion", constant = "0L")
     StoredPaymentAttempt toStored(PaymentAttempt attempt, String limitOperationId, String callerServiceId,
-            String requestKey, String requestDigest, String paymentRequestDigest, String preparedInputRef,
-            LocalDateTime preparedAt);
+                                  String requestKey, String requestDigest, String paymentRequestDigest, String preparedInputRef,
+                                  LocalDateTime preparedAt);
 }

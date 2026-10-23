@@ -16,25 +16,66 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.RoutingProfileConverter;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
-import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.RoutingProfilePublishCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.RoutingProfileSpecDTO;
+import io.github.loadup.pay.payment.client.dto.RoutingRuleDTO;
 import io.github.loadup.pay.payment.client.query.RoutingProfileDetailQuery;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
+import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.RoutingProfile;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RoutingProfileServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -52,26 +93,34 @@ class RoutingProfileServiceTest {
             context.getBean(RoutingProfileConverter.class), codec, new PaymentAcceptanceTransactions(manager),
             () -> "profile-" + ids.incrementAndGet(), validation.getValidator(), clock, "pay-ops");
 
-    RoutingRuleDTO rule(String code) { return new RoutingRuleDTO(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5); }
+    RoutingRuleDTO rule(String code) {
+        return new RoutingRuleDTO(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5);
+    }
+
     RoutingProfilePublishCommand command(String ref, String key, List<RoutingRuleDTO> rules) {
         return new RoutingProfilePublishCommand(new RoutingProfileSpecDTO(ref, "merchant", rules), key);
     }
+
     ChannelMerchantBinding head(String id, String code) {
         return new ChannelMerchantBinding(id, "merchant", code, Channel.WECHAT, AccessMode.DIRECT,
                 ChannelBindingState.ACTIVE, "revision-" + code, 1, 100, 1);
     }
+
     StoredChannelBindingRevision revision(ChannelMerchantBinding head) {
         var binding = new ChannelBindingRevision(head.currentRevisionId(), "merchant", Channel.WECHAT, AccessMode.DIRECT,
                 "a".repeat(64), "credential", "v1", new WechatAccountIdentity("app", "mchid", null, null), Set.of(PaymentMethod.H5));
         return new StoredChannelBindingRevision(binding, head.id(), 1, "a".repeat(64), "pay-ops", LocalDateTime.now(clock));
     }
+
     void binding(String id, String code) {
         var head = head(id, code);
         when(bindings.find("tenant", "merchant", code)).thenReturn(Optional.of(head));
         when(bindings.lock("tenant", "merchant", code)).thenReturn(Optional.of(head));
         when(bindings.revision("tenant", head.currentRevisionId())).thenReturn(Optional.of(revision(head)));
     }
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         binding("binding-primary", "primary");
         when(codec.encode(any())).thenReturn("canonical-profile");
         when(codec.checksum(anyString())).thenReturn("a".repeat(64));
@@ -81,30 +130,48 @@ class RoutingProfileServiceTest {
                 .filter(p -> p.callerServiceId().equals(c.getArgument(1)) && p.requestKey().equals(c.getArgument(2))).findFirst());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            RoutingProfile value = c.getArgument(1); saved.put(value.spec().profileRef(), value); return null;
+            RoutingProfile value = c.getArgument(1);
+            saved.put(value.spec().profileRef(), value);
+            return null;
         }).when(profiles).insert(eq("tenant"), any());
     }
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void publishesImmutableDefinitionAndReturnsItsHashAndLocalTime() {
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void publishesImmutableDefinitionAndReturnsItsHashAndLocalTime() {
         var result = service.publish(command("routing-v1", "publish", List.of(rule("primary"))));
-        assertEquals("routing-v1", result.spec().profileRef()); assertEquals("a".repeat(64), result.contentHash());
+        assertEquals("routing-v1", result.spec().profileRef());
+        assertEquals("a".repeat(64), result.contentHash());
         assertEquals(LocalDateTime.of(2026, 10, 22, 12, 0, 0, 123456000), result.publishedAt());
-        assertEquals(1, manager.commits); assertEquals(1, saved.size());
+        assertEquals(1, manager.commits);
+        assertEquals(1, saved.size());
     }
-    @Test void oldPublishReplayRemainsReadOnlyEvenWhenBindingHasSinceBeenSuspended() {
+
+    @Test
+    void oldPublishReplayRemainsReadOnlyEvenWhenBindingHasSinceBeenSuspended() {
         var command = command("routing-v1", "publish", List.of(rule("primary")));
-        var result = service.publish(command); clearInvocations(bindings, profiles);
+        var result = service.publish(command);
+        clearInvocations(bindings, profiles);
         assertEquals(result, service.publish(command));
-        verifyNoInteractions(bindings); verify(profiles, never()).insert(anyString(), any());
+        verifyNoInteractions(bindings);
+        verify(profiles, never()).insert(anyString(), any());
     }
-    @Test void sameReferenceCannotBeOverwrittenWithAnotherKey() {
+
+    @Test
+    void sameReferenceCannotBeOverwrittenWithAnotherKey() {
         service.publish(command("routing-v1", "first", List.of(rule("primary"))));
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v1", "second", List.of(rule("primary"))))).getResultCode());
         assertEquals(1, saved.size());
     }
-    @Test void sameKeyCannotPublishAnotherReferenceOrReorderRules() {
+
+    @Test
+    void sameKeyCannotPublishAnotherReferenceOrReorderRules() {
         binding("binding-secondary", "secondary");
         service.publish(command("routing-v1", "first", List.of(rule("primary"), rule("secondary"))));
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class,
@@ -112,15 +179,20 @@ class RoutingProfileServiceTest {
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v2", "first", List.of(rule("primary"))))).getResultCode());
     }
-    @Test void bindingLocksUseStableHeadIdOrderInsteadOfRulePriority() {
-        binding("z-binding", "primary"); binding("a-binding", "secondary");
+
+    @Test
+    void bindingLocksUseStableHeadIdOrderInsteadOfRulePriority() {
+        binding("z-binding", "primary");
+        binding("a-binding", "secondary");
         var result = service.publish(command("routing-v1", "publish", List.of(rule("primary"), rule("secondary"))));
         var calls = inOrder(bindings);
         calls.verify(bindings).lock("tenant", "merchant", "secondary");
         calls.verify(bindings).lock("tenant", "merchant", "primary");
         assertEquals("primary", result.spec().rules().getFirst().bindingCode());
     }
-    @Test void missingOrSuspendedBindingBlocksPublication() {
+
+    @Test
+    void missingOrSuspendedBindingBlocksPublication() {
         assertSame(CHANNEL_BINDING_UNAVAILABLE, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v1", "missing", List.of(rule("absent"))))).getResultCode());
         when(bindings.lock("tenant", "merchant", "primary")).thenReturn(Optional.of(head("binding-primary", "primary").suspend()));
@@ -128,23 +200,31 @@ class RoutingProfileServiceTest {
                 () -> service.publish(command("routing-v1", "stopped", List.of(rule("primary"))))).getResultCode());
         verify(profiles, never()).insert(anyString(), any());
     }
-    @Test void undeclaredMethodOrModeIsRejectedBeforePublication() {
+
+    @Test
+    void undeclaredMethodOrModeIsRejectedBeforePublication() {
         var unsupported = new RoutingRuleDTO("primary", Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.JSAPI);
         assertSame(UNSUPPORTED_CAPABILITY, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v1", "publish", List.of(unsupported)))).getResultCode());
         verify(profiles, never()).insert(anyString(), any());
     }
-    @Test void duplicateRulesAreRejectedInsteadOfCreatingAmbiguousPriority() {
+
+    @Test
+    void duplicateRulesAreRejectedInsteadOfCreatingAmbiguousPriority() {
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v1", "publish", List.of(rule("primary"), rule("primary"))))).getResultCode());
         verifyNoInteractions(profiles, bindings);
     }
-    @Test void detailDoesNotLeakAnotherMerchantsDefinition() {
+
+    @Test
+    void detailDoesNotLeakAnotherMerchantsDefinition() {
         service.publish(command("routing-v1", "publish", List.of(rule("primary"))));
         assertSame(ROUTING_PROFILE_UNAVAILABLE, assertThrows(CommonException.class,
                 () -> service.detail(new RoutingProfileDetailQuery("other-merchant", "routing-v1"))).getResultCode());
     }
-    @Test void onlyConfiguredOperationsServiceWithRequiredScopeCanPublish() {
+
+    @Test
+    void onlyConfiguredOperationsServiceWithRequiredScopeCanPublish() {
         actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:routing:publish")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
                 () -> service.publish(command("routing-v1", "publish", List.of(rule("primary"))))).getResultCode());
@@ -153,12 +233,16 @@ class RoutingProfileServiceTest {
                 () -> service.publish(command("routing-v1", "publish", List.of(rule("primary"))))).getResultCode());
         verifyNoInteractions(profiles, bindings);
     }
-    @Test void outerTransactionCannotWrapPublication() {
+
+    @Test
+    void outerTransactionCannotWrapPublication() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class,
                     () -> service.publish(command("routing-v1", "publish", List.of(rule("primary"))))).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(profiles, bindings);
     }
 }

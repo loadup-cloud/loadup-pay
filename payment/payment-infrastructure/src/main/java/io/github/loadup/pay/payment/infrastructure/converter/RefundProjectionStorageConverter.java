@@ -16,10 +16,15 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.app.model.*;
+import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
+import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundProjectionStorageConverter {
@@ -27,6 +32,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
+
     @Mapping(target = "id", source = "id")
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "orderAmountMinor", source = "value.orderAmount.cent")
@@ -36,6 +42,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")
     OrderRefundSummaryDO toSummaryDO(String tenant, String id, OrderRefundSummary value);
+
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "refundedMinor", source = "refundedMinor")
     @Mapping(target = "reservedMinor", source = "reservedMinor")
@@ -51,6 +58,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     @Mapping(target = "sourceVersion", source = "row.rowVersion")
     RefundSnapshotFacts toFacts(RefundOrderDO row, RefundRequestDO request);
+
     @Mapping(target = "summary", source = "summary")
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     RefundSummaryFacts toFacts(OrderRefundSummaryDO row, OrderRefundSummary summary);

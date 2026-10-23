@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public enum ChannelBindingState { INIT, ACTIVE, SUSPENDED, REVOKED }
+public enum ChannelBindingState {INIT, ACTIVE, SUSPENDED, REVOKED}

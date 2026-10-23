@@ -16,13 +16,26 @@
 package io.github.loadup.pay.realtime.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.payment.client.event.*;
-import io.github.loadup.pay.realtime.client.dto.*;
-import io.github.loadup.pay.realtime.domain.model.*;
-import org.mapstruct.*;
-import java.time.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
+import io.github.loadup.pay.realtime.client.dto.TradeOrderDTO;
+import io.github.loadup.pay.realtime.client.dto.TradePaymentDTO;
+import io.github.loadup.pay.realtime.client.dto.TradeRefundDTO;
+import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
+import io.github.loadup.pay.realtime.domain.model.SourceVersion;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface TradeProjectionConverter {
@@ -87,12 +100,15 @@ public interface TradeProjectionConverter {
     @Mapping(target = "orderSourceVersion", source = "order.source.number")
     @Mapping(target = "snapshotAt", source = "order.snapshotAt")
     TradeOrderDTO toOrderDTO(TradeOrderProjection order, Long refundedMinor, Long netReceivedMinor,
-            Long refundSourceVersion, boolean amountsConsistent);
+                             Long refundSourceVersion, boolean amountsConsistent);
 
     @Mapping(target = "accepted", constant = "true")
     ProjectionAckDTO toAck(ProjectionReceipt receipt);
 
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
+
     default LocalDateTime local(OffsetDateTime value) {
         return value == null ? null : BusinessTime.local(value).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }

@@ -15,15 +15,17 @@
  */
 package io.github.loadup.pay.realtime.domain.gateway;
 
+import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
 import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
 import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
-import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
 
 import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface TradeProjectionGateway {
     Optional<TradeOrderProjection> findOrder(String tenantId, String orderId);
 

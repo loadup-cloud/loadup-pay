@@ -18,19 +18,32 @@ package io.github.loadup.pay.payment.infrastructure.client;
 import io.github.loadup.commons.error.CommonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Map;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
-/** Mounted service credentials only; local claims are preflight routing checks, never signature verification. */
+/**
+ * Mounted service credentials only; local claims are preflight routing checks, never signature verification.
+ */
 public final class PaymentServiceTokenReader {
     private final JsonMapper mapper;
     private final Clock clock;
-    public PaymentServiceTokenReader(JsonMapper mapper, Clock clock) { this.mapper = mapper; this.clock = clock; }
+
+    public PaymentServiceTokenReader(JsonMapper mapper, Clock clock) {
+        this.mapper = mapper;
+        this.clock = clock;
+    }
+
     public String read(String tenant, String service, String audience, Path file) {
         try (var input = Files.newInputStream(file)) {
             byte[] bytes = input.readNBytes(16385);
@@ -39,7 +52,8 @@ public final class PaymentServiceTokenReader {
             String[] parts = token.split("[.]", -1);
             if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+")))
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            var claims = mapper.readValue(Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {});
+            var claims = mapper.readValue(Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
+            });
             Object claimAudience = claims.get("aud");
             boolean expected = audience.equals(claimAudience)
                     || claimAudience instanceof Collection<?> values && values.contains(audience);
@@ -49,8 +63,11 @@ public final class PaymentServiceTokenReader {
                     || epoch(claims.get("exp")) <= now || claims.get("nbf") != null && epoch(claims.get("nbf")) > now)
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return token;
-        } catch (IOException | RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (IOException | RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
+
     private long epoch(Object value) {
         if (!(value instanceof Number)) throw new CommonException(DEPENDENCY_UNAVAILABLE);
         return new BigDecimal(value.toString()).longValueExact();

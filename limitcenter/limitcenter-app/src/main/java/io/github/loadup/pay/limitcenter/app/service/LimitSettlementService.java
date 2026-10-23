@@ -18,25 +18,47 @@ package io.github.loadup.pay.limitcenter.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.limitcenter.app.converter.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.limitcenter.app.converter.LimitConverter;
+import io.github.loadup.pay.limitcenter.app.converter.LimitSettlementConverter;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.facade.LimitSettlementFacade;
-import io.github.loadup.pay.limitcenter.domain.gateway.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.MerchantLimitGateway;
+import io.github.loadup.pay.limitcenter.domain.model.GateState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
+import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import jakarta.validation.Validator;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.OUTCOME_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class LimitSettlementService implements LimitSettlementFacade {
@@ -53,12 +75,19 @@ public class LimitSettlementService implements LimitSettlementFacade {
     private final LimitWindowPolicy windows = new LimitWindowPolicy();
 
     public LimitSettlementService(LimitTransactions transactions, MerchantLimitGateway reservations,
-            LimitPolicyGateway policies, LimitSettlementGateway settlements, PaymentEvidenceClient payment,
-            LimitConverter converter, LimitSettlementConverter mapping, IdGenerator ids, Validator validator,
-            @Value("${loadup.modules.limitcenter.payment-service-id:payment}") String paymentService) {
-        this.transactions = transactions; this.reservations = reservations; this.policies = policies;
-        this.settlements = settlements; this.payment = payment; this.converter = converter; this.mapping = mapping;
-        this.ids = ids; this.validator = validator; this.paymentService = paymentService;
+                                  LimitPolicyGateway policies, LimitSettlementGateway settlements, PaymentEvidenceClient payment,
+                                  LimitConverter converter, LimitSettlementConverter mapping, IdGenerator ids, Validator validator,
+                                  @Value("${loadup.modules.limitcenter.payment-service-id:payment}") String paymentService) {
+        this.transactions = transactions;
+        this.reservations = reservations;
+        this.policies = policies;
+        this.settlements = settlements;
+        this.payment = payment;
+        this.converter = converter;
+        this.mapping = mapping;
+        this.ids = ids;
+        this.validator = validator;
+        this.paymentService = paymentService;
         DomainChecks.id(paymentService);
     }
 
@@ -85,7 +114,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var current = reservations.findByOperation(actor.tenantId(), command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                owner(actor, current); bind(current, facts);
+                owner(actor, current);
+                bind(current, facts);
                 var prior = settlements.findReceipt(actor.tenantId(), command.operationId());
                 if (prior.isPresent()) {
                     prior.get().requireSame(command.paymentId(), "CONFIRM", digest, command.paymentVersion(), command.successEvidenceId());
@@ -134,7 +164,10 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 var gate = reservations.lockOrCreateGate(actor.tenantId(), command.operationId(), command.paymentId());
                 if (!gate.paymentId().equals(command.paymentId())) throw new CommonException(OUTCOME_CONFLICT);
                 var current = reservations.findByOperation(actor.tenantId(), command.operationId());
-                current.ifPresent(value -> { owner(actor, value); bind(value, facts); });
+                current.ifPresent(value -> {
+                    owner(actor, value);
+                    bind(value, facts);
+                });
                 var prior = settlements.findReceipt(actor.tenantId(), command.operationId());
                 if (prior.isPresent()) {
                     prior.get().requireSame(command.paymentId(), "RELEASE", digest, command.paymentVersion(), command.noCollectionEvidenceId());
@@ -147,7 +180,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 if (gate.state() == GateState.FENCED) throw new CommonException(SNAPSHOT_INVALID);
                 StoredLimitReservation changed = current.orElse(null);
                 if (current.isPresent()) {
-                    var stored = current.get(); var value = stored.reservation();
+                    var stored = current.get();
+                    var value = stored.reservation();
                     if (value.state() == LimitReservationState.RESERVED || value.state() == LimitReservationState.EXECUTING) {
                         var items = items(actor, stored);
                         var before = reservations.lockExistingBuckets(actor.tenantId(), items.stream().map(LimitReservationItem::bucket).toList());
@@ -156,7 +190,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
                                 command.paymentVersion(), command.noCollectionEvidenceId(), true)));
                         reservations.updateBuckets(actor.tenantId(), before, after);
                         reservations.updateReservation(actor.tenantId(), changed, value.version());
-                    } else if (value.state() != LimitReservationState.EXPIRED) throw new CommonException(OUTCOME_CONFLICT);
+                    } else if (value.state() != LimitReservationState.EXPIRED)
+                        throw new CommonException(OUTCOME_CONFLICT);
                 }
                 settlements.fenceGate(actor.tenantId(), gate.fence(command.paymentVersion(), command.noCollectionEvidenceId()));
                 settlements.insertReceipt(actor.tenantId(), mapping.toReceipt(ids.generate(), command.operationId(), command.paymentId(),
@@ -169,7 +204,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
 
     private LimitActor actor(Object command, String permission) {
         var actor = transactions.authorize(command, permission);
-        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId()))
+            throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return actor;
     }
@@ -187,7 +223,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
     }
 
     private void bind(StoredLimitReservation stored, PaymentSettlementFactsDTO facts) {
-        var value = stored.reservation(); var source = facts.payment();
+        var value = stored.reservation();
+        var source = facts.payment();
         if (!value.operationId().equals(facts.limitOperationId()) || !value.paymentId().equals(source.paymentId())
                 || !value.orderId().equals(source.orderId()) || !value.payeeMerchantId().equals(facts.payeeMerchantId())
                 || value.amount().getCent() != source.amountMinor() || !value.amount().getCurrencyValue().equals(source.currency())
@@ -205,15 +242,17 @@ public class LimitSettlementService implements LimitSettlementFacade {
         if (!policy.policyHash().equals(stored.policyHash()) || !policy.payeeMerchantId().equals(value.payeeMerchantId()))
             throw new CommonException(SNAPSHOT_INVALID);
         var items = reservations.loadItems(actor.tenantId(), value.id());
-        var expected = new HashMap<LimitBucketKey,Long>();
-        for (var rule : policy.rules()) expected.put(new LimitBucketKey(rule.ruleScopeId(), rule.merchantId(), rule.metric(),
-                rule.currency(), rule.window(), windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
-                rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
+        var expected = new HashMap<LimitBucketKey, Long>();
+        for (var rule : policy.rules())
+            expected.put(new LimitBucketKey(rule.ruleScopeId(), rule.merchantId(), rule.metric(),
+                            rule.currency(), rule.window(), windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
+                    rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
         var seen = new HashSet<LimitBucketKey>();
         if (items.size() != expected.size()) throw new CommonException(SNAPSHOT_INVALID);
-        for (var item : items) if (!item.reservationId().equals(value.id()) || !seen.add(item.bucket())
-                || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != 0 || item.restored() != 0)
-            throw new CommonException(SNAPSHOT_INVALID);
+        for (var item : items)
+            if (!item.reservationId().equals(value.id()) || !seen.add(item.bucket())
+                    || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != 0 || item.restored() != 0)
+                throw new CommonException(SNAPSHOT_INVALID);
         return items;
     }
 
@@ -222,13 +261,17 @@ public class LimitSettlementService implements LimitSettlementFacade {
     }
 
     private void ids(String operation, String paymentId, String event, String evidence) {
-        DomainChecks.id(operation); DomainChecks.id(paymentId); DomainChecks.id(event); DomainChecks.id(evidence);
+        DomainChecks.id(operation);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(event);
+        DomainChecks.id(evidence);
     }
 
     private String digest(String kind, LimitActor actor, String... fields) {
         var canonical = new StringBuilder();
         for (String value : java.util.stream.Stream.concat(java.util.stream.Stream.of("limit.settlement.v1", kind, actor.tenantId(), actor.serviceId()),
-                Arrays.stream(fields)).toList()) canonical.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+                Arrays.stream(fields)).toList())
+            canonical.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
         return DigestUtils.sha256(canonical.toString());
     }
 }

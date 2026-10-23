@@ -15,13 +15,17 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+
 import java.util.Optional;
 
 public interface PaymentInitiationGateway {
     Optional<StoredPaymentAllocation> findAction(String tenant, String orderId, String actorScope, String actionKey);
 
-    /** Attach the prepared input reference once, under the original order lock, without changing money. */
+    /**
+     * Attach the prepared input reference once, under the original order lock, without changing money.
+     */
     void attachInput(String tenant, StoredPaymentAllocation original, StoredPaymentAllocation prepared);
 
     void reserve(String tenant, AcquireOrder updated, StoredPaymentAllocation allocation, long expectedOrderVersion);

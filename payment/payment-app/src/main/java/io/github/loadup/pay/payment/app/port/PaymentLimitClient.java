@@ -15,14 +15,26 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
+import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 
 public interface PaymentLimitClient {
     boolean supportsTenant(String tenant);
+
     LimitReservationDTO reserve(String tenant, LimitReserveCommand command);
+
     LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command);
+
     LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command);
+
     LimitReservationDTO confirm(String tenant, LimitConfirmCommand command);
+
     LimitReleaseDTO release(String tenant, LimitReleaseCommand command);
 }

@@ -19,9 +19,13 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
-import java.time.*;
+import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInput;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInputConverter {
@@ -33,11 +37,13 @@ public interface PaymentInputConverter {
     @Mapping(target = "boundAttemptId", ignore = true)
     @Mapping(target = "rowVersion", constant = "0L")
     PaymentInput toInput(PaymentInputPrepareCommand command, String inputRef, String callerServiceId,
-            String fingerprintKeyId, String inputDigest, EncryptedPaymentInput encrypted,
-            LocalDateTime preparedAt, LocalDateTime expiresAt);
+                         String fingerprintKeyId, String inputDigest, EncryptedPaymentInput encrypted,
+                         LocalDateTime preparedAt, LocalDateTime expiresAt);
 
     @Mapping(target = "inputRef", source = "id")
     PaymentInputDTO toDTO(PaymentInput value);
 
-    default OffsetDateTime external(LocalDateTime value) { return BusinessTime.external(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return BusinessTime.external(value);
+    }
 }

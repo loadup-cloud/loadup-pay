@@ -16,25 +16,35 @@
 package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotEnvelopeCodec;
+import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class OrderSnapshotEnvelopeCodecImpl implements OrderSnapshotEnvelopeCodec {
     private final JsonMapper mapper;
-    public OrderSnapshotEnvelopeCodecImpl(JsonMapper mapper) { this.mapper = mapper.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(); }
-    @Override public PayEventEnvelope<OrderSnapshotEventDTO> decode(String payload) {
+
+    public OrderSnapshotEnvelopeCodecImpl(JsonMapper mapper) {
+        this.mapper = mapper.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+    }
+
+    @Override
+    public PayEventEnvelope<OrderSnapshotEventDTO> decode(String payload) {
         try {
             if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
-            var event = mapper.readValue(payload, new TypeReference<PayEventEnvelope<OrderSnapshotEventDTO>>() {});
+            var event = mapper.readValue(payload, new TypeReference<PayEventEnvelope<OrderSnapshotEventDTO>>() {
+            });
             if (event == null) throw new CommonException(SNAPSHOT_INVALID);
-            event.data().requireEnvelope(event); return event;
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+            event.data().requireEnvelope(event);
+            return event;
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

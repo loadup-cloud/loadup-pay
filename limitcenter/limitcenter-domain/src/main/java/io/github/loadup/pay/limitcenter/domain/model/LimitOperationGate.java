@@ -24,7 +24,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Persists a release even when Reserve has not arrived. */
+/**
+ * Persists a release even when Reserve has not arrived.
+ */
 public record LimitOperationGate(
         String operationId,
         String paymentId,

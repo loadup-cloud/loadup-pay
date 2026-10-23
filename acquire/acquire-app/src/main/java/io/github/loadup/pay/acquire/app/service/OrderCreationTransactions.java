@@ -29,10 +29,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 
 @Component
 public class OrderCreationTransactions {
@@ -66,7 +66,7 @@ public class OrderCreationTransactions {
                     switch (invalid.reason()) {
                         case CONFLICT -> IDEMPOTENCY_CONFLICT;
                         case AMOUNT_EXCEEDED ->
-                            io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
+                                io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
                         default -> INVALID_ARGUMENT;
                     });
         } catch (java.time.DateTimeException | ArithmeticException invalid) {

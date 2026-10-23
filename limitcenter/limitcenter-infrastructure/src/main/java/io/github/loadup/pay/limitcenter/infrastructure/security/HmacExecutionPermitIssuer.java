@@ -26,7 +26,9 @@ import java.nio.charset.StandardCharsets;
 
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE;
 
-/** Protocol v1 uses length-framed UTF-8 fields and the framework HMAC implementation. */
+/**
+ * Protocol v1 uses length-framed UTF-8 fields and the framework HMAC implementation.
+ */
 @Component
 public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
     private final LimitPermitProperties properties;
@@ -53,25 +55,25 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
         var value = stored.reservation();
         var data = new StringBuilder();
         Object[] fields = {
-            "loadup-pay-limit-execution-v1",
-            tenant,
-            stored.callerServiceId(),
-            value.id(),
-            value.operationId(),
-            value.paymentId(),
-            value.orderId(),
-            value.payeeMerchantId(),
-            value.amount().getCent(),
-            value.amount().getCurrencyValue(),
-            value.policyId(),
-            value.policyVersion(),
-            stored.policyHash(),
-            stored.requestDigest(),
-            value.initiatedAt(),
-            attemptId,
-            executionEpoch,
-            requestKey,
-            permitKeyId
+                "loadup-pay-limit-execution-v1",
+                tenant,
+                stored.callerServiceId(),
+                value.id(),
+                value.operationId(),
+                value.paymentId(),
+                value.orderId(),
+                value.payeeMerchantId(),
+                value.amount().getCent(),
+                value.amount().getCurrencyValue(),
+                value.policyId(),
+                value.policyVersion(),
+                stored.policyHash(),
+                stored.requestDigest(),
+                value.initiatedAt(),
+                attemptId,
+                executionEpoch,
+                requestKey,
+                permitKeyId
         };
         for (Object field : fields) {
             String text = field.toString();

@@ -16,11 +16,13 @@
 package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+
 import java.time.LocalDateTime;
 
 public record TradePageFilter(String payeeMerchantId, String orderId, String merchantOrderNo, String refundRequestId,
-        String state, LocalDateTime createdFrom, LocalDateTime createdTo, int page, int size) {
+                              String state, LocalDateTime createdFrom, LocalDateTime createdTo, int page, int size) {
     public TradePageFilter {
         DomainChecks.id(payeeMerchantId);
         if (orderId != null) DomainChecks.id(orderId);
@@ -30,5 +32,9 @@ public record TradePageFilter(String payeeMerchantId, String orderId, String mer
         DomainViolation.require(page > 0 && size > 0 && size <= 100 && (createdFrom == null || createdTo == null
                 || createdFrom.isBefore(createdTo)), DomainViolation.Reason.INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

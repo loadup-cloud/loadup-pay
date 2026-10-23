@@ -16,11 +16,18 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.acquire.client.dto.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import java.time.*;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface CheckoutConverter {

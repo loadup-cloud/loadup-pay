@@ -15,11 +15,13 @@
  */
 package io.github.loadup.pay.acquire.client.facade;
 
+import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface PaymentOutcomeFacade {
     PaymentOutcomeAckDTO accept(PayEventEnvelope<PaymentOutcomeEventDTO> event);
 }

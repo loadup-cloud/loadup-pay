@@ -20,16 +20,41 @@ import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.realtime.app.port.TradeProjectionCodec;
-import io.github.loadup.pay.realtime.domain.gateway.*;
-import io.github.loadup.pay.realtime.domain.model.*;
+import io.github.loadup.pay.realtime.domain.gateway.TradeProjectionGateway;
+import io.github.loadup.pay.realtime.domain.gateway.TradeQueryGateway;
+import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
+import io.github.loadup.pay.realtime.domain.model.ProjectionFacts;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePageFilter;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConverter;
-import io.github.loadup.pay.realtime.infrastructure.dataobject.*;
-import io.github.loadup.pay.realtime.infrastructure.mapper.*;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeOrderDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradePaymentDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeRefundDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeSummaryDO;
+import io.github.loadup.pay.realtime.infrastructure.mapper.TradeOrderDOMapper;
+import io.github.loadup.pay.realtime.infrastructure.mapper.TradePaymentDOMapper;
+import io.github.loadup.pay.realtime.infrastructure.mapper.TradeRefundDOMapper;
+import io.github.loadup.pay.realtime.infrastructure.mapper.TradeSummaryDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.*;
-import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.*;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
+import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_ORDER_DO;
+import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_PAYMENT_DO;
+import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_REFUND_DO;
+import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_SUMMARY_DO;
 
 @Repository
 public class TradeProjectionGatewayImpl implements TradeProjectionGateway, TradeQueryGateway {
@@ -40,21 +65,26 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     private final TradeStorageConverter converter;
     private final TradeProjectionCodec codec;
     private final IdGenerator ids;
+
     public TradeProjectionGatewayImpl(TradeOrderDOMapper orders, TradePaymentDOMapper payments, TradeRefundDOMapper refunds, TradeSummaryDOMapper summaries,
-            TradeStorageConverter converter, TradeProjectionCodec codec, IdGenerator ids) {
+                                      TradeStorageConverter converter, TradeProjectionCodec codec, IdGenerator ids) {
         this.orders = orders;
         this.payments = payments;
         this.refunds = refunds;
         this.summaries = summaries;
-        this.converter = converter; this.codec = codec; this.ids = ids;
+        this.converter = converter;
+        this.codec = codec;
+        this.ids = ids;
     }
 
     private QueryWrapper orderScope(String tenant) {
         return QueryWrapper.create().where(TRADE_ORDER_DO.TENANT_ID.eq(tenant)).and(TRADE_ORDER_DO.DELETED.eq(0));
     }
+
     private QueryWrapper orderKey(String tenant, String key) {
         return orderScope(tenant).and(TRADE_ORDER_DO.ORDER_ID.eq(key));
     }
+
     private TradeOrderProjection read(TradeOrderDO row) {
         try {
             var value = codec.order(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
@@ -62,11 +92,16 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())
                     || !row.getMerchantOrderNo().equals(value.merchantOrderNo())
                     || !row.getState().equals(value.state())
-                    || !row.getBusinessCreatedAt().equals(value.orderCreatedAt())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !row.getBusinessCreatedAt().equals(value.orderCreatedAt()))
+                throw new CommonException(SNAPSHOT_INVALID);
             return value;
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public ProjectionAdvance applyOrderIfNewer(String tenant, TradeOrderProjection value, String factsHash) {
+
+    @Override
+    public ProjectionAdvance applyOrderIfNewer(String tenant, TradeOrderProjection value, String factsHash) {
         writable();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
@@ -78,7 +113,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         }
         var previous = read(row);
         if (!ProjectionFacts.compatible(previous, value)) throw new CommonException(SOURCE_CONFLICT);
-        if (row.getSourceVersion() > value.source().number()) return new ProjectionAdvance("STALE", row.getSourceVersion());
+        if (row.getSourceVersion() > value.source().number())
+            return new ProjectionAdvance("STALE", row.getSourceVersion());
         if (row.getSourceVersion() == value.source().number()) {
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
@@ -92,9 +128,11 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     private QueryWrapper paymentScope(String tenant) {
         return QueryWrapper.create().where(TRADE_PAYMENT_DO.TENANT_ID.eq(tenant)).and(TRADE_PAYMENT_DO.DELETED.eq(0));
     }
+
     private QueryWrapper paymentKey(String tenant, String key) {
         return paymentScope(tenant).and(TRADE_PAYMENT_DO.PAYMENT_ID.eq(key));
     }
+
     private TradePaymentProjection read(TradePaymentDO row) {
         try {
             var value = codec.payment(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
@@ -102,11 +140,16 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
                     || !row.getOrderId().equals(value.orderId())
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())
                     || !row.getState().equals(value.state())
-                    || !row.getBusinessCreatedAt().equals(value.initiatedAt())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !row.getBusinessCreatedAt().equals(value.initiatedAt()))
+                throw new CommonException(SNAPSHOT_INVALID);
             return value;
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public ProjectionAdvance applyPaymentIfNewer(String tenant, TradePaymentProjection value, String factsHash) {
+
+    @Override
+    public ProjectionAdvance applyPaymentIfNewer(String tenant, TradePaymentProjection value, String factsHash) {
         writable();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
@@ -118,7 +161,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         }
         var previous = read(row);
         if (!ProjectionFacts.compatible(previous, value)) throw new CommonException(SOURCE_CONFLICT);
-        if (row.getSourceVersion() > value.source().number()) return new ProjectionAdvance("STALE", row.getSourceVersion());
+        if (row.getSourceVersion() > value.source().number())
+            return new ProjectionAdvance("STALE", row.getSourceVersion());
         if (row.getSourceVersion() == value.source().number()) {
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
@@ -132,9 +176,11 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     private QueryWrapper refundScope(String tenant) {
         return QueryWrapper.create().where(TRADE_REFUND_DO.TENANT_ID.eq(tenant)).and(TRADE_REFUND_DO.DELETED.eq(0));
     }
+
     private QueryWrapper refundKey(String tenant, String key) {
         return refundScope(tenant).and(TRADE_REFUND_DO.REFUND_ID.eq(key));
     }
+
     private TradeRefundProjection read(TradeRefundDO row) {
         try {
             var value = codec.refund(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
@@ -144,11 +190,16 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
                     || !row.getOrderId().equals(value.orderId())
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())
                     || !row.getState().equals(value.state())
-                    || !row.getBusinessCreatedAt().equals(value.refundCreatedAt())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !row.getBusinessCreatedAt().equals(value.refundCreatedAt()))
+                throw new CommonException(SNAPSHOT_INVALID);
             return value;
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public ProjectionAdvance applyRefundIfNewer(String tenant, TradeRefundProjection value, String factsHash) {
+
+    @Override
+    public ProjectionAdvance applyRefundIfNewer(String tenant, TradeRefundProjection value, String factsHash) {
         writable();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
@@ -160,7 +211,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         }
         var previous = read(row);
         if (!ProjectionFacts.compatible(previous, value)) throw new CommonException(SOURCE_CONFLICT);
-        if (row.getSourceVersion() > value.source().number()) return new ProjectionAdvance("STALE", row.getSourceVersion());
+        if (row.getSourceVersion() > value.source().number())
+            return new ProjectionAdvance("STALE", row.getSourceVersion());
         if (row.getSourceVersion() == value.source().number()) {
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
@@ -174,18 +226,25 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     private QueryWrapper summaryScope(String tenant) {
         return QueryWrapper.create().where(TRADE_SUMMARY_DO.TENANT_ID.eq(tenant)).and(TRADE_SUMMARY_DO.DELETED.eq(0));
     }
+
     private QueryWrapper summaryKey(String tenant, String key) {
         return summaryScope(tenant).and(TRADE_SUMMARY_DO.ORDER_ID.eq(key));
     }
+
     private TradeRefundSummary read(TradeSummaryDO row) {
         try {
             var value = codec.summary(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
             if (row.getSourceVersion() != value.source().number() || !row.getOrderId().equals(value.orderId())
-                    || !row.getPayeeMerchantId().equals(value.payeeMerchantId())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !row.getPayeeMerchantId().equals(value.payeeMerchantId()))
+                throw new CommonException(SNAPSHOT_INVALID);
             return value;
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public ProjectionAdvance applyRefundSummaryIfNewer(String tenant, TradeRefundSummary value, String factsHash) {
+
+    @Override
+    public ProjectionAdvance applyRefundSummaryIfNewer(String tenant, TradeRefundSummary value, String factsHash) {
         writable();
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
@@ -197,7 +256,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         }
         var previous = read(row);
         if (!ProjectionFacts.compatible(previous, value)) throw new CommonException(SOURCE_CONFLICT);
-        if (row.getSourceVersion() > value.source().number()) return new ProjectionAdvance("STALE", row.getSourceVersion());
+        if (row.getSourceVersion() > value.source().number())
+            return new ProjectionAdvance("STALE", row.getSourceVersion());
         if (row.getSourceVersion() == value.source().number()) {
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
@@ -208,29 +268,42 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    @Override public Optional<TradeOrderProjection> findOrder(String tenant, String orderId) {
+    @Override
+    public Optional<TradeOrderProjection> findOrder(String tenant, String orderId) {
         return Optional.ofNullable(orders.selectOneByQuery(orderKey(tenant, orderId))).map(this::read);
     }
-    @Override public Optional<TradeRefundSummary> findRefundSummary(String tenant, String orderId) {
+
+    @Override
+    public Optional<TradeRefundSummary> findRefundSummary(String tenant, String orderId) {
         return Optional.ofNullable(summaries.selectOneByQuery(summaryKey(tenant, orderId))).map(this::read);
     }
-    @Override public Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId) {
+
+    @Override
+    public Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId) {
         return Optional.ofNullable(orders.selectOneByQuery(orderKey(tenant, orderId).and(TRADE_ORDER_DO.PAYEE_MERCHANT_ID.eq(payee)))).map(this::read);
     }
-    @Override public Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId) {
+
+    @Override
+    public Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId) {
         return Optional.ofNullable(summaries.selectOneByQuery(summaryKey(tenant, orderId).and(TRADE_SUMMARY_DO.PAYEE_MERCHANT_ID.eq(payee)))).map(this::read);
     }
-    @Override public Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds) {
+
+    @Override
+    public Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds) {
         if (orderIds.isEmpty()) return Map.of();
         if (orderIds.size() > 100) throw new CommonException(INVALID_ARGUMENT);
         var values = summaries.selectListByQuery(summaryScope(tenant).and(TRADE_SUMMARY_DO.PAYEE_MERCHANT_ID.eq(payee))
                 .and(TRADE_SUMMARY_DO.ORDER_ID.in(orderIds)));
         var result = new HashMap<String, TradeRefundSummary>();
-        for (var row : values) { var value = read(row); result.put(value.orderId(), value); }
+        for (var row : values) {
+            var value = read(row);
+            result.put(value.orderId(), value);
+        }
         return Map.copyOf(result);
     }
 
-    @Override public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
+    @Override
+    public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
         var query = orderScope(tenant).and(TRADE_ORDER_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
         if (filter.state() != null) query.and(TRADE_ORDER_DO.STATE.eq(filter.state()));
         if (filter.createdFrom() != null) query.and(TRADE_ORDER_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
@@ -243,7 +316,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         return new PageResult<>(orders.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
     }
 
-    @Override public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
+    @Override
+    public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
         var query = paymentScope(tenant).and(TRADE_PAYMENT_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
         if (filter.state() != null) query.and(TRADE_PAYMENT_DO.STATE.eq(filter.state()));
         if (filter.createdFrom() != null) query.and(TRADE_PAYMENT_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
@@ -256,7 +330,8 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         return new PageResult<>(payments.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
     }
 
-    @Override public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
+    @Override
+    public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
         var query = refundScope(tenant).and(TRADE_REFUND_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
         if (filter.state() != null) query.and(TRADE_REFUND_DO.STATE.eq(filter.state()));
         if (filter.createdFrom() != null) query.and(TRADE_REFUND_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
@@ -268,8 +343,10 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
                 .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
         return new PageResult<>(refunds.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
     }
+
     private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
     }
 }

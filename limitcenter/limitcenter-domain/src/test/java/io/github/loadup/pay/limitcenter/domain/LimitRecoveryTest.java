@@ -85,12 +85,12 @@ class LimitRecoveryTest {
         assertEquals(
                 DomainViolation.Reason.DEPENDENCY_NOT_READY,
                 assertThrows(
-                                DomainViolation.class,
-                                () -> item.restoreRefund(
-                                        executing,
-                                        300,
-                                        RefundAmountRestorePolicy.ORIGINAL_BUCKETS,
-                                        RefundCountRestorePolicy.NO_RESTORE))
+                        DomainViolation.class,
+                        () -> item.restoreRefund(
+                                executing,
+                                300,
+                                RefundAmountRestorePolicy.ORIGINAL_BUCKETS,
+                                RefundCountRestorePolicy.NO_RESTORE))
                         .reason());
         var first = item.confirm()
                 .restoreRefund(

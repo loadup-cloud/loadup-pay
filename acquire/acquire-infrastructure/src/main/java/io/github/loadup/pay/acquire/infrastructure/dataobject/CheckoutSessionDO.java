@@ -17,12 +17,28 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("checkout_session")
 public class CheckoutSessionDO extends BaseDO {
     private String orderId;
+    private String payeeMerchantId;
+    private String requestKey;
+    private String requestDigest;
+    @DiagnosticHidden
+    private String tokenHash;
+    private String tokenNonce;
+    private String tokenKeyRef;
+    private String tokenKeyVersion;
+    private String state;
+    private LocalDateTime expiresAt;
+    private String allowedOrigin;
+    @DiagnosticHidden
+    private String scopeSnapshot;
+    private Long rowVersion;
 
     public String getOrderId() {
         return orderId;
@@ -32,8 +48,6 @@ public class CheckoutSessionDO extends BaseDO {
         orderId = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -41,8 +55,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setPayeeMerchantId(String value) {
         payeeMerchantId = value;
     }
-
-    private String requestKey;
 
     public String getRequestKey() {
         return requestKey;
@@ -52,8 +64,6 @@ public class CheckoutSessionDO extends BaseDO {
         requestKey = value;
     }
 
-    private String requestDigest;
-
     public String getRequestDigest() {
         return requestDigest;
     }
@@ -61,9 +71,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setRequestDigest(String value) {
         requestDigest = value;
     }
-
-    @DiagnosticHidden
-    private String tokenHash;
 
     public String getTokenHash() {
         return tokenHash;
@@ -73,8 +80,6 @@ public class CheckoutSessionDO extends BaseDO {
         tokenHash = value;
     }
 
-    private String tokenNonce;
-
     public String getTokenNonce() {
         return tokenNonce;
     }
@@ -82,8 +87,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setTokenNonce(String value) {
         tokenNonce = value;
     }
-
-    private String tokenKeyRef;
 
     public String getTokenKeyRef() {
         return tokenKeyRef;
@@ -93,8 +96,6 @@ public class CheckoutSessionDO extends BaseDO {
         tokenKeyRef = value;
     }
 
-    private String tokenKeyVersion;
-
     public String getTokenKeyVersion() {
         return tokenKeyVersion;
     }
@@ -102,8 +103,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setTokenKeyVersion(String value) {
         tokenKeyVersion = value;
     }
-
-    private String state;
 
     public String getState() {
         return state;
@@ -113,8 +112,6 @@ public class CheckoutSessionDO extends BaseDO {
         state = value;
     }
 
-    private LocalDateTime expiresAt;
-
     public LocalDateTime getExpiresAt() {
         return expiresAt;
     }
@@ -122,8 +119,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setExpiresAt(LocalDateTime value) {
         expiresAt = value;
     }
-
-    private String allowedOrigin;
 
     public String getAllowedOrigin() {
         return allowedOrigin;
@@ -133,9 +128,6 @@ public class CheckoutSessionDO extends BaseDO {
         allowedOrigin = value;
     }
 
-    @DiagnosticHidden
-    private String scopeSnapshot;
-
     public String getScopeSnapshot() {
         return scopeSnapshot;
     }
@@ -143,8 +135,6 @@ public class CheckoutSessionDO extends BaseDO {
     public void setScopeSnapshot(String value) {
         scopeSnapshot = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

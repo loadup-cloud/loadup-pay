@@ -15,18 +15,22 @@
  */
 package io.github.loadup.pay.acquire.adapter.security;
 
-import io.github.loadup.commons.result.FailureResponse;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.result.FailureResponse;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import tools.jackson.databind.json.JsonMapper;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
 @Configuration(proxyBeanMethods = false)

@@ -18,14 +18,22 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderExtensionStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.*;
-import java.util.Optional;
+import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderExtensionReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_EXTENSION_RECEIPT_DO;
 
 @Repository
 public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
@@ -34,7 +42,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     private final OrderExtensionStorageConverter converter;
 
     public OrderExtensionGatewayImpl(AcquireOrderDOMapper orders, OrderExtensionReceiptDOMapper receipts,
-            OrderExtensionStorageConverter converter) {
+                                     OrderExtensionStorageConverter converter) {
         this.orders = orders;
         this.receipts = receipts;
         this.converter = converter;
@@ -48,8 +56,11 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 .and(ORDER_EXTENSION_RECEIPT_DO.ORDER_ID.eq(orderId))
                 .and(ORDER_EXTENSION_RECEIPT_DO.REQUEST_KEY.eq(requestKey)));
         if (row == null) return Optional.empty();
-        try { return Optional.of(converter.toReceipt(row)); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.of(converter.toReceipt(row));
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

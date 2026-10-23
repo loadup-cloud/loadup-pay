@@ -24,14 +24,20 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/acquire/orders")
 @Tag(name = "Merchant order closure")
 public class OrderClosureController {
     private final AcquireOrderClosureFacade facade;
-    public OrderClosureController(AcquireOrderClosureFacade facade) { this.facade = facade; }
+
+    public OrderClosureController(AcquireOrderClosureFacade facade) {
+        this.facade = facade;
+    }
 
     @PostMapping("/close")
     @Operation(summary = "Fence the order, converge a bounded batch and close when all original payments are settled")

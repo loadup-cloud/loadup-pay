@@ -47,35 +47,35 @@ DENY 不伪装为 ALLOW，具体规则和厂商协议后置。容量、峰值、
 
 ```mermaid
 flowchart TB
-  Merchant[商户 / 经授权管理子商户的后端] --> A[acquire 收单订单]
-  Browser[付款人浏览器] --> Cash[cashier / 商户页面 JS SDK]
-  Cash -->|订单级 checkout token| A
-  POS[POS / 扫码枪] --> A
-  Admin[商户管理入口] --> C[customer 商户与子商户]
-  Admin --> P[product 产品合约]
-  Admin --> R[realtime 商户查询]
-  A -->|权威下单准入 / 当前执行门禁| P
-  P -->|商户可信事实| C
-  A -->|独立付款 + 订单金额占用凭证| Pay[payment 付款执行]
-  Pay -->|咨询：启用后在渠道执行前| Risk[外部风控接入：预留]
-  Pay -.->|确认：可靠结果反馈| Risk
-  Pay -->|Reserve / BeginExecution| L[limitcenter 商户额度]
-  P -.->|规则发布与激活确认| L
-  Pay --> Ch[支付宝 / 微信 / 银联]
-  Ch --> Pay
-  Pay -.->|付款完整结果| A
-  Pay -.->|额度确认 / 释放| L
-  A -.-> R
-  Pay -.-> R
-  Files[渠道对账文件] --> Recon[reconciliation：后置]
-  Pay -.->|事件镜像 / 受控快照| Recon
-  Recon --> ReconDB[(独立对账 DB / 文件存储)]
-  A --> ADB[(acquire DB)]
-  Pay --> PDB[(payment DB)]
-  L --> LDB[(limitcenter DB)]
-  R --> RDB[(realtime DB)]
-  C --> CDB[(customer DB)]
-  P --> DB[(product DB)]
+    Merchant[商户 / 经授权管理子商户的后端] --> A[acquire 收单订单]
+    Browser[付款人浏览器] --> Cash[cashier / 商户页面 JS SDK]
+    Cash -->|订单级 checkout token| A
+    POS[POS / 扫码枪] --> A
+    Admin[商户管理入口] --> C[customer 商户与子商户]
+    Admin --> P[product 产品合约]
+    Admin --> R[realtime 商户查询]
+    A -->|权威下单准入 / 当前执行门禁| P
+    P -->|商户可信事实| C
+    A -->|独立付款 + 订单金额占用凭证| Pay[payment 付款执行]
+    Pay -->|咨询：启用后在渠道执行前| Risk[外部风控接入：预留]
+Pay -.->|确认：可靠结果反馈|Risk
+Pay -->|Reserve / BeginExecution|L[limitcenter 商户额度]
+P -.->|规则发布与激活确认|L
+Pay --> Ch[支付宝 / 微信 / 银联]
+Ch --> Pay
+Pay -.->|付款完整结果| A
+Pay -.->|额度确认 / 释放|L
+A -.-> R
+Pay -.-> R
+Files[渠道对账文件] --> Recon[reconciliation：后置]
+Pay -.->|事件镜像 / 受控快照|Recon
+Recon --> ReconDB[(独立对账 DB / 文件存储)]
+A --> ADB[(acquire DB)]
+Pay --> PDB[(payment DB)]
+L --> LDB[(limitcenter DB)]
+R --> RDB[(realtime DB)]
+C --> CDB[(customer DB)]
+P --> DB[(product DB)]
 ```
 
 实线是同步调用，虚线是本地事务提交后的可靠后台投递。realtime 与 reconciliation 不参与下单与付款提交。限额是执行前强门禁，真实支付结果必须先在
@@ -443,39 +443,39 @@ limitcenter 故障阻止新增渠道执行，但已发生的支付事实照常�
 
 ```mermaid
 sequenceDiagram
-  participant M as 商户后端
-  participant A as acquire
-  participant P as product
-  participant UI as cashier / SDK
-  participant Pay as payment
-  participant L as limitcenter
-  participant C as 支付渠道
-  M->>A: Checkout(merchantOrderNo, payeeMerchantId, amount=100)
-  A->>P: AuthorizeOrderAdmission(稳定 orderId 与摘要)
-  P-->>A: admissionId + 当前有效条款
-  A->>A: INIT 订单 + session + 到期任务 + Outbox
-  A-->>M: orderId + checkoutUrl
-  UI->>A: 打开 URL / 查询已付与可付金额
-  UI->>A: StartPayment(actionKey=1, amount=30)
-  A->>A: 原子占用 30，生成 P1
-  A->>Pay: ExecutePayment(P1, allocation1, amount=30)
-  Pay->>L: 为 P1 Reserve + BeginExecution
-  Pay->>C: 固定请求号，付款 30
-  C-->>Pay: 成功证据
-  Pay->>Pay: 成功事实 + 独立投递 Outbox
-  Pay-->>A: P1 成功
-  A->>A: 去重确认，paid=30/reserved=0，PENDING
-  Pay-->>L: P1 Confirm
-  UI->>A: 查询显示剩余 70，继续付款
-  UI->>A: StartPayment(actionKey=2, amount=70)
-  A->>A: 原子占用 70，生成 P2
-  A->>Pay: ExecutePayment(P2, allocation2, amount=70)
-  Pay->>L: 为 P2 Reserve + BeginExecution
-  Pay->>C: 固定新请求号，付款 70
-  C-->>Pay: 成功证据
-  Pay-->>A: 可靠 P2 成功结果
-  A->>A: paid=100/reserved=0，PAID + 整单费用只确认一次
-  A-->>M: 订单付清通知（独立于每笔付款通知）
+    participant M as 商户后端
+    participant A as acquire
+    participant P as product
+    participant UI as cashier / SDK
+    participant Pay as payment
+    participant L as limitcenter
+    participant C as 支付渠道
+    M ->> A: Checkout(merchantOrderNo, payeeMerchantId, amount=100)
+    A ->> P: AuthorizeOrderAdmission(稳定 orderId 与摘要)
+    P -->> A: admissionId + 当前有效条款
+    A ->> A: INIT 订单 + session + 到期任务 + Outbox
+    A -->> M: orderId + checkoutUrl
+    UI ->> A: 打开 URL / 查询已付与可付金额
+    UI ->> A: StartPayment(actionKey=1, amount=30)
+    A ->> A: 原子占用 30，生成 P1
+    A ->> Pay: ExecutePayment(P1, allocation1, amount=30)
+    Pay ->> L: 为 P1 Reserve + BeginExecution
+    Pay ->> C: 固定请求号，付款 30
+    C -->> Pay: 成功证据
+    Pay ->> Pay: 成功事实 + 独立投递 Outbox
+    Pay -->> A: P1 成功
+    A ->> A: 去重确认，paid=30/reserved=0，PENDING
+    Pay -->> L: P1 Confirm
+    UI ->> A: 查询显示剩余 70，继续付款
+    UI ->> A: StartPayment(actionKey=2, amount=70)
+    A ->> A: 原子占用 70，生成 P2
+    A ->> Pay: ExecutePayment(P2, allocation2, amount=70)
+    Pay ->> L: 为 P2 Reserve + BeginExecution
+    Pay ->> C: 固定新请求号，付款 70
+    C -->> Pay: 成功证据
+    Pay -->> A: 可靠 P2 成功结果
+    A ->> A: paid=100/reserved=0，PAID + 整单费用只确认一次
+    A -->> M: 订单付清通知（独立于每笔付款通知）
 ```
 
 图中为金额示意，实际传输使用币种最小单位整数。渠道提交前预留风控咨询，未接入/不可用按默认放行并记录原因；实际结果落库后独立异步反馈。创建部分付款可并发，但
@@ -849,10 +849,15 @@ D01—D10的语义已确认，不再作为待业务选择的P0问题反复询问
 
 ## 当前支付方式与接入边界（2026-10-22 修订）
 
-按最新决策，付款方式保留 PAYMENT_CODE（商户扫码枪读取付款人付款码）、JSAPI、H5；移除 Native 二维码展示及原生 APP 支付。扫码枪属于商户设备，平台接收商户 API 提交的短期付款码，不要求扫码枪接入托管收银台。
+按最新决策，付款方式保留 PAYMENT_CODE（商户扫码枪读取付款人付款码）、JSAPI、H5；移除 Native 二维码展示及原生 APP
+支付。扫码枪属于商户设备，平台接收商户 API 提交的短期付款码，不要求扫码枪接入托管收银台。
 
-接入方式与付款方式是两条独立维度。纯 API 可通过 DirectPay 完成创单及首笔发起，也可通过 create→startPayment 分两步完成，均无需创建 checkout session。托管收银台是商户可选的交互适配，共用订单、付款、退款、限额与结果事实，不是 API 支付的强制前置。
+接入方式与付款方式是两条独立维度。纯 API 可通过 DirectPay 完成创单及首笔发起，也可通过 create→startPayment 分两步完成，均无需创建
+checkout session。托管收银台是商户可选的交互适配，共用订单、付款、退款、限额与结果事实，不是 API 支付的强制前置。
 
-纯 API 不等于所有方式都能后台无交互扣款：付款码由商户采集后提交；JSAPI/H5 由 API 返回受信调起参数或地址，商户自己的前端负责调起，付款人完成授权。最终支付结果以验签回调/权威查单为准，不以前端返回或 HTTP 超时推断成功/失败。
+纯 API 不等于所有方式都能后台无交互扣款：付款码由商户采集后提交；JSAPI/H5 由 API
+返回受信调起参数或地址，商户自己的前端负责调起，付款人完成授权。最终支付结果以验签回调/权威查单为准，不以前端返回或 HTTP
+超时推断成功/失败。
 
-DirectPay 继续作为 API 便利入口，扫码枪流程保留；Native 的 code_url/展示二维码动作移除。上述范围覆盖直连及服务商/子商户模式，但具体渠道能力受实际开通产品限制。当前 DirectPay、付款码输入准备及真实渠道执行仍需实现，契约恢复不代表业务链路已经完成。
+DirectPay 继续作为 API 便利入口，扫码枪流程保留；Native 的 code_url/展示二维码动作移除。上述范围覆盖直连及服务商/子商户模式，但具体渠道能力受实际开通产品限制。当前
+DirectPay、付款码输入准备及真实渠道执行仍需实现，契约恢复不代表业务链路已经完成。

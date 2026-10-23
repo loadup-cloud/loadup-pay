@@ -15,13 +15,19 @@
  */
 package io.github.loadup.pay.payment.client.facade;
 
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingRevokeCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingSuspendCommand;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingChangeDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingDTO;
 import io.github.loadup.pay.payment.client.query.ChannelBindingDetailQuery;
 
 public interface ChannelBindingFacade {
     ChannelBindingChangeDTO publish(ChannelBindingPublishCommand command);
+
     ChannelBindingChangeDTO suspend(ChannelBindingSuspendCommand command);
+
     ChannelBindingChangeDTO revoke(ChannelBindingRevokeCommand command);
+
     ChannelBindingDTO detail(ChannelBindingDetailQuery query);
 }

@@ -9,4 +9,4 @@ ALTER TABLE order_create_intent
         entry_mode IN ('ORDER', 'CHECKOUT') AND state IN ('INIT', 'COMPLETED', 'REJECTED', 'EXPIRED')),
     ADD CONSTRAINT ck_intent_initial_session CHECK (
         (entry_mode = 'ORDER' AND initial_session_id IS NULL)
-        OR (entry_mode = 'CHECKOUT' AND initial_session_id IS NOT NULL));
+            OR (entry_mode = 'CHECKOUT' AND initial_session_id IS NOT NULL));

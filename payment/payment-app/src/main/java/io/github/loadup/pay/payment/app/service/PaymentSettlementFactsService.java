@@ -24,12 +24,19 @@ import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentSettlementFactsFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
-import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import java.util.Objects;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentSettlementFactsService implements PaymentSettlementFactsFacade {
@@ -43,11 +50,16 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
     private final String acquireService;
 
     public PaymentSettlementFactsService(PaymentActorProvider actors, PaymentAcceptanceGateway store,
-            PaymentAcceptanceCodec codec, PaymentAcceptanceConverter converter, PaymentAcceptanceTransactions transactions,
-            Validator validator, @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService,
-            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
-        this.actors = actors; this.store = store; this.codec = codec; this.converter = converter;
-        this.transactions = transactions; this.validator = validator; this.limitService = limitService;
+                                         PaymentAcceptanceCodec codec, PaymentAcceptanceConverter converter, PaymentAcceptanceTransactions transactions,
+                                         Validator validator, @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService,
+                                         @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
+        this.actors = actors;
+        this.store = store;
+        this.codec = codec;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.validator = validator;
+        this.limitService = limitService;
         DomainChecks.id(limitService);
         this.acquireService = DomainChecks.id(acquireService);
     }
@@ -63,14 +75,16 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
         return transactions.write(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var first = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (acquireAccess && !actor.serviceId().equals(first.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (acquireAccess && !actor.serviceId().equals(first.callerServiceId()))
+                throw new CommonException(ACTION_FORBIDDEN);
             var parent = store.lockParent(actor.tenantId(), first.payment().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var gate = store.lockPayment(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var current = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             codec.decode(current);
-            if (acquireAccess && !actor.serviceId().equals(current.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (acquireAccess && !actor.serviceId().equals(current.callerServiceId()))
+                throw new CommonException(ACTION_FORBIDDEN);
             check(parent, current, null);
             check(gate, current, query.id());
             return converter.toSettlementFacts(current, converter.toDTO(current), gate.gate().state() == GateState.FENCED);

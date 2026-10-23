@@ -23,19 +23,27 @@ import io.github.loadup.pay.payment.client.query.RoutingProfileDetailQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/routing-profiles")
 @Tag(name = "Trusted immutable routing profiles")
 public class RoutingProfileController {
     private final RoutingProfileFacade facade;
-    public RoutingProfileController(RoutingProfileFacade facade) { this.facade = facade; }
+
+    public RoutingProfileController(RoutingProfileFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/publish")
     @Operation(summary = "Publish an immutable ordered routing version for a collecting merchant")
     public SuccessResponse<RoutingProfileDTO> publish(@Valid @RequestBody RoutingProfilePublishCommand command) {
         return SuccessResponse.of(facade.publish(command));
     }
+
     @PostMapping("/detail")
     @Operation(summary = "Read an immutable routing version within the declared merchant scope")
     public SuccessResponse<RoutingProfileDTO> detail(@Valid @RequestBody RoutingProfileDetailQuery query) {

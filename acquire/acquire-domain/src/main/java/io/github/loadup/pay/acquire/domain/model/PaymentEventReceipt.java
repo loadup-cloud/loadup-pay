@@ -16,21 +16,36 @@
 package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** Semantic inbox: immutable source binding and replayable ACK, committed with the order/allocation/fee. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Semantic inbox: immutable source binding and replayable ACK, committed with the order/allocation/fee.
+ */
 public record PaymentEventReceipt(String id, String deliveryId, String businessEventId, String paymentId,
-        String orderId, String allocationId, long paymentVersion, String evidenceId, String requestDigest,
-        String callerServiceId, long orderVersion, LocalDateTime acceptedAt) {
+                                  String orderId, String allocationId, long paymentVersion, String evidenceId,
+                                  String requestDigest,
+                                  String callerServiceId, long orderVersion, LocalDateTime acceptedAt) {
     public PaymentEventReceipt {
-        DomainChecks.id(id); DomainChecks.id(deliveryId); DomainChecks.id(businessEventId); DomainChecks.id(paymentId);
-        DomainChecks.id(orderId); DomainChecks.id(allocationId); DomainChecks.id(evidenceId); DomainChecks.id(callerServiceId);
+        DomainChecks.id(id);
+        DomainChecks.id(deliveryId);
+        DomainChecks.id(businessEventId);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(allocationId);
+        DomainChecks.id(evidenceId);
+        DomainChecks.id(callerServiceId);
         require(paymentVersion > 0 && orderVersion >= 0 && requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(acceptedAt);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

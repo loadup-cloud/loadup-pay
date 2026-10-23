@@ -19,16 +19,28 @@ import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import io.github.loadup.pay.payment.domain.model.PaymentObservation;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.util.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.HexFormat;
 
 @Component
 public class PaymentResultCodecImpl implements PaymentResultCodec {
     private final JsonMapper mapper;
-    public PaymentResultCodecImpl(JsonMapper mapper) { this.mapper = mapper; }
-    @Override public String encode(PaymentObservation observation) { return mapper.writeValueAsString(observation); }
-    @Override public String factsDigest(PaymentObservation value) {
+
+    public PaymentResultCodecImpl(JsonMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    @Override
+    public String encode(PaymentObservation observation) {
+        return mapper.writeValueAsString(observation);
+    }
+
+    @Override
+    public String factsDigest(PaymentObservation value) {
         var identity = value.identity();
         var data = new StringBuilder();
         for (String field : Arrays.asList("payment-result-facts-v1", identity.paymentId(), identity.attemptId(),
@@ -38,7 +50,10 @@ public class PaymentResultCodecImpl implements PaymentResultCodec {
             if (field == null) data.append("-1:");
             else data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
         }
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data.toString().getBytes(StandardCharsets.UTF_8))); }
-        catch (NoSuchAlgorithmException impossible) { throw new ExceptionInInitializerError(impossible); }
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new ExceptionInInitializerError(impossible);
+        }
     }
 }

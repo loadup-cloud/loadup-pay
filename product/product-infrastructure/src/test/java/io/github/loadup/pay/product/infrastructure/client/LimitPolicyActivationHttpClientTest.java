@@ -41,11 +41,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class LimitPolicyActivationHttpClientTest {
-    @TempDir
-    Path directory;
-
     final HttpTemplate http = mock(HttpTemplate.class);
     final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
+    @TempDir
+    Path directory;
 
     LimitPolicyActivationHttpClient client(Path file) {
         return new LimitPolicyActivationHttpClient(

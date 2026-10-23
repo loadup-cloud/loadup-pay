@@ -21,7 +21,9 @@ import io.github.loadup.pay.acquire.domain.model.OrderPaymentChange;
 
 import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface AcquireOrderGateway {
     Optional<AcquireOrder> find(String tenantId, String orderId);
 

@@ -15,7 +15,9 @@
  */
 package io.github.loadup.pay.customer.app.security;
 
-/** Transport adapter must reject anonymous and unverified invocation contexts. */
+/**
+ * Transport adapter must reject anonymous and unverified invocation contexts.
+ */
 @FunctionalInterface
 public interface CustomerActorProvider {
     CustomerActor current();

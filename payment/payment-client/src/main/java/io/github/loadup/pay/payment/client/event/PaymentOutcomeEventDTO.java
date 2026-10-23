@@ -56,7 +56,7 @@ public record PaymentOutcomeEventDTO(
                 equals(envelope.data())
                         && Set.of("pay.payment.outcome.acquire.v1", "pay.payment.outcome.limit.v1",
                                 "pay.payment.outcome.risk.v1")
-                                .contains(envelope.eventType()),
+                        .contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", paymentId, paymentVersion);
     }

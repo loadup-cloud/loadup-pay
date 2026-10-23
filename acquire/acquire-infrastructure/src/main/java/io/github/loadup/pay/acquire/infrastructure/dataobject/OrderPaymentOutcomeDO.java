@@ -18,50 +18,104 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("order_payment_outcome")
 public class OrderPaymentOutcomeDO extends BaseDO {
     private String allocationId;
-    public String getAllocationId() { return allocationId; }
-    public void setAllocationId(String value) { allocationId = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private Long amountMinor;
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private String outcomeKind;
-    public String getOutcomeKind() { return outcomeKind; }
-    public void setOutcomeKind(String value) { outcomeKind = value; }
-
     private Long paymentSourceVersion;
-    public Long getPaymentSourceVersion() { return paymentSourceVersion; }
-    public void setPaymentSourceVersion(Long value) { paymentSourceVersion = value; }
-
     private String evidenceId;
-    public String getEvidenceId() { return evidenceId; }
-    public void setEvidenceId(String value) { evidenceId = value; }
-
     private Boolean executionFenced;
-    public Boolean getExecutionFenced() { return executionFenced; }
-    public void setExecutionFenced(Boolean value) { executionFenced = value; }
-
     private LocalDateTime observedAt;
-    public LocalDateTime getObservedAt() { return observedAt; }
-    public void setObservedAt(LocalDateTime value) { observedAt = value; }
+
+    public String getAllocationId() {
+        return allocationId;
+    }
+
+    public void setAllocationId(String value) {
+        allocationId = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public String getOutcomeKind() {
+        return outcomeKind;
+    }
+
+    public void setOutcomeKind(String value) {
+        outcomeKind = value;
+    }
+
+    public Long getPaymentSourceVersion() {
+        return paymentSourceVersion;
+    }
+
+    public void setPaymentSourceVersion(Long value) {
+        paymentSourceVersion = value;
+    }
+
+    public String getEvidenceId() {
+        return evidenceId;
+    }
+
+    public void setEvidenceId(String value) {
+        evidenceId = value;
+    }
+
+    public Boolean getExecutionFenced() {
+        return executionFenced;
+    }
+
+    public void setExecutionFenced(Boolean value) {
+        executionFenced = value;
+    }
+
+    public LocalDateTime getObservedAt() {
+        return observedAt;
+    }
+
+    public void setObservedAt(LocalDateTime value) {
+        observedAt = value;
+    }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

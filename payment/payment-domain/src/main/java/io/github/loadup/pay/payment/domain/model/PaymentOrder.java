@@ -28,7 +28,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Refunds have independent aggregates and cannot rewrite this successful amount or state. */
+/**
+ * Refunds have independent aggregates and cannot rewrite this successful amount or state.
+ */
 public record PaymentOrder(
         String id,
         String orderId,
@@ -123,11 +125,11 @@ public record PaymentOrder(
         var nextState = attempt.state() == PaymentAttemptState.SUCCEEDED
                 ? PaymentState.SUCCEEDED
                 : state == PaymentState.CLOSING
-                        ? PaymentState.CLOSING
-                        : attempt.state() == PaymentAttemptState.UNKNOWN
-                                        || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
-                                ? PaymentState.UNKNOWN
-                                : PaymentState.PROCESSING;
+                ? PaymentState.CLOSING
+                : attempt.state() == PaymentAttemptState.UNKNOWN
+                || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
+                ? PaymentState.UNKNOWN
+                : PaymentState.PROCESSING;
         if (nextState == state) return this;
         return copy(nextState, nextState == PaymentState.SUCCEEDED ? attempt.id() : null);
     }
@@ -147,7 +149,9 @@ public record PaymentOrder(
         return copy(PaymentState.CLOSED, null);
     }
 
-    /** Final failure is a payment-wide no-collection proof; one failed attempt is insufficient. */
+    /**
+     * Final failure is a payment-wide no-collection proof; one failed attempt is insufficient.
+     */
     public PaymentOrder fail(NoCollectionEvidence evidence) {
         require(id.equals(evidence.paymentId()), CONFLICT);
         if (state == PaymentState.FAILED) return this;

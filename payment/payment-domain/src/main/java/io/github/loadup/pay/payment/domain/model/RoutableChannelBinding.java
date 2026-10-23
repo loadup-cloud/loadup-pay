@@ -16,9 +16,9 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RoutableChannelBinding(ChannelMerchantBinding head, StoredChannelBindingRevision revision) {
     public RoutableChannelBinding {
@@ -28,5 +28,9 @@ public record RoutableChannelBinding(ChannelMerchantBinding head, StoredChannelB
                 && head.payeeMerchantId().equals(revision.binding().payeeMerchantId())
                 && head.channel() == revision.binding().channel() && head.accessMode() == revision.binding().accessMode(), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

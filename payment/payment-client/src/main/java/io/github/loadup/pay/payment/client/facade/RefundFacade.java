@@ -19,7 +19,9 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.payment.client.command.RefundCreateCommand;
 import io.github.loadup.pay.payment.client.dto.RefundRequestDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface RefundFacade {
     RefundRequestDTO create(RefundCreateCommand command);
 

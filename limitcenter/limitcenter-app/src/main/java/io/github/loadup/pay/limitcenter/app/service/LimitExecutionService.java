@@ -88,6 +88,15 @@ public class LimitExecutionService implements LimitExecutionFacade {
         this.clock = clock;
     }
 
+    private static void owner(LimitActor actor, StoredLimitReservation stored) {
+        if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+    }
+
+    private static boolean equalHash(String first, String second) {
+        return MessageDigest.isEqual(
+                first.getBytes(StandardCharsets.US_ASCII), second.getBytes(StandardCharsets.US_ASCII));
+    }
+
     @Override
     public LimitExecutionPermitDTO beginExecution(LimitBeginExecutionCommand command) {
         var actor = transactions.authorize(command, "pay:limit:execute");
@@ -252,15 +261,6 @@ public class LimitExecutionService implements LimitExecutionFacade {
                 grant.executionEpoch(),
                 grant.requestKey(),
                 grant.permitKeyId());
-    }
-
-    private static void owner(LimitActor actor, StoredLimitReservation stored) {
-        if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-    }
-
-    private static boolean equalHash(String first, String second) {
-        return MessageDigest.isEqual(
-                first.getBytes(StandardCharsets.US_ASCII), second.getBytes(StandardCharsets.US_ASCII));
     }
 
     private LocalDateTime now() {

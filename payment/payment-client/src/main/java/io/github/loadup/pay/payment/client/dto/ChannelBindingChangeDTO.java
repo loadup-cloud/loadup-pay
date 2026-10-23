@@ -19,12 +19,17 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.enums.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-/** Original applied operation snapshot, not a claim about the current mutable head. */
+/**
+ * Original applied operation snapshot, not a claim about the current mutable head.
+ */
 public record ChannelBindingChangeDTO(
         @Schema(description = "Binding id") String bindingId,
         @Schema(description = "Immutable revision id applied by this operation") String bindingRevisionId,
         @Schema(description = "Immutable revision number") int revision,
         @Schema(description = "State applied by this operation") ChannelBindingState state,
         @Schema(description = "Head version applied by this operation") long appliedVersion) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

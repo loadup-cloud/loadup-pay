@@ -24,17 +24,28 @@ import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.EnumSet;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Called under parent/payment locks when freezing a new attempt's route; no caller chooses a binding id. */
+import java.util.EnumSet;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * Called under parent/payment locks when freezing a new attempt's route; no caller chooses a binding id.
+ */
 @Component
 public class PaymentRouteSelector {
     private final ChannelBindingGateway bindings;
     private final RoutingProfileGateway profiles;
+
     public PaymentRouteSelector(ChannelBindingGateway bindings, RoutingProfileGateway profiles) {
-        this.bindings = bindings; this.profiles = profiles;
+        this.bindings = bindings;
+        this.profiles = profiles;
     }
+
     public ChannelBindingRevision select(String tenant, PaymentExecuteCommand accepted) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         var modes = EnumSet.noneOf(AccessMode.class);

@@ -18,24 +18,40 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentAttemptConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
-import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentAttemptFacade;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.*;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
-import java.time.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.UUID;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentAttemptService implements PaymentAttemptFacade {
@@ -55,17 +71,32 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
     private final Validator validator;
     private final Clock clock;
     private final String acquireService;
+
     public PaymentAttemptService(PaymentActorProvider actors, PaymentExecutionLocks locks, PaymentAttemptGateway attempts,
-            PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentRouteSelector routes, PaymentInputAccess inputs, PaymentLimitClient limits,
-            PaymentAttemptConverter converter, PaymentControlConverter changes, PaymentAcceptanceConverter views,
-            PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator,
-            @Qualifier("paymentClock") Clock clock, @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
-        this.actors = actors; this.locks = locks; this.attempts = attempts; this.payments = payments; this.codec = codec;
-        this.routes = routes; this.inputs = inputs; this.limits = limits; this.converter = converter; this.changes = changes; this.views = views;
-        this.transactions = transactions; this.ids = ids; this.validator = validator; this.clock = clock;
+                                 PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentRouteSelector routes, PaymentInputAccess inputs, PaymentLimitClient limits,
+                                 PaymentAttemptConverter converter, PaymentControlConverter changes, PaymentAcceptanceConverter views,
+                                 PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator,
+                                 @Qualifier("paymentClock") Clock clock, @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
+        this.actors = actors;
+        this.locks = locks;
+        this.attempts = attempts;
+        this.payments = payments;
+        this.codec = codec;
+        this.routes = routes;
+        this.inputs = inputs;
+        this.limits = limits;
+        this.converter = converter;
+        this.changes = changes;
+        this.views = views;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.validator = validator;
+        this.clock = clock;
         this.acquireService = DomainChecks.id(acquireService);
     }
-    @Override public PaymentExecutionDTO startAttempt(PaymentAttemptStartCommand command) {
+
+    @Override
+    public PaymentExecutionDTO startAttempt(PaymentAttemptStartCommand command) {
         if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
         if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:attempt:start"))
@@ -73,7 +104,8 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!limits.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
         return transactions.write(actor.tenantId(), () -> {
-            DomainChecks.id(command.paymentId()); DomainChecks.text(command.requestKey(), 128);
+            DomainChecks.id(command.paymentId());
+            DomainChecks.text(command.requestKey(), 128);
             var locked = locks.lock(actor.tenantId(), command.paymentId(), actor.serviceId());
             var accepted = locked.payment();
             var original = codec.decode(accepted);
@@ -83,7 +115,8 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
                 var attempt = prior.get();
                 if (!attempt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
                 if (!attempt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
-                if (!attempt.paymentRequestDigest().equals(accepted.requestDigest())) throw new CommonException(SNAPSHOT_INVALID);
+                if (!attempt.paymentRequestDigest().equals(accepted.requestDigest()))
+                    throw new CommonException(SNAPSHOT_INVALID);
                 return views.toDTO(accepted);
             }
             locks.requireOpen(locked);
@@ -105,6 +138,7 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             return views.toDTO(updated);
         });
     }
+
     private String digest(PaymentActor actor, PaymentAttemptStartCommand command, String paymentDigest) {
         var framed = new StringBuilder();
         for (String field : Arrays.asList("payment-attempt-start-v1", actor.tenantId(), actor.serviceId(), command.paymentId(),

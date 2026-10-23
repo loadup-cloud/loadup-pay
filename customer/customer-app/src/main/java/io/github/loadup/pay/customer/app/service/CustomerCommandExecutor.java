@@ -34,13 +34,24 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/** Claims and business writes join the caller's primary-database transaction. */
+/**
+ * Claims and business writes join the caller's primary-database transaction.
+ */
 @Component
 public class CustomerCommandExecutor {
     private final GlobalUniqueTemplate unique;
 
     public CustomerCommandExecutor(GlobalUniqueTemplate unique) {
         this.unique = unique;
+    }
+
+    private static String digest(String value) {
+        try {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new ExceptionInInitializerError(impossible);
+        }
     }
 
     public <T> T execute(
@@ -76,15 +87,6 @@ public class CustomerCommandExecutor {
         if (!fingerprint.equals(receipt.fingerprint()))
             throw new CommonException(CustomerResultCodeEnum.IDEMPOTENCY_CONFLICT);
         return JsonUtil.fromJson(receipt.response(), type);
-    }
-
-    private static String digest(String value) {
-        try {
-            return HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new ExceptionInInitializerError(impossible);
-        }
     }
 
     public record Prepared<T>(

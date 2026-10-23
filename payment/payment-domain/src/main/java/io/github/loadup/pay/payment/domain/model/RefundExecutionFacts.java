@@ -17,20 +17,27 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RefundExecutionFacts(StoredRefundChild child, LocalDateTime submissionStartedAt,
-        String channelRefundTransactionNo, LocalDateTime succeededAt) {
+                                   String channelRefundTransactionNo, LocalDateTime succeededAt) {
     public RefundExecutionFacts {
         Objects.requireNonNull(child);
         require((child.refund().state() == RefundState.INIT) == (submissionStartedAt == null), INVALID_ARGUMENT);
         if (child.refund().state() == RefundState.SUCCEEDED) {
-            DomainChecks.text(channelRefundTransactionNo, 128); Objects.requireNonNull(succeededAt);
+            DomainChecks.text(channelRefundTransactionNo, 128);
+            Objects.requireNonNull(succeededAt);
             require(!succeededAt.isBefore(child.originalSucceededAt()), INVALID_ARGUMENT);
         } else require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

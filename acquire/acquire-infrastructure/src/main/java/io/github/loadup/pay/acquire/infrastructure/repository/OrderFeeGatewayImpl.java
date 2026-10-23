@@ -18,16 +18,24 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.FeeState;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderFeeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.mapper.OrderFeeDOMapper;
-import java.time.LocalDateTime;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.time.LocalDateTime;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_FEE_DO;
 
 @Repository
 public class OrderFeeGatewayImpl implements OrderFeeGateway {
@@ -58,7 +66,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                     || row.getRowVersion() == null || row.getRowVersion() < 0
                     || (current.state() == FeeState.CONFIRMED) != (row.getConfirmedAt() != null))
                 throw new CommonException(SNAPSHOT_INVALID);
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (current.state() == FeeState.CONFIRMED) return;
         int changed = fees.updateByQuery(converter.toConfirmationPatch(current.confirm(), Math.incrementExact(row.getRowVersion()), confirmedAt), true,
                 QueryWrapper.create().where(ORDER_FEE_DO.TENANT_ID.eq(tenant)).and(ORDER_FEE_DO.DELETED.eq(0))

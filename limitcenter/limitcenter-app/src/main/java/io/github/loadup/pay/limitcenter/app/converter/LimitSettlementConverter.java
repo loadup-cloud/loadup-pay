@@ -16,20 +16,23 @@
 package io.github.loadup.pay.limitcenter.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.limitcenter.client.dto.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReleaseEvidence;
+import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface LimitSettlementConverter {
     LimitSettlementReceipt toReceipt(String id, String operationId, String paymentId, String kind,
-            String businessEventId, String requestDigest, long paymentVersion, String evidenceId);
+                                     String businessEventId, String requestDigest, long paymentVersion, String evidenceId);
 
     @Mapping(target = "fenced", constant = "true")
     @Mapping(target = "reservation", source = "reservation")
     LimitReleaseDTO toRelease(String operationId, String paymentId, LimitReservationDTO reservation,
-            long paymentVersion, String noCollectionEvidenceId);
+                              long paymentVersion, String noCollectionEvidenceId);
 
     LimitReleaseEvidence toReleaseEvidence(String paymentId, io.github.loadup.commons.money.Money amount,
-            long paymentVersion, String evidenceId, boolean executionFenced);
+                                           long paymentVersion, String evidenceId, boolean executionFenced);
 }

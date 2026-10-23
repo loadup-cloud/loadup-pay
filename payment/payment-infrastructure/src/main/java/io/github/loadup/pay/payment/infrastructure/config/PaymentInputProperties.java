@@ -15,18 +15,20 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.pay.common.DomainChecks;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @ConfigurationProperties("loadup.modules.payment.input")
 public record PaymentInputProperties(@DefaultValue("120") int lifetimeSeconds,
-        @DefaultValue("payment-input") String encryptionKey, String activeFingerprintKeyId,
-        @DiagnosticHidden Map<String, String> fingerprintKeys) {
+                                     @DefaultValue("payment-input") String encryptionKey, String activeFingerprintKeyId,
+                                     @DiagnosticHidden Map<String, String> fingerprintKeys) {
     public PaymentInputProperties {
         if (lifetimeSeconds < 1 || lifetimeSeconds > 600)
             throw new IllegalStateException("Payment input lifetime must be between 1 and 600 seconds");
@@ -41,5 +43,9 @@ public record PaymentInputProperties(@DefaultValue("120") int lifetimeSeconds,
                 throw new IllegalStateException("Payment input fingerprint keys require at least 32 random UTF-8 bytes");
         });
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

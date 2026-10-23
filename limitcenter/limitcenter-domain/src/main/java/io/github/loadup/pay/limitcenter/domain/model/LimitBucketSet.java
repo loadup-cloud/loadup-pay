@@ -27,7 +27,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Pure all-or-none proposal; the persistence gateway must commit every resulting row atomically. */
+/**
+ * Pure all-or-none proposal; the persistence gateway must commit every resulting row atomically.
+ */
 public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
     public LimitBucketSet {
         buckets = Map.copyOf(buckets);
@@ -59,7 +61,9 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         return new LimitBucketSet(updated);
     }
 
-    /** Requires a trusted release decision at the application boundary. */
+    /**
+     * Requires a trusted release decision at the application boundary.
+     */
     public LimitBucketSet releaseReserved(List<LimitReservationItem> items) {
         require(!items.isEmpty() && items.size() == buckets.size(), CONFLICT);
         Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);

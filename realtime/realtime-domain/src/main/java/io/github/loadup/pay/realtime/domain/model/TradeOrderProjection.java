@@ -61,7 +61,7 @@ public record TradeOrderProjection(
                 amount.getCent() > 0
                         && state != null
                         && Set.of("INIT", "PENDING", "CLOSING", "PAID", "CLOSED")
-                                .contains(state),
+                        .contains(state),
                 INVALID_ARGUMENT);
         require(
                 "PAID".equals(state) == (paidMinor == amount.getCent())

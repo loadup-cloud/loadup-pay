@@ -22,14 +22,21 @@ import io.github.loadup.pay.payment.client.facade.PaymentAttemptFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/executions")
 @Tag(name = "Internal payment attempts")
 public class PaymentAttemptController {
     private final PaymentAttemptFacade facade;
-    public PaymentAttemptController(PaymentAttemptFacade facade) { this.facade = facade; }
+
+    public PaymentAttemptController(PaymentAttemptFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/start-attempt")
     @Operation(summary = "Persist or replay one fixed channel attempt without asserting channel collection")
     public SuccessResponse<PaymentExecutionDTO> startAttempt(@Valid @RequestBody PaymentAttemptStartCommand command) {

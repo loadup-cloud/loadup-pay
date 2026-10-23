@@ -27,7 +27,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Frozen activation intent; only a matching authenticated activation ACK can make it ACTIVE. */
+/**
+ * Frozen activation intent; only a matching authenticated activation ACK can make it ACTIVE.
+ */
 public record PolicyPublication(
         String id,
         String contractId,

@@ -16,20 +16,28 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RoutingProfile(String id, RoutingProfileSpec spec, String contentHash, String callerServiceId,
-        String requestKey, String requestDigest, LocalDateTime publishedAt) {
+                             String requestKey, String requestDigest, LocalDateTime publishedAt) {
     public RoutingProfile {
-        DomainChecks.id(id); Objects.requireNonNull(spec);
-        DomainChecks.id(callerServiceId); DomainChecks.text(requestKey, 128);
+        DomainChecks.id(id);
+        Objects.requireNonNull(spec);
+        DomainChecks.id(callerServiceId);
+        DomainChecks.text(requestKey, 128);
         require(contentHash != null && contentHash.matches("[0-9a-f]{64}")
                 && requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(publishedAt);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

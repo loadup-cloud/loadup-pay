@@ -17,22 +17,34 @@ package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** One immutable final monetary outcome; alternate delivery ids cannot consume quota twice. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * One immutable final monetary outcome; alternate delivery ids cannot consume quota twice.
+ */
 public record LimitSettlementReceipt(String id, String operationId, String paymentId, String kind,
-        String businessEventId, String requestDigest, long paymentVersion, String evidenceId) {
+                                     String businessEventId, String requestDigest, long paymentVersion,
+                                     String evidenceId) {
     public LimitSettlementReceipt {
-        DomainChecks.id(id); DomainChecks.id(operationId); DomainChecks.id(paymentId);
-        DomainChecks.id(businessEventId); DomainChecks.id(evidenceId);
+        DomainChecks.id(id);
+        DomainChecks.id(operationId);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(businessEventId);
+        DomainChecks.id(evidenceId);
         require(("CONFIRM".equals(kind) || "RELEASE".equals(kind)) && paymentVersion > 0
                 && requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
+
     public void requireSame(String payment, String expectedKind, String digest, long version, String evidence) {
         require(paymentId.equals(payment) && kind.equals(expectedKind) && requestDigest.equals(digest)
                 && paymentVersion == version && evidenceId.equals(evidence), CONFLICT);
     }
+
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

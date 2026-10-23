@@ -16,16 +16,25 @@
 package io.github.loadup.pay.realtime.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+
 import java.util.Set;
 
-/** Exactly one service or merchant scope, supplied only by the verified JWT adapter. */
+/**
+ * Exactly one service or merchant scope, supplied only by the verified JWT adapter.
+ */
 public record RealtimeActor(String tenantId, String serviceId, String merchantId, Set<String> permissions) {
     public RealtimeActor {
-        DomainChecks.id(tenantId); permissions = Set.copyOf(permissions);
+        DomainChecks.id(tenantId);
+        permissions = Set.copyOf(permissions);
         DomainViolation.require((serviceId == null) != (merchantId == null), DomainViolation.Reason.INVALID_ARGUMENT);
         if (serviceId != null) DomainChecks.id(serviceId);
         if (merchantId != null) DomainChecks.id(merchantId);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

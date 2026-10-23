@@ -84,6 +84,10 @@ public class LimitReservationService implements LimitReservationFacade {
         this.reserveSeconds = reserveSeconds;
     }
 
+    private static void requireOwner(LimitActor actor, StoredLimitReservation stored) {
+        if (!stored.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+    }
+
     @Override
     public LimitReservationDTO reserve(LimitReserveCommand command) {
         var actor = transactions.authorize(command, "pay:limit:reserve");
@@ -195,9 +199,5 @@ public class LimitReservationService implements LimitReservationFacade {
             requireOwner(actor, stored);
             return converter.toDTO(stored.reservation());
         });
-    }
-
-    private static void requireOwner(LimitActor actor, StoredLimitReservation stored) {
-        if (!stored.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 }

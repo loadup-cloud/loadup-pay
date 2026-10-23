@@ -16,9 +16,14 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.client.dto.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface DirectPaymentConverter {

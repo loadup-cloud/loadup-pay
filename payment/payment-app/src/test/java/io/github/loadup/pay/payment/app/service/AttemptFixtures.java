@@ -15,15 +15,31 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 
 final class AttemptFixtures {
-    static final LocalDateTime NOW = LocalDateTime.of(2026,10,22,12,0,0,123456000);
-    static PaymentExecuteCommand command() { return PaymentFixtures.command(); }
+    static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 22, 12, 0, 0, 123456000);
+
+    static PaymentExecuteCommand command() {
+        return PaymentFixtures.command();
+    }
+
     static ChannelBindingRevision binding() {
         var value = command();
         var mode = value.admittedTerms().terms().capabilities().stream()
@@ -32,10 +48,11 @@ final class AttemptFixtures {
         ChannelAccountIdentity identity = value.choice().channel() == Channel.WECHAT
                 ? new WechatAccountIdentity("app", "mchid", null, mode == AccessMode.DIRECT ? null : "sub-mchid")
                 : new AlipayAccountIdentity("app", "seller", null,
-                        mode == AccessMode.DIRECT ? null : "authorization", mode == AccessMode.DIRECT ? null : "v1");
+                mode == AccessMode.DIRECT ? null : "authorization", mode == AccessMode.DIRECT ? null : "v1");
         return new ChannelBindingRevision("binding-revision", value.payeeMerchantId(), value.choice().channel(), mode,
                 "a".repeat(64), "credential", "v1", identity, Set.of(value.choice().method()));
     }
+
     static StoredPaymentAttempt prepared() {
         var command = command();
         var attempt = PaymentAttempt.init("attempt", command.paymentId(), 1,
@@ -43,6 +60,7 @@ final class AttemptFixtures {
         return new StoredPaymentAttempt(attempt, "operation", "acquire", "initial", "b".repeat(64), command.requestDigest(),
                 command.preparedInputRef(), null, null, NOW, null, 0);
     }
+
     static StoredPaymentAcceptance accepted(boolean attempted) {
         var command = command();
         var payment = PaymentOrder.init(command.paymentId(), command.orderId(), command.allocationId(), command.payeeMerchantId(),
@@ -50,6 +68,7 @@ final class AttemptFixtures {
         if (attempted) payment = payment.prepareAttempt(prepared().attempt(), null);
         return new StoredPaymentAcceptance(payment, command.admissionId(), command.requestDigest(), "acquire", "payload", "c".repeat(64), null);
     }
+
     static StoredPaymentGate gate(boolean parent) {
         var command = command();
         return new StoredPaymentGate(parent ? "parent" : "gate", command.payeeMerchantId(), "acquire",

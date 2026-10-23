@@ -17,14 +17,21 @@ package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInput;
+
 import java.time.Duration;
 
 public interface PaymentInputCipher {
     String activeFingerprintKeyId();
+
     Duration lifetime();
+
     String newReference();
+
     String fingerprint(String tenant, String service, PaymentInputPrepareCommand command, String keyId);
+
     EncryptedPaymentInput encrypt(String tenant, String service, String inputRef, PaymentInputPrepareCommand command);
+
     PaymentInteractionDTO decrypt(String tenant, PaymentInput stored);
 }

@@ -16,14 +16,26 @@
 package io.github.loadup.pay.realtime.domain.gateway;
 
 import io.github.loadup.commons.domain.PageResult;
-import io.github.loadup.pay.realtime.domain.model.*;
-import java.util.*;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePageFilter;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 public interface TradeQueryGateway {
     Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId);
+
     Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId);
+
     Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds);
+
     PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter);
+
     PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter);
+
     PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter);
 }

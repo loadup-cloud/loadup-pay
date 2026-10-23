@@ -17,20 +17,52 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.payment.app.converter.*;
-import io.github.loadup.pay.payment.app.model.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
+import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
+import io.github.loadup.pay.payment.app.model.LockedRefund;
+import io.github.loadup.pay.payment.app.model.RefundResultApplication;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
+import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.RefundState;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundExecutionServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundExecutionConverter.class.getPackageName());
@@ -47,7 +79,9 @@ class RefundExecutionServiceTest {
     final AtomicReference<RefundExecutionFacts> facts = new AtomicReference<>(new RefundExecutionFacts(RefundResultFixtures.initial().allocations().getFirst(), null, null, null));
     final RefundExecutionService service = new RefundExecutionService(providers, locks, changes, results, converter,
             new PaymentAcceptanceTransactions(manager), Clock.fixed(RefundResultFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), projections);
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         when(providers.getIfAvailable()).thenReturn(channel);
         when(locks.request("tenant", "request")).thenAnswer(c -> request.get());
         when(locks.child(eq("tenant"), any(), eq("refund"))).thenAnswer(c -> {
@@ -60,10 +94,12 @@ class RefundExecutionServiceTest {
             RefundProgressChange change = c.getArgument(1);
             var child = converter.withRefund(facts.get().child(), change.refund());
             request.set(converter.withRequest(request.get(), change.request(), List.of(child, request.get().allocations().get(1))));
-            facts.set(new RefundExecutionFacts(child, change.submissionStartedAt(), null, null)); return null;
+            facts.set(new RefundExecutionFacts(child, change.submissionStartedAt(), null, null));
+            return null;
         }).when(changes).update(eq("tenant"), any());
         when(channel.submitRefund(any())).thenAnswer(c -> {
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); assertTrue(manager.commits > 0);
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            assertTrue(manager.commits > 0);
             assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
             return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.ACCEPTED, "submit", RefundObservation.Source.SUBMIT_RESPONSE);
         });
@@ -74,39 +110,63 @@ class RefundExecutionServiceTest {
         when(results.record(eq("tenant"), any())).thenAnswer(c -> new RefundResultApplication(RefundReceiptDisposition.IGNORED, "receipt",
                 views.toDTO(request.get().request(), views.toAllocations(request.get().allocations()))));
     }
-    @AfterEach void close() { context.close(); }
-    @Test void onlyTheInitWinnerSubmitsAndEveryReplayQueriesTheSameOriginalRequest() {
-        service.progress("tenant", "request"); service.progress("tenant", "request");
+
+    @AfterEach
+    void close() {
+        context.close();
+    }
+
+    @Test
+    void onlyTheInitWinnerSubmitsAndEveryReplayQueriesTheSameOriginalRequest() {
+        service.progress("tenant", "request");
+        service.progress("tenant", "request");
         verify(channel, times(1)).submitRefund(argThat(p -> p.refundId().equals("refund") && p.channelRefundNo().equals("refund-request")
                 && p.originalChannelTransactionNo().equals("original-transaction") && p.originalAmount().getCent() == 4000));
-        verify(channel, times(1)).queryRefund(any()); verify(changes, times(1)).update(anyString(), any());
+        verify(channel, times(1)).queryRefund(any());
+        verify(changes, times(1)).update(anyString(), any());
         verify(projections, times(1)).changed(eq("tenant"), any());
         assertEquals(1000, RefundResultFixtures.capacity().reservedMinor());
     }
-    @Test void transportFailurePreservesTheBoundaryAndDoesNotPermitAnotherSubmission() {
+
+    @Test
+    void transportFailurePreservesTheBoundaryAndDoesNotPermitAnotherSubmission() {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(channel).submitRefund(any());
         assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
         verify(results).uncertain("tenant", "request", "refund");
         service.progress("tenant", "request");
-        verify(channel, times(1)).submitRefund(any()); verify(channel, times(1)).queryRefund(any());
+        verify(channel, times(1)).submitRefund(any());
+        verify(channel, times(1)).queryRefund(any());
     }
-    @Test void missingProviderOrUnsupportedLocalCapabilityCannotCrossTheSubmissionBoundary() {
+
+    @Test
+    void missingProviderOrUnsupportedLocalCapabilityCannotCrossTheSubmissionBoundary() {
         when(providers.getIfAvailable()).thenReturn(null);
         assertSame(UNSUPPORTED_CAPABILITY, assertThrows(CommonException.class, () -> service.progress("tenant", "request")).getResultCode());
         verifyNoInteractions(locks, changes);
-        when(providers.getIfAvailable()).thenReturn(channel); when(channel.canRefund(any())).thenReturn(false);
+        when(providers.getIfAvailable()).thenReturn(channel);
+        when(channel.canRefund(any())).thenReturn(false);
         assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
-        assertNull(facts.get().submissionStartedAt()); verify(changes, never()).update(anyString(), any()); verify(channel, never()).submitRefund(any());
+        assertNull(facts.get().submissionStartedAt());
+        verify(changes, never()).update(anyString(), any());
+        verify(channel, never()).submitRefund(any());
     }
-    @Test void failedSubmissionCasNeverMakesTheNetworkCall() {
+
+    @Test
+    void failedSubmissionCasNeverMakesTheNetworkCall() {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(changes).update(anyString(), any());
         assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
-        verify(channel, never()).submitRefund(any()); assertEquals(1, manager.rollbacks);
+        verify(channel, never()).submitRefund(any());
+        assertEquals(1, manager.rollbacks);
     }
-    @Test void outerTransactionCannotContainTheChannelCall() {
+
+    @Test
+    void outerTransactionCannotContainTheChannelCall() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.progress("tenant", "request")).getResultCode()); }
-        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.progress("tenant", "request")).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(providers, locks, changes);
     }
 }

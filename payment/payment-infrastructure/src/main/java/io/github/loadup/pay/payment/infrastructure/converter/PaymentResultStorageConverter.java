@@ -16,9 +16,20 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelTransactionClaimDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentChannelReceiptDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentResultAnomalyDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentResultStorageConverter {
@@ -32,6 +43,7 @@ public interface PaymentResultStorageConverter {
     PaymentOrderDO toSuccessPatch(StoredPaymentAcceptance value, java.time.LocalDateTime succeededAt);
 
     ChannelPaymentIdentity toIdentity(PaymentChannelReceiptDO row);
+
     ChannelPaymentIdentity toIdentity(ChannelTransactionClaimDO row);
 
     @Mapping(target = "identity", source = "identity")

@@ -16,9 +16,15 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentGateDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceStorageConverter {

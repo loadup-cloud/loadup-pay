@@ -21,15 +21,25 @@ import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
 import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
-import io.github.loadup.pay.acquire.client.facade.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
+import io.github.loadup.pay.acquire.client.facade.DirectPaymentFacade;
+import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.Set;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Composes durable creation and payment actions; failures retain their original independently committed facts. */
+import java.util.Set;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+
+/**
+ * Composes durable creation and payment actions; failures retain their original independently committed facts.
+ */
 @Service
 public class DirectPaymentService implements DirectPaymentFacade {
     private final AcquireActorProvider actors;
@@ -37,14 +47,21 @@ public class DirectPaymentService implements DirectPaymentFacade {
     private final PaymentInitiationFacade payments;
     private final DirectPaymentConverter converter;
     private final Validator validator;
+
     public DirectPaymentService(AcquireActorProvider actors, AcquireOrderCreationFacade orders,
-            PaymentInitiationFacade payments, DirectPaymentConverter converter, Validator validator) {
-        this.actors = actors; this.orders = orders; this.payments = payments;
-        this.converter = converter; this.validator = validator;
+                                PaymentInitiationFacade payments, DirectPaymentConverter converter, Validator validator) {
+        this.actors = actors;
+        this.orders = orders;
+        this.payments = payments;
+        this.converter = converter;
+        this.validator = validator;
     }
-    @Override public DirectPayDTO directPay(DirectPayCommand command) {
+
+    @Override
+    public DirectPayDTO directPay(DirectPayCommand command) {
         if (command == null || !validator.validate(command).isEmpty()
-                || command.firstPaymentAmountMinor() > command.amountMinor()) throw new CommonException(INVALID_ARGUMENT);
+                || command.firstPaymentAmountMinor() > command.amountMinor())
+            throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
         if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start")))
             throw new CommonException(ACTION_FORBIDDEN);

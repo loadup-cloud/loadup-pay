@@ -17,19 +17,32 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentOutcomeEnvelopeCodec;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Only the local Outbox dispatcher calls this seam. Queue labels are not user/service authentication. */
+import java.util.Objects;
+import java.util.Set;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Only the local Outbox dispatcher calls this seam. Queue labels are not user/service authentication.
+ */
 @Component
 public class PaymentOutcomeDeliverySupport {
     private final OutboxTemplate outbox;
@@ -41,18 +54,28 @@ public class PaymentOutcomeDeliverySupport {
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentAcceptanceCodec intents;
     private final PaymentResultConverter converter;
+
     public PaymentOutcomeDeliverySupport(OutboxTemplate outbox, PaymentOutcomeEnvelopeCodec envelopes,
-            PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentResultGateway results,
-            PaymentExecutionLocks locks, PaymentAcceptanceTransactions transactions, PaymentAcceptanceCodec intents,
-            PaymentResultConverter converter) {
-        this.outbox = outbox; this.envelopes = envelopes; this.payments = payments; this.attempts = attempts;
-        this.results = results; this.locks = locks; this.transactions = transactions; this.intents = intents; this.converter = converter;
+                                         PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentResultGateway results,
+                                         PaymentExecutionLocks locks, PaymentAcceptanceTransactions transactions, PaymentAcceptanceCodec intents,
+                                         PaymentResultConverter converter) {
+        this.outbox = outbox;
+        this.envelopes = envelopes;
+        this.payments = payments;
+        this.attempts = attempts;
+        this.results = results;
+        this.locks = locks;
+        this.transactions = transactions;
+        this.intents = intents;
+        this.converter = converter;
     }
+
     public PaymentDeliverySnapshot load(OutboxEvent event, String expectedType) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
                 || !expectedType.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         String tenant = event.message().tenantId();
         DomainChecks.id(event.id());
         var queue = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -64,7 +87,8 @@ public class PaymentOutcomeDeliverySupport {
                 || !expectedType.equals(envelope.eventType()) || !queue.businessId().equals(envelope.aggregateId())
                 || !envelope.aggregateId().equals(envelope.data().paymentId())
                 || envelope.aggregateVersion() != envelope.data().paymentVersion()
-                || !envelope.businessEventId().equals(envelope.data().evidenceId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !envelope.businessEventId().equals(envelope.data().evidenceId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var data = envelope.data();
         if (!Set.of(io.github.loadup.pay.payment.client.enums.PaymentState.SUCCEEDED,
                 io.github.loadup.pay.payment.client.enums.PaymentState.FAILED,
@@ -98,7 +122,8 @@ public class PaymentOutcomeDeliverySupport {
                 }
                 java.time.LocalDateTime succeededAt = null;
                 if (succeeded) {
-                    if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
+                    if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED)
+                        throw new CommonException(SNAPSHOT_INVALID);
                     var claim = results.attemptClaim(tenant, attempt.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     var capacity = results.capacity(tenant, current.payment().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (!claim.tenantId().equals(tenant) || !claim.identity().equals(attempt.attempt().identity())
@@ -106,7 +131,8 @@ public class PaymentOutcomeDeliverySupport {
                             || !capacity.succeededAmount().equals(current.payment().amount())
                             || !capacity.orderId().equals(current.payment().orderId())
                             || !capacity.payeeMerchantId().equals(current.payment().payeeMerchantId())
-                            || !capacity.succeededAt().equals(claim.succeededAt())) throw new CommonException(SNAPSHOT_INVALID);
+                            || !capacity.succeededAt().equals(claim.succeededAt()))
+                        throw new CommonException(SNAPSHOT_INVALID);
                     succeededAt = claim.succeededAt();
                 } else if (attempt != null && (!attempt.attempt().canSafelyReplace()
                         || !Objects.equals(attempt.attempt().noCollectionEvidenceId(), current.terminalEvidenceId()))) {

@@ -16,10 +16,11 @@
 package io.github.loadup.pay.acquire.infrastructure.config;
 
 import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({CheckoutProperties.class, PaymentTransportProperties.class, AcquireRealtimeProperties.class})
 @MapperScan("io.github.loadup.pay.acquire.infrastructure.mapper")
-public class AcquirePersistenceConfiguration {}
+public class AcquirePersistenceConfiguration {
+}

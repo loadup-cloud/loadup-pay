@@ -23,7 +23,8 @@ import java.util.Objects;
 public final class BusinessTime {
     public static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
-    private BusinessTime() {}
+    private BusinessTime() {
+    }
 
     public static LocalDateTime local(OffsetDateTime value) {
         return Objects.requireNonNull(value, "value").atZoneSameInstant(ZONE).toLocalDateTime();

@@ -16,32 +16,56 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.RoutingProfileConverter;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
+import io.github.loadup.pay.payment.domain.model.RoutingRule;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
-import java.util.*;
+
+import java.util.List;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RoutingProfileCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RoutingProfileConverter.class.getPackageName());
     final RoutingProfileCodecImpl codec = new RoutingProfileCodecImpl(JsonMapper.builder().build(),
             context.getBean(RoutingProfileConverter.class), validation.getValidator());
-    RoutingRule rule(String code) { return new RoutingRule(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5); }
-    RoutingProfileSpec spec(List<RoutingRule> rules) { return new RoutingProfileSpec("routing-v1", "merchant", rules); }
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void canonicalRoundTripPreservesOrderedRules() {
+    RoutingRule rule(String code) {
+        return new RoutingRule(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5);
+    }
+
+    RoutingProfileSpec spec(List<RoutingRule> rules) {
+        return new RoutingProfileSpec("routing-v1", "merchant", rules);
+    }
+
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void canonicalRoundTripPreservesOrderedRules() {
         var spec = spec(List.of(rule("first"), rule("second")));
         String payload = codec.encode(spec);
         assertEquals(spec, codec.decode(payload, codec.checksum(payload)));
     }
-    @Test void whitespaceAndObjectKeyOrderingDoNotChangeTheDefinitionHash() {
+
+    @Test
+    void whitespaceAndObjectKeyOrderingDoNotChangeTheDefinitionHash() {
         var spec = spec(List.of(rule("first")));
         String reordered = """
                 { "rules": [{"method":"H5","accessMode":"DIRECT","channel":"WECHAT","bindingCode":"first"}],
@@ -49,7 +73,9 @@ class RoutingProfileCodecImplTest {
                 """;
         assertEquals(spec, codec.decode(reordered, codec.checksum(codec.encode(spec))));
     }
-    @Test void ruleOrderAndPayeeAreProtectedByTheHash() {
+
+    @Test
+    void ruleOrderAndPayeeAreProtectedByTheHash() {
         var original = spec(List.of(rule("first"), rule("second")));
         String hash = codec.checksum(codec.encode(original));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
@@ -58,14 +84,18 @@ class RoutingProfileCodecImplTest {
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
                 () -> codec.decode(codec.encode(otherPayee), hash)).getResultCode());
     }
-    @Test void unknownFieldsAreNotSilentlyDiscarded() {
+
+    @Test
+    void unknownFieldsAreNotSilentlyDiscarded() {
         var original = spec(List.of(rule("first")));
         String payload = codec.encode(original);
         String extra = payload.substring(0, payload.length() - 1) + ",\"fallbackToAnyBinding\":true}";
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
                 () -> codec.decode(extra, codec.checksum(payload))).getResultCode());
     }
-    @Test void requestDigestSeparatesTenantCallerKeyAndDefinition() {
+
+    @Test
+    void requestDigestSeparatesTenantCallerKeyAndDefinition() {
         String digest = codec.requestDigest("tenant", "pay-ops", "publish", "a".repeat(64));
         assertNotEquals(digest, codec.requestDigest("other-tenant", "pay-ops", "publish", "a".repeat(64)));
         assertNotEquals(digest, codec.requestDigest("tenant", "other-service", "publish", "a".repeat(64)));

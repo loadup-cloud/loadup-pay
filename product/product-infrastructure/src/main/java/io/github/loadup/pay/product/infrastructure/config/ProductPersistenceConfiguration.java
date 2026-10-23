@@ -25,8 +25,9 @@ import org.springframework.context.annotation.Import;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(PolicyPublicationTransportProperties.class)
 @MapperScan({
-    "io.github.loadup.pay.product.infrastructure.mapper",
-    "io.github.loadup.modules.contract.infrastructure.mapper"
+        "io.github.loadup.pay.product.infrastructure.mapper",
+        "io.github.loadup.modules.contract.infrastructure.mapper"
 })
 @Import({ContractCodec.class, ContractStorageConverterImpl.class})
-public class ProductPersistenceConfiguration {}
+public class ProductPersistenceConfiguration {
+}

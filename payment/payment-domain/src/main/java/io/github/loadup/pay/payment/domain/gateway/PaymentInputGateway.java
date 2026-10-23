@@ -16,12 +16,17 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
+
 import java.util.Optional;
 
 public interface PaymentInputGateway {
     Optional<PaymentInput> findByPayment(String tenant, String paymentId);
+
     Optional<PaymentInput> find(String tenant, String inputRef);
+
     Optional<PaymentInput> lock(String tenant, String inputRef);
+
     void insert(String tenant, PaymentInput value);
+
     void bind(String tenant, PaymentInput value, long expectedVersion);
 }

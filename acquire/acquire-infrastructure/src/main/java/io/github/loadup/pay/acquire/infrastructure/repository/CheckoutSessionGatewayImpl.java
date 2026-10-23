@@ -18,7 +18,8 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionDO;
 import io.github.loadup.pay.acquire.infrastructure.mapper.CheckoutSessionDOMapper;
@@ -26,9 +27,13 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.CHECKOUT_SESSION_DO;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
 @Repository
 public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {

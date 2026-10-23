@@ -19,13 +19,17 @@ import io.github.loadup.pay.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.springframework.stereotype.Component;
+
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.util.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.List;
 
 @Component
 public class PaymentEventCodecImpl implements PaymentEventCodec {
-    @Override public String digest(String tenant, String service, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+    @Override
+    public String digest(String tenant, String service, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
         var value = event.data();
         var framed = new StringBuilder();
         for (String field : List.of("acquire-payment-event-v1", tenant, service, event.deliveryId(), event.businessEventId(),
@@ -35,7 +39,10 @@ public class PaymentEventCodecImpl implements PaymentEventCodec {
                 value.currency(), value.state().name(), Long.toString(value.paymentVersion()), value.evidenceId(),
                 Boolean.toString(value.executionFenced())))
             framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(framed.toString().getBytes(StandardCharsets.UTF_8))); }
-        catch (NoSuchAlgorithmException impossible) { throw new ExceptionInInitializerError(impossible); }
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(framed.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new ExceptionInInitializerError(impossible);
+        }
     }
 }

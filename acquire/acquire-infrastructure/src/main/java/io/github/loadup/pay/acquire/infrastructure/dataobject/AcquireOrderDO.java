@@ -17,12 +17,31 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("acquire_order")
 public class AcquireOrderDO extends BaseDO {
     private String payeeMerchantId;
+    private String merchantOrderNo;
+    private String admissionId;
+    private String contractSnapshotId;
+    private String subject;
+    private String currency;
+    private Long amountMinor;
+    private Long paidAmountMinor;
+    private Long paymentReservedMinor;
+    private Integer successfulPaymentCount;
+    private Integer reservedPaymentCount;
+    private String state;
+    private LocalDateTime admittedAt;
+    private LocalDateTime orderDueAt;
+    private Long deadlineVersion;
+    private Long closeEpoch;
+    private LocalDateTime paidAt;
+    private LocalDateTime closedAt;
+    private Long rowVersion;
 
     public String getPayeeMerchantId() {
         return payeeMerchantId;
@@ -32,8 +51,6 @@ public class AcquireOrderDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    private String merchantOrderNo;
-
     public String getMerchantOrderNo() {
         return merchantOrderNo;
     }
@@ -41,8 +58,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setMerchantOrderNo(String value) {
         merchantOrderNo = value;
     }
-
-    private String admissionId;
 
     public String getAdmissionId() {
         return admissionId;
@@ -52,8 +67,6 @@ public class AcquireOrderDO extends BaseDO {
         admissionId = value;
     }
 
-    private String contractSnapshotId;
-
     public String getContractSnapshotId() {
         return contractSnapshotId;
     }
@@ -61,8 +74,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setContractSnapshotId(String value) {
         contractSnapshotId = value;
     }
-
-    private String subject;
 
     public String getSubject() {
         return subject;
@@ -72,8 +83,6 @@ public class AcquireOrderDO extends BaseDO {
         subject = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -81,8 +90,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private Long amountMinor;
 
     public Long getAmountMinor() {
         return amountMinor;
@@ -92,8 +99,6 @@ public class AcquireOrderDO extends BaseDO {
         amountMinor = value;
     }
 
-    private Long paidAmountMinor;
-
     public Long getPaidAmountMinor() {
         return paidAmountMinor;
     }
@@ -101,8 +106,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setPaidAmountMinor(Long value) {
         paidAmountMinor = value;
     }
-
-    private Long paymentReservedMinor;
 
     public Long getPaymentReservedMinor() {
         return paymentReservedMinor;
@@ -112,8 +115,6 @@ public class AcquireOrderDO extends BaseDO {
         paymentReservedMinor = value;
     }
 
-    private Integer successfulPaymentCount;
-
     public Integer getSuccessfulPaymentCount() {
         return successfulPaymentCount;
     }
@@ -121,8 +122,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setSuccessfulPaymentCount(Integer value) {
         successfulPaymentCount = value;
     }
-
-    private Integer reservedPaymentCount;
 
     public Integer getReservedPaymentCount() {
         return reservedPaymentCount;
@@ -132,8 +131,6 @@ public class AcquireOrderDO extends BaseDO {
         reservedPaymentCount = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -141,8 +138,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setState(String value) {
         state = value;
     }
-
-    private LocalDateTime admittedAt;
 
     public LocalDateTime getAdmittedAt() {
         return admittedAt;
@@ -152,8 +147,6 @@ public class AcquireOrderDO extends BaseDO {
         admittedAt = value;
     }
 
-    private LocalDateTime orderDueAt;
-
     public LocalDateTime getOrderDueAt() {
         return orderDueAt;
     }
@@ -161,8 +154,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setOrderDueAt(LocalDateTime value) {
         orderDueAt = value;
     }
-
-    private Long deadlineVersion;
 
     public Long getDeadlineVersion() {
         return deadlineVersion;
@@ -172,8 +163,6 @@ public class AcquireOrderDO extends BaseDO {
         deadlineVersion = value;
     }
 
-    private Long closeEpoch;
-
     public Long getCloseEpoch() {
         return closeEpoch;
     }
@@ -181,8 +170,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setCloseEpoch(Long value) {
         closeEpoch = value;
     }
-
-    private LocalDateTime paidAt;
 
     public LocalDateTime getPaidAt() {
         return paidAt;
@@ -192,8 +179,6 @@ public class AcquireOrderDO extends BaseDO {
         paidAt = value;
     }
 
-    private LocalDateTime closedAt;
-
     public LocalDateTime getClosedAt() {
         return closedAt;
     }
@@ -201,8 +186,6 @@ public class AcquireOrderDO extends BaseDO {
     public void setClosedAt(LocalDateTime value) {
         closedAt = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

@@ -16,10 +16,18 @@
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.acquire.infrastructure.dataobject.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
-import org.mapstruct.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentOutcomeStorageConverter {

@@ -23,6 +23,13 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_execution_grant")
 public class LimitExecutionGrantDO extends BaseDO {
     private String operationId;
+    private String paymentId;
+    private String attemptId;
+    private Long executionEpoch;
+    private String requestKey;
+    private String permitKeyId;
+    @DiagnosticHidden
+    private String permitHash;
 
     public String getOperationId() {
         return operationId;
@@ -32,8 +39,6 @@ public class LimitExecutionGrantDO extends BaseDO {
         operationId = value;
     }
 
-    private String paymentId;
-
     public String getPaymentId() {
         return paymentId;
     }
@@ -41,8 +46,6 @@ public class LimitExecutionGrantDO extends BaseDO {
     public void setPaymentId(String value) {
         paymentId = value;
     }
-
-    private String attemptId;
 
     public String getAttemptId() {
         return attemptId;
@@ -52,8 +55,6 @@ public class LimitExecutionGrantDO extends BaseDO {
         attemptId = value;
     }
 
-    private Long executionEpoch;
-
     public Long getExecutionEpoch() {
         return executionEpoch;
     }
@@ -61,8 +62,6 @@ public class LimitExecutionGrantDO extends BaseDO {
     public void setExecutionEpoch(Long value) {
         executionEpoch = value;
     }
-
-    private String requestKey;
 
     public String getRequestKey() {
         return requestKey;
@@ -72,8 +71,6 @@ public class LimitExecutionGrantDO extends BaseDO {
         requestKey = value;
     }
 
-    private String permitKeyId;
-
     public String getPermitKeyId() {
         return permitKeyId;
     }
@@ -81,9 +78,6 @@ public class LimitExecutionGrantDO extends BaseDO {
     public void setPermitKeyId(String value) {
         permitKeyId = value;
     }
-
-    @DiagnosticHidden
-    private String permitHash;
 
     public String getPermitHash() {
         return permitHash;

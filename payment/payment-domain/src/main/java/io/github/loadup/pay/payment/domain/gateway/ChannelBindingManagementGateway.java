@@ -15,16 +15,26 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
+
 import java.util.Optional;
 
 public interface ChannelBindingManagementGateway {
     Optional<ChannelMerchantBinding> find(String tenant, String payee, String bindingCode);
+
     Optional<ChannelMerchantBinding> lock(String tenant, String payee, String bindingCode);
+
     Optional<StoredChannelBindingRevision> revision(String tenant, String revisionId);
+
     Optional<ChannelBindingChangeReceipt> receipt(String tenant, String bindingId, String requestKey);
+
     void insertHead(String tenant, ChannelMerchantBinding head);
+
     void updateHead(String tenant, ChannelMerchantBinding head, long expectedVersion);
+
     void insertRevision(String tenant, StoredChannelBindingRevision revision);
+
     void insertReceipt(String tenant, ChannelBindingChangeReceipt receipt);
 }

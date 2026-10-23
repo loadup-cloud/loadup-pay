@@ -15,13 +15,23 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 final class RefundResultFixtures {
     static final LocalDateTime NOW = AttemptFixtures.NOW;
+
     static StoredRefundRequest initial() {
         var first = RefundOrder.init("refund", "request", "payment", DomainChecks.amount(1000, "CNY"), "refund-request");
         var second = RefundOrder.init("refund2", "request", "payment2", DomainChecks.amount(500, "CNY"), "refund-request2");
@@ -32,9 +42,11 @@ final class RefundResultFixtures {
         return new StoredRefundRequest(request, "CUSTOMER_REQUEST", "c".repeat(64), "d".repeat(64), "admission", "{}", "e".repeat(64),
                 NOW.minusMinutes(1), List.of(a, b));
     }
+
     static PaymentRefundCapacity capacity() {
         return new PaymentRefundCapacity("payment", "order", "merchant", NOW.minusHours(1), DomainChecks.amount(4000, "CNY"), 0, 1000, 1);
     }
+
     static RefundObservation observation(ChannelRefundOutcome.Kind kind, String key, RefundObservation.Source source) {
         var child = initial().allocations().getFirst();
         return new RefundObservation("refund", child.original(), child.refund().channelRefundNo(), child.channelTransactionNo(), kind,

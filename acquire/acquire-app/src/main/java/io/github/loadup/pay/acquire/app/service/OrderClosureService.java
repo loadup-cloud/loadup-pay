@@ -17,25 +17,38 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.acquire.app.converter.*;
-import io.github.loadup.pay.acquire.app.port.*;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.OrderClosureConverter;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderClosureFacade;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validator;
-import java.nio.charset.StandardCharsets;
-import java.time.*;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class OrderClosureService implements AcquireOrderClosureFacade {
@@ -55,9 +68,9 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
     private final OrderSnapshotEvents snapshots;
 
     public OrderClosureService(AcquireActorProvider actors, OrderCreationGateway orders, OrderClosureGateway store,
-            PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
-            AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
-            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+                               PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
+                               AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
+                               IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;

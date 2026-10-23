@@ -24,7 +24,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** The original decision and its self-contained terms remain immutable after contract stop. */
+/**
+ * The original decision and its self-contained terms remain immutable after contract stop.
+ */
 public record StoredOrderAdmission(
         AdmissionIntent intent,
         OrderAdmission admission,

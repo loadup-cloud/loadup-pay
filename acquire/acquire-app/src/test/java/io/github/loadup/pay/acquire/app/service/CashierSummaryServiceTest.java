@@ -16,19 +16,38 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.acquire.app.converter.*;
+import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import java.util.*;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import java.util.List;
+import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class CashierSummaryServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();

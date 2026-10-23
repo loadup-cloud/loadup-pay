@@ -18,7 +18,9 @@ package io.github.loadup.pay.acquire.client.facade;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 
-/** Atomically materialize an order and its original hosted checkout session. */
+/**
+ * Atomically materialize an order and its original hosted checkout session.
+ */
 public interface CheckoutOrderFacade {
     CheckoutDTO checkout(CheckoutCreateCommand command);
 }

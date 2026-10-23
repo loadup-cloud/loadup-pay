@@ -20,9 +20,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = NoInteractionDTO.class, name = "NONE"),
-    @JsonSubTypes.Type(value = PaymentCodeInteractionDTO.class, name = "PAYMENT_CODE"),
-    @JsonSubTypes.Type(value = ChannelIdentityInteractionDTO.class, name = "CHANNEL_IDENTITY")
+        @JsonSubTypes.Type(value = NoInteractionDTO.class, name = "NONE"),
+        @JsonSubTypes.Type(value = PaymentCodeInteractionDTO.class, name = "PAYMENT_CODE"),
+        @JsonSubTypes.Type(value = ChannelIdentityInteractionDTO.class, name = "CHANNEL_IDENTITY")
 })
 public sealed interface PaymentInteractionDTO
-        permits NoInteractionDTO, PaymentCodeInteractionDTO, ChannelIdentityInteractionDTO {}
+        permits NoInteractionDTO, PaymentCodeInteractionDTO, ChannelIdentityInteractionDTO {
+}

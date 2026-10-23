@@ -31,7 +31,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** The application persists this result and all capacity reservations in one transaction. */
+/**
+ * The application persists this result and all capacity reservations in one transaction.
+ */
 public final class FifoRefundPolicy {
     public List<RefundPlanItem> plan(
             String orderId,

@@ -16,8 +16,13 @@
 package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 
 public record LockedRefund(StoredRefundRequest request, RefundExecutionFacts child, PaymentRefundCapacity capacity) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

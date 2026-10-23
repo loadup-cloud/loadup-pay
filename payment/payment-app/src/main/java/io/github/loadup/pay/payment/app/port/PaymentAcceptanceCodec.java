@@ -20,6 +20,8 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 
 public interface PaymentAcceptanceCodec {
     String encode(PaymentExecuteCommand command);
+
     String checksum(String payload);
+
     PaymentExecuteCommand decode(StoredPaymentAcceptance stored);
 }

@@ -19,7 +19,9 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 
-/** Independently implemented creation/read slice of the full order lifecycle. */
+/**
+ * Independently implemented creation/read slice of the full order lifecycle.
+ */
 public interface AcquireOrderCreationFacade {
     AcquireOrderDTO create(AcquireOrderCreateCommand command);
 

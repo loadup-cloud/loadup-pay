@@ -18,41 +18,86 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("routing_profile")
 public class RoutingProfileDO extends BaseDO {
     private String profileRef;
-    public String getProfileRef() { return profileRef; }
-    public void setProfileRef(String value) { profileRef = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private String specPayload;
-    public String getSpecPayload() { return specPayload; }
-    public void setSpecPayload(String value) { specPayload = value; }
-
     private String contentHash;
-    public String getContentHash() { return contentHash; }
-    public void setContentHash(String value) { contentHash = value; }
-
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-
     private String requestKey;
-    public String getRequestKey() { return requestKey; }
-    public void setRequestKey(String value) { requestKey = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private LocalDateTime publishedAt;
-    public LocalDateTime getPublishedAt() { return publishedAt; }
-    public void setPublishedAt(LocalDateTime value) { publishedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getProfileRef() {
+        return profileRef;
+    }
+
+    public void setProfileRef(String value) {
+        profileRef = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public String getSpecPayload() {
+        return specPayload;
+    }
+
+    public void setSpecPayload(String value) {
+        specPayload = value;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String value) {
+        contentHash = value;
+    }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public String getRequestKey() {
+        return requestKey;
+    }
+
+    public void setRequestKey(String value) {
+        requestKey = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setPublishedAt(LocalDateTime value) {
+        publishedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

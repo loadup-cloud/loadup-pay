@@ -17,12 +17,17 @@ package io.github.loadup.pay.payment.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record ChannelBindingSuspendCommand(
         @Schema(description = "Collecting merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
         @Schema(description = "Merchant-local binding code") @NotBlank @Size(max = 64) String bindingCode,
         @Schema(description = "Suspend idempotency key") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Expected current head version") @Positive long expectedVersion) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

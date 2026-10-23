@@ -161,22 +161,22 @@ class PolicyPublicationServiceTest {
 
     PolicyPublication pending() {
         return new PolicyPublication(
-                        "publication",
-                        "contract",
-                        1,
-                        snapshot.snapshotHash(),
-                        "merchant",
-                        "scope",
-                        "policy",
-                        1,
-                        activation.policyHash(),
-                        "frozen-activation",
-                        "INIT",
-                        null,
-                        now,
-                        null,
-                        1,
-                        0)
+                "publication",
+                "contract",
+                1,
+                snapshot.snapshotHash(),
+                "merchant",
+                "scope",
+                "policy",
+                1,
+                activation.policyHash(),
+                "frozen-activation",
+                "INIT",
+                null,
+                now,
+                null,
+                1,
+                0)
                 .publishing("event");
     }
 
@@ -197,9 +197,9 @@ class PolicyPublicationServiceTest {
     @Test
     void publicationAndOutboxEnqueueShareOneTransactionWithoutRemoteIo() {
         doAnswer(call -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            return null;
+        })
                 .when(publications)
                 .insert(anyString(), any());
         when(outbox.publish(any())).thenAnswer(call -> {
@@ -261,7 +261,7 @@ class PolicyPublicationServiceTest {
         when(publications.lockById("tenant", "publication")).thenReturn(Optional.of(pending()));
         when(client.activate(anyString(), any())).thenReturn(ack());
         doThrow(new CommonException(
-                        io.github.loadup.pay.product.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT))
+                io.github.loadup.pay.product.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT))
                 .doNothing()
                 .when(publications)
                 .update(eq("tenant"), any(), eq(1L));
@@ -313,7 +313,8 @@ class PolicyPublicationServiceTest {
         }
 
         @Override
-        protected void doBegin(Object transaction, TransactionDefinition definition) {}
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+        }
 
         @Override
         protected void doCommit(DefaultTransactionStatus status) {

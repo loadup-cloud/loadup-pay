@@ -17,37 +17,51 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.event.*;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.OffsetDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RefundProjectionEnvelopeCodecImplTest {
     final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
     final RefundProjectionEnvelopeCodecImpl codec = new RefundProjectionEnvelopeCodecImpl(json);
     final OffsetDateTime at = OffsetDateTime.parse("2026-10-23T12:00:00.123456+08:00");
-    @Test void childRetainsOriginalAuditTimeAndChannelTimeWithoutInventingClockOrdering() {
+
+    @Test
+    void childRetainsOriginalAuditTimeAndChannelTimeWithoutInventingClockOrdering() {
         var data = new RefundSnapshotEventDTO("refund", "request", "payment", "order", "merchant", 1000, "CNY", RefundState.SUCCEEDED,
                 at, at.minusNanos(123456000), 2);
         var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.realtime.v1", 1, "refund", 2, at, data);
         assertEquals(event, codec.child(json.writeValueAsString(event)));
-        assertEquals(at, data.refundCreatedAt()); assertEquals(at.minusNanos(123456000), data.succeededAt());
+        assertEquals(at, data.refundCreatedAt());
+        assertEquals(at.minusNanos(123456000), data.succeededAt());
     }
-    @Test void boundedMonetarySummaryRoundTripsWithoutAnyRequestHistory() {
+
+    @Test
+    void boundedMonetarySummaryRoundTripsWithoutAnyRequestHistory() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
         assertEquals(event, codec.summary(json.writeValueAsString(event)));
         assertTrue(json.writeValueAsString(event).length() < 2048);
     }
-    @Test void aFeeStreamPayloadCannotBeDeliveredAsTheRealtimeSummaryStream() {
+
+    @Test
+    void aFeeStreamPayloadCannotBeDeliveredAsTheRealtimeSummaryStream() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.fee.v1", 1, "order", 3, at, data);
         assertThrows(CommonException.class, () -> codec.summary(json.writeValueAsString(event)));
     }
-    @Test void invalidVersionUnknownFieldsAndOversizedPayloadAreRejected() {
+
+    @Test
+    void invalidVersionUnknownFieldsAndOversizedPayloadAreRejected() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         var wrong = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 4, at, data);
         assertThrows(CommonException.class, () -> codec.summary(json.writeValueAsString(wrong)));

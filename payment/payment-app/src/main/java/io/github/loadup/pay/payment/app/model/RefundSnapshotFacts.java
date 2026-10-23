@@ -18,14 +18,28 @@ package io.github.loadup.pay.payment.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-public record RefundSnapshotFacts(String refundId, String refundRequestId, String paymentId, String orderId, String payeeMerchantId,
-        Money amount, String state, LocalDateTime refundCreatedAt, LocalDateTime sourceUpdatedAt, LocalDateTime succeededAt, long sourceVersion) {
+public record RefundSnapshotFacts(String refundId, String refundRequestId, String paymentId, String orderId,
+                                  String payeeMerchantId,
+                                  Money amount, String state, LocalDateTime refundCreatedAt,
+                                  LocalDateTime sourceUpdatedAt, LocalDateTime succeededAt, long sourceVersion) {
     public RefundSnapshotFacts {
-        DomainChecks.id(refundId); DomainChecks.id(refundRequestId); DomainChecks.id(paymentId); DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(amount); DomainChecks.text(state, 24); Objects.requireNonNull(refundCreatedAt); Objects.requireNonNull(sourceUpdatedAt);
+        DomainChecks.id(refundId);
+        DomainChecks.id(refundRequestId);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.amount(amount);
+        DomainChecks.text(state, 24);
+        Objects.requireNonNull(refundCreatedAt);
+        Objects.requireNonNull(sourceUpdatedAt);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,10 +17,19 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
-import java.time.*;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskConsultation;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.RiskOutcome;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Named;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentOutcomeDeliveryConverter {
@@ -42,9 +51,14 @@ public interface PaymentOutcomeDeliveryConverter {
     @Mapping(target = "consultation", source = "consultation")
     @Mapping(target = "decision", source = "decision")
     RiskOutcome toRisk(String tenantId, String businessEventId, RiskConsultation consultation, RiskDecision decision,
-            PaymentState paymentState, long sourceVersion, String evidenceId);
+                       PaymentState paymentState, long sourceVersion, String evidenceId);
 
     @Named("releaseReason")
-    default String releaseReason(PaymentState state) { return "PAYMENT_" + state.name(); }
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+    default String releaseReason(PaymentState state) {
+        return "PAYMENT_" + state.name();
+    }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

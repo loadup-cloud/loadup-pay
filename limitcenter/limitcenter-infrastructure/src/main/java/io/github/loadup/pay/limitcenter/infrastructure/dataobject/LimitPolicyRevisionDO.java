@@ -25,6 +25,12 @@ import java.time.LocalDateTime;
 @Table("limit_policy_revision")
 public class LimitPolicyRevisionDO extends BaseDO {
     private String policyId;
+    private Integer policyVersion;
+    private String policyHash;
+    private String payeeMerchantId;
+    @DiagnosticHidden
+    private String compiledRules;
+    private LocalDateTime activatedAt;
 
     public String getPolicyId() {
         return policyId;
@@ -34,8 +40,6 @@ public class LimitPolicyRevisionDO extends BaseDO {
         policyId = value;
     }
 
-    private Integer policyVersion;
-
     public Integer getPolicyVersion() {
         return policyVersion;
     }
@@ -43,8 +47,6 @@ public class LimitPolicyRevisionDO extends BaseDO {
     public void setPolicyVersion(Integer value) {
         policyVersion = value;
     }
-
-    private String policyHash;
 
     public String getPolicyHash() {
         return policyHash;
@@ -54,8 +56,6 @@ public class LimitPolicyRevisionDO extends BaseDO {
         policyHash = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -64,9 +64,6 @@ public class LimitPolicyRevisionDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    @DiagnosticHidden
-    private String compiledRules;
-
     public String getCompiledRules() {
         return compiledRules;
     }
@@ -74,8 +71,6 @@ public class LimitPolicyRevisionDO extends BaseDO {
     public void setCompiledRules(String value) {
         compiledRules = value;
     }
-
-    private LocalDateTime activatedAt;
 
     public LocalDateTime getActivatedAt() {
         return activatedAt;

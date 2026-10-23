@@ -18,6 +18,7 @@ package io.github.loadup.pay.product.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+
 import java.util.Map;
 
 public record CompiledAcquiringTerms(

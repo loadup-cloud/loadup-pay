@@ -20,10 +20,12 @@ import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
-import io.github.loadup.pay.common.DomainChecks;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
 @Service

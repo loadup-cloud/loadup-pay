@@ -54,7 +54,7 @@ public record TradeRefundProjection(
                 amount.getCent() > 0
                         && state != null
                         && Set.of("INIT", "PROCESSING", "UNKNOWN", "SUCCEEDED", "FAILED")
-                                .contains(state),
+                        .contains(state),
                 INVALID_ARGUMENT);
         require(
                 refundId.equals(source.aggregateId())

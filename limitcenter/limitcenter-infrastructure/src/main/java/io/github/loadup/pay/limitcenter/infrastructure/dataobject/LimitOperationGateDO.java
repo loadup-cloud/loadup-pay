@@ -22,6 +22,11 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_operation_gate")
 public class LimitOperationGateDO extends BaseDO {
     private String operationId;
+    private String paymentId;
+    private String state;
+    private Long paymentSourceVersion;
+    private String noCollectionEvidenceId;
+    private Long rowVersion;
 
     public String getOperationId() {
         return operationId;
@@ -31,8 +36,6 @@ public class LimitOperationGateDO extends BaseDO {
         operationId = value;
     }
 
-    private String paymentId;
-
     public String getPaymentId() {
         return paymentId;
     }
@@ -40,8 +43,6 @@ public class LimitOperationGateDO extends BaseDO {
     public void setPaymentId(String value) {
         paymentId = value;
     }
-
-    private String state;
 
     public String getState() {
         return state;
@@ -51,8 +52,6 @@ public class LimitOperationGateDO extends BaseDO {
         state = value;
     }
 
-    private Long paymentSourceVersion;
-
     public Long getPaymentSourceVersion() {
         return paymentSourceVersion;
     }
@@ -61,8 +60,6 @@ public class LimitOperationGateDO extends BaseDO {
         paymentSourceVersion = value;
     }
 
-    private String noCollectionEvidenceId;
-
     public String getNoCollectionEvidenceId() {
         return noCollectionEvidenceId;
     }
@@ -70,8 +67,6 @@ public class LimitOperationGateDO extends BaseDO {
     public void setNoCollectionEvidenceId(String value) {
         noCollectionEvidenceId = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

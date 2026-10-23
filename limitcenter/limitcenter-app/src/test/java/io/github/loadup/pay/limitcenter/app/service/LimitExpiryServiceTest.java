@@ -169,7 +169,7 @@ class LimitExpiryServiceTest {
         when(f.reservations.lockExistingBuckets(eq("tenant"), anyList()))
                 .thenReturn(new LimitBucketSet(Map.of(item.bucket(), new LimitBucket(item.bucket(), 10, 60, 4))));
         doThrow(new CommonException(
-                        io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE))
+                io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE))
                 .when(f.reservations)
                 .updateReservation(anyString(), any(), anyLong());
         assertThrows(CommonException.class, () -> service.expire(new LimitExpireCommand("operation")));

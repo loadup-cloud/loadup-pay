@@ -51,6 +51,13 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 
 @Repository
 public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
+    private static final Comparator<LimitBucketKey> BUCKET_ORDER = Comparator.comparing(LimitBucketKey::ruleScopeId)
+            .thenComparing(LimitBucketKey::merchantId)
+            .thenComparing(key -> key.metric().name())
+            .thenComparing(LimitBucketKey::currency)
+            .thenComparing(key -> key.window().name())
+            .thenComparing(key -> key.bounds().start())
+            .thenComparing(key -> key.bounds().end());
     private final LimitOperationGateDOMapper gates;
     private final LimitBucketDOMapper buckets;
     private final LimitReservationDOMapper reservations;
@@ -145,14 +152,6 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
                 .and(LimitBucketDO::getWindowEnd)
                 .eq(key.bounds().end());
     }
-
-    private static final Comparator<LimitBucketKey> BUCKET_ORDER = Comparator.comparing(LimitBucketKey::ruleScopeId)
-            .thenComparing(LimitBucketKey::merchantId)
-            .thenComparing(key -> key.metric().name())
-            .thenComparing(LimitBucketKey::currency)
-            .thenComparing(key -> key.window().name())
-            .thenComparing(key -> key.bounds().start())
-            .thenComparing(key -> key.bounds().end());
 
     @Override
     public LimitBucketSet lockBuckets(String tenant, List<LimitBucketKey> keys) {

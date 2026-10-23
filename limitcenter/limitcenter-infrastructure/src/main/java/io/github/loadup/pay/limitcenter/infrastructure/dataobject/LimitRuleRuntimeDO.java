@@ -22,6 +22,18 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_rule_runtime")
 public class LimitRuleRuntimeDO extends BaseDO {
     private String ownerPolicyId;
+    private Integer policyVersion;
+    private String ruleScopeId;
+    private String merchantId;
+    private String metric;
+    private String currency;
+    private String windowType;
+    private Integer weekStart;
+    private String timezone;
+    private Long currentLimit;
+    private Boolean enforcementEnabled;
+    private Boolean meteringEnabled;
+    private Long rowVersion;
 
     public String getOwnerPolicyId() {
         return ownerPolicyId;
@@ -31,8 +43,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         ownerPolicyId = value;
     }
 
-    private Integer policyVersion;
-
     public Integer getPolicyVersion() {
         return policyVersion;
     }
@@ -40,8 +50,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setPolicyVersion(Integer value) {
         policyVersion = value;
     }
-
-    private String ruleScopeId;
 
     public String getRuleScopeId() {
         return ruleScopeId;
@@ -51,8 +59,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         ruleScopeId = value;
     }
 
-    private String merchantId;
-
     public String getMerchantId() {
         return merchantId;
     }
@@ -60,8 +66,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setMerchantId(String value) {
         merchantId = value;
     }
-
-    private String metric;
 
     public String getMetric() {
         return metric;
@@ -71,8 +75,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         metric = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -80,8 +82,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private String windowType;
 
     public String getWindowType() {
         return windowType;
@@ -91,8 +91,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         windowType = value;
     }
 
-    private Integer weekStart;
-
     public Integer getWeekStart() {
         return weekStart;
     }
@@ -100,8 +98,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setWeekStart(Integer value) {
         weekStart = value;
     }
-
-    private String timezone;
 
     public String getTimezone() {
         return timezone;
@@ -111,8 +107,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         timezone = value;
     }
 
-    private Long currentLimit;
-
     public Long getCurrentLimit() {
         return currentLimit;
     }
@@ -120,8 +114,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setCurrentLimit(Long value) {
         currentLimit = value;
     }
-
-    private Boolean enforcementEnabled;
 
     public Boolean getEnforcementEnabled() {
         return enforcementEnabled;
@@ -131,8 +123,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
         enforcementEnabled = value;
     }
 
-    private Boolean meteringEnabled;
-
     public Boolean getMeteringEnabled() {
         return meteringEnabled;
     }
@@ -140,8 +130,6 @@ public class LimitRuleRuntimeDO extends BaseDO {
     public void setMeteringEnabled(Boolean value) {
         meteringEnabled = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

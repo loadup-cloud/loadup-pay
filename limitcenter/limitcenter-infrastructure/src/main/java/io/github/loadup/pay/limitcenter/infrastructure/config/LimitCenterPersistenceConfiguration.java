@@ -22,4 +22,5 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({LimitPermitProperties.class, PaymentEvidenceProperties.class})
 @MapperScan("io.github.loadup.pay.limitcenter.infrastructure.mapper")
-public class LimitCenterPersistenceConfiguration {}
+public class LimitCenterPersistenceConfiguration {
+}

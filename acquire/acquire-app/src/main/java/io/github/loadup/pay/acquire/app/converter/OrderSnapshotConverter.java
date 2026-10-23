@@ -19,8 +19,11 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.common.BusinessTime;
-import org.mapstruct.*;
-import java.time.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderSnapshotConverter {
@@ -29,5 +32,8 @@ public interface OrderSnapshotConverter {
     @Mapping(target = "paidAmountMinor", source = "paidMinor")
     @Mapping(target = "paymentReservedMinor", source = "reservedMinor")
     OrderSnapshotEventDTO toEvent(OrderSnapshotFacts value);
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

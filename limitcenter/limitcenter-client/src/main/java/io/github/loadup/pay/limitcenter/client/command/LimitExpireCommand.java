@@ -20,7 +20,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** Requests expiry; the server clock and persisted state determine whether quota can be released. */
+/**
+ * Requests expiry; the server clock and persisted state determine whether quota can be released.
+ */
 public record LimitExpireCommand(
         @Schema(description = "Original limit operation identifier") @NotBlank @Size(max = 64)
         String operationId) {

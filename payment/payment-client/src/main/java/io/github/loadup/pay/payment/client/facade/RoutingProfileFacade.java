@@ -21,5 +21,6 @@ import io.github.loadup.pay.payment.client.query.RoutingProfileDetailQuery;
 
 public interface RoutingProfileFacade {
     RoutingProfileDTO publish(RoutingProfilePublishCommand command);
+
     RoutingProfileDTO detail(RoutingProfileDetailQuery query);
 }

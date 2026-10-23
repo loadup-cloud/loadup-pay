@@ -16,14 +16,19 @@
 package io.github.loadup.pay.payment.adapter.web;
 
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/executions")

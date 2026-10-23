@@ -19,14 +19,28 @@ import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.acquire.infrastructure.converter.*;
-import io.github.loadup.pay.acquire.infrastructure.mapper.*;
-import java.util.Optional;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentChange;
+import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
+import io.github.loadup.pay.acquire.infrastructure.converter.PaymentOutcomeStorageConverter;
+import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentAllocationDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentOutcomeDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_ALLOCATION_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_OUTCOME_DO;
 
 @Repository
 public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
@@ -38,8 +52,8 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     private final PaymentInitiationCodec codec;
 
     public PaymentOutcomeGatewayImpl(AcquireOrderDOMapper orders, OrderPaymentAllocationDOMapper allocations,
-            OrderPaymentOutcomeDOMapper receipts, PaymentInitiationStorageConverter allocationConverter,
-            PaymentOutcomeStorageConverter converter, PaymentInitiationCodec codec) {
+                                     OrderPaymentOutcomeDOMapper receipts, PaymentInitiationStorageConverter allocationConverter,
+                                     PaymentOutcomeStorageConverter converter, PaymentInitiationCodec codec) {
         this.orders = orders;
         this.allocations = allocations;
         this.receipts = receipts;
@@ -93,7 +107,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
 
     @Override
     public void apply(String tenant, OrderPaymentChange change, StoredPaymentAllocation original,
-            PaymentOutcomeReceipt receipt, long expectedOrderVersion) {
+                      PaymentOutcomeReceipt receipt, long expectedOrderVersion) {
         requireTransaction();
         var order = change.order();
         var allocation = change.allocation();
@@ -103,8 +117,8 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         if (original.allocation().state() != AllocationState.HELD
                 || !original.allocation().transition(expectedState, receipt.outcome().paymentVersion()).equals(allocation)
                 || (receipt.outcome().kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED
-                        ? original.allocation().paymentSourceVersion() != 0
-                        : receipt.outcome().paymentVersion() <= original.allocation().paymentSourceVersion())
+                ? original.allocation().paymentSourceVersion() != 0
+                : receipt.outcome().paymentVersion() <= original.allocation().paymentSourceVersion())
                 || order.version() != Math.incrementExact(expectedOrderVersion)
                 || !(order.state() == AcquireOrderState.PENDING || order.state() == AcquireOrderState.CLOSING || order.state() == AcquireOrderState.PAID))
             throw new CommonException(SNAPSHOT_INVALID);

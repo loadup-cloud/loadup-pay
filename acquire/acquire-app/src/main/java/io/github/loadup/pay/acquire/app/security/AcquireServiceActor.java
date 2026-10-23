@@ -17,11 +17,18 @@ package io.github.loadup.pay.acquire.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
 public record AcquireServiceActor(String tenantId, String serviceId, Set<String> permissions) {
     public AcquireServiceActor {
-        DomainChecks.id(tenantId); DomainChecks.id(serviceId); permissions = Set.copyOf(permissions);
+        DomainChecks.id(tenantId);
+        DomainChecks.id(serviceId);
+        permissions = Set.copyOf(permissions);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

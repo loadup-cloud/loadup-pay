@@ -17,12 +17,19 @@ package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.payment.client.command.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.ParentCloseEvidence;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Named;
+
 import java.time.LocalDateTime;
-import org.mapstruct.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderClosureConverter {
@@ -36,7 +43,7 @@ public interface OrderClosureConverter {
     @Mapping(target = "rowVersion", constant = "0L")
     @Mapping(target = "advanceCursor", ignore = true)
     OrderCloseIntent toIntent(AcquireOrderCloseCommand command, AcquireOrder order, String intentId,
-            String callerScopeHash, String requestDigest, LocalDateTime requestedAt);
+                              String callerScopeHash, String requestDigest, LocalDateTime requestedAt);
 
     @Mapping(target = "requestKey", source = "intent.id", qualifiedByName = "closeRequestKey")
     ParentPaymentFenceCommand toFence(OrderCloseIntent intent);

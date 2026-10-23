@@ -18,21 +18,35 @@ package io.github.loadup.pay.realtime.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.client.event.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.app.port.TradeProjectionCodec;
-import io.github.loadup.pay.realtime.app.security.*;
+import io.github.loadup.pay.realtime.app.security.RealtimeActor;
+import io.github.loadup.pay.realtime.app.security.RealtimeActorProvider;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.client.facade.TradeProjectionFacade;
-import io.github.loadup.pay.realtime.domain.gateway.*;
-import io.github.loadup.pay.realtime.domain.model.*;
-import org.springframework.beans.factory.annotation.*;
+import io.github.loadup.pay.realtime.domain.gateway.ProjectionReceiptGateway;
+import io.github.loadup.pay.realtime.domain.gateway.TradeProjectionGateway;
+import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
+import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
+import io.github.loadup.pay.realtime.domain.model.SourceVersion;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.function.Supplier;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.*;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 
 @Service
 public class TradeProjectionService implements TradeProjectionFacade {
@@ -45,36 +59,61 @@ public class TradeProjectionService implements TradeProjectionFacade {
     private final IdGenerator ids;
     private final Clock clock;
     private final String acquireService, paymentService;
+
     public TradeProjectionService(RealtimeActorProvider actors, TradeProjectionGateway projections, ProjectionReceiptGateway receipts,
-            TradeProjectionCodec codec, TradeProjectionConverter converter, RealtimeTransactions transactions, IdGenerator ids,
-            @Qualifier("realtimeClock") Clock clock, @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
-            @Value("${loadup.modules.realtime.payment-service-id:payment}") String paymentService) {
-        this.actors = actors; this.projections = projections; this.receipts = receipts; this.codec = codec; this.converter = converter;
-        this.transactions = transactions; this.ids = ids; this.clock = clock;
-        this.acquireService = DomainChecks.id(acquireService); this.paymentService = DomainChecks.id(paymentService);
+                                  TradeProjectionCodec codec, TradeProjectionConverter converter, RealtimeTransactions transactions, IdGenerator ids,
+                                  @Qualifier("realtimeClock") Clock clock, @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
+                                  @Value("${loadup.modules.realtime.payment-service-id:payment}") String paymentService) {
+        this.actors = actors;
+        this.projections = projections;
+        this.receipts = receipts;
+        this.codec = codec;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.clock = clock;
+        this.acquireService = DomainChecks.id(acquireService);
+        this.paymentService = DomainChecks.id(paymentService);
     }
-    @Override public ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event) {
+
+    @Override
+    public ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event) {
         var actor = actor(acquireService, "pay:realtime:projection:order");
-        validate(() -> { event.data().requireEnvelope(event); return true; });
+        validate(() -> {
+            event.data().requireEnvelope(event);
+            return true;
+        });
         var value = converter.toOrder(event.data(), new SourceVersion("acquire", "AcquireOrder", event.aggregateId(), event.aggregateVersion()), now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyOrderIfNewer(actor.tenantId(), value, hash));
     }
-    @Override public ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event) {
+
+    @Override
+    public ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:payment");
-        validate(() -> { event.data().requireEnvelope(event); return true; });
+        validate(() -> {
+            event.data().requireEnvelope(event);
+            return true;
+        });
         var value = converter.toPayment(event.data(), new SourceVersion("payment", "PaymentOrder", event.aggregateId(), event.aggregateVersion()), now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyPaymentIfNewer(actor.tenantId(), value, hash));
     }
-    @Override public ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event) {
+
+    @Override
+    public ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:refund");
-        validate(() -> { event.data().requireEnvelope(event); return true; });
+        validate(() -> {
+            event.data().requireEnvelope(event);
+            return true;
+        });
         var value = converter.toRefund(event.data(), new SourceVersion("payment", "RefundOrder", event.aggregateId(), event.aggregateVersion()), now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyRefundIfNewer(actor.tenantId(), value, hash));
     }
-    @Override public ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event) {
+
+    @Override
+    public ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:refund-summary");
         validate(() -> {
             event.data().requireEnvelope(event);
@@ -86,6 +125,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyRefundSummaryIfNewer(actor.tenantId(), value, hash));
     }
+
     private ProjectionAckDTO consume(RealtimeActor actor, PayEventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), event, hash);
         return transactions.write(actor.tenantId(), () -> {
@@ -103,13 +143,23 @@ public class TradeProjectionService implements TradeProjectionFacade {
             return converter.toAck(receipt);
         });
     }
+
     private RealtimeActor actor(String service, String permission) {
         var actor = actors.current();
-        if (!service.equals(actor.serviceId()) || !actor.permissions().contains(permission)) throw new CommonException(QUERY_FORBIDDEN);
+        if (!service.equals(actor.serviceId()) || !actor.permissions().contains(permission))
+            throw new CommonException(QUERY_FORBIDDEN);
         return actor;
     }
+
     private void validate(Supplier<Boolean> work) {
-        try { work.get(); } catch (NullPointerException | DomainViolation invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        try {
+            work.get();
+        } catch (NullPointerException | DomainViolation invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()); }
+
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
 }

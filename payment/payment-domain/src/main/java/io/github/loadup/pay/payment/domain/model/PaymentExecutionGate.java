@@ -24,7 +24,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** A null paymentId denotes the persistent parent-order gate. */
+/**
+ * A null paymentId denotes the persistent parent-order gate.
+ */
 public record PaymentExecutionGate(String orderId, String paymentId, GateState state, long fenceEpoch) {
     public PaymentExecutionGate {
         DomainChecks.id(orderId);
@@ -45,7 +47,9 @@ public record PaymentExecutionGate(String orderId, String paymentId, GateState s
                 : new PaymentExecutionGate(orderId, paymentId, GateState.FENCED, Math.max(epoch, fenceEpoch));
     }
 
-    /** A tombstone received before creation can never be opened by a late execution intent. */
+    /**
+     * A tombstone received before creation can never be opened by a late execution intent.
+     */
     public PaymentExecutionGate open() {
         if (state == GateState.OPEN) return this;
         require(state == GateState.INIT, INVALID_STATE);

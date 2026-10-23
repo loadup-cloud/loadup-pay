@@ -17,18 +17,31 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderCreationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.*;
+import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderContractSnapshotDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderCreateIntentDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderFeeDOMapper;
+import io.github.loadup.pay.common.BusinessTime;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.*;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.util.Objects;
+import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_CONTRACT_SNAPSHOT_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_CREATE_INTENT_DO;
 
 @Repository
 public class OrderCreationGatewayImpl implements OrderCreationGateway {
@@ -140,7 +153,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     || !Objects.equals(snapshot.getSnapshotHash(), admission.snapshotHash())
                     || !Objects.equals(snapshot.getCompiledTermsHash(), admission.compiledTermsHash())
                     || !Objects.equals(
-                            snapshot.getSchemaVersion(), admission.terms().schemaVersion())
+                    snapshot.getSchemaVersion(), admission.terms().schemaVersion())
                     || !Objects.equals(snapshot.getAdmissionDigest(), admission.requestDigest()))
                 throw new CommonException(SNAPSHOT_INVALID);
             var policy = business.toPaymentPolicy(admission.terms().payment());

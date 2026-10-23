@@ -17,9 +17,12 @@ package io.github.loadup.pay.limitcenter.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
-/** Created only from a verified service credential by the transport adapter. */
+/**
+ * Created only from a verified service credential by the transport adapter.
+ */
 public record LimitActor(String tenantId, String serviceId, Set<String> permissions) {
     public LimitActor {
         DomainChecks.id(tenantId);

@@ -16,26 +16,78 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.app.security.*;
-import io.github.loadup.pay.payment.client.command.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
+import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentControlServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -89,7 +141,7 @@ class PaymentControlServiceTest {
             var current = payment.get();
             if (current == null) return new PaymentChildrenStatus(0, 0);
             if (Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
-                            .contains(current.payment().state())
+                    .contains(current.payment().state())
                     && current.terminalEvidenceId() != null) return new PaymentChildrenStatus(0, 0);
             return new PaymentChildrenStatus(1, current.payment().activeAttemptId() == null ? 0 : 1);
         });
@@ -99,49 +151,49 @@ class PaymentControlServiceTest {
                         .formatHex(MessageDigest.getInstance("SHA-256")
                                 .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
         doAnswer(c -> {
-                    active();
-                    parent.set(c.getArgument(1));
-                    return null;
-                })
+            active();
+            parent.set(c.getArgument(1));
+            return null;
+        })
                 .when(gates)
                 .insertParent(eq("tenant"), any());
         doAnswer(c -> {
-                    active();
-                    gate.set(c.getArgument(1));
-                    return null;
-                })
+            active();
+            gate.set(c.getArgument(1));
+            return null;
+        })
                 .when(gates)
                 .insertPaymentGate(eq("tenant"), any());
         doAnswer(c -> {
-                    active();
-                    assertEquals(parent.get().rowVersion(), (Long) c.getArgument(2));
-                    parent.set(c.getArgument(1));
-                    return null;
-                })
+            active();
+            assertEquals(parent.get().rowVersion(), (Long) c.getArgument(2));
+            parent.set(c.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .updateParent(eq("tenant"), any(), anyLong());
         doAnswer(c -> {
-                    active();
-                    assertEquals(gate.get().rowVersion(), (Long) c.getArgument(2));
-                    gate.set(c.getArgument(1));
-                    return null;
-                })
+            active();
+            assertEquals(gate.get().rowVersion(), (Long) c.getArgument(2));
+            gate.set(c.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .updateGate(eq("tenant"), any(), anyLong());
         doAnswer(c -> {
-                    active();
-                    assertEquals(payment.get().payment().version(), (Long) c.getArgument(2));
-                    payment.set(c.getArgument(1));
-                    return null;
-                })
+            active();
+            assertEquals(payment.get().payment().version(), (Long) c.getArgument(2));
+            payment.set(c.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .updatePayment(eq("tenant"), any(), anyLong());
         doAnswer(c -> {
-                    active();
-                    PaymentControlReceipt value = c.getArgument(1);
-                    receipts.put(value.kind() + ":" + value.targetId() + ":" + value.requestKey(), value);
-                    return null;
-                })
+            active();
+            PaymentControlReceipt value = c.getArgument(1);
+            receipts.put(value.kind() + ":" + value.targetId() + ":" + value.requestKey(), value);
+            return null;
+        })
                 .when(store)
                 .insertReceipt(eq("tenant"), any());
     }
@@ -179,7 +231,7 @@ class PaymentControlServiceTest {
                 state == PaymentState.SUCCEEDED ? "attempt" : null,
                 attempted ? 1 : 0);
         String proof = Set.of(PaymentState.CLOSED, PaymentState.FAILED, PaymentState.SUCCEEDED)
-                        .contains(state)
+                .contains(state)
                 ? "terminal-proof"
                 : null;
         payment.set(new StoredPaymentAcceptance(
@@ -258,9 +310,9 @@ class PaymentControlServiceTest {
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
-                                CommonException.class,
-                                () -> service.close(
-                                        new PaymentCloseCommand("payment", "order", "merchant", "key", 1, "TIMEOUT")))
+                        CommonException.class,
+                        () -> service.close(
+                                new PaymentCloseCommand("payment", "order", "merchant", "key", 1, "TIMEOUT")))
                         .getResultCode());
         assertEquals(1, receipts.size());
     }
@@ -451,9 +503,9 @@ class PaymentControlServiceTest {
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(
-                                CommonException.class,
-                                () -> service.close(
-                                        new PaymentCloseCommand("payment", "order", "other", "close", 1, "CANCELLED")))
+                        CommonException.class,
+                        () -> service.close(
+                                new PaymentCloseCommand("payment", "order", "other", "close", 1, "CANCELLED")))
                         .getResultCode());
         verify(store, never()).updatePayment(anyString(), any(), anyLong());
     }

@@ -15,19 +15,30 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
-import jakarta.validation.constraints.*;
+
 import java.nio.file.Path;
 
 @Validated
 @ConfigurationProperties("loadup.modules.payment.realtime")
-public record PaymentRealtimeProperties(@NotBlank String tenantId, @NotBlank String serviceId, @NotBlank String audience,
-        @NotNull @DiagnosticHidden Path tokenFile) {
+public record PaymentRealtimeProperties(@NotBlank String tenantId, @NotBlank String serviceId,
+                                        @NotBlank String audience,
+                                        @NotNull @DiagnosticHidden Path tokenFile) {
     public PaymentRealtimeProperties {
-        DomainChecks.id(tenantId); DomainChecks.id(serviceId); DomainChecks.text(audience, 128); java.util.Objects.requireNonNull(tokenFile);
+        DomainChecks.id(tenantId);
+        DomainChecks.id(serviceId);
+        DomainChecks.text(audience, 128);
+        java.util.Objects.requireNonNull(tokenFile);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

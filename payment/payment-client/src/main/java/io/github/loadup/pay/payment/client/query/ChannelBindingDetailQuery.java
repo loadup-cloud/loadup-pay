@@ -17,10 +17,14 @@ package io.github.loadup.pay.payment.client.query;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record ChannelBindingDetailQuery(
         @Schema(description = "Collecting merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
         @Schema(description = "Merchant-local binding code") @NotBlank @Size(max = 64) String bindingCode) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

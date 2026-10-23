@@ -17,9 +17,25 @@ package io.github.loadup.pay.common;
 
 import java.util.Objects;
 
-/** A pure-domain failure; application adapters map reasons to public result-code enums. */
+/**
+ * A pure-domain failure; application adapters map reasons to public result-code enums.
+ */
 public final class DomainViolation extends IllegalArgumentException {
     private static final long serialVersionUID = 1L;
+    private final Reason reason;
+
+    public DomainViolation(Reason reason) {
+        super(Objects.requireNonNull(reason, "reason").name());
+        this.reason = reason;
+    }
+
+    public static void require(boolean condition, Reason reason) {
+        if (!condition) throw new DomainViolation(reason);
+    }
+
+    public Reason reason() {
+        return reason;
+    }
 
     public enum Reason {
         INVALID_ARGUMENT,
@@ -29,20 +45,5 @@ public final class DomainViolation extends IllegalArgumentException {
         CURRENCY_MISMATCH,
         OUTCOME_UNKNOWN,
         DEPENDENCY_NOT_READY
-    }
-
-    private final Reason reason;
-
-    public DomainViolation(Reason reason) {
-        super(Objects.requireNonNull(reason, "reason").name());
-        this.reason = reason;
-    }
-
-    public Reason reason() {
-        return reason;
-    }
-
-    public static void require(boolean condition, Reason reason) {
-        if (!condition) throw new DomainViolation(reason);
     }
 }

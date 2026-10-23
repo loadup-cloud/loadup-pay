@@ -32,7 +32,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Complete source-owned snapshot; no synchronous source lookup is required by realtime. */
+/**
+ * Complete source-owned snapshot; no synchronous source lookup is required by realtime.
+ */
 public record PaymentSnapshotEventDTO(
         @Schema(description = "Payment id") String paymentId,
         @Schema(description = "Order id") String orderId,

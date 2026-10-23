@@ -22,7 +22,9 @@ import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** A trusted final payment outcome, not a timeout or a caller's claim. */
+/**
+ * A trusted final payment outcome, not a timeout or a caller's claim.
+ */
 public record LimitReleaseEvidence(
         String paymentId, Money amount, long paymentVersion, String evidenceId, boolean executionFenced) {
     public LimitReleaseEvidence {

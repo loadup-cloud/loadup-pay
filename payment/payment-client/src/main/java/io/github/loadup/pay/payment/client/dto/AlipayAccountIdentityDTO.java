@@ -15,9 +15,11 @@
  */
 package io.github.loadup.pay.payment.client.dto;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record AlipayAccountIdentityDTO(
         @Schema(description = "Signing application id") @NotBlank @Size(max = 32) String appId,
@@ -27,5 +29,8 @@ public record AlipayAccountIdentityDTO(
         @Size(max = 128) @DiagnosticHidden String authorizationReference,
         @Schema(description = "Immutable authorization resource version", accessMode = Schema.AccessMode.WRITE_ONLY)
         @Size(max = 64) @DiagnosticHidden String authorizationVersion) implements ChannelAccountIdentityDTO {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

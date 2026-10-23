@@ -18,14 +18,17 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
+import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
-import io.github.loadup.pay.payment.app.port.*;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import io.github.loadup.pay.limitcenter.client.dto.*;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import org.springframework.stereotype.Component;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
 @Component
 public class PaymentLimitOutcomeDelivery {
@@ -33,10 +36,15 @@ public class PaymentLimitOutcomeDelivery {
     private final PaymentLimitClient limits;
     private final PaymentAcceptanceCodec intents;
     private final PaymentOutcomeDeliveryConverter converter;
+
     public PaymentLimitOutcomeDelivery(PaymentOutcomeDeliverySupport support, PaymentLimitClient limits,
-            PaymentAcceptanceCodec intents, PaymentOutcomeDeliveryConverter converter) {
-        this.support = support; this.limits = limits; this.intents = intents; this.converter = converter;
+                                       PaymentAcceptanceCodec intents, PaymentOutcomeDeliveryConverter converter) {
+        this.support = support;
+        this.limits = limits;
+        this.intents = intents;
+        this.converter = converter;
     }
+
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentResultEvents.LIMIT); // All local locks are released on return.
         if (!limits.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
@@ -52,14 +60,17 @@ public class PaymentLimitOutcomeDelivery {
             if (ack == null || !ack.fenced() || !payment.payment().id().equals(ack.paymentId())
                     || !payment.payment().limitOperationId().equals(ack.operationId())
                     || payment.payment().version() != ack.paymentVersion()
-                    || !payment.terminalEvidenceId().equals(ack.noCollectionEvidenceId())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    || !payment.terminalEvidenceId().equals(ack.noCollectionEvidenceId()))
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
             if (ack.reservation() != null) {
                 reservation(snapshot, ack.reservation());
                 if (ack.reservation().state() != LimitReservationState.RELEASED
-                        && ack.reservation().state() != LimitReservationState.EXPIRED) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                        && ack.reservation().state() != LimitReservationState.EXPIRED)
+                    throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
         }
     }
+
     private void reservation(PaymentDeliverySnapshot snapshot, LimitReservationDTO ack) {
         var source = snapshot.payment().payment();
         var policy = intents.decode(snapshot.payment()).admittedTerms().terms().limits();

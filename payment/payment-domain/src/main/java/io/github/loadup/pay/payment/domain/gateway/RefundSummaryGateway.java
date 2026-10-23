@@ -16,11 +16,16 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
+
 import java.util.Optional;
 
-/** Caller already owns the parent gate and refund write locks in the same transaction. */
+/**
+ * Caller already owns the parent gate and refund write locks in the same transaction.
+ */
 public interface RefundSummaryGateway {
     Optional<OrderRefundSummary> lock(String tenant, String orderId);
+
     void insert(String tenant, OrderRefundSummary value);
+
     void update(String tenant, OrderRefundSummary before, OrderRefundSummary value);
 }

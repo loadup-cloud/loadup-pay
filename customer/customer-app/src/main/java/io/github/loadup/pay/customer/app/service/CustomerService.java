@@ -95,6 +95,17 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
         this.validator = validator;
     }
 
+    private static LocalDateTime local(OffsetDateTime value) {
+        if (value == null) return null;
+        // MySQL DATETIME(6) must preserve exactly the accepted validity boundary.
+        if (value.getNano() % 1000 != 0) throw new CommonException(INVALID_ARGUMENT);
+        return BusinessTime.local(value);
+    }
+
+    private static void expected(long actual, long requested) {
+        if (actual != requested) throw new CommonException(CONFLICT);
+    }
+
     @Override
     public MerchantRelationshipDTO createRelationship(MerchantRelationshipCreateCommand command) {
         return invoke(
@@ -153,9 +164,9 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                                 if (!relationship.childMerchantId().equals(command.payeeMerchantId())
                                         || !relationship.activeAt(LocalDateTime.now(clock))
                                         || type == PrincipalType.MERCHANT
-                                                && !relationship
-                                                        .parentMerchantId()
-                                                        .equals(command.principalId()))
+                                        && !relationship
+                                        .parentMerchantId()
+                                        .equals(command.principalId()))
                                     throw new CommonException(ACTION_FORBIDDEN);
                                 active(actor.tenantId(), relationship.parentMerchantId());
                             }
@@ -208,10 +219,10 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                             MerchantRelationship revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
-                                        if (revoked != previous)
-                                            authorization.saveRelationship(
-                                                    actor.tenantId(), revoked, previous.version());
-                                    });
+                                if (revoked != previous)
+                                    authorization.saveRelationship(
+                                            actor.tenantId(), revoked, previous.version());
+                            });
                         }));
     }
 
@@ -238,9 +249,9 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                             MerchantActionGrant revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
-                                        if (revoked != previous)
-                                            authorization.saveGrant(actor.tenantId(), revoked, previous.version());
-                                    });
+                                if (revoked != previous)
+                                    authorization.saveGrant(actor.tenantId(), revoked, previous.version());
+                            });
                         }));
     }
 
@@ -261,21 +272,21 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
             MerchantRelationship relationship = grant == null || grant.relationshipId() == null
                     ? null
                     : authorization
-                            .findRelationship(actor.tenantId(), grant.relationshipId())
-                            .orElse(null);
+                    .findRelationship(actor.tenantId(), grant.relationshipId())
+                    .orElse(null);
             if (grant == null
                     || !grant.allows(
-                            actor.principalType(),
-                            actor.principalId(),
-                            actor.merchantId(),
-                            command.payeeMerchantId(),
-                            action,
-                            LocalDateTime.now(clock),
-                            relationship)) return denied(ACTION_FORBIDDEN.getCode());
+                    actor.principalType(),
+                    actor.principalId(),
+                    actor.merchantId(),
+                    command.payeeMerchantId(),
+                    action,
+                    LocalDateTime.now(clock),
+                    relationship)) return denied(ACTION_FORBIDDEN.getCode());
             if (actor.merchantId() != null
                     && !facts.find(actor.tenantId(), actor.merchantId())
-                            .map(MerchantFacts::active)
-                            .orElse(false)) return denied(MERCHANT_INACTIVE.getCode());
+                    .map(MerchantFacts::active)
+                    .orElse(false)) return denied(MERCHANT_INACTIVE.getCode());
             return converter.toEligibility(
                     true,
                     "ALLOWED",
@@ -295,17 +306,6 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
         if (!facts.find(tenant, id)
                 .orElseThrow(() -> new CommonException(NOT_FOUND))
                 .active()) throw new CommonException(MERCHANT_INACTIVE);
-    }
-
-    private static LocalDateTime local(OffsetDateTime value) {
-        if (value == null) return null;
-        // MySQL DATETIME(6) must preserve exactly the accepted validity boundary.
-        if (value.getNano() % 1000 != 0) throw new CommonException(INVALID_ARGUMENT);
-        return BusinessTime.local(value);
-    }
-
-    private static void expected(long actual, long requested) {
-        if (actual != requested) throw new CommonException(CONFLICT);
     }
 
     private <T> T invoke(Object command, boolean management, Function<CustomerActor, T> operation) {

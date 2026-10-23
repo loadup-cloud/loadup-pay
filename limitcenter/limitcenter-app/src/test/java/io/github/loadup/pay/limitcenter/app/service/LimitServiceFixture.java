@@ -46,7 +46,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.mock;
 
-/** Source-level unit fixture. Its transaction manager records boundaries; it cannot prove database rollback or locking. */
+/**
+ * Source-level unit fixture. Its transaction manager records boundaries; it cannot prove database rollback or locking.
+ */
 class LimitServiceFixture implements AutoCloseable {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(LimitConverterImpl.class);

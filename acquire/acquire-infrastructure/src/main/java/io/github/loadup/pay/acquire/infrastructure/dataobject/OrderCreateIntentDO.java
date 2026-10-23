@@ -17,12 +17,27 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("order_create_intent")
 public class OrderCreateIntentDO extends BaseDO {
     private String payeeMerchantId;
+    private String merchantOrderNo;
+    private String orderId;
+    private String requestDigest;
+    private String callerScopeHash;
+    private String entryMode;
+    private String initialSessionId;
+    @DiagnosticHidden
+    private String intentPayload;
+    private String state;
+    private String admissionId;
+    private LocalDateTime materializeBefore;
+    private String resultCode;
+    private Long rowVersion;
 
     public String getPayeeMerchantId() {
         return payeeMerchantId;
@@ -32,8 +47,6 @@ public class OrderCreateIntentDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    private String merchantOrderNo;
-
     public String getMerchantOrderNo() {
         return merchantOrderNo;
     }
@@ -41,8 +54,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setMerchantOrderNo(String value) {
         merchantOrderNo = value;
     }
-
-    private String orderId;
 
     public String getOrderId() {
         return orderId;
@@ -52,8 +63,6 @@ public class OrderCreateIntentDO extends BaseDO {
         orderId = value;
     }
 
-    private String requestDigest;
-
     public String getRequestDigest() {
         return requestDigest;
     }
@@ -61,8 +70,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setRequestDigest(String value) {
         requestDigest = value;
     }
-
-    private String callerScopeHash;
 
     public String getCallerScopeHash() {
         return callerScopeHash;
@@ -72,8 +79,6 @@ public class OrderCreateIntentDO extends BaseDO {
         callerScopeHash = value;
     }
 
-    private String entryMode;
-
     public String getEntryMode() {
         return entryMode;
     }
@@ -81,8 +86,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setEntryMode(String value) {
         entryMode = value;
     }
-
-    private String initialSessionId;
 
     public String getInitialSessionId() {
         return initialSessionId;
@@ -92,9 +95,6 @@ public class OrderCreateIntentDO extends BaseDO {
         initialSessionId = value;
     }
 
-    @DiagnosticHidden
-    private String intentPayload;
-
     public String getIntentPayload() {
         return intentPayload;
     }
@@ -102,8 +102,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setIntentPayload(String value) {
         intentPayload = value;
     }
-
-    private String state;
 
     public String getState() {
         return state;
@@ -113,8 +111,6 @@ public class OrderCreateIntentDO extends BaseDO {
         state = value;
     }
 
-    private String admissionId;
-
     public String getAdmissionId() {
         return admissionId;
     }
@@ -122,8 +118,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setAdmissionId(String value) {
         admissionId = value;
     }
-
-    private LocalDateTime materializeBefore;
 
     public LocalDateTime getMaterializeBefore() {
         return materializeBefore;
@@ -133,8 +127,6 @@ public class OrderCreateIntentDO extends BaseDO {
         materializeBefore = value;
     }
 
-    private String resultCode;
-
     public String getResultCode() {
         return resultCode;
     }
@@ -142,8 +134,6 @@ public class OrderCreateIntentDO extends BaseDO {
     public void setResultCode(String value) {
         resultCode = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

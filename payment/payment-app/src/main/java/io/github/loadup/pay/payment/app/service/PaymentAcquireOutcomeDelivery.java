@@ -19,15 +19,20 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import org.springframework.stereotype.Component;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
 @Component
 public class PaymentAcquireOutcomeDelivery {
     private final PaymentOutcomeDeliverySupport support;
     private final PaymentAcquireClient acquire;
+
     public PaymentAcquireOutcomeDelivery(PaymentOutcomeDeliverySupport support, PaymentAcquireClient acquire) {
-        this.support = support; this.acquire = acquire;
+        this.support = support;
+        this.acquire = acquire;
     }
+
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentResultEvents.ACQUIRE);
         if (!acquire.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);

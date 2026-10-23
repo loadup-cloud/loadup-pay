@@ -17,23 +17,28 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 /**
  * Internal adapter facts, after signature/decryption and actual collecting-account verification.
  * NOT_FOUND, timeout and unauthenticated responses never prove NO_COLLECTION. No HTTP binding.
  */
 public record PaymentObservation(ChannelPaymentIdentity identity, ChannelPaymentOutcome.Kind kind, Money amount,
-        String channelTransactionNo, LocalDateTime succeededAt, Source source, String receiptKey, String sourceDigest) {
-    public enum Source { SUBMIT_RESPONSE, QUERY_RESPONSE, CALLBACK }
+                                 String channelTransactionNo, LocalDateTime succeededAt, Source source,
+                                 String receiptKey, String sourceDigest) {
     public PaymentObservation {
-        Objects.requireNonNull(identity); Objects.requireNonNull(kind); Objects.requireNonNull(source);
-        DomainChecks.amount(amount); require(amount.getCent() > 0, INVALID_ARGUMENT);
+        Objects.requireNonNull(identity);
+        Objects.requireNonNull(kind);
+        Objects.requireNonNull(source);
+        DomainChecks.amount(amount);
+        require(amount.getCent() > 0, INVALID_ARGUMENT);
         DomainChecks.text(receiptKey, 128);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         if (channelTransactionNo != null) DomainChecks.text(channelTransactionNo, 128);
@@ -42,5 +47,11 @@ public record PaymentObservation(ChannelPaymentIdentity identity, ChannelPayment
             require(channelTransactionNo != null && succeededAt != null, INVALID_ARGUMENT);
         else require(succeededAt == null, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum Source {SUBMIT_RESPONSE, QUERY_RESPONSE, CALLBACK}
 }

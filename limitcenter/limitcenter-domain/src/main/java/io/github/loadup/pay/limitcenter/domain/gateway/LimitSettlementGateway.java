@@ -15,12 +15,19 @@
  */
 package io.github.loadup.pay.limitcenter.domain.gateway;
 
-import io.github.loadup.pay.limitcenter.domain.model.*;
-import java.util.*;
+import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
+
+import java.util.List;
+import java.util.Optional;
 
 public interface LimitSettlementGateway {
     Optional<LimitSettlementReceipt> findReceipt(String tenant, String operationId);
+
     void insertReceipt(String tenant, LimitSettlementReceipt receipt);
+
     void fenceGate(String tenant, LimitOperationGate gate);
+
     void updateItems(String tenant, List<LimitReservationItem> before, List<LimitReservationItem> after);
 }

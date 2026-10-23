@@ -16,16 +16,25 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 public record StoredChannelBindingRevision(ChannelBindingRevision binding, String bindingId, int revision,
-        String identityHash, String callerServiceId, LocalDateTime publishedAt) {
+                                           String identityHash, String callerServiceId, LocalDateTime publishedAt) {
     public StoredChannelBindingRevision {
-        Objects.requireNonNull(binding); DomainChecks.id(bindingId); DomainChecks.positive(revision);
-        DomainChecks.id(callerServiceId); Objects.requireNonNull(publishedAt);
+        Objects.requireNonNull(binding);
+        DomainChecks.id(bindingId);
+        DomainChecks.positive(revision);
+        DomainChecks.id(callerServiceId);
+        Objects.requireNonNull(publishedAt);
         DomainViolation.require(identityHash != null && identityHash.matches("[0-9a-f]{64}"), DomainViolation.Reason.INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -26,5 +26,8 @@ public record PaymentOutcomeAckDTO(
         @Schema(description = "Authoritative terminal evidence") String evidenceId,
         @Schema(description = "Order version observed in the committed receipt") long orderVersion,
         @Schema(description = "The original event was durably accepted") boolean accepted) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

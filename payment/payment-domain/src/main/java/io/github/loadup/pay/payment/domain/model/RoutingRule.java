@@ -16,13 +16,23 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PaymentMethod;
+
 import java.util.Objects;
 
 public record RoutingRule(String bindingCode, Channel channel, AccessMode accessMode, PaymentMethod method) {
     public RoutingRule {
         DomainChecks.id(bindingCode);
-        Objects.requireNonNull(channel); Objects.requireNonNull(accessMode); Objects.requireNonNull(method);
+        Objects.requireNonNull(channel);
+        Objects.requireNonNull(accessMode);
+        Objects.requireNonNull(method);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

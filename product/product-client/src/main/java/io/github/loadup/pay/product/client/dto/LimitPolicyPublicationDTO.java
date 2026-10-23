@@ -17,6 +17,7 @@ package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 public record LimitPolicyPublicationDTO(

@@ -15,19 +15,29 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import java.time.LocalDateTime;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-public record StoredRefundRequest(RefundRequest request, String reasonCode, String requestDigest, String callerSubjectHash,
-        String admissionId, @DiagnosticHidden String termsPayload, String termsHash, LocalDateTime plannedAt,
-        List<StoredRefundChild> allocations) {
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+public record StoredRefundRequest(RefundRequest request, String reasonCode, String requestDigest,
+                                  String callerSubjectHash,
+                                  String admissionId, @DiagnosticHidden String termsPayload, String termsHash,
+                                  LocalDateTime plannedAt,
+                                  List<StoredRefundChild> allocations) {
     public StoredRefundRequest {
-        Objects.requireNonNull(request); Objects.requireNonNull(plannedAt);
-        DomainChecks.text(reasonCode, 64); DomainChecks.id(admissionId); DomainChecks.text(termsPayload, 262144);
+        Objects.requireNonNull(request);
+        Objects.requireNonNull(plannedAt);
+        DomainChecks.text(reasonCode, 64);
+        DomainChecks.id(admissionId);
+        DomainChecks.text(termsPayload, 262144);
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}")
                 && callerSubjectHash != null && callerSubjectHash.matches("[0-9a-f]{64}")
                 && termsHash != null && termsHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
@@ -36,5 +46,9 @@ public record StoredRefundRequest(RefundRequest request, String reasonCode, Stri
         for (int i = 0; i < allocations.size(); i++)
             require(allocations.get(i).sequenceNo() == i + 1 && allocations.get(i).refund().equals(request.children().get(i)), CONFLICT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -16,12 +16,17 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+
 import java.util.Optional;
 
 public interface PaymentAttemptGateway {
     Optional<StoredPaymentAttempt> find(String tenant, String attemptId);
+
     Optional<StoredPaymentAttempt> findRequest(String tenant, String paymentId, String requestKey);
+
     Optional<StoredPaymentAttempt> lock(String tenant, String attemptId);
+
     void insert(String tenant, StoredPaymentAttempt value);
+
     void update(String tenant, StoredPaymentAttempt value, long expectedVersion);
 }

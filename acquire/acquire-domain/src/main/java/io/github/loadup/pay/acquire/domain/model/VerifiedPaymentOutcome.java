@@ -24,7 +24,9 @@ import java.util.Objects;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Only trusted, persisted payment facts may be adapted to this value. */
+/**
+ * Only trusted, persisted payment facts may be adapted to this value.
+ */
 public record VerifiedPaymentOutcome(
         String orderId,
         String paymentId,
@@ -33,13 +35,6 @@ public record VerifiedPaymentOutcome(
         long paymentVersion,
         String evidenceId,
         boolean executionFenced) {
-    public enum Kind {
-        SUCCEEDED,
-        NO_COLLECTION,
-        NOT_ACCEPTED,
-        UNKNOWN
-    }
-
     public VerifiedPaymentOutcome {
         DomainChecks.id(orderId);
         DomainChecks.id(paymentId);
@@ -54,5 +49,12 @@ public record VerifiedPaymentOutcome(
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum Kind {
+        SUCCEEDED,
+        NO_COLLECTION,
+        NOT_ACCEPTED,
+        UNKNOWN
     }
 }

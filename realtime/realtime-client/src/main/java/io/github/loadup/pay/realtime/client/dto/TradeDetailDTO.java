@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 
 public record TradeDetailDTO(
         @Schema(description = "Order") @Valid TradeOrderDTO order,

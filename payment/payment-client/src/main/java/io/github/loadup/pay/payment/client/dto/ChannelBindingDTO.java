@@ -16,9 +16,12 @@
 package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.client.enums.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.Set;
 
 public record ChannelBindingDTO(
@@ -33,6 +36,12 @@ public record ChannelBindingDTO(
         @Schema(description = "Onboarded methods declared by trusted operations") Set<PaymentMethod> capabilities,
         @Schema(description = "Current priority; lower values win") int priority,
         @Schema(description = "Current head version") long version) {
-    public ChannelBindingDTO { capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public ChannelBindingDTO {
+        capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

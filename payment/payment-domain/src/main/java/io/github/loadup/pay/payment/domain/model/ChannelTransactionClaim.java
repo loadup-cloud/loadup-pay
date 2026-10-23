@@ -18,16 +18,28 @@ package io.github.loadup.pay.payment.domain.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/** Permanent ownership of a real channel transaction, across tenant/app/credential aliases. */
+/**
+ * Permanent ownership of a real channel transaction, across tenant/app/credential aliases.
+ */
 public record ChannelTransactionClaim(String id, String tenantId, ChannelPaymentIdentity identity, Money amount,
-        String channelTransactionNo, LocalDateTime succeededAt, String receiptId) {
+                                      String channelTransactionNo, LocalDateTime succeededAt, String receiptId) {
     public ChannelTransactionClaim {
-        DomainChecks.id(id); DomainChecks.id(tenantId); Objects.requireNonNull(identity); DomainChecks.amount(amount);
-        DomainChecks.positive(amount.getCent()); DomainChecks.text(channelTransactionNo, 128);
-        Objects.requireNonNull(succeededAt); DomainChecks.id(receiptId);
+        DomainChecks.id(id);
+        DomainChecks.id(tenantId);
+        Objects.requireNonNull(identity);
+        DomainChecks.amount(amount);
+        DomainChecks.positive(amount.getCent());
+        DomainChecks.text(channelTransactionNo, 128);
+        Objects.requireNonNull(succeededAt);
+        DomainChecks.id(receiptId);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

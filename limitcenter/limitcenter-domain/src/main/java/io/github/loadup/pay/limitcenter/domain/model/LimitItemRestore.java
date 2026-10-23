@@ -17,7 +17,9 @@ package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Apply only delta to this item's original bucket in the same transaction as saving the item. */
+/**
+ * Apply only delta to this item's original bucket in the same transaction as saving the item.
+ */
 public record LimitItemRestore(LimitReservationItem item, long delta) {
     public LimitItemRestore {
         java.util.Objects.requireNonNull(item);

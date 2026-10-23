@@ -23,21 +23,28 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class PaymentOutcomeEnvelopeCodecImpl implements PaymentOutcomeEnvelopeCodec {
     private final JsonMapper mapper;
+
     public PaymentOutcomeEnvelopeCodecImpl(JsonMapper mapper) {
         this.mapper = mapper.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
     }
-    @Override public PayEventEnvelope<PaymentOutcomeEventDTO> decode(String payload) {
+
+    @Override
+    public PayEventEnvelope<PaymentOutcomeEventDTO> decode(String payload) {
         try {
             if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
-            var event = mapper.readValue(payload, new TypeReference<PayEventEnvelope<PaymentOutcomeEventDTO>>() {});
+            var event = mapper.readValue(payload, new TypeReference<PayEventEnvelope<PaymentOutcomeEventDTO>>() {
+            });
             if (event == null) throw new CommonException(SNAPSHOT_INVALID);
             event.data().requireEnvelope(event);
             return event;
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

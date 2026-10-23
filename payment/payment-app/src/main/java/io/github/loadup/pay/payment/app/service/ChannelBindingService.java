@@ -17,23 +17,42 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
-import io.github.loadup.pay.payment.app.security.*;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
+import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingRevokeCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingSuspendCommand;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingChangeDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingDTO;
 import io.github.loadup.pay.payment.client.facade.ChannelBindingFacade;
 import io.github.loadup.pay.payment.client.query.ChannelBindingDetailQuery;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.*;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 @Service
 public class ChannelBindingService implements ChannelBindingFacade {
@@ -46,19 +65,29 @@ public class ChannelBindingService implements ChannelBindingFacade {
     private final Validator validator;
     private final Clock clock;
     private final String managementService;
+
     public ChannelBindingService(PaymentActorProvider actors, ChannelBindingManagementGateway store,
-            ChannelBindingConverter converter, ChannelBindingCodec codec, PaymentAcceptanceTransactions transactions,
-            IdGenerator ids, Validator validator, @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
-        this.actors = actors; this.store = store; this.converter = converter; this.codec = codec;
-        this.transactions = transactions; this.ids = ids; this.validator = validator; this.clock = clock;
+                                 ChannelBindingConverter converter, ChannelBindingCodec codec, PaymentAcceptanceTransactions transactions,
+                                 IdGenerator ids, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                 @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
+        this.actors = actors;
+        this.store = store;
+        this.converter = converter;
+        this.codec = codec;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.validator = validator;
+        this.clock = clock;
         this.managementService = DomainChecks.id(managementService);
     }
-    @Override public ChannelBindingChangeDTO publish(ChannelBindingPublishCommand command) {
+
+    @Override
+    public ChannelBindingChangeDTO publish(ChannelBindingPublishCommand command) {
         validate(command);
         var actor = actor("pay:payment:binding:publish");
         return transactions.read(actor.tenantId(), () -> {
-            DomainChecks.id(command.payeeMerchantId()); DomainChecks.id(command.bindingCode());
+            DomainChecks.id(command.payeeMerchantId());
+            DomainChecks.id(command.bindingCode());
             DomainChecks.text(command.requestKey(), 128);
             if (command.channel() != Channel.ALIPAY && command.channel() != Channel.WECHAT)
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
@@ -94,27 +123,35 @@ public class ChannelBindingService implements ChannelBindingFacade {
             });
         });
     }
-    @Override public ChannelBindingChangeDTO suspend(ChannelBindingSuspendCommand command) {
+
+    @Override
+    public ChannelBindingChangeDTO suspend(ChannelBindingSuspendCommand command) {
         validate(command);
         return changeState(actor("pay:payment:binding:suspend"), command.payeeMerchantId(), command.bindingCode(),
                 command.requestKey(), command.expectedVersion(), "SUSPEND", command);
     }
-    @Override public ChannelBindingChangeDTO revoke(ChannelBindingRevokeCommand command) {
+
+    @Override
+    public ChannelBindingChangeDTO revoke(ChannelBindingRevokeCommand command) {
         validate(command);
         return changeState(actor("pay:payment:binding:revoke"), command.payeeMerchantId(), command.bindingCode(),
                 command.requestKey(), command.expectedVersion(), "REVOKE", command);
     }
+
     private ChannelBindingChangeDTO changeState(PaymentActor actor, String payee, String bindingCode, String key,
-            long expectedVersion, String kind, Object command) {
+                                                long expectedVersion, String kind, Object command) {
         return transactions.read(actor.tenantId(), () -> {
-            DomainChecks.id(payee); DomainChecks.id(bindingCode); DomainChecks.text(key, 128);
+            DomainChecks.id(payee);
+            DomainChecks.id(bindingCode);
+            DomainChecks.text(key, 128);
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), kind, command);
             return transactions.write(actor.tenantId(), () -> {
                 var head = store.lock(actor.tenantId(), payee, bindingCode).orElseThrow(() -> new CommonException(NOT_FOUND));
                 var prior = store.receipt(actor.tenantId(), head.id(), key);
                 if (prior.isPresent()) return replay(actor, head, prior.get(), kind, digest);
                 if (head.rowVersion() != expectedVersion) throw new CommonException(CONCURRENT_UPDATE);
-                if (head.state() == ChannelBindingState.REVOKED && "SUSPEND".equals(kind)) throw new CommonException(INVALID_STATE);
+                if (head.state() == ChannelBindingState.REVOKED && "SUSPEND".equals(kind))
+                    throw new CommonException(INVALID_STATE);
                 requireRevision(actor.tenantId(), head);
                 var updated = "REVOKE".equals(kind) ? head.revoke() : head.suspend();
                 store.updateHead(actor.tenantId(), updated, head.rowVersion());
@@ -124,16 +161,20 @@ public class ChannelBindingService implements ChannelBindingFacade {
             });
         });
     }
-    @Override public ChannelBindingDTO detail(ChannelBindingDetailQuery query) {
+
+    @Override
+    public ChannelBindingDTO detail(ChannelBindingDetailQuery query) {
         validate(query);
         var actor = actor("pay:payment:binding:read");
         return transactions.read(actor.tenantId(), () -> {
-            DomainChecks.id(query.payeeMerchantId()); DomainChecks.id(query.bindingCode());
+            DomainChecks.id(query.payeeMerchantId());
+            DomainChecks.id(query.bindingCode());
             var head = store.find(actor.tenantId(), query.payeeMerchantId(), query.bindingCode())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             return converter.toDTO(head, requireRevision(actor.tenantId(), head));
         });
     }
+
     private StoredChannelBindingRevision requireRevision(String tenant, ChannelMerchantBinding head) {
         var revision = store.revision(tenant, head.currentRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!head.id().equals(revision.bindingId()) || head.currentRevision() != revision.revision()
@@ -142,10 +183,12 @@ public class ChannelBindingService implements ChannelBindingFacade {
             throw new CommonException(SNAPSHOT_INVALID);
         return revision;
     }
+
     private ChannelBindingChangeDTO replay(PaymentActor actor, ChannelMerchantBinding head, ChannelBindingChangeReceipt receipt,
-            String kind, String digest) {
+                                           String kind, String digest) {
         if (!receipt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.kind().equals(kind) || !receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!receipt.kind().equals(kind) || !receipt.requestDigest().equals(digest))
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
         if (!head.id().equals(receipt.bindingId()) || head.rowVersion() < receipt.appliedVersion()
                 || head.currentRevision() < receipt.revision()) throw new CommonException(SNAPSHOT_INVALID);
         requireRevision(actor.tenantId(), head);
@@ -156,11 +199,13 @@ public class ChannelBindingService implements ChannelBindingFacade {
             throw new CommonException(SNAPSHOT_INVALID);
         return converter.toChange(receipt);
     }
+
     private ChannelBindingChangeReceipt receipt(PaymentActor actor, ChannelMerchantBinding head, String kind,
-            String key, String digest, LocalDateTime at) {
+                                                String key, String digest, LocalDateTime at) {
         return new ChannelBindingChangeReceipt(ids.generate(), head.id(), kind, key, digest, actor.serviceId(),
                 head.currentRevisionId(), head.currentRevision(), head.state(), head.rowVersion(), at);
     }
+
     private PaymentActor actor(String permission) {
         var actor = actors.current();
         if (!managementService.equals(actor.serviceId()) || !actor.permissions().contains(permission))
@@ -168,9 +213,11 @@ public class ChannelBindingService implements ChannelBindingFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return actor;
     }
+
     private void validate(Object value) {
         if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
     }
+
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }

@@ -17,10 +17,18 @@ package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 public record RefundSummaryFacts(OrderRefundSummary summary, LocalDateTime sourceUpdatedAt) {
-    public RefundSummaryFacts { Objects.requireNonNull(summary); Objects.requireNonNull(sourceUpdatedAt); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public RefundSummaryFacts {
+        Objects.requireNonNull(summary);
+        Objects.requireNonNull(sourceUpdatedAt);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

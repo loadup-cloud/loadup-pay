@@ -16,13 +16,20 @@
 package io.github.loadup.pay.limitcenter.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.limitcenter.domain.model.*;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
+import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitOperationGateDO;
+import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitReservationItemDO;
+import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface LimitSettlementStorageConverter {
     LimitSettlementReceipt toReceipt(LimitSettlementReceiptDO row);
+
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

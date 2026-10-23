@@ -17,46 +17,98 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("refund_channel_receipt")
 public class RefundChannelReceiptDO extends BaseDO {
     private String refundId;
-    public String getRefundId() { return refundId; }
-    public void setRefundId(String value) { refundId = value; }
-
     private String source;
-    public String getSource() { return source; }
-    public void setSource(String value) { source = value; }
-
     private String receiptKey;
-    public String getReceiptKey() { return receiptKey; }
-    public void setReceiptKey(String value) { receiptKey = value; }
-
     private String factsDigest;
-    public String getFactsDigest() { return factsDigest; }
-    public void setFactsDigest(String value) { factsDigest = value; }
-
     private String sourceDigest;
-    public String getSourceDigest() { return sourceDigest; }
-    public void setSourceDigest(String value) { sourceDigest = value; }
-
-    @DiagnosticHidden private String observationPayload;
-    public String getObservationPayload() { return observationPayload; }
-    public void setObservationPayload(String value) { observationPayload = value; }
-
+    @DiagnosticHidden
+    private String observationPayload;
     private String disposition;
-    public String getDisposition() { return disposition; }
-    public void setDisposition(String value) { disposition = value; }
-
     private String reasonCode;
-    public String getReasonCode() { return reasonCode; }
-    public void setReasonCode(String value) { reasonCode = value; }
-
     private LocalDateTime receivedAt;
-    public LocalDateTime getReceivedAt() { return receivedAt; }
-    public void setReceivedAt(LocalDateTime value) { receivedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getRefundId() {
+        return refundId;
+    }
+
+    public void setRefundId(String value) {
+        refundId = value;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String value) {
+        source = value;
+    }
+
+    public String getReceiptKey() {
+        return receiptKey;
+    }
+
+    public void setReceiptKey(String value) {
+        receiptKey = value;
+    }
+
+    public String getFactsDigest() {
+        return factsDigest;
+    }
+
+    public void setFactsDigest(String value) {
+        factsDigest = value;
+    }
+
+    public String getSourceDigest() {
+        return sourceDigest;
+    }
+
+    public void setSourceDigest(String value) {
+        sourceDigest = value;
+    }
+
+    public String getObservationPayload() {
+        return observationPayload;
+    }
+
+    public void setObservationPayload(String value) {
+        observationPayload = value;
+    }
+
+    public String getDisposition() {
+        return disposition;
+    }
+
+    public void setDisposition(String value) {
+        disposition = value;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public void setReasonCode(String value) {
+        reasonCode = value;
+    }
+
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
+
+    public void setReceivedAt(LocalDateTime value) {
+        receivedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -15,10 +15,14 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
+
 import java.time.LocalDateTime;
 
 public interface OrderFeeGateway {
-    /** Joins the original order transaction; amount and policy remain frozen. */
+    /**
+     * Joins the original order transaction; amount and policy remain frozen.
+     */
     void confirmPaid(String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt);
 }

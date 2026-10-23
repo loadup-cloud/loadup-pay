@@ -16,18 +16,28 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
-import java.util.*;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import io.github.loadup.pay.common.DomainChecks;
 
-/** Ordered immutable policy. Operational availability is still controlled by the live binding head. */
+import java.util.HashSet;
+import java.util.List;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Ordered immutable policy. Operational availability is still controlled by the live binding head.
+ */
 public record RoutingProfileSpec(String profileRef, String payeeMerchantId, List<RoutingRule> rules) {
     public RoutingProfileSpec {
-        DomainChecks.text(profileRef, 128); DomainChecks.id(payeeMerchantId);
+        DomainChecks.text(profileRef, 128);
+        DomainChecks.id(payeeMerchantId);
         require(rules != null && !rules.isEmpty() && rules.size() <= 100, INVALID_ARGUMENT);
         rules = List.copyOf(rules);
         require(new HashSet<>(rules).size() == rules.size(), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

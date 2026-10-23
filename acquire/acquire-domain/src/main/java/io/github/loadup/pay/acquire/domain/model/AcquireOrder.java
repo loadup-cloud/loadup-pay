@@ -29,7 +29,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Gross successful receipts are immutable with respect to independent refunds. */
+/**
+ * Gross successful receipts are immutable with respect to independent refunds.
+ */
 public record AcquireOrder(
         String id,
         String payeeMerchantId,
@@ -137,7 +139,8 @@ public record AcquireOrder(
         if (outcome.kind() == VerifiedPaymentOutcome.Kind.UNKNOWN) return new OrderPaymentChange(this, current);
         if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED)
             require(current.paymentSourceVersion() == 0, CONFLICT);
-        else if (outcome.paymentVersion() <= current.paymentSourceVersion()) return new OrderPaymentChange(this, current);
+        else if (outcome.paymentVersion() <= current.paymentSourceVersion())
+            return new OrderPaymentChange(this, current);
         var target = outcome.kind() == VerifiedPaymentOutcome.Kind.SUCCEEDED
                 ? AllocationState.CONSUMED
                 : AllocationState.RELEASED;
@@ -214,7 +217,9 @@ public record AcquireOrder(
                 Math.incrementExact(version));
     }
 
-    /** A due-time check never silently stops a KEEP_PENDING order from accepting payments. */
+    /**
+     * A due-time check never silently stops a KEEP_PENDING order from accepting payments.
+     */
     public AcquireOrder checkDue(LocalDateTime now) {
         Objects.requireNonNull(now);
         if (now.isBefore(orderDueAt) || state != AcquireOrderState.INIT && state != AcquireOrderState.PENDING)
@@ -237,7 +242,9 @@ public record AcquireOrder(
                 Math.incrementExact(version));
     }
 
-    /** The deadline is derived from the original due time and the frozen cumulative extension allowance. */
+    /**
+     * The deadline is derived from the original due time and the frozen cumulative extension allowance.
+     */
     public AcquireOrder extend(
             LocalDateTime requestedDueAt,
             LocalDateTime originalDueAt,

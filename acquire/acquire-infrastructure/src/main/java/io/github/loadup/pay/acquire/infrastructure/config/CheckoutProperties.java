@@ -15,13 +15,15 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.config;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("loadup.modules.acquire.checkout")
 public record CheckoutProperties(
@@ -40,8 +42,8 @@ public record CheckoutProperties(
                 || pageUrl.getRawFragment() != null
                 || pageUrl.getRawAuthority() == null
                 || !("https".equals(pageUrl.getScheme())
-                        || "http".equals(pageUrl.getScheme())
-                                && Set.of("localhost", "127.0.0.1", "[::1]").contains(pageUrl.getHost()))
+                || "http".equals(pageUrl.getScheme())
+                && Set.of("localhost", "127.0.0.1", "[::1]").contains(pageUrl.getHost()))
                 || !"/checkout".equals(pageUrl.getPath()))
             throw new IllegalStateException("Checkout page requires an HTTPS /checkout URL (HTTP only on loopback)");
         if (keys == null || !keys.containsKey(activeKeyVersion))

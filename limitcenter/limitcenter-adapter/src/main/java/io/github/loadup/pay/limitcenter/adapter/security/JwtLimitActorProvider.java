@@ -27,6 +27,10 @@ import java.util.stream.Collectors;
 
 @Component
 public class JwtLimitActorProvider implements LimitActorProvider {
+    private static CommonException forbidden() {
+        return new CommonException(LimitCenterResultCodeEnum.ACTION_FORBIDDEN);
+    }
+
     @Override
     public LimitActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -51,9 +55,5 @@ public class JwtLimitActorProvider implements LimitActorProvider {
         } catch (IllegalArgumentException invalid) {
             throw forbidden();
         }
-    }
-
-    private static CommonException forbidden() {
-        return new CommonException(LimitCenterResultCodeEnum.ACTION_FORBIDDEN);
     }
 }

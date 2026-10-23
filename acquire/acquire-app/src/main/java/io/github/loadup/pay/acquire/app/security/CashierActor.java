@@ -17,10 +17,13 @@ package io.github.loadup.pay.acquire.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/** Created only after checking the stored capability; no merchant or refund privileges. */
+/**
+ * Created only after checking the stored capability; no merchant or refund privileges.
+ */
 public record CashierActor(String tenantId, String sessionId, String orderId, LocalDateTime expiresAt) {
     public CashierActor {
         DomainChecks.id(tenantId);

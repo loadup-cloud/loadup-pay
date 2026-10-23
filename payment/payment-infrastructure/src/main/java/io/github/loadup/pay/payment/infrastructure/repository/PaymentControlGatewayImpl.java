@@ -19,15 +19,30 @@ import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.converter.*;
-import io.github.loadup.pay.payment.infrastructure.mapper.*;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
+import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.converter.PaymentControlStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentControlReceiptDO;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentControlReceiptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentGateDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentParentGateDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_CONTROL_RECEIPT_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_GATE_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ORDER_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_PARENT_GATE_DO;
 
 @Repository
 public class PaymentControlGatewayImpl implements PaymentControlGateway {

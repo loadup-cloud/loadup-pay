@@ -18,12 +18,27 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
-import org.junit.jupiter.api.*;
-import java.util.*;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.ORIGIN;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.TOKEN;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.session;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class CheckoutAuthenticationServiceTest {
     final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);

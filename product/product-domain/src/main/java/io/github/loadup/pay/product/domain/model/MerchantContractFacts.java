@@ -25,7 +25,9 @@ import java.util.Objects;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Authoritative current facts adapted from the reused framework contract aggregate. */
+/**
+ * Authoritative current facts adapted from the reused framework contract aggregate.
+ */
 public record MerchantContractFacts(
         String merchantId,
         ContractReference reference,

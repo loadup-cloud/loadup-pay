@@ -22,32 +22,71 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("order_refund_summary")
 public class OrderRefundSummaryDO extends BaseDO {
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private Long orderAmountMinor;
-    public Long getOrderAmountMinor() { return orderAmountMinor; }
-    public void setOrderAmountMinor(Long value) { orderAmountMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private Long refundedMinor;
-    public Long getRefundedMinor() { return refundedMinor; }
-    public void setRefundedMinor(Long value) { refundedMinor = value; }
-
     private Long reservedMinor;
-    public Long getReservedMinor() { return reservedMinor; }
-    public void setReservedMinor(Long value) { reservedMinor = value; }
-
     private Long rowVersion;
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public Long getOrderAmountMinor() {
+        return orderAmountMinor;
+    }
+
+    public void setOrderAmountMinor(Long value) {
+        orderAmountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public Long getRefundedMinor() {
+        return refundedMinor;
+    }
+
+    public void setRefundedMinor(Long value) {
+        refundedMinor = value;
+    }
+
+    public Long getReservedMinor() {
+        return reservedMinor;
+    }
+
+    public void setReservedMinor(Long value) {
+        reservedMinor = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

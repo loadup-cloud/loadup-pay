@@ -55,7 +55,7 @@ public record TradePaymentProjection(
                 amount.getCent() > 0
                         && state != null
                         && Set.of("INIT", "PROCESSING", "UNKNOWN", "CLOSING", "SUCCEEDED", "FAILED", "CLOSED")
-                                .contains(state),
+                        .contains(state),
                 INVALID_ARGUMENT);
         require((channel == null) == (accessMode == null), INVALID_ARGUMENT);
         require(

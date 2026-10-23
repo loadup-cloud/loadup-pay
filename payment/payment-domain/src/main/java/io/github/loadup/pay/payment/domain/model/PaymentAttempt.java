@@ -65,7 +65,21 @@ public record PaymentAttempt(
             DomainChecks.id(noCollectionEvidenceId);
     }
 
-    /** Parent/payment gates and this INIT attempt are locked, so no Y2 submission can have committed. */
+    public static PaymentAttempt init(
+            String id,
+            String paymentId,
+            int attemptNo,
+            Money amount,
+            ChannelBindingRevision binding,
+            PaymentMethod method,
+            String channelRequestNo) {
+        return new PaymentAttempt(
+                id, paymentId, attemptNo, amount, binding, method, channelRequestNo, PaymentAttemptState.INIT, 0, null);
+    }
+
+    /**
+     * Parent/payment gates and this INIT attempt are locked, so no Y2 submission can have committed.
+     */
     public PaymentAttempt closeBeforeSubmission(String evidenceId) {
         DomainChecks.id(evidenceId);
         require(state == PaymentAttemptState.INIT && executionEpoch == 0, INVALID_STATE);
@@ -88,24 +102,14 @@ public record PaymentAttempt(
                 null);
     }
 
-    public static PaymentAttempt init(
-            String id,
-            String paymentId,
-            int attemptNo,
-            Money amount,
-            ChannelBindingRevision binding,
-            PaymentMethod method,
-            String channelRequestNo) {
-        return new PaymentAttempt(
-                id, paymentId, attemptNo, amount, binding, method, channelRequestNo, PaymentAttemptState.INIT, 0, null);
-    }
-
     public ChannelPaymentIdentity identity() {
         return new ChannelPaymentIdentity(
                 paymentId, id, binding.channel(), binding.id(), binding.accountScopeHash(), channelRequestNo);
     }
 
-    /** The adapter supplies verified facts; NOT_FOUND and transport failures must be UNKNOWN. */
+    /**
+     * The adapter supplies verified facts; NOT_FOUND and transport failures must be UNKNOWN.
+     */
     public PaymentAttempt recordOutcome(ChannelPaymentOutcome outcome, boolean executionFenced) {
         require(identity().equals(outcome.identity()) && amount.equals(outcome.amount()), CONFLICT);
         // A channel reversal with returned funds needs an independent financial fact and compensation.

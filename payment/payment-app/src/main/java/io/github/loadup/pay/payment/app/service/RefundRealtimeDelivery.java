@@ -17,49 +17,68 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxRecord;
+import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.payment.app.port.*;
+import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
+import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Set;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class RefundRealtimeDelivery {
     private final OutboxTemplate outbox;
     private final RefundProjectionEnvelopeCodec codec;
     private final PaymentRealtimeClient client;
+
     public RefundRealtimeDelivery(OutboxTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentRealtimeClient client) {
-        this.outbox = outbox; this.codec = codec; this.client = client;
+        this.outbox = outbox;
+        this.codec = codec;
+        this.client = client;
     }
+
     public void child(OutboxEvent event) {
         var row = registered(event, RefundProjectionEvents.CHILD);
         var envelope = codec.child(event.message().payload());
         requireAggregate(row, envelope);
         ack(envelope, client.applyRefund(row.tenantId(), envelope));
     }
+
     public void summary(OutboxEvent event) {
         var row = registered(event, RefundProjectionEvents.SUMMARY);
         var envelope = codec.summary(event.message().payload());
         requireAggregate(row, envelope);
         ack(envelope, client.applyRefundSummary(row.tenantId(), envelope));
     }
+
     private OutboxRecord registered(OutboxEvent event, String type) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1 || !type.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var message = event.message();
         var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId()) || !row.type().equals(type)
-                || !row.businessId().equals(message.businessId()) || !"PROCESSING".equals(row.status())) throw new CommonException(SNAPSHOT_INVALID);
+                || !row.businessId().equals(message.businessId()) || !"PROCESSING".equals(row.status()))
+            throw new CommonException(SNAPSHOT_INVALID);
         if (!client.supportsTenant(row.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
         return row;
     }
+
     private void requireAggregate(OutboxRecord row, PayEventEnvelope<?> event) {
-        if (!row.businessId().equals(event.aggregateId()) || !row.type().equals(event.eventType())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!row.businessId().equals(event.aggregateId()) || !row.type().equals(event.eventType()))
+            throw new CommonException(SNAPSHOT_INVALID);
     }
+
     private void ack(PayEventEnvelope<?> event, ProjectionAckDTO ack) {
         if (ack == null || !ack.accepted() || !event.deliveryId().equals(ack.deliveryId()) || !event.businessEventId().equals(ack.businessEventId())
                 || !event.producer().equals(ack.producer()) || !event.aggregateId().equals(ack.aggregateId())

@@ -20,22 +20,60 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.transaction.*;
-import org.springframework.transaction.support.*;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentAcceptanceServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -69,10 +107,10 @@ class PaymentAcceptanceServiceTest {
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         when(codec.decode(any())).thenReturn(command);
         doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    stored.set(c.getArgument(1));
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            stored.set(c.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .insert(eq("tenant"), any());
     }
@@ -275,23 +313,23 @@ class PaymentAcceptanceServiceTest {
     @Test
     void aDuplicateGateRaceRetriesOnlyAfterRollbackAndUsesTheWinningPayment() {
         doAnswer(c -> {
-                    stored.set(new StoredPaymentAcceptance(
-                            PaymentOrder.init(
-                                    "payment",
-                                    "order",
-                                    "allocation",
-                                    "merchant",
-                                    io.github.loadup.pay.common.DomainChecks.amount(4000, "CNY"),
-                                    "winning-operation",
-                                    LocalDateTime.now(clock)),
-                            "admission",
-                            "a".repeat(64),
-                            "acquire",
-                            "payload",
-                            "c".repeat(64),
-                            null));
-                    throw new DuplicateKeyException("synthetic concurrent winner");
-                })
+            stored.set(new StoredPaymentAcceptance(
+                    PaymentOrder.init(
+                            "payment",
+                            "order",
+                            "allocation",
+                            "merchant",
+                            io.github.loadup.pay.common.DomainChecks.amount(4000, "CNY"),
+                            "winning-operation",
+                            LocalDateTime.now(clock)),
+                    "admission",
+                    "a".repeat(64),
+                    "acquire",
+                    "payload",
+                    "c".repeat(64),
+                    null));
+            throw new DuplicateKeyException("synthetic concurrent winner");
+        })
                 .when(store)
                 .insertParent(eq("tenant"), any());
         assertEquals("payment", service.accept(command).paymentId());

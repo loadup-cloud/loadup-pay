@@ -23,7 +23,9 @@ import java.util.Objects;
 import static io.github.loadup.pay.common.DomainViolation.Reason.CURRENCY_MISMATCH;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Commercial policyVersion is deliberately excluded from counter identity. */
+/**
+ * Commercial policyVersion is deliberately excluded from counter identity.
+ */
 public record LimitBucketKey(
         String ruleScopeId,
         String merchantId,

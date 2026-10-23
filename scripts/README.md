@@ -24,7 +24,9 @@
   `loadup-pay`。
 - 使用本地共享镜像及`imagePullPolicy: Never`；不会推送镜像。其他集群需另外实现镜像发布并修改拉取策略。
 -
+
 默认镜像标签为Asia/Shanghai时间戳与进程ID，每次发布生成新标签。构建拒绝覆盖已有同名镜像，避免同标签重建后Pod仍使用旧镜像；复用已有镜像请使用SKIP_BUILD。源码清单不写入动态标签；部署时在内存中选择资源并绑定镜像。
+
 - Dockerfile通过`JAR_FILE`接收实际构建产物，不固定项目版本；`.dockerignore`仅允许启动JAR与Dockerfile进入构建上下文。
 
 ## 指定版本与复用镜像
@@ -72,24 +74,45 @@ profile、product数据库/JWT及customer业务地址与委托audience。现有�
 limitcenter 业务 JAR/镜像可沿用 `./limitcenter/build.sh -Plimitcenter-business`
 ；需另行注入数据库、签发方和同名运行时profile，见[业务说明](../limitcenter/README.md)。默认部署清单仍为基础骨架，本批没有发布业务镜像。
 
+acquire 普通创单业务包使用 `./acquire/build.sh -Pacquire-business`，运行时同时设置
+`SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product HTTP 配置见[acquire说明](../acquire/README.md)
+。现有部署清单仍需业务 Secret/ConfigMap 覆盖层，本轮未构建或部署该业务镜像。
 
-acquire 普通创单业务包使用 `./acquire/build.sh -Pacquire-business`，运行时同时设置 `SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product HTTP 配置见[acquire说明](../acquire/README.md)。现有部署清单仍需业务 Secret/ConfigMap 覆盖层，本轮未构建或部署该业务镜像。
+acquire-business 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、
+`/checkout.js`、`/checkout.css` 和 `/api/cashier/order/summary`。仅提供会话签发及只读摘要，不代表付款链路已部署。
 
-acquire-business 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、`/checkout.js`、`/checkout.css` 和 `/api/cashier/order/summary`。仅提供会话签发及只读摘要，不代表付款链路已部署。
+payment 业务 JAR/镜像使用 `./payment/build.sh -Ppayment-business`，运行时启用同名 Spring profile 并注入 PAYMENT_JDBC_
+*、PAYMENT_JWT_* 和可选 PAYMENT_ACQUIRE_SERVICE_ID。当前受理只持久化
+INIT，未对接渠道；现有部署清单仍需配置覆盖层，详见[payment说明](../payment/README.md)。本批仅完成窄范围源码/测试源码编译，没有打包部署业务镜像。
 
+acquire-business 付款发起/结果刷新还需
+PAYMENT_BASE_URL、PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和
+ACQUIRE_PAYMENT_TOKEN_FILE。服务 JWT 由外部 Secret 文件挂载并轮换，需包含受信 SERVICE/sub/service_id/tenant_id/aud 与 pay:
+payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。部署清单尚未补业务覆盖层，本批未打包或部署。最新
+outcome/refresh 源码按用户要求暂不检查或构建。
 
-payment 业务 JAR/镜像使用 `./payment/build.sh -Ppayment-business`，运行时启用同名 Spring profile 并注入 PAYMENT_JDBC_*、PAYMENT_JWT_* 和可选 PAYMENT_ACQUIRE_SERVICE_ID。当前受理只持久化 INIT，未对接渠道；现有部署清单仍需配置覆盖层，详见[payment说明](../payment/README.md)。本批仅完成窄范围源码/测试源码编译，没有打包部署业务镜像。
+acquire 显式关单继续使用同一挂载服务 JWT，新增需要 pay:payment:close、pay:payment:fence 和 pay:payment:fence:read 权限；固定
+payment HTTP 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent
+迁移，服务实际8表。当前仍需业务配置覆盖层，本批没有打包、部署或执行迁移。
 
-acquire-business 付款发起/结果刷新还需 PAYMENT_BASE_URL、PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和 ACQUIRE_PAYMENT_TOKEN_FILE。服务 JWT 由外部 Secret 文件挂载并轮换，需包含受信 SERVICE/sub/service_id/tenant_id/aud 与 pay:payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。部署清单尚未补业务覆盖层，本批未打包或部署。最新 outcome/refresh 源码按用户要求暂不检查或构建。
+acquire-business 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增
+V20261022070000__order_extension_receipt.sql，实际9表。未在本批打包部署或执行迁移，自动到期任务尚未启用。
 
-acquire 显式关单继续使用同一挂载服务 JWT，新增需要 pay:payment:close、pay:payment:fence 和 pay:payment:fence:read 权限；固定 payment HTTP 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent 迁移，服务实际8表。当前仍需业务配置覆盖层，本批没有打包、部署或执行迁移。
+LimitCenter 额度终态业务新增 payment-evidence HTTP 客户端，配置
+PAYMENT_BASE_URL/PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID 与
+LIMITCENTER_PAYMENT_TOKEN_FILE；令牌挂载文件需 pay:payment:limit-facts。payment 使用 PAYMENT_LIMITCENTER_SERVICE_ID
+限定读取者（默认 limitcenter）。新 V20261022080000 尚未执行，镜像/业务部署仍未运行。
 
-acquire-business 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增 V20261022070000__order_extension_receipt.sql，实际9表。未在本批打包部署或执行迁移，自动到期任务尚未启用。
+payment-business 的短期输入准备新增必需环境 PAYMENT_INPUT_FINGERPRINT_KEY（至少32随机UTF-8字节）、PAYMENT_KMS_ENDPOINT（HTTPS
+origin）和运行 Secret PAYMENT_KMS_TOKEN。默认 Transit key 名 payment-input，须在 OpenBao 预先创建并授予
+encrypt/decrypt；框架管理权限关闭。输入 TTL 默认为120秒；默认 fingerprint map key=v1，轮换同时覆盖 active id 与保留旧 key 的
+map。acquire SERVICE JWT 新增 pay:payment:input:prepare 权限。新 payment_input 迁移和相关业务镜像部署尚未执行。
 
-LimitCenter 额度终态业务新增 payment-evidence HTTP 客户端，配置 PAYMENT_BASE_URL/PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID 与 LIMITCENTER_PAYMENT_TOKEN_FILE；令牌挂载文件需 pay:payment:limit-facts。payment 使用 PAYMENT_LIMITCENTER_SERVICE_ID 限定读取者（默认 limitcenter）。新 V20261022080000 尚未执行，镜像/业务部署仍未运行。
+渠道绑定管理新增 PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID（默认 pay-ops）。该指定 SERVICE 的 JWT 按需授予 pay:payment:binding:
+publish/suspend/revoke/read；不授予商户或 acquire 运维权限。新三表迁移 V20261022100000
+尚未执行，渠道真实进件/Secret/产品开通校验尚待实现，ACTIVE 配置不能作为渠道运行验收证据。
 
-payment-business 的短期输入准备新增必需环境 PAYMENT_INPUT_FINGERPRINT_KEY（至少32随机UTF-8字节）、PAYMENT_KMS_ENDPOINT（HTTPS origin）和运行 Secret PAYMENT_KMS_TOKEN。默认 Transit key 名 payment-input，须在 OpenBao 预先创建并授予 encrypt/decrypt；框架管理权限关闭。输入 TTL 默认为120秒；默认 fingerprint map key=v1，轮换同时覆盖 active id 与保留旧 key 的 map。acquire SERVICE JWT 新增 pay:payment:input:prepare 权限。新 payment_input 迁移和相关业务镜像部署尚未执行。
-
-渠道绑定管理新增 PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID（默认 pay-ops）。该指定 SERVICE 的 JWT 按需授予 pay:payment:binding:publish/suspend/revoke/read；不授予商户或 acquire 运维权限。新三表迁移 V20261022100000 尚未执行，渠道真实进件/Secret/产品开通校验尚待实现，ACTIVE 配置不能作为渠道运行验收证据。
-
-支付额度出站新增 PAYMENT_LIMITCENTER_TENANT_ID、PAYMENT_SERVICE_ID（默认 payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE、LIMITCENTER_BASE_URL；挂载令牌需 pay:limit:reserve/execute/verify，不能用商户 JWT。内部首笔尝试接口另要求 acquire SERVICE 的 pay:payment:attempt:start。新增 V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像部署未运行。
+支付额度出站新增 PAYMENT_LIMITCENTER_TENANT_ID、PAYMENT_SERVICE_ID（默认
+payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE、LIMITCENTER_BASE_URL；挂载令牌需 pay:limit:
+reserve/execute/verify，不能用商户 JWT。内部首笔尝试接口另要求 acquire SERVICE 的 pay:payment:attempt:start。新增
+V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像部署未运行。

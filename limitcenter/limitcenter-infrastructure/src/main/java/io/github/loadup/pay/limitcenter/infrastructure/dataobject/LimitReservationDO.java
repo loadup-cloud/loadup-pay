@@ -24,6 +24,23 @@ import java.time.LocalDateTime;
 @Table("limit_reservation")
 public class LimitReservationDO extends BaseDO {
     private String operationId;
+    private String paymentId;
+    private String orderId;
+    private String payeeMerchantId;
+    private Long amountMinor;
+    private String currency;
+    private String policyId;
+    private Integer policyVersion;
+    private String policyHash;
+    private String requestDigest;
+    private String callerServiceId;
+    private LocalDateTime initiatedAt;
+    private String state;
+    private LocalDateTime reserveExpiresAt;
+    private String activeAttemptId;
+    private Long executionEpoch;
+    private Long paymentSourceVersion;
+    private Long rowVersion;
 
     public String getOperationId() {
         return operationId;
@@ -33,8 +50,6 @@ public class LimitReservationDO extends BaseDO {
         operationId = value;
     }
 
-    private String paymentId;
-
     public String getPaymentId() {
         return paymentId;
     }
@@ -42,8 +57,6 @@ public class LimitReservationDO extends BaseDO {
     public void setPaymentId(String value) {
         paymentId = value;
     }
-
-    private String orderId;
 
     public String getOrderId() {
         return orderId;
@@ -53,8 +66,6 @@ public class LimitReservationDO extends BaseDO {
         orderId = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -62,8 +73,6 @@ public class LimitReservationDO extends BaseDO {
     public void setPayeeMerchantId(String value) {
         payeeMerchantId = value;
     }
-
-    private Long amountMinor;
 
     public Long getAmountMinor() {
         return amountMinor;
@@ -73,8 +82,6 @@ public class LimitReservationDO extends BaseDO {
         amountMinor = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -82,8 +89,6 @@ public class LimitReservationDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private String policyId;
 
     public String getPolicyId() {
         return policyId;
@@ -93,8 +98,6 @@ public class LimitReservationDO extends BaseDO {
         policyId = value;
     }
 
-    private Integer policyVersion;
-
     public Integer getPolicyVersion() {
         return policyVersion;
     }
@@ -102,8 +105,6 @@ public class LimitReservationDO extends BaseDO {
     public void setPolicyVersion(Integer value) {
         policyVersion = value;
     }
-
-    private String policyHash;
 
     public String getPolicyHash() {
         return policyHash;
@@ -113,8 +114,6 @@ public class LimitReservationDO extends BaseDO {
         policyHash = value;
     }
 
-    private String requestDigest;
-
     public String getRequestDigest() {
         return requestDigest;
     }
@@ -122,8 +121,6 @@ public class LimitReservationDO extends BaseDO {
     public void setRequestDigest(String value) {
         requestDigest = value;
     }
-
-    private String callerServiceId;
 
     public String getCallerServiceId() {
         return callerServiceId;
@@ -133,8 +130,6 @@ public class LimitReservationDO extends BaseDO {
         callerServiceId = value;
     }
 
-    private LocalDateTime initiatedAt;
-
     public LocalDateTime getInitiatedAt() {
         return initiatedAt;
     }
@@ -142,8 +137,6 @@ public class LimitReservationDO extends BaseDO {
     public void setInitiatedAt(LocalDateTime value) {
         initiatedAt = value;
     }
-
-    private String state;
 
     public String getState() {
         return state;
@@ -153,8 +146,6 @@ public class LimitReservationDO extends BaseDO {
         state = value;
     }
 
-    private LocalDateTime reserveExpiresAt;
-
     public LocalDateTime getReserveExpiresAt() {
         return reserveExpiresAt;
     }
@@ -162,8 +153,6 @@ public class LimitReservationDO extends BaseDO {
     public void setReserveExpiresAt(LocalDateTime value) {
         reserveExpiresAt = value;
     }
-
-    private String activeAttemptId;
 
     public String getActiveAttemptId() {
         return activeAttemptId;
@@ -173,8 +162,6 @@ public class LimitReservationDO extends BaseDO {
         activeAttemptId = value;
     }
 
-    private Long executionEpoch;
-
     public Long getExecutionEpoch() {
         return executionEpoch;
     }
@@ -183,8 +170,6 @@ public class LimitReservationDO extends BaseDO {
         executionEpoch = value;
     }
 
-    private Long paymentSourceVersion;
-
     public Long getPaymentSourceVersion() {
         return paymentSourceVersion;
     }
@@ -192,8 +177,6 @@ public class LimitReservationDO extends BaseDO {
     public void setPaymentSourceVersion(Long value) {
         paymentSourceVersion = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

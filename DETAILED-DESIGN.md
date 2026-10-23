@@ -90,6 +90,7 @@ ACID。
 // Domain model: no Spring, ORM, transport or facade DTO dependencies.
 public interface AcquireOrderGateway {
     AcquireOrder lock(String orderId);
+
     void save(AcquireOrder order, long expectedVersion);
 }
 
@@ -101,8 +102,11 @@ public interface AcquireOrderGateway {
 
 public interface PaymentChannelGateway {
     ChannelSubmitOutcome submit(PreparedChannelPayment payment);
+
     ChannelQueryOutcome query(ChannelPaymentIdentity identity);
+
     ChannelCloseOutcome close(ChannelPaymentIdentity identity);
+
     ChannelRefundOutcome refund(PreparedChannelRefund refund);
 }
 ```
@@ -223,17 +227,24 @@ inputRef；acquire只持引用。敏感输入准备与A2之间允许存在未使
 ## 7. 多笔付款执行与结果收敛
 
 1.
+
 acquire先查actionKey幂等，再锁order。校验原snapshot、等待策略、允许方式、手动金额、最大成功笔数；CLOSE已到检查点时当场持久进入CLOSING并拒绝新付款，不依赖延时任务准时到达；金额和笔数在途一起预占。同一动作返回同paymentId，新付款动作才用新actionKey。
+
 2. allocation保存不可变paymentId、金额/币种/主体和执行意图摘要；A2同事务产生执行目标Outbox。payment仅接受可信acquire的绑定，不能让页面直接提交任意金额或渠道商户号。
 
    缺少必须的敏感输入时，A2保留NEED_INPUT且不发布可执行意图；恢复用例以同paymentId补齐inputRef后，在占用仍HELD/订单可执行的事务内发布一次。渠道请求号由adapter按对应产品字符集/长度生成并先持久化，不直接截断或假设平台64位ID必然能作为渠道商户订单号。
 3.
+
 payment持久化Y1后再准备渠道绑定/attempt；咨询risk（当前DEFAULT_ALLOW），Reserve与BeginExecution商户限额。operationId固定到PaymentOrder，attempt重试不重复计成功笔数；执行凭证额外绑定当前attempt和executionEpoch。
+
 4. payment进行Y2检查并进入SUBMITTING，然后调用渠道。claim租约仅调度互斥，不能证明旧worker不会继续。进入SUBMITTING即按可能已发送处理；响应丢失为UNKNOWN，不自动重新扣款或换渠道。
 5.
+
 回调验签、解密和初步解析在事务外；Y3重新核对实际收款身份、金额币种、稳定请求号和渠道交易号，保存可审计receipt/证据。只有提交成功后返回渠道ACK。同receipt的规范化资金事实冲突进入anomaly，不静默覆盖；只改变签名/重发时间等非资金信息的合法重复不误报新的付款。
+
 6. 一次成功原子提交：PaymentOrder/attempt成功、refund_capacity初始化、acquire结果、limit确认、realtime快照、risk结果各自目标Outbox。若某目标不可用，不阻止其他目标收敛。
 7.
+
 acquire以paymentId/allocationId消费完整结果：HELD→CONSUMED，reserved减该笔、paid加该笔，成功笔数加一；状态变PAID时唯一确认整单费用并发OrderFullyPaid。重复成功为无操作；不同paymentId不能共享一个去重键。
 
 同payment下一attempt仅在旧attempt有渠道确定不收款证据且旧发送路径安全终结后准备；金额/币种/原allocation保持不变。PaymentOrder的activeAttemptId在锁下更新，旧回调仍按原attempt处理；单纯查询NOT_FOUND不足以证明一个暂停的SUBMITTING
@@ -301,8 +312,10 @@ version、每个子退款id/固定channelRefundNo和所有预占一次提交。�
 
 ```java
 outbox.publish(new OutboxMessage(tenantId,
-        "pay.payment.outcome.acquire.v1", 1, paymentId, payloadJson));
-delayedTasks.register("pay.order.due", orderId + ":" + deadlineVersion, dueAt);
+        "pay.payment.outcome.acquire.v1",1,paymentId, payloadJson));
+        delayedTasks.
+
+register("pay.order.due",orderId +":"+deadlineVersion, dueAt);
 ```
 
 二者均在同一DataSource的本地写事务注册。`OutboxMessage.version`是载荷schemaVersion，业务aggregateVersion在payload；不能把两者混用。

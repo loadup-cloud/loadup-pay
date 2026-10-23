@@ -29,6 +29,10 @@ import org.springframework.stereotype.Component;
 public class JwtCustomerActorProvider implements CustomerActorProvider {
     public static final String MANAGE_PERMISSION = "pay:customer:manage";
 
+    private static CommonException denied() {
+        return new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
+    }
+
     @Override
     public CustomerActor current() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -50,9 +54,5 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
         } catch (IllegalArgumentException failure) {
             throw denied();
         }
-    }
-
-    private static CommonException denied() {
-        return new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
     }
 }

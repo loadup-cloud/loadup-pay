@@ -25,6 +25,26 @@ import java.time.LocalDateTime;
 @Table("order_admission")
 public class OrderAdmissionDO extends BaseDO {
     private String orderId;
+    private String payeeMerchantId;
+    private String productScopeKey;
+    private String requestDigest;
+    private Long amountMinor;
+    private String currency;
+    private LocalDateTime requestedDueAt;
+    private String callerScopeHash;
+    private String contractId;
+    private Integer contractRevision;
+    private Long contractGeneration;
+    private Long merchantFactVersion;
+    private Long authorizationVersion;
+    private String state;
+    private String reasonCode;
+    private LocalDateTime admittedAt;
+    private LocalDateTime materializeBefore;
+    private String snapshotHash;
+    private String compiledTermsHash;
+    @DiagnosticHidden
+    private String compiledTerms;
 
     public String getOrderId() {
         return orderId;
@@ -34,8 +54,6 @@ public class OrderAdmissionDO extends BaseDO {
         orderId = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -43,8 +61,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setPayeeMerchantId(String value) {
         payeeMerchantId = value;
     }
-
-    private String productScopeKey;
 
     public String getProductScopeKey() {
         return productScopeKey;
@@ -54,8 +70,6 @@ public class OrderAdmissionDO extends BaseDO {
         productScopeKey = value;
     }
 
-    private String requestDigest;
-
     public String getRequestDigest() {
         return requestDigest;
     }
@@ -63,8 +77,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setRequestDigest(String value) {
         requestDigest = value;
     }
-
-    private Long amountMinor;
 
     public Long getAmountMinor() {
         return amountMinor;
@@ -74,8 +86,6 @@ public class OrderAdmissionDO extends BaseDO {
         amountMinor = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -83,8 +93,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private LocalDateTime requestedDueAt;
 
     public LocalDateTime getRequestedDueAt() {
         return requestedDueAt;
@@ -94,8 +102,6 @@ public class OrderAdmissionDO extends BaseDO {
         requestedDueAt = value;
     }
 
-    private String callerScopeHash;
-
     public String getCallerScopeHash() {
         return callerScopeHash;
     }
@@ -103,8 +109,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setCallerScopeHash(String value) {
         callerScopeHash = value;
     }
-
-    private String contractId;
 
     public String getContractId() {
         return contractId;
@@ -114,8 +118,6 @@ public class OrderAdmissionDO extends BaseDO {
         contractId = value;
     }
 
-    private Integer contractRevision;
-
     public Integer getContractRevision() {
         return contractRevision;
     }
@@ -123,8 +125,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setContractRevision(Integer value) {
         contractRevision = value;
     }
-
-    private Long contractGeneration;
 
     public Long getContractGeneration() {
         return contractGeneration;
@@ -134,8 +134,6 @@ public class OrderAdmissionDO extends BaseDO {
         contractGeneration = value;
     }
 
-    private Long merchantFactVersion;
-
     public Long getMerchantFactVersion() {
         return merchantFactVersion;
     }
@@ -143,8 +141,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setMerchantFactVersion(Long value) {
         merchantFactVersion = value;
     }
-
-    private Long authorizationVersion;
 
     public Long getAuthorizationVersion() {
         return authorizationVersion;
@@ -154,8 +150,6 @@ public class OrderAdmissionDO extends BaseDO {
         authorizationVersion = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -163,8 +157,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setState(String value) {
         state = value;
     }
-
-    private String reasonCode;
 
     public String getReasonCode() {
         return reasonCode;
@@ -174,8 +166,6 @@ public class OrderAdmissionDO extends BaseDO {
         reasonCode = value;
     }
 
-    private LocalDateTime admittedAt;
-
     public LocalDateTime getAdmittedAt() {
         return admittedAt;
     }
@@ -183,8 +173,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setAdmittedAt(LocalDateTime value) {
         admittedAt = value;
     }
-
-    private LocalDateTime materializeBefore;
 
     public LocalDateTime getMaterializeBefore() {
         return materializeBefore;
@@ -194,8 +182,6 @@ public class OrderAdmissionDO extends BaseDO {
         materializeBefore = value;
     }
 
-    private String snapshotHash;
-
     public String getSnapshotHash() {
         return snapshotHash;
     }
@@ -204,8 +190,6 @@ public class OrderAdmissionDO extends BaseDO {
         snapshotHash = value;
     }
 
-    private String compiledTermsHash;
-
     public String getCompiledTermsHash() {
         return compiledTermsHash;
     }
@@ -213,9 +197,6 @@ public class OrderAdmissionDO extends BaseDO {
     public void setCompiledTermsHash(String value) {
         compiledTermsHash = value;
     }
-
-    @DiagnosticHidden
-    private String compiledTerms;
 
     public String getCompiledTerms() {
         return compiledTerms;

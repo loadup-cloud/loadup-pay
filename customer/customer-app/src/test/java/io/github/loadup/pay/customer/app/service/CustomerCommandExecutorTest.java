@@ -62,16 +62,16 @@ class CustomerCommandExecutorTest {
             GlobalUniqueClaim claim = call.getArgument(0);
             String key = claim.bizType() + claim.uniqueKey();
             return records.putIfAbsent(
-                            key,
-                            new GlobalUniqueRecord(
-                                    "claim",
-                                    "tenant",
-                                    claim.bizType(),
-                                    claim.uniqueKey(),
-                                    claim.bizId(),
-                                    claim.requestData(),
-                                    null,
-                                    null))
+                    key,
+                    new GlobalUniqueRecord(
+                            "claim",
+                            "tenant",
+                            claim.bizType(),
+                            claim.uniqueKey(),
+                            claim.bizId(),
+                            claim.requestData(),
+                            null,
+                            null))
                     == null;
         });
     }
@@ -86,7 +86,8 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
+                () -> {
+                },
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         MerchantRelationshipDTO replay = executor.execute(
                 actor,
@@ -112,8 +113,10 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
+                () -> {
+                },
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
+                }));
         var changed = new MerchantRelationshipCreateCommand("different", "child", from, null, "request");
         CommonException failure = assertThrows(
                 CommonException.class,
@@ -140,14 +143,17 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
+                () -> {
+                },
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
+                }));
         GlobalUniqueRecord stored = records.values().iterator().next();
         when(unique.find(anyString(), anyString())).thenReturn(Optional.empty(), Optional.of(stored));
         assertEquals(
                 original,
                 executor.execute(
-                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {}, () -> {
+                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {
+                        }, () -> {
                             throw new AssertionError("Already committed");
                         }));
     }
@@ -162,7 +168,8 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
+                () -> {
+                },
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         CustomerActor other = new CustomerActor("TENANT", PrincipalType.OPERATOR, "operator", null, true);
         executor.execute(
@@ -171,7 +178,8 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
+                () -> {
+                },
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         assertEquals(2, writes.get());
     }
@@ -202,7 +210,8 @@ class CustomerCommandExecutorTest {
         assertThrows(
                 CommonException.class,
                 () -> executor.execute(
-                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {}, () -> {
+                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {
+                        }, () -> {
                             throw new CommonException(CustomerResultCodeEnum.MERCHANT_INACTIVE);
                         }));
         verify(unique, never()).claim(any(GlobalUniqueClaim.class));
@@ -218,8 +227,10 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {},
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
+                () -> {
+                },
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
+                }));
         GlobalUniqueRecord stored = records.values().iterator().next();
         when(unique.find(anyString(), anyString())).thenReturn(Optional.empty(), Optional.empty(), Optional.of(stored));
         when(unique.claim(any(GlobalUniqueClaim.class))).thenReturn(false);
@@ -231,7 +242,8 @@ class CustomerCommandExecutorTest {
                         "request",
                         command,
                         MerchantRelationshipDTO.class,
-                        () -> {},
+                        () -> {
+                        },
                         () -> new CustomerCommandExecutor.Prepared<>(
                                 "loser", original, () -> fail("Losing candidate must not persist"))));
     }

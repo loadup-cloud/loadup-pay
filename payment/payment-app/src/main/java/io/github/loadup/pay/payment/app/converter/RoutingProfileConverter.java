@@ -16,20 +16,30 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.client.dto.RoutingProfileDTO;
+import io.github.loadup.pay.payment.client.dto.RoutingProfileSpecDTO;
+import io.github.loadup.pay.payment.client.dto.RoutingRuleDTO;
+import io.github.loadup.pay.payment.domain.model.RoutingProfile;
+import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
+import io.github.loadup.pay.payment.domain.model.RoutingRule;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RoutingProfileConverter {
     RoutingRule toRule(RoutingRuleDTO value);
+
     RoutingRuleDTO toRuleDTO(RoutingRule value);
+
     RoutingProfileSpec toSpec(RoutingProfileSpecDTO value);
+
     RoutingProfileSpecDTO toSpecDTO(RoutingProfileSpec value);
+
     RoutingProfileDTO toDTO(RoutingProfile value);
 
     @Mapping(target = "spec", source = "spec")
     RoutingProfile toStored(String id, RoutingProfileSpec spec, String contentHash, String callerServiceId,
-            String requestKey, String requestDigest, LocalDateTime publishedAt);
+                            String requestKey, String requestDigest, LocalDateTime publishedAt);
 }

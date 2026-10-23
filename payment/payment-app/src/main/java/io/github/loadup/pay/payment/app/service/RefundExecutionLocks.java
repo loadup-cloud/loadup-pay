@@ -17,10 +17,19 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import org.springframework.stereotype.Component;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class RefundExecutionLocks {
@@ -29,17 +38,25 @@ public class RefundExecutionLocks {
     private final PaymentAcceptanceGateway payments;
     private final PaymentResultGateway collections;
     private final PaymentAttemptGateway attempts;
+
     public RefundExecutionLocks(RefundGateway refunds, RefundResultGateway results, PaymentAcceptanceGateway payments,
-            PaymentResultGateway collections, PaymentAttemptGateway attempts) {
-        this.refunds = refunds; this.results = results; this.payments = payments; this.collections = collections; this.attempts = attempts;
+                                PaymentResultGateway collections, PaymentAttemptGateway attempts) {
+        this.refunds = refunds;
+        this.results = results;
+        this.payments = payments;
+        this.collections = collections;
+        this.attempts = attempts;
     }
+
     public StoredRefundRequest request(String tenant, String requestId) {
         var reference = refunds.reference(tenant, requestId).orElseThrow(() -> new CommonException(NOT_FOUND));
         var parent = payments.lockParent(tenant, reference.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!parent.payeeMerchantId().equals(reference.payeeMerchantId()) || !parent.gate().orderId().equals(reference.orderId())
-                || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+                || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT)
+            throw new CommonException(SNAPSHOT_INVALID);
         return refunds.lock(tenant, requestId);
     }
+
     public LockedRefund child(String tenant, StoredRefundRequest request, String refundId) {
         var selected = request.allocations().stream().filter(c -> c.refund().id().equals(refundId)).findFirst()
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -59,10 +76,14 @@ public class RefundExecutionLocks {
                 || !original.payment().payeeMerchantId().equals(capacity.payeeMerchantId()) || !original.payment().amount().equals(capacity.succeededAmount())
                 || !selected.original().attemptId().equals(original.payment().successfulAttemptId())
                 || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED || !attempt.attempt().identity().equals(selected.original())
-                || !attempt.attempt().amount().equals(capacity.succeededAmount())) throw new CommonException(SNAPSHOT_INVALID);
+                || !attempt.attempt().amount().equals(capacity.succeededAmount()))
+            throw new CommonException(SNAPSHOT_INVALID);
         if (!selected.refund().terminal() && capacity.reservedMinor() < selected.refund().amount().getCent())
             throw new CommonException(SNAPSHOT_INVALID);
         return new LockedRefund(request, facts, capacity);
     }
-    public LockedRefund lock(String tenant, String requestId, String refundId) { return child(tenant, request(tenant, requestId), refundId); }
+
+    public LockedRefund lock(String tenant, String requestId, String refundId) {
+        return child(tenant, request(tenant, requestId), refundId);
+    }
 }

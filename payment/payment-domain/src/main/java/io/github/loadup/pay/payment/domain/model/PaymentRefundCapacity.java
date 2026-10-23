@@ -69,13 +69,15 @@ public record PaymentRefundCapacity(
                 Math.incrementExact(version));
     }
 
-    /** Call with the locked persisted child, then commit the child/request/capacity together. */
+    /**
+     * Call with the locked persisted child, then commit the child/request/capacity together.
+     */
     public RefundCapacityChange applyOutcome(RefundOrder current, ChannelRefundOutcome outcome) {
         require(
                 paymentId.equals(current.paymentId())
                         && succeededAmount
-                                .getCurrencyValue()
-                                .equals(current.amount().getCurrencyValue()),
+                        .getCurrencyValue()
+                        .equals(current.amount().getCurrencyValue()),
                 CONFLICT);
         var updated = current.recordOutcome(outcome);
         if (!current.terminal()) require(current.amount().getCent() <= reservedMinor, CONFLICT);

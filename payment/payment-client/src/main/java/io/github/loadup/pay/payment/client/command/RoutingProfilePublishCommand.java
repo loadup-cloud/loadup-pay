@@ -19,10 +19,15 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.RoutingProfileSpecDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record RoutingProfilePublishCommand(
         @Schema(description = "Immutable routing definition") @NotNull @Valid RoutingProfileSpecDTO spec,
         @Schema(description = "Caller-scoped publish idempotency key") @NotBlank @Size(max = 128) String requestKey) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

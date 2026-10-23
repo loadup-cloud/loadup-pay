@@ -36,6 +36,10 @@ public class JwtProductActorProvider implements ProductActorProvider {
         this.customerAudience = customerAudience;
     }
 
+    private static CommonException forbidden() {
+        return new CommonException(ProductResultCodeEnum.ACTION_FORBIDDEN);
+    }
+
     @Override
     public ProductActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -68,9 +72,5 @@ public class JwtProductActorProvider implements ProductActorProvider {
         } catch (IllegalArgumentException invalid) {
             throw forbidden();
         }
-    }
-
-    private static CommonException forbidden() {
-        return new CommonException(ProductResultCodeEnum.ACTION_FORBIDDEN);
     }
 }

@@ -18,19 +18,27 @@ package io.github.loadup.pay.payment.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
-import io.github.loadup.pay.payment.client.event.*;
-import org.mapstruct.*;
-import java.time.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundProjectionConverter {
     @Mapping(target = "amountMinor", source = "amount.cent")
     @Mapping(target = "currency", source = "amount.currencyValue")
     RefundSnapshotEventDTO toEvent(RefundSnapshotFacts value);
+
     @Mapping(target = "currency", source = "orderAmount.currencyValue")
     @Mapping(target = "refundReservedMinor", source = "reservedMinor")
     @Mapping(target = "refundSummaryVersion", source = "version")
     OrderRefundSummaryEventDTO toEvent(OrderRefundSummary value);
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

@@ -18,13 +18,18 @@ package io.github.loadup.pay.acquire.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.product.client.dto.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInitiationConverter {
@@ -68,7 +73,7 @@ public interface PaymentInitiationConverter {
     @Mapping(target = "inputKey", source = "inputKey")
     @Mapping(target = "interaction", source = "interaction")
     PaymentInputPrepareCommand toInputPreparation(PaymentExecuteCommand command, String inputKey,
-            PaymentInteractionDTO interaction);
+                                                  PaymentInteractionDTO interaction);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")
     PaymentExecuteCommand withPreparedInput(PaymentExecuteCommand original, String inputRef);

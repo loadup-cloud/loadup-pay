@@ -17,22 +17,38 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.acquire.app.converter.*;
-import io.github.loadup.pay.acquire.app.port.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
+import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
+import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionCreateCommand;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.common.DomainChecks;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
-import java.time.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+import java.util.List;
+import java.util.Set;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class CheckoutSessionOperations {
@@ -79,7 +95,9 @@ public class CheckoutSessionOperations {
         return result;
     }
 
-    /** Prepare credentials before any order writes; persist inside the caller's A1 transaction. */
+    /**
+     * Prepare credentials before any order writes; persist inside the caller's A1 transaction.
+     */
     public StoredCheckoutSession prepareInitial(
             AcquireActor actor, StoredAcquireOrder order, String sessionId, String requestedTarget) {
         requireTransaction();

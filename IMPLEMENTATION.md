@@ -206,101 +206,160 @@ Converter，核对策略头、额度桶、执行中预占及 INIT/PUBLISHING/ACT
 成功生成，生成代码未调用上述领域行为；反向样例仍对真实缺失字段 requiredField 报错。四个修改 Java 文件的 IDEA 错误检查通过，git
 diff --check 通过。该验证仅覆盖 MapStruct 注解生成，新增 JUnit 未执行，未运行 Maven 构建、数据库迁移或部署。
 
-
 ## 16. P2 第六批：acquire 普通创单与查询
 
-新增 acquire-app、acquire-infrastructure、acquire-adapter，AcquireOrderCreationFacade 实现 POST create/detail；完整 AcquireOrderFacade 继承此独立切片，未暴露其他占位方法。A0 唯一意图先提交，原身份委托 product，在 A1 intent 行锁内重读并验证准入，原子写 INIT 订单、不可变条款、INIT 整单费用及 COMPLETED。依赖失败保留稳定 orderId；拒绝/精确截止到期先持久化终态再返回错误，已完成请求无需当前合约依赖即可回放。
+新增 acquire-app、acquire-infrastructure、acquire-adapter，AcquireOrderCreationFacade 实现 POST create/detail；完整
+AcquireOrderFacade 继承此独立切片，未暴露其他占位方法。A0 唯一意图先提交，原身份委托 product，在 A1 intent 行锁内重读并验证准入，原子写
+INIT 订单、不可变条款、INIT 整单费用及 COMPLETED。依赖失败保留稳定 orderId；拒绝/精确截止到期先持久化终态再返回错误，已完成请求无需当前合约依赖即可回放。
 
-新增加法迁移 V20261021210000 创建本服务4表；不创建后续付款、会话或退款调整表。原 compiled_terms_hash 保留可信 product 关联，本地完整准入 DTO 另以 payload_hash 校验，不声称可由省略字段来源的 DTO 重算原编译哈希。仓储使用生成 Mapper/Tables，复用框架 BaseDO、ID、Money/JSON、JWT、HTTP 和数据库事务。业务 Maven/Spring profile 为 acquire-business，运行配置与尚缺的付款/任务入口见[acquire说明](acquire/README.md)。
+新增加法迁移 V20261021210000 创建本服务4表；不创建后续付款、会话或退款调整表。原 compiled_terms_hash 保留可信 product
+关联，本地完整准入 DTO 另以 payload_hash 校验，不声称可由省略字段来源的 DTO 重算原编译哈希。仓储使用生成 Mapper/Tables，复用框架
+BaseDO、ID、Money/JSON、JWT、HTTP 和数据库事务。业务 Maven/Spring profile 为
+acquire-business，运行配置与尚缺的付款/任务入口见[acquire说明](acquire/README.md)。
 
-新增4类23个测试方法源码，未编译或执行。关键编排/Converter/适配/测试的 IDEA 错误检查完成；仓储仍待业务 target 生成类型。38个 POM XML解析、git diff --check 完成；在全新临时 Maven 目录用 Java 25 javac -proc:only 成功生成两个 Converter、四个 Mapper、四个 TableDef 和 Tables。此验证仅覆盖注解生成，不代替业务编译、JUnit、真实MySQL事务/JWT/HTTP验收。本批未运行 Maven 构建、DDL 或部署，不属于此前已部署镜像。
-
+新增4类23个测试方法源码，未编译或执行。关键编排/Converter/适配/测试的 IDEA 错误检查完成；仓储仍待业务 target 生成类型。38个
+POM XML解析、git diff --check 完成；在全新临时 Maven 目录用 Java 25 javac -proc:only 成功生成两个 Converter、四个 Mapper、四个
+TableDef 和 Tables。此验证仅覆盖注解生成，不代替业务编译、JUnit、真实MySQL事务/JWT/HTTP验收。本批未运行 Maven 构建、DDL
+或部署，不属于此前已部署镜像。
 
 ## 17. P2 第七批：原单会话与收银台只读摘要
 
-实现 CheckoutSessionFacade.create、CashierSummaryFacade.summary，CashierFacade 继承摘要切片。商户 JWT 会话签发锁原订单、检查原主体与冻结回跳 code，新会话按原条款/订单等待策略计算期限；相同 requestKey 回放原 session/nonce/keyVersion/token/expiry，不因过期或订单终态续期。会话凭证复用框架 HMAC，scope 版本1只允许摘要，数据库只存 token 摘要；密钥缺失/漂移拒绝重建。
+实现 CheckoutSessionFacade.create、CashierSummaryFacade.summary，CashierFacade 继承摘要切片。商户 JWT 会话签发锁原订单、检查原主体与冻结回跳
+code，新会话按原条款/订单等待策略计算期限；相同 requestKey 回放原
+session/nonce/keyVersion/token/expiry，不因过期或订单终态续期。会话凭证复用框架 HMAC，scope 版本1只允许摘要，数据库只存
+token 摘要；密钥缺失/漂移拒绝重建。
 
-新增加法迁移 V20261021220000 创建 checkout_session，本服务实际合计5表。独立 cashier 安全链将 opaque capability 与商户 JWT 分开，tenant 仅作定位，摘要服务逐次认证 token/状态/期限/Origin 与订单 scope，不允许读其他订单。GET /checkout 提供无第三方资源的只读页面，fragment 立即移除，凭证只留页面内存；CSP/no-store/no-referrer、纯文本标题及精确整数分值展示已补。未暴露付款或 CheckoutCreateCommand 一步创单占位入口。
+新增加法迁移 V20261021220000 创建 checkout_session，本服务实际合计5表。独立 cashier 安全链将 opaque capability 与商户 JWT
+分开，tenant 仅作定位，摘要服务逐次认证 token/状态/期限/Origin 与订单 scope，不允许读其他订单。GET /checkout
+提供无第三方资源的只读页面，fragment 立即移除，凭证只留页面内存；CSP/no-store/no-referrer、纯文本标题及精确整数分值展示已补。未暴露付款或
+CheckoutCreateCommand 一步创单占位入口。
 
-新增5类29个测试方法源码，未执行 JUnit。关键源码/测试 IDEA 检查、38个POM XML解析、git diff --check 完成；临时 Maven 样式目录的 Java25 javac -proc:only 成功生成两个新 Converter 与 session Mapper/TableDef/Tables，未向业务 target 写生成类。真实页面JS语法及无网络 Node VM 样例通过，验证大整数不舍入、缺失能力不请求API、标题纯文本与 fragment 清除；不是浏览器或服务端业务集成验收。未执行 Maven、DDL、部署。所需新增外部 Secret/公开URL配置及剩余付款范围见[acquire说明](acquire/README.md)。
-
+新增5类29个测试方法源码，未执行 JUnit。关键源码/测试 IDEA 检查、38个POM XML解析、git diff --check 完成；临时 Maven 样式目录的
+Java25 javac -proc:only 成功生成两个新 Converter 与 session Mapper/TableDef/Tables，未向业务 target 写生成类。真实页面JS语法及无网络
+Node VM 样例通过，验证大整数不舍入、缺失能力不请求API、标题纯文本与 fragment 清除；不是浏览器或服务端业务集成验收。未执行
+Maven、DDL、部署。所需新增外部 Secret/公开URL配置及剩余付款范围见[acquire说明](acquire/README.md)。
 
 ## 18. P2 第八批：Checkout 一步创单
 
-实现 CheckoutOrderFacade.checkout 及 POST /api/acquire/checkout/create，完整 AcquireOrderFacade 继承该切片。A0 保存 CHECKOUT 入口、初始 sessionId 和完整请求；ORDER 原 v1 不变，两入口共用商户订单唯一键且互相冲突。A1 复核准入后准备签名/可信 URL，原子写入订单、条款、整单费用、首次会话及完成标记。独立 session.create 复用同一会话准备/重建逻辑，保持原事务边界。
+实现 CheckoutOrderFacade.checkout 及 POST /api/acquire/checkout/create，完整 AcquireOrderFacade 继承该切片。A0 保存
+CHECKOUT 入口、初始 sessionId 和完整请求；ORDER 原 v1 不变，两入口共用商户订单唯一键且互相冲突。A1 复核准入后准备签名/可信
+URL，原子写入订单、条款、整单费用、首次会话及完成标记。独立 session.create 复用同一会话准备/重建逻辑，保持原事务边界。
 
-完成重放固定原会话及期限，不把原会话丢失或密钥失效当作续发机会。业务拒绝先提交意图结果，基础设施失败回滚 A1 并保留 A0 的稳定 ID。新增 V20261022010000 扩展 intent 字段/约束；旧迁移不改动，五张表不增减。按新增前期开发规则统一使用当前模型，不要求旧模型或混合版本兼容。
+完成重放固定原会话及期限，不把原会话丢失或密钥失效当作续发机会。业务拒绝先提交意图结果，基础设施失败回滚 A1 并保留 A0 的稳定
+ID。新增 V20261022010000 扩展 intent 字段/约束；旧迁移不改动，五张表不增减。按新增前期开发规则统一使用当前模型，不要求旧模型或混合版本兼容。
 
-新增14个测试方法源码，覆盖原子提交调用顺序、原会话回放、跨入口冲突、回跳冲突、签名故障恢复、会话落库失败、准入拒绝/截止、权限和原 ORDER 摘要固定向量。IDE 检查关键源码与测试；未执行构建、注解处理、JUnit、DDL 或部署。mock 事务边界不是实际 MySQL 行回滚证明，当前收银台继续仅摘要展示；DirectPay、付款占用/结果、关单任务和通知仍待实现。
-
+新增14个测试方法源码，覆盖原子提交调用顺序、原会话回放、跨入口冲突、回跳冲突、签名故障恢复、会话落库失败、准入拒绝/截止、权限和原
+ORDER 摘要固定向量。IDE 检查关键源码与测试；未执行构建、注解处理、JUnit、DDL 或部署。mock 事务边界不是实际 MySQL
+行回滚证明，当前收银台继续仅摘要展示；DirectPay、付款占用/结果、关单任务和通知仍待实现。
 
 ## 19. 创单意图映射与前期开发规则
 
-显式声明 OrderCreationStorageConverter 的 entryMode/initialSessionId 双向映射，保留严格目标检查；移除 OrderCreateIntent 的旧模型兼容构造器，测试改用完整当前模型，新增2个持久化往返回归用例。排查发现本地安装的 acquire-domain JAR 仍缺字段，而 target 中模型已更新；构建需将 infrastructure 及依赖放入同一 reactor，命令见 acquire/README.md。
+显式声明 OrderCreationStorageConverter 的 entryMode/initialSessionId 双向映射，保留严格目标检查；移除 OrderCreateIntent
+的旧模型兼容构造器，测试改用完整当前模型，新增2个持久化往返回归用例。排查发现本地安装的 acquire-domain JAR 仍缺字段，而
+target 中模型已更新；构建需将 infrastructure 及依赖放入同一 reactor，命令见 acquire/README.md。
 
-AGENTS.md 已加入前期无需兼容、允许直接重构/删除的规则，并同步去除本批 Checkout 文档中的混合版本发布要求。本轮仅静态检查，未运行构建、JUnit、DDL 或部署。
-
+AGENTS.md 已加入前期无需兼容、允许直接重构/删除的规则，并同步去除本批 Checkout 文档中的混合版本发布要求。本轮仅静态检查，未运行构建、JUnit、DDL
+或部署。
 
 ## 20. P2 第九批：payment 持久受理与查询
 
-新增 payment-app、payment-infrastructure、payment-adapter，PaymentAcceptanceFacade.accept/detail 与 /api/payment/executions 下同名 POST 入口；完整 PaymentExecutionFacade 继承该切片。框架已验证 SERVICE JWT 绑定 tenant/sub/service_id，应用进一步限定 acquire-service-id 及独立权限。强制完整原准入条款、原订单/商户/金额/币种/能力绑定，持久完整命令及副本校验和。
+新增 payment-app、payment-infrastructure、payment-adapter，PaymentAcceptanceFacade.accept/detail 与 /api/payment/executions
+下同名 POST 入口；完整 PaymentExecutionFacade 继承该切片。框架已验证 SERVICE JWT 绑定 tenant/sub/service_id，应用进一步限定
+acquire-service-id 及独立权限。强制完整原准入条款、原订单/商户/金额/币种/能力绑定，持久完整命令及副本校验和。
 
-READ_COMMITTED 事务按父门禁→单笔门禁→付款记录顺序建立首个 INIT，冻结 initiatedAt 与额度 operationId；既有非 OPEN 门禁禁止首次受理。同 paymentId 重放原事实而不再开门禁或执行渠道，同摘要改参仍冲突，同 allocation 不能绑定第二笔付款。三张表由 V20261022020000 创建，MapStruct/MyBatis-Flex 沿用框架配置与生成接口。
+READ_COMMITTED 事务按父门禁→单笔门禁→付款记录顺序建立首个 INIT，冻结 initiatedAt 与额度 operationId；既有非 OPEN
+门禁禁止首次受理。同 paymentId 重放原事实而不再开门禁或执行渠道，同摘要改参仍冲突，同 allocation 不能绑定第二笔付款。三张表由
+V20261022020000 创建，MapStruct/MyBatis-Flex 沿用框架配置与生成接口。
 
-Maven/Spring payment-business 双 profile 及脚本入口已装配。当前只实现 durable acceptance，尚无后台执行器，action/attempt 为空；acquire 付款金额占用及调用、额度/渠道/输入准备、封禁写入口、可信结果和退款均未接通，不能视为可收款链路。
+Maven/Spring payment-business 双 profile 及脚本入口已装配。当前只实现 durable acceptance，尚无后台执行器，action/attempt
+为空；acquire 付款金额占用及调用、额度/渠道/输入准备、封禁写入口、可信结果和退款均未接通，不能视为可收款链路。
 
-IDEA MCP 未在等待窗口内返回，按新协作规则使用 mvnd：clean compile -pl payment/payment-bootstrap -am -Ppayment-business 通过（9模块），clean test-compile -pl payment/payment-app,payment/payment-infrastructure,payment/payment-adapter -am 通过（8模块）。两次均跳过测试及无关检查；新增4类24个方法已编译，未执行 JUnit、数据库迁移或部署。范围与运行变量见[payment说明](payment/README.md)。
-
+IDEA MCP 未在等待窗口内返回，按新协作规则使用 mvnd：clean compile -pl payment/payment-bootstrap -am -Ppayment-business
+通过（9模块），clean test-compile -pl payment/payment-app,payment/payment-infrastructure,payment/payment-adapter -am
+通过（8模块）。两次均跳过测试及无关检查；新增4类24个方法已编译，未执行
+JUnit、数据库迁移或部署。范围与运行变量见[payment说明](payment/README.md)。
 
 ## 21. P2 第十批：payment 执行封禁与本地安全关闭
 
-实现 PaymentControlFacade.close/fenceParent/parentFenceStatus 与内部同名 HTTP 适配，增加独立 close/fence/fence:read 权限，继续仅允许指定 acquire SERVICE 身份。父/单笔 gate 和付款按原顺序加锁，gate rowVersion/付款 version 执行 CAS；父封禁代次单调，status 要求代次覆盖及全部子付款具备终结证据，不能把 fenced 当作收敛。
+实现 PaymentControlFacade.close/fenceParent/parentFenceStatus 与内部同名 HTTP 适配，增加独立 close/fence/fence:read
+权限，继续仅允许指定 acquire SERVICE 身份。父/单笔 gate 和付款按原顺序加锁，gate rowVersion/付款 version 执行
+CAS；父封禁代次单调，status 要求代次覆盖及全部子付款具备终结证据，不能把 fenced 当作收敛。
 
-新增不可变 PaymentControlReceipt 与 V20261022030000：控制请求服务端摘要固定参数，同 key 改参拒绝。未创建付款先保存 tombstone+未收款回执；已有 gate 而缺付款时必须有原证据，不用缺记录推断安全。仅 INIT/version0/无 activeAttempt 可本地 CLOSED 并记录证明；PROCESSING/UNKNOWN 只进 CLOSING，SUCCEEDED/FAILED/CLOSED 不重写终态。当前模型直接调整 PaymentCloseCommand 新增 payee 且 epoch 必须正数，close 返回 PaymentCloseDTO，避免伪造未知付款。
+新增不可变 PaymentControlReceipt 与 V20261022030000：控制请求服务端摘要固定参数，同 key 改参拒绝。未创建付款先保存
+tombstone+未收款回执；已有 gate 而缺付款时必须有原证据，不用缺记录推断安全。仅 INIT/version0/无 activeAttempt 可本地 CLOSED
+并记录证明；PROCESSING/UNKNOWN 只进 CLOSING，SUCCEEDED/FAILED/CLOSED 不重写终态。当前模型直接调整 PaymentCloseCommand 新增
+payee 且 epoch 必须正数，close 返回 PaymentCloseDTO，避免伪造未知付款。
 
-受理/查询 DTO 已携带原 terminalEvidenceId，关闭后 accept 重放仍只返回原 CLOSED。当前4表；渠道扫描、真实关闭/查询、acquire 占用释放、limitcenter 释放及 Outbox 结果仍未接通。
+受理/查询 DTO 已携带原 terminalEvidenceId，关闭后 accept 重放仍只返回原 CLOSED。当前4表；渠道扫描、真实关闭/查询、acquire
+占用释放、limitcenter 释放及 Outbox 结果仍未接通。
 
-IDEA MCP 已恢复，关键 app/domain/client/adapter、Converter、测试源码检查无错误；仓储生成类型在 IDEA 索引中仍未解析，未声称其检查通过。必要的窄范围 mvnd clean test-compile -pl payment/payment-bootstrap -am -Ppayment-business 已通过9模块，MapStruct/Flex 真实生成通过；修正编译发现的关闭 DTO 嵌套映射后复验。新增2类22个测试方法已编译，累计6类46个新增业务方法，未运行 JUnit、DDL 或部署。详细协议见[payment说明](payment/README.md)。
+IDEA MCP 已恢复，关键 app/domain/client/adapter、Converter、测试源码检查无错误；仓储生成类型在 IDEA 索引中仍未解析，未声称其检查通过。必要的窄范围
+mvnd clean test-compile -pl payment/payment-bootstrap -am -Ppayment-business 已通过9模块，MapStruct/Flex 真实生成通过；修正编译发现的关闭
+DTO 嵌套映射后复验。新增2类22个测试方法已编译，累计6类46个新增业务方法，未运行 JUnit、DDL
+或部署。详细协议见[payment说明](payment/README.md)。
 
 ## 22. P2 第十一批：acquire 商户付款发起与金额占用
 
-新增 PaymentInitiationFacade.startPayment 和 `/api/acquire/payments/start`。原主体及独立权限、出站租户/原冻结能力检查后，A2 锁订单、校验金额/笔数，原子写 HELD allocation、订单占用及完整固定命令；事务外用挂载 SERVICE JWT 调 payment.accept。同 actionKey 沿原 paymentId/命令恢复，依赖失败不释放。首批仅 QR + NONE，不接敏感输入或渠道执行。
+新增 PaymentInitiationFacade.startPayment 和 `/api/acquire/payments/start`。原主体及独立权限、出站租户/原冻结能力检查后，A2
+锁订单、校验金额/笔数，原子写 HELD allocation、订单占用及完整固定命令；事务外用挂载 SERVICE JWT 调 payment.accept。同
+actionKey 沿原 paymentId/命令恢复，依赖失败不释放。首批仅 QR + NONE，不接敏感输入或渠道执行。
 
-V20261022040000 创建 acquire 第6表。严格 MapStruct/生成 Mapper、Money/JSON/BaseDO/ID/HTTP 和本地 Clock 继续复用。新增3类23个测试方法源码。在用户暂停验证之前，10模块窄范围 acquire-business mvnd clean test-compile 已通过，JUnit 未执行；IDEA 仍有过期索引反馈，不把全部静态检查计为通过。DDL、业务镜像、部署和真实链路未执行。
+V20261022040000 创建 acquire 第6表。严格 MapStruct/生成 Mapper、Money/JSON/BaseDO/ID/HTTP 和本地 Clock
+继续复用。新增3类23个测试方法源码。在用户暂停验证之前，10模块窄范围 acquire-business mvnd clean test-compile 已通过，JUnit
+未执行；IDEA 仍有过期索引反馈，不把全部静态检查计为通过。DDL、业务镜像、部署和真实链路未执行。
 
 ## 23. P2 第十二批：权威付款结果刷新与 A3 金额落账
 
-新增 PaymentOutcomeFacade/outcome 内部入口，指定 acquire SERVICE+read 权限，在父/单笔门禁锁内返回付款和持久 executionFenced；不存在付款不构造未收款事实。acquire 新增 PaymentProgressFacade.refresh 及 `/api/acquire/payments/refresh`，原订单主体/独立 refresh 权限，不接收外部自报资金结果。
+新增 PaymentOutcomeFacade/outcome 内部入口，指定 acquire SERVICE+read 权限，在父/单笔门禁锁内返回付款和持久
+executionFenced；不存在付款不构造未收款事实。acquire 新增 PaymentProgressFacade.refresh 及 `/api/acquire/payments/refresh`
+，原订单主体/独立 refresh 权限，不接收外部自报资金结果。
 
-远端查询不持本地事务；A3 按订单→占用加锁重读冻结绑定，成功消耗占用并累计 gross，未收款终态且单笔已封禁才释放，UNKNOWN/处理中保留。订单/占用/不可变结果回执同事务 CAS 写入，固定原 sourceVersion 和终结证据；重复不累计，冲突/倒退不覆盖。足额才 PAID，退款不改 gross 或生命周期。
+远端查询不持本地事务；A3 按订单→占用加锁重读冻结绑定，成功消耗占用并累计
+gross，未收款终态且单笔已封禁才释放，UNKNOWN/处理中保留。订单/占用/不可变结果回执同事务 CAS 写入，固定原 sourceVersion
+和终结证据；重复不累计，冲突/倒退不覆盖。足额才 PAID，退款不改 gross 或生命周期。
 
-V20261022050000 新增 order_payment_outcome，acquire 合计7表。仅请求触发收敛，渠道尝试/结果生产、自动扫描/事件、费用确认、limitcenter 确认/释放、关单与 Outbox 通知仍待实现。start 不自动落账，需 refresh；cashier 页面和 scope 继续只读摘要。
+V20261022050000 新增 order_payment_outcome，acquire 合计7表。仅请求触发收敛，渠道尝试/结果生产、自动扫描/事件、费用确认、limitcenter
+确认/释放、关单与 Outbox 通知仍待实现。start 不自动落账，需 refresh；cashier 页面和 scope 继续只读摘要。
 
 按用户“先不验证，继续开发代码”指令，本节修改未执行 IDEA 检查、构建、测试、DDL 或部署。第22节编译记录不覆盖本节后续修改。
 
 ## 24. P2 第十三批：acquire 显式关单与未受理占用收敛
 
-新增 AcquireOrderClosureFacade、原订单关闭 HTTP 入口、关闭意图领域/存储及有界编排。C0 锁订单原子提交关闭意图与 CLOSING，禁止新增付款；事务外使用同一服务凭证先封禁父订单，逐笔关闭并复用 A3 结果收敛，再查询父收敛证明。每请求最多16笔，以持久游标继续扫描，未知结果不释放占用，也不阻塞后面的待关闭付款。
+新增 AcquireOrderClosureFacade、原订单关闭 HTTP 入口、关闭意图领域/存储及有界编排。C0 锁订单原子提交关闭意图与
+CLOSING，禁止新增付款；事务外使用同一服务凭证先封禁父订单，逐笔关闭并复用 A3
+结果收敛，再查询父收敛证明。每请求最多16笔，以持久游标继续扫描，未知结果不释放占用，也不阻塞后面的待关闭付款。
 
-增加 NOT_ACCEPTED 可信事实：payment.close 返回从未创建付款的 tombstone/证据时，使用0付款版本释放原占用，不伪造付款或把 epoch 当作版本。原结果回执和领域规则随当前模型直接调整。PaymentOutcomeOperations 供刷新/关单共用；刷新公开入参调整为写操作 Command，旧 Query 直接删除。
+增加 NOT_ACCEPTED 可信事实：payment.close 返回从未创建付款的 tombstone/证据时，使用0付款版本释放原占用，不伪造付款或把
+epoch 当作版本。原结果回执和领域规则随当前模型直接调整。PaymentOutcomeOperations 供刷新/关单共用；刷新公开入参调整为写操作
+Command，旧 Query 直接删除。
 
-订单只有在远端父门禁/全部子付款收敛、本地所有占用清零且回执齐全时才 CLOSED。在途成功先付清仍保持 PAID，退款独立。原关闭请求固定身份/key/原因，重试继续原代次/远端 key；终态不重开。新增 V20261022060000，acquire 合计8表；修订此前新增、未在本工作流执行的结果回执 DDL，execution_fenced 统一 TINYINT。
+订单只有在远端父门禁/全部子付款收敛、本地所有占用清零且回执齐全时才 CLOSED。在途成功先付清仍保持
+PAID，退款独立。原关闭请求固定身份/key/原因，重试继续原代次/远端 key；终态不重开。新增 V20261022060000，acquire
+合计8表；修订此前新增、未在本工作流执行的结果回执 DDL，execution_fenced 统一 TINYINT。
 
-沿用用户“先不验证，继续开发代码”要求，本批未运行 IDEA 检查、编译、测试、迁移或部署。后台定时关单/未知扫描、渠道关闭生产、费用确认、额度确认/释放和 Outbox 通知仍待实现。
+沿用用户“先不验证，继续开发代码”要求，本批未运行 IDEA 检查、编译、测试、迁移或部署。后台定时关单/未知扫描、渠道关闭生产、费用确认、额度确认/释放和
+Outbox 通知仍待实现。
 
 ## 25. P2 第十四批：原订单延期与幂等回执
 
-新增 AcquireOrderExtensionFacade/extend HTTP 入口、应用编排、不可变延期回执领域/存储和 V20261022070000，acquire 合计9表。原主体/独立权限/原冻结条款控制延期；持久 ORDER/CHECKOUT 意图恢复原始截止，累计上限固定在原始截止上，避免滚动突破。
+新增 AcquireOrderExtensionFacade/extend HTTP 入口、应用编排、不可变延期回执领域/存储和 V20261022070000，acquire
+合计9表。原主体/独立权限/原冻结条款控制延期；持久 ORDER/CHECKOUT 意图恢复原始截止，累计上限固定在原始截止上，避免滚动突破。
 
-锁订单后先回放同键回执，再校验新动作 expectedVersion 和当前窗口。新截止及 deadlineVersion/rowVersion 与回执同事务 CAS 提交，其他字段使用白名单保留。原成功请求在终态也只读回放，首次延期不允许 CLOSING/PAID/CLOSED；CLOSE 精确截止拒绝，KEEP_PENDING 仍受原累计上限。
+锁订单后先回放同键回执，再校验新动作 expectedVersion 和当前窗口。新截止及 deadlineVersion/rowVersion 与回执同事务 CAS
+提交，其他字段使用白名单保留。原成功请求在终态也只读回放，首次延期不允许 CLOSING/PAID/CLOSED；CLOSE 精确截止拒绝，KEEP_PENDING
+仍受原累计上限。
 
-延期不延长原会话或渠道执行时间，不重查当前合约准入，不修改金额或原意图。自动到期任务后续使用截止代次接入。本批依用户要求未运行 IDEA 检查、编译、测试、DDL 或部署。
+延期不延长原会话或渠道执行时间，不重查当前合约准入，不修改金额或原意图。自动到期任务后续使用截止代次接入。本批依用户要求未运行
+IDEA 检查、编译、测试、DDL 或部署。
 
 ## 26. 支付方式及纯 API 范围修订
 
-付款方式统一为 PAYMENT_CODE/JSAPI/H5，移除 Native 二维码及原生 APP。付款码交互契约已恢复，并标注敏感写入字段；商户扫码枪采集后调用纯 API，不依赖托管收银台。DirectPay 便利入口和 create→startPayment 两种 API 流程继续保留。JSAPI/H5 纯 API 返回调起参数/跳转地址，付款人仍需完成交互。
+付款方式统一为 PAYMENT_CODE/JSAPI/H5，移除 Native 二维码及原生 APP。付款码交互契约已恢复，并标注敏感写入字段；商户扫码枪采集后调用纯
+API，不依赖托管收银台。DirectPay 便利入口和 create→startPayment 两种 API 流程继续保留。JSAPI/H5 纯 API
+返回调起参数/跳转地址，付款人仍需完成交互。
 
-原 QR 受理样例及调用方改为 H5；展示二维码和 APP 调起契约移除，增加微信/支付宝的强类型 JSAPI 动作数据，H5 URL 长度调整为有界8192字符。当前受理仍只实现 H5+NONE；付款码/JSAPI 安全输入、真实渠道及 DirectPay 编排仍在剩余业务范围，未将契约调整计为运行实现。
+原 QR 受理样例及调用方改为 H5；展示二维码和 APP 调起契约移除，增加微信/支付宝的强类型 JSAPI 动作数据，H5 URL
+长度调整为有界8192字符。当前受理仍只实现 H5+NONE；付款码/JSAPI 安全输入、真实渠道及 DirectPay 编排仍在剩余业务范围，未将契约调整计为运行实现。
 
 本次未运行 IDEA 检查、编译、测试、DDL 或部署。
 
@@ -308,96 +367,147 @@ V20261022050000 新增 order_payment_outcome，acquire 合计7表。仅请求触
 
 新增 BUSINESS-IMPLEMENTATION.md 按完整目标跟踪各领域，保留未完成范围。付款方式以 PAYMENT_CODE/JSAPI/H5、纯 API 与可选收银台为准。
 
-OrderFeeGateway/Converter/实现已接入 PaymentOutcomeOperations 的付清 A3，同事务确认固定总额费用；部分付款不拆分计费。新增 payment 专供 limitcenter 的受控权威付款事实接口、SERVICE 凭证 HTTP 查询及配置。
+OrderFeeGateway/Converter/实现已接入 PaymentOutcomeOperations 的付清 A3，同事务确认固定总额费用；部分付款不拆分计费。新增
+payment 专供 limitcenter 的受控权威付款事实接口、SERVICE 凭证 HTTP 查询及配置。
 
-LimitSettlementFacade/confirm/release、原桶确认、明细 CAS、释放前置 tombstone 和不可变终态回执已补。release 响应改为可空 reservation 的 LimitReleaseDTO；未收款须同时有可信终态/版本/证据和执行封禁，原始桶按原政策/受理时间复核，未知不释放，过期不重复减占用。V20261022080000 新增第9张 LimitCenter 表。
+LimitSettlementFacade/confirm/release、原桶确认、明细 CAS、释放前置 tombstone 和不可变终态回执已补。release 响应改为可空
+reservation 的 LimitReleaseDTO；未收款须同时有可信终态/版本/证据和执行封禁，原始桶按原政策/受理时间复核，未知不释放，过期不重复减占用。V20261022080000
+新增第9张 LimitCenter 表。
 
 按用户暂停验证要求，本批未运行 IDEA 检查、构建、测试、迁移或部署。退款恢复及大量执行/渠道/退款/任务/通知/查询/对账工作仍待完成，完整目标保持进行中。
 
 ## 28. 付款码/JSAPI 输入与纯 API 发起
 
-补齐 payment.inputs.prepare 的 COLA app/domain/infra/adapter、payment_input 实际迁移、KMS envelope/HMAC版本指纹/短期到期、单 attempt 绑定及内部受限解密源码。accept 首次受理校验引用完整归属；重放保留原付款事实。acquire start 扩为三种方式，A2 后在事务外准备输入，再在原订单锁下 CAS 附加引用；原始码/票据不进入 acquire 意图。
+补齐 payment.inputs.prepare 的 COLA app/domain/infra/adapter、payment_input 实际迁移、KMS envelope/HMAC版本指纹/短期到期、单
+attempt 绑定及内部受限解密源码。accept 首次受理校验引用完整归属；重放保留原付款事实。acquire start 扩为三种方式，A2
+后在事务外准备输入，再在原订单锁下 CAS 附加引用；原始码/票据不进入 acquire 意图。
 
-DirectPaymentFacade/Service/Controller 已组合纯 API create→start→detail，不创建收银台会话，返回实际当前订单及付款受理状态。固定原单/动作键重试；跨服务失败保留已有事实，不冒充事务回滚或渠道成功。输入改参及过期返回稳定业务码。
+DirectPaymentFacade/Service/Controller 已组合纯 API
+create→start→detail，不创建收银台会话，返回实际当前订单及付款受理状态。固定原单/动作键重试；跨服务失败保留已有事实，不冒充事务回滚或渠道成功。输入改参及过期返回稳定业务码。
 
-本批新增9个输入边界测试方法源码并同步原受理构造器；未运行 IDEA 检查、构建、JUnit、DDL、镜像或部署。真实执行/Y2/额度/risk/渠道、后台恢复/过期密文清理及其他剩余业务继续按 BUSINESS-IMPLEMENTATION.md 推进。
+本批新增9个输入边界测试方法源码并同步原受理构造器；未运行 IDEA
+检查、构建、JUnit、DDL、镜像或部署。真实执行/Y2/额度/risk/渠道、后台恢复/过期密文清理及其他剩余业务继续按
+BUSINESS-IMPLEMENTATION.md 推进。
 
 ## 29. 渠道身份版本与路由基础
 
-已补支付宝/微信 DIRECT/SERVICE_PROVIDER 的类型化非秘密身份、不可变 ChannelBindingRevision、可变 routing head 与操作回执。新增受信运维 SERVICE 的 publish/suspend/revoke/detail，版本 CAS、全历史幂等、旧版本保留与永久撤销门禁；不接受商户选择 binding 或原始凭证。账户范围不随凭证/授权版本轮换重置，身份负载严格规范校验。
+已补支付宝/微信 DIRECT/SERVICE_PROVIDER 的类型化非秘密身份、不可变 ChannelBindingRevision、可变 routing head 与操作回执。新增受信运维
+SERVICE 的 publish/suspend/revoke/detail，版本 CAS、全历史幂等、旧版本保留与永久撤销门禁；不接受商户选择 binding
+或原始凭证。账户范围不随凭证/授权版本轮换重置，身份负载严格规范校验。
 
-新增三表实际迁移与 Spring MapStruct/MyBatis-Flex 持久层、内部 PaymentRouteSelector。按原冻结合约的渠道/方式/接入模式选 ACTIVE 头，优先级/id 稳定排序；无匹配报稳定业务码。选择器尚未接入 attempt 创建/额度/risk/Y2，未写假渠道成功或把配置状态当实际开通证明。
+新增三表实际迁移与 Spring MapStruct/MyBatis-Flex 持久层、内部 PaymentRouteSelector。按原冻结合约的渠道/方式/接入模式选
+ACTIVE 头，优先级/id 稳定排序；无匹配报稳定业务码。选择器尚未接入 attempt 创建/额度/risk/Y2，未写假渠道成功或把配置状态当实际开通证明。
 
-17个新增测试方法源码覆盖事务边界、发布/暂停/撤销、旧操作只读重放、版本/参数冲突、轮换保留、规范 JSON 与选路边界；两处领域夹具同步当前完整模型。未运行检查、编译、JUnit、DDL、镜像或部署。后续继续 B07 的 durable attempt、额度与提交边界，B02/B08 的受控引用和实际开通/协议校验仍保留待办。
+17个新增测试方法源码覆盖事务边界、发布/暂停/撤销、旧操作只读重放、版本/参数冲突、轮换保留、规范 JSON
+与选路边界；两处领域夹具同步当前完整模型。未运行检查、编译、JUnit、DDL、镜像或部署。后续继续 B07 的 durable
+attempt、额度与提交边界，B02/B08 的受控引用和实际开通/协议校验仍保留待办。
 
 ## 30. 持久支付尝试与 Y2 准备边界
 
-首笔 PaymentAttemptFacade/app/infra/adapter 已补，冻结原绑定、金额和稳定32位请求号；原动作重放不换路由/请求号，盲替换阻止。新 payment_attempt 迁移保存原调用/摘要、风险和许可哈希等事实。PaymentExecutionLocks 统一新执行写者的父门禁→单笔门禁→付款顺序。
+首笔 PaymentAttemptFacade/app/infra/adapter 已补，冻结原绑定、金额和稳定32位请求号；原动作重放不换路由/请求号，盲替换阻止。新
+payment_attempt 迁移保存原调用/摘要、风险和许可哈希等事实。PaymentExecutionLocks 统一新执行写者的父门禁→单笔门禁→付款顺序。
 
-新增默认 DEFAULT_ALLOW/NOT_CONNECTED 风控与 PaymentLimitClient（挂载 SERVICE JWT + HttpTemplate），内部准备依次 risk/Reserve/Begin/Verify，并在独立本地 Y2 锁内绑定输入、CAS SUBMITTING。只给赢家一次内存提交票据；它尚未连接真实提交器，不是财务成功。关单新增对从未跨 Y2 的 INIT attempt 的本地证明，已提交或未知继续 CLOSING。拒绝/过期也只在相同锁内产生未提交证明，不放行旧 worker 或原始 evidenceId。
+新增默认 DEFAULT_ALLOW/NOT_CONNECTED 风控与 PaymentLimitClient（挂载 SERVICE JWT + HttpTemplate），内部准备依次
+risk/Reserve/Begin/Verify，并在独立本地 Y2 锁内绑定输入、CAS SUBMITTING。只给赢家一次内存提交票据；它尚未连接真实提交器，不是财务成功。关单新增对从未跨
+Y2 的 INIT attempt 的本地证明，已提交或未知继续 CLOSING。拒绝/过期也只在相同锁内产生未提交证明，不放行旧 worker 或原始
+evidenceId。
 
-账户财务唯一范围改为真实收款账户，排除 tenant/app/模式/凭证别名，避免后续实际交易号被分范围重复认领。原完整身份仍由不可变 revision 校验。新增14个测试方法源码，旧构造器/账户范围夹具已同步；未运行检查、编译、JUnit、DDL、镜像或部署。
+账户财务唯一范围改为真实收款账户，排除 tenant/app/模式/凭证别名，避免后续实际交易号被分范围重复认领。原完整身份仍由不可变
+revision 校验。新增14个测试方法源码，旧构造器/账户范围夹具已同步；未运行检查、编译、JUnit、DDL、镜像或部署。
 
-版本化 routingProfileRef 运行时资源校验已补；后续继续：实际渠道发送/结果动作/交易号 claim、查单/关闭、接受后的自动调度、quota 终态和风险结果 Outbox、退款及其余 BUSINESS-IMPLEMENTATION.md 全部范围。本批未将目标缩为“仅能准备”。
+版本化 routingProfileRef 运行时资源校验已补；后续继续：实际渠道发送/结果动作/交易号 claim、查单/关闭、接受后的自动调度、quota
+终态和风险结果 Outbox、退款及其余 BUSINESS-IMPLEMENTATION.md 全部范围。本批未将目标缩为“仅能准备”。
 
 ## 2026-10-22 不可变选路方案续批
 
-已补 RoutingProfile 的全分层源码、受信管理发布/查询、规范编码/哈希、持久化及 V20261022120000__routing_profile.sql。Y1 强制读取冻结 routingProfileRef，在原租户/收款商户/合约能力与有序绑定白名单内选择 ACTIVE revision；缺失引用明确失败，不绕过合约或重选既有 attempt。22个新增测试方法仅有源码；按暂停验证要求未运行检查/构建/测试/DDL/镜像/部署。
+已补 RoutingProfile 的全分层源码、受信管理发布/查询、规范编码/哈希、持久化及 V20261022120000__routing_profile.sql。Y1 强制读取冻结
+routingProfileRef，在原租户/收款商户/合约能力与有序绑定白名单内选择 ACTIVE revision；缺失引用明确失败，不绕过合约或重选既有
+attempt。22个新增测试方法仅有源码；按暂停验证要求未运行检查/构建/测试/DDL/镜像/部署。
 
-接下来仍需真实渠道发送/动作/可信结果、交易号 claim、查单/关闭、自动调度与异步额度/风险结果通知；product 发布前引用/能力校验仍在 B02 后续范围。完整目标和状态见 BUSINESS-IMPLEMENTATION.md。
+接下来仍需真实渠道发送/动作/可信结果、交易号 claim、查单/关闭、自动调度与异步额度/风险结果通知；product 发布前引用/能力校验仍在
+B02 后续范围。完整目标和状态见 BUSINESS-IMPLEMENTATION.md。
 
 ## 2026-10-22 Y3 与独立终态事务消息续批
 
-已补内部结果应用、规范资金摘要、不可变回执/差错、全局渠道交易号认领、成功时间/退款容量、四目标事务 Outbox，以及本地未提交关单/风控拒绝的事件生产源码。支付成功状态/证据/渠道时间为同一行 CAS；跨租户同真实账户也不能重认领交易号，资金冲突只记录差错。新增 V20261022130000__payment_results.sql 四表与付款成功事实约束，复用框架 Outbox 迁移及同 DataSource 事务。
+已补内部结果应用、规范资金摘要、不可变回执/差错、全局渠道交易号认领、成功时间/退款容量、四目标事务
+Outbox，以及本地未提交关单/风控拒绝的事件生产源码。支付成功状态/证据/渠道时间为同一行 CAS；跨租户同真实账户也不能重认领交易号，资金冲突只记录差错。新增
+V20261022130000__payment_results.sql 四表与付款成功事实约束，复用框架 Outbox 迁移及同 DataSource 事务。
 
-新增25个测试方法源码，并同步原编排构造器和本地终态事件断言；未执行检查/编译/测试/DDL/部署。当前没有真实渠道协议/验签/发送器，Y3 仅供后续受信适配器调用；四目标 Outbox 只有生产端，投递/接收幂等仍待闭环。其余完整范围保持 BUSINESS-IMPLEMENTATION.md 中的待办状态。
+新增25个测试方法源码，并同步原编排构造器和本地终态事件断言；未执行检查/编译/测试/DDL/部署。当前没有真实渠道协议/验签/发送器，Y3
+仅供后续受信适配器调用；四目标 Outbox 只有生产端，投递/接收幂等仍待闭环。其余完整范围保持 BUSINESS-IMPLEMENTATION.md
+中的待办状态。
 
 ## 2026-10-23 额度/风控 Outbox 消费续批
 
-新增两个独立 handler、严格事件解码、队列/租户/原终态/交易号与退款容量复核；短事务返回一致快照后才调用下游。额度复用原 confirm/release API、SERVICE JWT、ACK校验和持久幂等，释放允许空 reservation 或已过期。风控使用原咨询/决策及租户/业务事件幂等；未咨询不伪造，外部失败不默认成功。
+新增两个独立 handler、严格事件解码、队列/租户/原终态/交易号与退款容量复核；短事务返回一致快照后才调用下游。额度复用原
+confirm/release API、SERVICE JWT、ACK校验和持久幂等，释放允许空 reservation 或已过期。风控使用原咨询/决策及租户/业务事件幂等；未咨询不伪造，外部失败不默认成功。
 
-新增39个测试方法源码；同步命名 HTTP 操作和权限说明，无新增业务表。按用户暂停要求未执行检查、编译、测试、DDL 或部署。acquire/realtime 消费和 BUSINESS-IMPLEMENTATION.md 的完整待办继续推进，不据此宣称所有业务或真实链路已完成。
+新增39个测试方法源码；同步命名 HTTP 操作和权限说明，无新增业务表。按用户暂停要求未执行检查、编译、测试、DDL
+或部署。acquire/realtime 消费和 BUSINESS-IMPLEMENTATION.md 的完整待办继续推进，不据此宣称所有业务或真实链路已完成。
 
 ## 2026-10-23 acquire 事件接收与第三目标投递续批
 
-已补指定 SERVICE 的 acquire 接收/语义 ACK、原事实回查权限、原 merchant owner 从数据库恢复、order/allocation/fee 与业务 Inbox 原子提交；payment 新增 acquire 独立 Outbox handler、HTTP 客户端与挂载凭证配置，校验原事件/版本/证据 ACK 后才完成目标。重放/商户 refresh/不同 delivery 不重复落账；未新建测试 RPC 或伪造渠道成功。
+已补指定 SERVICE 的 acquire 接收/语义 ACK、原事实回查权限、原 merchant owner 从数据库恢复、order/allocation/fee 与业务
+Inbox 原子提交；payment 新增 acquire 独立 Outbox handler、HTTP 客户端与挂载凭证配置，校验原事件/版本/证据 ACK 后才完成目标。重放/商户
+refresh/不同 delivery 不重复落账；未新建测试 RPC 或伪造渠道成功。
 
-新增一张接收回执表和37个测试方法源码，复用原 COLA 领域收敛、MapStruct、BaseDO、生成 Mapper/TableDef、HttpTemplate 和共享 SERVICE 凭证读取。按要求未运行检查/编译/测试/DDL/部署。下一步继续 realtime 独立查询投影、真实渠道发送/动作/查证、退款申请计划执行、通知及完整剩余业务。
+新增一张接收回执表和37个测试方法源码，复用原 COLA 领域收敛、MapStruct、BaseDO、生成 Mapper/TableDef、HttpTemplate 和共享
+SERVICE 凭证读取。按要求未运行检查/编译/测试/DDL/部署。下一步继续 realtime 独立查询投影、真实渠道发送/动作/查证、退款申请计划执行、通知及完整剩余业务。
 
 ## 2026-10-23 Realtime 独立查询续批
 
-新增 realtime app/infrastructure/adapter、四类完整快照接收/语义回执、独立五表、源版本/哈希/终态与身份检查、商户授权查询/分页，以及 realtime-business 组装和配置。付款/退款可先于订单存储；缺来源不伪造金额，详情子列表改为分页，退款不改原 paid 或生成可支付金额。
+新增 realtime app/infrastructure/adapter、四类完整快照接收/语义回执、独立五表、源版本/哈希/终态与身份检查、商户授权查询/分页，以及
+realtime-business 组装和配置。付款/退款可先于订单存储；缺来源不伪造金额，详情子列表改为分页，退款不改原 paid 或生成可支付金额。
 
-payment 第四目标改为设计中的完整付款快照，Y3/本地终态同事务冻结原渠道和业务时间，独立 Outbox/HTTP/ACK 投递，不同步查询 realtime 或从 realtime 决策资金。终态自动生产源码已补，订单/退款与付款中间态生产、重建和其他完整待办仍未完成。
+payment 第四目标改为设计中的完整付款快照，Y3/本地终态同事务冻结原渠道和业务时间，独立 Outbox/HTTP/ACK 投递，不同步查询
+realtime 或从 realtime 决策资金。终态自动生产源码已补，订单/退款与付款中间态生产、重建和其他完整待办仍未完成。
 
-新增与同步领域/接收/查询/编码/鉴权/生产/发送测试源码，未运行检查、构建、测试、迁移、镜像或部署。新增业务 profile 不由旧骨架运行记录证明可用；继续 BUSINESS-IMPLEMENTATION.md 的全部原始范围。
+新增与同步领域/接收/查询/编码/鉴权/生产/发送测试源码，未运行检查、构建、测试、迁移、镜像或部署。新增业务 profile
+不由旧骨架运行记录证明可用；继续 BUSINESS-IMPLEMENTATION.md 的全部原始范围。
 
 ## 2026-10-23 acquire 订单快照生产与投递
 
-OrderSnapshotReader/MapStruct 从原订单可写事务读取落库完整头部及真实审计时间；OrderSnapshotEvents 在创单、占用、结果、关闭和延期的每个新订单版本后写同库 Outbox，检查精确版本，失败向外传播并回滚该事务。重复请求不生成新版本；输入附加/会话/关闭游标不另造快照。
+OrderSnapshotReader/MapStruct 从原订单可写事务读取落库完整头部及真实审计时间；OrderSnapshotEvents
+在创单、占用、结果、关闭和延期的每个新订单版本后写同库 Outbox，检查精确版本，失败向外传播并回滚该事务。重复请求不生成新版本；输入附加/会话/关闭游标不另造快照。
 
-OrderSnapshotDelivery/handler、严格 JSON codec、AcquireRealtimeHttpClient 和 acquire-business 配置已补，沿用完整原信封发送至 realtime/order；可信租户/PROCESSING 元数据校验和 ACK 身份/版本/处置校验，网络在本地事务外。新增 acquire 挂载服务凭证读取器并复用到原 payment 出站客户端，各目标配置仍独立。未新增业务表，复用 loadup_outbox_event。
+OrderSnapshotDelivery/handler、严格 JSON codec、AcquireRealtimeHttpClient 和 acquire-business 配置已补，沿用完整原信封发送至
+realtime/order；可信租户/PROCESSING 元数据校验和 ACK 身份/版本/处置校验，网络在本地事务外。新增 acquire 挂载服务凭证读取器并复用到原
+payment 出站客户端，各目标配置仍独立。未新增业务表，复用 loadup_outbox_event。
 
-同步既有测试构造器与幂等断言，新增事件生产事务失败、时间/金额冻结、独立投递与 ACK、严格解码、SERVICE 凭证轮换等测试源码。依用户要求未执行检查、构建、测试、DDL 或部署；所有新增代码状态为未验证。完整业务目标及未完事项保留于 BUSINESS-IMPLEMENTATION.md。
+同步既有测试构造器与幂等断言，新增事件生产事务失败、时间/金额冻结、独立投递与 ACK、严格解码、SERVICE
+凭证轮换等测试源码。依用户要求未执行检查、构建、测试、DDL 或部署；所有新增代码状态为未验证。完整业务目标及未完事项保留于
+BUSINESS-IMPLEMENTATION.md。
 
 ## 2026-10-23 独立退款申请与容量预占
 
-已补 RefundPlanningService、RefundGatewayImpl、生成 Mapper/TableDef 所需三类 BaseDO、Spring MapStruct Converter、商户 JWT actor 和 RefundController。首次以原成功付款/attempt/claim/冻结合约为事实，在 parent_gate→capacity(paymentId) 锁内生成固定 FIFO 子项，原请求号与原渠道身份不随重试改变；申请、计划、子退款和所有容量 CAS 同事务提交。退款号原参数重放不重新分配，查询仅可信商户，原收款 FENCED 不阻止独立退款。
+已补 RefundPlanningService、RefundGatewayImpl、生成 Mapper/TableDef 所需三类 BaseDO、Spring MapStruct Converter、商户 JWT
+actor 和 RefundController。首次以原成功付款/attempt/claim/冻结合约为事实，在 parent_gate→capacity (paymentId) 锁内生成固定
+FIFO 子项，原请求号与原渠道身份不随重试改变；申请、计划、子退款和所有容量 CAS 同事务提交。退款号原参数重放不重新分配，查询仅可信商户，原收款
+FENCED 不阻止独立退款。
 
-V20261023030000__refund_planning.sql 新增 request/plan/child 三表，首次 INIT。按原成功时间应用合约窗口，所有金额继承 CNY 和原商户，容量预占不改 gross 已收或退款成功计数。新增业务/存储映射/鉴权测试源码，未运行。串行渠道执行/未知查证、终态应用、汇总、费用/限额恢复及投影通知保持未完，不能把计划受理作为渠道退款成功。遵守暂停验证：无检查/构建/测试/DDL/部署。
+V20261023030000__refund_planning.sql 新增 request/plan/child 三表，首次 INIT。按原成功时间应用合约窗口，所有金额继承 CNY
+和原商户，容量预占不改 gross
+已收或退款成功计数。新增业务/存储映射/鉴权测试源码，未运行。串行渠道执行/未知查证、终态应用、汇总、费用/限额恢复及投影通知保持未完，不能把计划受理作为渠道退款成功。遵守暂停验证：无检查/构建/测试/DDL/部署。
 
 ## 2026-10-23 退款提交与结果事务
 
-已补 RefundExecutionLocks、RefundExecutionService、RefundResultService 及其纯领域变化约束。单步仅第一个未终结固定子项可推进；INIT→PROCESSING/submissionStartedAt 与申请版本同事务提交，只有赢家可首次 submit，重复执行 query 原号。网络不在本地事务内；本地超时只标 UNKNOWN 保留占用，缺真实渠道 binder 时不跨首次提交边界。
+已补 RefundExecutionLocks、RefundExecutionService、RefundResultService
+及其纯领域变化约束。单步仅第一个未终结固定子项可推进；INIT→PROCESSING/submissionStartedAt 与申请版本同事务提交，只有赢家可首次
+submit，重复执行 query 原号。网络不在本地事务内；本地超时只标 UNKNOWN 保留占用，缺真实渠道 binder 时不跨首次提交边界。
 
-验证结果携带完整原身份、双方渠道请求/交易号、金额与原成功时间，按稳定观察键保存回执、差错和财务认领。成功子项/申请累计/容量变化/唯一退款流水认领/回执同事务落账，失败只释放容量，重复或乱序观察不重复落账或重开终态。新增三结果表及原规划迁移的未部署提交时间列，均为源码且未执行。无商户成功注入端点，也不改原订单/付款 gross 金额。
+验证结果携带完整原身份、双方渠道请求/交易号、金额与原成功时间，按稳定观察键保存回执、差错和财务认领。成功子项/申请累计/容量变化/唯一退款流水认领/回执同事务落账，失败只释放容量，重复或乱序观察不重复落账或重开终态。新增三结果表及原规划迁移的未部署提交时间列，均为源码且未执行。无商户成功注入端点，也不改原订单/付款
+gross 金额。
 
 补领域边界、执行/结果服务、JSON 金额与事实摘要、存储转换测试源码；依用户要求未运行检查、构建或测试。真实渠道退款协议、自动任务驱动/未知查证、订单退款汇总/投影、退费/限额恢复和通知仍未完成；完整目标保持不变。
 
 ## 2026-10-23 退款金额汇总与 realtime 自动来源
 
-新增 OrderRefundSummary 的领域/网关/BaseDO/MapStruct/生成 Mapper 接线及 V20261023050000 迁移。在退款规划/结果原事务内增加占用或确认/释放，独立金额版本不受 UNKNOWN 观察和原订单状态影响。RefundProjectionEvents 同事务读取落库原审计元数据，冻结逐笔退款全版本与金额汇总 Outbox；规划/首次提交/结果/本地 UNKNOWN 均已接入，重复观察不新增事件。
+新增 OrderRefundSummary 的领域/网关/BaseDO/MapStruct/生成 Mapper 接线及 V20261023050000
+迁移。在退款规划/结果原事务内增加占用或确认/释放，独立金额版本不受 UNKNOWN 观察和原订单状态影响。RefundProjectionEvents
+同事务读取落库原审计元数据，冻结逐笔退款全版本与金额汇总 Outbox；规划/首次提交/结果/本地 UNKNOWN 均已接入，重复观察不新增事件。
 
-新增两类独立投递/严格类型解码/命名 HTTP 操作，复用既有 payment 到 realtime 的 SERVICE 认证与原消息重试，按语义 ACK 完成目标。订单退款汇总直接去除无限历史申请列表，当前六字段金额快照及 realtime 兼容性检查/测试/文档已同步重构，无旧协议兼容。逐笔查询仍独立分页，渠道实际时间与数据库审计时间不相互伪造。
+新增两类独立投递/严格类型解码/命名 HTTP 操作，复用既有 payment 到 realtime 的 SERVICE 认证与原消息重试，按语义 ACK
+完成目标。订单退款汇总直接去除无限历史申请列表，当前六字段金额快照及 realtime
+兼容性检查/测试/文档已同步重构，无旧协议兼容。逐笔查询仍独立分页，渠道实际时间与数据库审计时间不相互伪造。
 
 本批新增及同步测试源码未运行；未执行检查、构建、测试、DDL、镜像或部署。业务完整目标仍未完成，后续为真实渠道与自动驱动、费用/额度恢复、商户通知、重建和对账。

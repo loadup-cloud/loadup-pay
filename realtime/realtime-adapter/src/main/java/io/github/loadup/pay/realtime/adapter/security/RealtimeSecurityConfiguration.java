@@ -22,8 +22,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class RealtimeSecurityConfiguration implements InitializingBean {
     private final Environment environment;
-    public RealtimeSecurityConfiguration(Environment environment) { this.environment = environment; }
-    @Override public void afterPropertiesSet() {
+
+    public RealtimeSecurityConfiguration(Environment environment) {
+        this.environment = environment;
+    }
+
+    @Override
+    public void afterPropertiesSet() {
         if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)
                 || !environment.getProperty("loadup.database.multi-tenant.enabled", Boolean.class, false)
                 || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false))

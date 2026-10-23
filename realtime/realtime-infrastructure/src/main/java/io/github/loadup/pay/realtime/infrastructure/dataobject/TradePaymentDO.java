@@ -17,47 +17,98 @@ package io.github.loadup.pay.realtime.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("trade_payment_projection")
 public class TradePaymentDO extends BaseDO {
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private String state;
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-
     private LocalDateTime businessCreatedAt;
-    public LocalDateTime getBusinessCreatedAt() { return businessCreatedAt; }
-    public void setBusinessCreatedAt(LocalDateTime value) { businessCreatedAt = value; }
-
     private Long sourceVersion;
-    public Long getSourceVersion() { return sourceVersion; }
-    public void setSourceVersion(Long value) { sourceVersion = value; }
-
     private String contentHash;
-    public String getContentHash() { return contentHash; }
-    public void setContentHash(String value) { contentHash = value; }
-
     @DiagnosticHidden
     private String payload;
-    public String getPayload() { return payload; }
-    public void setPayload(String value) { payload = value; }
-
     private LocalDateTime snapshotAt;
-    public LocalDateTime getSnapshotAt() { return snapshotAt; }
-    public void setSnapshotAt(LocalDateTime value) { snapshotAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    public LocalDateTime getBusinessCreatedAt() {
+        return businessCreatedAt;
+    }
+
+    public void setBusinessCreatedAt(LocalDateTime value) {
+        businessCreatedAt = value;
+    }
+
+    public Long getSourceVersion() {
+        return sourceVersion;
+    }
+
+    public void setSourceVersion(Long value) {
+        sourceVersion = value;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String value) {
+        contentHash = value;
+    }
+
+    public String getPayload() {
+        return payload;
+    }
+
+    public void setPayload(String value) {
+        payload = value;
+    }
+
+    public LocalDateTime getSnapshotAt() {
+        return snapshotAt;
+    }
+
+    public void setSnapshotAt(LocalDateTime value) {
+        snapshotAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

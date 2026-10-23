@@ -15,10 +15,16 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Transport-neutral encryption envelope produced by the infrastructure cryptographic port. */
+/**
+ * Transport-neutral encryption envelope produced by the infrastructure cryptographic port.
+ */
 public record EncryptedPaymentInput(String encryptionKey, int encryptionVersion,
-        @DiagnosticHidden String ciphertext) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                    @DiagnosticHidden String ciphertext) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

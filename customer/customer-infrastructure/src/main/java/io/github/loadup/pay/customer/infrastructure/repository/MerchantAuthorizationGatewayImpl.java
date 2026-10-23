@@ -33,7 +33,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-/** All callers acquire the payee merchant row before modifying authorization records. */
+/**
+ * All callers acquire the payee merchant row before modifying authorization records.
+ */
 @Repository
 public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGateway {
     private final MerchantRelationshipDOMapper relationships;
@@ -137,13 +139,13 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
             if (expected == -1) {
                 relationships.insert(converter.toDO(tenant, model));
             } else if (relationships.updateByQuery(
-                            converter.toDO(tenant, model),
-                            true,
-                            relationshipScope(tenant)
-                                    .and(MerchantRelationshipDO::getId)
-                                    .eq(model.id())
-                                    .and(MerchantRelationshipDO::getRowVersion)
-                                    .eq(expected))
+                    converter.toDO(tenant, model),
+                    true,
+                    relationshipScope(tenant)
+                            .and(MerchantRelationshipDO::getId)
+                            .eq(model.id())
+                            .and(MerchantRelationshipDO::getRowVersion)
+                            .eq(expected))
                     != 1) {
                 throw new CommonException(CustomerResultCodeEnum.CONFLICT);
             }
@@ -158,13 +160,13 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
             if (expected == -1) {
                 grants.insert(converter.toDO(tenant, model));
             } else if (grants.updateByQuery(
-                            converter.toDO(tenant, model),
-                            true,
-                            grantScope(tenant)
-                                    .and(MerchantActionGrantDO::getId)
-                                    .eq(model.id())
-                                    .and(MerchantActionGrantDO::getRowVersion)
-                                    .eq(expected))
+                    converter.toDO(tenant, model),
+                    true,
+                    grantScope(tenant)
+                            .and(MerchantActionGrantDO::getId)
+                            .eq(model.id())
+                            .and(MerchantActionGrantDO::getRowVersion)
+                            .eq(expected))
                     != 1) {
                 throw new CommonException(CustomerResultCodeEnum.CONFLICT);
             }

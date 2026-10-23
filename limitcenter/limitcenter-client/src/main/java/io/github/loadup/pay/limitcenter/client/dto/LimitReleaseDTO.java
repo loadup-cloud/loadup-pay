@@ -27,5 +27,7 @@ public record LimitReleaseDTO(
         @Schema(description = "Authoritative terminal payment version") long paymentVersion,
         @Schema(description = "Authoritative no-collection evidence") String noCollectionEvidenceId) {
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

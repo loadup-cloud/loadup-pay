@@ -22,7 +22,9 @@ import io.github.loadup.pay.limitcenter.domain.model.RuntimeLimitRule;
 
 import java.util.Optional;
 
-/** Mutations and locks join the caller's database transaction. */
+/**
+ * Mutations and locks join the caller's database transaction.
+ */
 public interface LimitPolicyGateway {
     LimitPolicyHead lockOrCreateHead(String tenant, String policyId, String payeeMerchantId);
 

@@ -16,9 +16,11 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.RoutingProfile;
+import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RoutingProfileDO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RoutingProfileStorageConverter {

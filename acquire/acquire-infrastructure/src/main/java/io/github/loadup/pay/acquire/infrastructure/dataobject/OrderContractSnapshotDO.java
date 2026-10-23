@@ -17,12 +17,22 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
-import java.time.LocalDateTime;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("order_contract_snapshot")
 public class OrderContractSnapshotDO extends BaseDO {
     private String orderId;
+    private String contractId;
+    private Integer contractRevision;
+    private Long contractGeneration;
+    private String snapshotHash;
+    private String compiledTermsHash;
+    private Integer schemaVersion;
+    @DiagnosticHidden
+    private String configuration;
+    private String payloadHash;
+    private String admissionDigest;
 
     public String getOrderId() {
         return orderId;
@@ -32,8 +42,6 @@ public class OrderContractSnapshotDO extends BaseDO {
         orderId = value;
     }
 
-    private String contractId;
-
     public String getContractId() {
         return contractId;
     }
@@ -41,8 +49,6 @@ public class OrderContractSnapshotDO extends BaseDO {
     public void setContractId(String value) {
         contractId = value;
     }
-
-    private Integer contractRevision;
 
     public Integer getContractRevision() {
         return contractRevision;
@@ -52,8 +58,6 @@ public class OrderContractSnapshotDO extends BaseDO {
         contractRevision = value;
     }
 
-    private Long contractGeneration;
-
     public Long getContractGeneration() {
         return contractGeneration;
     }
@@ -61,8 +65,6 @@ public class OrderContractSnapshotDO extends BaseDO {
     public void setContractGeneration(Long value) {
         contractGeneration = value;
     }
-
-    private String snapshotHash;
 
     public String getSnapshotHash() {
         return snapshotHash;
@@ -72,8 +74,6 @@ public class OrderContractSnapshotDO extends BaseDO {
         snapshotHash = value;
     }
 
-    private String compiledTermsHash;
-
     public String getCompiledTermsHash() {
         return compiledTermsHash;
     }
@@ -81,8 +81,6 @@ public class OrderContractSnapshotDO extends BaseDO {
     public void setCompiledTermsHash(String value) {
         compiledTermsHash = value;
     }
-
-    private Integer schemaVersion;
 
     public Integer getSchemaVersion() {
         return schemaVersion;
@@ -92,9 +90,6 @@ public class OrderContractSnapshotDO extends BaseDO {
         schemaVersion = value;
     }
 
-    @DiagnosticHidden
-    private String configuration;
-
     public String getConfiguration() {
         return configuration;
     }
@@ -103,8 +98,6 @@ public class OrderContractSnapshotDO extends BaseDO {
         configuration = value;
     }
 
-    private String payloadHash;
-
     public String getPayloadHash() {
         return payloadHash;
     }
@@ -112,8 +105,6 @@ public class OrderContractSnapshotDO extends BaseDO {
     public void setPayloadHash(String value) {
         payloadHash = value;
     }
-
-    private String admissionDigest;
 
     public String getAdmissionDigest() {
         return admissionDigest;

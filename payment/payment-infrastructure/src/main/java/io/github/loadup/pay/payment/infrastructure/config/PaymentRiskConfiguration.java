@@ -19,11 +19,14 @@ import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
 import io.github.loadup.pay.payment.domain.gateway.RiskOutcomeGateway;
 import io.github.loadup.pay.payment.infrastructure.risk.DefaultRiskGateway;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 public class PaymentRiskConfiguration {
     @Bean
     @ConditionalOnMissingBean({RiskConsultGateway.class, RiskOutcomeGateway.class})
-    public DefaultRiskGateway defaultRiskGateway() { return new DefaultRiskGateway(); }
+    public DefaultRiskGateway defaultRiskGateway() {
+        return new DefaultRiskGateway();
+    }
 }

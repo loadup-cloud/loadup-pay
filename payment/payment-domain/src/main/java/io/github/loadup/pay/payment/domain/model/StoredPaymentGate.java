@@ -18,7 +18,9 @@ package io.github.loadup.pay.payment.domain.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
 
-/** Both gate kinds bind the original order, collecting merchant and trusted service. */
+/**
+ * Both gate kinds bind the original order, collecting merchant and trusted service.
+ */
 public record StoredPaymentGate(
         String id, String payeeMerchantId, String callerServiceId, PaymentExecutionGate gate, long rowVersion) {
     public StoredPaymentGate {

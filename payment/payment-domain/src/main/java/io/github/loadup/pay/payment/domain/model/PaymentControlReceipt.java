@@ -17,10 +17,13 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** Immutable local command receipt. The digest is calculated by payment, never accepted from the caller. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Immutable local command receipt. The digest is calculated by payment, never accepted from the caller.
+ */
 public record PaymentControlReceipt(
         String id,
         String kind,

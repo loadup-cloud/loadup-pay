@@ -16,18 +16,29 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** A single serial child transition and its exact capacity/request effects. */
-public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refund, RefundRequest beforeRequest, RefundRequest request,
-        PaymentRefundCapacity beforeCapacity, PaymentRefundCapacity capacity, LocalDateTime submissionStartedAt,
-        String channelRefundTransactionNo, LocalDateTime succeededAt) {
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * A single serial child transition and its exact capacity/request effects.
+ */
+public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refund, RefundRequest beforeRequest,
+                                   RefundRequest request,
+                                   PaymentRefundCapacity beforeCapacity, PaymentRefundCapacity capacity,
+                                   LocalDateTime submissionStartedAt,
+                                   String channelRefundTransactionNo, LocalDateTime succeededAt) {
     public RefundProgressChange {
-        Objects.requireNonNull(before); Objects.requireNonNull(refund); Objects.requireNonNull(beforeRequest); Objects.requireNonNull(request);
-        Objects.requireNonNull(beforeCapacity); Objects.requireNonNull(capacity); Objects.requireNonNull(submissionStartedAt);
+        Objects.requireNonNull(before);
+        Objects.requireNonNull(refund);
+        Objects.requireNonNull(beforeRequest);
+        Objects.requireNonNull(request);
+        Objects.requireNonNull(beforeCapacity);
+        Objects.requireNonNull(capacity);
+        Objects.requireNonNull(submissionStartedAt);
         var current = before.child().refund();
         require(!current.terminal() && refund.version() == Math.incrementExact(current.version())
                 && beforeRequest.children().contains(current) && beforeRequest.apply(refund).equals(request), CONFLICT);
@@ -58,5 +69,9 @@ public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refu
             require(!succeededAt.isBefore(before.child().originalSucceededAt()), CONFLICT);
         } else require(channelRefundTransactionNo == null && succeededAt == null, CONFLICT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

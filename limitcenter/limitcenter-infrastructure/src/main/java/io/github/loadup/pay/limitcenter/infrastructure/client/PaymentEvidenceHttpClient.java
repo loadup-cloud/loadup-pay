@@ -19,22 +19,30 @@ import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.components.http.*;
+import io.github.loadup.components.http.HttpCall;
+import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.time.Clock;
-import java.util.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Map;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 
 @Component
 public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
@@ -42,15 +50,24 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
     private final JsonMapper mapper;
     private final PaymentEvidenceProperties properties;
     private final Clock clock;
+
     public PaymentEvidenceHttpClient(HttpTemplate http, JsonMapper mapper, PaymentEvidenceProperties properties,
-            @Qualifier("limitcenterClock") Clock clock) {
-        this.http = http; this.mapper = mapper; this.properties = properties; this.clock = clock;
+                                     @Qualifier("limitcenterClock") Clock clock) {
+        this.http = http;
+        this.mapper = mapper;
+        this.properties = properties;
+        this.clock = clock;
     }
+
     @Override
-    public boolean supportsTenant(String tenant) { return properties.tenantId().equals(tenant); }
+    public boolean supportsTenant(String tenant) {
+        return properties.tenantId().equals(tenant);
+    }
+
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
-        return exchange(tenant, "payment", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentSettlementFactsDTO>>() {});
+        return exchange(tenant, "payment", new IdQuery(paymentId), new TypeReference<SuccessResponse<PaymentSettlementFactsDTO>>() {
+        });
     }
 
     private <T> T exchange(String tenant, String operation, Object command, TypeReference<SuccessResponse<T>> responseType) {
@@ -68,11 +85,11 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
                     || body.result() == null
                     || body.data() == null
                     || !CommonResultCodeEnum.SUCCESS
-                            .getCode()
-                            .equals(body.result().getCode())
+                    .getCode()
+                    .equals(body.result().getCode())
                     || !CommonResultCodeEnum.SUCCESS
-                            .getStatus()
-                            .equals(body.result().getStatus())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    .getStatus()
+                    .equals(body.result().getStatus())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return body.data();
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -89,7 +106,8 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
             if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+")))
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             var claims = mapper.readValue(
-                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {});
+                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
+                    });
             Object audience = claims.get("aud");
             boolean expectedAudience = properties.audience().equals(audience)
                     || audience instanceof Collection<?> values && values.contains(properties.audience());

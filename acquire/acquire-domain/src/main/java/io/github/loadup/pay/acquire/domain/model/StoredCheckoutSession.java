@@ -15,11 +15,14 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record StoredCheckoutSession(
         CheckoutSession session,

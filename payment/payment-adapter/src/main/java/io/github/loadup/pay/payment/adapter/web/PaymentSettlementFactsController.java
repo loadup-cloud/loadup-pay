@@ -22,14 +22,21 @@ import io.github.loadup.pay.payment.client.facade.PaymentSettlementFactsFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/facts")
 @Tag(name = "Internal payment settlement evidence")
 public class PaymentSettlementFactsController {
     private final PaymentSettlementFactsFacade facade;
-    public PaymentSettlementFactsController(PaymentSettlementFactsFacade facade) { this.facade = facade; }
+
+    public PaymentSettlementFactsController(PaymentSettlementFactsFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/payment")
     @Operation(summary = "Read authoritative payment facts for the trusted limit service")
     public SuccessResponse<PaymentSettlementFactsDTO> payment(@Valid @RequestBody IdQuery query) {

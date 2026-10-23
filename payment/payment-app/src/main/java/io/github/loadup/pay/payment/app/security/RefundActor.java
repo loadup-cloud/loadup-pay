@@ -17,15 +17,23 @@ package io.github.loadup.pay.payment.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
-/** Merchant identity and permissions extracted only from a verified credential. */
+/**
+ * Merchant identity and permissions extracted only from a verified credential.
+ */
 public record RefundActor(String tenantId, String merchantId, String subjectHash, Set<String> permissions) {
     public RefundActor {
-        DomainChecks.id(tenantId); DomainChecks.id(merchantId);
+        DomainChecks.id(tenantId);
+        DomainChecks.id(merchantId);
         io.github.loadup.pay.common.DomainViolation.require(subjectHash != null && subjectHash.matches("[0-9a-f]{64}"),
                 io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
         permissions = Set.copyOf(permissions);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

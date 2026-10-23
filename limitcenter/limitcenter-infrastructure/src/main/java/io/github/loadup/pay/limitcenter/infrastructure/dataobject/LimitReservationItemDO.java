@@ -22,6 +22,10 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_reservation_item")
 public class LimitReservationItemDO extends BaseDO {
     private String reservationId;
+    private String bucketId;
+    private Long reservedValue;
+    private Long consumedValue;
+    private Long restoredValue;
 
     public String getReservationId() {
         return reservationId;
@@ -31,8 +35,6 @@ public class LimitReservationItemDO extends BaseDO {
         reservationId = value;
     }
 
-    private String bucketId;
-
     public String getBucketId() {
         return bucketId;
     }
@@ -40,8 +42,6 @@ public class LimitReservationItemDO extends BaseDO {
     public void setBucketId(String value) {
         bucketId = value;
     }
-
-    private Long reservedValue;
 
     public Long getReservedValue() {
         return reservedValue;
@@ -51,8 +51,6 @@ public class LimitReservationItemDO extends BaseDO {
         reservedValue = value;
     }
 
-    private Long consumedValue;
-
     public Long getConsumedValue() {
         return consumedValue;
     }
@@ -60,8 +58,6 @@ public class LimitReservationItemDO extends BaseDO {
     public void setConsumedValue(Long value) {
         consumedValue = value;
     }
-
-    private Long restoredValue;
 
     public Long getRestoredValue() {
         return restoredValue;

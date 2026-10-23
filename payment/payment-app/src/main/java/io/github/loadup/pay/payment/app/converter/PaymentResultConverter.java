@@ -17,8 +17,15 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
@@ -29,7 +36,7 @@ public interface PaymentResultConverter {
     @Mapping(target = "sourceDigest", source = "observation.sourceDigest")
     @Mapping(target = "observationPayload", source = "payload")
     PaymentChannelReceipt toReceipt(String id, PaymentObservation observation, String factsDigest, String payload,
-            PaymentReceiptDisposition disposition, String reasonCode, LocalDateTime receivedAt);
+                                    PaymentReceiptDisposition disposition, String reasonCode, LocalDateTime receivedAt);
 
     @Mapping(target = "identity", source = "observation.identity")
     @Mapping(target = "amount", source = "observation.amount")

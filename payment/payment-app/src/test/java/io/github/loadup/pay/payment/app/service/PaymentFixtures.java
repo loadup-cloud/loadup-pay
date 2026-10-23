@@ -15,12 +15,25 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.common.*;
-import java.math.*;
-import java.util.*;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Set;
 
 final class PaymentFixtures {
     static PaymentExecuteCommand command() {
@@ -29,6 +42,7 @@ final class PaymentFixtures {
                 new AdmittedOrderTermsDTO("admission", "order", "merchant", 10000, "CNY", "contract", 1, 1,
                         "snapshot", "b".repeat(64), terms()));
     }
+
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,

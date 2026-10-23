@@ -66,14 +66,14 @@ class RefundExecutionTest {
     @Test
     void successConsumesHeldCapacityOnceAndFailureReleasesItWithoutChangingGrossPayment() {
         var capacity = new PaymentRefundCapacity(
-                        "p1",
-                        "order",
-                        "merchant",
-                        LocalDateTime.of(2026, 10, 21, 10, 0),
-                        Money.ofMinor(1000, "CNY"),
-                        0,
-                        0,
-                        0)
+                "p1",
+                "order",
+                "merchant",
+                LocalDateTime.of(2026, 10, 21, 10, 0),
+                Money.ofMinor(1000, "CNY"),
+                0,
+                0,
+                0)
                 .reserve(300);
         var refund = child("r1", "p1", 300);
         var unknown = capacity.applyOutcome(refund, outcome("r1", 300, ChannelRefundOutcome.Kind.UNKNOWN));

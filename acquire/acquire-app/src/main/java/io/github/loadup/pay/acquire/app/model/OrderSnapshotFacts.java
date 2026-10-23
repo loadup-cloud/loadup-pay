@@ -17,21 +17,34 @@ package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-/** Actual persisted header metadata, including original audit creation time, read inside the order transaction. */
+/**
+ * Actual persisted header metadata, including original audit creation time, read inside the order transaction.
+ */
 public record OrderSnapshotFacts(String orderId, String payeeMerchantId, String merchantOrderNo, Money amount,
-        long paidMinor, long reservedMinor, String state, LocalDateTime orderCreatedAt, LocalDateTime sourceUpdatedAt,
-        long sourceVersion) {
+                                 long paidMinor, long reservedMinor, String state, LocalDateTime orderCreatedAt,
+                                 LocalDateTime sourceUpdatedAt,
+                                 long sourceVersion) {
     public OrderSnapshotFacts {
-        DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId); DomainChecks.text(merchantOrderNo, 64);
-        DomainChecks.amount(amount); Objects.requireNonNull(orderCreatedAt); Objects.requireNonNull(sourceUpdatedAt);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.text(merchantOrderNo, 64);
+        DomainChecks.amount(amount);
+        Objects.requireNonNull(orderCreatedAt);
+        Objects.requireNonNull(sourceUpdatedAt);
         DomainViolation.require(amount.getCent() > 0 && sourceVersion >= 0 && paidMinor >= 0 && reservedMinor >= 0
-                && paidMinor <= amount.getCent() && reservedMinor <= amount.getCent() - paidMinor,
+                        && paidMinor <= amount.getCent() && reservedMinor <= amount.getCent() - paidMinor,
                 DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.text(state, 24);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

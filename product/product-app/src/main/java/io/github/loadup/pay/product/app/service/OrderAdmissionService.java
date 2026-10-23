@@ -129,6 +129,23 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
+    private static Map<String, TypedValue> trustedFacts(
+            io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO merchant, AdmissionIntent intent) {
+        if (merchant == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        Map<String, TypedValue> values = new HashMap<>();
+        values.put("merchant.id", TypedValue.text(merchant.id()));
+        values.put("merchant.code", TypedValue.text(merchant.merchantCode()));
+        values.put("merchant.type", TypedValue.text(merchant.type()));
+        values.put("merchant.industry", TypedValue.text(merchant.industry()));
+        values.put("merchant.country", TypedValue.text(merchant.country()));
+        values.put("merchant.active", TypedValue.bool(merchant.active()));
+        if (merchant.province() != null) values.put("merchant.province", TypedValue.text(merchant.province()));
+        if (merchant.city() != null) values.put("merchant.city", TypedValue.text(merchant.city()));
+        values.put("transaction.amountMinor", TypedValue.integer(intent.amount().getCent()));
+        values.put("transaction.currency", TypedValue.text(intent.amount().getCurrencyValue()));
+        return Map.copyOf(values);
+    }
+
     @Override
     public OrderAdmissionDTO authorize(OrderAdmissionAuthorizeCommand command) {
         validate(command);
@@ -249,23 +266,6 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 now.plusSeconds(materializeSeconds));
         return new StoredOrderAdmission(
                 intent, admitted, merchant.merchantVersion(), merchant.authorizationVersion(), compiled.json());
-    }
-
-    private static Map<String, TypedValue> trustedFacts(
-            io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO merchant, AdmissionIntent intent) {
-        if (merchant == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        Map<String, TypedValue> values = new HashMap<>();
-        values.put("merchant.id", TypedValue.text(merchant.id()));
-        values.put("merchant.code", TypedValue.text(merchant.merchantCode()));
-        values.put("merchant.type", TypedValue.text(merchant.type()));
-        values.put("merchant.industry", TypedValue.text(merchant.industry()));
-        values.put("merchant.country", TypedValue.text(merchant.country()));
-        values.put("merchant.active", TypedValue.bool(merchant.active()));
-        if (merchant.province() != null) values.put("merchant.province", TypedValue.text(merchant.province()));
-        if (merchant.city() != null) values.put("merchant.city", TypedValue.text(merchant.city()));
-        values.put("transaction.amountMinor", TypedValue.integer(intent.amount().getCent()));
-        values.put("transaction.currency", TypedValue.text(intent.amount().getCurrencyValue()));
-        return Map.copyOf(values);
     }
 
     private StoredOrderAdmission denied(

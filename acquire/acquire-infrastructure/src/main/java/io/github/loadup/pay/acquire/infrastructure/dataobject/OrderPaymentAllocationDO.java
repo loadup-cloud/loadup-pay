@@ -17,11 +17,25 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("order_payment_allocation")
 public class OrderPaymentAllocationDO extends BaseDO {
     private String orderId;
+    private String paymentId;
+    private String actorScope;
+    private String actionKey;
+    private String requestDigest;
+    private String callerScopeHash;
+    private Long amountMinor;
+    private String currency;
+    private String state;
+    private Long paymentSourceVersion;
+    @DiagnosticHidden
+    private String intentPayload;
+    private String payloadHash;
+    private Long rowVersion;
 
     public String getOrderId() {
         return orderId;
@@ -31,8 +45,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         orderId = value;
     }
 
-    private String paymentId;
-
     public String getPaymentId() {
         return paymentId;
     }
@@ -40,8 +52,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setPaymentId(String value) {
         paymentId = value;
     }
-
-    private String actorScope;
 
     public String getActorScope() {
         return actorScope;
@@ -51,8 +61,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         actorScope = value;
     }
 
-    private String actionKey;
-
     public String getActionKey() {
         return actionKey;
     }
@@ -60,8 +68,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setActionKey(String value) {
         actionKey = value;
     }
-
-    private String requestDigest;
 
     public String getRequestDigest() {
         return requestDigest;
@@ -71,8 +77,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         requestDigest = value;
     }
 
-    private String callerScopeHash;
-
     public String getCallerScopeHash() {
         return callerScopeHash;
     }
@@ -80,8 +84,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setCallerScopeHash(String value) {
         callerScopeHash = value;
     }
-
-    private Long amountMinor;
 
     public Long getAmountMinor() {
         return amountMinor;
@@ -91,8 +93,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         amountMinor = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -100,8 +100,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private String state;
 
     public String getState() {
         return state;
@@ -111,8 +109,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         state = value;
     }
 
-    private Long paymentSourceVersion;
-
     public Long getPaymentSourceVersion() {
         return paymentSourceVersion;
     }
@@ -120,9 +116,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setPaymentSourceVersion(Long value) {
         paymentSourceVersion = value;
     }
-
-    @DiagnosticHidden
-    private String intentPayload;
 
     public String getIntentPayload() {
         return intentPayload;
@@ -132,8 +125,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
         intentPayload = value;
     }
 
-    private String payloadHash;
-
     public String getPayloadHash() {
         return payloadHash;
     }
@@ -141,8 +132,6 @@ public class OrderPaymentAllocationDO extends BaseDO {
     public void setPayloadHash(String value) {
         payloadHash = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

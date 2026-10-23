@@ -18,26 +18,45 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.PaymentInitiationConverter;
-import io.github.loadup.pay.acquire.app.port.*;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
+import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentInitiationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
-import java.time.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+import java.util.List;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 @Service
 public class PaymentInitiationService implements PaymentInitiationFacade {
@@ -117,8 +136,8 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
                     if (value.allocation().state() == AllocationState.INIT) throw new CommonException(SNAPSHOT_INVALID);
                     if (value.allocation().state() == AllocationState.HELD
                             && (order.order().paymentReservedMinor()
-                                            < value.allocation().amount().getCent()
-                                    || order.order().reservedPaymentCount() < 1))
+                            < value.allocation().amount().getCent()
+                            || order.order().reservedPaymentCount() < 1))
                         throw new CommonException(SNAPSHOT_INVALID);
                     return value;
                 }
@@ -186,7 +205,7 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
     }
 
     private StoredPaymentAllocation attachInput(AcquireActor actor, String actorScope, PaymentStartCommand command,
-            String inputRef) {
+                                                String inputRef) {
         var order = orders.lockOrder(actor.tenantId(), command.orderId());
         if (!order.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
         var current = allocations.findAction(actor.tenantId(), command.orderId(), actorScope, command.actionKey())
@@ -250,12 +269,12 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
                 || !execute.currency().equals(result.currency())) throw new CommonException(SNAPSHOT_INVALID);
         if (result.state() == PaymentState.INIT
                 && (result.activeAttemptId() != null
-                        || result.action() != null
-                        || result.terminalEvidenceId() != null
-                        || result.version() != 0)) throw new CommonException(SNAPSHOT_INVALID);
+                || result.action() != null
+                || result.terminalEvidenceId() != null
+                || result.version() != 0)) throw new CommonException(SNAPSHOT_INVALID);
         if ((result.state() == PaymentState.CLOSED
-                        || result.state() == PaymentState.FAILED
-                        || result.state() == PaymentState.SUCCEEDED)
+                || result.state() == PaymentState.FAILED
+                || result.state() == PaymentState.SUCCEEDED)
                 && result.terminalEvidenceId() == null) throw new CommonException(SNAPSHOT_INVALID);
     }
 

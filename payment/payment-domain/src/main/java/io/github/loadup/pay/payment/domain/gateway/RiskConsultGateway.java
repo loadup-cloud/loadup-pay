@@ -18,7 +18,9 @@ package io.github.loadup.pay.payment.domain.gateway;
 import io.github.loadup.pay.payment.domain.model.RiskConsultation;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface RiskConsultGateway {
     RiskDecision consult(RiskConsultation consultation);
 }

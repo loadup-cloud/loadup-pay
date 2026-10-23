@@ -67,15 +67,16 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
                     new HttpCall(Map.of(), Map.of(), Map.of("Authorization", "Bearer " + credential()), command));
             if (!result.getStatusCode().is2xxSuccessful() || result.getBody() == null)
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            SuccessResponse<LimitPolicyActivationDTO> body = json.readValue(result.getBody(), new TypeReference<>() {});
+            SuccessResponse<LimitPolicyActivationDTO> body = json.readValue(result.getBody(), new TypeReference<>() {
+            });
             if (body.result() == null
                     || body.data() == null
                     || !CommonResultCodeEnum.SUCCESS
-                            .getCode()
-                            .equals(body.result().getCode())
+                    .getCode()
+                    .equals(body.result().getCode())
                     || !CommonResultCodeEnum.SUCCESS
-                            .getStatus()
-                            .equals(body.result().getStatus())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    .getStatus()
+                    .equals(body.result().getStatus())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return body.data();
         } catch (RuntimeException invalid) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

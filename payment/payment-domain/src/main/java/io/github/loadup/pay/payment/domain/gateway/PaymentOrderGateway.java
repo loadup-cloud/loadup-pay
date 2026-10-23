@@ -21,7 +21,9 @@ import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 
 import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface PaymentOrderGateway {
     Optional<PaymentOrder> find(String tenantId, String paymentId);
 

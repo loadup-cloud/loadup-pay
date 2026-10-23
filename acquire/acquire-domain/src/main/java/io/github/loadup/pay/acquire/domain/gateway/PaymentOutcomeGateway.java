@@ -15,13 +15,19 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentChange;
+import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+
 import java.util.Optional;
 
 public interface PaymentOutcomeGateway {
     Optional<StoredPaymentAllocation> findPayment(String tenant, String orderId, String paymentId);
+
     Optional<StoredPaymentAllocation> lockPayment(String tenant, String orderId, String paymentId);
+
     Optional<PaymentOutcomeReceipt> findReceipt(String tenant, String allocationId);
+
     void apply(String tenant, OrderPaymentChange change, StoredPaymentAllocation original,
                PaymentOutcomeReceipt receipt, long expectedOrderVersion);
 }

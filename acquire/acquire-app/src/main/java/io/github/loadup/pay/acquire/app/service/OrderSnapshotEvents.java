@@ -19,13 +19,19 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.outbox.*;
+import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class OrderSnapshotEvents {
@@ -34,9 +40,14 @@ public class OrderSnapshotEvents {
     private final OrderSnapshotConverter converter;
     private final OutboxTemplate outbox;
     private final IdGenerator ids;
+
     public OrderSnapshotEvents(OrderSnapshotReader headers, OrderSnapshotConverter converter, OutboxTemplate outbox, IdGenerator ids) {
-        this.headers = headers; this.converter = converter; this.outbox = outbox; this.ids = ids;
+        this.headers = headers;
+        this.converter = converter;
+        this.outbox = outbox;
+        this.ids = ids;
     }
+
     public void publish(String tenant, String orderId, long expectedVersion) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
@@ -46,8 +57,11 @@ public class OrderSnapshotEvents {
         if (header == null || !orderId.equals(header.orderId()) || header.sourceVersion() != expectedVersion)
             throw new CommonException(SNAPSHOT_INVALID);
         final io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO data;
-        try { data = converter.toEvent(header); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            data = converter.toEvent(header);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var event = new PayEventEnvelope<>(ids.generate(), ids.generate(), "acquire", TYPE, 1, orderId, expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()), data);
         outbox.publish(new OutboxMessage(tenant, TYPE, 1, orderId, JsonUtil.toJson(event)));

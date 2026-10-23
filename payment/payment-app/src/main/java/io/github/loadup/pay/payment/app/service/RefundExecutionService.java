@@ -19,18 +19,30 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.model.RefundExecutionWork;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
+import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** One serial step. Durable scheduling and verified channel binders supply invocations; no merchant success endpoint. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * One serial step. Durable scheduling and verified channel binders supply invocations; no merchant success endpoint.
+ */
 @Service
 public class RefundExecutionService {
     private final ObjectProvider<PaymentChannelGateway> channels;
@@ -41,16 +53,24 @@ public class RefundExecutionService {
     private final PaymentAcceptanceTransactions transactions;
     private final Clock clock;
     private final RefundProjectionEvents projections;
+
     public RefundExecutionService(ObjectProvider<PaymentChannelGateway> channels, RefundExecutionLocks locks, RefundResultGateway changes,
-            RefundResultService results, RefundExecutionConverter converter, PaymentAcceptanceTransactions transactions,
-            @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections) {
-        this.channels = channels; this.locks = locks; this.changes = changes; this.results = results;
-        this.converter = converter; this.transactions = transactions; this.clock = clock;
+                                  RefundResultService results, RefundExecutionConverter converter, PaymentAcceptanceTransactions transactions,
+                                  @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections) {
+        this.channels = channels;
+        this.locks = locks;
+        this.changes = changes;
+        this.results = results;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.clock = clock;
         this.projections = projections;
     }
+
     public void progress(String tenant, String requestId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        DomainChecks.id(tenant); DomainChecks.id(requestId);
+        DomainChecks.id(tenant);
+        DomainChecks.id(requestId);
         var channel = channels.getIfAvailable();
         if (channel == null) throw new CommonException(UNSUPPORTED_CAPABILITY);
         var work = transactions.write(tenant, () -> prepare(tenant, requestId, channel));
@@ -66,11 +86,13 @@ public class RefundExecutionService {
         }
         var expectedSource = step.firstSubmission() ? RefundObservation.Source.SUBMIT_RESPONSE : RefundObservation.Source.QUERY_RESPONSE;
         if (observation == null || !observation.refundId().equals(step.prepared().refundId()) || observation.source() != expectedSource) {
-            results.uncertain(tenant, requestId, step.prepared().refundId()); throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            results.uncertain(tenant, requestId, step.prepared().refundId());
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         var application = results.record(tenant, observation);
         if (application.disposition() == RefundReceiptDisposition.CONFLICT) throw new CommonException(OUTCOME_UNKNOWN);
     }
+
     private Optional<RefundExecutionWork> prepare(String tenant, String requestId, PaymentChannelGateway channel) {
         var stored = locks.request(tenant, requestId);
         var first = stored.allocations().stream().filter(c -> !c.refund().terminal()).findFirst();

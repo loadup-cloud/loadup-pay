@@ -16,25 +16,36 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.payment.app.port.*;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.RefundResultCodec;
 import io.github.loadup.pay.payment.domain.model.RefundObservation;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class RefundResultCodecImpl implements RefundResultCodec {
     private final JsonMapper json;
     private final PaymentAcceptanceCodec hashes;
-    public RefundResultCodecImpl(JsonMapper json, PaymentAcceptanceCodec hashes) { this.json = json; this.hashes = hashes; }
-    @Override public String encode(RefundObservation observation) {
+
+    public RefundResultCodecImpl(JsonMapper json, PaymentAcceptanceCodec hashes) {
+        this.json = json;
+        this.hashes = hashes;
+    }
+
+    @Override
+    public String encode(RefundObservation observation) {
         var payload = json.writeValueAsString(observation);
         if (payload.getBytes(StandardCharsets.UTF_8).length > 32768) throw new CommonException(SNAPSHOT_INVALID);
         return payload;
     }
-    @Override public String factsDigest(RefundObservation o) {
+
+    @Override
+    public String factsDigest(RefundObservation o) {
         var value = new StringBuilder("refund-facts-v1/");
         for (var field : java.util.List.of(o.refundId(), o.original().paymentId(), o.original().attemptId(), o.original().channel().name(),
                 o.original().bindingRevisionId(), o.original().accountScopeHash(), o.original().channelRequestNo(), o.channelRefundNo(),

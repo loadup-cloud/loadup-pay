@@ -154,14 +154,26 @@ TTL 回收额度。
 
 ## 付款终态确认与安全释放
 
-新增 LimitSettlementFacade 及内部 POST `/api/limit/settlement/confirm`、`/release`，分别要求指定 payment SERVICE 身份和 pay:limit:confirm/release。confirm 接 LimitConfirmCommand 返回 LimitReservationDTO；release 接 LimitReleaseCommand，现返回 LimitReleaseDTO，含 fenced、付款版本/证据及可空 reservation。释放早于预占到达时只有持久 gate/回执，不构造假 reservation。
+新增 LimitSettlementFacade 及内部 POST `/api/limit/settlement/confirm`、`/release`，分别要求指定 payment SERVICE 身份和
+pay:limit:confirm/release。confirm 接 LimitConfirmCommand 返回 LimitReservationDTO；release 接 LimitReleaseCommand，现返回
+LimitReleaseDTO，含 fenced、付款版本/证据及可空 reservation。释放早于预占到达时只有持久 gate/回执，不构造假 reservation。
 
-应用先在本地事务外使用独立挂载 SERVICE JWT 请求 payment `/api/payment/facts/payment`，核对 operation/payment/order/商户/金额/币种/原 initiatedAt 及终结版本/证据。confirm 还须为 SUCCEEDED 且成功 attempt 等于原活动尝试；release 必须为 CLOSED/FAILED 并持久执行封禁。HTTP 超时、空记录或仅提供 evidenceId 不修改额度。
+应用先在本地事务外使用独立挂载 SERVICE JWT 请求 payment `/api/payment/facts/payment`，核对
+operation/payment/order/商户/金额/币种/原 initiatedAt 及终结版本/证据。confirm 还须为 SUCCEEDED 且成功 attempt
+等于原活动尝试；release 必须为 CLOSED/FAILED 并持久执行封禁。HTTP 超时、空记录或仅提供 evidenceId 不修改额度。
 
-锁序为 operation_gate→policy_head→原桶稳定顺序→reservation/items。使用原 policy/version/hash 和原 initiatedAt 恢复全部窗口，确认将所有桶 held→used 并确认全部明细，释放只减少原 held。策略升级不改变原归桶或重置终生额度；EXPIRED 已释放不重复扣减，EXECUTING 永不依赖 TTL 回收。
+锁序为 operation_gate→policy_head→原桶稳定顺序→reservation/items。使用原 policy/version/hash 和原 initiatedAt
+恢复全部窗口，确认将所有桶 held→used 并确认全部明细，释放只减少原 held。策略升级不改变原归桶或重置终生额度；EXPIRED
+已释放不重复扣减，EXECUTING 永不依赖 TTL 回收。
 
-新增不可变 limit_settlement_receipt：同 operation 固定 CONFIRM/RELEASE、源版本和证据，业务摘要不含投递 eventId，因此相同语义换投递 ID 不二次记账；改参数或成功/未收款冲突拒绝。release 同事务写 FENCED，迟到 Reserve/BeginExecution 无法再开门禁。原桶、明细、预占状态、门禁和回执原子提交。
+新增不可变 limit_settlement_receipt：同 operation 固定 CONFIRM/RELEASE、源版本和证据，业务摘要不含投递 eventId，因此相同语义换投递
+ID 不二次记账；改参数或成功/未收款冲突拒绝。release 同事务写 FENCED，迟到 Reserve/BeginExecution
+无法再开门禁。原桶、明细、预占状态、门禁和回执原子提交。
 
-V20261022080000 新增本服务第9表。运行需 PAYMENT_BASE_URL/PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID（默认 limitcenter）、LIMITCENTER_PAYMENT_TOKEN_FILE；出站凭证需 pay:payment:limit-facts。LIMITCENTER_PAYMENT_SERVICE_ID 默认 payment，限定入站写者。令牌每次读取文件并预检租户/sub/service/audience/有效期，payment 最终验签。当前一个部署显式配置一个出站租户，未配置租户拒绝。
+V20261022080000 新增本服务第9表。运行需
+PAYMENT_BASE_URL/PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID（默认
+limitcenter）、LIMITCENTER_PAYMENT_TOKEN_FILE；出站凭证需 pay:payment:limit-facts。LIMITCENTER_PAYMENT_SERVICE_ID 默认
+payment，限定入站写者。令牌每次读取文件并预检租户/sub/service/audience/有效期，payment 最终验签。当前一个部署显式配置一个出站租户，未配置租户拒绝。
 
-本批未运行 IDEA 检查、构建、测试、DDL 或部署。退款额度恢复、跨 attempt 安全替换和自动过期扫描仍待实现；confirm 中 succeededAt 仅冻结来源请求元数据，归桶始终使用已核验的原 initiatedAt，不以成功日重建桶。
+本批未运行 IDEA 检查、构建、测试、DDL 或部署。退款额度恢复、跨 attempt 安全替换和自动过期扫描仍待实现；confirm 中 succeededAt
+仅冻结来源请求元数据，归桶始终使用已核验的原 initiatedAt，不以成功日重建桶。

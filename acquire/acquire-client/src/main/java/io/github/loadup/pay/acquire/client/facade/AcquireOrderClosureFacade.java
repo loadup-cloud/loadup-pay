@@ -19,6 +19,8 @@ import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 
 public interface AcquireOrderClosureFacade {
-    /** Persist closure and drive a bounded batch; CLOSING requires replay of the original request. */
+    /**
+     * Persist closure and drive a bounded batch; CLOSING requires replay of the original request.
+     */
     AcquireOrderDTO close(AcquireOrderCloseCommand command);
 }

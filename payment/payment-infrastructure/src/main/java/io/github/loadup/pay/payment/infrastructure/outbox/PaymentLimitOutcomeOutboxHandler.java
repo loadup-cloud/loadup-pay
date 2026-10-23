@@ -15,14 +15,27 @@
  */
 package io.github.loadup.pay.payment.infrastructure.outbox;
 
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.payment.app.service.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxHandler;
+import io.github.loadup.pay.payment.app.service.PaymentLimitOutcomeDelivery;
+import io.github.loadup.pay.payment.app.service.PaymentResultEvents;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PaymentLimitOutcomeOutboxHandler implements OutboxHandler {
     private final PaymentLimitOutcomeDelivery delivery;
-    public PaymentLimitOutcomeOutboxHandler(PaymentLimitOutcomeDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return PaymentResultEvents.LIMIT; }
-    @Override public void handle(OutboxEvent event) { delivery.deliver(event); }
+
+    public PaymentLimitOutcomeOutboxHandler(PaymentLimitOutcomeDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return PaymentResultEvents.LIMIT;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.deliver(event);
+    }
 }

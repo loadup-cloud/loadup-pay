@@ -32,7 +32,9 @@ import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 
-/** Merchant API convenience entry; a hosted checkout session is not a prerequisite. */
+/**
+ * Merchant API convenience entry; a hosted checkout session is not a prerequisite.
+ */
 public record DirectPayCommand(
         @Schema(description = "Payee merchant id") @NotBlank @Size(max = 64)
         String payeeMerchantId,

@@ -18,14 +18,27 @@ package io.github.loadup.pay.limitcenter.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
-import io.github.loadup.pay.limitcenter.domain.model.*;
+import io.github.loadup.pay.limitcenter.domain.model.GateState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitSettlementStorageConverter;
-import io.github.loadup.pay.limitcenter.infrastructure.mapper.*;
-import java.util.*;
+import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitOperationGateDOMapper;
+import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitReservationItemDOMapper;
+import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitSettlementReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.limitcenter.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.limitcenter.infrastructure.dataobject.table.Tables.LIMIT_OPERATION_GATE_DO;
+import static io.github.loadup.pay.limitcenter.infrastructure.dataobject.table.Tables.LIMIT_RESERVATION_ITEM_DO;
+import static io.github.loadup.pay.limitcenter.infrastructure.dataobject.table.Tables.LIMIT_SETTLEMENT_RECEIPT_DO;
 
 @Repository
 public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
@@ -33,9 +46,13 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
     private final LimitOperationGateDOMapper gates;
     private final LimitReservationItemDOMapper items;
     private final LimitSettlementStorageConverter converter;
+
     public LimitSettlementGatewayImpl(LimitSettlementReceiptDOMapper receipts, LimitOperationGateDOMapper gates,
-            LimitReservationItemDOMapper items, LimitSettlementStorageConverter converter) {
-        this.receipts = receipts; this.gates = gates; this.items = items; this.converter = converter;
+                                      LimitReservationItemDOMapper items, LimitSettlementStorageConverter converter) {
+        this.receipts = receipts;
+        this.gates = gates;
+        this.items = items;
+        this.converter = converter;
     }
 
     @Override
@@ -43,8 +60,11 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
         var row = receipts.selectOneByQuery(QueryWrapper.create().where(LIMIT_SETTLEMENT_RECEIPT_DO.TENANT_ID.eq(tenant))
                 .and(LIMIT_SETTLEMENT_RECEIPT_DO.DELETED.eq(0)).and(LIMIT_SETTLEMENT_RECEIPT_DO.OPERATION_ID.eq(operation)));
         if (row == null) return Optional.empty();
-        try { return Optional.of(converter.toReceipt(row)); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.of(converter.toReceipt(row));
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

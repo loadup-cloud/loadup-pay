@@ -65,11 +65,10 @@ public record OrderFeePolicy(
         return switch (refundPolicy) {
             case NO_RETURN -> 0;
             case FULL_ON_FULL_REFUND -> cumulativeRefund == orderAmount ? originalFee : 0;
-            case PRO_RATA_CUMULATIVE ->
-                BigDecimal.valueOf(originalFee)
-                        .multiply(BigDecimal.valueOf(cumulativeRefund))
-                        .divide(BigDecimal.valueOf(orderAmount), 0, rounding)
-                        .longValueExact();
+            case PRO_RATA_CUMULATIVE -> BigDecimal.valueOf(originalFee)
+                    .multiply(BigDecimal.valueOf(cumulativeRefund))
+                    .divide(BigDecimal.valueOf(orderAmount), 0, rounding)
+                    .longValueExact();
         };
     }
 

@@ -15,15 +15,27 @@
  */
 package io.github.loadup.pay.payment.client.command;
 
-import io.github.loadup.commons.json.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.client.dto.ChannelAccountIdentityDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
 import java.util.Set;
 
-/** Trusted operations entry; credentials and merchant authorization tokens remain in their secret stores. */
+/**
+ * Trusted operations entry; credentials and merchant authorization tokens remain in their secret stores.
+ */
 public record ChannelBindingPublishCommand(
         @Schema(description = "Collecting merchant or sub-merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
         @Schema(description = "Stable merchant-local binding code") @NotBlank @Size(max = 64) String bindingCode,
@@ -39,6 +51,12 @@ public record ChannelBindingPublishCommand(
         @Schema(description = "Routing priority; lower values win", example = "100") @Min(0) @Max(1000000) int priority,
         @Schema(description = "Publish idempotency key") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Expected head version; zero creates a binding") @PositiveOrZero long expectedVersion) {
-    public ChannelBindingPublishCommand { capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public ChannelBindingPublishCommand {
+        capabilities = capabilities == null ? Set.of() : Set.copyOf(capabilities);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

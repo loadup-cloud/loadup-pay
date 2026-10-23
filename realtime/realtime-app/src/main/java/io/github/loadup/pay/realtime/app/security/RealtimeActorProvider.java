@@ -15,4 +15,6 @@
  */
 package io.github.loadup.pay.realtime.app.security;
 
-public interface RealtimeActorProvider { RealtimeActor current(); }
+public interface RealtimeActorProvider {
+    RealtimeActor current();
+}

@@ -25,7 +25,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Every accepted command field is frozen independently of a caller-supplied digest. */
+/**
+ * Every accepted command field is frozen independently of a caller-supplied digest.
+ */
 public record AdmissionIntent(
         String orderId,
         String payeeMerchantId,

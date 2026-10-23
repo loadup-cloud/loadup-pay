@@ -25,7 +25,9 @@ import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import java.util.List;
 import java.util.Optional;
 
-/** Mutations join one caller transaction; all bucket changes and the operation transition commit together. */
+/**
+ * Mutations join one caller transaction; all bucket changes and the operation transition commit together.
+ */
 public interface MerchantLimitGateway {
     LimitOperationGate lockOrCreateGate(String tenant, String operationId, String paymentId);
 

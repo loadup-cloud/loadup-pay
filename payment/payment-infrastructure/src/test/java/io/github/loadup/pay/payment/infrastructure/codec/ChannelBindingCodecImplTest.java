@@ -16,26 +16,43 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.client.dto.AlipayAccountIdentityDTO;
+import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
-import java.util.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ChannelBindingCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ChannelBindingConverter.class.getPackageName());
     final ChannelBindingCodecImpl codec = new ChannelBindingCodecImpl(JsonMapper.builder().build(),
             context.getBean(ChannelBindingConverter.class), validation.getValidator());
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void readsMysqlJsonWhitespaceAndKeyOrderWithoutWeakeningTypedHashVerification() {
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void readsMysqlJsonWhitespaceAndKeyOrderWithoutWeakeningTypedHashVerification() {
         var identity = new AlipayAccountIdentity("app", "seller", null, null, null);
         String expectedHash = codec.checksum(codec.encodeIdentity(identity));
         String reordered = """
@@ -46,7 +63,9 @@ class ChannelBindingCodecImplTest {
         String altered = codec.encodeIdentity(new AlipayAccountIdentity("app", "different", null, null, null));
         assertThrows(CommonException.class, () -> codec.decodeIdentity(altered, expectedHash));
     }
-    @Test void credentialAuthorizationRotationDoesNotChangeTheReceivingAccountScope() {
+
+    @Test
+    void credentialAuthorizationRotationDoesNotChangeTheReceivingAccountScope() {
         var first = new AlipayAccountIdentity("app", "seller", "operating-app", "authorization", "v1");
         var rotated = new AlipayAccountIdentity("app", "seller", "operating-app", "authorization", "v2");
         assertEquals(codec.accountScopeHash(Channel.ALIPAY, first),
@@ -54,17 +73,22 @@ class ChannelBindingCodecImplTest {
         var directAlias = new AlipayAccountIdentity("another-app", "seller", null, null, null);
         assertEquals(codec.accountScopeHash(Channel.ALIPAY, first), codec.accountScopeHash(Channel.ALIPAY, directAlias));
     }
-    @Test void providerSubMerchantIdentityIsPartOfTheScope() {
+
+    @Test
+    void providerSubMerchantIdentityIsPartOfTheScope() {
         var first = new WechatAccountIdentity("provider-app", "provider", null, "sub-one");
         var second = new WechatAccountIdentity("provider-app", "provider", null, "sub-two");
         assertNotEquals(codec.accountScopeHash(Channel.WECHAT, first),
                 codec.accountScopeHash(Channel.WECHAT, second));
     }
-    @Test void publishDigestIsIndependentOfCapabilitySetIterationOrder() {
+
+    @Test
+    void publishDigestIsIndependentOfCapabilitySetIterationOrder() {
         var first = command(new LinkedHashSet<>(List.of(PaymentMethod.H5, PaymentMethod.JSAPI)));
         var second = command(new LinkedHashSet<>(List.of(PaymentMethod.JSAPI, PaymentMethod.H5)));
         assertEquals(codec.requestDigest("tenant", "pay-ops", "PUBLISH", first), codec.requestDigest("tenant", "pay-ops", "PUBLISH", second));
     }
+
     ChannelBindingPublishCommand command(Set<PaymentMethod> methods) {
         return new ChannelBindingPublishCommand("merchant", "binding", Channel.ALIPAY, AccessMode.DIRECT,
                 new AlipayAccountIdentityDTO("app", "seller", null, null, null), "credential", "v1", methods, 100, "publish", 0);

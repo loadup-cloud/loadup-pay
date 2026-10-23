@@ -141,8 +141,10 @@ v1，语义ACK固定eventId+SUCCESS，不给商户配置成“200即成功”。
 1. 验证字段类型、产品/方案/商户覆盖权限、必填项与数值范围，填充明确默认值，保留每字段sourceLayer/code/version。
 2. 做跨字段校验：金额范围、等待/延期范围、fee最小最大、开通方式、父级policy、限额指标窗口、通知与退款策略支持情况。未知参数/策略拒绝，不静默忽略。
 3.
+
 生成不可变AcquiringTermsDTO和独立compiledTermsHash，原框架revision的snapshotHash原样保留，二者分别验证；含schemaVersion、contractId/revision，以及typed
 OrderTerms/PaymentTerms/FeeTerms/RefundTerms/NotificationTerms/LimitPolicyRef。存储可为JSON，但client提供类型化子record。
+
 4. 对quota编译结果发可靠激活命令，limitcenter返回policyId/version/hash
    receipt；未ACK的revision不可用于新OrderAdmission。ACK和合约本地激活之间使用状态机恢复，不做跨库事务；重试同版本同hash幂等。
 5. 支持普通合约暂停/终止与准入共用锁；已发admission返回原快照。旧order按其持久副本履约，不重跑当前商业资格，旧limit解释继续存在。

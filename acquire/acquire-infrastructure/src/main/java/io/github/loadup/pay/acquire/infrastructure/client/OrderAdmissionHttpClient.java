@@ -18,7 +18,8 @@ package io.github.loadup.pay.acquire.infrastructure.client;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.components.http.*;
+import io.github.loadup.components.http.HttpCall;
+import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.acquire.app.port.OrderAdmissionClient;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
@@ -27,8 +28,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.util.Map;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 @Component
 public class OrderAdmissionHttpClient implements OrderAdmissionClient {
@@ -59,14 +64,15 @@ public class OrderAdmissionHttpClient implements OrderAdmissionClient {
                             command));
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null)
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            SuccessResponse<OrderAdmissionDTO> body = mapper.readValue(response.getBody(), new TypeReference<>() {});
+            SuccessResponse<OrderAdmissionDTO> body = mapper.readValue(response.getBody(), new TypeReference<>() {
+            });
             if (body.result() == null
                     || !CommonResultCodeEnum.SUCCESS
-                            .getCode()
-                            .equals(body.result().getCode())
+                    .getCode()
+                    .equals(body.result().getCode())
                     || !CommonResultCodeEnum.SUCCESS
-                            .getStatus()
-                            .equals(body.result().getStatus())
+                    .getStatus()
+                    .equals(body.result().getStatus())
                     || body.data() == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return body.data();
         } catch (RuntimeException failure) {

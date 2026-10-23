@@ -18,7 +18,9 @@ package io.github.loadup.pay.acquire.client.facade;
 import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface FeeRefundOutcomeFacade {
     void accept(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
 }

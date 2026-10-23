@@ -22,7 +22,9 @@ import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface TradeProjectionFacade {
     ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
 

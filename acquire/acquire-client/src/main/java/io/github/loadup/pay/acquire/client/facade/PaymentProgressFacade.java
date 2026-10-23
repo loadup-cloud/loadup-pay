@@ -15,10 +15,12 @@
  */
 package io.github.loadup.pay.acquire.client.facade;
 
-import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
+import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 
 public interface PaymentProgressFacade {
-    /** Pull trusted payment facts and apply a terminal outcome to the original amount hold. */
+    /**
+     * Pull trusted payment facts and apply a terminal outcome to the original amount hold.
+     */
     PaymentProgressDTO refresh(PaymentProgressRefreshCommand query);
 }

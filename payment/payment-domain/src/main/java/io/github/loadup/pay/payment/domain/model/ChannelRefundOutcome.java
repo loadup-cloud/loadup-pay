@@ -22,13 +22,6 @@ import io.github.loadup.pay.common.DomainChecks;
 import java.util.Objects;
 
 public record ChannelRefundOutcome(String refundId, Kind kind, Money amount, String evidenceId) {
-    public enum Kind {
-        ACCEPTED,
-        SUCCEEDED,
-        FAILED_WITH_NO_REFUND,
-        UNKNOWN
-    }
-
     public ChannelRefundOutcome {
         DomainChecks.id(refundId);
         Objects.requireNonNull(kind);
@@ -39,5 +32,12 @@ public record ChannelRefundOutcome(String refundId, Kind kind, Money amount, Str
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum Kind {
+        ACCEPTED,
+        SUCCEEDED,
+        FAILED_WITH_NO_REFUND,
+        UNKNOWN
     }
 }

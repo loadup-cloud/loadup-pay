@@ -24,6 +24,15 @@ import java.time.LocalDateTime;
 @Table("limit_bucket")
 public class LimitBucketDO extends BaseDO {
     private String ruleScopeId;
+    private String merchantId;
+    private String metric;
+    private String currency;
+    private String windowType;
+    private LocalDateTime windowStart;
+    private LocalDateTime windowEnd;
+    private Long usedValue;
+    private Long heldValue;
+    private Long rowVersion;
 
     public String getRuleScopeId() {
         return ruleScopeId;
@@ -33,8 +42,6 @@ public class LimitBucketDO extends BaseDO {
         ruleScopeId = value;
     }
 
-    private String merchantId;
-
     public String getMerchantId() {
         return merchantId;
     }
@@ -42,8 +49,6 @@ public class LimitBucketDO extends BaseDO {
     public void setMerchantId(String value) {
         merchantId = value;
     }
-
-    private String metric;
 
     public String getMetric() {
         return metric;
@@ -53,8 +58,6 @@ public class LimitBucketDO extends BaseDO {
         metric = value;
     }
 
-    private String currency;
-
     public String getCurrency() {
         return currency;
     }
@@ -62,8 +65,6 @@ public class LimitBucketDO extends BaseDO {
     public void setCurrency(String value) {
         currency = value;
     }
-
-    private String windowType;
 
     public String getWindowType() {
         return windowType;
@@ -73,8 +74,6 @@ public class LimitBucketDO extends BaseDO {
         windowType = value;
     }
 
-    private LocalDateTime windowStart;
-
     public LocalDateTime getWindowStart() {
         return windowStart;
     }
@@ -82,8 +81,6 @@ public class LimitBucketDO extends BaseDO {
     public void setWindowStart(LocalDateTime value) {
         windowStart = value;
     }
-
-    private LocalDateTime windowEnd;
 
     public LocalDateTime getWindowEnd() {
         return windowEnd;
@@ -93,8 +90,6 @@ public class LimitBucketDO extends BaseDO {
         windowEnd = value;
     }
 
-    private Long usedValue;
-
     public Long getUsedValue() {
         return usedValue;
     }
@@ -103,8 +98,6 @@ public class LimitBucketDO extends BaseDO {
         usedValue = value;
     }
 
-    private Long heldValue;
-
     public Long getHeldValue() {
         return heldValue;
     }
@@ -112,8 +105,6 @@ public class LimitBucketDO extends BaseDO {
     public void setHeldValue(Long value) {
         heldValue = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

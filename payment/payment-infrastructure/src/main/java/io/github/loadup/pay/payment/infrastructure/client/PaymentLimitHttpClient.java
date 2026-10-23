@@ -17,22 +17,37 @@ package io.github.loadup.pay.payment.infrastructure.client;
 
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.components.http.*;
+import io.github.loadup.components.http.HttpCall;
+import io.github.loadup.components.http.HttpTemplate;
+import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
-import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
 import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
-import java.time.Clock;
-import java.util.*;
+import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import java.time.Clock;
+import java.util.Map;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 
 @Component
 public class PaymentLimitHttpClient implements PaymentLimitClient {
@@ -40,26 +55,48 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
     private final JsonMapper mapper;
     private final PaymentLimitProperties properties;
     private final PaymentServiceTokenReader tokens;
+
     public PaymentLimitHttpClient(HttpTemplate http, JsonMapper mapper, PaymentLimitProperties properties,
-            @Qualifier("paymentClock") Clock clock) {
-        this.http = http; this.mapper = mapper; this.properties = properties; this.tokens = new PaymentServiceTokenReader(mapper, clock);
+                                  @Qualifier("paymentClock") Clock clock) {
+        this.http = http;
+        this.mapper = mapper;
+        this.properties = properties;
+        this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
+
     @Override
-    public boolean supportsTenant(String tenant) { return properties.tenantId().equals(tenant); }
-    @Override public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
-        return exchange(tenant, "reserve", command, new TypeReference<SuccessResponse<LimitReservationDTO>>() {});
+    public boolean supportsTenant(String tenant) {
+        return properties.tenantId().equals(tenant);
     }
-    @Override public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
-        return exchange(tenant, "begin", command, new TypeReference<SuccessResponse<LimitExecutionPermitDTO>>() {});
+
+    @Override
+    public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
+        return exchange(tenant, "reserve", command, new TypeReference<SuccessResponse<LimitReservationDTO>>() {
+        });
     }
-    @Override public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
-        return exchange(tenant, "verify", command, new TypeReference<SuccessResponse<LimitExecutionVerificationDTO>>() {});
+
+    @Override
+    public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
+        return exchange(tenant, "begin", command, new TypeReference<SuccessResponse<LimitExecutionPermitDTO>>() {
+        });
     }
-    @Override public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
-        return exchange(tenant, "confirm", command, new TypeReference<SuccessResponse<LimitReservationDTO>>() {});
+
+    @Override
+    public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
+        return exchange(tenant, "verify", command, new TypeReference<SuccessResponse<LimitExecutionVerificationDTO>>() {
+        });
     }
-    @Override public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
-        return exchange(tenant, "release", command, new TypeReference<SuccessResponse<LimitReleaseDTO>>() {});
+
+    @Override
+    public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
+        return exchange(tenant, "confirm", command, new TypeReference<SuccessResponse<LimitReservationDTO>>() {
+        });
+    }
+
+    @Override
+    public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
+        return exchange(tenant, "release", command, new TypeReference<SuccessResponse<LimitReleaseDTO>>() {
+        });
     }
 
     private <T> T exchange(String tenant, String operation, Object command, TypeReference<SuccessResponse<T>> responseType) {

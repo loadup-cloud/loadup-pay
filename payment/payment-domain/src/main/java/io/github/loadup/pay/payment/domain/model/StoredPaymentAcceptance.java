@@ -15,12 +15,16 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** Frozen internal command, retained without any raw channel input or credential. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Frozen internal command, retained without any raw channel input or credential.
+ */
 public record StoredPaymentAcceptance(
         PaymentOrder payment,
         String admissionId,

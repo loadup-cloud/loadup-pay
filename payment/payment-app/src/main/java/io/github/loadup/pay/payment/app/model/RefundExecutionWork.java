@@ -18,7 +18,12 @@ package io.github.loadup.pay.payment.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
 
-/** Only an in-memory winner receives firstSubmission=true; replays always query the same persisted request. */
+/**
+ * Only an in-memory winner receives firstSubmission=true; replays always query the same persisted request.
+ */
 public record RefundExecutionWork(String requestId, PreparedChannelRefund prepared, boolean firstSubmission) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

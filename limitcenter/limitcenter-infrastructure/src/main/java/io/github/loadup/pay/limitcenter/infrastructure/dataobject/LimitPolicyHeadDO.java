@@ -22,6 +22,9 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_policy_head")
 public class LimitPolicyHeadDO extends BaseDO {
     private String policyId;
+    private String payeeMerchantId;
+    private Integer latestVersion;
+    private Long rowVersion;
 
     public String getPolicyId() {
         return policyId;
@@ -31,8 +34,6 @@ public class LimitPolicyHeadDO extends BaseDO {
         policyId = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -41,8 +42,6 @@ public class LimitPolicyHeadDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    private Integer latestVersion;
-
     public Integer getLatestVersion() {
         return latestVersion;
     }
@@ -50,8 +49,6 @@ public class LimitPolicyHeadDO extends BaseDO {
     public void setLatestVersion(Integer value) {
         latestVersion = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

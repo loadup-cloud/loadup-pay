@@ -17,22 +17,62 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.payment.app.converter.*;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.pay.payment.app.model.LockedPayment;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import java.time.Clock;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentSubmissionPreparationTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentSubmissionConverter.class.getPackageName());
@@ -53,13 +93,19 @@ class PaymentSubmissionPreparationTest {
             risk, codec, context.getBean(PaymentSubmissionConverter.class), context.getBean(PaymentControlConverter.class),
             new PaymentAcceptanceTransactions(manager), () -> "local-no-submission-proof",
             Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), events);
+
     LimitReservationDTO reservation(LimitReservationState state) {
         var policy = AttemptFixtures.command().admittedTerms().terms().limits();
         return new LimitReservationDTO("reservation", "operation", "payment", state, policy.policyId(), policy.policyVersion(),
                 BusinessTime.external(AttemptFixtures.NOW), 1);
     }
-    LimitExecutionPermitDTO permit() { return new LimitExecutionPermitDTO("operation", "payment", "attempt", 1, "e".repeat(64)); }
-    @BeforeEach void setup() {
+
+    LimitExecutionPermitDTO permit() {
+        return new LimitExecutionPermitDTO("operation", "payment", "attempt", 1, "e".repeat(64));
+    }
+
+    @BeforeEach
+    void setup() {
         when(limits.supportsTenant("tenant")).thenReturn(true);
         when(payments.find("tenant", "payment")).thenAnswer(call -> Optional.of(accepted.get()));
         when(attempts.find("tenant", "attempt")).thenAnswer(call -> Optional.of(stored.get()));
@@ -67,13 +113,16 @@ class PaymentSubmissionPreparationTest {
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
         when(codec.checksum(anyString())).thenReturn("b".repeat(64));
         when(risk.consult(any())).thenAnswer(call -> {
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); return RiskDecision.notConnected();
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return RiskDecision.notConnected();
         });
         when(limits.reserve(eq("tenant"), any())).thenAnswer(call -> {
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); return reservation(LimitReservationState.RESERVED);
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return reservation(LimitReservationState.RESERVED);
         });
         when(limits.begin(eq("tenant"), any())).thenAnswer(call -> {
-            assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); return permit();
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return permit();
         });
         when(limits.verify(eq("tenant"), any())).thenReturn(new LimitExecutionVerificationDTO(true, "VALID"));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(call -> {
@@ -81,40 +130,65 @@ class PaymentSubmissionPreparationTest {
             return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
         doAnswer(call -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive()); stored.set(call.getArgument(1)); return null;
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            stored.set(call.getArgument(1));
+            return null;
         }).when(attempts).update(eq("tenant"), any(), anyLong());
-        doAnswer(call -> { accepted.set(call.getArgument(1)); return null; }).when(changes).updatePayment(eq("tenant"), any(), anyLong());
-        doAnswer(call -> { gate.set(call.getArgument(1)); return null; }).when(changes).updateGate(eq("tenant"), any(), anyLong());
+        doAnswer(call -> {
+            accepted.set(call.getArgument(1));
+            return null;
+        }).when(changes).updatePayment(eq("tenant"), any(), anyLong());
+        doAnswer(call -> {
+            gate.set(call.getArgument(1));
+            return null;
+        }).when(changes).updateGate(eq("tenant"), any(), anyLong());
     }
-    @AfterEach void close() { context.close(); }
-    @Test void remoteRiskAndLimitPreparationPrecedeOneDurableY2Ticket() {
+
+    @AfterEach
+    void close() {
+        context.close();
+    }
+
+    @Test
+    void remoteRiskAndLimitPreparationPrecedeOneDurableY2Ticket() {
         var result = service.prepare("tenant", "payment", "attempt").orElseThrow();
-        assertEquals("attempt", result.attemptId()); assertEquals(1, result.payment().executionEpoch());
+        assertEquals("attempt", result.attemptId());
+        assertEquals(1, result.payment().executionEpoch());
         assertEquals(PaymentAttemptState.SUBMITTING, stored.get().attempt().state());
         assertEquals("b".repeat(64), stored.get().executionPermitHash());
         assertFalse(stored.get().toString().contains("e".repeat(64)));
         var calls = inOrder(risk, limits, locks, inputs, attempts);
-        calls.verify(risk).consult(any()); calls.verify(limits).reserve(eq("tenant"), any());
+        calls.verify(risk).consult(any());
+        calls.verify(limits).reserve(eq("tenant"), any());
         calls.verify(limits).begin(eq("tenant"), argThat(value -> value.requestKey().equals("attempt/attempt")));
-        calls.verify(limits).verify(eq("tenant"), any()); calls.verify(locks).lock("tenant", "payment", "acquire");
+        calls.verify(limits).verify(eq("tenant"), any());
+        calls.verify(locks).lock("tenant", "payment", "acquire");
         calls.verify(inputs).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
         calls.verify(attempts).update(eq("tenant"), any(), eq(0L));
     }
-    @Test void alreadySubmittingAttemptNeverReceivesAnotherTicketOrCallsRemoteDependencies() {
+
+    @Test
+    void alreadySubmittingAttemptNeverReceivesAnotherTicketOrCallsRemoteDependencies() {
         assertTrue(service.prepare("tenant", "payment", "attempt").isPresent());
         clearInvocations(risk, limits, inputs);
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
-        verifyNoInteractions(risk, inputs); verify(limits, never()).reserve(anyString(), any());
+        verifyNoInteractions(risk, inputs);
+        verify(limits, never()).reserve(anyString(), any());
     }
-    @Test void anotherWorkersCommittedY2MakesThisCallerLoseTheTicket() {
+
+    @Test
+    void anotherWorkersCommittedY2MakesThisCallerLoseTheTicket() {
         when(limits.verify(eq("tenant"), any())).thenAnswer(call -> {
             stored.set(stored.get().beginSubmission(1, "b".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW));
             return new LimitExecutionVerificationDTO(true, "VALID");
         });
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
-        verify(attempts, never()).update(anyString(), any(), anyLong()); verifyNoInteractions(inputs);
+        verify(attempts, never()).update(anyString(), any(), anyLong());
+        verifyNoInteractions(inputs);
     }
-    @Test void denyFencesAndFailsOnlyTheAttemptThatNeverCrossedY2() {
+
+    @Test
+    void denyFencesAndFailsOnlyTheAttemptThatNeverCrossedY2() {
         when(risk.consult(any())).thenReturn(new RiskDecision(RiskDecisionType.DENY, "RULE_REJECTED", "consultation"));
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
@@ -125,13 +199,18 @@ class PaymentSubmissionPreparationTest {
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         verify(events, times(1)).publish(eq("tenant"), eq(accepted.get()), eq(true), any());
     }
-    @Test void mismatchedPermitCannotCrossY2OrConsumeInput() {
+
+    @Test
+    void mismatchedPermitCannotCrossY2OrConsumeInput() {
         when(limits.begin(eq("tenant"), any())).thenReturn(new LimitExecutionPermitDTO("other-operation", "payment", "attempt", 1, "a".repeat(64)));
         assertSame(EXECUTION_PERMIT_INVALID, assertThrows(CommonException.class,
                 () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
-        assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state()); verifyNoInteractions(inputs);
+        assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
+        verifyNoInteractions(inputs);
     }
-    @Test void reservationExpiryProducesOnlyLocalPreSubmissionNoCollectionProof() {
+
+    @Test
+    void reservationExpiryProducesOnlyLocalPreSubmissionNoCollectionProof() {
         when(limits.reserve(eq("tenant"), any())).thenReturn(reservation(LimitReservationState.EXPIRED));
         assertSame(LIMIT_RESERVATION_EXPIRED, assertThrows(CommonException.class,
                 () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
@@ -139,20 +218,27 @@ class PaymentSubmissionPreparationTest {
         assertEquals(0, stored.get().attempt().executionEpoch());
         verify(limits, never()).begin(anyString(), any());
     }
-    @Test void inputExpiryRollsBackY2BeforeLocalFailureIsCommittedSeparately() {
+
+    @Test
+    void inputExpiryRollsBackY2BeforeLocalFailureIsCommittedSeparately() {
         doThrow(new CommonException(INPUT_EXPIRED)).when(inputs).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
         assertSame(INPUT_EXPIRED, assertThrows(CommonException.class,
                 () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
         assertEquals(PaymentState.FAILED, accepted.get().payment().state());
         assertEquals(0, stored.get().attempt().executionEpoch());
-        assertEquals(1, manager.rollbacks); assertEquals(1, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        assertEquals(1, manager.commits);
     }
-    @Test void outerTransactionIsRejectedBeforeAnyQuotaOrRiskRequest() {
+
+    @Test
+    void outerTransactionIsRejectedBeforeAnyQuotaOrRiskRequest() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class,
                     () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(risk, limits, payments);
     }
 }

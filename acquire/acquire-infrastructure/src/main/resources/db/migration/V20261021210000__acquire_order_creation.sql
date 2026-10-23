@@ -13,7 +13,7 @@ CREATE TABLE order_create_intent
     request_digest     CHAR(64)    NOT NULL,
     caller_scope_hash  CHAR(64)    NOT NULL,
     entry_mode         VARCHAR(24) NOT NULL,
-    intent_payload     LONGTEXT        NOT NULL,
+    intent_payload     LONGTEXT    NOT NULL,
     state              VARCHAR(24) NOT NULL,
     admission_id       VARCHAR(64) NULL,
     materialize_before DATETIME(6) NULL,
@@ -23,11 +23,12 @@ CREATE TABLE order_create_intent
     UNIQUE KEY uk_intent_merchant (tenant_id, payee_merchant_id, merchant_order_no),
     UNIQUE KEY uk_intent_order (tenant_id, order_id),
     KEY ix_intent_recovery (tenant_id, state, updated_at),
-    CHECK (entry_mode = 'ORDER' AND state IN ('INIT','COMPLETED','REJECTED','EXPIRED')),
+    CHECK (entry_mode = 'ORDER' AND state IN ('INIT', 'COMPLETED', 'REJECTED', 'EXPIRED')),
     CHECK (row_version >= 0),
     CHECK ((state = 'INIT' AND admission_id IS NULL AND materialize_before IS NULL AND result_code IS NULL)
         OR (state = 'REJECTED' AND admission_id IS NOT NULL AND result_code IS NOT NULL)
-        OR (state IN ('COMPLETED','EXPIRED') AND admission_id IS NOT NULL AND materialize_before IS NOT NULL AND result_code IS NOT NULL))
+        OR (state IN ('COMPLETED', 'EXPIRED') AND admission_id IS NOT NULL AND materialize_before IS NOT NULL AND
+            result_code IS NOT NULL))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -88,7 +89,7 @@ CREATE TABLE order_contract_snapshot
     snapshot_hash       VARCHAR(128) NOT NULL,
     compiled_terms_hash CHAR(64)     NOT NULL,
     schema_version      INT          NOT NULL,
-    configuration       LONGTEXT         NOT NULL,
+    configuration       LONGTEXT     NOT NULL,
     payload_hash        CHAR(64)     NOT NULL,
     admission_digest    CHAR(64)     NOT NULL,
     PRIMARY KEY (id),
@@ -110,7 +111,7 @@ CREATE TABLE order_fee
     currency              CHAR(3)     NOT NULL,
     base_amount_minor     BIGINT      NOT NULL,
     fee_amount_minor      BIGINT      NOT NULL,
-    fee_rule_snapshot     LONGTEXT        NOT NULL,
+    fee_rule_snapshot     LONGTEXT    NOT NULL,
     refund_basis_version  BIGINT      NOT NULL DEFAULT 0,
     refund_basis_minor    BIGINT      NOT NULL DEFAULT 0,
     adjusted_amount_minor BIGINT      NOT NULL DEFAULT 0,
@@ -120,7 +121,7 @@ CREATE TABLE order_fee
     PRIMARY KEY (id),
     UNIQUE KEY uk_fee_order_type (tenant_id, order_id, fee_type),
     CHECK (base_amount_minor > 0 AND fee_amount_minor >= 0 AND currency = 'CNY'),
-    CHECK (fee_type = 'ORDER_AMOUNT' AND state IN ('INIT','CONFIRMED')),
+    CHECK (fee_type = 'ORDER_AMOUNT' AND state IN ('INIT', 'CONFIRMED')),
     CHECK (refund_basis_version >= 0 AND row_version >= 0),
     CHECK (refund_basis_minor >= 0 AND refund_basis_minor <= base_amount_minor),
     CHECK (adjusted_amount_minor >= 0 AND adjusted_amount_minor <= fee_amount_minor)

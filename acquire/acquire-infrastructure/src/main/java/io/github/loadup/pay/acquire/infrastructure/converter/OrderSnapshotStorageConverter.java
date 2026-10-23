@@ -18,7 +18,8 @@ package io.github.loadup.pay.acquire.infrastructure.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderSnapshotStorageConverter {

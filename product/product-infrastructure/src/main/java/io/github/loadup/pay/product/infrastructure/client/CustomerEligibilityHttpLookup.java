@@ -68,19 +68,20 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null)
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             SuccessResponse<MerchantEligibilityDTO> body =
-                    mapper.readValue(response.getBody(), new TypeReference<>() {});
+                    mapper.readValue(response.getBody(), new TypeReference<>() {
+                    });
             if (body.result() == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(body.result().getCode())
                     && CustomerResultCodeEnum.NOT_FOUND
-                            .getStatus()
-                            .equals(body.result().getStatus())
+                    .getStatus()
+                    .equals(body.result().getStatus())
                     && body.data() == null)
                 return new MerchantEligibilityDTO(
                         false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
             if (!CommonResultCodeEnum.SUCCESS.getCode().equals(body.result().getCode())
                     || !CommonResultCodeEnum.SUCCESS
-                            .getStatus()
-                            .equals(body.result().getStatus())
+                    .getStatus()
+                    .equals(body.result().getStatus())
                     || body.data() == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             MerchantEligibilityDTO data = body.data();
             if (data.merchantFactVersion() < 0) throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -102,9 +103,9 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
                         .anyMatch(value -> value == null || value.isBlank() || value.length() > 1024))
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
             } else if (!(CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode().equals(data.reasonCode())
-                            || CustomerResultCodeEnum.MERCHANT_INACTIVE
-                                    .getCode()
-                                    .equals(data.reasonCode()))
+                    || CustomerResultCodeEnum.MERCHANT_INACTIVE
+                    .getCode()
+                    .equals(data.reasonCode()))
                     || data.merchant() != null
                     || data.grantId() != null
                     || data.grantVersion() != null) {

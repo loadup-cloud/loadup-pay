@@ -17,10 +17,13 @@ package io.github.loadup.pay.product.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** A successful customer call returns authoritative facts; dependency failure must propagate. */
+/**
+ * A successful customer call returns authoritative facts; dependency failure must propagate.
+ */
 public record MerchantEligibilityFacts(
         String payeeMerchantId, boolean eligible, String reasonCode, long merchantVersion, long authorizationVersion) {
     public MerchantEligibilityFacts {

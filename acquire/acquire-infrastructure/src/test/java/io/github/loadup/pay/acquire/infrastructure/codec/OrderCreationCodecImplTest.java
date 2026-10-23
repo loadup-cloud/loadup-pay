@@ -17,14 +17,24 @@ package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import jakarta.validation.*;
-import java.math.*;
-import java.time.OffsetDateTime;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OrderCreationCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();

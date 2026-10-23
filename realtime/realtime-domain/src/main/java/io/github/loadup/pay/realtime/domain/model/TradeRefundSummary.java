@@ -17,20 +17,31 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** Complete order monetary snapshot; individual refunds keep their own projections and source versions. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Complete order monetary snapshot; individual refunds keep their own projections and source versions.
+ */
 public record TradeRefundSummary(String orderId, String payeeMerchantId, String currency, long refundedMinor,
-        long reservedMinor, SourceVersion source, LocalDateTime snapshotAt) {
+                                 long reservedMinor, SourceVersion source, LocalDateTime snapshotAt) {
     public TradeRefundSummary {
-        DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId); DomainChecks.amount(refundedMinor, currency);
-        Objects.requireNonNull(source); Objects.requireNonNull(snapshotAt);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.amount(refundedMinor, currency);
+        Objects.requireNonNull(source);
+        Objects.requireNonNull(snapshotAt);
         require(refundedMinor >= 0 && reservedMinor >= 0 && reservedMinor <= Long.MAX_VALUE - refundedMinor
                 && orderId.equals(source.aggregateId()) && "payment".equals(source.producer())
                 && "OrderRefundSummary".equals(source.aggregateType()), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

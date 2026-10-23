@@ -17,10 +17,13 @@ package io.github.loadup.pay.common;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-/** An internal integration header; never treats a declared producer as authenticated identity. */
+/**
+ * An internal integration header; never treats a declared producer as authenticated identity.
+ */
 public record PayEventEnvelope<T>(
         String deliveryId,
         String businessEventId,
@@ -48,7 +51,9 @@ public record PayEventEnvelope<T>(
         return ToStringAsJson.reflectionToString(this);
     }
 
-    /** Structural binding only; authenticate the producer and tenant at the transport boundary. */
+    /**
+     * Structural binding only; authenticate the producer and tenant at the transport boundary.
+     */
     public void requireSource(String expectedType, String expectedProducer, String expectedId, long expectedVersion) {
         DomainViolation.require(
                 eventType.equals(expectedType)

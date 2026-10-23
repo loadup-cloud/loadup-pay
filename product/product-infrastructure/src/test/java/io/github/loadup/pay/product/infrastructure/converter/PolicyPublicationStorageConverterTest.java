@@ -48,7 +48,7 @@ class PolicyPublicationStorageConverterTest {
         var publishing = init.publishing("event");
         var active = publishing.acknowledge("event", requested.plusSeconds(1));
         try (var context =
-                new AnnotationConfigApplicationContext(PolicyPublicationStorageConverter.class.getPackageName())) {
+                     new AnnotationConfigApplicationContext(PolicyPublicationStorageConverter.class.getPackageName())) {
             var converter = context.getBean(PolicyPublicationStorageConverter.class);
             for (var model : List.of(init, publishing, active)) {
                 var row = converter.toDO("tenant", model);

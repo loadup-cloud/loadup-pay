@@ -16,7 +16,9 @@
 package io.github.loadup.pay.acquire.client.facade;
 
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface AcquireOrderFacade extends DirectPaymentFacade, AcquireOrderCreationFacade, CheckoutOrderFacade, PaymentInitiationFacade, PaymentProgressFacade, AcquireOrderClosureFacade, AcquireOrderExtensionFacade {
 
 }

@@ -15,14 +15,27 @@
  */
 package io.github.loadup.pay.payment.infrastructure.outbox;
 
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.payment.app.service.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxHandler;
+import io.github.loadup.pay.payment.app.service.PaymentRealtimeDelivery;
+import io.github.loadup.pay.payment.app.service.PaymentResultEvents;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PaymentRealtimeOutboxHandler implements OutboxHandler {
     private final PaymentRealtimeDelivery delivery;
-    public PaymentRealtimeOutboxHandler(PaymentRealtimeDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return PaymentResultEvents.REALTIME; }
-    @Override public void handle(OutboxEvent event) { delivery.deliver(event); }
+
+    public PaymentRealtimeOutboxHandler(PaymentRealtimeDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return PaymentResultEvents.REALTIME;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.deliver(event);
+    }
 }

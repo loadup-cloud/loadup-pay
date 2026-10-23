@@ -15,10 +15,16 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
+import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+
 import java.util.Optional;
 
-/** Caller holds the parent and, for payment updates, the single-payment gate lock. */
+/**
+ * Caller holds the parent and, for payment updates, the single-payment gate lock.
+ */
 public interface PaymentControlGateway {
     Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId);
 

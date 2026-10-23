@@ -17,27 +17,41 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.acquire.app.port.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.pay.acquire.app.port.AcquireRealtimeClient;
+import io.github.loadup.pay.acquire.app.port.OrderSnapshotEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.Set;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Complete source snapshots are delivered independently; no source lookup or downstream read participates in the order transaction. */
+import java.util.Set;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Complete source snapshots are delivered independently; no source lookup or downstream read participates in the order transaction.
+ */
 @Component
 public class OrderSnapshotDelivery {
     private final OutboxTemplate outbox;
     private final OrderSnapshotEnvelopeCodec codec;
     private final AcquireRealtimeClient client;
+
     public OrderSnapshotDelivery(OutboxTemplate outbox, OrderSnapshotEnvelopeCodec codec, AcquireRealtimeClient client) {
-        this.outbox = outbox; this.codec = codec; this.client = client;
+        this.outbox = outbox;
+        this.codec = codec;
+        this.client = client;
     }
+
     public void deliver(OutboxEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
                 || !OrderSnapshotEvents.TYPE.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         String tenant = event.message().tenantId();
         var row = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id()) || !row.tenantId().equals(tenant) || !row.type().equals(OrderSnapshotEvents.TYPE)

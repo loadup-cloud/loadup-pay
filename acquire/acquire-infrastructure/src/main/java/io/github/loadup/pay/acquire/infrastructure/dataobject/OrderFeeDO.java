@@ -17,12 +17,26 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("order_fee")
 public class OrderFeeDO extends BaseDO {
     private String orderId;
+    private String feeType;
+    private String currency;
+    private Long baseAmountMinor;
+    private Long feeAmountMinor;
+    @DiagnosticHidden
+    private String feeRuleSnapshot;
+    private Long refundBasisVersion;
+    private Long refundBasisMinor;
+    private Long adjustedAmountMinor;
+    private String state;
+    private LocalDateTime confirmedAt;
+    private Long rowVersion;
 
     public String getOrderId() {
         return orderId;
@@ -32,8 +46,6 @@ public class OrderFeeDO extends BaseDO {
         orderId = value;
     }
 
-    private String feeType;
-
     public String getFeeType() {
         return feeType;
     }
@@ -41,8 +53,6 @@ public class OrderFeeDO extends BaseDO {
     public void setFeeType(String value) {
         feeType = value;
     }
-
-    private String currency;
 
     public String getCurrency() {
         return currency;
@@ -52,8 +62,6 @@ public class OrderFeeDO extends BaseDO {
         currency = value;
     }
 
-    private Long baseAmountMinor;
-
     public Long getBaseAmountMinor() {
         return baseAmountMinor;
     }
@@ -61,8 +69,6 @@ public class OrderFeeDO extends BaseDO {
     public void setBaseAmountMinor(Long value) {
         baseAmountMinor = value;
     }
-
-    private Long feeAmountMinor;
 
     public Long getFeeAmountMinor() {
         return feeAmountMinor;
@@ -72,9 +78,6 @@ public class OrderFeeDO extends BaseDO {
         feeAmountMinor = value;
     }
 
-    @DiagnosticHidden
-    private String feeRuleSnapshot;
-
     public String getFeeRuleSnapshot() {
         return feeRuleSnapshot;
     }
@@ -82,8 +85,6 @@ public class OrderFeeDO extends BaseDO {
     public void setFeeRuleSnapshot(String value) {
         feeRuleSnapshot = value;
     }
-
-    private Long refundBasisVersion;
 
     public Long getRefundBasisVersion() {
         return refundBasisVersion;
@@ -93,8 +94,6 @@ public class OrderFeeDO extends BaseDO {
         refundBasisVersion = value;
     }
 
-    private Long refundBasisMinor;
-
     public Long getRefundBasisMinor() {
         return refundBasisMinor;
     }
@@ -102,8 +101,6 @@ public class OrderFeeDO extends BaseDO {
     public void setRefundBasisMinor(Long value) {
         refundBasisMinor = value;
     }
-
-    private Long adjustedAmountMinor;
 
     public Long getAdjustedAmountMinor() {
         return adjustedAmountMinor;
@@ -113,8 +110,6 @@ public class OrderFeeDO extends BaseDO {
         adjustedAmountMinor = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -123,8 +118,6 @@ public class OrderFeeDO extends BaseDO {
         state = value;
     }
 
-    private LocalDateTime confirmedAt;
-
     public LocalDateTime getConfirmedAt() {
         return confirmedAt;
     }
@@ -132,8 +125,6 @@ public class OrderFeeDO extends BaseDO {
     public void setConfirmedAt(LocalDateTime value) {
         confirmedAt = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

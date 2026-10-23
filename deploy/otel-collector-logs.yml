@@ -14,12 +14,12 @@ kind: ClusterRole
 metadata:
   name: otel-collector
 rules:
-  - apiGroups: [""]
-    resources: ["pods", "namespaces", "nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["apps"]
-    resources: ["replicasets"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups: [ "" ]
+    resources: [ "pods", "namespaces", "nodes" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "apps" ]
+    resources: [ "replicasets" ]
+    verbs: [ "get", "list", "watch" ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -114,14 +114,14 @@ data:
       pipelines:
         # 同时接收代码推送的数据（otlp）和文件采集的数据（filelog）
         logs:
-          receivers: [otlp, filelog]
-          processors: [memory_limiter, k8sattributes, batch]
-          exporters: [debug]
+          receivers: [ otlp, filelog ]
+          processors: [ memory_limiter, k8sattributes, batch ]
+          exporters: [ debug ]
         # 如果你的 Java 代码顺便推送了 Traces，这里也一并接收并打印
         traces:
-          receivers: [otlp]
-          processors: [memory_limiter, k8sattributes, batch]
-          exporters: [debug]
+          receivers: [ otlp ]
+          processors: [ memory_limiter, k8sattributes, batch ]
+          exporters: [ debug ]
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -143,7 +143,7 @@ spec:
       containers:
         - name: otel-collector
           image: otel/opentelemetry-collector-contrib:latest
-          args: ["--config=/conf/otel-collector-config.yaml"]
+          args: [ "--config=/conf/otel-collector-config.yaml" ]
           # 显式暴露端口给 k8s 集群内其他 Pod
           ports:
             - containerPort: 4317

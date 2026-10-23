@@ -17,16 +17,22 @@ package io.github.loadup.pay.acquire.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.acquire.app.security.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.util.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.HexFormat;
+import java.util.Set;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 
 @Component

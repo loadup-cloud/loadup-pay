@@ -27,5 +27,8 @@ public record ProjectionAckDTO(
         @Schema(description = "Projected version at acceptance; may exceed a stale received version") long projectedVersion,
         @Schema(description = "APPLIED, DUPLICATE or STALE") String disposition,
         @Schema(description = "Source event was durably accepted") boolean accepted) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

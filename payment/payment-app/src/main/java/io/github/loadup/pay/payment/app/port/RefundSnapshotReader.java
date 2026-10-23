@@ -15,10 +15,14 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.payment.app.model.*;
+import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
+import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
 
-/** Complete newly persisted source rows, read in their owning writable transaction. */
+/**
+ * Complete newly persisted source rows, read in their owning writable transaction.
+ */
 public interface RefundSnapshotReader {
     RefundSnapshotFacts child(String tenant, String refundId);
+
     RefundSummaryFacts summary(String tenant, String orderId);
 }

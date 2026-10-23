@@ -39,13 +39,38 @@ import java.util.Map;
 
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
-/** Initial merchant policy: all eight stable counters exist, even while enforcement is disabled. */
+/**
+ * Initial merchant policy: all eight stable counters exist, even while enforcement is disabled.
+ */
 @Component
 public class LimitPolicyCompiler {
     private final AcquiringTermsCompiler terms;
 
     public LimitPolicyCompiler(AcquiringTermsCompiler terms) {
         this.terms = terms;
+    }
+
+    private static String text(Map<String, TypedValue> values, String key) {
+        var value = values.get(key);
+        if (value == null || value.type() != ValueType.STRING) throw new CommonException(UNSUPPORTED_POLICY);
+        return value.value();
+    }
+
+    private static boolean bool(Map<String, TypedValue> values, String key, boolean fallback) {
+        var value = values.get(key);
+        if (value == null) return fallback;
+        if (value.type() != ValueType.BOOLEAN) throw new CommonException(UNSUPPORTED_POLICY);
+        return Boolean.parseBoolean(value.value());
+    }
+
+    private static Long integer(Map<String, TypedValue> values, String key, Long fallback) {
+        var value = values.get(key);
+        if (value == null) {
+            if (fallback == null) throw new CommonException(UNSUPPORTED_POLICY);
+            return fallback;
+        }
+        if (value.type() != ValueType.INTEGER) throw new CommonException(UNSUPPORTED_POLICY);
+        return new BigInteger(value.value()).longValueExact();
     }
 
     public LimitPolicyActivateCommand compile(String tenant, String payee, ResolvedConfiguration configuration) {
@@ -97,28 +122,5 @@ public class LimitPolicyCompiler {
         } catch (IllegalArgumentException | ArithmeticException invalid) {
             throw new CommonException(UNSUPPORTED_POLICY);
         }
-    }
-
-    private static String text(Map<String, TypedValue> values, String key) {
-        var value = values.get(key);
-        if (value == null || value.type() != ValueType.STRING) throw new CommonException(UNSUPPORTED_POLICY);
-        return value.value();
-    }
-
-    private static boolean bool(Map<String, TypedValue> values, String key, boolean fallback) {
-        var value = values.get(key);
-        if (value == null) return fallback;
-        if (value.type() != ValueType.BOOLEAN) throw new CommonException(UNSUPPORTED_POLICY);
-        return Boolean.parseBoolean(value.value());
-    }
-
-    private static Long integer(Map<String, TypedValue> values, String key, Long fallback) {
-        var value = values.get(key);
-        if (value == null) {
-            if (fallback == null) throw new CommonException(UNSUPPORTED_POLICY);
-            return fallback;
-        }
-        if (value.type() != ValueType.INTEGER) throw new CommonException(UNSUPPORTED_POLICY);
-        return new BigInteger(value.value()).longValueExact();
     }
 }

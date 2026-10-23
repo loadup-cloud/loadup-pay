@@ -25,43 +25,65 @@ import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionSto
 import io.github.loadup.pay.payment.infrastructure.mapper.OrderRefundSummaryDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.ORDER_REFUND_SUMMARY_DO;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
 @Repository
 public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
     private final OrderRefundSummaryDOMapper mapper;
     private final RefundProjectionStorageConverter converter;
     private final IdGenerator ids;
+
     public RefundSummaryGatewayImpl(OrderRefundSummaryDOMapper mapper, RefundProjectionStorageConverter converter, IdGenerator ids) {
-        this.mapper = mapper; this.converter = converter; this.ids = ids;
+        this.mapper = mapper;
+        this.converter = converter;
+        this.ids = ids;
     }
-    @Override public Optional<OrderRefundSummary> lock(String tenant, String orderId) {
+
+    @Override
+    public Optional<OrderRefundSummary> lock(String tenant, String orderId) {
         writable(tenant);
         var row = mapper.selectOneByQuery(scope(tenant, orderId).forUpdate());
         if (row == null) return Optional.empty();
-        try { return Optional.of(converter.toSummary(row)); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.of(converter.toSummary(row));
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insert(String tenant, OrderRefundSummary value) {
+
+    @Override
+    public void insert(String tenant, OrderRefundSummary value) {
         writable(tenant);
-        if (value.version() != 1 || value.refundedMinor() != 0 || value.reservedMinor() <= 0) throw new CommonException(INVALID_STATE);
-        if (mapper.insert(converter.toSummaryDO(tenant, ids.generate(), value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (value.version() != 1 || value.refundedMinor() != 0 || value.reservedMinor() <= 0)
+            throw new CommonException(INVALID_STATE);
+        if (mapper.insert(converter.toSummaryDO(tenant, ids.generate(), value)) != 1)
+            throw new CommonException(CONCURRENT_UPDATE);
     }
-    @Override public void update(String tenant, OrderRefundSummary before, OrderRefundSummary value) {
+
+    @Override
+    public void update(String tenant, OrderRefundSummary before, OrderRefundSummary value) {
         writable(tenant);
         if (!before.orderId().equals(value.orderId()) || !before.payeeMerchantId().equals(value.payeeMerchantId())
                 || !before.orderAmount().equals(value.orderAmount()) || value.version() != Math.incrementExact(before.version())
                 || value.refundedMinor() < before.refundedMinor()) throw new CommonException(INVALID_STATE);
         if (mapper.updateByQuery(converter.toPatch(value), true, scope(tenant, before.orderId())
                 .and(ORDER_REFUND_SUMMARY_DO.ROW_VERSION.eq(before.version())).and(ORDER_REFUND_SUMMARY_DO.REFUNDED_MINOR.eq(before.refundedMinor()))
-                .and(ORDER_REFUND_SUMMARY_DO.RESERVED_MINOR.eq(before.reservedMinor()))) != 1) throw new CommonException(CONCURRENT_UPDATE);
+                .and(ORDER_REFUND_SUMMARY_DO.RESERVED_MINOR.eq(before.reservedMinor()))) != 1)
+            throw new CommonException(CONCURRENT_UPDATE);
     }
+
     private QueryWrapper scope(String tenant, String order) {
         return QueryWrapper.create().where(ORDER_REFUND_SUMMARY_DO.TENANT_ID.eq(tenant)).and(ORDER_REFUND_SUMMARY_DO.DELETED.eq(0))
                 .and(ORDER_REFUND_SUMMARY_DO.ORDER_ID.eq(order));
     }
+
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);

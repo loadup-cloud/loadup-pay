@@ -19,7 +19,9 @@ import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 
 import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * Persistence or integration port; implementations own transactions and trusted tenant isolation.
+ */
 public interface CheckoutSessionGateway {
     Optional<StoredCheckoutSession> find(String tenantId, String sessionId);
 

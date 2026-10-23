@@ -26,9 +26,12 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.Objects;
 
-/** Canonical protocol v1: sorted rules, UTF-8 fields framed with a four-byte big-endian byte length. */
+/**
+ * Canonical protocol v1: sorted rules, UTF-8 fields framed with a four-byte big-endian byte length.
+ */
 public final class LimitPolicyHash {
-    private LimitPolicyHash() {}
+    private LimitPolicyHash() {
+    }
 
     public static String compute(String tenant, LimitPolicyActivateCommand command) {
         try {

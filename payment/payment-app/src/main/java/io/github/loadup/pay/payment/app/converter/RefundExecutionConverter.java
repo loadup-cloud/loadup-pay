@@ -16,8 +16,20 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
+import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,6 +37,7 @@ import java.util.List;
 public interface RefundExecutionConverter {
     @Mapping(target = "refund", source = "refund")
     StoredRefundChild withRefund(StoredRefundChild current, RefundOrder refund);
+
     @Mapping(target = "request", source = "request")
     @Mapping(target = "allocations", source = "allocations")
     StoredRefundRequest withRequest(StoredRefundRequest current, RefundRequest request, List<StoredRefundChild> allocations);
@@ -38,8 +51,10 @@ public interface RefundExecutionConverter {
     PreparedChannelRefund toPrepared(StoredRefundChild child, PaymentRefundCapacity capacity);
 
     ChannelRefundOutcome toOutcome(RefundObservation observation, String evidenceId);
+
     RefundChannelReceipt toReceipt(String id, RefundObservation observation, String factsDigest, String observationPayload,
-            RefundReceiptDisposition disposition, String reasonCode, LocalDateTime receivedAt);
+                                   RefundReceiptDisposition disposition, String reasonCode, LocalDateTime receivedAt);
+
     @Mapping(target = "original", source = "observation.original")
     RefundTransactionClaim toClaim(String id, String tenantId, RefundObservation observation, String receiptId);
 }

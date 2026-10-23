@@ -114,7 +114,9 @@ public record RefundRequest(
         return children.stream().filter(c -> c.state() == RefundState.UNKNOWN).count();
     }
 
-    /** List order is the frozen sequenceNo order; an unknown or running child blocks later children. */
+    /**
+     * List order is the frozen sequenceNo order; an unknown or running child blocks later children.
+     */
     public Optional<RefundOrder> nextExecutable() {
         return children.stream().filter(c -> !c.terminal()).findFirst().filter(c -> c.state() == RefundState.INIT);
     }
@@ -148,10 +150,10 @@ public record RefundRequest(
         var nextState = !complete
                 ? RefundRequestState.PROCESSING
                 : next.stream().allMatch(c -> c.state() == RefundState.SUCCEEDED)
-                        ? RefundRequestState.SUCCEEDED
-                        : next.stream().allMatch(c -> c.state() == RefundState.FAILED)
-                                ? RefundRequestState.FAILED
-                                : RefundRequestState.PARTIAL_SUCCEEDED;
+                ? RefundRequestState.SUCCEEDED
+                : next.stream().allMatch(c -> c.state() == RefundState.FAILED)
+                ? RefundRequestState.FAILED
+                : RefundRequestState.PARTIAL_SUCCEEDED;
         return new RefundRequest(
                 id,
                 orderId,

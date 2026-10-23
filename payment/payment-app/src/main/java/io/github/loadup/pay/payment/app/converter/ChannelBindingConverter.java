@@ -17,35 +17,53 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.client.dto.AlipayAccountIdentityDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelAccountIdentityDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingChangeDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingDTO;
+import io.github.loadup.pay.payment.client.dto.WechatAccountIdentityDTO;
+import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ChannelBindingConverter {
     AlipayAccountIdentity toIdentity(AlipayAccountIdentityDTO value);
+
     WechatAccountIdentity toIdentity(WechatAccountIdentityDTO value);
+
     AlipayAccountIdentityDTO toIdentityDTO(AlipayAccountIdentity value);
+
     WechatAccountIdentityDTO toIdentityDTO(WechatAccountIdentity value);
+
     default ChannelAccountIdentity toIdentity(ChannelAccountIdentityDTO value) {
         return switch (value) {
             case AlipayAccountIdentityDTO alipay -> toIdentity(alipay);
             case WechatAccountIdentityDTO wechat -> toIdentity(wechat);
         };
     }
+
     default ChannelAccountIdentityDTO toIdentityDTO(ChannelAccountIdentity value) {
         return switch (value) {
             case AlipayAccountIdentity alipay -> toIdentityDTO(alipay);
             case WechatAccountIdentity wechat -> toIdentityDTO(wechat);
         };
     }
+
     @Mapping(target = "id", source = "revisionId")
     ChannelBindingRevision toBinding(ChannelBindingPublishCommand command, String revisionId, String accountScopeHash);
 
     @Mapping(target = "binding", source = "binding")
     StoredChannelBindingRevision toStored(ChannelBindingRevision binding, String bindingId, int revision,
-            String identityHash, String callerServiceId, LocalDateTime publishedAt);
+                                          String identityHash, String callerServiceId, LocalDateTime publishedAt);
 
     ChannelBindingChangeDTO toChange(ChannelBindingChangeReceipt value);
 

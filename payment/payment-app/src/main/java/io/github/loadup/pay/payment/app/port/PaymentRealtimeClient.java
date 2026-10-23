@@ -16,14 +16,17 @@
 package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 
 public interface PaymentRealtimeClient {
     boolean supportsTenant(String tenant);
+
     ProjectionAckDTO apply(String tenant, PayEventEnvelope<PaymentSnapshotEventDTO> event);
+
     ProjectionAckDTO applyRefund(String tenant, PayEventEnvelope<RefundSnapshotEventDTO> event);
+
     ProjectionAckDTO applyRefundSummary(String tenant, PayEventEnvelope<OrderRefundSummaryEventDTO> event);
 }

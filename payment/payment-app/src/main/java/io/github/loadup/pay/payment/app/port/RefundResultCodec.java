@@ -19,5 +19,6 @@ import io.github.loadup.pay.payment.domain.model.RefundObservation;
 
 public interface RefundResultCodec {
     String encode(RefundObservation observation);
+
     String factsDigest(RefundObservation observation);
 }

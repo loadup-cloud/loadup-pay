@@ -66,7 +66,7 @@ class SharedMoneyTest {
         var amount = Money.ofMinor(10000, "CNY");
         assertSame(amount, order(amount).amount());
         var fee = new OrderFeePolicy(
-                        new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE)
+                new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE)
                 .calculate(amount);
         assertEquals(30, fee.getCent());
         assertEquals("CNY", fee.getCurrencyValue());

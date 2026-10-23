@@ -16,14 +16,21 @@
 package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record RoutingRuleDTO(
         @Schema(description = "Merchant-local binding code") @NotBlank @Size(max = 64) String bindingCode,
         @Schema(description = "Channel") @NotNull Channel channel,
         @Schema(description = "Direct or service-provider mode") @NotNull AccessMode accessMode,
         @Schema(description = "Payment method") @NotNull PaymentMethod method) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

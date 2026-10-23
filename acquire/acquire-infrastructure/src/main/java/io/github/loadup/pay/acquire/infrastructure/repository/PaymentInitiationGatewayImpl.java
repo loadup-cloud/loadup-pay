@@ -19,14 +19,23 @@ import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentInitiationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.*;
+import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentAllocationDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
+import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_ALLOCATION_DO;
 
 @Repository
 public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
@@ -96,8 +105,8 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 || value.allocation().state() != AllocationState.HELD
                 || value.rowVersion() != 0
                 || !updated.amount()
-                        .getCurrencyValue()
-                        .equals(value.allocation().amount().getCurrencyValue()))
+                .getCurrencyValue()
+                .equals(value.allocation().amount().getCurrencyValue()))
             throw new CommonException(SNAPSHOT_INVALID);
         int changed = orders.updateByQuery(
                 converter.toReservationPatch(updated),

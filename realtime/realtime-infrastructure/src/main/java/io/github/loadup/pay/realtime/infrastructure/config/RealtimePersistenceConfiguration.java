@@ -20,4 +20,5 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @MapperScan("io.github.loadup.pay.realtime.infrastructure.mapper")
-public class RealtimePersistenceConfiguration {}
+public class RealtimePersistenceConfiguration {
+}

@@ -16,11 +16,17 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.time.LocalDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PaymentAcceptanceStorageConverterTest {
     final AnnotationConfigApplicationContext context =

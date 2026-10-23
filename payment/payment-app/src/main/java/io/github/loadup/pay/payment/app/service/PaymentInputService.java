@@ -16,24 +16,36 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
-import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentInputFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.*;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 @Service
 public class PaymentInputService implements PaymentInputFacade {
@@ -47,14 +59,21 @@ public class PaymentInputService implements PaymentInputFacade {
     private final String acquireService;
 
     public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputCipher cipher,
-            PaymentInputConverter converter, PaymentAcceptanceTransactions transactions, Validator validator,
-            @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
-        this.actors = actors; this.store = store; this.cipher = cipher; this.converter = converter;
-        this.transactions = transactions; this.validator = validator; this.clock = clock;
+                               PaymentInputConverter converter, PaymentAcceptanceTransactions transactions, Validator validator,
+                               @Qualifier("paymentClock") Clock clock,
+                               @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
+        this.actors = actors;
+        this.store = store;
+        this.cipher = cipher;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.validator = validator;
+        this.clock = clock;
         this.acquireService = DomainChecks.id(acquireService);
     }
-    @Override public PaymentInputDTO prepare(PaymentInputPrepareCommand command) {
+
+    @Override
+    public PaymentInputDTO prepare(PaymentInputPrepareCommand command) {
         if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
         if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:prepare"))
@@ -81,6 +100,7 @@ public class PaymentInputService implements PaymentInputFacade {
             });
         });
     }
+
     private PaymentInputDTO replay(PaymentActor actor, PaymentInputPrepareCommand command, PaymentInput prior) {
         if (!actor.serviceId().equals(prior.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
         String supplied = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, prior.fingerprintKeyId());
@@ -89,10 +109,14 @@ public class PaymentInputService implements PaymentInputFacade {
         // Retain the original reference and expiry, including after expiry or attempt binding.
         return converter.toDTO(prior);
     }
+
     private void validate(PaymentInputPrepareCommand command) {
-        DomainChecks.id(command.paymentId()); DomainChecks.id(command.orderId());
-        DomainChecks.id(command.allocationId()); DomainChecks.id(command.payeeMerchantId());
-        DomainChecks.text(command.inputKey(), 128); DomainChecks.positive(command.amountMinor());
+        DomainChecks.id(command.paymentId());
+        DomainChecks.id(command.orderId());
+        DomainChecks.id(command.allocationId());
+        DomainChecks.id(command.payeeMerchantId());
+        DomainChecks.text(command.inputKey(), 128);
+        DomainChecks.positive(command.amountMinor());
         DomainChecks.amount(command.amountMinor(), command.currency());
         if (command.choice().method() == PaymentMethod.PAYMENT_CODE
                 && command.interaction() instanceof PaymentCodeInteractionDTO code) {
@@ -100,9 +124,11 @@ public class PaymentInputService implements PaymentInputFacade {
         } else if (command.choice().method() == PaymentMethod.JSAPI
                 && command.interaction() instanceof ChannelIdentityInteractionDTO identity
                 && identity.channel() == command.choice().channel()) {
-            DomainChecks.text(identity.authorizationTicket(), 4096); DomainChecks.id(identity.appScope());
+            DomainChecks.text(identity.authorizationTicket(), 4096);
+            DomainChecks.id(identity.appScope());
         } else throw new CommonException(INVALID_ARGUMENT);
     }
+
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }

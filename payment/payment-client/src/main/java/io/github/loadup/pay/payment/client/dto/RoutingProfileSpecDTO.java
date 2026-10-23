@@ -18,7 +18,11 @@ package io.github.loadup.pay.payment.client.dto;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.util.List;
 
 public record RoutingProfileSpecDTO(
@@ -27,6 +31,12 @@ public record RoutingProfileSpecDTO(
         @Schema(description = "Collecting merchant id") @NotBlank @Size(max = 64) String payeeMerchantId,
         @Schema(description = "Ordered candidates; first active matching rule wins")
         @NotEmpty @Size(max = 100) List<@NotNull @Valid RoutingRuleDTO> rules) {
-    public RoutingProfileSpecDTO { rules = rules == null ? List.of() : List.copyOf(rules); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public RoutingProfileSpecDTO {
+        rules = rules == null ? List.of() : List.copyOf(rules);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

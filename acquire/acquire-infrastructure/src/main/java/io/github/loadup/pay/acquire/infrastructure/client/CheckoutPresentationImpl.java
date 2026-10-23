@@ -18,6 +18,7 @@ package io.github.loadup.pay.acquire.infrastructure.client;
 import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
 import org.springframework.stereotype.Component;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 

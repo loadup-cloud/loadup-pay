@@ -349,10 +349,12 @@ class OrderAdmissionServiceTest {
         }
 
         @Override
-        protected void doBegin(Object transaction, TransactionDefinition definition) {}
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+        }
 
         @Override
-        protected void doCommit(DefaultTransactionStatus status) {}
+        protected void doCommit(DefaultTransactionStatus status) {
+        }
 
         @Override
         protected void doRollback(DefaultTransactionStatus status) {

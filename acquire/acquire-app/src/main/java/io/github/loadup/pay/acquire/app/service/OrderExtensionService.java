@@ -17,25 +17,40 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.acquire.app.converter.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.OrderExtensionConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
-import io.github.loadup.pay.acquire.app.security.*;
-import io.github.loadup.pay.acquire.client.command.*;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderExtendCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderExtensionFacade;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import jakarta.validation.Validator;
-import java.nio.charset.StandardCharsets;
-import java.time.*;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
 
 @Service
 public class OrderExtensionService implements AcquireOrderExtensionFacade {
@@ -52,9 +67,9 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
     private final OrderSnapshotEvents snapshots;
 
     public OrderExtensionService(AcquireActorProvider actors, OrderCreationGateway orders, OrderExtensionGateway store,
-            OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
-            OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+                                 OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
+                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
+                                 @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -88,8 +103,11 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 var receipt = previous.get();
                 if (!receipt.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
                 receipt.requireSameRequest(actor.scopeHash(), digest, command.expectedVersion(), requested);
-                try { receipt.requireAppliedTo(order, deadlineVersion); }
-                catch (DomainViolation corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+                try {
+                    receipt.requireAppliedTo(order, deadlineVersion);
+                } catch (DomainViolation corrupt) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 return orderConverter.toDTO(stored, now());
             }
             if (order.version() != command.expectedVersion()) throw new CommonException(VERSION_CONFLICT);

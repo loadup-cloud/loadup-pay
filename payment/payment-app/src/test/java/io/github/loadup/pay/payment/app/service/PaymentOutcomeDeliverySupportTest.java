@@ -17,21 +17,46 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.outbox.OutboxRecord;
+import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
-import io.github.loadup.pay.payment.app.model.*;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.app.model.LockedPayment;
+import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentOutcomeEnvelopeCodec;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.*;
+
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentOutcomeDeliverySupportTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentResultConverter.class.getPackageName());
@@ -49,6 +74,7 @@ class PaymentOutcomeDeliverySupportTest {
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
     final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.LIMIT, 1, "payment", "payload"),
             AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), null);
+
     void source(boolean succeeded) {
         var snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentResultEvents.LIMIT);
         source.set(snapshot);
@@ -57,8 +83,13 @@ class PaymentOutcomeDeliverySupportTest {
                 initial.gate().fence(1), 1));
         when(envelopes.decode("payload")).thenReturn(snapshot.envelope());
     }
-    PaymentDeliverySnapshot load() { return TenantUtil.callWithTenant("tenant", () -> support.load(event, PaymentResultEvents.LIMIT)); }
-    @BeforeEach void setup() {
+
+    PaymentDeliverySnapshot load() {
+        return TenantUtil.callWithTenant("tenant", () -> support.load(event, PaymentResultEvents.LIMIT));
+    }
+
+    @BeforeEach
+    void setup() {
         source(true);
         when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
                 PaymentResultEvents.LIMIT, "payment", "PROCESSING", 1, null)));
@@ -77,44 +108,70 @@ class PaymentOutcomeDeliverySupportTest {
         when(results.capacity("tenant", "payment")).thenAnswer(c -> Optional.of(new PaymentRefundCapacity("payment", "order", "merchant",
                 AttemptFixtures.NOW, source.get().payment().payment().amount(), 0, 0, 0)));
     }
-    @AfterEach void close() { context.close(); }
-    @Test void locksProduceAConsistentSnapshotAndAreReleasedBeforeReturningToTheSender() {
+
+    @AfterEach
+    void close() {
+        context.close();
+    }
+
+    @Test
+    void locksProduceAConsistentSnapshotAndAreReleasedBeforeReturningToTheSender() {
         var loaded = load();
-        assertEquals(source.get().payment(), loaded.payment()); assertEquals(AttemptFixtures.NOW, loaded.succeededAt());
-        assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); assertEquals(1, manager.commits);
+        assertEquals(source.get().payment(), loaded.payment());
+        assertEquals(AttemptFixtures.NOW, loaded.succeededAt());
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+        assertEquals(1, manager.commits);
         assertNull(TenantUtil.getTenantId());
     }
-    @Test void aLaterExecutionFenceDoesNotInvalidateAnEarlierConfirmedSuccessEvent() {
+
+    @Test
+    void aLaterExecutionFenceDoesNotInvalidateAnEarlierConfirmedSuccessEvent() {
         var original = gate.get();
         gate.set(new StoredPaymentGate(original.id(), original.payeeMerchantId(), original.callerServiceId(), original.gate().fence(1), 1));
         assertEquals(PaymentState.SUCCEEDED, load().payment().payment().state());
     }
-    @Test void currentRefundReservationsDoNotRewriteTheOriginalSuccessfulLimitBasis() {
+
+    @Test
+    void currentRefundReservationsDoNotRewriteTheOriginalSuccessfulLimitBasis() {
         when(results.capacity("tenant", "payment")).thenReturn(Optional.of(new PaymentRefundCapacity("payment", "order", "merchant",
                 AttemptFixtures.NOW, source.get().payment().payment().amount(), 500, 300, 2)));
         assertEquals(4000, load().payment().payment().amount().getCent());
     }
-    @Test void failedPaymentMustStillHaveAPersistentlyFencedExecutionGate() {
-        source(false); gate.set(AttemptFixtures.gate(false));
+
+    @Test
+    void failedPaymentMustStillHaveAPersistentlyFencedExecutionGate() {
+        source(false);
+        gate.set(AttemptFixtures.gate(false));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::load).getResultCode());
     }
-    @Test void mismatchedQueueTargetIsRejectedBeforeReadingBusinessFacts() {
+
+    @Test
+    void mismatchedQueueTargetIsRejectedBeforeReadingBusinessFacts() {
         when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
                 PaymentResultEvents.RISK, "payment", "PROCESSING", 1, null)));
-        assertThrows(CommonException.class, this::load); verifyNoInteractions(payments, locks, results);
+        assertThrows(CommonException.class, this::load);
+        verifyNoInteractions(payments, locks, results);
     }
-    @Test void completedOrFailedRowsCannotBeUsedAsArbitraryManualDispatchTickets() {
+
+    @Test
+    void completedOrFailedRowsCannotBeUsedAsArbitraryManualDispatchTickets() {
         when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
                 PaymentResultEvents.LIMIT, "payment", "FAILED", 5, "Failure")));
-        assertThrows(CommonException.class, this::load); verifyNoInteractions(payments, results);
+        assertThrows(CommonException.class, this::load);
+        verifyNoInteractions(payments, results);
     }
-    @Test void dispatcherTenantContextMustMatchTheQueuedTenant() {
+
+    @Test
+    void dispatcherTenantContextMustMatchTheQueuedTenant() {
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
                 () -> TenantUtil.callWithTenant("other-tenant", () -> support.load(event, PaymentResultEvents.LIMIT))).getResultCode());
         verifyNoInteractions(outbox, payments);
     }
-    @Test void anEventCannotReplaceItsPaymentVersionWithTheCurrentVersion() {
-        var initial = source.get(); var p = initial.payment().payment();
+
+    @Test
+    void anEventCannotReplaceItsPaymentVersionWithTheCurrentVersion() {
+        var initial = source.get();
+        var p = initial.payment().payment();
         var changed = new PaymentOrder(p.id(), p.orderId(), p.allocationId(), p.payeeMerchantId(), p.amount(), p.limitOperationId(),
                 p.initiatedAt(), p.state(), p.activeAttemptId(), p.successfulAttemptId(), p.version() + 1);
         var stored = new StoredPaymentAcceptance(changed, initial.payment().admissionId(), initial.payment().requestDigest(),
@@ -122,7 +179,9 @@ class PaymentOutcomeDeliverySupportTest {
         source.set(new PaymentDeliverySnapshot("tenant", initial.envelope(), stored, initial.attempt(), initial.succeededAt()));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::load).getResultCode());
     }
-    @Test void successWithoutATransactionClaimOrRefundCapacityCannotBeConfirmed() {
+
+    @Test
+    void successWithoutATransactionClaimOrRefundCapacityCannotBeConfirmed() {
         when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::load);
         when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.of(new ChannelTransactionClaim("claim", "tenant",
@@ -130,22 +189,31 @@ class PaymentOutcomeDeliverySupportTest {
         when(results.capacity("tenant", "payment")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::load);
     }
-    @Test void aClaimForAnotherTenantCannotServeAsLocalFinancialEvidence() {
+
+    @Test
+    void aClaimForAnotherTenantCannotServeAsLocalFinancialEvidence() {
         when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.of(new ChannelTransactionClaim("claim", "other-tenant",
                 source.get().attempt().attempt().identity(), source.get().payment().payment().amount(), "transaction", AttemptFixtures.NOW, "evidence")));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::load).getResultCode());
     }
-    @Test void negativeOutcomeCannotReuseAnotherNoCollectionProof() {
+
+    @Test
+    void negativeOutcomeCannotReuseAnotherNoCollectionProof() {
         source(false);
         var initial = source.get();
         var wrong = AttemptFixtures.prepared().closeBeforeSubmission("another-evidence", null);
         source.set(new PaymentDeliverySnapshot("tenant", initial.envelope(), initial.payment(), wrong, null));
         assertThrows(CommonException.class, this::load);
     }
-    @Test void outerTransactionCannotSurroundSourceLookupAndRemoteDelivery() {
+
+    @Test
+    void outerTransactionCannotSurroundSourceLookupAndRemoteDelivery() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, this::load).getResultCode()); }
-        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, this::load).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(outbox, payments, results);
     }
 }

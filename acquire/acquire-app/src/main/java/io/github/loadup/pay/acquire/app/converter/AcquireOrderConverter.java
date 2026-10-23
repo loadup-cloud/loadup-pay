@@ -16,14 +16,27 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.acquire.client.command.*;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderAdmissionProof;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.ContractReference;
 import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
-import java.time.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface AcquireOrderConverter {
@@ -77,8 +90,8 @@ public interface AcquireOrderConverter {
         return order.paidAmountMinor() == 0
                 ? io.github.loadup.pay.acquire.client.enums.PaymentProgress.UNPAID
                 : order.paidAmountMinor() == order.amount().getCent()
-                        ? io.github.loadup.pay.acquire.client.enums.PaymentProgress.FULL
-                        : io.github.loadup.pay.acquire.client.enums.PaymentProgress.PARTIAL;
+                ? io.github.loadup.pay.acquire.client.enums.PaymentProgress.FULL
+                : io.github.loadup.pay.acquire.client.enums.PaymentProgress.PARTIAL;
     }
 
     default OffsetDateTime external(LocalDateTime value) {

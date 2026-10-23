@@ -15,14 +15,17 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.common.AccessMode;
 import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
 
 public interface ChannelBindingCodec {
     String encodeIdentity(ChannelAccountIdentity identity);
+
     ChannelAccountIdentity decodeIdentity(String payload, String expectedHash);
+
     String checksum(String payload);
+
     String requestDigest(String tenant, String service, String kind, Object command);
+
     String accountScopeHash(Channel channel, ChannelAccountIdentity identity);
 }

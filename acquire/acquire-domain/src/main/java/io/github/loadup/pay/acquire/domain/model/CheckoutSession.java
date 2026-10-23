@@ -25,7 +25,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Token generation and hashing belong to the security adapter, not this aggregate. */
+/**
+ * Token generation and hashing belong to the security adapter, not this aggregate.
+ */
 public record CheckoutSession(String id, String orderId, CheckoutSessionState state, LocalDateTime expiresAt) {
     public CheckoutSession {
         DomainChecks.id(id);

@@ -27,7 +27,9 @@ import java.util.Objects;
 import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Evaluate under the current-contract lock; reuse persisted admissions before consulting this policy. */
+/**
+ * Evaluate under the current-contract lock; reuse persisted admissions before consulting this policy.
+ */
 public final class OrderAdmissionPolicy {
     public boolean acceptsRequestedDeadline(AdmissionIntent intent, LocalDateTime now, long maximumWaitSeconds) {
         Objects.requireNonNull(intent);
@@ -36,7 +38,7 @@ public final class OrderAdmissionPolicy {
                 maximumWaitSeconds > 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
         return intent.requestedDueAt() == null
                 || intent.requestedDueAt().isAfter(now)
-                        && !intent.requestedDueAt().isAfter(now.plusSeconds(maximumWaitSeconds));
+                && !intent.requestedDueAt().isAfter(now.plusSeconds(maximumWaitSeconds));
     }
 
     public OrderAdmission authorize(
@@ -55,8 +57,8 @@ public final class OrderAdmissionPolicy {
         String denial = !merchant.eligible()
                 ? merchant.reasonCode()
                 : current == null
-                        ? "CONTRACT_NOT_FOUND"
-                        : !current.admitsNewOrder(now) ? "CONTRACT_NOT_ADMISSIBLE" : null;
+                ? "CONTRACT_NOT_FOUND"
+                : !current.admitsNewOrder(now) ? "CONTRACT_NOT_ADMISSIBLE" : null;
         return new OrderAdmission(
                 admissionId,
                 orderId,

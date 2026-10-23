@@ -19,6 +19,10 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.RefundRequestDTO;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 
-public record RefundResultApplication(RefundReceiptDisposition disposition, String receiptId, RefundRequestDTO request) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+public record RefundResultApplication(RefundReceiptDisposition disposition, String receiptId,
+                                      RefundRequestDTO request) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -140,11 +140,11 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     command.payeeMerchantId(),
                     selected.getFirst().configuration());
             if (publications
-                            .findByMerchant(actor.tenantId(), command.payeeMerchantId())
-                            .isPresent()
+                    .findByMerchant(actor.tenantId(), command.payeeMerchantId())
+                    .isPresent()
                     || publications
-                            .findByPolicy(actor.tenantId(), activation.policyId())
-                            .isPresent()) throw new CommonException(POLICY_PUBLICATION_CONFLICT);
+                    .findByPolicy(actor.tenantId(), activation.policyId())
+                    .isPresent()) throw new CommonException(POLICY_PUBLICATION_CONFLICT);
             var now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
             var initial = new PolicyPublication(
                     ids.generate(),
@@ -225,7 +225,10 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         });
     }
-    /** Trusted Outbox handler entry point; no user authentication is reconstructed from queued data. */
+
+    /**
+     * Trusted Outbox handler entry point; no user authentication is reconstructed from queued data.
+     */
     public void deliver(String tenant, String eventId, String publicationId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!client.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);

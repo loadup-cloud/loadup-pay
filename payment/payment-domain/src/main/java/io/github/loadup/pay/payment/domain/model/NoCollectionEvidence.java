@@ -21,7 +21,9 @@ import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Created only after submission is fenced and channel/local evidence establishes no collection risk. */
+/**
+ * Created only after submission is fenced and channel/local evidence establishes no collection risk.
+ */
 public record NoCollectionEvidence(String evidenceId, String paymentId, boolean executionFenced) {
     public NoCollectionEvidence {
         DomainChecks.id(evidenceId);

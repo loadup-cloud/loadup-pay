@@ -24,18 +24,14 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Stable counters use the latest threshold, including reservations from older immutable policy revisions. */
+/**
+ * Stable counters use the latest threshold, including reservations from older immutable policy revisions.
+ */
 public record RuntimeLimitRule(String ownerPolicyId, int policyVersion, LimitRule rule, long rowVersion) {
     public RuntimeLimitRule {
         DomainChecks.id(ownerPolicyId);
         Objects.requireNonNull(rule);
         require(policyVersion > 0 && rowVersion >= 0, INVALID_ARGUMENT);
-    }
-
-    public RuntimeLimitRule revise(String policyId, int revision, LimitRule next) {
-        require(ownerPolicyId.equals(policyId) && revision > policyVersion, CONFLICT);
-        requireSameShape(rule, next);
-        return new RuntimeLimitRule(ownerPolicyId, revision, next, Math.incrementExact(rowVersion));
     }
 
     public static String identity(LimitRule rule) {
@@ -50,6 +46,12 @@ public record RuntimeLimitRule(String ownerPolicyId, int policyVersion, LimitRul
 
     public static void requireSameShape(LimitRule first, LimitRule next) {
         require(identity(first).equals(identity(next)) && first.weekStart() == next.weekStart(), CONFLICT);
+    }
+
+    public RuntimeLimitRule revise(String policyId, int revision, LimitRule next) {
+        require(ownerPolicyId.equals(policyId) && revision > policyVersion, CONFLICT);
+        requireSameShape(rule, next);
+        return new RuntimeLimitRule(ownerPolicyId, revision, next, Math.incrementExact(rowVersion));
     }
 
     @Override

@@ -17,24 +17,53 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.app.converter.*;
-import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Internal execution seam: remote preparation first, then one irreversible local Y2 claim. */
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
+import java.util.Optional;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Internal execution seam: remote preparation first, then one irreversible local Y2 claim.
+ */
 @Component
 public class PaymentSubmissionPreparation {
     private final PaymentAcceptanceGateway payments;
@@ -51,22 +80,37 @@ public class PaymentSubmissionPreparation {
     private final IdGenerator ids;
     private final Clock clock;
     private final PaymentResultEvents events;
+
     public PaymentSubmissionPreparation(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
-            PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
-            RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
-            PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
-            @Qualifier("paymentClock") Clock clock, PaymentResultEvents events) {
-        this.payments = payments; this.changes = changes; this.attempts = attempts; this.locks = locks; this.inputs = inputs;
-        this.limits = limits; this.risk = risk; this.codec = codec; this.converter = converter; this.updates = updates;
-        this.transactions = transactions; this.ids = ids; this.clock = clock;
+                                        PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
+                                        RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
+                                        PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
+                                        @Qualifier("paymentClock") Clock clock, PaymentResultEvents events) {
+        this.payments = payments;
+        this.changes = changes;
+        this.attempts = attempts;
+        this.locks = locks;
+        this.inputs = inputs;
+        this.limits = limits;
+        this.risk = risk;
+        this.codec = codec;
+        this.converter = converter;
+        this.updates = updates;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.clock = clock;
         this.events = events;
     }
-    /** Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit. */
+
+    /**
+     * Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit.
+     */
     public Optional<PaymentSubmissionTicket> prepare(String tenant, String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!limits.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
         return transactions.read(tenant, () -> {
-            DomainChecks.id(paymentId); DomainChecks.id(attemptId);
+            DomainChecks.id(paymentId);
+            DomainChecks.id(attemptId);
             var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             var stored = attempts.find(tenant, attemptId).orElseThrow(() -> new CommonException(NOT_FOUND));
             requireBinding(accepted, stored);
@@ -97,16 +141,17 @@ public class PaymentSubmissionPreparation {
             String permitHash = codec.checksum(permit.permit());
             try {
                 return transactions.write(tenant, () -> {
-                var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
-                var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                requireBinding(locked.payment(), current);
-                if (current.attempt().state() != PaymentAttemptState.INIT) return Optional.empty();
-                locks.requireOpen(locked);
-                if (locked.payment().payment().state() != PaymentState.PROCESSING) throw new CommonException(EXECUTION_FENCED);
-                inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
-                var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
-                attempts.update(tenant, started, current.rowVersion());
-                return Optional.of(new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
+                    var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
+                    var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                    requireBinding(locked.payment(), current);
+                    if (current.attempt().state() != PaymentAttemptState.INIT) return Optional.empty();
+                    locks.requireOpen(locked);
+                    if (locked.payment().payment().state() != PaymentState.PROCESSING)
+                        throw new CommonException(EXECUTION_FENCED);
+                    inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
+                    var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
+                    attempts.update(tenant, started, current.rowVersion());
+                    return Optional.of(new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
                 });
             } catch (CommonException rejected) {
                 if (rejected.getResultCode() == INPUT_EXPIRED) rejectUnsubmitted(tenant, accepted, attemptId, decision);
@@ -114,6 +159,7 @@ public class PaymentSubmissionPreparation {
             }
         });
     }
+
     private void validateReservation(StoredPaymentAcceptance accepted, LimitPolicyRefDTO policy, LimitReservationDTO response) {
         if (response == null || response.reservationId() == null || response.state() == null
                 || !accepted.payment().limitOperationId().equals(response.operationId())
@@ -127,12 +173,14 @@ public class PaymentSubmissionPreparation {
         if (response.state() != LimitReservationState.RESERVED && response.state() != LimitReservationState.EXECUTING)
             throw new CommonException(EXECUTION_PERMIT_INVALID);
     }
+
     private void validatePermit(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored, LimitExecutionPermitDTO permit) {
         if (permit == null || !accepted.payment().limitOperationId().equals(permit.operationId())
                 || !accepted.payment().id().equals(permit.paymentId()) || !stored.attempt().id().equals(permit.attemptId())
                 || permit.executionEpoch() < 1 || permit.permit() == null || !permit.permit().matches("[0-9a-f]{64}"))
             throw new CommonException(EXECUTION_PERMIT_INVALID);
     }
+
     private void requireBinding(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
         var original = codec.decode(accepted);
         var attempt = stored.attempt();
@@ -143,8 +191,10 @@ public class PaymentSubmissionPreparation {
                 || !accepted.callerServiceId().equals(stored.callerServiceId())
                 || !accepted.requestDigest().equals(stored.paymentRequestDigest())
                 || original.choice().channel() != attempt.binding().channel() || original.choice().method() != attempt.method()
-                || !Objects.equals(original.preparedInputRef(), stored.preparedInputRef())) throw new CommonException(SNAPSHOT_INVALID);
+                || !Objects.equals(original.preparedInputRef(), stored.preparedInputRef()))
+            throw new CommonException(SNAPSHOT_INVALID);
     }
+
     private void rejectUnsubmitted(String tenant, StoredPaymentAcceptance original, String attemptId, RiskDecision decision) {
         transactions.write(tenant, () -> {
             var locked = locks.lock(tenant, original.payment().id(), original.callerServiceId());
@@ -168,6 +218,7 @@ public class PaymentSubmissionPreparation {
             return true;
         });
     }
+
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }

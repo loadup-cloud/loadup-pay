@@ -15,8 +15,10 @@
  */
 package io.github.loadup.pay.acquire.app.security;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
 public record AcquireActor(

@@ -17,12 +17,17 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** Immutable evidence of one applied deadline change and its original optimistic precondition. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Immutable evidence of one applied deadline change and its original optimistic precondition.
+ */
 public record OrderExtensionReceipt(
         String id, String orderId, String callerScopeHash, String requestKey, String requestDigest,
         LocalDateTime originalDueAt, LocalDateTime previousDueAt, LocalDateTime requestedDueAt,
@@ -57,5 +62,7 @@ public record OrderExtensionReceipt(
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

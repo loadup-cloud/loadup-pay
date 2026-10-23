@@ -46,13 +46,13 @@ public record MerchantRelationship(
                 INVALID_ARGUMENT);
     }
 
-    public boolean activeAt(LocalDateTime now) {
-        return state == GrantState.ACTIVE && !now.isBefore(validFrom) && (validTo == null || now.isBefore(validTo));
-    }
-
     public static MerchantRelationship init(
             String id, String parent, String child, LocalDateTime from, LocalDateTime to) {
         return new MerchantRelationship(id, parent, child, GrantState.INIT, from, to, 0);
+    }
+
+    public boolean activeAt(LocalDateTime now) {
+        return state == GrantState.ACTIVE && !now.isBefore(validFrom) && (validTo == null || now.isBefore(validTo));
     }
 
     public MerchantRelationship activate() {

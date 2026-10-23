@@ -16,14 +16,27 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundRequestReference;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAllocationPlanDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.util.List;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundStorageConverter {
     RefundRequestReference toReference(RefundRequestDO row);
+
     @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "apply", ignore = true)

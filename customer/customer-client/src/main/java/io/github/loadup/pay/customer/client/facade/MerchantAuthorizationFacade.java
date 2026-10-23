@@ -22,7 +22,9 @@ import io.github.loadup.pay.customer.client.command.MerchantRelationshipRevokeCo
 import io.github.loadup.pay.customer.client.dto.MerchantActionGrantDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface MerchantAuthorizationFacade {
     MerchantRelationshipDTO createRelationship(MerchantRelationshipCreateCommand command);
 

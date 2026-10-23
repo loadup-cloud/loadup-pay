@@ -22,6 +22,15 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("payment_control_receipt")
 public class PaymentControlReceiptDO extends BaseDO {
     private String kind;
+    private String targetId;
+    private String orderId;
+    private String payeeMerchantId;
+    private String callerServiceId;
+    private String requestKey;
+    private String requestDigest;
+    private Long requestedEpoch;
+    private String reasonCode;
+    private String noCollectionEvidenceId;
 
     public String getKind() {
         return kind;
@@ -31,8 +40,6 @@ public class PaymentControlReceiptDO extends BaseDO {
         kind = value;
     }
 
-    private String targetId;
-
     public String getTargetId() {
         return targetId;
     }
@@ -40,8 +47,6 @@ public class PaymentControlReceiptDO extends BaseDO {
     public void setTargetId(String value) {
         targetId = value;
     }
-
-    private String orderId;
 
     public String getOrderId() {
         return orderId;
@@ -51,8 +56,6 @@ public class PaymentControlReceiptDO extends BaseDO {
         orderId = value;
     }
 
-    private String payeeMerchantId;
-
     public String getPayeeMerchantId() {
         return payeeMerchantId;
     }
@@ -60,8 +63,6 @@ public class PaymentControlReceiptDO extends BaseDO {
     public void setPayeeMerchantId(String value) {
         payeeMerchantId = value;
     }
-
-    private String callerServiceId;
 
     public String getCallerServiceId() {
         return callerServiceId;
@@ -71,8 +72,6 @@ public class PaymentControlReceiptDO extends BaseDO {
         callerServiceId = value;
     }
 
-    private String requestKey;
-
     public String getRequestKey() {
         return requestKey;
     }
@@ -80,8 +79,6 @@ public class PaymentControlReceiptDO extends BaseDO {
     public void setRequestKey(String value) {
         requestKey = value;
     }
-
-    private String requestDigest;
 
     public String getRequestDigest() {
         return requestDigest;
@@ -91,8 +88,6 @@ public class PaymentControlReceiptDO extends BaseDO {
         requestDigest = value;
     }
 
-    private Long requestedEpoch;
-
     public Long getRequestedEpoch() {
         return requestedEpoch;
     }
@@ -101,8 +96,6 @@ public class PaymentControlReceiptDO extends BaseDO {
         requestedEpoch = value;
     }
 
-    private String reasonCode;
-
     public String getReasonCode() {
         return reasonCode;
     }
@@ -110,8 +103,6 @@ public class PaymentControlReceiptDO extends BaseDO {
     public void setReasonCode(String value) {
         reasonCode = value;
     }
-
-    private String noCollectionEvidenceId;
 
     public String getNoCollectionEvidenceId() {
         return noCollectionEvidenceId;

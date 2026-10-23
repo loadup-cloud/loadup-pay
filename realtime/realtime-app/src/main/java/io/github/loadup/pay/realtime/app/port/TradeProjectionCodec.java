@@ -16,18 +16,31 @@
 package io.github.loadup.pay.realtime.app.port;
 
 import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.realtime.domain.model.*;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+
 import java.time.LocalDateTime;
 
 public interface TradeProjectionCodec {
     String encode(TradeOrderProjection value);
+
     String encode(TradePaymentProjection value);
+
     String encode(TradeRefundProjection value);
+
     String encode(TradeRefundSummary value);
+
     TradeOrderProjection order(String payload, String hash, LocalDateTime snapshotAt);
+
     TradePaymentProjection payment(String payload, String hash, LocalDateTime snapshotAt);
+
     TradeRefundProjection refund(String payload, String hash, LocalDateTime snapshotAt);
+
     TradeRefundSummary summary(String payload, String hash, LocalDateTime snapshotAt);
+
     String hash(String payload);
+
     String requestDigest(String tenant, String service, PayEventEnvelope<?> event, String factsHash);
 }

@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public enum PaymentInputState { INIT, BOUND }
+public enum PaymentInputState {INIT, BOUND}

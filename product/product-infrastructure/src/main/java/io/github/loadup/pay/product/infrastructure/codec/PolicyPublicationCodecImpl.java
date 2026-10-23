@@ -23,6 +23,7 @@ import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
+
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
@@ -41,7 +42,7 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
                 || value.policyVersion() != 1
                 || value.rules().size() != 8
                 || value.rules().stream()
-                        .anyMatch(rule -> !value.payeeMerchantId().equals(rule.merchantId()))
+                .anyMatch(rule -> !value.payeeMerchantId().equals(rule.merchantId()))
                 || !value.policyHash().equals(LimitPolicyHash.compute(tenant, value)))
             throw new CommonException(SNAPSHOT_INVALID);
     }

@@ -22,14 +22,21 @@ import io.github.loadup.pay.payment.client.facade.PaymentInputFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/inputs")
 @Tag(name = "Internal secure channel input")
 public class PaymentInputController {
     private final PaymentInputFacade facade;
-    public PaymentInputController(PaymentInputFacade facade) { this.facade = facade; }
+
+    public PaymentInputController(PaymentInputFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/prepare")
     @Operation(summary = "Prepare or replay short-lived encrypted input for one fixed payment")
     public SuccessResponse<PaymentInputDTO> prepare(@Valid @RequestBody PaymentInputPrepareCommand command) {

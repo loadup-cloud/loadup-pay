@@ -17,9 +17,18 @@ package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.common.PaymentMethod;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingChangeReceiptDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingRevisionDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelMerchantBindingDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.util.Set;
 
 @Mapper(config = LoadUpMapStructConfig.class)

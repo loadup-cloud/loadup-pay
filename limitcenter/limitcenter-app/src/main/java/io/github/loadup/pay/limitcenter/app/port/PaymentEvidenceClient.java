@@ -19,5 +19,6 @@ import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 
 public interface PaymentEvidenceClient {
     boolean supportsTenant(String tenant);
+
     PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId);
 }

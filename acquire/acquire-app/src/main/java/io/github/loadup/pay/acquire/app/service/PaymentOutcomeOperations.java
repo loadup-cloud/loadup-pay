@@ -17,26 +17,47 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.acquire.app.converter.*;
-import io.github.loadup.pay.acquire.app.port.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.PaymentInitiationConverter;
+import io.github.loadup.pay.acquire.app.converter.PaymentProgressConverter;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
+import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import jakarta.validation.Validator;
-import java.time.*;
-import java.time.temporal.ChronoUnit;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Shared trusted-fact application; caller authorization remains in each public use case. */
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Shared trusted-fact application; caller authorization remains in each public use case.
+ */
 @Component
 public class PaymentOutcomeOperations {
     private final OrderCreationGateway orders;
@@ -55,10 +76,10 @@ public class PaymentOutcomeOperations {
     private final OrderSnapshotEvents snapshots;
 
     public PaymentOutcomeOperations(OrderCreationGateway orders, PaymentOutcomeGateway allocations, OrderFeeGateway fees,
-            PaymentOutcomeClient payment, PaymentInitiationCodec codec, OrderCreationCodec orderCodec,
-            PaymentInitiationConverter initiation, PaymentProgressConverter converter, AcquireOrderConverter orderConverter,
-            OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+                                    PaymentOutcomeClient payment, PaymentInitiationCodec codec, OrderCreationCodec orderCodec,
+                                    PaymentInitiationConverter initiation, PaymentProgressConverter converter, AcquireOrderConverter orderConverter,
+                                    OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
+                                    @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.orders = orders;
         this.allocations = allocations;
         this.fees = fees;
@@ -88,8 +109,11 @@ public class PaymentOutcomeOperations {
             var command = bound(actor, order, allocation);
             var receipt = allocations.findReceipt(actor.tenantId(), allocation.allocation().id());
             if (receipt.isPresent() && receipt.get().outcome().kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED) {
-                try { receipt.get().requireBoundTo(allocation.allocation()); }
-                catch (DomainViolation corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+                try {
+                    receipt.get().requireBoundTo(allocation.allocation());
+                } catch (DomainViolation corrupt) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 // There is intentionally no payment record to fabricate or query after a tombstone.
                 var current = converge(actor, command, receipt.get().outcome());
                 return converter.toProgress(null, orderConverter.toDTO(current, now()));
@@ -147,37 +171,39 @@ public class PaymentOutcomeOperations {
 
     StoredAcquireOrder convergeLocked(AcquireActor actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-            var currentOrder = orders.lockOrder(actor.tenantId(), command.orderId());
-            owned(actor, currentOrder);
-            var current = allocations.lockPayment(actor.tenantId(), command.orderId(), command.paymentId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!command.equals(bound(actor, currentOrder, current))) throw new CommonException(SNAPSHOT_INVALID);
-            var receipt = allocations.findReceipt(actor.tenantId(), current.allocation().id());
-            if (receipt.isPresent()) {
-                try {
-                    receipt.get().requireBoundTo(current.allocation());
-                    if (outcome == null) throw new CommonException(SNAPSHOT_INVALID);
-                    receipt.get().requireSameOutcome(outcome);
-                } catch (DomainViolation corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
-                return currentOrder;
-            }
-            if (current.allocation().state() != AllocationState.HELD
-                    || currentOrder.order().paymentReservedMinor() < current.allocation().amount().getCent()
-                    || currentOrder.order().reservedPaymentCount() < 1) throw new CommonException(SNAPSHOT_INVALID);
-            if (outcome == null) return currentOrder;
-            if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED
-                    ? current.allocation().paymentSourceVersion() != 0
-                    : outcome.paymentVersion() <= current.allocation().paymentSourceVersion())
+        var currentOrder = orders.lockOrder(actor.tenantId(), command.orderId());
+        owned(actor, currentOrder);
+        var current = allocations.lockPayment(actor.tenantId(), command.orderId(), command.paymentId())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!command.equals(bound(actor, currentOrder, current))) throw new CommonException(SNAPSHOT_INVALID);
+        var receipt = allocations.findReceipt(actor.tenantId(), current.allocation().id());
+        if (receipt.isPresent()) {
+            try {
+                receipt.get().requireBoundTo(current.allocation());
+                if (outcome == null) throw new CommonException(SNAPSHOT_INVALID);
+                receipt.get().requireSameOutcome(outcome);
+            } catch (DomainViolation corrupt) {
                 throw new CommonException(SNAPSHOT_INVALID);
-            var change = currentOrder.order().applyPaymentOutcome(current.allocation(), outcome);
-            var accepted = converter.toReceipt(ids.generate(), current.allocation().id(), outcome, now());
-            allocations.apply(actor.tenantId(), change, current, accepted, currentOrder.order().version());
-            if (change.order().state() == AcquireOrderState.PAID) {
-                var admission = orderCodec.decodeAdmission(currentOrder.admissionPayload(), currentOrder.payloadHash());
-                fees.confirmPaid(actor.tenantId(), change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
             }
-            snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
-            return converter.withOrder(currentOrder, change.order());
+            return currentOrder;
+        }
+        if (current.allocation().state() != AllocationState.HELD
+                || currentOrder.order().paymentReservedMinor() < current.allocation().amount().getCent()
+                || currentOrder.order().reservedPaymentCount() < 1) throw new CommonException(SNAPSHOT_INVALID);
+        if (outcome == null) return currentOrder;
+        if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED
+                ? current.allocation().paymentSourceVersion() != 0
+                : outcome.paymentVersion() <= current.allocation().paymentSourceVersion())
+            throw new CommonException(SNAPSHOT_INVALID);
+        var change = currentOrder.order().applyPaymentOutcome(current.allocation(), outcome);
+        var accepted = converter.toReceipt(ids.generate(), current.allocation().id(), outcome, now());
+        allocations.apply(actor.tenantId(), change, current, accepted, currentOrder.order().version());
+        if (change.order().state() == AcquireOrderState.PAID) {
+            var admission = orderCodec.decodeAdmission(currentOrder.admissionPayload(), currentOrder.payloadHash());
+            fees.confirmPaid(actor.tenantId(), change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
+        }
+        snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
+        return converter.withOrder(currentOrder, change.order());
     }
 
     VerifiedPaymentOutcome terminal(PaymentExecuteCommand command, PaymentOutcomeDTO response) {

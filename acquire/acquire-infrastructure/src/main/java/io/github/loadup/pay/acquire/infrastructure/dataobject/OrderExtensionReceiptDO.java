@@ -18,50 +18,104 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("order_extension_receipt")
 public class OrderExtensionReceiptDO extends BaseDO {
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String callerScopeHash;
-    public String getCallerScopeHash() { return callerScopeHash; }
-    public void setCallerScopeHash(String value) { callerScopeHash = value; }
-
     private String requestKey;
-    public String getRequestKey() { return requestKey; }
-    public void setRequestKey(String value) { requestKey = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private LocalDateTime originalDueAt;
-    public LocalDateTime getOriginalDueAt() { return originalDueAt; }
-    public void setOriginalDueAt(LocalDateTime value) { originalDueAt = value; }
-
     private LocalDateTime previousDueAt;
-    public LocalDateTime getPreviousDueAt() { return previousDueAt; }
-    public void setPreviousDueAt(LocalDateTime value) { previousDueAt = value; }
-
     private LocalDateTime requestedDueAt;
-    public LocalDateTime getRequestedDueAt() { return requestedDueAt; }
-    public void setRequestedDueAt(LocalDateTime value) { requestedDueAt = value; }
-
     private Long expectedOrderVersion;
-    public Long getExpectedOrderVersion() { return expectedOrderVersion; }
-    public void setExpectedOrderVersion(Long value) { expectedOrderVersion = value; }
-
     private Long deadlineVersion;
-    public Long getDeadlineVersion() { return deadlineVersion; }
-    public void setDeadlineVersion(Long value) { deadlineVersion = value; }
-
     private LocalDateTime appliedAt;
-    public LocalDateTime getAppliedAt() { return appliedAt; }
-    public void setAppliedAt(LocalDateTime value) { appliedAt = value; }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getCallerScopeHash() {
+        return callerScopeHash;
+    }
+
+    public void setCallerScopeHash(String value) {
+        callerScopeHash = value;
+    }
+
+    public String getRequestKey() {
+        return requestKey;
+    }
+
+    public void setRequestKey(String value) {
+        requestKey = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public LocalDateTime getOriginalDueAt() {
+        return originalDueAt;
+    }
+
+    public void setOriginalDueAt(LocalDateTime value) {
+        originalDueAt = value;
+    }
+
+    public LocalDateTime getPreviousDueAt() {
+        return previousDueAt;
+    }
+
+    public void setPreviousDueAt(LocalDateTime value) {
+        previousDueAt = value;
+    }
+
+    public LocalDateTime getRequestedDueAt() {
+        return requestedDueAt;
+    }
+
+    public void setRequestedDueAt(LocalDateTime value) {
+        requestedDueAt = value;
+    }
+
+    public Long getExpectedOrderVersion() {
+        return expectedOrderVersion;
+    }
+
+    public void setExpectedOrderVersion(Long value) {
+        expectedOrderVersion = value;
+    }
+
+    public Long getDeadlineVersion() {
+        return deadlineVersion;
+    }
+
+    public void setDeadlineVersion(Long value) {
+        deadlineVersion = value;
+    }
+
+    public LocalDateTime getAppliedAt() {
+        return appliedAt;
+    }
+
+    public void setAppliedAt(LocalDateTime value) {
+        appliedAt = value;
+    }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -18,9 +18,13 @@ package io.github.loadup.pay.payment.client.dto;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
-/** An absent payment has a durable gate and receipt, never a fabricated zero-amount payment. */
+/**
+ * An absent payment has a durable gate and receipt, never a fabricated zero-amount payment.
+ */
 public record PaymentCloseDTO(
         @Schema(description = "Payment id") @NotBlank @Size(max = 64)
         String paymentId,

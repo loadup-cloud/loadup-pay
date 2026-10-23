@@ -140,4 +140,4 @@ management:
     health:
       group:
         readiness:
-          include: [readinessState, db]
+          include: [ readinessState, db ]

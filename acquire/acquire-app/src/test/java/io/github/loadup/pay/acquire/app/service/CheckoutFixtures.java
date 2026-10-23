@@ -15,16 +15,43 @@
  */
 package io.github.loadup.pay.acquire.app.service;
 
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.OrderAdmissionProof;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.ContractReference;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 import io.github.loadup.pay.product.client.enums.AdmissionDecision;
-import io.github.loadup.pay.common.*;
-import org.springframework.transaction.*;
-import org.springframework.transaction.support.*;
-import java.math.*;
-import java.time.*;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 
 final class CheckoutFixtures {
     static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 21, 12, 0, 0, 123456000);
@@ -136,7 +163,8 @@ final class CheckoutFixtures {
         }
 
         @Override
-        protected void doBegin(Object value, TransactionDefinition definition) {}
+        protected void doBegin(Object value, TransactionDefinition definition) {
+        }
 
         @Override
         protected void doCommit(DefaultTransactionStatus status) {

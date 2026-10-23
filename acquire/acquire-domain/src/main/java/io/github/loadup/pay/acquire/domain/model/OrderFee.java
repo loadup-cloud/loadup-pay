@@ -68,15 +68,15 @@ public record OrderFee(
         return state == FeeState.CONFIRMED
                 ? this
                 : new OrderFee(
-                        id,
-                        orderId,
-                        baseAmount,
-                        feeAmount,
-                        policy,
-                        FeeState.CONFIRMED,
-                        refundBasisVersion,
-                        refundBasisMinor,
-                        adjustedMinor);
+                id,
+                orderId,
+                baseAmount,
+                feeAmount,
+                policy,
+                FeeState.CONFIRMED,
+                refundBasisVersion,
+                refundBasisMinor,
+                adjustedMinor);
     }
 
     public OrderFee recordRefundBasis(long sourceVersion, long cumulativeMinor) {

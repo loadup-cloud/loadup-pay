@@ -48,7 +48,21 @@ public record MerchantActionGrant(
         require((validTo == null || validTo.isAfter(validFrom)) && version >= 0, INVALID_ARGUMENT);
     }
 
-    /** Principal ownership is resolved from trusted identity facts, never a public request field. */
+    public static MerchantActionGrant init(
+            String id,
+            PrincipalType type,
+            String principal,
+            String payee,
+            String relationship,
+            MerchantAction action,
+            LocalDateTime from,
+            LocalDateTime to) {
+        return new MerchantActionGrant(id, type, principal, payee, relationship, action, GrantState.INIT, from, to, 0);
+    }
+
+    /**
+     * Principal ownership is resolved from trusted identity facts, never a public request field.
+     */
     public boolean allows(
             PrincipalType type,
             String principal,
@@ -66,23 +80,11 @@ public record MerchantActionGrant(
                 && !now.isBefore(validFrom)
                 && (validTo == null || now.isBefore(validTo))
                 && (relationshipId == null
-                        || relationship != null
-                                && relationshipId.equals(relationship.id())
-                                && relationship.parentMerchantId().equals(principalMerchantId)
-                                && payeeMerchantId.equals(relationship.childMerchantId())
-                                && relationship.activeAt(now));
-    }
-
-    public static MerchantActionGrant init(
-            String id,
-            PrincipalType type,
-            String principal,
-            String payee,
-            String relationship,
-            MerchantAction action,
-            LocalDateTime from,
-            LocalDateTime to) {
-        return new MerchantActionGrant(id, type, principal, payee, relationship, action, GrantState.INIT, from, to, 0);
+                || relationship != null
+                && relationshipId.equals(relationship.id())
+                && relationship.parentMerchantId().equals(principalMerchantId)
+                && payeeMerchantId.equals(relationship.childMerchantId())
+                && relationship.activeAt(now));
     }
 
     public MerchantActionGrant activate() {

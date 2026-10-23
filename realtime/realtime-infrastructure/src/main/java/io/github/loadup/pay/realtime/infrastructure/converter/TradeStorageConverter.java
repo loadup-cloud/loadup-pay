@@ -16,9 +16,19 @@
 package io.github.loadup.pay.realtime.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.realtime.domain.model.*;
-import io.github.loadup.pay.realtime.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
+import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
+import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
+import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.ProjectionReceiptDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeOrderDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradePaymentDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeRefundDO;
+import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeSummaryDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface TradeStorageConverter {
@@ -89,6 +99,7 @@ public interface TradeStorageConverter {
     TradeSummaryDO toPatch(TradeRefundSummary value, String contentHash, String payload);
 
     ProjectionReceipt toReceipt(ProjectionReceiptDO row);
+
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

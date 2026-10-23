@@ -18,11 +18,20 @@ package io.github.loadup.pay.customer.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("merchant_action_grant")
 public class MerchantActionGrantDO extends BaseDO {
     private String principalType;
+    private String principalId;
+    private String payeeMerchantId;
+    private String relationshipId;
+    private String action;
+    private String state;
+    private LocalDateTime validFrom;
+    private LocalDateTime validTo;
+    private Long rowVersion;
 
     public String getPrincipalType() {
         return principalType;
@@ -32,8 +41,6 @@ public class MerchantActionGrantDO extends BaseDO {
         principalType = value;
     }
 
-    private String principalId;
-
     public String getPrincipalId() {
         return principalId;
     }
@@ -41,8 +48,6 @@ public class MerchantActionGrantDO extends BaseDO {
     public void setPrincipalId(String value) {
         principalId = value;
     }
-
-    private String payeeMerchantId;
 
     public String getPayeeMerchantId() {
         return payeeMerchantId;
@@ -52,8 +57,6 @@ public class MerchantActionGrantDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    private String relationshipId;
-
     public String getRelationshipId() {
         return relationshipId;
     }
@@ -61,8 +64,6 @@ public class MerchantActionGrantDO extends BaseDO {
     public void setRelationshipId(String value) {
         relationshipId = value;
     }
-
-    private String action;
 
     public String getAction() {
         return action;
@@ -72,8 +73,6 @@ public class MerchantActionGrantDO extends BaseDO {
         action = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -81,8 +80,6 @@ public class MerchantActionGrantDO extends BaseDO {
     public void setState(String value) {
         state = value;
     }
-
-    private LocalDateTime validFrom;
 
     public LocalDateTime getValidFrom() {
         return validFrom;
@@ -92,8 +89,6 @@ public class MerchantActionGrantDO extends BaseDO {
         validFrom = value;
     }
 
-    private LocalDateTime validTo;
-
     public LocalDateTime getValidTo() {
         return validTo;
     }
@@ -101,8 +96,6 @@ public class MerchantActionGrantDO extends BaseDO {
     public void setValidTo(LocalDateTime value) {
         validTo = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;

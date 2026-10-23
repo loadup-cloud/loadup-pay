@@ -16,16 +16,22 @@
 package io.github.loadup.pay.realtime.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JwtRealtimeActorProviderTest {
     final JwtRealtimeActorProvider provider = new JwtRealtimeActorProvider();
+
     void jwt(String type, String subject, String service, String merchant) {
         var value = Jwt.withTokenValue("synthetic").header("alg", "RS256").subject(subject).claim("tenant_id", "tenant").claim("principal_type", type);
         if (service != null) value.claim("service_id", service);
@@ -33,24 +39,42 @@ class JwtRealtimeActorProviderTest {
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", value.build(),
                 List.of(new SimpleGrantedAuthority("pay:realtime:trade:read"))));
     }
-    @AfterEach void close() { SecurityContextHolder.clearContext(); }
-    @Test void merchantIdentityComesFromVerifiedClaims() {
-        jwt("MERCHANT_APP", "app", null, "merchant");
-        assertEquals("merchant", provider.current().merchantId()); assertNull(provider.current().serviceId());
+
+    @AfterEach
+    void close() {
+        SecurityContextHolder.clearContext();
     }
-    @Test void merchantSubjectMustMatchItsOwnMerchant() {
+
+    @Test
+    void merchantIdentityComesFromVerifiedClaims() {
+        jwt("MERCHANT_APP", "app", null, "merchant");
+        assertEquals("merchant", provider.current().merchantId());
+        assertNull(provider.current().serviceId());
+    }
+
+    @Test
+    void merchantSubjectMustMatchItsOwnMerchant() {
         jwt("MERCHANT", "other-merchant", null, "merchant");
         assertThrows(CommonException.class, provider::current);
     }
-    @Test void servicePrincipalHasNoImplicitMerchantQueryScope() {
+
+    @Test
+    void servicePrincipalHasNoImplicitMerchantQueryScope() {
         jwt("SERVICE", "payment", "payment", "merchant");
-        assertEquals("payment", provider.current().serviceId()); assertNull(provider.current().merchantId());
+        assertEquals("payment", provider.current().serviceId());
+        assertNull(provider.current().merchantId());
     }
-    @Test void mismatchedServiceAndUnscopedOperatorAreRejected() {
-        jwt("SERVICE", "other-service", "payment", null); assertThrows(CommonException.class, provider::current);
-        jwt("OPERATOR", "operator", null, null); assertThrows(CommonException.class, provider::current);
+
+    @Test
+    void mismatchedServiceAndUnscopedOperatorAreRejected() {
+        jwt("SERVICE", "other-service", "payment", null);
+        assertThrows(CommonException.class, provider::current);
+        jwt("OPERATOR", "operator", null, null);
+        assertThrows(CommonException.class, provider::current);
     }
-    @Test void missingAuthenticationDoesNotAuthorizeAReadModel() {
+
+    @Test
+    void missingAuthenticationDoesNotAuthorizeAReadModel() {
         assertThrows(CommonException.class, provider::current);
     }
 }

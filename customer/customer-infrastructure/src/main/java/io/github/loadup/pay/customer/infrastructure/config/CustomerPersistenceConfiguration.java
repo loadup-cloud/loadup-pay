@@ -20,4 +20,5 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @MapperScan("io.github.loadup.pay.customer.infrastructure.mapper")
-public class CustomerPersistenceConfiguration {}
+public class CustomerPersistenceConfiguration {
+}

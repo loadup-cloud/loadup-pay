@@ -16,11 +16,16 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import org.mapstruct.*;
-import java.time.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentRealtimeConverter {
@@ -33,5 +38,8 @@ public interface PaymentRealtimeConverter {
     @Mapping(target = "initiatedAt", source = "value.payment.initiatedAt")
     @Mapping(target = "sourceVersion", source = "value.payment.version")
     PaymentSnapshotEventDTO toSnapshot(StoredPaymentAcceptance value, Channel channel, AccessMode accessMode, LocalDateTime succeededAt);
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

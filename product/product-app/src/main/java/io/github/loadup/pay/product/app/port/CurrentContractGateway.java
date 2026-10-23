@@ -21,7 +21,9 @@ import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 
 import java.util.Optional;
 
-/** Local primary-database access; no remote calls while the contract header is locked. */
+/**
+ * Local primary-database access; no remote calls while the contract header is locked.
+ */
 public interface CurrentContractGateway {
     Optional<ContractRecord> lockByScope(String tenantId, String merchantId, String scopeKey);
 

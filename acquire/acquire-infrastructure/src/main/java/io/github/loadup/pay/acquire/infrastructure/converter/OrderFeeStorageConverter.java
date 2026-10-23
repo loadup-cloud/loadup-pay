@@ -16,10 +16,14 @@
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
-import org.mapstruct.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderFeeStorageConverter {

@@ -19,8 +19,11 @@ import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.time.LocalDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class OrderCreationStorageConverterTest {
     private final AnnotationConfigApplicationContext context =

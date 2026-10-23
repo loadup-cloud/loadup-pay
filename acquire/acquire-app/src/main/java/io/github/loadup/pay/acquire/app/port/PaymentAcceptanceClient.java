@@ -17,10 +17,12 @@ package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 
-/** Service identity is supplied by the transport, never by the merchant. */
+/**
+ * Service identity is supplied by the transport, never by the merchant.
+ */
 public interface PaymentAcceptanceClient {
     boolean supportsTenant(String tenant);
 

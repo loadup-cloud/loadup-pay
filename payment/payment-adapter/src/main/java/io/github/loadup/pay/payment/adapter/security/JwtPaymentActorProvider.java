@@ -27,6 +27,10 @@ import java.util.stream.Collectors;
 
 @Component
 public class JwtPaymentActorProvider implements PaymentActorProvider {
+    private static CommonException forbidden() {
+        return new CommonException(PaymentResultCodeEnum.ACTION_FORBIDDEN);
+    }
+
     @Override
     public PaymentActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -51,9 +55,5 @@ public class JwtPaymentActorProvider implements PaymentActorProvider {
         } catch (IllegalArgumentException invalid) {
             throw forbidden();
         }
-    }
-
-    private static CommonException forbidden() {
-        return new CommonException(PaymentResultCodeEnum.ACTION_FORBIDDEN);
     }
 }

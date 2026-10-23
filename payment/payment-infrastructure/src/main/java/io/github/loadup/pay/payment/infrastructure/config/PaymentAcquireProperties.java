@@ -15,20 +15,32 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
-import jakarta.validation.constraints.*;
+
 import java.nio.file.Path;
 
 @Validated
 @ConfigurationProperties("loadup.modules.payment.acquire")
-public record PaymentAcquireProperties(@NotBlank @Size(max = 64) String tenantId, @NotBlank @Size(max = 64) String serviceId,
-        @NotBlank @Size(max = 128) String audience, @NotNull @DiagnosticHidden Path tokenFile) {
+public record PaymentAcquireProperties(@NotBlank @Size(max = 64) String tenantId,
+                                       @NotBlank @Size(max = 64) String serviceId,
+                                       @NotBlank @Size(max = 128) String audience,
+                                       @NotNull @DiagnosticHidden Path tokenFile) {
     public PaymentAcquireProperties {
-        DomainChecks.id(tenantId); DomainChecks.id(serviceId); DomainChecks.text(audience, 128);
+        DomainChecks.id(tenantId);
+        DomainChecks.id(serviceId);
+        DomainChecks.text(audience, 128);
         java.util.Objects.requireNonNull(tokenFile);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

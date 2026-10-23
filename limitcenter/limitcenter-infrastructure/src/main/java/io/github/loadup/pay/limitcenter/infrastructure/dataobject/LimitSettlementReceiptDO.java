@@ -22,33 +22,71 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("limit_settlement_receipt")
 public class LimitSettlementReceiptDO extends BaseDO {
     private String operationId;
-    public String getOperationId() { return operationId; }
-    public void setOperationId(String value) { operationId = value; }
-
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String kind;
-    public String getKind() { return kind; }
-    public void setKind(String value) { kind = value; }
-
     private String businessEventId;
-    public String getBusinessEventId() { return businessEventId; }
-    public void setBusinessEventId(String value) { businessEventId = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private Long paymentVersion;
-    public Long getPaymentVersion() { return paymentVersion; }
-    public void setPaymentVersion(Long value) { paymentVersion = value; }
-
     private String evidenceId;
-    public String getEvidenceId() { return evidenceId; }
-    public void setEvidenceId(String value) { evidenceId = value; }
+
+    public String getOperationId() {
+        return operationId;
+    }
+
+    public void setOperationId(String value) {
+        operationId = value;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String value) {
+        kind = value;
+    }
+
+    public String getBusinessEventId() {
+        return businessEventId;
+    }
+
+    public void setBusinessEventId(String value) {
+        businessEventId = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public Long getPaymentVersion() {
+        return paymentVersion;
+    }
+
+    public void setPaymentVersion(Long value) {
+        paymentVersion = value;
+    }
+
+    public String getEvidenceId() {
+        return evidenceId;
+    }
+
+    public void setEvidenceId(String value) {
+        evidenceId = value;
+    }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

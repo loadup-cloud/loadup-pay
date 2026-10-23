@@ -17,27 +17,41 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.payment.app.port.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxTemplate;
+import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
+import io.github.loadup.pay.payment.app.port.PaymentSnapshotEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.Set;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Complete source snapshots are delivered independently; no source lookup or downstream read participates in Y3. */
+import java.util.Set;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Complete source snapshots are delivered independently; no source lookup or downstream read participates in Y3.
+ */
 @Component
 public class PaymentRealtimeDelivery {
     private final OutboxTemplate outbox;
     private final PaymentSnapshotEnvelopeCodec codec;
     private final PaymentRealtimeClient client;
+
     public PaymentRealtimeDelivery(OutboxTemplate outbox, PaymentSnapshotEnvelopeCodec codec, PaymentRealtimeClient client) {
-        this.outbox = outbox; this.codec = codec; this.client = client;
+        this.outbox = outbox;
+        this.codec = codec;
+        this.client = client;
     }
+
     public void deliver(OutboxEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
                 || !PaymentResultEvents.REALTIME.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         String tenant = event.message().tenantId();
         var row = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id()) || !row.tenantId().equals(tenant) || !row.type().equals(PaymentResultEvents.REALTIME)

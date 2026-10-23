@@ -16,20 +16,40 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+
 import java.util.Optional;
 
 public interface PaymentResultGateway {
     Optional<PaymentChannelReceipt> receipt(String tenant, String attemptId, PaymentObservation.Source source, String key);
+
     void insertReceipt(String tenant, PaymentChannelReceipt receipt);
-    /** Idempotent only for the same receipt/facts/reason, while holding the owning payment lock. */
+
+    /**
+     * Idempotent only for the same receipt/facts/reason, while holding the owning payment lock.
+     */
     void recordAnomaly(String tenant, PaymentResultAnomaly anomaly);
-    /** Exact global immutable financial key. Internal only; never expose another tenant's claim. */
+
+    /**
+     * Exact global immutable financial key. Internal only; never expose another tenant's claim.
+     */
     Optional<ChannelTransactionClaim> transaction(Channel channel, String accountScopeHash, String transactionNo);
+
     Optional<ChannelTransactionClaim> attemptClaim(String tenant, String attemptId);
+
     void insertClaim(ChannelTransactionClaim claim);
-    /** State, evidence and authoritative channel success time are one payment-row CAS. */
+
+    /**
+     * State, evidence and authoritative channel success time are one payment-row CAS.
+     */
     void completeSuccess(String tenant, StoredPaymentAcceptance payment, long expectedVersion, java.time.LocalDateTime succeededAt);
+
     Optional<PaymentRefundCapacity> capacity(String tenant, String paymentId);
+
     void insertCapacity(String tenant, String id, PaymentRefundCapacity capacity);
 }

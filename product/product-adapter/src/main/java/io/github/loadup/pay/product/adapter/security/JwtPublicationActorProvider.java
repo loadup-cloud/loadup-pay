@@ -29,6 +29,10 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.AC
 
 @Component
 public class JwtPublicationActorProvider implements PublicationActorProvider {
+    private static CommonException forbidden() {
+        return new CommonException(ACTION_FORBIDDEN);
+    }
+
     @Override
     public PublicationActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -52,9 +56,5 @@ public class JwtPublicationActorProvider implements PublicationActorProvider {
         } catch (IllegalArgumentException invalid) {
             throw forbidden();
         }
-    }
-
-    private static CommonException forbidden() {
-        return new CommonException(ACTION_FORBIDDEN);
     }
 }

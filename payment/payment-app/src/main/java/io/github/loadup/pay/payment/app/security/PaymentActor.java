@@ -17,9 +17,12 @@ package io.github.loadup.pay.payment.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
-/** Created only from a verified service credential by the transport adapter. */
+/**
+ * Created only from a verified service credential by the transport adapter.
+ */
 public record PaymentActor(String tenantId, String serviceId, Set<String> permissions) {
     public PaymentActor {
         DomainChecks.id(tenantId);

@@ -17,46 +17,96 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("payment_refund_capacity")
 public class PaymentRefundCapacityDO extends BaseDO {
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private LocalDateTime succeededAt;
-    public LocalDateTime getSucceededAt() { return succeededAt; }
-    public void setSucceededAt(LocalDateTime value) { succeededAt = value; }
-
     private Long succeededMinor;
-    public Long getSucceededMinor() { return succeededMinor; }
-    public void setSucceededMinor(Long value) { succeededMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private Long refundedMinor;
-    public Long getRefundedMinor() { return refundedMinor; }
-    public void setRefundedMinor(Long value) { refundedMinor = value; }
-
     private Long reservedMinor;
-    public Long getReservedMinor() { return reservedMinor; }
-    public void setReservedMinor(Long value) { reservedMinor = value; }
-
     private Long rowVersion;
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public LocalDateTime getSucceededAt() {
+        return succeededAt;
+    }
+
+    public void setSucceededAt(LocalDateTime value) {
+        succeededAt = value;
+    }
+
+    public Long getSucceededMinor() {
+        return succeededMinor;
+    }
+
+    public void setSucceededMinor(Long value) {
+        succeededMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public Long getRefundedMinor() {
+        return refundedMinor;
+    }
+
+    public void setRefundedMinor(Long value) {
+        refundedMinor = value;
+    }
+
+    public Long getReservedMinor() {
+        return reservedMinor;
+    }
+
+    public void setReservedMinor(Long value) {
+        reservedMinor = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -23,5 +23,9 @@ public record ProjectionAdvance(String disposition, long projectedVersion) {
         DomainViolation.require(java.util.Set.of("APPLIED", "DUPLICATE", "STALE").contains(disposition) && projectedVersion >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

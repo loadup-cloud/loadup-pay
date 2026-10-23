@@ -15,39 +15,60 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RiskOutcomeGateway;
+import io.github.loadup.pay.payment.domain.model.RiskConsultation;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
+import io.github.loadup.pay.payment.domain.model.RiskOutcome;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaymentRiskConfigurationTest {
-    @Test void disconnectedPolicySuppliesBothConsultationAndOutcomeRoles() {
+    @Test
+    void disconnectedPolicySuppliesBothConsultationAndOutcomeRoles() {
         try (var context = new AnnotationConfigApplicationContext(PaymentRiskConfiguration.class)) {
             assertSame(context.getBean(RiskConsultGateway.class), context.getBean(RiskOutcomeGateway.class));
         }
     }
-    @Test void configuredProviderOwnsBothRolesWithoutASecondDefaultProvider() {
+
+    @Test
+    void configuredProviderOwnsBothRolesWithoutASecondDefaultProvider() {
         try (var context = new AnnotationConfigApplicationContext()) {
             var provider = new ExternalRisk();
             context.registerBean("externalRisk", ExternalRisk.class, () -> provider);
-            context.register(PaymentRiskConfiguration.class); context.refresh();
+            context.register(PaymentRiskConfiguration.class);
+            context.refresh();
             assertSame(provider, context.getBean(RiskConsultGateway.class));
             assertSame(provider, context.getBean(RiskOutcomeGateway.class));
             assertFalse(context.containsBean("defaultRiskGateway"));
         }
     }
-    @Test void partialExternalConfigurationDoesNotSilentlyMixInDisconnectedResults() {
+
+    @Test
+    void partialExternalConfigurationDoesNotSilentlyMixInDisconnectedResults() {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.registerBean("externalConsult", RiskConsultGateway.class,
                     () -> consultation -> new RiskDecision(RiskDecisionType.ALLOW, "EXTERNAL_ALLOW", "consultation"));
-            context.register(PaymentRiskConfiguration.class); context.refresh();
+            context.register(PaymentRiskConfiguration.class);
+            context.refresh();
             assertTrue(context.getBeansOfType(RiskOutcomeGateway.class).isEmpty());
             assertFalse(context.containsBean("defaultRiskGateway"));
         }
     }
+
     static class ExternalRisk implements RiskConsultGateway, RiskOutcomeGateway {
-        @Override public RiskDecision consult(RiskConsultation value) { return new RiskDecision(RiskDecisionType.ALLOW, "EXTERNAL_ALLOW", "consultation"); }
-        @Override public void confirm(RiskOutcome value) {}
+        @Override
+        public RiskDecision consult(RiskConsultation value) {
+            return new RiskDecision(RiskDecisionType.ALLOW, "EXTERNAL_ALLOW", "consultation");
+        }
+
+        @Override
+        public void confirm(RiskOutcome value) {
+        }
     }
 }

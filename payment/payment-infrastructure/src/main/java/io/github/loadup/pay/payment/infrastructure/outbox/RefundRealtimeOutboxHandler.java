@@ -15,14 +15,27 @@
  */
 package io.github.loadup.pay.payment.infrastructure.outbox;
 
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.payment.app.service.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxHandler;
+import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
+import io.github.loadup.pay.payment.app.service.RefundRealtimeDelivery;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RefundRealtimeOutboxHandler implements OutboxHandler {
     private final RefundRealtimeDelivery delivery;
-    public RefundRealtimeOutboxHandler(RefundRealtimeDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return RefundProjectionEvents.CHILD; }
-    @Override public void handle(OutboxEvent event) { delivery.child(event); }
+
+    public RefundRealtimeOutboxHandler(RefundRealtimeDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return RefundProjectionEvents.CHILD;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.child(event);
+    }
 }

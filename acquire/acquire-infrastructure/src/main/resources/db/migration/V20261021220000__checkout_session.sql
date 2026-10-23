@@ -18,13 +18,13 @@ CREATE TABLE checkout_session
     state             VARCHAR(24)  NOT NULL,
     expires_at        DATETIME(6)  NOT NULL,
     allowed_origin    VARCHAR(512) NULL,
-    scope_snapshot    LONGTEXT         NOT NULL,
+    scope_snapshot    LONGTEXT     NOT NULL,
     row_version       BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_request (tenant_id, order_id, request_key),
     UNIQUE KEY uk_session_token (token_hash),
     KEY ix_session_order (tenant_id, order_id, state),
-    CHECK (state IN ('INIT','ACTIVE','COMPLETED','CANCELLED','EXPIRED')),
+    CHECK (state IN ('INIT', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'EXPIRED')),
     CHECK (row_version >= 0 AND MICROSECOND(expires_at) = 0),
     CHECK (allowed_origin IS NOT NULL)
 ) ENGINE = InnoDB

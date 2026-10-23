@@ -16,13 +16,29 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
+import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
+import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundChannelReceiptDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundResultAnomalyDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundTransactionClaimDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundResultStorageConverter {
     RefundChannelReceipt toReceipt(RefundChannelReceiptDO row);
+
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -36,6 +52,7 @@ public interface RefundResultStorageConverter {
     RefundResultAnomalyDO toAnomalyDO(String tenant, RefundResultAnomaly value);
 
     ChannelPaymentIdentity toIdentity(RefundTransactionClaimDO row);
+
     @Mapping(target = "original", source = "original")
     @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
     RefundTransactionClaim toClaim(RefundTransactionClaimDO row, ChannelPaymentIdentity original);

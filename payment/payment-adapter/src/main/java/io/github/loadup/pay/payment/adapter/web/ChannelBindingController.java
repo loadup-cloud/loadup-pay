@@ -16,36 +16,49 @@
 package io.github.loadup.pay.payment.adapter.web;
 
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingRevokeCommand;
+import io.github.loadup.pay.payment.client.command.ChannelBindingSuspendCommand;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingChangeDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelBindingDTO;
 import io.github.loadup.pay.payment.client.facade.ChannelBindingFacade;
 import io.github.loadup.pay.payment.client.query.ChannelBindingDetailQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/channel-bindings")
 @Tag(name = "Trusted channel binding operations")
 public class ChannelBindingController {
     private final ChannelBindingFacade facade;
-    public ChannelBindingController(ChannelBindingFacade facade) { this.facade = facade; }
+
+    public ChannelBindingController(ChannelBindingFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/publish")
     @Operation(summary = "Publish an immutable account identity and switch its routing head atomically")
     public SuccessResponse<ChannelBindingChangeDTO> publish(@Valid @RequestBody ChannelBindingPublishCommand command) {
         return SuccessResponse.of(facade.publish(command));
     }
+
     @PostMapping("/suspend")
     @Operation(summary = "Suspend this binding for new attempts while retaining all original revisions")
     public SuccessResponse<ChannelBindingChangeDTO> suspend(@Valid @RequestBody ChannelBindingSuspendCommand command) {
         return SuccessResponse.of(facade.suspend(command));
     }
+
     @PostMapping("/revoke")
     @Operation(summary = "Permanently revoke a routing head while retaining immutable financial identity history")
     public SuccessResponse<ChannelBindingChangeDTO> revoke(@Valid @RequestBody ChannelBindingRevokeCommand command) {
         return SuccessResponse.of(facade.revoke(command));
     }
+
     @PostMapping("/detail")
     @Operation(summary = "Read current routing metadata without credentials or channel account payloads")
     public SuccessResponse<ChannelBindingDTO> detail(@Valid @RequestBody ChannelBindingDetailQuery query) {

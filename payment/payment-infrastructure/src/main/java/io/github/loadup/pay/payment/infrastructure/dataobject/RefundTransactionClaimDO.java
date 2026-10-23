@@ -17,66 +17,141 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("refund_transaction_claim")
 public class RefundTransactionClaimDO extends BaseDO {
     private String refundId;
-    public String getRefundId() { return refundId; }
-    public void setRefundId(String value) { refundId = value; }
-
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String attemptId;
-    public String getAttemptId() { return attemptId; }
-    public void setAttemptId(String value) { attemptId = value; }
-
     private String channel;
-    public String getChannel() { return channel; }
-    public void setChannel(String value) { channel = value; }
-
     private String bindingRevisionId;
-    public String getBindingRevisionId() { return bindingRevisionId; }
-    public void setBindingRevisionId(String value) { bindingRevisionId = value; }
-
     private String accountScopeHash;
-    public String getAccountScopeHash() { return accountScopeHash; }
-    public void setAccountScopeHash(String value) { accountScopeHash = value; }
-
     private String channelRequestNo;
-    public String getChannelRequestNo() { return channelRequestNo; }
-    public void setChannelRequestNo(String value) { channelRequestNo = value; }
-
     private String originalChannelTransactionNo;
-    public String getOriginalChannelTransactionNo() { return originalChannelTransactionNo; }
-    public void setOriginalChannelTransactionNo(String value) { originalChannelTransactionNo = value; }
-
     private String channelRefundNo;
-    public String getChannelRefundNo() { return channelRefundNo; }
-    public void setChannelRefundNo(String value) { channelRefundNo = value; }
-
     private Long amountMinor;
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private String channelRefundTransactionNo;
-    public String getChannelRefundTransactionNo() { return channelRefundTransactionNo; }
-    public void setChannelRefundTransactionNo(String value) { channelRefundTransactionNo = value; }
-
     private LocalDateTime succeededAt;
-    public LocalDateTime getSucceededAt() { return succeededAt; }
-    public void setSucceededAt(LocalDateTime value) { succeededAt = value; }
-
     private String receiptId;
-    public String getReceiptId() { return receiptId; }
-    public void setReceiptId(String value) { receiptId = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getRefundId() {
+        return refundId;
+    }
+
+    public void setRefundId(String value) {
+        refundId = value;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getAttemptId() {
+        return attemptId;
+    }
+
+    public void setAttemptId(String value) {
+        attemptId = value;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String value) {
+        channel = value;
+    }
+
+    public String getBindingRevisionId() {
+        return bindingRevisionId;
+    }
+
+    public void setBindingRevisionId(String value) {
+        bindingRevisionId = value;
+    }
+
+    public String getAccountScopeHash() {
+        return accountScopeHash;
+    }
+
+    public void setAccountScopeHash(String value) {
+        accountScopeHash = value;
+    }
+
+    public String getChannelRequestNo() {
+        return channelRequestNo;
+    }
+
+    public void setChannelRequestNo(String value) {
+        channelRequestNo = value;
+    }
+
+    public String getOriginalChannelTransactionNo() {
+        return originalChannelTransactionNo;
+    }
+
+    public void setOriginalChannelTransactionNo(String value) {
+        originalChannelTransactionNo = value;
+    }
+
+    public String getChannelRefundNo() {
+        return channelRefundNo;
+    }
+
+    public void setChannelRefundNo(String value) {
+        channelRefundNo = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public String getChannelRefundTransactionNo() {
+        return channelRefundTransactionNo;
+    }
+
+    public void setChannelRefundTransactionNo(String value) {
+        channelRefundTransactionNo = value;
+    }
+
+    public LocalDateTime getSucceededAt() {
+        return succeededAt;
+    }
+
+    public void setSucceededAt(LocalDateTime value) {
+        succeededAt = value;
+    }
+
+    public String getReceiptId() {
+        return receiptId;
+    }
+
+    public void setReceiptId(String value) {
+        receiptId = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

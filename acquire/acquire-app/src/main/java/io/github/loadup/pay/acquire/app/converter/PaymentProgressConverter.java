@@ -16,13 +16,19 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.client.dto.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
-import org.mapstruct.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentProgressConverter {

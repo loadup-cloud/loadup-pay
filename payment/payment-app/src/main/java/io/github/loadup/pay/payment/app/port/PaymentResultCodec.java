@@ -19,5 +19,6 @@ import io.github.loadup.pay.payment.domain.model.PaymentObservation;
 
 public interface PaymentResultCodec {
     String factsDigest(PaymentObservation observation);
+
     String encode(PaymentObservation observation);
 }

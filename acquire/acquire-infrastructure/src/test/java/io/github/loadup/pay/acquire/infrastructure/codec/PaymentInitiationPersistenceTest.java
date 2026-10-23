@@ -17,22 +17,50 @@ package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.product.client.dto.*;
-import jakarta.validation.*;
-import java.math.*;
-import java.time.LocalDateTime;
-import java.util.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
-import static org.junit.jupiter.api.Assertions.*;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PaymentInitiationPersistenceTest {
+    static final long AMOUNT = 9007199254740993L;
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final OrderCreationCodecImpl hashes = new OrderCreationCodecImpl(mapper, validation.getValidator());
@@ -40,7 +68,35 @@ class PaymentInitiationPersistenceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentInitiationStorageConverter.class.getPackageName());
     final PaymentInitiationStorageConverter converter = context.getBean(PaymentInitiationStorageConverter.class);
-    static final long AMOUNT = 9007199254740993L;
+
+    static AcquiringTermsDTO terms() {
+        return new AcquiringTermsDTO(
+                1,
+                new OrderTermsDTO(
+                        600, 3600, io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new PaymentTermsDTO(1, Long.MAX_VALUE, null, true),
+                new FeeTermsDTO(
+                        new BigDecimal("0.003"),
+                        0,
+                        RoundingMode.HALF_UP,
+                        0,
+                        null,
+                        io.github.loadup.pay.product.client.enums.FeeRefundPolicy.NO_RETURN),
+                new RefundTermsDTO(
+                        true, true, 86400, io.github.loadup.pay.product.client.enums.RefundAllocationPolicy.FIFO),
+                new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
+                new LimitPolicyRefDTO(
+                        "policy",
+                        1,
+                        "e".repeat(64),
+                        false,
+                        null,
+                        io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
+                        io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
+                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
+                "routing-v1",
+                "return-v1");
+    }
 
     @AfterEach
     void close() {
@@ -164,34 +220,5 @@ class PaymentInitiationPersistenceTest {
         assertNull(patch.getClosedAt());
         assertNull(patch.getCloseEpoch());
         assertNull(patch.getId());
-    }
-
-    static AcquiringTermsDTO terms() {
-        return new AcquiringTermsDTO(
-                1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
-                new PaymentTermsDTO(1, Long.MAX_VALUE, null, true),
-                new FeeTermsDTO(
-                        new BigDecimal("0.003"),
-                        0,
-                        RoundingMode.HALF_UP,
-                        0,
-                        null,
-                        io.github.loadup.pay.product.client.enums.FeeRefundPolicy.NO_RETURN),
-                new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.client.enums.RefundAllocationPolicy.FIFO),
-                new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
-                new LimitPolicyRefDTO(
-                        "policy",
-                        1,
-                        "e".repeat(64),
-                        false,
-                        null,
-                        io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
-                List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
-                "routing-v1",
-                "return-v1");
     }
 }

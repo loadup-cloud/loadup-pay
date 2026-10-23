@@ -16,13 +16,19 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.PayEventEnvelope;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Set;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
-/** Complete monetary snapshot, bounded independently of historical refund-request count. */
+import java.util.Set;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Complete monetary snapshot, bounded independently of historical refund-request count.
+ */
 public record OrderRefundSummaryEventDTO(
         @Schema(description = "Order id") String orderId,
         @Schema(description = "Payee merchant id") String payeeMerchantId,
@@ -31,14 +37,21 @@ public record OrderRefundSummaryEventDTO(
         @Schema(description = "Amount held by all unfinished refund children in minor units") long refundReservedMinor,
         @Schema(description = "Independent source monetary summary version") long refundSummaryVersion) {
     public OrderRefundSummaryEventDTO {
-        DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId); DomainChecks.amount(refundedMinor, currency);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.amount(refundedMinor, currency);
         require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundReservedMinor <= Long.MAX_VALUE - refundedMinor
                 && refundSummaryVersion >= 0, INVALID_ARGUMENT);
     }
+
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
         require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
                 .contains(envelope.eventType()), CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

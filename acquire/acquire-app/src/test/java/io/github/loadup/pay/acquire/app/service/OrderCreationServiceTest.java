@@ -17,31 +17,91 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.acquire.app.converter.*;
-import io.github.loadup.pay.acquire.app.port.*;
-import io.github.loadup.pay.acquire.app.security.*;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.product.client.dto.*;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
-import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
+import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
+import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
+import io.github.loadup.pay.acquire.app.port.OrderAdmissionClient;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.FeeState;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
 import io.github.loadup.pay.common.PaymentMethod;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.transaction.*;
-import org.springframework.transaction.support.*;
-import java.math.*;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ADMISSION_EXPIRED;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONTRACT_NOT_ADMITTING;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class OrderCreationServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -117,12 +177,12 @@ class OrderCreationServiceTest {
                 .thenAnswer(c -> "https://pay.example/checkout#token=" + c.getArgument(2));
         when(sessions.find(eq("tenant"), anyString())).thenAnswer(c -> Optional.ofNullable(session.get()));
         doAnswer(c -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    assertNotNull(order.get());
-                    assertEquals("INIT", intent.get().state());
-                    session.set(c.getArgument(1));
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertNotNull(order.get());
+            assertEquals("INIT", intent.get().state());
+            session.set(c.getArgument(1));
+            return null;
+        })
                 .when(sessions)
                 .insert(eq("tenant"), any());
         when(codec.requestDigest(anyString(), anyString(), any())).thenReturn("a".repeat(64));
@@ -136,23 +196,23 @@ class OrderCreationServiceTest {
         when(store.lockIntent(eq("tenant"), anyString())).thenAnswer(call -> intent.get());
         when(store.findOrder(eq("tenant"), anyString())).thenAnswer(call -> Optional.ofNullable(order.get()));
         doAnswer(call -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    intent.set(call.getArgument(1));
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            intent.set(call.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .insertIntent(eq("tenant"), any());
         doAnswer(call -> {
-                    intent.set(call.getArgument(1));
-                    return null;
-                })
+            intent.set(call.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .updateIntent(eq("tenant"), any(), anyLong());
         doAnswer(call -> {
-                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-                    order.set(call.getArgument(1));
-                    return null;
-                })
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            order.set(call.getArgument(1));
+            return null;
+        })
                 .when(store)
                 .insertOrder(eq("tenant"), any(), any(), anyString());
         when(product.authorize(any())).thenAnswer(call -> {
@@ -273,20 +333,20 @@ class OrderCreationServiceTest {
     @Test
     void deniedDecisionCommitsAStableRejectionAndDoesNotBecomeAnOrderOnRetry() {
         doAnswer(call -> new OrderAdmissionDTO(
-                        "admission",
-                        intent.get().orderId(),
-                        "merchant",
-                        AdmissionDecision.DENIED,
-                        "CONTRACT_NOT_ADMISSIBLE",
-                        "a".repeat(64),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null))
+                "admission",
+                intent.get().orderId(),
+                "merchant",
+                AdmissionDecision.DENIED,
+                "CONTRACT_NOT_ADMISSIBLE",
+                "a".repeat(64),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null))
                 .when(product)
                 .authorize(any());
         assertSame(
@@ -307,23 +367,23 @@ class OrderCreationServiceTest {
     @Test
     void materializationAtTheExactCutoffCommitsExpiryWithoutCreatingOrderOrFee() {
         doAnswer(call -> {
-                    var original = admitted(call.getArgument(0));
-                    return new OrderAdmissionDTO(
-                            original.admissionId(),
-                            original.orderId(),
-                            original.payeeMerchantId(),
-                            original.decision(),
-                            original.reasonCode(),
-                            original.requestDigest(),
-                            original.contractId(),
-                            1,
-                            1L,
-                            original.snapshotHash(),
-                            original.compiledTermsHash(),
-                            BusinessTime.external(now.minusMinutes(5)),
-                            BusinessTime.external(now),
-                            original.terms());
-                })
+            var original = admitted(call.getArgument(0));
+            return new OrderAdmissionDTO(
+                    original.admissionId(),
+                    original.orderId(),
+                    original.payeeMerchantId(),
+                    original.decision(),
+                    original.reasonCode(),
+                    original.requestDigest(),
+                    original.contractId(),
+                    1,
+                    1L,
+                    original.snapshotHash(),
+                    original.compiledTermsHash(),
+                    BusinessTime.external(now.minusMinutes(5)),
+                    BusinessTime.external(now),
+                    original.terms());
+        })
                 .when(product)
                 .authorize(any());
         assertSame(
@@ -368,7 +428,7 @@ class OrderCreationServiceTest {
     @Test
     void aMismatchedAdmissionCannotMaterializeTheOrder() {
         doAnswer(call -> admitted(new io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand(
-                        "wrong-order", "merchant", "scope", "a".repeat(64), 10000, "CNY", null)))
+                "wrong-order", "merchant", "scope", "a".repeat(64), 10000, "CNY", null)))
                 .when(product)
                 .authorize(any());
         assertSame(
@@ -396,9 +456,9 @@ class OrderCreationServiceTest {
     @Test
     void aCompetingA0InsertIsRereadAfterRollbackWithTheWinningOrderId() {
         doAnswer(call -> {
-                    intent.set(call.getArgument(1));
-                    throw new DuplicateKeyException("synthetic competing insert");
-                })
+            intent.set(call.getArgument(1));
+            throw new DuplicateKeyException("synthetic competing insert");
+        })
                 .when(store)
                 .insertIntent(eq("tenant"), any());
         var result = service.create(command);
@@ -533,20 +593,20 @@ class OrderCreationServiceTest {
     @Test
     void checkoutDenialNeverPersistsAnOrderOrInitialSession() {
         doAnswer(call -> new OrderAdmissionDTO(
-                        "admission",
-                        intent.get().orderId(),
-                        "merchant",
-                        AdmissionDecision.DENIED,
-                        "CONTRACT_NOT_ADMISSIBLE",
-                        "a".repeat(64),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null))
+                "admission",
+                intent.get().orderId(),
+                "merchant",
+                AdmissionDecision.DENIED,
+                "CONTRACT_NOT_ADMISSIBLE",
+                "a".repeat(64),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null))
                 .when(product)
                 .authorize(any());
         assertSame(
@@ -568,23 +628,23 @@ class OrderCreationServiceTest {
     @Test
     void checkoutAtMaterializationCutoffNeverPersistsAnInitialSession() {
         doAnswer(call -> {
-                    var original = admitted(call.getArgument(0));
-                    return new OrderAdmissionDTO(
-                            original.admissionId(),
-                            original.orderId(),
-                            original.payeeMerchantId(),
-                            original.decision(),
-                            original.reasonCode(),
-                            original.requestDigest(),
-                            original.contractId(),
-                            1,
-                            1L,
-                            original.snapshotHash(),
-                            original.compiledTermsHash(),
-                            BusinessTime.external(now.minusMinutes(5)),
-                            BusinessTime.external(now),
-                            original.terms());
-                })
+            var original = admitted(call.getArgument(0));
+            return new OrderAdmissionDTO(
+                    original.admissionId(),
+                    original.orderId(),
+                    original.payeeMerchantId(),
+                    original.decision(),
+                    original.reasonCode(),
+                    original.requestDigest(),
+                    original.contractId(),
+                    1,
+                    1L,
+                    original.snapshotHash(),
+                    original.compiledTermsHash(),
+                    BusinessTime.external(now.minusMinutes(5)),
+                    BusinessTime.external(now),
+                    original.terms());
+        })
                 .when(product)
                 .authorize(any());
         assertSame(
@@ -621,23 +681,23 @@ class OrderCreationServiceTest {
     @Test
     void admittedButAlreadyDueCheckoutCommitsAnUnpayableRejection() {
         doAnswer(c -> {
-                    var original = admitted(c.getArgument(0));
-                    return new OrderAdmissionDTO(
-                            original.admissionId(),
-                            original.orderId(),
-                            original.payeeMerchantId(),
-                            original.decision(),
-                            original.reasonCode(),
-                            original.requestDigest(),
-                            original.contractId(),
-                            original.revision(),
-                            original.generation(),
-                            original.snapshotHash(),
-                            original.compiledTermsHash(),
-                            BusinessTime.external(now.minusMinutes(15)),
-                            BusinessTime.external(now.plusMinutes(5)),
-                            original.terms());
-                })
+            var original = admitted(c.getArgument(0));
+            return new OrderAdmissionDTO(
+                    original.admissionId(),
+                    original.orderId(),
+                    original.payeeMerchantId(),
+                    original.decision(),
+                    original.reasonCode(),
+                    original.requestDigest(),
+                    original.contractId(),
+                    original.revision(),
+                    original.generation(),
+                    original.snapshotHash(),
+                    original.compiledTermsHash(),
+                    BusinessTime.external(now.minusMinutes(15)),
+                    BusinessTime.external(now.plusMinutes(5)),
+                    original.terms());
+        })
                 .when(product)
                 .authorize(any());
         assertSame(

@@ -22,14 +22,6 @@ import io.github.loadup.pay.common.DomainChecks;
 import java.util.Objects;
 
 public record ChannelPaymentOutcome(Kind kind, ChannelPaymentIdentity identity, Money amount, String evidenceId) {
-    public enum Kind {
-        ACCEPTED,
-        SUCCEEDED,
-        NO_COLLECTION,
-        UNKNOWN,
-        CLOSED_WITH_FUNDS_RETURNED
-    }
-
     public ChannelPaymentOutcome {
         Objects.requireNonNull(kind);
         Objects.requireNonNull(identity);
@@ -41,5 +33,13 @@ public record ChannelPaymentOutcome(Kind kind, ChannelPaymentIdentity identity, 
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum Kind {
+        ACCEPTED,
+        SUCCEEDED,
+        NO_COLLECTION,
+        UNKNOWN,
+        CLOSED_WITH_FUNDS_RETURNED
     }
 }

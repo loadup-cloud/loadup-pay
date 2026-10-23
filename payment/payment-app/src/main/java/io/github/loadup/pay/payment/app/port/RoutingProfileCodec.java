@@ -19,7 +19,10 @@ import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 
 public interface RoutingProfileCodec {
     String encode(RoutingProfileSpec spec);
+
     RoutingProfileSpec decode(String payload, String expectedHash);
+
     String checksum(String payload);
+
     String requestDigest(String tenantId, String callerServiceId, String requestKey, String contentHash);
 }

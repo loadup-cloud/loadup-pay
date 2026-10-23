@@ -15,17 +15,29 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 public record PaymentResultAnomaly(String id, String paymentId, String attemptId, String receiptId, String reasonCode,
-        String factsDigest, @DiagnosticHidden String observationPayload, LocalDateTime receivedAt) {
+                                   String factsDigest, @DiagnosticHidden String observationPayload,
+                                   LocalDateTime receivedAt) {
     public PaymentResultAnomaly {
-        DomainChecks.id(id); DomainChecks.id(paymentId); DomainChecks.id(attemptId); DomainChecks.id(receiptId);
-        DomainChecks.text(reasonCode, 64); DomainChecks.text(factsDigest, 64);
-        DomainChecks.text(observationPayload, 32768); Objects.requireNonNull(receivedAt);
+        DomainChecks.id(id);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(attemptId);
+        DomainChecks.id(receiptId);
+        DomainChecks.text(reasonCode, 64);
+        DomainChecks.text(factsDigest, 64);
+        DomainChecks.text(observationPayload, 32768);
+        Objects.requireNonNull(receivedAt);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,20 +17,44 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.*;
-import io.github.loadup.pay.payment.app.converter.*;
-import io.github.loadup.pay.payment.app.model.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.pay.payment.app.model.LockedPayment;
+import io.github.loadup.pay.payment.app.model.PaymentResultApplication;
 import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.*;
+import java.util.Objects;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
 
 /**
  * Y3 internal use case. Call only with authenticated, account-verified adapter facts.
@@ -51,15 +75,27 @@ public class PaymentResultService {
     private final PaymentResultEvents events;
     private final IdGenerator ids;
     private final Clock clock;
+
     public PaymentResultService(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
-            PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentExecutionLocks locks,
-            PaymentAcceptanceTransactions transactions, PaymentResultCodec codec, PaymentResultConverter converter,
-            PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentResultEvents events,
-            IdGenerator ids, @Qualifier("paymentClock") Clock clock) {
-        this.payments = payments; this.changes = changes; this.attempts = attempts; this.results = results;
-        this.locks = locks; this.transactions = transactions; this.codec = codec; this.converter = converter;
-        this.updates = updates; this.views = views; this.events = events; this.ids = ids; this.clock = clock;
+                                PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentExecutionLocks locks,
+                                PaymentAcceptanceTransactions transactions, PaymentResultCodec codec, PaymentResultConverter converter,
+                                PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentResultEvents events,
+                                IdGenerator ids, @Qualifier("paymentClock") Clock clock) {
+        this.payments = payments;
+        this.changes = changes;
+        this.attempts = attempts;
+        this.results = results;
+        this.locks = locks;
+        this.transactions = transactions;
+        this.codec = codec;
+        this.converter = converter;
+        this.updates = updates;
+        this.views = views;
+        this.events = events;
+        this.ids = ids;
+        this.clock = clock;
     }
+
     public PaymentResultApplication record(String tenant, PaymentObservation observation) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (observation == null) throw new CommonException(INVALID_ARGUMENT);
@@ -72,6 +108,7 @@ public class PaymentResultService {
             return transactions.write(tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
         });
     }
+
     private PaymentResultApplication apply(String tenant, String caller, PaymentObservation observation, String digest, String payload) {
         var locked = locks.lock(tenant, observation.identity().paymentId(), caller);
         var accepted = locked.payment();
@@ -106,8 +143,9 @@ public class PaymentResultService {
         return receipt(tenant, changed, receiptId, observation, digest, payload,
                 updated.equals(attempt) ? IGNORED : APPLIED, null);
     }
+
     private PaymentResultApplication success(String tenant, LockedPayment locked, StoredPaymentAttempt attempt,
-            String id, PaymentObservation observation, String digest, String payload) {
+                                             String id, PaymentObservation observation, String digest, String payload) {
         var accepted = locked.payment();
         if (accepted.payment().state() == PaymentState.FAILED || accepted.payment().state() == PaymentState.CLOSED
                 || attempt.attempt().canSafelyReplace())
@@ -139,8 +177,9 @@ public class PaymentResultService {
         events.publish(tenant, succeeded, locked.gate().gate().state() == GateState.FENCED, now());
         return applied;
     }
+
     private PaymentResultApplication noCollection(String tenant, LockedPayment locked, StoredPaymentAttempt attempt,
-            String id, PaymentObservation observation, String digest, String payload) {
+                                                  String id, PaymentObservation observation, String digest, String payload) {
         var accepted = locked.payment();
         if (accepted.payment().state() == PaymentState.SUCCEEDED || attempt.attempt().state() == PaymentAttemptState.SUCCEEDED)
             return reject(tenant, accepted, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
@@ -163,6 +202,7 @@ public class PaymentResultService {
         events.publish(tenant, failed, true, now());
         return applied;
     }
+
     private String mismatch(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored, PaymentObservation observation) {
         var attempt = stored.attempt();
         if (!attempt.identity().equals(observation.identity())
@@ -172,16 +212,19 @@ public class PaymentResultService {
                 || !accepted.payment().amount().equals(attempt.amount())
                 || !accepted.requestDigest().equals(stored.paymentRequestDigest())
                 || !accepted.payment().limitOperationId().equals(stored.limitOperationId())
-                || !accepted.callerServiceId().equals(stored.callerServiceId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !accepted.callerServiceId().equals(stored.callerServiceId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         if (!attempt.amount().equals(observation.amount())) return "PAYMENT_AMOUNT_MISMATCH";
         if (attempt.executionEpoch() == 0) return "OBSERVATION_BEFORE_SUBMISSION";
         return null;
     }
+
     private boolean matches(String tenant, ChannelTransactionClaim claim, PaymentObservation observation) {
         return claim.tenantId().equals(tenant) && claim.identity().equals(observation.identity())
                 && claim.amount().equals(observation.amount()) && claim.channelTransactionNo().equals(observation.channelTransactionNo())
                 && claim.succeededAt().equals(observation.succeededAt());
     }
+
     private void requireCapacity(String tenant, StoredPaymentAcceptance accepted, LocalDateTime succeededAt) {
         var capacity = results.capacity(tenant, accepted.payment().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!capacity.orderId().equals(accepted.payment().orderId())
@@ -189,28 +232,39 @@ public class PaymentResultService {
                 || !capacity.succeededAmount().equals(accepted.payment().amount()) || !capacity.succeededAt().equals(succeededAt))
             throw new CommonException(SNAPSHOT_INVALID);
     }
+
     private ChannelPaymentOutcome outcome(PaymentObservation observation, String evidenceId) {
         return new ChannelPaymentOutcome(observation.kind(), observation.identity(), observation.amount(), evidenceId);
     }
+
     private PaymentResultApplication reject(String tenant, StoredPaymentAcceptance accepted, String id,
-            PaymentObservation observation, String digest, String payload, String reason) {
+                                            PaymentObservation observation, String digest, String payload, String reason) {
         receipt(tenant, accepted, id, observation, digest, payload, CONFLICT, reason);
         return anomaly(tenant, accepted, id, observation, digest, payload, reason);
     }
+
     private PaymentResultApplication anomaly(String tenant, StoredPaymentAcceptance accepted, String receiptId,
-            PaymentObservation observation, String digest, String payload, String reason) {
+                                             PaymentObservation observation, String digest, String payload, String reason) {
         results.recordAnomaly(tenant, new PaymentResultAnomaly(ids.generate(), accepted.payment().id(),
                 observation.identity().attemptId(), receiptId, reason, digest, payload, now()));
         return present(CONFLICT, receiptId, accepted);
     }
+
     private PaymentResultApplication receipt(String tenant, StoredPaymentAcceptance accepted, String id,
-            PaymentObservation observation, String digest, String payload, PaymentReceiptDisposition disposition, String reason) {
+                                             PaymentObservation observation, String digest, String payload, PaymentReceiptDisposition disposition, String reason) {
         results.insertReceipt(tenant, converter.toReceipt(id, observation, digest, payload, disposition, reason, now()));
         return present(disposition, id, accepted);
     }
+
     private PaymentResultApplication present(PaymentReceiptDisposition disposition, String receiptId, StoredPaymentAcceptance accepted) {
         return new PaymentResultApplication(disposition, receiptId, views.toDTO(accepted));
     }
-    private boolean terminal(PaymentState state) { return state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED; }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()); }
+
+    private boolean terminal(PaymentState state) {
+        return state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED;
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
 }

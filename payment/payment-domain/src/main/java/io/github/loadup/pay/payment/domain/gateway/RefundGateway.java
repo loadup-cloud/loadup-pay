@@ -15,18 +15,33 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
+import io.github.loadup.pay.payment.domain.model.RefundRequestReference;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+
 import java.util.List;
 import java.util.Optional;
 
-/** The caller owns the parent gate lock and one writable payment transaction. */
+/**
+ * The caller owns the parent gate lock and one writable payment transaction.
+ */
 public interface RefundGateway {
     Optional<RefundRequestReference> reference(String tenant, String id);
+
     Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String merchantRefundNo);
+
     StoredRefundRequest load(String tenant, String id);
+
     StoredRefundRequest lock(String tenant, String id);
-    /** Ascending paymentId locks; FIFO sorting happens only after every capacity is locked. */
+
+    /**
+     * Ascending paymentId locks; FIFO sorting happens only after every capacity is locked.
+     */
     List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId);
-    /** Request, immutable plan, stable children and all capacity CAS writes are one local transaction. */
+
+    /**
+     * Request, immutable plan, stable children and all capacity CAS writes are one local transaction.
+     */
     void insertPlan(String tenant, StoredRefundRequest value, List<RefundCapacityReservation> reservations);
 }

@@ -18,7 +18,9 @@ package io.github.loadup.pay.acquire.client.facade;
 import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
 import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
 
-/** Merchant API creation followed by one idempotent payment action, without a hosted session. */
+/**
+ * Merchant API creation followed by one idempotent payment action, without a hosted session.
+ */
 public interface DirectPaymentFacade {
     DirectPayDTO directPay(DirectPayCommand command);
 }

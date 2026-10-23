@@ -16,32 +16,48 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class RefundResultCodecImplTest {
     final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
     final PaymentAcceptanceCodec hashes = mock(PaymentAcceptanceCodec.class);
     final RefundResultCodecImpl codec = new RefundResultCodecImpl(json, hashes);
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         when(hashes.checksum(anyString())).thenAnswer(c -> HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                .digest(((String)c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
+                .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
     }
+
     RefundObservation observation(String originalTransaction, String refundTransaction, long amount, String key) {
         return new RefundObservation("refund", new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request"),
                 "refund-request", originalTransaction, ChannelRefundOutcome.Kind.SUCCEEDED, DomainChecks.amount(amount, "CNY"), refundTransaction,
                 LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789), RefundObservation.Source.CALLBACK, key, "b".repeat(64));
     }
-    @Test void financialDigestBindsOriginalAndRefundTransactionsAndExactLongAmount() {
+
+    @Test
+    void financialDigestBindsOriginalAndRefundTransactionsAndExactLongAmount() {
         var original = observation("original-transaction", "refund-transaction", 9007199254740993L, "event");
         var digest = codec.factsDigest(original);
         assertTrue(digest.matches("[0-9a-f]{64}"));
@@ -51,11 +67,15 @@ class RefundResultCodecImplTest {
         assertEquals(digest, codec.factsDigest(observation("original-transaction", "refund-transaction", 9007199254740993L, "other-delivery")));
         assertEquals(123456000, original.succeededAt().getNano());
     }
-    @Test void retainedNormalizedPayloadRoundTripsWithoutAmountPrecisionLoss() {
+
+    @Test
+    void retainedNormalizedPayloadRoundTripsWithoutAmountPrecisionLoss() {
         var original = observation("original-transaction", "refund-transaction", 9007199254740993L, "event");
         assertEquals(original, json.readValue(codec.encode(original), RefundObservation.class));
     }
-    @Test void missingRefundTransactionOrSuccessTimeCannotBeVerifiedSuccess() {
+
+    @Test
+    void missingRefundTransactionOrSuccessTimeCannotBeVerifiedSuccess() {
         var original = observation("original-transaction", "refund-transaction", 1000, "event");
         assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(),
                 original.originalChannelTransactionNo(), original.kind(), original.amount(), null, original.succeededAt(),

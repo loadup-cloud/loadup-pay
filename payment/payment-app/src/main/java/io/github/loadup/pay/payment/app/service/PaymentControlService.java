@@ -18,24 +18,46 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.app.security.*;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
+import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.time.*;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentControlService implements PaymentControlFacade {
@@ -222,7 +244,8 @@ public class PaymentControlService implements PaymentControlFacade {
                                 || !order.payeeMerchantId().equals(attempt.attempt().binding().payeeMerchantId())
                                 || !order.limitOperationId().equals(attempt.limitOperationId())
                                 || !previous.requestDigest().equals(attempt.paymentRequestDigest())
-                                || !actor.serviceId().equals(attempt.callerServiceId())) throw new CommonException(SNAPSHOT_INVALID);
+                                || !actor.serviceId().equals(attempt.callerServiceId()))
+                            throw new CommonException(SNAPSHOT_INVALID);
                         evidence = ids.generate();
                         attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
                         updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
@@ -376,6 +399,7 @@ public class PaymentControlService implements PaymentControlFacade {
     private void validate(Object value) {
         if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
     }
+
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }

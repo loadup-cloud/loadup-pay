@@ -23,24 +23,37 @@ import io.github.loadup.pay.acquire.infrastructure.converter.PaymentEventStorage
 import io.github.loadup.pay.acquire.infrastructure.mapper.PaymentEventReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.PAYMENT_EVENT_RECEIPT_DO;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
 @Repository
 public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGateway {
     private final PaymentEventReceiptDOMapper mapper;
     private final PaymentEventStorageConverter converter;
+
     public PaymentEventReceiptGatewayImpl(PaymentEventReceiptDOMapper mapper, PaymentEventStorageConverter converter) {
-        this.mapper = mapper; this.converter = converter;
+        this.mapper = mapper;
+        this.converter = converter;
     }
-    @Override public Optional<PaymentEventReceipt> find(String tenant, String deliveryId) {
+
+    @Override
+    public Optional<PaymentEventReceipt> find(String tenant, String deliveryId) {
         var row = mapper.selectOneByQuery(QueryWrapper.create().where(PAYMENT_EVENT_RECEIPT_DO.TENANT_ID.eq(tenant))
                 .and(PAYMENT_EVENT_RECEIPT_DO.DELETED.eq(0)).and(PAYMENT_EVENT_RECEIPT_DO.DELIVERY_ID.eq(deliveryId)));
-        try { return Optional.ofNullable(row).map(converter::toDomain); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insert(String tenant, PaymentEventReceipt receipt) {
+
+    @Override
+    public void insert(String tenant, PaymentEventReceipt receipt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (mapper.insert(converter.toDO(tenant, receipt)) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }

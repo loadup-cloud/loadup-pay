@@ -21,7 +21,9 @@ import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** A trusted parent-fence acknowledgement, separate from per-payment convergence. */
+/**
+ * A trusted parent-fence acknowledgement, separate from per-payment convergence.
+ */
 public record ParentCloseEvidence(String orderId, long closeEpoch, boolean fenced, boolean allChildrenConverged) {
     public ParentCloseEvidence {
         DomainChecks.id(orderId);

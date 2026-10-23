@@ -17,6 +17,7 @@ package io.github.loadup.pay.product.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.util.Set;
 
 public record PublicationActor(String tenantId, String principalId, Set<String> permissions) {

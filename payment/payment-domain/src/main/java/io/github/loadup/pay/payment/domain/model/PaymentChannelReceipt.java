@@ -15,24 +15,37 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
+
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record PaymentChannelReceipt(String id, ChannelPaymentIdentity identity, PaymentObservation.Source source,
-        String receiptKey, String factsDigest, String sourceDigest, @DiagnosticHidden String observationPayload,
-        PaymentReceiptDisposition disposition, String reasonCode, LocalDateTime receivedAt) {
+                                    String receiptKey, String factsDigest, String sourceDigest,
+                                    @DiagnosticHidden String observationPayload,
+                                    PaymentReceiptDisposition disposition, String reasonCode,
+                                    LocalDateTime receivedAt) {
     public PaymentChannelReceipt {
-        DomainChecks.id(id); Objects.requireNonNull(identity); Objects.requireNonNull(source);
-        DomainChecks.text(receiptKey, 128); DomainChecks.text(observationPayload, 32768);
+        DomainChecks.id(id);
+        Objects.requireNonNull(identity);
+        Objects.requireNonNull(source);
+        DomainChecks.text(receiptKey, 128);
+        DomainChecks.text(observationPayload, 32768);
         require(factsDigest != null && factsDigest.matches("[0-9a-f]{64}")
                 && sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
-        Objects.requireNonNull(disposition); Objects.requireNonNull(receivedAt);
+        Objects.requireNonNull(disposition);
+        Objects.requireNonNull(receivedAt);
         if (reasonCode != null) DomainChecks.text(reasonCode, 64);
         require(disposition != PaymentReceiptDisposition.CONFLICT || reasonCode != null, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -16,18 +16,31 @@
 package io.github.loadup.pay.acquire.infrastructure.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.client.CheckoutPresentationImpl;
+import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
 import io.github.loadup.pay.common.BusinessTime;
 import org.junit.jupiter.api.Test;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.*;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HmacCheckoutTokensTest {
     final String oldSecret = "synthetic-v1-" + "a".repeat(32), newSecret = "synthetic-v2-" + "b".repeat(32);
@@ -67,8 +80,8 @@ class HmacCheckoutTokensTest {
         mac.init(new SecretKeySpec(oldSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         String expected = "session."
                 + Base64.getUrlEncoder()
-                        .withoutPadding()
-                        .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+                .withoutPadding()
+                .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
         assertEquals(expected, tokens.issue(session, nonce, "checkout", "v1"));
         assertTrue(tokens.matches(expected, stored(tokens, expected)));
     }

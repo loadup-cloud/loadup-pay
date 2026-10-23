@@ -17,86 +17,188 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("refund_request")
 public class RefundRequestDO extends BaseDO {
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private String merchantRefundNo;
-    public String getMerchantRefundNo() { return merchantRefundNo; }
-    public void setMerchantRefundNo(String value) { merchantRefundNo = value; }
-
     private String reasonCode;
-    public String getReasonCode() { return reasonCode; }
-    public void setReasonCode(String value) { reasonCode = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private String callerSubjectHash;
-    public String getCallerSubjectHash() { return callerSubjectHash; }
-    public void setCallerSubjectHash(String value) { callerSubjectHash = value; }
-
     private String admissionId;
-    public String getAdmissionId() { return admissionId; }
-    public void setAdmissionId(String value) { admissionId = value; }
-
     private Long amountMinor;
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private String allocationPolicy;
-    public String getAllocationPolicy() { return allocationPolicy; }
-    public void setAllocationPolicy(String value) { allocationPolicy = value; }
-
     private Integer planVersion;
-    public Integer getPlanVersion() { return planVersion; }
-    public void setPlanVersion(Integer value) { planVersion = value; }
-
     private String state;
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-
     private Long succeededMinor;
-    public Long getSucceededMinor() { return succeededMinor; }
-    public void setSucceededMinor(Long value) { succeededMinor = value; }
-
     private Long failedMinor;
-    public Long getFailedMinor() { return failedMinor; }
-    public void setFailedMinor(Long value) { failedMinor = value; }
-
     private Integer unknownCount;
-    public Integer getUnknownCount() { return unknownCount; }
-    public void setUnknownCount(Integer value) { unknownCount = value; }
-
-    @DiagnosticHidden private String refundTerms;
-    public String getRefundTerms() { return refundTerms; }
-    public void setRefundTerms(String value) { refundTerms = value; }
-
+    @DiagnosticHidden
+    private String refundTerms;
     private String termsHash;
-    public String getTermsHash() { return termsHash; }
-    public void setTermsHash(String value) { termsHash = value; }
-
     private LocalDateTime plannedAt;
-    public LocalDateTime getPlannedAt() { return plannedAt; }
-    public void setPlannedAt(LocalDateTime value) { plannedAt = value; }
-
     private Long rowVersion;
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public String getMerchantRefundNo() {
+        return merchantRefundNo;
+    }
+
+    public void setMerchantRefundNo(String value) {
+        merchantRefundNo = value;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public void setReasonCode(String value) {
+        reasonCode = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public String getCallerSubjectHash() {
+        return callerSubjectHash;
+    }
+
+    public void setCallerSubjectHash(String value) {
+        callerSubjectHash = value;
+    }
+
+    public String getAdmissionId() {
+        return admissionId;
+    }
+
+    public void setAdmissionId(String value) {
+        admissionId = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public String getAllocationPolicy() {
+        return allocationPolicy;
+    }
+
+    public void setAllocationPolicy(String value) {
+        allocationPolicy = value;
+    }
+
+    public Integer getPlanVersion() {
+        return planVersion;
+    }
+
+    public void setPlanVersion(Integer value) {
+        planVersion = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    public Long getSucceededMinor() {
+        return succeededMinor;
+    }
+
+    public void setSucceededMinor(Long value) {
+        succeededMinor = value;
+    }
+
+    public Long getFailedMinor() {
+        return failedMinor;
+    }
+
+    public void setFailedMinor(Long value) {
+        failedMinor = value;
+    }
+
+    public Integer getUnknownCount() {
+        return unknownCount;
+    }
+
+    public void setUnknownCount(Integer value) {
+        unknownCount = value;
+    }
+
+    public String getRefundTerms() {
+        return refundTerms;
+    }
+
+    public void setRefundTerms(String value) {
+        refundTerms = value;
+    }
+
+    public String getTermsHash() {
+        return termsHash;
+    }
+
+    public void setTermsHash(String value) {
+        termsHash = value;
+    }
+
+    public LocalDateTime getPlannedAt() {
+        return plannedAt;
+    }
+
+    public void setPlannedAt(LocalDateTime value) {
+        plannedAt = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

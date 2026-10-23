@@ -17,9 +17,12 @@ package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderExtendCommand;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
-import org.mapstruct.*;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderExtensionConverter {
@@ -30,6 +33,6 @@ public interface OrderExtensionConverter {
     @Mapping(target = "previousDueAt", source = "original.orderDueAt")
     @Mapping(target = "requestedDueAt", source = "requestedDueAt")
     OrderExtensionReceipt toReceipt(AcquireOrderExtendCommand command, AcquireOrder original,
-            String receiptId, String callerScopeHash, String requestDigest, LocalDateTime originalDueAt,
-            LocalDateTime requestedDueAt, long deadlineVersion, LocalDateTime appliedAt);
+                                    String receiptId, String callerScopeHash, String requestDigest, LocalDateTime originalDueAt,
+                                    LocalDateTime requestedDueAt, long deadlineVersion, LocalDateTime appliedAt);
 }

@@ -15,22 +15,31 @@
  */
 package io.github.loadup.pay.payment.domain;
 
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OrderRefundSummaryTest {
-    @Test void independentRequestsShareOneMonotonicMonetaryVersionWithoutChangingTheOrderTotal() {
+    @Test
+    void independentRequestsShareOneMonotonicMonetaryVersionWithoutChangingTheOrderTotal() {
         var initial = OrderRefundSummary.init("order", "merchant", DomainChecks.amount(10000, "CNY"));
         var held = initial.reserve(6000).reserve(1000);
         var succeeded = held.settle(2000, true);
         var failed = succeeded.settle(1000, false);
-        assertEquals(10000, failed.orderAmount().getCent()); assertEquals(2000, failed.refundedMinor());
-        assertEquals(4000, failed.reservedMinor()); assertEquals(4, failed.version());
-        assertEquals(0, initial.version()); assertEquals(0, initial.reservedMinor());
+        assertEquals(10000, failed.orderAmount().getCent());
+        assertEquals(2000, failed.refundedMinor());
+        assertEquals(4000, failed.reservedMinor());
+        assertEquals(4, failed.version());
+        assertEquals(0, initial.version());
+        assertEquals(0, initial.reservedMinor());
     }
-    @Test void totalAndOriginalHoldsBoundEveryReservationAndSettlement() {
+
+    @Test
+    void totalAndOriginalHoldsBoundEveryReservationAndSettlement() {
         var held = OrderRefundSummary.init("order", "merchant", DomainChecks.amount(1000, "CNY")).reserve(800);
         assertThrows(DomainViolation.class, () -> held.reserve(201));
         assertThrows(DomainViolation.class, () -> held.settle(801, true));

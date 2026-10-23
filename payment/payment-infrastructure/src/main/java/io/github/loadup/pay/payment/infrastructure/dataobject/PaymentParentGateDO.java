@@ -17,34 +17,67 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
-import java.time.LocalDateTime;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("payment_parent_gate")
 public class PaymentParentGateDO extends BaseDO {
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-
     private String state;
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-
     private Long closeEpoch;
-    public Long getCloseEpoch() { return closeEpoch; }
-    public void setCloseEpoch(Long value) { closeEpoch = value; }
-
     private Long rowVersion;
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    public Long getCloseEpoch() {
+        return closeEpoch;
+    }
+
+    public void setCloseEpoch(Long value) {
+        closeEpoch = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

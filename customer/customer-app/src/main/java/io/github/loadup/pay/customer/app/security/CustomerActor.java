@@ -18,9 +18,12 @@ package io.github.loadup.pay.customer.app.security;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
+
 import java.util.Objects;
 
-/** Identity facts established by the transport's verified credentials. */
+/**
+ * Identity facts established by the transport's verified credentials.
+ */
 public record CustomerActor(
         String tenantId, PrincipalType principalType, String principalId, String merchantId, boolean canManage) {
     public CustomerActor {

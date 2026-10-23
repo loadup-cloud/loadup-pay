@@ -16,15 +16,28 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.outbox.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
-import io.github.loadup.pay.common.BusinessTime;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PaymentAcquireOutcomeDeliveryTest {
     final PaymentOutcomeDeliverySupport support = mock(PaymentOutcomeDeliverySupport.class);
@@ -32,7 +45,9 @@ class PaymentAcquireOutcomeDeliveryTest {
     final PaymentAcquireOutcomeDelivery delivery = new PaymentAcquireOutcomeDelivery(support, acquire);
     final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.ACQUIRE, 1, "payment", "{}"),
             OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE).envelope().occurredAt().toInstant(), null);
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         when(support.load(event, PaymentResultEvents.ACQUIRE)).thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE));
         when(acquire.supportsTenant("tenant")).thenReturn(true);
         when(acquire.accept(eq("tenant"), any())).thenAnswer(c -> {
@@ -40,27 +55,38 @@ class PaymentAcquireOutcomeDeliveryTest {
             return new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "evidence", 2, true);
         });
     }
-    @Test void originalEnvelopeAndIdempotencyIdentityAreRetainedAcrossRetry() {
-        delivery.deliver(event); delivery.deliver(event);
+
+    @Test
+    void originalEnvelopeAndIdempotencyIdentityAreRetainedAcrossRetry() {
+        delivery.deliver(event);
+        delivery.deliver(event);
         verify(acquire, times(2)).accept("tenant", OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE).envelope());
     }
-    @Test void wrongPaymentVersionOrDeliveryCannotCompleteTheQueue() {
+
+    @Test
+    void wrongPaymentVersionOrDeliveryCannotCompleteTheQueue() {
         when(acquire.accept(eq("tenant"), any())).thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 3, "evidence", 2, true));
         assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> delivery.deliver(event)).getResultCode());
         when(acquire.accept(eq("tenant"), any())).thenReturn(new PaymentOutcomeAckDTO("other-delivery", "evidence", "payment", 2, "evidence", 2, true));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
     }
-    @Test void rejectedOrMismatchedEvidenceAckIsNotASuccessfulDelivery() {
+
+    @Test
+    void rejectedOrMismatchedEvidenceAckIsNotASuccessfulDelivery() {
         when(acquire.accept(eq("tenant"), any())).thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "other-proof", 2, true));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
         when(acquire.accept(eq("tenant"), any())).thenReturn(new PaymentOutcomeAckDTO("delivery", "evidence", "payment", 2, "evidence", 2, false));
         assertThrows(CommonException.class, () -> delivery.deliver(event));
     }
-    @Test void downstreamFailurePropagatesForIndependentOutboxRetry() {
+
+    @Test
+    void downstreamFailurePropagatesForIndependentOutboxRetry() {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(acquire).accept(anyString(), any());
         assertThrows(CommonException.class, () -> delivery.deliver(event));
     }
-    @Test void unconfiguredTenantCannotSendAnEventUsingAnotherTenantsCredential() {
+
+    @Test
+    void unconfiguredTenantCannotSendAnEventUsingAnotherTenantsCredential() {
         when(acquire.supportsTenant("tenant")).thenReturn(false);
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> delivery.deliver(event)).getResultCode());
         verify(acquire, never()).accept(anyString(), any());

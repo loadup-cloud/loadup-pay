@@ -16,10 +16,17 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
 import io.github.loadup.pay.payment.client.command.RefundCreateCommand;
-import io.github.loadup.pay.payment.client.dto.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.payment.client.dto.RefundAllocationDTO;
+import io.github.loadup.pay.payment.client.dto.RefundRequestDTO;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,7 +36,7 @@ public interface RefundPlanningConverter {
     @Mapping(target = "reasonCode", source = "command.reasonCode")
     @Mapping(target = "requestDigest", source = "digest")
     StoredRefundRequest toStored(RefundRequest request, RefundCreateCommand command, String digest, String callerSubjectHash,
-            String admissionId, String termsPayload, String termsHash, LocalDateTime plannedAt, List<StoredRefundChild> allocations);
+                                 String admissionId, String termsPayload, String termsHash, LocalDateTime plannedAt, List<StoredRefundChild> allocations);
 
     @Mapping(target = "refund", source = "refund")
     @Mapping(target = "original", source = "claim.identity")
@@ -41,6 +48,7 @@ public interface RefundPlanningConverter {
     @Mapping(target = "amountMinor", source = "refund.amount.cent")
     @Mapping(target = "state", source = "refund.state")
     RefundAllocationDTO toAllocation(StoredRefundChild value);
+
     List<RefundAllocationDTO> toAllocations(List<StoredRefundChild> values);
 
     @Mapping(target = "refundRequestId", source = "request.id")

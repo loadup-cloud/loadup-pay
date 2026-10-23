@@ -16,9 +16,12 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PaymentControlStorageConverterTest {
     final AnnotationConfigApplicationContext context =

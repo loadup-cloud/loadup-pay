@@ -22,7 +22,9 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Versions are comparable only for the same producer and aggregate identity. */
+/**
+ * Versions are comparable only for the same producer and aggregate identity.
+ */
 public record SourceVersion(String producer, String aggregateType, String aggregateId, long number) {
     public SourceVersion {
         DomainChecks.text(producer, 32);

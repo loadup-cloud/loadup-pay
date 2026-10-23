@@ -17,92 +17,198 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("payment_input")
 public class PaymentInputDO extends BaseDO {
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String allocationId;
-    public String getAllocationId() { return allocationId; }
-    public void setAllocationId(String value) { allocationId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private Long amountMinor;
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private String inputKey;
-    public String getInputKey() { return inputKey; }
-    public void setInputKey(String value) { inputKey = value; }
-
     private String channel;
-    public String getChannel() { return channel; }
-    public void setChannel(String value) { channel = value; }
-
     private String method;
-    public String getMethod() { return method; }
-    public void setMethod(String value) { method = value; }
-
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-
     private String fingerprintKeyId;
-    public String getFingerprintKeyId() { return fingerprintKeyId; }
-    public void setFingerprintKeyId(String value) { fingerprintKeyId = value; }
-
     @DiagnosticHidden
     private String inputDigest;
-    public String getInputDigest() { return inputDigest; }
-    public void setInputDigest(String value) { inputDigest = value; }
-
     private String encryptionKey;
-    public String getEncryptionKey() { return encryptionKey; }
-    public void setEncryptionKey(String value) { encryptionKey = value; }
-
     private Integer encryptionVersion;
-    public Integer getEncryptionVersion() { return encryptionVersion; }
-    public void setEncryptionVersion(Integer value) { encryptionVersion = value; }
-
     @DiagnosticHidden
     private String ciphertext;
-    public String getCiphertext() { return ciphertext; }
-    public void setCiphertext(String value) { ciphertext = value; }
-
     private LocalDateTime preparedAt;
-    public LocalDateTime getPreparedAt() { return preparedAt; }
-    public void setPreparedAt(LocalDateTime value) { preparedAt = value; }
-
     private LocalDateTime expiresAt;
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime value) { expiresAt = value; }
-
     private String state;
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-
     private String boundAttemptId;
-    public String getBoundAttemptId() { return boundAttemptId; }
-    public void setBoundAttemptId(String value) { boundAttemptId = value; }
-
     private Long rowVersion;
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getAllocationId() {
+        return allocationId;
+    }
+
+    public void setAllocationId(String value) {
+        allocationId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public String getInputKey() {
+        return inputKey;
+    }
+
+    public void setInputKey(String value) {
+        inputKey = value;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String value) {
+        channel = value;
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String value) {
+        method = value;
+    }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public String getFingerprintKeyId() {
+        return fingerprintKeyId;
+    }
+
+    public void setFingerprintKeyId(String value) {
+        fingerprintKeyId = value;
+    }
+
+    public String getInputDigest() {
+        return inputDigest;
+    }
+
+    public void setInputDigest(String value) {
+        inputDigest = value;
+    }
+
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String value) {
+        encryptionKey = value;
+    }
+
+    public Integer getEncryptionVersion() {
+        return encryptionVersion;
+    }
+
+    public void setEncryptionVersion(Integer value) {
+        encryptionVersion = value;
+    }
+
+    public String getCiphertext() {
+        return ciphertext;
+    }
+
+    public void setCiphertext(String value) {
+        ciphertext = value;
+    }
+
+    public LocalDateTime getPreparedAt() {
+        return preparedAt;
+    }
+
+    public void setPreparedAt(LocalDateTime value) {
+        preparedAt = value;
+    }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(LocalDateTime value) {
+        expiresAt = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    public String getBoundAttemptId() {
+        return boundAttemptId;
+    }
+
+    public void setBoundAttemptId(String value) {
+        boundAttemptId = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

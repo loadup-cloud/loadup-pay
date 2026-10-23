@@ -15,10 +15,15 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+
 import java.util.Optional;
 
-/** Local storage only; the application owns the A0/A1 transaction boundaries. */
+/**
+ * Local storage only; the application owns the A0/A1 transaction boundaries.
+ */
 public interface OrderCreationGateway {
     Optional<OrderCreateIntent> findIntent(String tenant, String payee, String merchantOrderNo);
 

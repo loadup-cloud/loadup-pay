@@ -21,7 +21,9 @@ import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Only the trusted facts needed by the acquiring domain; full profile belongs to the reused merchant module. */
+/**
+ * Only the trusted facts needed by the acquiring domain; full profile belongs to the reused merchant module.
+ */
 public record MerchantFacts(String merchantId, boolean active, long version) {
     public MerchantFacts {
         DomainChecks.id(merchantId);

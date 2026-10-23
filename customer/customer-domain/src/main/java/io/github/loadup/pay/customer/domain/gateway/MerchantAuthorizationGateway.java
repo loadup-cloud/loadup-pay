@@ -22,7 +22,9 @@ import io.github.loadup.pay.customer.domain.model.PrincipalType;
 
 import java.util.Optional;
 
-/** Persistence port; application owns the transaction and adapters enforce explicit tenant isolation. */
+/**
+ * Persistence port; application owns the transaction and adapters enforce explicit tenant isolation.
+ */
 public interface MerchantAuthorizationGateway {
     Optional<MerchantRelationship> findRelationship(String tenantId, String relationshipId);
 
@@ -37,9 +39,13 @@ public interface MerchantAuthorizationGateway {
     Optional<MerchantActionGrant> findGrant(
             String tenantId, PrincipalType type, String principalId, String payeeMerchantId, MerchantAction action);
 
-    /** An expected version of -1 inserts a new resource; other values require a matching persisted version. */
+    /**
+     * An expected version of -1 inserts a new resource; other values require a matching persisted version.
+     */
     void saveRelationship(String tenantId, MerchantRelationship relationship, long expectedVersion);
 
-    /** An expected version of -1 inserts a new resource; other values require a matching persisted version. */
+    /**
+     * An expected version of -1 inserts a new resource; other values require a matching persisted version.
+     */
     void saveGrant(String tenantId, MerchantActionGrant grant, long expectedVersion);
 }

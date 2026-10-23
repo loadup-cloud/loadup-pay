@@ -15,15 +15,23 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PaymentMethod;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.require;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** Ciphertext and immutable use scope; raw payer input never enters a payment intent. */
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
+
+/**
+ * Ciphertext and immutable use scope; raw payer input never enters a payment intent.
+ */
 public record PaymentInput(
         @DiagnosticHidden String id, String paymentId, String orderId, String allocationId,
         String payeeMerchantId, Money amount, String inputKey, Channel channel, PaymentMethod method,
@@ -32,13 +40,23 @@ public record PaymentInput(
         LocalDateTime preparedAt, LocalDateTime expiresAt, PaymentInputState state,
         String boundAttemptId, long rowVersion) {
     public PaymentInput {
-        DomainChecks.id(id); DomainChecks.id(paymentId); DomainChecks.id(orderId);
-        DomainChecks.id(allocationId); DomainChecks.id(payeeMerchantId); DomainChecks.id(callerServiceId);
-        DomainChecks.text(inputKey, 128); DomainChecks.id(fingerprintKeyId);
-        DomainChecks.text(encryptionKey, 128); DomainChecks.text(ciphertext, 65536);
-        DomainChecks.amount(amount); DomainChecks.positive(amount.getCent());
-        Objects.requireNonNull(channel); Objects.requireNonNull(method); Objects.requireNonNull(state);
-        Objects.requireNonNull(preparedAt); Objects.requireNonNull(expiresAt);
+        DomainChecks.id(id);
+        DomainChecks.id(paymentId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(allocationId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.id(callerServiceId);
+        DomainChecks.text(inputKey, 128);
+        DomainChecks.id(fingerprintKeyId);
+        DomainChecks.text(encryptionKey, 128);
+        DomainChecks.text(ciphertext, 65536);
+        DomainChecks.amount(amount);
+        DomainChecks.positive(amount.getCent());
+        Objects.requireNonNull(channel);
+        Objects.requireNonNull(method);
+        Objects.requireNonNull(state);
+        Objects.requireNonNull(preparedAt);
+        Objects.requireNonNull(expiresAt);
         require(method == PaymentMethod.PAYMENT_CODE || method == PaymentMethod.JSAPI, INVALID_ARGUMENT);
         require(inputDigest != null && inputDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         require(encryptionVersion > 0 && expiresAt.isAfter(preparedAt) && rowVersion >= 0, INVALID_ARGUMENT);
@@ -46,7 +64,11 @@ public record PaymentInput(
         require((state == PaymentInputState.INIT && boundAttemptId == null && rowVersion == 0)
                 || (state == PaymentInputState.BOUND && boundAttemptId != null && rowVersion == 1), INVALID_ARGUMENT);
     }
-    public boolean expired(LocalDateTime now) { return !now.isBefore(expiresAt); }
+
+    public boolean expired(LocalDateTime now) {
+        return !now.isBefore(expiresAt);
+    }
+
     public PaymentInput bind(String attemptId, LocalDateTime now) {
         DomainChecks.id(attemptId);
         require(!expired(now), INVALID_ARGUMENT);
@@ -56,5 +78,9 @@ public record PaymentInput(
                 channel, method, callerServiceId, fingerprintKeyId, inputDigest, encryptionKey, encryptionVersion,
                 ciphertext, preparedAt, expiresAt, PaymentInputState.BOUND, attemptId, 1);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

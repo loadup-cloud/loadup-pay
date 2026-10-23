@@ -16,9 +16,19 @@
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.acquire.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderAdmissionProof;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCreateIntentDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderCreationStorageConverter {

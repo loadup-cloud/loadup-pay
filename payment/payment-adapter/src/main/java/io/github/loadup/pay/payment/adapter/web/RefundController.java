@@ -23,19 +23,27 @@ import io.github.loadup.pay.payment.client.facade.RefundFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/refunds")
 @Tag(name = "Merchant refunds")
 public class RefundController {
     private final RefundFacade refunds;
-    public RefundController(RefundFacade refunds) { this.refunds = refunds; }
+
+    public RefundController(RefundFacade refunds) {
+        this.refunds = refunds;
+    }
+
     @PostMapping("/create")
     @Operation(summary = "Reserve a fixed original-route refund plan or replay the merchant refund number")
     public SuccessResponse<RefundRequestDTO> create(@Valid @RequestBody RefundCreateCommand command) {
         return SuccessResponse.of(refunds.create(command));
     }
+
     @PostMapping("/detail")
     @Operation(summary = "Read the authenticated merchant's original refund request and fixed allocations")
     public SuccessResponse<RefundRequestDTO> detail(@Valid @RequestBody IdQuery query) {

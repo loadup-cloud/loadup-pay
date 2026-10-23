@@ -16,6 +16,7 @@
 package io.github.loadup.pay.product.domain.gateway;
 
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
+
 import java.util.Optional;
 
 public interface PolicyPublicationGateway {

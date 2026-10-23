@@ -18,7 +18,8 @@ package io.github.loadup.pay.acquire.infrastructure.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.PaymentEventReceiptDO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentEventStorageConverter {

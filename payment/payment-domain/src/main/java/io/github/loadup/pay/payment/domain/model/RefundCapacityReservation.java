@@ -16,17 +16,24 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.util.Objects;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RefundCapacityReservation(PaymentRefundCapacity previous, PaymentRefundCapacity reserved) {
     public RefundCapacityReservation {
-        Objects.requireNonNull(previous); Objects.requireNonNull(reserved);
+        Objects.requireNonNull(previous);
+        Objects.requireNonNull(reserved);
         require(previous.paymentId().equals(reserved.paymentId()) && previous.orderId().equals(reserved.orderId())
                 && previous.payeeMerchantId().equals(reserved.payeeMerchantId()) && previous.succeededAt().equals(reserved.succeededAt())
                 && previous.succeededAmount().equals(reserved.succeededAmount()) && previous.refundedMinor() == reserved.refundedMinor()
                 && reserved.reservedMinor() > previous.reservedMinor() && reserved.version() == Math.incrementExact(previous.version()), CONFLICT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -18,7 +18,8 @@ package io.github.loadup.pay.payment.infrastructure.client;
 import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.components.http.*;
+import io.github.loadup.components.http.HttpCall;
+import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.common.PayEventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
@@ -29,9 +30,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
 import java.util.Map;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 @Component
 public class PaymentAcquireHttpClient implements PaymentAcquireClient {
@@ -39,25 +44,39 @@ public class PaymentAcquireHttpClient implements PaymentAcquireClient {
     private final JsonMapper mapper;
     private final PaymentAcquireProperties properties;
     private final PaymentServiceTokenReader tokens;
+
     public PaymentAcquireHttpClient(HttpTemplate http, JsonMapper mapper, PaymentAcquireProperties properties,
-            @Qualifier("paymentClock") Clock clock) {
-        this.http = http; this.mapper = mapper; this.properties = properties; this.tokens = new PaymentServiceTokenReader(mapper, clock);
+                                    @Qualifier("paymentClock") Clock clock) {
+        this.http = http;
+        this.mapper = mapper;
+        this.properties = properties;
+        this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
-    @Override public boolean supportsTenant(String tenant) { return properties.tenantId().equals(tenant); }
-    @Override public PaymentOutcomeAckDTO accept(String tenant, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+
+    @Override
+    public boolean supportsTenant(String tenant) {
+        return properties.tenantId().equals(tenant);
+    }
+
+    @Override
+    public PaymentOutcomeAckDTO accept(String tenant, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
         if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         try {
             var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
             var response = http.exchange("acquire", "payment-outcome",
                     new HttpCall(Map.of(), Map.of(), Map.of("Authorization", "Bearer " + token), event));
-            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            var body = mapper.readValue(response.getBody(), new TypeReference<SuccessResponse<PaymentOutcomeAckDTO>>() {});
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null)
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            var body = mapper.readValue(response.getBody(), new TypeReference<SuccessResponse<PaymentOutcomeAckDTO>>() {
+            });
             if (body == null || body.result() == null || body.data() == null
                     || !CommonResultCodeEnum.SUCCESS.getCode().equals(body.result().getCode())
                     || !CommonResultCodeEnum.SUCCESS.getStatus().equals(body.result().getStatus()))
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return body.data();
-        } catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

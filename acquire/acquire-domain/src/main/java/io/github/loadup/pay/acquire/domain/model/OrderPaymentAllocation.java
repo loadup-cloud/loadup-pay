@@ -66,7 +66,9 @@ public record OrderPaymentAllocation(
         return transition(AllocationState.HELD, 0);
     }
 
-    /** Resolve an action-key replay before applying current order state or taking another amount hold. */
+    /**
+     * Resolve an action-key replay before applying current order state or taking another amount hold.
+     */
     public void requireSameAction(String expectedOrderId, PaymentIntent intent) {
         require(
                 orderId.equals(expectedOrderId)
@@ -80,7 +82,7 @@ public record OrderPaymentAllocation(
     public OrderPaymentAllocation transition(AllocationState target, long sourceVersion) {
         require(
                 state == AllocationState.HELD
-                                && (target == AllocationState.CONSUMED || target == AllocationState.RELEASED)
+                        && (target == AllocationState.CONSUMED || target == AllocationState.RELEASED)
                         || state == AllocationState.INIT && target == AllocationState.HELD,
                 INVALID_STATE);
         return new OrderPaymentAllocation(

@@ -17,34 +17,67 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
-import java.time.LocalDateTime;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("refund_allocation_plan")
 public class RefundAllocationPlanDO extends BaseDO {
     private String refundRequestId;
-    public String getRefundRequestId() { return refundRequestId; }
-    public void setRefundRequestId(String value) { refundRequestId = value; }
-
     private Integer planVersion;
-    public Integer getPlanVersion() { return planVersion; }
-    public void setPlanVersion(Integer value) { planVersion = value; }
-
     private Integer sequenceNo;
-    public Integer getSequenceNo() { return sequenceNo; }
-    public void setSequenceNo(Integer value) { sequenceNo = value; }
-
     private String paymentId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-
     private String refundId;
-    public String getRefundId() { return refundId; }
-    public void setRefundId(String value) { refundId = value; }
-
     private Long amountMinor;
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getRefundRequestId() {
+        return refundRequestId;
+    }
+
+    public void setRefundRequestId(String value) {
+        refundRequestId = value;
+    }
+
+    public Integer getPlanVersion() {
+        return planVersion;
+    }
+
+    public void setPlanVersion(Integer value) {
+        planVersion = value;
+    }
+
+    public Integer getSequenceNo() {
+        return sequenceNo;
+    }
+
+    public void setSequenceNo(Integer value) {
+        sequenceNo = value;
+    }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getRefundId() {
+        return refundId;
+    }
+
+    public void setRefundId(String value) {
+        refundId = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

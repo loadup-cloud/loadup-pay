@@ -16,25 +16,60 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.pay.common.Channel;
+import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.pay.common.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
-import io.github.loadup.pay.payment.app.security.*;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
-import io.github.loadup.pay.payment.domain.model.*;
-import jakarta.validation.*;
-import org.junit.jupiter.api.*;
+import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
-import java.util.*;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentInputServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -57,7 +92,9 @@ class PaymentInputServiceTest {
         return new PaymentInputPrepareCommand("payment", "order", "allocation", "merchant", 100, "CNY", "action",
                 new PaymentChoiceDTO(Channel.WECHAT, method), input);
     }
-    @BeforeEach void setup() {
+
+    @BeforeEach
+    void setup() {
         when(store.findByPayment("tenant", "payment")).thenAnswer(call -> Optional.ofNullable(persisted.get()));
         when(cipher.newReference()).thenReturn("opaque-reference");
         when(cipher.activeFingerprintKeyId()).thenReturn("v1");
@@ -69,12 +106,19 @@ class PaymentInputServiceTest {
         });
         doAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            persisted.set(call.getArgument(1)); return null;
+            persisted.set(call.getArgument(1));
+            return null;
         }).when(store).insert(eq("tenant"), any());
     }
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void preparesOnlyCiphertextOutsideLocksThenCommitsOneFixedScope() {
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void preparesOnlyCiphertextOutsideLocksThenCommitsOneFixedScope() {
         var result = service.prepare(command);
         assertEquals("opaque-reference", result.inputRef());
         assertEquals(LocalDateTime.now(clock).plusSeconds(120), persisted.get().expiresAt());
@@ -84,7 +128,9 @@ class PaymentInputServiceTest {
         assertFalse(persisted.get().toString().contains("vault:v2:"));
         assertEquals(1, manager.commits);
     }
-    @Test void replayKeepsOriginalReferenceAndExpiryWithoutKmsOrNewTransaction() {
+
+    @Test
+    void replayKeepsOriginalReferenceAndExpiryWithoutKmsOrNewTransaction() {
         var first = service.prepare(command);
         clearInvocations(cipher, store);
         assertEquals(first, service.prepare(command));
@@ -92,7 +138,9 @@ class PaymentInputServiceTest {
         verify(store, never()).insert(anyString(), any());
         assertEquals(1, manager.commits);
     }
-    @Test void fingerprintRotationReplaysUsingOriginalKeyAndDoesNotRenewExpiredInput() {
+
+    @Test
+    void fingerprintRotationReplaysUsingOriginalKeyAndDoesNotRenewExpiredInput() {
         var first = service.prepare(command);
         var later = new PaymentInputService(actor::get, store, cipher, context.getBean(PaymentInputConverter.class),
                 new PaymentAcceptanceTransactions(manager), validation.getValidator(),
@@ -102,14 +150,18 @@ class PaymentInputServiceTest {
         verify(cipher, times(2)).fingerprint("tenant", "acquire", command, "v1");
         verify(cipher, never()).fingerprint(anyString(), anyString(), any(), eq("v2"));
     }
-    @Test void changedSensitiveValueWithTheSamePaymentCannotReplaceTheOriginal() {
+
+    @Test
+    void changedSensitiveValueWithTheSamePaymentCannotReplaceTheOriginal() {
         service.prepare(command);
         var changed = command(PaymentMethod.PAYMENT_CODE, new PaymentCodeInteractionDTO("another-synthetic-code"));
         when(cipher.fingerprint("tenant", "acquire", changed, "v1")).thenReturn("b".repeat(64));
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.prepare(changed)).getResultCode());
         verify(store, times(1)).insert(anyString(), any());
     }
-    @Test void concurrentWinnerIsReplayedOnlyAfterTheLosingInsertRollsBack() {
+
+    @Test
+    void concurrentWinnerIsReplayedOnlyAfterTheLosingInsertRollsBack() {
         doAnswer(call -> {
             persisted.set(call.getArgument(1));
             throw new DuplicateKeyException("Synthetic input race");
@@ -119,7 +171,9 @@ class PaymentInputServiceTest {
         assertEquals(1, manager.commits);
         verify(cipher, times(1)).encrypt(anyString(), anyString(), anyString(), any());
     }
-    @Test void jsapiRequiresMatchingChannelWhileH5DoesNotUseInputPreparation() {
+
+    @Test
+    void jsapiRequiresMatchingChannelWhileH5DoesNotUseInputPreparation() {
         var invalid = command(PaymentMethod.JSAPI,
                 new ChannelIdentityInteractionDTO(Channel.ALIPAY, "synthetic-ticket", "application"));
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.prepare(invalid)).getResultCode());
@@ -127,21 +181,29 @@ class PaymentInputServiceTest {
                 () -> service.prepare(command(PaymentMethod.H5, new NoInteractionDTO()))).getResultCode());
         verifyNoInteractions(cipher, store);
     }
-    @Test void otherServiceOrMissingPermissionIsRejectedBeforeStorage() {
+
+    @Test
+    void otherServiceOrMissingPermissionIsRejectedBeforeStorage() {
         actor.set(new PaymentActor("tenant", "unrelated", Set.of("pay:payment:input:prepare")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.prepare(command)).getResultCode());
         actor.set(new PaymentActor("tenant", "acquire", Set.of()));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.prepare(command)).getResultCode());
         verifyNoInteractions(cipher, store);
     }
-    @Test void rejectsOuterTransactionBeforeEncryptingOrReadingDatabase() {
+
+    @Test
+    void rejectsOuterTransactionBeforeEncryptingOrReadingDatabase() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.prepare(command)).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(cipher, store);
     }
-    @Test void boundInputCannotBeReusedByAnotherAttemptOrAfterExpiry() {
+
+    @Test
+    void boundInputCannotBeReusedByAnotherAttemptOrAfterExpiry() {
         service.prepare(command);
         var original = persisted.get();
         var bound = original.bind("attempt", LocalDateTime.now(clock));

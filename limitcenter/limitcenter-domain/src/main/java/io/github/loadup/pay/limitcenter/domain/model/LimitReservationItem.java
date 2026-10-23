@@ -42,7 +42,9 @@ public record LimitReservationItem(
         return new LimitReservationItem(id, reservationId, bucket, reserved, reserved, 0);
     }
 
-    /** The cumulative snapshot is a high-water mark, so duplicates and older refunds restore no extra quota. */
+    /**
+     * The cumulative snapshot is a high-water mark, so duplicates and older refunds restore no extra quota.
+     */
     public LimitItemRestore restoreRefund(
             LimitReservation reservation,
             long cumulativeRefundedMinor,
@@ -66,7 +68,7 @@ public record LimitReservationItem(
         } else {
             require(reserved == 1, CONFLICT);
             target = countPolicy == RefundCountRestorePolicy.FULL_PAYMENT_REFUNDED_ONCE
-                            && cumulativeRefundedMinor == reservation.amount().getCent()
+                    && cumulativeRefundedMinor == reservation.amount().getCent()
                     ? 1
                     : 0;
         }

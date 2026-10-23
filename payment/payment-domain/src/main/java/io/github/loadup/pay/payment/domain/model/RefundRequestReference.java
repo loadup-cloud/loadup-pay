@@ -17,13 +17,20 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.common.DomainChecks;
-import static io.github.loadup.pay.common.DomainViolation.*;
-import static io.github.loadup.pay.common.DomainViolation.Reason.*;
+
+import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RefundRequestReference(String id, String orderId, String payeeMerchantId, String requestDigest) {
     public RefundRequestReference {
-        DomainChecks.id(id); DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId);
+        DomainChecks.id(id);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

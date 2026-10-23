@@ -15,14 +15,27 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.outbox;
 
-import io.github.loadup.components.outbox.*;
-import io.github.loadup.pay.acquire.app.service.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxHandler;
+import io.github.loadup.pay.acquire.app.service.OrderSnapshotDelivery;
+import io.github.loadup.pay.acquire.app.service.OrderSnapshotEvents;
 import org.springframework.stereotype.Component;
 
 @Component
 public class OrderSnapshotOutboxHandler implements OutboxHandler {
     private final OrderSnapshotDelivery delivery;
-    public OrderSnapshotOutboxHandler(OrderSnapshotDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return OrderSnapshotEvents.TYPE; }
-    @Override public void handle(OutboxEvent event) { delivery.deliver(event); }
+
+    public OrderSnapshotOutboxHandler(OrderSnapshotDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return OrderSnapshotEvents.TYPE;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.deliver(event);
+    }
 }

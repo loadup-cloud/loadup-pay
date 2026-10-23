@@ -25,6 +25,21 @@ import java.time.LocalDateTime;
 @Table("contract_limit_publication")
 public class ContractLimitPublicationDO extends BaseDO {
     private String contractId;
+    private Integer contractRevision;
+    private String policyId;
+    private Integer policyVersion;
+    private String policyHash;
+    private String state;
+    private LocalDateTime activatedAt;
+    private Long rowVersion;
+    private String payeeMerchantId;
+    private String productScopeKey;
+    private String snapshotHash;
+    @DiagnosticHidden
+    private String activationPayload;
+    private String outboxEventId;
+    private LocalDateTime requestedAt;
+    private Integer publicationSchemaVersion;
 
     public String getContractId() {
         return contractId;
@@ -34,8 +49,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         contractId = value;
     }
 
-    private Integer contractRevision;
-
     public Integer getContractRevision() {
         return contractRevision;
     }
@@ -43,8 +56,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setContractRevision(Integer value) {
         contractRevision = value;
     }
-
-    private String policyId;
 
     public String getPolicyId() {
         return policyId;
@@ -54,8 +65,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         policyId = value;
     }
 
-    private Integer policyVersion;
-
     public Integer getPolicyVersion() {
         return policyVersion;
     }
@@ -63,8 +72,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setPolicyVersion(Integer value) {
         policyVersion = value;
     }
-
-    private String policyHash;
 
     public String getPolicyHash() {
         return policyHash;
@@ -74,8 +81,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         policyHash = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -83,8 +88,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setState(String value) {
         state = value;
     }
-
-    private LocalDateTime activatedAt;
 
     public LocalDateTime getActivatedAt() {
         return activatedAt;
@@ -94,8 +97,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         activatedAt = value;
     }
 
-    private Long rowVersion;
-
     public Long getRowVersion() {
         return rowVersion;
     }
@@ -103,8 +104,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setRowVersion(Long value) {
         rowVersion = value;
     }
-
-    private String payeeMerchantId;
 
     public String getPayeeMerchantId() {
         return payeeMerchantId;
@@ -114,8 +113,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         payeeMerchantId = value;
     }
 
-    private String productScopeKey;
-
     public String getProductScopeKey() {
         return productScopeKey;
     }
@@ -123,8 +120,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setProductScopeKey(String value) {
         productScopeKey = value;
     }
-
-    private String snapshotHash;
 
     public String getSnapshotHash() {
         return snapshotHash;
@@ -134,9 +129,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         snapshotHash = value;
     }
 
-    @DiagnosticHidden
-    private String activationPayload;
-
     public String getActivationPayload() {
         return activationPayload;
     }
@@ -144,8 +136,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setActivationPayload(String value) {
         activationPayload = value;
     }
-
-    private String outboxEventId;
 
     public String getOutboxEventId() {
         return outboxEventId;
@@ -155,8 +145,6 @@ public class ContractLimitPublicationDO extends BaseDO {
         outboxEventId = value;
     }
 
-    private LocalDateTime requestedAt;
-
     public LocalDateTime getRequestedAt() {
         return requestedAt;
     }
@@ -164,8 +152,6 @@ public class ContractLimitPublicationDO extends BaseDO {
     public void setRequestedAt(LocalDateTime value) {
         requestedAt = value;
     }
-
-    private Integer publicationSchemaVersion;
 
     public Integer getPublicationSchemaVersion() {
         return publicationSchemaVersion;

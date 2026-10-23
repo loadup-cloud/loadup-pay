@@ -18,7 +18,9 @@ package io.github.loadup.pay.payment.client.facade;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 
-/** Business use cases; identity and authorization come from a trusted invocation context. */
+/**
+ * Business use cases; identity and authorization come from a trusted invocation context.
+ */
 public interface PaymentInputFacade {
     PaymentInputDTO prepare(PaymentInputPrepareCommand command);
 }

@@ -16,9 +16,14 @@
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.acquire.infrastructure.dataobject.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInitiationStorageConverter {
@@ -53,7 +58,9 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(target = "rowVersion", source = "rowVersion")
     OrderPaymentAllocationDO toInputPatch(StoredPaymentAllocation value);
 
-    /** An intentional four-column patch leaves admission, deadline and payment facts untouched. */
+    /**
+     * An intentional four-column patch leaves admission, deadline and payment facts untouched.
+     */
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "paymentReservedMinor", source = "paymentReservedMinor")
     @Mapping(target = "reservedPaymentCount", source = "reservedPaymentCount")

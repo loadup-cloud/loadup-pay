@@ -17,6 +17,7 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDateTime;
 
 public record RoutingProfileDTO(
@@ -24,5 +25,8 @@ public record RoutingProfileDTO(
         @Schema(description = "Immutable routing definition") RoutingProfileSpecDTO spec,
         @Schema(description = "Canonical definition SHA-256") String contentHash,
         @Schema(description = "Publication local time") LocalDateTime publishedAt) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

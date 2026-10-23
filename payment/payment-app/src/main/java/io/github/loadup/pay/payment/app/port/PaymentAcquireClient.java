@@ -21,5 +21,6 @@ import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 
 public interface PaymentAcquireClient {
     boolean supportsTenant(String tenant);
+
     PaymentOutcomeAckDTO accept(String tenant, PayEventEnvelope<PaymentOutcomeEventDTO> event);
 }

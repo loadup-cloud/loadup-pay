@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public enum PaymentReceiptDisposition { APPLIED, IGNORED, CONFLICT }
+public enum PaymentReceiptDisposition {APPLIED, IGNORED, CONFLICT}

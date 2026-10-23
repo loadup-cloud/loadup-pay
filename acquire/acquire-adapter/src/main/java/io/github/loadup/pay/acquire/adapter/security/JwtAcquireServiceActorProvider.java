@@ -16,16 +16,20 @@
 package io.github.loadup.pay.acquire.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
+import io.github.loadup.pay.acquire.app.security.AcquireServiceActorProvider;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+
 import java.util.stream.Collectors;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 
 @Component
 public class JwtAcquireServiceActorProvider implements AcquireServiceActorProvider {
-    @Override public AcquireServiceActor current() {
+    @Override
+    public AcquireServiceActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || !(authentication.getCredentials() instanceof Jwt jwt))
             throw new CommonException(ACTION_FORBIDDEN);
@@ -36,6 +40,8 @@ public class JwtAcquireServiceActorProvider implements AcquireServiceActorProvid
                 throw new CommonException(ACTION_FORBIDDEN);
             return new AcquireServiceActor(tenant, service, authentication.getAuthorities().stream()
                     .map(authority -> authority.getAuthority()).collect(Collectors.toUnmodifiableSet()));
-        } catch (RuntimeException invalid) { throw new CommonException(ACTION_FORBIDDEN); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

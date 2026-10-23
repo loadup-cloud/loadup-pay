@@ -73,11 +73,13 @@ public class CompiledTermsCodecImpl implements CompiledTermsCodec {
     }
 
     private String hash(CompiledAcquiringTerms value) {
-        Map<String, Object> map = mapper.convertValue(value, new TypeReference<Map<String, Object>>() {});
+        Map<String, Object> map = mapper.convertValue(value, new TypeReference<Map<String, Object>>() {
+        });
         // Both capability groups and their method sets are unordered semantic collections.
         // Replace them with sorted structural values before the framework's recursive map canonicalization.
         Map<String, Object> terms =
-                new TreeMap<>(mapper.convertValue(value.terms(), new TypeReference<Map<String, Object>>() {}));
+                new TreeMap<>(mapper.convertValue(value.terms(), new TypeReference<Map<String, Object>>() {
+                }));
         List<Map<String, Object>> capabilities = value.terms().capabilities().stream()
                 .sorted(Comparator.comparing((io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO c) ->
                                 c.channel().name())

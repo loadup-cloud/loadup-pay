@@ -22,7 +22,9 @@ import io.github.loadup.pay.common.DomainChecks;
 import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.pay.common.DomainViolation.require;
 
-/** Immutable issuance receipt; no bearer permit or signing secret is stored. */
+/**
+ * Immutable issuance receipt; no bearer permit or signing secret is stored.
+ */
 public record LimitExecutionGrant(
         String operationId,
         String paymentId,

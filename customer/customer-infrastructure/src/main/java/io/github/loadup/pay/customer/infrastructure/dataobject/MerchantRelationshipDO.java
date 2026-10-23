@@ -18,11 +18,18 @@ package io.github.loadup.pay.customer.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("merchant_relationship")
 public class MerchantRelationshipDO extends BaseDO {
     private String parentMerchantId;
+    private String childMerchantId;
+    private String relationType;
+    private String state;
+    private LocalDateTime validFrom;
+    private LocalDateTime validTo;
+    private Long rowVersion;
 
     public String getParentMerchantId() {
         return parentMerchantId;
@@ -32,8 +39,6 @@ public class MerchantRelationshipDO extends BaseDO {
         parentMerchantId = value;
     }
 
-    private String childMerchantId;
-
     public String getChildMerchantId() {
         return childMerchantId;
     }
@@ -41,8 +46,6 @@ public class MerchantRelationshipDO extends BaseDO {
     public void setChildMerchantId(String value) {
         childMerchantId = value;
     }
-
-    private String relationType;
 
     public String getRelationType() {
         return relationType;
@@ -52,8 +55,6 @@ public class MerchantRelationshipDO extends BaseDO {
         relationType = value;
     }
 
-    private String state;
-
     public String getState() {
         return state;
     }
@@ -61,8 +62,6 @@ public class MerchantRelationshipDO extends BaseDO {
     public void setState(String value) {
         state = value;
     }
-
-    private LocalDateTime validFrom;
 
     public LocalDateTime getValidFrom() {
         return validFrom;
@@ -72,8 +71,6 @@ public class MerchantRelationshipDO extends BaseDO {
         validFrom = value;
     }
 
-    private LocalDateTime validTo;
-
     public LocalDateTime getValidTo() {
         return validTo;
     }
@@ -81,8 +78,6 @@ public class MerchantRelationshipDO extends BaseDO {
     public void setValidTo(LocalDateTime value) {
         validTo = value;
     }
-
-    private Long rowVersion;
 
     public Long getRowVersion() {
         return rowVersion;
