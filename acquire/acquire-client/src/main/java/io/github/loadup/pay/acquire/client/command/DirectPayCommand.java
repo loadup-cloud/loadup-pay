@@ -17,7 +17,7 @@ package io.github.loadup.pay.acquire.client.command;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
@@ -68,7 +68,7 @@ public record DirectPayCommand(
     public DirectPayCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);
         if (requestedDueAt != null)
-            requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (interaction == null) interaction = new NoInteractionDTO();
     }
 

@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
@@ -121,7 +121,7 @@ class PaymentControlServiceTest {
             () -> "id-" + ids.incrementAndGet(),
             validation.getValidator(),
             events,
-            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE),
+            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
             "acquire");
 
     @BeforeEach
@@ -223,7 +223,7 @@ class PaymentControlServiceTest {
                 "order",
                 "allocation",
                 "merchant",
-                DomainChecks.amount(4000, "CNY"),
+                DomainChecks.cnyAmount(4000, "CNY"),
                 "operation",
                 now,
                 state,
@@ -260,7 +260,7 @@ class PaymentControlServiceTest {
                 transactions,
                 () -> "new-" + ids.incrementAndGet(),
                 validation.getValidator(),
-                Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE),
+                Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
                 "acquire");
     }
 

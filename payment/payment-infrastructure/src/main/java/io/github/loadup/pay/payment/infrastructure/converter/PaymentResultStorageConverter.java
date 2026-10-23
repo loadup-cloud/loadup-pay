@@ -68,7 +68,7 @@ public interface PaymentResultStorageConverter {
     PaymentResultAnomalyDO toAnomalyDO(String tenant, PaymentResultAnomaly value);
 
     @Mapping(target = "identity", source = "identity")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     ChannelTransactionClaim toClaim(ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
 
     @Mapping(target = "paymentId", source = "identity.paymentId")
@@ -84,7 +84,7 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "deleted", constant = "0")
     ChannelTransactionClaimDO toClaimDO(ChannelTransactionClaim value);
 
-    @Mapping(target = "succeededAmount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getSucceededMinor(), row.getCurrency()))")
+    @Mapping(target = "succeededAmount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getSucceededMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     PaymentRefundCapacity toCapacity(PaymentRefundCapacityDO row);

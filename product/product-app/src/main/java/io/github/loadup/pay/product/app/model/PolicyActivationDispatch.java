@@ -16,7 +16,7 @@
 package io.github.loadup.pay.product.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 /**
  * No access token or policy payload is copied into the queue.

@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -31,7 +31,7 @@ public record ChannelTransactionClaim(String id, String tenantId, ChannelPayment
         DomainChecks.id(id);
         DomainChecks.id(tenantId);
         Objects.requireNonNull(identity);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());
         DomainChecks.text(channelTransactionNo, 128);
         Objects.requireNonNull(succeededAt);

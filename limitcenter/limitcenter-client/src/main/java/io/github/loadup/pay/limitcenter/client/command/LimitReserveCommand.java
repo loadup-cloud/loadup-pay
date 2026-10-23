@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -58,7 +58,7 @@ public record LimitReserveCommand(
         String requestDigest) {
     public LimitReserveCommand {
         if (initiatedAt != null)
-            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

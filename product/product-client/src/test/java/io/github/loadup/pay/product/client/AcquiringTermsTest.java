@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.product.client;
 
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;

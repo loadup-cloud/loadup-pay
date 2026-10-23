@@ -61,7 +61,7 @@ CREATE TABLE limit_rule_runtime
     PRIMARY KEY (id),
     UNIQUE KEY uk_limit_runtime_scope (tenant_id, rule_scope_id, merchant_id, metric, currency, window_type),
     CHECK (current_limit >= 0 AND week_start BETWEEN 1 AND 7 AND metering_enabled = 1 AND policy_version > 0),
-    CHECK (currency = 'CNY' AND timezone = 'Asia/Shanghai')
+    CHECK (currency = 'CNY' AND CHAR_LENGTH(timezone) > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;

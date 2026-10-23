@@ -16,11 +16,11 @@
 package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 
 public interface PaymentAcquireClient {
     boolean supportsTenant(String tenant);
 
-    PaymentOutcomeAckDTO accept(String tenant, PayEventEnvelope<PaymentOutcomeEventDTO> event);
+    PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event);
 }

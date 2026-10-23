@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
@@ -65,9 +65,9 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "credentialReference", source = "value.binding.credentialReference")
     @Mapping(target = "credentialVersion", source = "value.binding.credentialVersion")
     @Mapping(target = "identityPayload", source = "identityPayload")
-    @Mapping(target = "paymentCodeEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.pay.common.PaymentMethod.PAYMENT_CODE) ? 1 : 0)")
-    @Mapping(target = "jsapiEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.pay.common.PaymentMethod.JSAPI) ? 1 : 0)")
-    @Mapping(target = "h5Enabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.pay.common.PaymentMethod.H5) ? 1 : 0)")
+    @Mapping(target = "paymentCodeEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE) ? 1 : 0)")
+    @Mapping(target = "jsapiEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.JSAPI) ? 1 : 0)")
+    @Mapping(target = "h5Enabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.H5) ? 1 : 0)")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")

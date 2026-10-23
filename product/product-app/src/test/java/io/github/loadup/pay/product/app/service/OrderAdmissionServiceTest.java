@@ -25,9 +25,9 @@ import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.ResolvedContractItem;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
 import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.ContractReference;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverter;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverterImpl;
@@ -104,7 +104,7 @@ class OrderAdmissionServiceTest {
             context.getBean(OrderAdmissionConverter.class),
             validation.getValidator(),
             (IdGenerator) () -> "admission",
-            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE),
+            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
             300,
             transactions);
 
@@ -138,7 +138,7 @@ class OrderAdmissionServiceTest {
                 "merchant",
                 "scope",
                 "a".repeat(64),
-                DomainChecks.amount(amount, "CNY"),
+                DomainChecks.cnyAmount(amount, "CNY"),
                 null,
                 actor.scopeHash());
     }
@@ -194,8 +194,8 @@ class OrderAdmissionServiceTest {
                         1,
                         "plan",
                         1,
-                        now.minusDays(1).atZone(BusinessTime.ZONE).toInstant(),
-                        now.minusDays(1).atZone(BusinessTime.ZONE).toInstant(),
+                        now.minusDays(1).atZone(BusinessTime.zone()).toInstant(),
+                        now.minusDays(1).atZone(BusinessTime.zone()).toInstant(),
                         null,
                         Map.of("acquiring", item)));
     }

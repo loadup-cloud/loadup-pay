@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
@@ -37,9 +37,9 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     }
 
     @Override
-    public PayEventEnvelope<RefundSnapshotEventDTO> child(String payload) {
+    public EventEnvelope<RefundSnapshotEventDTO> child(String payload) {
         try {
-            var event = decode(payload, new TypeReference<PayEventEnvelope<RefundSnapshotEventDTO>>() {
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundSnapshotEventDTO>>() {
             });
             event.data().requireEnvelope(event);
             return event;
@@ -49,9 +49,9 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     }
 
     @Override
-    public PayEventEnvelope<OrderRefundSummaryEventDTO> summary(String payload) {
+    public EventEnvelope<OrderRefundSummaryEventDTO> summary(String payload) {
         try {
-            var event = decode(payload, new TypeReference<PayEventEnvelope<OrderRefundSummaryEventDTO>>() {
+            var event = decode(payload, new TypeReference<EventEnvelope<OrderRefundSummaryEventDTO>>() {
             });
             event.data().requireEnvelope(event);
             event.requireSource(RefundProjectionEvents.SUMMARY, "payment", event.data().orderId(), event.data().refundSummaryVersion());

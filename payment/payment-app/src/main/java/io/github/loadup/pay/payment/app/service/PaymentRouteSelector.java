@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.AccessMode;
+import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;

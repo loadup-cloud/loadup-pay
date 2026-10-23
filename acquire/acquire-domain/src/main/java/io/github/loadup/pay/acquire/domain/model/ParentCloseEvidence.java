@@ -16,10 +16,10 @@
 package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * A trusted parent-fence acknowledgement, separate from per-payment convergence.

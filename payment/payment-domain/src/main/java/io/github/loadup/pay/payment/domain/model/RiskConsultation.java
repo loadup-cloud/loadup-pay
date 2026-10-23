@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
@@ -36,7 +36,7 @@ public record RiskConsultation(
         DomainChecks.id(paymentId);
         DomainChecks.id(attemptId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(channel);
     }
 

@@ -18,13 +18,13 @@ package io.github.loadup.pay.payment.domain.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record PreparedChannelPayment(
         ChannelPaymentIdentity identity,
@@ -34,7 +34,7 @@ public record PreparedChannelPayment(
         @DiagnosticHidden String preparedInputRef) {
     public PreparedChannelPayment {
         Objects.requireNonNull(identity);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(method);
         require(amount.getCent() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
     }

@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
@@ -92,7 +92,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentSubmissionPreparation service = new PaymentSubmissionPreparation(payments, changes, attempts, locks, inputs, limits,
             risk, codec, context.getBean(PaymentSubmissionConverter.class), context.getBean(PaymentControlConverter.class),
             new PaymentAcceptanceTransactions(manager), () -> "local-no-submission-proof",
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), events);
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), events);
 
     LimitReservationDTO reservation(LimitReservationState state) {
         var policy = AttemptFixtures.command().admittedTerms().terms().limits();

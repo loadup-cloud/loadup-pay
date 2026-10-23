@@ -22,8 +22,8 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ class OrderSnapshotEventsTest {
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
     final OrderSnapshotEvents events = new OrderSnapshotEvents(headers, context.getBean(OrderSnapshotConverter.class), outbox,
             () -> "event-" + ids.incrementAndGet());
-    final OrderSnapshotFacts header = new OrderSnapshotFacts("order", "merchant", "M001", DomainChecks.amount(10000, "CNY"),
+    final OrderSnapshotFacts header = new OrderSnapshotFacts("order", "merchant", "M001", DomainChecks.cnyAmount(10000, "CNY"),
             4000, 2000, "PENDING", NOW.minusDays(1), NOW, 2);
 
     @BeforeEach

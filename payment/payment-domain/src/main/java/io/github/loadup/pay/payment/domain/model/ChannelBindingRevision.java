@@ -17,10 +17,10 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 
 import java.util.Objects;
 import java.util.Set;
@@ -43,8 +43,8 @@ public record ChannelBindingRevision(
         DomainChecks.id(payeeMerchantId);
         Objects.requireNonNull(channel);
         Objects.requireNonNull(accessMode);
-        io.github.loadup.pay.common.DomainViolation.require(accountScopeHash != null
-                && accountScopeHash.matches("[0-9a-f]{64}"), io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
+        io.github.loadup.commons.error.DomainViolation.require(accountScopeHash != null
+                && accountScopeHash.matches("[0-9a-f]{64}"), io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.text(credentialReference, 128);
         DomainChecks.id(credentialVersion);
         Objects.requireNonNull(identity);
@@ -54,10 +54,10 @@ public record ChannelBindingRevision(
             case WechatAccountIdentity wechat -> channel == Channel.WECHAT
                     && (accessMode == AccessMode.SERVICE_PROVIDER) == (wechat.subMerchantId() != null);
         };
-        io.github.loadup.pay.common.DomainViolation.require(valid, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
+        io.github.loadup.commons.error.DomainViolation.require(valid, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
         capabilities = Set.copyOf(capabilities);
-        io.github.loadup.pay.common.DomainViolation.require(!capabilities.isEmpty(),
-                io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
+        io.github.loadup.commons.error.DomainViolation.require(!capabilities.isEmpty(),
+                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
@@ -84,7 +84,7 @@ class PaymentAttemptServiceTest {
             () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")), locks, attempts, payments, codec,
             routes, inputs, limits, context.getBean(PaymentAttemptConverter.class), context.getBean(PaymentControlConverter.class),
             context.getBean(PaymentAcceptanceConverter.class), new PaymentAcceptanceTransactions(manager), () -> "attempt",
-            validation.getValidator(), Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), "acquire");
+            validation.getValidator(), Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), "acquire");
 
     PaymentAttemptStartCommand command(String key) {
         var original = AttemptFixtures.command();

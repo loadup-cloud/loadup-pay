@@ -13,6 +13,19 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>limitcenter-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>realtime-rpc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>realtime-client</artifactId>
         </dependency>
         <dependency>
@@ -21,7 +34,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-http</artifactId>
+            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -51,10 +64,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>product-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-common</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

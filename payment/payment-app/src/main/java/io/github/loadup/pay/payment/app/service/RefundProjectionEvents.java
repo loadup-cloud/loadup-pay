@@ -22,8 +22,8 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
@@ -105,7 +105,7 @@ public class RefundProjectionEvents {
     }
 
     private <T> void send(String tenant, String type, String id, long version, java.time.LocalDateTime at, T data) {
-        var envelope = new PayEventEnvelope<>(ids.generate(), ids.generate(), "payment", type, 1, id, version, BusinessTime.external(at), data);
+        var envelope = new EventEnvelope<>(ids.generate(), ids.generate(), "payment", type, 1, id, version, BusinessTime.external(at), data);
         outbox.publish(new OutboxMessage(tenant, type, 1, id, JsonUtil.toJson(envelope)));
     }
 

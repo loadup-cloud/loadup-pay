@@ -17,10 +17,10 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
@@ -123,7 +123,7 @@ class PaymentAcceptanceCodecImplTest {
                         command.orderId(),
                         command.allocationId(),
                         command.payeeMerchantId(),
-                        DomainChecks.amount(command.amountMinor(), command.currency()),
+                        DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
                         "operation",
                         LocalDateTime.of(2026, 10, 22, 12, 0)),
                 "admission",

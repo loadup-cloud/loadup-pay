@@ -1,6 +1,6 @@
 -- DESIGN DRAFT ONLY. Not a Flyway migration. Do not apply to a running database.
 -- New pay tables only; framework-owned migrations are intentionally excluded.
--- Session time zone: Asia/Shanghai (+08:00). No database selection or destructive statements.
+-- Session time zone: the deployment system default. No database selection or destructive statements.
 
 CREATE TABLE payment_parent_gate
 (

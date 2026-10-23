@@ -19,8 +19,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Both values and the resulting outbox facts must commit in one acquire transaction.

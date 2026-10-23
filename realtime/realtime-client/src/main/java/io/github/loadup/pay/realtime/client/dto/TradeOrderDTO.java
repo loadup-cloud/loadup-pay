@@ -17,7 +17,7 @@ package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;
@@ -43,9 +43,9 @@ public record TradeOrderDTO(
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeOrderDTO {
         if (orderCreatedAt != null)
-            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (snapshotAt != null)
-            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

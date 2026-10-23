@@ -13,15 +13,15 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>payment-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>payment-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>payment-app</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-common</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

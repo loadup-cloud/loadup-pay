@@ -30,7 +30,7 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(),row.getCurrency()))")
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
     OrderPaymentAllocation toAllocation(OrderPaymentAllocationDO row);
 
     @Mapping(target = "allocation", source = "allocation")

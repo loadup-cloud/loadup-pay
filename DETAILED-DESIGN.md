@@ -36,7 +36,7 @@ acquire/
 ```
 
 payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选
-web 层，并同时承载未来业务 gRPC 入站。2026-10-21源码更新：测试用Ping及协议模块已删除，当前启动应用不依赖gRPC；业务适配在P2按实际用例接入，Java业务client不引入传输协议依赖。
+web 层，并同时承载未来业务 gRPC 入站。2026-10-23源码更新：应用间统一使用 gRPC，实际协议与映射归各服务 *-rpc 模块，框架现有 gRPC binder 提供通用调用/认证支持；各业务 profile 提供 gRPC 入站，Java业务client不引入传输协议依赖。
 
 ```mermaid
 flowchart LR
@@ -167,8 +167,7 @@ PaymentOrder 或释放 acquire allocation。成功后再收到互相矛盾的退
 
 ### 4.3 时间约定
 
-应用 Clock、JVM、任务、JDBC 和数据库会话统一 Asia/Shanghai；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime，必须携带
-+08:00。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
+应用 Clock、JVM、任务、JDBC 和数据库会话采用一致的系统默认时区；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime 携带实际偏移。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
 
 orderDueAt 是未付清处理检查点；sessionExpiresAt 是访问凭证期限；actionExpiresAt 是渠道参数期限。KEEP_PENDING 不把
 orderDueAt 当成隐蔽停付时间，也不会延长旧二维码。延期按原条款修改检查点，不改总额或合约版本。
@@ -272,7 +271,7 @@ KEEP_PENDING的到期任务只记录策略检查并维持可续付状态，不�
 
 ### 9.1 规则和归桶
 
-每笔PaymentOrder第一次被payment受理时固定initiatedAt。以此计算Asia/Shanghai自然日/周/月，终生使用固定哨兵区间；成功、退款和重试都引用原bucketId，不按通知到达日重新归桶。metric为AMOUNT与PAYMENT_COUNT，预占时分别持有本笔金额和1，成功才转used。
+每笔PaymentOrder第一次被payment受理时固定initiatedAt。以此计算系统默认时区自然日/周/月，终生使用固定哨兵区间；成功、退款和重试都引用原bucketId，不按通知到达日重新归桶。metric为AMOUNT与PAYMENT_COUNT，预占时分别持有本笔金额和1，成功才转used。
 
 product先发布limit
 policy并收到激活ACK，才允许对应合约新准入。历史已激活policy持续服务原pending订单。ruleScopeId是稳定累计身份，policyVersion只是配置解释；阈值调整不生成空桶。当前runtime阈值在原稳定范围生效，降低后used+held可能已经超过阈值，此时只拒绝新预占，不回滚真实付款。

@@ -19,7 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;

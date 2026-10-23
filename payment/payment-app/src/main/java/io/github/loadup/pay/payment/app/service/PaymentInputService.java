@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -117,7 +117,7 @@ public class PaymentInputService implements PaymentInputFacade {
         DomainChecks.id(command.payeeMerchantId());
         DomainChecks.text(command.inputKey(), 128);
         DomainChecks.positive(command.amountMinor());
-        DomainChecks.amount(command.amountMinor(), command.currency());
+        DomainChecks.cnyAmount(command.amountMinor(), command.currency());
         if (command.choice().method() == PaymentMethod.PAYMENT_CODE
                 && command.interaction() instanceof PaymentCodeInteractionDTO code) {
             DomainChecks.text(code.paymentCode(), 4096);

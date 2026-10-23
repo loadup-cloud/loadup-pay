@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;

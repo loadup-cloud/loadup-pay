@@ -22,7 +22,7 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.client.CheckoutPresentationImpl;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.Mac;

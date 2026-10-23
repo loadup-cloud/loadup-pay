@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain.policy;
 
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.domain.model.LimitWindowType;
 import io.github.loadup.pay.limitcenter.domain.model.WindowBounds;
 

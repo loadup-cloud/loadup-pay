@@ -78,7 +78,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "currentLimit", source = "value.rule.threshold")
     @Mapping(target = "enforcementEnabled", source = "value.rule.enforcementEnabled")
     @Mapping(target = "meteringEnabled", source = "value.rule.meteringEnabled")
-    @Mapping(target = "timezone", constant = "Asia/Shanghai")
+    @Mapping(target = "timezone", expression = "java(java.time.ZoneId.systemDefault().getId())")
     LimitRuleRuntimeDO toRuntimeDO(String tenant, RuntimeLimitRule value);
 
     @Mapping(target = "id", ignore = true)
@@ -140,7 +140,7 @@ public interface LimitStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "release", ignore = true)
     @Mapping(target = "expire", ignore = true)

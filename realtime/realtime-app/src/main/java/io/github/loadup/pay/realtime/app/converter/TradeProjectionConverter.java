@@ -17,7 +17,7 @@ package io.github.loadup.pay.realtime.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -41,15 +41,15 @@ import java.time.OffsetDateTime;
 public interface TradeProjectionConverter {
     @Mapping(target = "paidMinor", source = "value.paidAmountMinor")
     @Mapping(target = "reservedMinor", source = "value.paymentReservedMinor")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(value.amountMinor(), value.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeOrderProjection toOrder(OrderSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(value.amountMinor(), value.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
     @Mapping(target = "source", source = "source")
     TradePaymentProjection toPayment(PaymentSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(value.amountMinor(), value.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(value.amountMinor(), value.currency()))")
     @Mapping(target = "source", source = "source")
     TradeRefundProjection toRefund(RefundSnapshotEventDTO value, SourceVersion source, LocalDateTime snapshotAt);
 

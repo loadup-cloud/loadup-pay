@@ -16,13 +16,13 @@
 package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Complete order monetary snapshot; individual refunds keep their own projections and source versions.
@@ -32,7 +32,7 @@ public record TradeRefundSummary(String orderId, String payeeMerchantId, String 
     public TradeRefundSummary {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(refundedMinor, currency);
+        DomainChecks.cnyAmount(refundedMinor, currency);
         Objects.requireNonNull(source);
         Objects.requireNonNull(snapshotAt);
         require(refundedMinor >= 0 && reservedMinor >= 0 && reservedMinor <= Long.MAX_VALUE - refundedMinor

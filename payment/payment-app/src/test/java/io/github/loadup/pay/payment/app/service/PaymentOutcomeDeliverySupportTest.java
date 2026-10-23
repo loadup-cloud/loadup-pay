@@ -21,7 +21,7 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
@@ -73,7 +73,7 @@ class PaymentOutcomeDeliverySupportTest {
     final AtomicReference<PaymentDeliverySnapshot> source = new AtomicReference<>();
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
     final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.LIMIT, 1, "payment", "payload"),
-            AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), null);
+            AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     void source(boolean succeeded) {
         var snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentResultEvents.LIMIT);

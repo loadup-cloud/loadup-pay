@@ -28,7 +28,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundProjectionStorageConverter {
-    @Mapping(target = "orderAmount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getOrderAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "orderAmount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
@@ -53,7 +53,7 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "orderId", source = "request.orderId")
     @Mapping(target = "payeeMerchantId", source = "request.payeeMerchantId")
     @Mapping(target = "state", source = "row.state")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "refundCreatedAt", source = "row.createdAt")
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     @Mapping(target = "sourceVersion", source = "row.rowVersion")

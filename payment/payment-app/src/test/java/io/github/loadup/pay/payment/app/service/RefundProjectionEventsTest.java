@@ -19,8 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
@@ -114,7 +114,7 @@ class RefundProjectionEventsTest {
 
     void plan() {
         transactions.write("tenant", () -> {
-            events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY"));
+            events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"));
             return true;
         });
     }
@@ -207,10 +207,10 @@ class RefundProjectionEventsTest {
     @Test
     void anotherTenantOrMissingTransactionCannotPublish() {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY"))).getResultCode());
+                () -> events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"))).getResultCode());
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> transactions.write("other",
                 () -> {
-                    events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY"));
+                    events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"));
                     return true;
                 })).getResultCode());
         verifyNoInteractions(summaries, outbox);

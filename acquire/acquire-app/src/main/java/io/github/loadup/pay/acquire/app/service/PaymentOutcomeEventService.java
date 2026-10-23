@@ -29,9 +29,9 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -87,7 +87,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
     }
 
     @Override
-    public PaymentOutcomeAckDTO accept(PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+    public PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event) {
         var actor = actors.current();
         if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:payment:outcome"))
             throw new CommonException(ACTION_FORBIDDEN);
@@ -136,7 +136,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
         return converter.toAck(receipt);
     }
 
-    private void validate(PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+    private void validate(EventEnvelope<PaymentOutcomeEventDTO> event) {
         try {
             if (event == null || event.data() == null) throw new CommonException(INVALID_ARGUMENT);
             event.data().requireEnvelope(event);

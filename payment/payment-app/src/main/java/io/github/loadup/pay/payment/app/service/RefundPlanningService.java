@@ -19,8 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.RefundActor;
@@ -159,7 +159,7 @@ public class RefundPlanningService implements RefundFacade {
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
             final List<RefundPlanItem> plan;
             try {
-                plan = fifo.plan(command.orderId(), actor.merchantId(), DomainChecks.amount(command.amountMinor(), admitted.currency()),
+                plan = fifo.plan(command.orderId(), actor.merchantId(), DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
                         terms.partialAllowed(), eligible);
             } catch (DomainViolation invalid) {
                 if (invalid.reason() == DomainViolation.Reason.AMOUNT_EXCEEDED)
@@ -181,11 +181,11 @@ public class RefundPlanningService implements RefundFacade {
                 reservations.add(new RefundCapacityReservation(previous, previous.reserve(item.amount().getCent())));
             }
             var request = RefundRequest.init(requestId, command.orderId(), actor.merchantId(), command.merchantRefundNo(),
-                    DomainChecks.amount(command.amountMinor(), admitted.currency()), children.stream().map(StoredRefundChild::refund).toList());
+                    DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()), children.stream().map(StoredRefundChild::refund).toList());
             String payload = JsonUtil.toJson(admitted);
             var stored = converter.toStored(request, command, digest, actor.subjectHash(), admitted.admissionId(), payload, codec.checksum(payload), now, children);
             refunds.insertPlan(actor.tenantId(), stored, reservations);
-            projections.planned(actor.tenantId(), stored, DomainChecks.amount(admitted.orderAmountMinor(), admitted.currency()));
+            projections.planned(actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
             return dto(stored);
         });
     }

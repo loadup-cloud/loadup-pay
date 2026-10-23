@@ -33,7 +33,7 @@ prepare_java() {
 }
 
 prepare_image_tag() {
-  IMAGE_TAG=${IMAGE_TAG:-$(TZ=Asia/Shanghai date +%Y%m%d%H%M%S)-$$}
+  IMAGE_TAG=${IMAGE_TAG:-$(date +%Y%m%d%H%M%S)-$$}
   [[ "$IMAGE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || { echo 'Invalid IMAGE_TAG.' >&2; exit 1; }
   export IMAGE_TAG IMAGE_PREFIX DOCKER_CONTEXT KUBE_CONTEXT
 }

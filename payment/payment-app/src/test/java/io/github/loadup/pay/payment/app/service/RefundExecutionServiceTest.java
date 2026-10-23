@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
@@ -78,7 +78,7 @@ class RefundExecutionServiceTest {
     final AtomicReference<StoredRefundRequest> request = new AtomicReference<>(RefundResultFixtures.initial());
     final AtomicReference<RefundExecutionFacts> facts = new AtomicReference<>(new RefundExecutionFacts(RefundResultFixtures.initial().allocations().getFirst(), null, null, null));
     final RefundExecutionService service = new RefundExecutionService(providers, locks, changes, results, converter,
-            new PaymentAcceptanceTransactions(manager), Clock.fixed(RefundResultFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), projections);
+            new PaymentAcceptanceTransactions(manager), Clock.fixed(RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), projections);
 
     @BeforeEach
     void setup() {

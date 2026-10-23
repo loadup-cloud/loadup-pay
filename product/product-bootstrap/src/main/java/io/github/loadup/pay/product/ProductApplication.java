@@ -15,23 +15,20 @@
  */
 package io.github.loadup.pay.product;
 
-import io.github.loadup.pay.common.BusinessTime;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import java.time.Clock;
-import java.util.TimeZone;
 
 @SpringBootApplication
 public class ProductApplication {
     public static void main(String[] args) {
-        TimeZone.setDefault(TimeZone.getTimeZone(BusinessTime.ZONE));
         SpringApplication.run(ProductApplication.class, args);
     }
 
     @Bean
     Clock businessClock() {
-        return Clock.system(BusinessTime.ZONE);
+        return Clock.systemDefaultZone();
     }
 }

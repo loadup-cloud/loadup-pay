@@ -17,13 +17,13 @@ package io.github.loadup.pay.product.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Every accepted command field is frozen independently of a caller-supplied digest.
@@ -42,7 +42,7 @@ public record AdmissionIntent(
         DomainChecks.text(productScopeKey, 128);
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         require(callerScopeHash != null && callerScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         require(requestedDueAt == null || requestedDueAt.getNano() % 1000 == 0, INVALID_ARGUMENT);
     }

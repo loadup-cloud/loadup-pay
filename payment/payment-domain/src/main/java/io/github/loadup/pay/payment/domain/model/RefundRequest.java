@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 
 import java.util.HashSet;
 import java.util.List;
@@ -26,11 +26,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record RefundRequest(
         String id,
@@ -47,7 +47,7 @@ public record RefundRequest(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantRefundNo, 64);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(state);
         children = List.copyOf(children);
         require(amount.getCent() > 0 && planVersion > 0 && version >= 0 && !children.isEmpty(), INVALID_ARGUMENT);

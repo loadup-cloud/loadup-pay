@@ -4,8 +4,6 @@ spring:
     url: ${PRODUCT_JDBC_URL}
     username: ${PRODUCT_JDBC_USERNAME}
     password: ${PRODUCT_JDBC_PASSWORD}
-    hikari:
-      connection-init-sql: "SET time_zone = '+08:00'"
 loadup:
   modules:
     contract:
@@ -41,39 +39,6 @@ loadup:
       issuer-uri: ${PRODUCT_JWT_ISSUER_URI}
       audience: ${PRODUCT_JWT_AUDIENCE}
       jwk-set-uri: ${PRODUCT_JWT_JWK_SET_URI}
-  http:
-    enabled: true
-    clients:
-      limitcenter:
-        base-url: ${LIMITCENTER_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 65536
-        max-response-bytes: 16384
-        operations:
-          activate:
-            method: POST
-            path: /api/limitcenter/policies/activate
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-      customer:
-        base-url: ${CUSTOMER_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 16384
-        max-response-bytes: 65536
-        operations:
-          authorize:
-            method: POST
-            path: /api/customer/eligibility/authorize
-            headers:
-              Content-Type: application/json
-              Accept: application/json
 management:
   endpoint:
     health:

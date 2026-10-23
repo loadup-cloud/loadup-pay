@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.junit.jupiter.api.Test;
@@ -34,10 +34,10 @@ class PaymentOutcomeEnvelopeCodecImplTest {
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final PaymentOutcomeEnvelopeCodecImpl codec = new PaymentOutcomeEnvelopeCodecImpl(mapper);
 
-    PayEventEnvelope<PaymentOutcomeEventDTO> event(String producer, int version, String aggregate) {
+    EventEnvelope<PaymentOutcomeEventDTO> event(String producer, int version, String aggregate) {
         var data = new PaymentOutcomeEventDTO("payment", "order", "allocation", "operation", "merchant", 1000, "CNY",
                 PaymentState.SUCCEEDED, 2, "evidence", false);
-        return new PayEventEnvelope<>("delivery", "evidence", producer, "pay.payment.outcome.limit.v1", version,
+        return new EventEnvelope<>("delivery", "evidence", producer, "pay.payment.outcome.limit.v1", version,
                 aggregate, 2, OffsetDateTime.parse("2026-10-23T12:00:00+08:00"), data);
     }
 

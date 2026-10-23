@@ -20,11 +20,11 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
 import io.github.loadup.modules.contract.domain.model.ConfigurationLayer;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.ContractReference;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.app.model.CompiledAcquiringTerms;
 import io.github.loadup.pay.product.app.model.EncodedAcquiringTerms;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
@@ -112,7 +112,7 @@ class CompiledTermsCodecImplTest {
     private StoredOrderAdmission stored(EncodedAcquiringTerms encoded, String contract) {
         var at = LocalDateTime.of(2026, 10, 21, 10, 0);
         var intent = new AdmissionIntent(
-                "order", "merchant", "scope", "a".repeat(64), DomainChecks.amount(100, "CNY"), null, "b".repeat(64));
+                "order", "merchant", "scope", "a".repeat(64), DomainChecks.cnyAmount(100, "CNY"), null, "b".repeat(64));
         var admission = new OrderAdmission(
                 "admission",
                 "order",

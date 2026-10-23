@@ -20,8 +20,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * A single serial child transition and its exact capacity/request effects.
@@ -55,7 +55,7 @@ public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refu
                 case UNKNOWN -> ChannelRefundOutcome.Kind.UNKNOWN;
                 case SUCCEEDED -> ChannelRefundOutcome.Kind.SUCCEEDED;
                 case FAILED -> ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND;
-                case INIT -> throw new io.github.loadup.pay.common.DomainViolation(CONFLICT);
+                case INIT -> throw new io.github.loadup.commons.error.DomainViolation(CONFLICT);
             };
             require(current.recordOutcome(new ChannelRefundOutcome(current.id(), kind, refund.amount(), refund.terminalEvidenceId())).equals(refund), CONFLICT);
         }
@@ -64,7 +64,7 @@ public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refu
                 refund.amount(), refund.terminalEvidenceId())).capacity();
         require(capacity.equals(expected), CONFLICT);
         if (refund.state() == RefundState.SUCCEEDED) {
-            io.github.loadup.pay.common.DomainChecks.text(channelRefundTransactionNo, 128);
+            io.github.loadup.commons.validation.DomainChecks.text(channelRefundTransactionNo, 128);
             Objects.requireNonNull(succeededAt);
             require(!succeededAt.isBefore(before.child().originalSucceededAt()), CONFLICT);
         } else require(channelRefundTransactionNo == null && succeededAt == null, CONFLICT);

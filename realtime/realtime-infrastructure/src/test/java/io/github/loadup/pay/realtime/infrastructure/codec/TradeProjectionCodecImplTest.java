@@ -17,9 +17,9 @@ package io.github.loadup.pay.realtime.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
 import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
@@ -40,7 +40,7 @@ class TradeProjectionCodecImplTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 23, 12, 0);
 
     TradePaymentProjection payment(LocalDateTime snapshotAt) {
-        return new TradePaymentProjection("payment", "order", "merchant", DomainChecks.amount(1000, "CNY"), "SUCCEEDED",
+        return new TradePaymentProjection("payment", "order", "merchant", DomainChecks.cnyAmount(1000, "CNY"), "SUCCEEDED",
                 Channel.WECHAT, AccessMode.DIRECT, at.minusMinutes(1), at, new SourceVersion("payment", "PaymentOrder", "payment", 2), snapshotAt);
     }
 

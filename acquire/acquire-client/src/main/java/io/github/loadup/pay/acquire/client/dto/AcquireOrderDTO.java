@@ -18,7 +18,7 @@ package io.github.loadup.pay.acquire.client.dto;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.enums.PaymentProgress;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -49,7 +49,7 @@ public record AcquireOrderDTO(
         @Schema(description = "Version") long version) {
     public AcquireOrderDTO {
         if (orderDueAt != null)
-            orderDueAt = orderDueAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            orderDueAt = orderDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

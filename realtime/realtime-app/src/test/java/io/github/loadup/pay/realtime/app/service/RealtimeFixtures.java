@@ -15,10 +15,10 @@
  */
 package io.github.loadup.pay.realtime.app.service;
 
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import org.springframework.transaction.TransactionDefinition;
@@ -32,11 +32,11 @@ final class RealtimeFixtures {
     static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 23, 12, 0);
 
     static Clock clock() {
-        return Clock.fixed(NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE);
+        return Clock.fixed(NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     }
 
-    static PayEventEnvelope<PaymentSnapshotEventDTO> payment(String delivery, long version, PaymentState state) {
-        return new PayEventEnvelope<>(delivery, "business-event", "payment", "pay.payment.snapshot.realtime.v1", 1, "payment", version,
+    static EventEnvelope<PaymentSnapshotEventDTO> payment(String delivery, long version, PaymentState state) {
+        return new EventEnvelope<>(delivery, "business-event", "payment", "pay.payment.snapshot.realtime.v1", 1, "payment", version,
                 BusinessTime.external(NOW), new PaymentSnapshotEventDTO("payment", "order", "merchant", 1000, "CNY", state,
                 Channel.WECHAT, AccessMode.DIRECT, BusinessTime.external(NOW.minusMinutes(1)),
                 state == PaymentState.SUCCEEDED ? BusinessTime.external(NOW) : null, version));

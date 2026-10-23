@@ -17,13 +17,13 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record RefundOrder(
         String id,
@@ -39,7 +39,7 @@ public record RefundOrder(
         DomainChecks.id(refundRequestId);
         DomainChecks.id(paymentId);
         DomainChecks.text(channelRefundNo, 64);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(terminalEvidenceId);
@@ -58,7 +58,7 @@ public record RefundOrder(
      * A durable one-way boundary: only the transaction winner may make the first network submission.
      */
     public RefundOrder beginSubmission() {
-        require(state == RefundState.INIT && version == 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE);
+        require(state == RefundState.INIT && version == 0, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE);
         return new RefundOrder(id, refundRequestId, paymentId, amount, channelRefundNo, RefundState.PROCESSING, null, Math.incrementExact(version));
     }
 

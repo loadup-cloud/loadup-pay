@@ -17,16 +17,16 @@ package io.github.loadup.pay.limitcenter.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record LimitReservation(
         String id,
@@ -51,7 +51,7 @@ public record LimitReservation(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(policyId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(initiatedAt);
         Objects.requireNonNull(reserveExpiresAt);
         Objects.requireNonNull(state);

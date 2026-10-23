@@ -13,6 +13,19 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>product-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>payment-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>realtime-rpc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-outbox</artifactId>
         </dependency>
         <dependency>
@@ -42,10 +55,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-dto</artifactId>
         </dependency>
         <dependency>
@@ -62,7 +71,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-http</artifactId>
+            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.mapstruct</groupId>

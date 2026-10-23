@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
@@ -105,7 +105,7 @@ class PaymentResultServiceTest {
             new PaymentAcceptanceTransactions(manager), codec, context.getBean(PaymentResultConverter.class),
             context.getBean(PaymentControlConverter.class), context.getBean(PaymentAcceptanceConverter.class), events,
             () -> "result-" + ids.incrementAndGet(),
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE));
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()));
 
     PaymentObservation observation(ChannelPaymentOutcome.Kind kind, String key, PaymentObservation.Source source) {
         boolean collected = kind == ChannelPaymentOutcome.Kind.SUCCEEDED || kind == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED;
@@ -240,7 +240,7 @@ class PaymentResultServiceTest {
     void sameReceiptWithChangedFinancialFactsRetainsAnomalyWithoutRewritingSuccess() {
         var original = success();
         service.record("tenant", original);
-        var changed = new PaymentObservation(original.identity(), original.kind(), DomainChecks.amount(3999, "CNY"),
+        var changed = new PaymentObservation(original.identity(), original.kind(), DomainChecks.cnyAmount(3999, "CNY"),
                 original.channelTransactionNo(), original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest());
         assertEquals(CONFLICT, service.record("tenant", changed).disposition());
         assertEquals("RECEIPT_FACTS_CONFLICT", anomalies.getFirst().reasonCode());
@@ -251,7 +251,7 @@ class PaymentResultServiceTest {
     @Test
     void mismatchedAmountIsEvidenceOnlyAndDoesNotInitializeRefundCapacity() {
         var o = success();
-        var wrong = new PaymentObservation(o.identity(), o.kind(), DomainChecks.amount(3999, "CNY"), o.channelTransactionNo(),
+        var wrong = new PaymentObservation(o.identity(), o.kind(), DomainChecks.cnyAmount(3999, "CNY"), o.channelTransactionNo(),
                 o.succeededAt(), o.source(), o.receiptKey(), o.sourceDigest());
         assertEquals(CONFLICT, service.record("tenant", wrong).disposition());
         assertNull(claim.get());

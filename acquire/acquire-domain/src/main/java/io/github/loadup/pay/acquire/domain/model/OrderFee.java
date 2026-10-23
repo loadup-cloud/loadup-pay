@@ -17,15 +17,15 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.CURRENCY_MISMATCH;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CURRENCY_MISMATCH;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record OrderFee(
         String id,
@@ -40,8 +40,8 @@ public record OrderFee(
     public OrderFee {
         DomainChecks.id(id);
         DomainChecks.id(orderId);
-        DomainChecks.amount(baseAmount);
-        DomainChecks.amount(feeAmount);
+        DomainChecks.cnyAmount(baseAmount);
+        DomainChecks.cnyAmount(feeAmount);
         Objects.requireNonNull(policy);
         Objects.requireNonNull(state);
         require(baseAmount.getCurrencyValue().equals(feeAmount.getCurrencyValue()), CURRENCY_MISMATCH);

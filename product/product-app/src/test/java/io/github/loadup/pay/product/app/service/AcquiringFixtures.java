@@ -39,7 +39,6 @@ final class AcquiringFixtures {
                         Map.entry("refund.lateCollectionPolicy", "MANUAL_REVIEW"),
                         Map.entry("refund.allocationPolicy", "FIFO"),
                         Map.entry("limit.countingBasis", "INITIATED_AT"),
-                        Map.entry("limit.timezone", "Asia/Shanghai"),
                         Map.entry("limit.policyRef", "policy"),
                         Map.entry("limit.refundAmountRestore", "NO_RESTORE"),
                         Map.entry("limit.refundCountRestore", "NO_RESTORE"),

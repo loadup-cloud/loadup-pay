@@ -16,10 +16,10 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -86,7 +86,7 @@ class ChannelBindingServiceTest {
             Set.of("pay:payment:binding:publish", "pay:payment:binding:suspend", "pay:payment:binding:revoke", "pay:payment:binding:read")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
-    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final ChannelBindingService service = new ChannelBindingService(actor::get, store, context.getBean(ChannelBindingConverter.class),
             codec, new PaymentAcceptanceTransactions(manager), () -> "binding-id-" + ids.incrementAndGet(),
             validation.getValidator(), clock, "pay-ops");

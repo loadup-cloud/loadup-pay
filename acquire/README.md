@@ -1,8 +1,10 @@
 # Acquire 收单订单
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 已实现普通创单/原调用主体查询、原单会话签发/能力认证/收银台只读摘要，并补齐商户付款发起、金额占用及权威结果刷新落账的 COLA
 源码。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为
-CNY，订单、数据库会话与业务 Clock 使用 Asia/Shanghai。
+CNY，订单、数据库会话与业务 Clock 使用 系统默认时区。
 
 ## 接口与身份
 
@@ -76,7 +78,7 @@ mvnd clean verify -pl acquire/acquire-bootstrap -am -Pacquire-business
 # 既有脚本构建 JAR 和镜像，默认跳过测试。
 ./acquire/build.sh -Pacquire-business
 
-TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
+java \
   -jar acquire/acquire-bootstrap/target/acquire-bootstrap-0.0.1-SNAPSHOT.jar \
   --spring.profiles.active=acquire-business
 ```

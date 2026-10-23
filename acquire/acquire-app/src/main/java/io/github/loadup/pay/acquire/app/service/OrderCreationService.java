@@ -35,8 +35,8 @@ import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFee;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.enums.AdmissionDecision;
 import jakarta.validation.Validator;
@@ -124,7 +124,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         DomainChecks.id(command.merchantOrderNo());
         DomainChecks.text(command.productScopeKey(), 128);
         DomainChecks.text(command.subject(), 200);
-        DomainChecks.amount(command.amountMinor(), command.currency());
+        DomainChecks.cnyAmount(command.amountMinor(), command.currency());
         if (command.requestedDueAt() != null) time(command.requestedDueAt());
         String mode = checkout == null ? "ORDER" : "CHECKOUT";
         String digest = checkout == null
@@ -183,7 +183,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             var order = AcquireOrder.init(
                     locked.orderId(),
                     locked.payeeMerchantId(),
-                    DomainChecks.amount(command.amountMinor(), command.currency()),
+                    DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
                     due,
                     converter.toUnpaidAction(terms.order().unpaidAction()),
                     converter.toPaymentPolicy(terms.payment()));

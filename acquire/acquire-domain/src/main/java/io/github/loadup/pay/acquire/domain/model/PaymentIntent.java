@@ -17,10 +17,10 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record PaymentIntent(
         String allocationId,
@@ -35,7 +35,7 @@ public record PaymentIntent(
         DomainChecks.text(actorScope, 128);
         DomainChecks.text(actionKey, 128);
         DomainChecks.text(requestDigest, 64);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
     }
 

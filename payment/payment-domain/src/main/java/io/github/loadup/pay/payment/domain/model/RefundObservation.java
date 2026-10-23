@@ -17,14 +17,14 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Verified, account-bound adapter facts only. No HTTP binding or merchant-supplied success evidence.
@@ -40,7 +40,7 @@ public record RefundObservation(String refundId, ChannelPaymentIdentity original
         Objects.requireNonNull(source);
         DomainChecks.text(channelRefundNo, 64);
         DomainChecks.text(originalChannelTransactionNo, 128);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         DomainChecks.text(receiptKey, 128);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);

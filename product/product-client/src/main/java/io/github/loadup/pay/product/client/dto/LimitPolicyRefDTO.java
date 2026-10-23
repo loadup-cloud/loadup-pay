@@ -16,7 +16,7 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy;
 import io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy;
 import io.swagger.v3.oas.annotations.media.Schema;

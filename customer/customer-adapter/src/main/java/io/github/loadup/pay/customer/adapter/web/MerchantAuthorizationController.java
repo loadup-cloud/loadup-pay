@@ -16,16 +16,13 @@
 package io.github.loadup.pay.customer.adapter.web;
 
 import io.github.loadup.commons.result.SuccessResponse;
-import io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand;
 import io.github.loadup.pay.customer.client.command.MerchantActionGrantCommand;
 import io.github.loadup.pay.customer.client.command.MerchantActionGrantRevokeCommand;
 import io.github.loadup.pay.customer.client.command.MerchantRelationshipCreateCommand;
 import io.github.loadup.pay.customer.client.command.MerchantRelationshipRevokeCommand;
 import io.github.loadup.pay.customer.client.dto.MerchantActionGrantDTO;
-import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
 import io.github.loadup.pay.customer.client.facade.MerchantAuthorizationFacade;
-import io.github.loadup.pay.customer.client.facade.MerchantEligibilityFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,12 +38,10 @@ import org.springframework.web.bind.annotation.RestController;
         description = "HTTP 200 responses use SuccessResponse or FailureResponse envelopes")
 public class MerchantAuthorizationController {
     private final MerchantAuthorizationFacade authorization;
-    private final MerchantEligibilityFacade eligibility;
 
     public MerchantAuthorizationController(
-            MerchantAuthorizationFacade authorization, MerchantEligibilityFacade eligibility) {
+            MerchantAuthorizationFacade authorization) {
         this.authorization = authorization;
-        this.eligibility = eligibility;
     }
 
     @PostMapping("/relationships/create")
@@ -76,10 +71,4 @@ public class MerchantAuthorizationController {
         return SuccessResponse.of(authorization.revokeGrant(command));
     }
 
-    @PostMapping("/eligibility/authorize")
-    @Operation(summary = "Check the verified principal's action on a payee merchant")
-    public SuccessResponse<MerchantEligibilityDTO> authorize(
-            @Valid @RequestBody MerchantActionAuthorizeCommand command) {
-        return SuccessResponse.of(eligibility.authorize(command));
-    }
 }

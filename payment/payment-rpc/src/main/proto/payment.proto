@@ -1,0 +1,246 @@
+syntax = "proto3";
+package loadup.pay.payment.v1;
+option java_package = "io.github.loadup.pay.payment.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+import "product.proto";
+
+// This service owns these messages and permanent field numbers. Reserve deleted fields.
+// Enum symbols are explicit strings; unknown symbols are rejected.
+
+message WireIdQuery {
+  optional string id = 1;
+}
+
+message WirePaymentInputPrepareCommand {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string allocation_id = 3;
+  optional string payee_merchant_id = 4;
+  optional int64 amount_minor = 5;
+  optional string currency = 6;
+  optional string input_key = 7;
+  WirePaymentChoiceDTO choice = 8;
+  WirePaymentInteractionDTO interaction = 9;
+}
+
+message WirePaymentChoiceDTO {
+  optional string channel = 1;
+  optional string method = 2;
+}
+
+message WirePaymentInteractionDTO {
+  oneof variant {
+    WireNoInteractionDTO option0 = 1;
+    WirePaymentCodeInteractionDTO option1 = 2;
+    WireChannelIdentityInteractionDTO option2 = 3;
+  }
+}
+
+message WireNoInteractionDTO {
+}
+
+message WirePaymentCodeInteractionDTO {
+  optional string payment_code = 1;
+}
+
+message WireChannelIdentityInteractionDTO {
+  optional string channel = 1;
+  optional string authorization_ticket = 2;
+  optional string app_scope = 3;
+}
+
+message WirePaymentInputDTO {
+  optional string input_ref = 1;
+  optional string input_digest = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message WirePaymentExecuteCommand {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string allocation_id = 3;
+  optional string admission_id = 4;
+  optional string payee_merchant_id = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  optional string request_digest = 8;
+  WirePaymentChoiceDTO choice = 9;
+  optional string prepared_input_ref = 10;
+  loadup.pay.product.v1.WireAdmittedOrderTermsDTO admitted_terms = 11;
+}
+
+message WirePaymentExecutionDTO {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string allocation_id = 3;
+  optional int64 amount_minor = 4;
+  optional string currency = 5;
+  optional string state = 6;
+  optional string active_attempt_id = 7;
+  WirePaymentActionDTO action = 8;
+  optional string terminal_evidence_id = 9;
+  optional int64 version = 10;
+  google.protobuf.Timestamp initiated_at = 11;
+}
+
+message WirePaymentActionDTO {
+  optional string type = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  WirePaymentActionDataDTO data = 3;
+}
+
+message WirePaymentActionDataDTO {
+  oneof variant {
+    WireNoActionDTO option0 = 1;
+    WireWaitActionDTO option1 = 2;
+    WireRedirectActionDTO option2 = 3;
+    WireWechatJsapiActionDTO option3 = 4;
+    WireAlipayJsapiActionDTO option4 = 5;
+  }
+}
+
+message WireNoActionDTO {
+}
+
+message WireWaitActionDTO {
+  optional int64 recommended_poll_after_millis = 1;
+}
+
+message WireRedirectActionDTO {
+  optional string redirect_url = 1;
+}
+
+message WireWechatJsapiActionDTO {
+  optional string app_id = 1;
+  optional string time_stamp = 2;
+  optional string nonce_str = 3;
+  optional string package_value = 4;
+  optional string sign_type = 5;
+  optional string pay_sign = 6;
+}
+
+message WireAlipayJsapiActionDTO {
+  optional string trade_no = 1;
+}
+
+message WirePaymentOutcomeDTO {
+  WirePaymentExecutionDTO payment = 1;
+  optional bool execution_fenced = 2;
+}
+
+message WirePaymentSettlementFactsDTO {
+  WirePaymentExecutionDTO payment = 1;
+  optional string limit_operation_id = 2;
+  optional string payee_merchant_id = 3;
+  optional bool execution_fenced = 4;
+}
+
+message WirePaymentCloseCommand {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string payee_merchant_id = 3;
+  optional string request_key = 4;
+  optional int64 fence_epoch = 5;
+  optional string reason_code = 6;
+}
+
+message WirePaymentCloseDTO {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional int64 fence_epoch = 3;
+  optional bool fenced = 4;
+  WirePaymentExecutionDTO payment = 5;
+  optional string no_collection_evidence_id = 6;
+}
+
+message WireParentPaymentFenceCommand {
+  optional string order_id = 1;
+  optional string payee_merchant_id = 2;
+  optional int64 close_epoch = 3;
+  optional string request_key = 4;
+}
+
+message WireParentFenceDTO {
+  optional string order_id = 1;
+  optional int64 close_epoch = 2;
+  optional bool fenced = 3;
+  optional bool all_children_converged = 4;
+  optional int32 unknown_count = 5;
+}
+
+message WireParentFenceStatusQuery {
+  optional string order_id = 1;
+  optional int64 close_epoch = 2;
+}
+
+message WirePaymentAttemptStartCommand {
+  optional string payment_id = 1;
+  optional string request_key = 2;
+  WirePaymentChoiceDTO choice = 3;
+  optional string prepared_input_ref = 4;
+  optional string previous_attempt_evidence_id = 5;
+}
+
+message WirePaymentOutcomeEventDTO {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string allocation_id = 3;
+  optional string operation_id = 4;
+  optional string payee_merchant_id = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  optional string state = 8;
+  optional int64 payment_version = 9;
+  optional string evidence_id = 10;
+  optional bool execution_fenced = 11;
+}
+
+message WirePaymentSnapshotEventDTO {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string payee_merchant_id = 3;
+  optional int64 amount_minor = 4;
+  optional string currency = 5;
+  optional string state = 6;
+  optional string channel = 7;
+  optional string access_mode = 8;
+  google.protobuf.Timestamp initiated_at = 9;
+  google.protobuf.Timestamp succeeded_at = 10;
+  optional int64 source_version = 11;
+}
+
+message WireRefundSnapshotEventDTO {
+  optional string refund_id = 1;
+  optional string refund_request_id = 2;
+  optional string payment_id = 3;
+  optional string order_id = 4;
+  optional string payee_merchant_id = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  optional string state = 8;
+  google.protobuf.Timestamp refund_created_at = 9;
+  google.protobuf.Timestamp succeeded_at = 10;
+  optional int64 source_version = 11;
+}
+
+message WireOrderRefundSummaryEventDTO {
+  optional string order_id = 1;
+  optional string payee_merchant_id = 2;
+  optional string currency = 3;
+  optional int64 refunded_minor = 4;
+  optional int64 refund_reserved_minor = 5;
+  optional int64 refund_summary_version = 6;
+}
+
+service PaymentRpc {
+  rpc InputPrepare (WirePaymentInputPrepareCommand) returns (WirePaymentInputDTO);
+  rpc Accept (WirePaymentExecuteCommand) returns (WirePaymentExecutionDTO);
+  rpc Detail (WireIdQuery) returns (WirePaymentExecutionDTO);
+  rpc Outcome (WireIdQuery) returns (WirePaymentOutcomeDTO);
+  rpc Facts (WireIdQuery) returns (WirePaymentSettlementFactsDTO);
+  rpc Close (WirePaymentCloseCommand) returns (WirePaymentCloseDTO);
+  rpc FenceParent (WireParentPaymentFenceCommand) returns (WireParentFenceDTO);
+  rpc ParentFenceStatus (WireParentFenceStatusQuery) returns (WireParentFenceDTO);
+  rpc StartAttempt (WirePaymentAttemptStartCommand) returns (WirePaymentExecutionDTO);
+}

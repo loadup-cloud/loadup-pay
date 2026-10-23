@@ -24,7 +24,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderSnapshotStorageConverter {
     @Mapping(target = "orderId", source = "id")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "paidMinor", source = "paidAmountMinor")
     @Mapping(target = "reservedMinor", source = "paymentReservedMinor")
     @Mapping(target = "orderCreatedAt", source = "createdAt")

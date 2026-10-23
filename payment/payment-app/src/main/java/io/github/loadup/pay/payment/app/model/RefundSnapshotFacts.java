@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -32,7 +32,7 @@ public record RefundSnapshotFacts(String refundId, String refundRequestId, Strin
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         DomainChecks.text(state, 24);
         Objects.requireNonNull(refundCreatedAt);
         Objects.requireNonNull(sourceUpdatedAt);

@@ -21,8 +21,8 @@ import io.github.loadup.pay.acquire.domain.model.FeeRefundPolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -56,9 +56,9 @@ class SharedMoneyTest {
                 assertThrows(DomainViolation.class, () -> order(negative)).reason());
         assertEquals(
                 DomainViolation.Reason.CURRENCY_MISMATCH,
-                assertThrows(DomainViolation.class, () -> DomainChecks.amount(100, "XXX"))
+                assertThrows(DomainViolation.class, () -> DomainChecks.cnyAmount(100, "XXX"))
                         .reason());
-        assertEquals(0, DomainChecks.amount(0, "CNY").getCent());
+        assertEquals(0, DomainChecks.cnyAmount(0, "CNY").getCent());
     }
 
     @Test

@@ -17,7 +17,7 @@ package io.github.loadup.pay.limitcenter.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.app.security.LimitActorProvider;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;

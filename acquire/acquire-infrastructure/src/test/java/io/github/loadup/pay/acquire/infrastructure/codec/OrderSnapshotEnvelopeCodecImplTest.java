@@ -19,7 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -35,8 +35,8 @@ class OrderSnapshotEnvelopeCodecImplTest {
     final OrderSnapshotEnvelopeCodecImpl codec = new OrderSnapshotEnvelopeCodecImpl(mapper);
     final OffsetDateTime time = OffsetDateTime.parse("2026-10-23T12:00:00+08:00");
 
-    PayEventEnvelope<OrderSnapshotEventDTO> event(String producer, long version) {
-        return new PayEventEnvelope<>("delivery", "change", producer, "pay.acquire.snapshot.realtime.v1", 1, "order", version, time,
+    EventEnvelope<OrderSnapshotEventDTO> event(String producer, long version) {
+        return new EventEnvelope<>("delivery", "change", producer, "pay.acquire.snapshot.realtime.v1", 1, "order", version, time,
                 new OrderSnapshotEventDTO("order", "merchant", "M001", 10000, "CNY", 4000, 0, AcquireOrderState.PENDING, time, time, 2));
     }
 

@@ -1,5 +1,7 @@
 # Client API 详细设计
 
+2026-10-23传输更新：应用间统一为 Protobuf gRPC，当前6个 service/25个方法分别由各服务 `*-rpc/src/main/proto/<service>.proto` 维护，运行配置与迁移边界见 [RPC 规范](RPC.md)。下文“业务 gRPC 待接入/无协议模块”属于历史状态，其他未实现业务仍按原批次说明。
+
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 对应[详细设计](../DETAILED-DESIGN.md)与[数据库设计](DATABASE.md)
 
 2026-10-21：P1 Java
@@ -16,8 +18,8 @@ Facade、Command/Query/DTO、错误码、条款校验、授权撤销和完整结
 - 认证层先建立可信tenant、principal、服务身份、授权动作及商户作用域；这些不是商户能在JSON里任填的字段。后台job和RPC服务以最小服务权限执行。所有payeeMerchantId仍需归属/授权校验。
 - 公共入参只表达业务意图。持久结果中的orderId/paymentId/refundId/operationId由服务生成并保持稳定；跨服务内部Command可以接收权威上游分配的稳定ID。
 - 金额：`amountMinor: long`，CNY为分；currency创建时可省略，规范化为CNY后计算幂等摘要，其余内部接口显式传币种。JSON金额用整数，浏览器使用安全整数校验/大整数方案，禁止以小数元直接提交。
-- 时间：Java OffsetDateTime，HTTP RFC3339显式`+08:00`，DB转Asia/Shanghai的LocalDateTime；gRPC
-  Timestamp只作绝对时间编码，业务归桶仍Asia/Shanghai。
+- 时间：Java OffsetDateTime，HTTP RFC3339显式`+08:00`，DB转系统默认时区的LocalDateTime；gRPC
+  Timestamp只作绝对时间编码，业务归桶仍系统默认时区。
 - 幂等先检查已提交结果，再校验是否允许一个新的业务动作。相同key不同规范化摘要冲突；同key重试不能扩大金额/换收款人/增加子退款。
 - 详情复用框架`IdQuery`；有附加筛选的Query独立命名。分页使用`PageDTO<T>`，Controller映射`PageResponse.of(page)`，顶层`data`及
   `pageInfo(totalCount,pageIndex,pageSize)`；不新建业务分页容器。
@@ -402,7 +404,7 @@ TradeDetailDTO分别返回originalOrder、payments、refunds、refundSummary及s
 ### 8.1 内部可靠事件
 
 ```java
-public record PayEventEnvelope<T>(
+public record EventEnvelope<T>(
         String deliveryId, String businessEventId, String producer,
         String eventType, int schemaVersion, String aggregateId,
         long aggregateVersion, OffsetDateTime occurredAt, T data) {}
@@ -580,10 +582,10 @@ reconciliation后置消费独立事件镜像/受控权威快照。预留`SubmitE
 
 ```java
 public interface TradeProjectionFacade {
-    ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
-    ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event);
-    ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event);
-    ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
+    ProjectionAckDTO applyOrder(EventEnvelope<OrderSnapshotEventDTO> event);
+    ProjectionAckDTO applyPayment(EventEnvelope<PaymentSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefund(EventEnvelope<RefundSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefundSummary(EventEnvelope<OrderRefundSummaryEventDTO> event);
 }
 ```
 
@@ -1002,7 +1004,7 @@ PaymentResultApplication：APPLIED/IGNORED 表示已保存回执，CONFLICT 表�
 ACK。身份/金额不一致和交易号归属冲突不会更新正常付款金额。NOT_FOUND、网络错误、未认证响应均不能证明
 NO_COLLECTION；资金已退回需独立补偿。
 
-终态事件复用 PaymentOutcomeEventDTO 和 PayEventEnvelope。类型为
+终态事件复用 PaymentOutcomeEventDTO 和 EventEnvelope。类型为
 pay.payment.outcome.acquire.v1、pay.payment.outcome.limit.v1、pay.payment.outcome.realtime.v1、pay.payment.outcome.risk.v1；每目标独立
 deliveryId，共用首个终态 evidenceId 作为 businessEventId。完整原 payment/order/allocation/limitOperation/payee/金额币种、正源版本和
 executionFenced 冻结在事务消息中。事件生产者字符串只作结构校验，后续消费仍需受信传输身份及各自权威事实核验。投递
@@ -1044,7 +1046,7 @@ payment/acquire README。新增源码未运行验证，realtime 和商户通知�
 
 投影接口前缀 /api/realtime/projections：/order、/payment、/refund、/refund-summary，分别接既有
 OrderSnapshotEventDTO、PaymentSnapshotEventDTO、RefundSnapshotEventDTO、OrderRefundSummaryEventDTO 的
-PayEventEnvelope。TradeProjectionFacade 四方法现返回 ProjectionAckDTO，包含原
+EventEnvelope。TradeProjectionFacade 四方法现返回 ProjectionAckDTO，包含原
 delivery/businessEvent/producer/aggregate/sourceVersion、接收时 projectedVersion、APPLIED/DUPLICATE/STALE 和 accepted。仅指定
 acquire/payment SERVICE + 对应 pay:realtime:projection:* 权限可写。
 

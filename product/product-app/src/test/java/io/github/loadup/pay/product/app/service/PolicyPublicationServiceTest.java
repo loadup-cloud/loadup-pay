@@ -27,7 +27,7 @@ import io.github.loadup.modules.contract.domain.model.ContractStatus;
 import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.ResolvedContractItem;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.product.app.converter.PolicyPublicationConverter;
 import io.github.loadup.pay.product.app.converter.PolicyPublicationConverterImpl;
@@ -84,7 +84,7 @@ class PolicyPublicationServiceTest {
     final OutboxTemplate outbox = mock(OutboxTemplate.class);
     final UnitTransactions manager = new UnitTransactions();
     final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 10, 0);
-    final Clock clock = Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final LimitPolicyCompiler compiler = new LimitPolicyCompiler(new AcquiringTermsCompiler(validation.getValidator()));
     final PublicationActor actor = new PublicationActor(
             "tenant",
@@ -191,7 +191,7 @@ class PolicyPublicationServiceTest {
                 "policy",
                 1,
                 activation.policyHash(),
-                now.atZone(BusinessTime.ZONE).toOffsetDateTime());
+                now.atZone(BusinessTime.zone()).toOffsetDateTime());
     }
 
     @Test

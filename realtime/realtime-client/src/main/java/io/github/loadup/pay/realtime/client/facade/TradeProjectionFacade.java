@@ -16,7 +16,7 @@
 package io.github.loadup.pay.realtime.client.facade;
 
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -26,11 +26,11 @@ import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
  * Business use cases; identity and authorization come from a trusted invocation context.
  */
 public interface TradeProjectionFacade {
-    ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
+    ProjectionAckDTO applyOrder(EventEnvelope<OrderSnapshotEventDTO> event);
 
-    ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event);
+    ProjectionAckDTO applyPayment(EventEnvelope<PaymentSnapshotEventDTO> event);
 
-    ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefund(EventEnvelope<RefundSnapshotEventDTO> event);
 
-    ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
+    ProjectionAckDTO applyRefundSummary(EventEnvelope<OrderRefundSummaryEventDTO> event);
 }

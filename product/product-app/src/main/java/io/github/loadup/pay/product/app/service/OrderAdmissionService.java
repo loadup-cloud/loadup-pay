@@ -26,10 +26,10 @@ import io.github.loadup.modules.contract.domain.model.ContractStatus;
 import io.github.loadup.modules.contract.domain.model.MerchantContract;
 import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.TypedValue;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.ContractReference;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverter;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.product.app.model.CompiledAcquiringTerms;
@@ -158,7 +158,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     command.payeeMerchantId(),
                     command.productScopeKey(),
                     command.requestDigest(),
-                    DomainChecks.amount(command.amountMinor(), command.currency()),
+                    DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
                     command.requestedDueAt() == null ? null : BusinessTime.local(command.requestedDueAt()),
                     actor.scopeHash());
             var prior = admissions.findByOrder(actor.tenantId(), intent.orderId());

@@ -1,0 +1,131 @@
+syntax = "proto3";
+package loadup.pay.product.v1;
+option java_package = "io.github.loadup.pay.product.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+
+// This service owns these messages and permanent field numbers. Reserve deleted fields.
+// Enum symbols are explicit strings; unknown symbols are rejected.
+
+message WireOrderAdmissionAuthorizeCommand {
+  optional string order_id = 1;
+  optional string payee_merchant_id = 2;
+  optional string product_scope_key = 3;
+  optional string request_digest = 4;
+  optional int64 amount_minor = 5;
+  optional string currency = 6;
+  google.protobuf.Timestamp requested_due_at = 7;
+}
+
+message WireOrderAdmissionDTO {
+  optional string admission_id = 1;
+  optional string order_id = 2;
+  optional string payee_merchant_id = 3;
+  optional string decision = 4;
+  optional string reason_code = 5;
+  optional string request_digest = 6;
+  optional string contract_id = 7;
+  optional int32 revision = 8;
+  optional int64 generation = 9;
+  optional string snapshot_hash = 10;
+  optional string compiled_terms_hash = 11;
+  google.protobuf.Timestamp admitted_at = 12;
+  google.protobuf.Timestamp materialize_before = 13;
+  WireAcquiringTermsDTO terms = 14;
+}
+
+message WireAcquiringTermsDTO {
+  optional int32 schema_version = 1;
+  WireOrderTermsDTO order = 2;
+  WirePaymentTermsDTO payment = 3;
+  WireFeeTermsDTO fee = 4;
+  WireRefundTermsDTO refund = 5;
+  WireNotificationTermsDTO notification = 6;
+  WireLimitPolicyRefDTO limits = 7;
+  repeated WireChannelCapabilityDTO capabilities = 8;
+  optional string routing_profile_ref = 9;
+  optional string return_target_code = 10;
+}
+
+message WireOrderTermsDTO {
+  optional int64 wait_seconds = 1;
+  optional int64 max_wait_seconds = 2;
+  optional string unpaid_action = 3;
+  optional bool extension_allowed = 4;
+  optional int64 extension_max_seconds = 5;
+  optional int64 session_seconds = 6;
+}
+
+message WirePaymentTermsDTO {
+  optional int64 min_amount_minor = 1;
+  optional int64 max_amount_minor = 2;
+  optional int32 max_successful_payments = 3;
+  optional bool allow_exact_remainder_below_min = 4;
+}
+
+message WireFeeTermsDTO {
+  optional string rate = 1;
+  optional int64 fixed_minor = 2;
+  optional string rounding = 3;
+  optional int64 minimum_minor = 4;
+  optional int64 maximum_minor = 5;
+  optional string refund_policy = 6;
+}
+
+message WireRefundTermsDTO {
+  optional bool enabled = 1;
+  optional bool partial_allowed = 2;
+  optional int64 window_seconds = 3;
+  optional string allocation_policy = 4;
+}
+
+message WireNotificationTermsDTO {
+  optional bool enabled = 1;
+  optional string target_ref = 2;
+  optional string signing_identity_ref = 3;
+  optional int32 timeout_millis = 4;
+  optional int64 retry_initial_seconds = 5;
+  optional string retry_multiplier = 6;
+  optional int64 retry_maximum_seconds = 7;
+  optional int32 retry_max_attempts = 8;
+  optional int64 retry_window_seconds = 9;
+}
+
+message WireLimitPolicyRefDTO {
+  optional string policy_id = 1;
+  optional int32 policy_version = 2;
+  optional string policy_hash = 3;
+  optional bool parent_aggregation_enabled = 4;
+  optional string parent_policy_ref = 5;
+  optional string amount_restore = 6;
+  optional string count_restore = 7;
+}
+
+message WireChannelCapabilityDTO {
+  optional string channel = 1;
+  optional string access_mode = 2;
+  repeated string methods = 3;
+}
+
+message WireIdQuery {
+  optional string id = 1;
+}
+
+message WireAdmittedOrderTermsDTO {
+  optional string admission_id = 1;
+  optional string order_id = 2;
+  optional string payee_merchant_id = 3;
+  optional int64 order_amount_minor = 4;
+  optional string currency = 5;
+  optional string contract_id = 6;
+  optional int32 revision = 7;
+  optional int64 generation = 8;
+  optional string snapshot_hash = 9;
+  optional string compiled_terms_hash = 10;
+  WireAcquiringTermsDTO terms = 11;
+}
+
+service ProductRpc {
+  rpc Authorize (WireOrderAdmissionAuthorizeCommand) returns (WireOrderAdmissionDTO);
+  rpc Detail (WireIdQuery) returns (WireOrderAdmissionDTO);
+}

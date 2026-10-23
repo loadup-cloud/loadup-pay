@@ -4,8 +4,6 @@ spring:
     url: ${PAYMENT_JDBC_URL}
     username: ${PAYMENT_JDBC_USERNAME}
     password: ${PAYMENT_JDBC_PASSWORD}
-    hikari:
-      connection-init-sql: "SET time_zone = '+08:00'"
 loadup:
   modules:
     payment:
@@ -33,90 +31,6 @@ loadup:
         active-fingerprint-key-id: ${PAYMENT_INPUT_FINGERPRINT_KEY_ID:v1}
         fingerprint-keys:
           v1: ${PAYMENT_INPUT_FINGERPRINT_KEY}
-  http:
-    enabled: true
-    clients:
-      realtime:
-        base-url: ${REALTIME_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 65536
-        max-response-bytes: 65536
-        operations:
-          refund:
-            method: POST
-            path: /api/realtime/projections/refund
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          refund-summary:
-            method: POST
-            path: /api/realtime/projections/refund-summary
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          payment:
-            method: POST
-            path: /api/realtime/projections/payment
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-      acquire:
-        base-url: ${ACQUIRE_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 65536
-        max-response-bytes: 65536
-        operations:
-          payment-outcome:
-            method: POST
-            path: /api/acquire/events/payment-outcome
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-      limitcenter:
-        base-url: ${LIMITCENTER_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 65536
-        max-response-bytes: 65536
-        operations:
-          reserve:
-            method: POST
-            path: /api/limitcenter/reservations/reserve
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          begin:
-            method: POST
-            path: /api/limitcenter/executions/begin
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          verify:
-            method: POST
-            path: /api/limitcenter/executions/verify
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          confirm:
-            method: POST
-            path: /api/limit/settlement/confirm
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          release:
-            method: POST
-            path: /api/limit/settlement/release
-            headers:
-              Content-Type: application/json
-              Accept: application/json
   kms:
     enabled: true
     endpoint: ${PAYMENT_KMS_ENDPOINT}

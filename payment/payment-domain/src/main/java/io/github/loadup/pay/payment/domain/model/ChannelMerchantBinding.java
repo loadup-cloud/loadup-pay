@@ -16,16 +16,16 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Mutable route head; immutable revisions remain available to existing attempts and refunds.

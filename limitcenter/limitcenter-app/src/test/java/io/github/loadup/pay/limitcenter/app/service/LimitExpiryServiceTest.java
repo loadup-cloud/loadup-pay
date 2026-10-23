@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.pay.limitcenter.client.command.LimitExpireCommand;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucket;
@@ -68,7 +68,7 @@ class LimitExpiryServiceTest {
                         "payment-id",
                         "order",
                         "merchant",
-                        DomainChecks.amount(40, "CNY"),
+                        DomainChecks.cnyAmount(40, "CNY"),
                         "policy",
                         1,
                         f.now.minusDays(1),

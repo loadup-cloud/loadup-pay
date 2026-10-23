@@ -20,22 +20,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: payment }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: payment
           image: loadup-pay/payment:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -78,22 +75,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: acquire }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: acquire
           image: loadup-pay/acquire:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -137,22 +131,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: customer }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: customer
           image: loadup-pay/customer:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -196,22 +187,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: product }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: product
           image: loadup-pay/product:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -255,22 +243,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: limitcenter }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: limitcenter
           image: loadup-pay/limitcenter:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -314,22 +299,19 @@ spec:
         prometheus.io/port: "8080"
       labels: { app: realtime }
     spec:
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
       containers:
         - name: realtime
           image: loadup-pay/realtime:bootstrap
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
-            - name: TZ
-              value: Asia/Shanghai
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-            - name: JAVA_TOOL_OPTIONS
-              value: -Duser.timezone=Asia/Shanghai
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -354,3 +336,81 @@ spec:
   selector: { app: realtime }
   ports:
     - { name: http, port: 8080, targetPort: http }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: customer }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: product }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: limitcenter-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: limitcenter }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: payment }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: acquire-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: acquire }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+# Internal gRPC discovery for the corresponding business-profile application.
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: realtime }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }

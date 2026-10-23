@@ -17,9 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.repository;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;

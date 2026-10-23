@@ -17,7 +17,7 @@ package io.github.loadup.pay.realtime.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -126,7 +126,7 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
     }
 
     @Override
-    public String requestDigest(String tenant, String service, PayEventEnvelope<?> event, String factsHash) {
+    public String requestDigest(String tenant, String service, EventEnvelope<?> event, String factsHash) {
         var data = new StringBuilder();
         for (var field : List.of("realtime-delivery-v1", tenant, service, event.deliveryId(), event.businessEventId(), event.producer(),
                 event.eventType(), Integer.toString(event.schemaVersion()), event.aggregateId(), Long.toString(event.aggregateVersion()),

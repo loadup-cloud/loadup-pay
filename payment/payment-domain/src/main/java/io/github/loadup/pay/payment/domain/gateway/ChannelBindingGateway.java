@@ -15,9 +15,9 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;
 

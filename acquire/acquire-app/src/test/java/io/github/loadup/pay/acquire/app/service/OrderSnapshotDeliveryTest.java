@@ -25,8 +25,8 @@ import io.github.loadup.pay.acquire.app.port.AcquireRealtimeClient;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotEnvelopeCodec;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +55,7 @@ class OrderSnapshotDeliveryTest {
     final OrderSnapshotEnvelopeCodec codec = mock(OrderSnapshotEnvelopeCodec.class);
     final AcquireRealtimeClient client = mock(AcquireRealtimeClient.class);
     final OrderSnapshotDelivery delivery = new OrderSnapshotDelivery(outbox, codec, client);
-    final PayEventEnvelope<OrderSnapshotEventDTO> snapshot = new PayEventEnvelope<>("delivery", "change", "acquire",
+    final EventEnvelope<OrderSnapshotEventDTO> snapshot = new EventEnvelope<>("delivery", "change", "acquire",
             OrderSnapshotEvents.TYPE, 1, "order", 2, BusinessTime.external(CheckoutFixtures.NOW),
             new OrderSnapshotEventDTO("order", "merchant", "M001", 10000, "CNY", 4000, 2000, AcquireOrderState.PENDING,
                     BusinessTime.external(CheckoutFixtures.NOW.minusDays(1)), BusinessTime.external(CheckoutFixtures.NOW), 2));

@@ -20,7 +20,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
@@ -74,12 +74,12 @@ public class RefundRealtimeDelivery {
         return row;
     }
 
-    private void requireAggregate(OutboxRecord row, PayEventEnvelope<?> event) {
+    private void requireAggregate(OutboxRecord row, EventEnvelope<?> event) {
         if (!row.businessId().equals(event.aggregateId()) || !row.type().equals(event.eventType()))
             throw new CommonException(SNAPSHOT_INVALID);
     }
 
-    private void ack(PayEventEnvelope<?> event, ProjectionAckDTO ack) {
+    private void ack(EventEnvelope<?> event, ProjectionAckDTO ack) {
         if (ack == null || !ack.accepted() || !event.deliveryId().equals(ack.deliveryId()) || !event.businessEventId().equals(ack.businessEventId())
                 || !event.producer().equals(ack.producer()) || !event.aggregateId().equals(ack.aggregateId())
                 || ack.sourceVersion() != event.aggregateVersion() || ack.projectedVersion() < ack.sourceVersion()

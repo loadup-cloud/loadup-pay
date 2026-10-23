@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.domain;
 
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRule;

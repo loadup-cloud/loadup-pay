@@ -35,7 +35,7 @@ import org.mapstruct.Mapping;
 public interface PaymentInitiationConverter {
     @Mapping(
             target = "amount",
-            expression = "java(io.github.loadup.pay.common.DomainChecks.amount(command.amountMinor(), currency))")
+            expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(), currency))")
     PaymentIntent toIntent(
             PaymentStartCommand command,
             String allocationId,

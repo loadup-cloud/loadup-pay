@@ -21,8 +21,8 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import io.github.loadup.pay.payment.client.enums.RefundState;
@@ -52,16 +52,16 @@ class RefundRealtimeDeliveryTest {
     final RefundProjectionEnvelopeCodec codec = mock(RefundProjectionEnvelopeCodec.class);
     final PaymentRealtimeClient client = mock(PaymentRealtimeClient.class);
     final RefundRealtimeDelivery delivery = new RefundRealtimeDelivery(outbox, codec, client);
-    final PayEventEnvelope<RefundSnapshotEventDTO> child = new PayEventEnvelope<>("delivery-child", "change-child", "payment", RefundProjectionEvents.CHILD,
+    final EventEnvelope<RefundSnapshotEventDTO> child = new EventEnvelope<>("delivery-child", "change-child", "payment", RefundProjectionEvents.CHILD,
             1, "refund", 2, BusinessTime.external(RefundResultFixtures.NOW), new RefundSnapshotEventDTO("refund", "request", "payment", "order", "merchant",
             1000, "CNY", RefundState.SUCCEEDED, BusinessTime.external(RefundResultFixtures.NOW.minusSeconds(30)), BusinessTime.external(RefundResultFixtures.NOW), 2));
-    final PayEventEnvelope<OrderRefundSummaryEventDTO> summary = new PayEventEnvelope<>("delivery-summary", "change-summary", "payment", RefundProjectionEvents.SUMMARY,
+    final EventEnvelope<OrderRefundSummaryEventDTO> summary = new EventEnvelope<>("delivery-summary", "change-summary", "payment", RefundProjectionEvents.SUMMARY,
             1, "order", 3, BusinessTime.external(RefundResultFixtures.NOW), new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
     final OutboxEvent childEvent = event("child", RefundProjectionEvents.CHILD, "refund");
     final OutboxEvent summaryEvent = event("summary", RefundProjectionEvents.SUMMARY, "order");
 
     OutboxEvent event(String queue, String type, String aggregate) {
-        return new OutboxEvent(queue, new OutboxMessage("tenant", type, 1, aggregate, queue + "-payload"), RefundResultFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), null);
+        return new OutboxEvent(queue, new OutboxMessage("tenant", type, 1, aggregate, queue + "-payload"), RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     }
 
     @BeforeEach

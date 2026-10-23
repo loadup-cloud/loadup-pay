@@ -18,9 +18,9 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.RefundActor;
@@ -110,7 +110,7 @@ class RefundPlanningServiceTest {
     RefundPlanningService service(LocalDateTime now) {
         return new RefundPlanningService(actor::get, refunds, payments, results, attempts, codec, context.getBean(RefundPlanningConverter.class),
                 new PaymentAcceptanceTransactions(manager), () -> "refund-" + ids.incrementAndGet(), validation.getValidator(),
-                Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), projections);
+                Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), projections);
     }
 
     RefundCreateCommand command(long amount) {
@@ -147,7 +147,7 @@ class RefundPlanningServiceTest {
     }
 
     void addPayment(String id, long amount, LocalDateTime at) {
-        var attempt = PaymentAttempt.init("attempt-" + id, id, 1, DomainChecks.amount(amount, "CNY"), AttemptFixtures.binding(), PaymentMethod.H5, "request-" + id);
+        var attempt = PaymentAttempt.init("attempt-" + id, id, 1, DomainChecks.cnyAmount(amount, "CNY"), AttemptFixtures.binding(), PaymentMethod.H5, "request-" + id);
         var stored = new StoredPaymentAttempt(attempt, "operation-" + id, "acquire", "initial", "b".repeat(64), "a".repeat(64),
                 null, null, null, at.minusMinutes(1), null, 0);
         var submitted = stored.beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), at);

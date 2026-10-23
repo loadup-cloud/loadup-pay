@@ -18,9 +18,9 @@ package io.github.loadup.pay.realtime.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -77,7 +77,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
     }
 
     @Override
-    public ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event) {
+    public ProjectionAckDTO applyOrder(EventEnvelope<OrderSnapshotEventDTO> event) {
         var actor = actor(acquireService, "pay:realtime:projection:order");
         validate(() -> {
             event.data().requireEnvelope(event);
@@ -89,7 +89,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
     }
 
     @Override
-    public ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event) {
+    public ProjectionAckDTO applyPayment(EventEnvelope<PaymentSnapshotEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:payment");
         validate(() -> {
             event.data().requireEnvelope(event);
@@ -101,7 +101,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
     }
 
     @Override
-    public ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event) {
+    public ProjectionAckDTO applyRefund(EventEnvelope<RefundSnapshotEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:refund");
         validate(() -> {
             event.data().requireEnvelope(event);
@@ -113,7 +113,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
     }
 
     @Override
-    public ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event) {
+    public ProjectionAckDTO applyRefundSummary(EventEnvelope<OrderRefundSummaryEventDTO> event) {
         var actor = actor(paymentService, "pay:realtime:projection:refund-summary");
         validate(() -> {
             event.data().requireEnvelope(event);
@@ -126,7 +126,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
         return consume(actor, event, hash, () -> projections.applyRefundSummaryIfNewer(actor.tenantId(), value, hash));
     }
 
-    private ProjectionAckDTO consume(RealtimeActor actor, PayEventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
+    private ProjectionAckDTO consume(RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), event, hash);
         return transactions.write(actor.tenantId(), () -> {
             var prior = receipts.find(actor.tenantId(), event.producer(), event.deliveryId());

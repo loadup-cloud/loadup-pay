@@ -1,5 +1,5 @@
 -- Customer-owned tables. Framework components own merchant_profile, global_unique and sequence allocation.
--- Business sessions use Asia/Shanghai (+08:00). Requires MySQL 8.0.16 or later.
+-- Business sessions use the deployment system default. Requires MySQL 8.0.16 or later.
 
 CREATE TABLE merchant_relationship
 (

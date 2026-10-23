@@ -27,7 +27,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-common</artifactId>
+            <artifactId>loadup-commons-dto</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -36,10 +36,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-json</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-dto</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

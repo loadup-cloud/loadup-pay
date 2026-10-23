@@ -17,7 +17,7 @@ package io.github.loadup.pay.customer.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.customer.client.dto.MerchantActionGrantDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;

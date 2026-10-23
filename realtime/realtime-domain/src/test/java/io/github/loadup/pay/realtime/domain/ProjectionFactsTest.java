@@ -15,9 +15,9 @@
  */
 package io.github.loadup.pay.realtime.domain;
 
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.realtime.domain.model.ProjectionFacts;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
 import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
@@ -33,7 +33,7 @@ class ProjectionFactsTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 23, 12, 0);
 
     TradePaymentProjection payment(String merchant, String state, long version) {
-        return new TradePaymentProjection("payment", "order", merchant, DomainChecks.amount(1000, "CNY"), state,
+        return new TradePaymentProjection("payment", "order", merchant, DomainChecks.cnyAmount(1000, "CNY"), state,
                 Channel.WECHAT, AccessMode.DIRECT, at, state.equals("SUCCEEDED") ? at.plusSeconds(1) : null,
                 new SourceVersion("payment", "PaymentOrder", "payment", version), at.plusMinutes(1));
     }
@@ -57,7 +57,7 @@ class ProjectionFactsTest {
     @Test
     void higherVersionCannotChangeTheOriginalPaymentAmount() {
         var original = payment("merchant", "PROCESSING", 1);
-        var changed = new TradePaymentProjection("payment", "order", "merchant", DomainChecks.amount(999, "CNY"), "PROCESSING",
+        var changed = new TradePaymentProjection("payment", "order", "merchant", DomainChecks.cnyAmount(999, "CNY"), "PROCESSING",
                 Channel.WECHAT, AccessMode.DIRECT, at, null, new SourceVersion("payment", "PaymentOrder", "payment", 2), at);
         assertFalse(ProjectionFacts.compatible(original, changed));
     }

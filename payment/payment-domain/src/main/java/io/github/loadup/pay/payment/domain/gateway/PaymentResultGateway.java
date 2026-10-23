@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.common.Channel;
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.PaymentObservation;

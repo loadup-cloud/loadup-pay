@@ -1,5 +1,7 @@
 # LimitCenter 商户额度
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 本批补齐 COLA 的 app、infrastructure、adapter，以及“规则激活 → 全部桶预占 → 执行许可/校验 → 未执行预占过期”的持久化源码。复用
 LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。业务 gRPC 与付款执行生命周期继续按
 ROADMAP 实施。
@@ -115,7 +117,7 @@ mvnd clean verify -pl limitcenter/limitcenter-bootstrap -am -Plimitcenter-busine
 # 沿用既有脚本打包 JAR 与本地镜像，脚本默认跳过测试。
 ./limitcenter/build.sh -Plimitcenter-business
 
-TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
+java \
   -jar limitcenter/limitcenter-bootstrap/target/limitcenter-bootstrap-0.0.1-SNAPSHOT.jar \
   --spring.profiles.active=limitcenter-business
 ```

@@ -18,7 +18,7 @@ package io.github.loadup.pay.acquire.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -40,6 +40,6 @@ public interface PaymentEventConverter {
     @Mapping(target = "allocationId", source = "event.data.allocationId")
     @Mapping(target = "paymentVersion", source = "event.data.paymentVersion")
     @Mapping(target = "evidenceId", source = "event.data.evidenceId")
-    PaymentEventReceipt toReceipt(String id, PayEventEnvelope<PaymentOutcomeEventDTO> event, String requestDigest,
+    PaymentEventReceipt toReceipt(String id, EventEnvelope<PaymentOutcomeEventDTO> event, String requestDigest,
                                   String callerServiceId, long orderVersion, LocalDateTime acceptedAt);
 }

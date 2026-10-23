@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
 
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.PaymentObservation;
@@ -34,7 +34,7 @@ class PaymentResultCodecImplTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 22, 12, 0);
 
     PaymentObservation success(String transaction, long amount, LocalDateTime paidAt) {
-        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.SUCCEEDED, DomainChecks.amount(amount, "CNY"),
+        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.SUCCEEDED, DomainChecks.cnyAmount(amount, "CNY"),
                 transaction, paidAt, PaymentObservation.Source.CALLBACK, "notification", "b".repeat(64));
     }
 
@@ -65,7 +65,7 @@ class PaymentResultCodecImplTest {
 
     @Test
     void negativeAndIntermediateKindsDoNotShareTheSameFinancialDigest() {
-        var unknown = new PaymentObservation(identity, ChannelPaymentOutcome.Kind.UNKNOWN, DomainChecks.amount(1000, "CNY"),
+        var unknown = new PaymentObservation(identity, ChannelPaymentOutcome.Kind.UNKNOWN, DomainChecks.cnyAmount(1000, "CNY"),
                 null, null, PaymentObservation.Source.QUERY_RESPONSE, "query-1", "b".repeat(64));
         var noCollection = new PaymentObservation(identity, ChannelPaymentOutcome.Kind.NO_COLLECTION, unknown.amount(),
                 null, null, unknown.source(), unknown.receiptKey(), unknown.sourceDigest());

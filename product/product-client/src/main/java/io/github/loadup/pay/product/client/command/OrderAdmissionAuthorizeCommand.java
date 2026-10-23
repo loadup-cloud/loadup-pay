@@ -16,7 +16,7 @@
 package io.github.loadup.pay.product.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -48,7 +48,7 @@ public record OrderAdmissionAuthorizeCommand(
         OffsetDateTime requestedDueAt) {
     public OrderAdmissionAuthorizeCommand {
         if (requestedDueAt != null)
-            requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

@@ -16,7 +16,7 @@
 package io.github.loadup.pay.product.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.product.client.dto.LimitPolicyPublicationDTO;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import org.mapstruct.Mapper;

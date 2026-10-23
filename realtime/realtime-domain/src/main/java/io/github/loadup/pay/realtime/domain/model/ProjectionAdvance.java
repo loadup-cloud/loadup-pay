@@ -16,7 +16,7 @@
 package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 
 public record ProjectionAdvance(String disposition, long projectedVersion) {
     public ProjectionAdvance {

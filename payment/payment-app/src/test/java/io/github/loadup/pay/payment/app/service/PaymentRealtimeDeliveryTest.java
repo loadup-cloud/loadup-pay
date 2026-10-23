@@ -21,10 +21,10 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.app.port.PaymentSnapshotEnvelopeCodec;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
@@ -54,7 +54,7 @@ class PaymentRealtimeDeliveryTest {
     final PaymentSnapshotEnvelopeCodec codec = mock(PaymentSnapshotEnvelopeCodec.class);
     final PaymentRealtimeClient client = mock(PaymentRealtimeClient.class);
     final PaymentRealtimeDelivery delivery = new PaymentRealtimeDelivery(outbox, codec, client);
-    final PayEventEnvelope<PaymentSnapshotEventDTO> snapshot = new PayEventEnvelope<>("delivery", "proof", "payment",
+    final EventEnvelope<PaymentSnapshotEventDTO> snapshot = new EventEnvelope<>("delivery", "proof", "payment",
             PaymentResultEvents.REALTIME, 1, "payment", 2, BusinessTime.external(AttemptFixtures.NOW),
             new PaymentSnapshotEventDTO("payment", "order", "merchant", 4000, "CNY", PaymentState.SUCCEEDED, Channel.WECHAT,
                     AccessMode.DIRECT, BusinessTime.external(AttemptFixtures.NOW), BusinessTime.external(AttemptFixtures.NOW), 2));

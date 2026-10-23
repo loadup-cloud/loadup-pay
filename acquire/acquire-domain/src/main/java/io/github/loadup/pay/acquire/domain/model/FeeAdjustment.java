@@ -17,10 +17,10 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record FeeAdjustment(
         String id, String feeId, String orderId, String triggerKey, Money adjustment, long refundSourceVersion) {
@@ -29,7 +29,7 @@ public record FeeAdjustment(
         DomainChecks.id(feeId);
         DomainChecks.id(orderId);
         DomainChecks.text(triggerKey, 128);
-        DomainChecks.amount(adjustment);
+        DomainChecks.cnyAmount(adjustment);
         require(refundSourceVersion >= 0, INVALID_ARGUMENT);
     }
 

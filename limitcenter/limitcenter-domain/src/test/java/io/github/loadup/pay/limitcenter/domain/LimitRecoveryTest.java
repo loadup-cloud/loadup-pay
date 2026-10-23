@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.domain;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.limitcenter.domain.model.LimitAttemptEvidence;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
 import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;

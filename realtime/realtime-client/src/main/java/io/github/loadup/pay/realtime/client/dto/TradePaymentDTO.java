@@ -16,9 +16,9 @@
 package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
@@ -47,11 +47,11 @@ public record TradePaymentDTO(
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradePaymentDTO {
         if (initiatedAt != null)
-            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (succeededAt != null)
-            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (snapshotAt != null)
-            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

@@ -83,7 +83,7 @@ class RefundResultServiceTest {
     final AtomicInteger ids = new AtomicInteger();
     final RefundResultService service = new RefundResultService(results, locks, new PaymentAcceptanceTransactions(manager), codec,
             converter, context.getBean(RefundPlanningConverter.class), () -> "receipt-" + ids.incrementAndGet(),
-            Clock.fixed(RefundResultFixtures.NOW.atZone(io.github.loadup.pay.common.BusinessTime.ZONE).toInstant(), io.github.loadup.pay.common.BusinessTime.ZONE), projections);
+            Clock.fixed(RefundResultFixtures.NOW.atZone(io.github.loadup.commons.time.BusinessTime.zone()).toInstant(), io.github.loadup.commons.time.BusinessTime.zone()), projections);
 
     @BeforeEach
     void setup() {

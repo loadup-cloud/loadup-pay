@@ -20,8 +20,8 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -69,7 +69,7 @@ public class PaymentResultEvents {
             throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE);
         var data = converter.toEvent(payment, fenced);
         for (var type : List.of(ACQUIRE, LIMIT, RISK)) {
-            var envelope = new PayEventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", type, 1,
+            var envelope = new EventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", type, 1,
                     payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), data);
             outbox.publish(new OutboxMessage(tenant, type, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
         }
@@ -91,7 +91,7 @@ public class PaymentResultEvents {
         }
         var snapshot = snapshots.toSnapshot(payment, attempt == null ? null : attempt.attempt().binding().channel(),
                 attempt == null ? null : attempt.attempt().binding().accessMode(), succeededAt);
-        var envelope = new PayEventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", REALTIME, 1,
+        var envelope = new EventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", REALTIME, 1,
                 payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), snapshot);
         outbox.publish(new OutboxMessage(tenant, REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
     }

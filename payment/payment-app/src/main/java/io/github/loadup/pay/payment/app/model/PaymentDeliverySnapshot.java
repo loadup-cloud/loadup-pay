@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 /**
  * Consistent terminal facts read under local locks, released before calling any downstream.
  */
-public record PaymentDeliverySnapshot(String tenantId, PayEventEnvelope<PaymentOutcomeEventDTO> envelope,
+public record PaymentDeliverySnapshot(String tenantId, EventEnvelope<PaymentOutcomeEventDTO> envelope,
                                       StoredPaymentAcceptance payment, StoredPaymentAttempt attempt,
                                       LocalDateTime succeededAt) {
     @Override

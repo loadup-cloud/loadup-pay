@@ -368,7 +368,7 @@ DIRECT/SERVICE_PROVIDER 模式累计，不能换渠道商户号绕过同一平�
 可按合约对受授权的父商户同时施加汇总限额：同一付款必须满足实际收款商户规则以及配置的父级规则。父子关系由 customer
 的可信事实确定，不让请求方任意省略；父/子有独立桶，同一规则/主体去重后仅计一次。父级汇总不表示资金先收给父级。
 
-| 窗口     | Asia/Shanghai 区间                    | 说明                         |
+| 窗口     | 系统默认时区 区间                    | 说明                         |
 |----------|---------------------------------------|------------------------------|
 | DAY      | 当日 00:00 至次日 00:00               | 自然日，不是滚动 24 小时     |
 | WEEK     | 合约指定周起始日 00:00 至下周同日起点 | 周起点配置固定，不是滚动七天 |
@@ -389,7 +389,7 @@ threshold。
 |--------------------|--------------------------------------------|--------------------------------------------------------------------|
 | countingBasis      | INITIATED_AT                               | 每笔首次受理时确定桶，重试不挪桶；仅选择已实现口径                 |
 | countMetric        | PAYMENT_COUNT                              | 成功付款数，金额与笔数分别计数                                     |
-| timezone / 周起点  | Asia/Shanghai / 周一00:00                  | 周起点可按规则配置；规则变更须处理在途桶，不回溯清零               |
+| timezone / 周起点  | 系统默认时区 / 周一00:00                  | 周起点可按规则配置；规则变更须处理在途桶，不回溯清零               |
 | windows            | DAY/WEEK/MONTH/LIFETIME                    | 各阈值和启用状态可配置，MONTH为自然月                              |
 | parentAggregation  | 默认关闭，按合约显式启用                   | 启用后子级与父级全部规则同时原子满足                               |
 | limitRestorePolicy | 默认NO_RESTORE，合约可启用成功退款后的恢复 | 恢复原付款对应桶，不增加订单可付金额；笔数恢复单独配置，默认不恢复 |
@@ -664,18 +664,18 @@ loadup-pay/
 ```
 
 代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器。测试用Ping
-RPC与协议模块已删除，当前只保留应用与契约层。Java业务client不依赖gRPC；未来各服务的业务传输适配按实际用例接入框架binder，generated
+内部应用交互统一使用 gRPC。各服务的 *-rpc 模块维护自己的 Protobuf 协议、映射和类型化方法，框架现有 gRPC binder 提供通用调用与认证支持，各应用业务 profile 接入框架binder；Java业务client不依赖gRPC，generated
 proto、身份与业务接口绑定仍待实施和验收。
 
-金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不在pay-common重定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
+金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不重新定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
 
 ## 15. K8s、配置与本地时区
 
 六核心服务独立 Deployment/Service，cashier 按需单独部署，SDK 为客户端包。继续使用 Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
 RBAC/应用权限，当前 Headlamp 仅能修改 acquire/payment，不能把它当商户业务授权。
 
-所有容器 TZ=Asia/Shanghai，Java 同时 -Duser.timezone=Asia/Shanghai；数据库会话、Clock、JDBC/任务与日/周/月边界一致。业务
-DATETIME (6) 使用明确本地时区；跨服务需要定位时刻时携带 +08:00 或明确时区。渠道 epoch/签名时间和 K8s
+容器与 JVM 沿用系统默认时区，不设置固定 TZ/user.timezone；数据库会话、Clock、JDBC/任务与日/周/月边界保持一致。业务
+DATETIME (6) 使用本地时间；跨服务 OffsetDateTime 携带实际偏移，Protobuf Timestamp 表达绝对时刻。渠道 epoch/签名时间和 K8s
 标准时间戳按原协议保留绝对时间语义，不为改变显示破坏签名。
 
 技术配置使用 ConfigMap/Secret，业务策略使用 product 合约；Nacos 不作为本期注册前提。生产使用不可变镜像及可拉取策略，本地
@@ -718,7 +718,7 @@ orderId/paymentId/allocationId/refundId/limitOperationId/traceId，凭证和付�
 | 风控确认失败/乱序                                | 已付款事实照常提交并反馈订单/额度，独立重投确认，不重复扣款或倒改结果                           |
 | 对账服务停机/慢任务                              | 创单、支付、退款、限额和渠道 ACK 不同步依赖对账服务                                             |
 | 文件重复/更正/缺失或本地位点滞后                 | 批次幂等/历史可追溯，不将缺数据标为对平，不因重跑重复触发资金操作                               |
-| 时区                                             | 应用/数据库/任务与日周月边界按 Asia/Shanghai 验证                                               |
+| 时区                                             | 应用/数据库/任务与日周月边界按 系统默认时区 验证                                               |
 
 先做领域状态/金额不变量，再做 MySQL 并发、事件/故障恢复及渠道沙箱和回调联调。本轮不构建、不跑测试、不改部署；容量/SLO/RTO/RPO
 不在本次细化范围。
@@ -770,7 +770,7 @@ FAILED。流程是否完成与差错是否关闭分别记录，不能用一个�
 
 匹配键按渠道真实唯一范围：channel/accessMode、渠道账户/服务商/子商户范围、渠道商户请求号/交易号，定位到 paymentId/attemptId
 或 refundId；不能只按父 orderId 匹配，因为一订单已有多笔付款和退款。账单切日/类型遵循渠道定义，归档时保留原账单日期和时区，展示按
-Asia/Shanghai；不能强行按订单创单日匹配跨日/月付款。
+系统默认时区；不能强行按订单创单日匹配跨日/月付款。
 
 逐笔比较交易类型、收款主体、金额、币种和可比状态；若文件提供费用/退款明细，可单独核对对应口径。汇总再核对笔数和金额，识别渠道有/本地无、本地有/渠道无、金额/状态/手续费不符、重复记录、迟到更正等。不同类型文件不能互相替代，如支付账单与资金到账文件不能直接按相同状态比较。
 
@@ -800,7 +800,7 @@ SubmitEvidenceForVerification，payment 再按可信渠道查询/证据验证后
 | cashier/SDK                           | 无实现                                        | 收银 URL、会话、多笔动作与汇总展示                      |
 | 风控接口 / reconciliation             | 仅本稿预留，无实现/部署                       | 外部咨询与结果确认适配、账单文件独立对账可后置          |
 | 合约与商户模块                        | 框架有可复用源码/文档                         | 远程服务适配、子商户授权及 admission/多付款策略仍需实现 |
-| K8s/Headlamp/时区                     | 两应用/Headlamp 运行，Asia/Shanghai 已验证    | 其余业务部署、身份权限与安全入口                        |
+| K8s/Headlamp/时区                     | 两应用/Headlamp 运行，系统默认时区 已验证    | 其余业务部署、身份权限与安全入口                        |
 | 数据可靠性                            | 当前 Ping 无真实资金/数据库状态               | 本文所有业务本地事务、Outbox/Inbox、金额/商户额度查证   |
 
 文档不将框架测试源码或设计能力标为运行通过。

@@ -25,12 +25,12 @@ import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.ContractReference;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
@@ -60,7 +60,7 @@ final class CheckoutFixtures {
     static final String ORIGIN = "https://pay.example";
 
     static Clock clock(LocalDateTime now) {
-        return Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE);
+        return Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     }
 
     static StoredAcquireOrder order(AcquireOrderState state, UnpaidOrderAction action, LocalDateTime due) {
@@ -68,7 +68,7 @@ final class CheckoutFixtures {
         var order = new AcquireOrder(
                 "order",
                 "merchant",
-                DomainChecks.amount(10000, "CNY"),
+                DomainChecks.cnyAmount(10000, "CNY"),
                 paid,
                 0,
                 paid > 0 ? 1 : 0,

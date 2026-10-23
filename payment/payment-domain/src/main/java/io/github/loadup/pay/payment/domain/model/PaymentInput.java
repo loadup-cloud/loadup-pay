@@ -18,16 +18,16 @@ package io.github.loadup.pay.payment.domain.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.payment.PaymentMethod;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Ciphertext and immutable use scope; raw payer input never enters a payment intent.
@@ -50,7 +50,7 @@ public record PaymentInput(
         DomainChecks.id(fingerprintKeyId);
         DomainChecks.text(encryptionKey, 128);
         DomainChecks.text(ciphertext, 65536);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());
         Objects.requireNonNull(channel);
         Objects.requireNonNull(method);

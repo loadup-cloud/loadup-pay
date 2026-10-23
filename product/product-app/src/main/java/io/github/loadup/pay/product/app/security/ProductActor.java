@@ -18,7 +18,7 @@ package io.github.loadup.pay.product.app.security;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

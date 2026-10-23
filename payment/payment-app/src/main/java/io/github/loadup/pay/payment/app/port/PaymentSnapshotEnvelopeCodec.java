@@ -15,9 +15,9 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 
 public interface PaymentSnapshotEnvelopeCodec {
-    PayEventEnvelope<PaymentSnapshotEventDTO> decode(String payload);
+    EventEnvelope<PaymentSnapshotEventDTO> decode(String payload);
 }

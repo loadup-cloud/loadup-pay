@@ -25,10 +25,10 @@ import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
@@ -138,7 +138,7 @@ class PaymentInitiationPersistenceTest {
                 "merchant/" + "c".repeat(64),
                 "action",
                 "a".repeat(64),
-                DomainChecks.amount(AMOUNT, "CNY"),
+                DomainChecks.cnyAmount(AMOUNT, "CNY"),
                 AllocationState.HELD,
                 0);
         return new StoredPaymentAllocation(allocation, "c".repeat(64), payload, hash, 0);
@@ -195,7 +195,7 @@ class PaymentInitiationPersistenceTest {
         var order = new AcquireOrder(
                 "order",
                 "merchant",
-                DomainChecks.amount(10000, "CNY"),
+                DomainChecks.cnyAmount(10000, "CNY"),
                 2000,
                 3000,
                 1,

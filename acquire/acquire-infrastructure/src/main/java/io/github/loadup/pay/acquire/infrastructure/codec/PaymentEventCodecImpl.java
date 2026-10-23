@@ -16,7 +16,7 @@
 package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.pay.acquire.app.port.PaymentEventCodec;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +29,7 @@ import java.util.List;
 @Component
 public class PaymentEventCodecImpl implements PaymentEventCodec {
     @Override
-    public String digest(String tenant, String service, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+    public String digest(String tenant, String service, EventEnvelope<PaymentOutcomeEventDTO> event) {
         var value = event.data();
         var framed = new StringBuilder();
         for (String field : List.of("acquire-payment-event-v1", tenant, service, event.deliveryId(), event.businessEventId(),

@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.codec;
 
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.junit.jupiter.api.Test;
@@ -29,8 +29,8 @@ class PaymentEventCodecImplTest {
     final PaymentEventCodecImpl codec = new PaymentEventCodecImpl();
     final OffsetDateTime at = OffsetDateTime.parse("2026-10-23T12:00:00+08:00");
 
-    PayEventEnvelope<PaymentOutcomeEventDTO> event(String delivery, String operation, long amount, OffsetDateTime time) {
-        return new PayEventEnvelope<>(delivery, "proof", "payment", "pay.payment.outcome.acquire.v1", 1, "payment", 2, time,
+    EventEnvelope<PaymentOutcomeEventDTO> event(String delivery, String operation, long amount, OffsetDateTime time) {
+        return new EventEnvelope<>(delivery, "proof", "payment", "pay.payment.outcome.acquire.v1", 1, "payment", 2, time,
                 new PaymentOutcomeEventDTO("payment", "order", "allocation", operation, "merchant", amount, "CNY",
                         PaymentState.SUCCEEDED, 2, "proof", false));
     }

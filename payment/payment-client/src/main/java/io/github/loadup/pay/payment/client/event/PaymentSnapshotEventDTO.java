@@ -16,21 +16,21 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Complete source-owned snapshot; no synchronous source lookup is required by realtime.
@@ -63,19 +63,19 @@ public record PaymentSnapshotEventDTO(
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(amountMinor, currency);
+        DomainChecks.cnyAmount(amountMinor, currency);
         require(amountMinor > 0 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
         require((channel == null) == (accessMode == null), INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(initiatedAt);
         if (succeededAt != null) require(channel != null && !succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
         if (initiatedAt != null)
-            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (succeededAt != null)
-            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
-    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+    public void requireEnvelope(EventEnvelope<?> envelope) {
         require(equals(envelope.data()), CONFLICT);
         envelope.requireSource("pay.payment.snapshot.realtime.v1", "payment", paymentId, sourceVersion);
     }

@@ -16,7 +16,7 @@
 package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public record TradeDetailDTO(
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {
         if (snapshotAt != null)
-            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

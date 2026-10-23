@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
@@ -57,7 +57,7 @@ class PaymentLimitOutcomeDeliveryTest {
     final PaymentLimitOutcomeDelivery delivery = new PaymentLimitOutcomeDelivery(support, limits, intents,
             context.getBean(PaymentOutcomeDeliveryConverter.class));
     final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.LIMIT, 1, "payment", "{}"),
-            AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), null);
+            AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     PaymentDeliverySnapshot snapshot;
 
     LimitReservationDTO reservation(LimitReservationState state) {

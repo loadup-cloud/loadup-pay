@@ -17,7 +17,7 @@ package io.github.loadup.pay.realtime.client.query;
 
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,9 +38,9 @@ public record TradePaymentPageQuery(
         @Schema(description = "Size") Integer size) {
     public TradePaymentPageQuery {
         if (createdFrom != null)
-            createdFrom = createdFrom.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            createdFrom = createdFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (createdTo != null)
-            createdTo = createdTo.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            createdTo = createdTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         var bounds = PageQuery.normalized(page, size, RealtimeResultCodeEnum.INVALID_PAGE);
         page = bounds.page();
         size = bounds.size();

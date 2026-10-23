@@ -15,7 +15,6 @@
     <name>LoadUp Pay</name>
     <description>External acquiring applications and COLA client and domain contracts.</description>
     <modules>
-        <module>pay-common</module>
         <module>customer</module>
         <module>limitcenter</module>
         <module>product</module>
@@ -31,15 +30,40 @@
         <dependencies>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>realtime-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>acquire-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>payment-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>limitcenter-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>product-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>customer-rpc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>loadup-dependencies</artifactId>
                 <version>${loadup.framework.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>pay-common</artifactId>
-                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
@@ -209,6 +233,11 @@
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>realtime-app</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>realtime-adapter</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

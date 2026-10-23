@@ -1,6 +1,28 @@
 spring:
   application:
     name: acquire
+  grpc:
+    server:
+      port: 50051
+      inbound:
+        message:
+          max-size: 256KB
+      shutdown:
+        grace-period: 30s
+    client:
+      channel:
+        realtime:
+          target: dns:///realtime-headless:50051
+          default:
+            load-balancing-policy: round_robin
+        payment:
+          target: dns:///payment-headless:50051
+          default:
+            load-balancing-policy: round_robin
+        product:
+          target: dns:///product-headless:50051
+          default:
+            load-balancing-policy: round_robin
 server:
   shutdown: graceful
 management:
@@ -28,3 +50,15 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+loadup:
+  rpc:
+    clients:
+      realtime:
+        channel: realtime
+        deadline: 3s
+      payment:
+        channel: payment
+        deadline: 3s
+      product:
+        channel: product
+        deadline: 3s

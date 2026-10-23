@@ -1,0 +1,140 @@
+syntax = "proto3";
+package loadup.pay.limitcenter.v1;
+option java_package = "io.github.loadup.pay.limitcenter.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+
+// This service owns these messages and permanent field numbers. Reserve deleted fields.
+// Enum symbols are explicit strings; unknown symbols are rejected.
+
+message WireLimitPolicyActivateCommand {
+  optional string policy_id = 1;
+  optional int32 policy_version = 2;
+  optional string policy_hash = 3;
+  optional string payee_merchant_id = 4;
+  optional string refund_amount_restore = 5;
+  optional string refund_count_restore = 6;
+  repeated WireLimitRuleDTO rules = 7;
+}
+
+message WireLimitRuleDTO {
+  optional string rule_scope_id = 1;
+  optional string merchant_id = 2;
+  optional string metric = 3;
+  optional string currency = 4;
+  optional string window = 5;
+  optional int32 week_start = 6;
+  optional int64 threshold = 7;
+  optional bool enforcement_enabled = 8;
+  optional bool metering_enabled = 9;
+}
+
+message WireLimitPolicyActivationDTO {
+  optional string policy_id = 1;
+  optional int32 policy_version = 2;
+  optional string policy_hash = 3;
+  google.protobuf.Timestamp activated_at = 4;
+}
+
+message WireLimitReserveCommand {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional string order_id = 3;
+  optional string payee_merchant_id = 4;
+  optional int64 amount_minor = 5;
+  optional string currency = 6;
+  google.protobuf.Timestamp initiated_at = 7;
+  optional string policy_id = 8;
+  optional int32 policy_version = 9;
+  optional string policy_hash = 10;
+  optional string request_digest = 11;
+}
+
+message WireLimitReservationDTO {
+  optional string reservation_id = 1;
+  optional string operation_id = 2;
+  optional string payment_id = 3;
+  optional string state = 4;
+  optional string policy_id = 5;
+  optional int32 policy_version = 6;
+  google.protobuf.Timestamp initiated_at = 7;
+  optional int64 version = 8;
+}
+
+message WireLimitOperationQuery {
+  optional string operation_id = 1;
+}
+
+message WireLimitBeginExecutionCommand {
+  optional string operation_id = 1;
+  optional string attempt_id = 2;
+  optional string request_key = 3;
+  optional string previous_attempt_evidence_id = 4;
+}
+
+message WireLimitExecutionPermitDTO {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional string attempt_id = 3;
+  optional int64 execution_epoch = 4;
+  optional string permit = 5;
+}
+
+message WireLimitExecutionVerifyCommand {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional string attempt_id = 3;
+  optional int64 execution_epoch = 4;
+  optional int64 amount_minor = 5;
+  optional string currency = 6;
+  optional string permit = 7;
+}
+
+message WireLimitExecutionVerificationDTO {
+  optional bool valid = 1;
+  optional string reason_code = 2;
+}
+
+message WireLimitExpireCommand {
+  optional string operation_id = 1;
+}
+
+message WireLimitConfirmCommand {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional int64 payment_version = 3;
+  optional string business_event_id = 4;
+  optional string success_evidence_id = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  google.protobuf.Timestamp succeeded_at = 8;
+}
+
+message WireLimitReleaseCommand {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional int64 payment_version = 3;
+  optional string business_event_id = 4;
+  optional string no_collection_evidence_id = 5;
+  optional string reason_code = 6;
+}
+
+message WireLimitReleaseDTO {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional bool fenced = 3;
+  WireLimitReservationDTO reservation = 4;
+  optional int64 payment_version = 5;
+  optional string no_collection_evidence_id = 6;
+}
+
+service LimitCenterRpc {
+  rpc Activate (WireLimitPolicyActivateCommand) returns (WireLimitPolicyActivationDTO);
+  rpc Reserve (WireLimitReserveCommand) returns (WireLimitReservationDTO);
+  rpc Detail (WireLimitOperationQuery) returns (WireLimitReservationDTO);
+  rpc Begin (WireLimitBeginExecutionCommand) returns (WireLimitExecutionPermitDTO);
+  rpc Verify (WireLimitExecutionVerifyCommand) returns (WireLimitExecutionVerificationDTO);
+  rpc Expire (WireLimitExpireCommand) returns (WireLimitReservationDTO);
+  rpc Confirm (WireLimitConfirmCommand) returns (WireLimitReservationDTO);
+  rpc Release (WireLimitReleaseCommand) returns (WireLimitReleaseDTO);
+}

@@ -16,15 +16,15 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.Set;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Complete monetary snapshot, bounded independently of historical refund-request count.
@@ -39,12 +39,12 @@ public record OrderRefundSummaryEventDTO(
     public OrderRefundSummaryEventDTO {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(refundedMinor, currency);
+        DomainChecks.cnyAmount(refundedMinor, currency);
         require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundReservedMinor <= Long.MAX_VALUE - refundedMinor
                 && refundSummaryVersion >= 0, INVALID_ARGUMENT);
     }
 
-    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+    public void requireEnvelope(EventEnvelope<?> envelope) {
         require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
                 .contains(envelope.eventType()), CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);

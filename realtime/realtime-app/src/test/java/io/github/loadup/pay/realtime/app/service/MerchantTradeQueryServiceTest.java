@@ -17,8 +17,8 @@ package io.github.loadup.pay.realtime.app.service;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.app.security.RealtimeActor;
 import io.github.loadup.pay.realtime.client.query.TradeDetailQuery;
@@ -68,7 +68,7 @@ class MerchantTradeQueryServiceTest {
             new RealtimeTransactions(new RealtimeFixtures.Transactions()), validation.getValidator());
 
     TradeOrderProjection order() {
-        return new TradeOrderProjection("order", "merchant", "M1", DomainChecks.amount(1000, "CNY"), 0, 0, "PENDING",
+        return new TradeOrderProjection("order", "merchant", "M1", DomainChecks.cnyAmount(1000, "CNY"), 0, 0, "PENDING",
                 RealtimeFixtures.NOW.minusMinutes(1), RealtimeFixtures.NOW, new SourceVersion("acquire", "AcquireOrder", "order", 2), RealtimeFixtures.NOW);
     }
 

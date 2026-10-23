@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -39,7 +39,7 @@ class RefundProjectionEnvelopeCodecImplTest {
     void childRetainsOriginalAuditTimeAndChannelTimeWithoutInventingClockOrdering() {
         var data = new RefundSnapshotEventDTO("refund", "request", "payment", "order", "merchant", 1000, "CNY", RefundState.SUCCEEDED,
                 at, at.minusNanos(123456000), 2);
-        var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.realtime.v1", 1, "refund", 2, at, data);
+        var event = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.realtime.v1", 1, "refund", 2, at, data);
         assertEquals(event, codec.child(json.writeValueAsString(event)));
         assertEquals(at, data.refundCreatedAt());
         assertEquals(at.minusNanos(123456000), data.succeededAt());
@@ -48,7 +48,7 @@ class RefundProjectionEnvelopeCodecImplTest {
     @Test
     void boundedMonetarySummaryRoundTripsWithoutAnyRequestHistory() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
-        var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
+        var event = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
         assertEquals(event, codec.summary(json.writeValueAsString(event)));
         assertTrue(json.writeValueAsString(event).length() < 2048);
     }
@@ -56,16 +56,16 @@ class RefundProjectionEnvelopeCodecImplTest {
     @Test
     void aFeeStreamPayloadCannotBeDeliveredAsTheRealtimeSummaryStream() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
-        var event = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.fee.v1", 1, "order", 3, at, data);
+        var event = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.fee.v1", 1, "order", 3, at, data);
         assertThrows(CommonException.class, () -> codec.summary(json.writeValueAsString(event)));
     }
 
     @Test
     void invalidVersionUnknownFieldsAndOversizedPayloadAreRejected() {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
-        var wrong = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 4, at, data);
+        var wrong = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 4, at, data);
         assertThrows(CommonException.class, () -> codec.summary(json.writeValueAsString(wrong)));
-        var valid = new PayEventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
+        var valid = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
         var payload = json.writeValueAsString(valid);
         assertThrows(CommonException.class, () -> codec.summary(payload.substring(0, payload.length() - 1) + ",\"requests\":[]}"));
         assertThrows(CommonException.class, () -> codec.child("x".repeat(65537)));

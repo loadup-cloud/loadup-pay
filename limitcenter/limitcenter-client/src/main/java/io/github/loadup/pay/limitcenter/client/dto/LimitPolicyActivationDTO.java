@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 
@@ -29,7 +29,7 @@ public record LimitPolicyActivationDTO(
         @Schema(description = "Activated at") OffsetDateTime activatedAt) {
     public LimitPolicyActivationDTO {
         if (activatedAt != null)
-            activatedAt = activatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            activatedAt = activatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

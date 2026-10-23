@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
@@ -52,7 +52,7 @@ class PaymentRiskOutcomeDeliveryTest {
     final PaymentRiskOutcomeDelivery delivery = new PaymentRiskOutcomeDelivery(support, context.getBean(PaymentOutcomeDeliveryConverter.class),
             context.getBean(PaymentSubmissionConverter.class), risk);
     final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.RISK, 1, "payment", "{}"),
-            AttemptFixtures.NOW.atZone(BusinessTime.ZONE).toInstant(), null);
+            AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     @AfterEach
     void close() {

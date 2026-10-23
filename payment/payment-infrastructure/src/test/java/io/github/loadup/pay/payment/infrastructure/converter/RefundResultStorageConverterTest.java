@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
@@ -49,7 +49,7 @@ class RefundResultStorageConverterTest {
     @Test
     void permanentClaimRoundTripsExactOriginalAccountAndBothTransactionNumbers() {
         var claim = new RefundTransactionClaim("claim", "tenant", "refund", original, "refund-request", "original-transaction",
-                DomainChecks.amount(300, "CNY"), "refund-transaction", now, "receipt");
+                DomainChecks.cnyAmount(300, "CNY"), "refund-transaction", now, "receipt");
         var row = converter.toClaimDO(claim);
         assertEquals(claim, converter.toClaim(row, converter.toIdentity(row)));
         assertNull(row.getCreatedAt());
@@ -59,9 +59,9 @@ class RefundResultStorageConverterTest {
 
     @Test
     void aStartPatchOnlyWritesProgressAndTheOneWaySubmissionMarker() {
-        var child = RefundOrder.init("refund", "request", "payment", DomainChecks.amount(300, "CNY"), "refund-request");
+        var child = RefundOrder.init("refund", "request", "payment", DomainChecks.cnyAmount(300, "CNY"), "refund-request");
         var request = RefundRequest.init("request", "order", "merchant", "R001", child.amount(), List.of(child));
-        var capacity = new PaymentRefundCapacity("payment", "order", "merchant", now.minusHours(1), DomainChecks.amount(1000, "CNY"), 0, 300, 1);
+        var capacity = new PaymentRefundCapacity("payment", "order", "merchant", now.minusHours(1), DomainChecks.cnyAmount(1000, "CNY"), 0, 300, 1);
         var stored = new StoredRefundChild(child, 1, original, "original-transaction", now.minusHours(1));
         var started = child.beginSubmission();
         var change = new RefundProgressChange(new RefundExecutionFacts(stored, null, null, null), started, request, request.apply(started),

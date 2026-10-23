@@ -22,7 +22,7 @@ import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

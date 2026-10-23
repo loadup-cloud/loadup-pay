@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.realtime.domain;
 
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import org.junit.jupiter.api.Test;

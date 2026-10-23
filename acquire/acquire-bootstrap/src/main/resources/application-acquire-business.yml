@@ -4,8 +4,6 @@ spring:
     url: ${ACQUIRE_JDBC_URL}
     username: ${ACQUIRE_JDBC_USERNAME}
     password: ${ACQUIRE_JDBC_PASSWORD}
-    hikari:
-      connection-init-sql: "SET time_zone = '+08:00'"
 loadup:
   modules:
     acquire:
@@ -45,96 +43,6 @@ loadup:
       issuer-uri: ${ACQUIRE_JWT_ISSUER_URI}
       audience: ${ACQUIRE_JWT_AUDIENCE}
       jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI}
-  http:
-    enabled: true
-    clients:
-      realtime:
-        base-url: ${REALTIME_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 65536
-        max-response-bytes: 16384
-        operations:
-          order:
-            method: POST
-            path: /api/realtime/projections/order
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-      payment:
-        base-url: ${PAYMENT_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 262144
-        max-response-bytes: 262144
-        operations:
-          input-prepare:
-            method: POST
-            path: /api/payment/inputs/prepare
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          accept:
-            method: POST
-            path: /api/payment/executions/accept
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          detail:
-            method: POST
-            path: /api/payment/executions/detail
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          outcome:
-            method: POST
-            path: /api/payment/executions/outcome
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          facts:
-            method: POST
-            path: /api/payment/facts/payment
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          close:
-            method: POST
-            path: /api/payment/executions/close
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          fence-parent:
-            method: POST
-            path: /api/payment/executions/fence-parent
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-          parent-fence-status:
-            method: POST
-            path: /api/payment/executions/parent-fence-status
-            headers:
-              Content-Type: application/json
-              Accept: application/json
-      product:
-        base-url: ${PRODUCT_BASE_URL}
-        allow-private-addresses: true
-        connect-timeout: 2s
-        read-timeout: 3s
-        acquire-timeout: 1s
-        max-request-bytes: 16384
-        max-response-bytes: 262144
-        operations:
-          authorize:
-            method: POST
-            path: /api/product/admissions/authorize
-            headers:
-              Content-Type: application/json
-              Accept: application/json
 management:
   endpoint:
     health:

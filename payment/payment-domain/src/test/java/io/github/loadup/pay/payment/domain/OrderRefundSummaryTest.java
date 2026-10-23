@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain;
 
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import org.junit.jupiter.api.Test;
 
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OrderRefundSummaryTest {
     @Test
     void independentRequestsShareOneMonotonicMonetaryVersionWithoutChangingTheOrderTotal() {
-        var initial = OrderRefundSummary.init("order", "merchant", DomainChecks.amount(10000, "CNY"));
+        var initial = OrderRefundSummary.init("order", "merchant", DomainChecks.cnyAmount(10000, "CNY"));
         var held = initial.reserve(6000).reserve(1000);
         var succeeded = held.settle(2000, true);
         var failed = succeeded.settle(1000, false);
@@ -40,7 +40,7 @@ class OrderRefundSummaryTest {
 
     @Test
     void totalAndOriginalHoldsBoundEveryReservationAndSettlement() {
-        var held = OrderRefundSummary.init("order", "merchant", DomainChecks.amount(1000, "CNY")).reserve(800);
+        var held = OrderRefundSummary.init("order", "merchant", DomainChecks.cnyAmount(1000, "CNY")).reserve(800);
         assertThrows(DomainViolation.class, () -> held.reserve(201));
         assertThrows(DomainViolation.class, () -> held.settle(801, true));
         assertThrows(DomainViolation.class, () -> held.settle(0, false));

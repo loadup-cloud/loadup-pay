@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.product.domain;
 
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import org.junit.jupiter.api.Test;
 

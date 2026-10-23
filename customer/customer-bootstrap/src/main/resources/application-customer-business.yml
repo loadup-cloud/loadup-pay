@@ -4,8 +4,6 @@ spring:
     url: ${CUSTOMER_JDBC_URL}
     username: ${CUSTOMER_JDBC_USERNAME}
     password: ${CUSTOMER_JDBC_PASSWORD}
-    hikari:
-      connection-init-sql: "SET time_zone = '+08:00'"
 loadup:
   database:
     multi-tenant:

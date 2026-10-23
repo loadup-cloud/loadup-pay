@@ -17,8 +17,8 @@ package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -34,7 +34,7 @@ public record OrderSnapshotFacts(String orderId, String payeeMerchantId, String 
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantOrderNo, 64);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(orderCreatedAt);
         Objects.requireNonNull(sourceUpdatedAt);
         DomainViolation.require(amount.getCent() > 0 && sourceVersion >= 0 && paidMinor >= 0 && reservedMinor >= 0

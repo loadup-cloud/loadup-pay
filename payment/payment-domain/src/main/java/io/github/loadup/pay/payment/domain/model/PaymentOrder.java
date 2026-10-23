@@ -17,16 +17,16 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.Reason.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Refunds have independent aggregates and cannot rewrite this successful amount or state.
@@ -50,7 +50,7 @@ public record PaymentOrder(
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(limitOperationId);
         Objects.requireNonNull(initiatedAt);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (successfulAttemptId != null), INVALID_STATE);

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.product.domain;
 
-import io.github.loadup.pay.common.ContractReference;
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import io.github.loadup.pay.product.domain.model.ContractAdmissionState;
 import io.github.loadup.pay.product.domain.model.MerchantContractFacts;

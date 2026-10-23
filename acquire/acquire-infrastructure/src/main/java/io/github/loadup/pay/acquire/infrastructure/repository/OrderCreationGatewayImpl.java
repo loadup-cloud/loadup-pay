@@ -28,7 +28,7 @@ import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
 import io.github.loadup.pay.acquire.infrastructure.mapper.OrderContractSnapshotDOMapper;
 import io.github.loadup.pay.acquire.infrastructure.mapper.OrderCreateIntentDOMapper;
 import io.github.loadup.pay.acquire.infrastructure.mapper.OrderFeeDOMapper;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 

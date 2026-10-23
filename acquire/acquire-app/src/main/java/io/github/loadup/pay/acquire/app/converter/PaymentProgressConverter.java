@@ -35,7 +35,7 @@ public interface PaymentProgressConverter {
     @Mapping(target = "payment", source = "payment")
     PaymentOutcomeDTO toObserved(PaymentExecutionDTO payment, boolean executionFenced);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(command.amountMinor(),command.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(),command.currency()))")
     @Mapping(target = "kind", constant = "NOT_ACCEPTED")
     @Mapping(target = "paymentVersion", constant = "0L")
     @Mapping(target = "evidenceId", source = "noCollectionEvidenceId")
@@ -47,7 +47,7 @@ public interface PaymentProgressConverter {
 
     PaymentProgressDTO toProgress(PaymentExecutionDTO payment, AcquireOrderDTO order);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(payment.amountMinor(),payment.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(payment.amountMinor(),payment.currency()))")
     @Mapping(target = "paymentVersion", source = "payment.version")
     @Mapping(target = "evidenceId", source = "payment.terminalEvidenceId")
     VerifiedPaymentOutcome toOutcome(PaymentExecutionDTO payment, VerifiedPaymentOutcome.Kind kind, boolean executionFenced);

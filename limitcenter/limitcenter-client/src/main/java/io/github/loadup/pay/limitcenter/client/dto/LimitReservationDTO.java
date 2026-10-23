@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
@@ -38,7 +38,7 @@ public record LimitReservationDTO(
         @Schema(description = "Version") long version) {
     public LimitReservationDTO {
         if (initiatedAt != null)
-            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

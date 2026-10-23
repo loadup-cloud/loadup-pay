@@ -19,7 +19,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.tenant.TenantManager;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.common.Channel;
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;

@@ -8,11 +8,10 @@
 | `./scripts/deploy.sh all`           | 构建JAR/镜像、部署六应用、等待就绪端点                |
 | `./payment/build.sh`                | 仅构建payment及其必需依赖，生成payment镜像            |
 | `./payment/deploy.sh`               | 构建并部署payment，不修改其他五个应用                 |
-| `./pay-common/build.sh`             | 仅构建公共库JAR，不要求Docker或Kubernetes，不生成镜像 |
 | `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice       |
 
 可选应用名：`acquire`、`payment`、`customer`、`product`、`limitcenter`、`realtime`
-。所有入口均可从其他工作目录调用。client/domain/pay-common作为应用依赖参与构建，不单独生成部署镜像。
+。所有入口均可从其他工作目录调用。client/domain/rpc作为应用依赖参与构建，不单独生成部署镜像。
 
 ## 前提与默认行为
 
@@ -25,7 +24,7 @@
 - 使用本地共享镜像及`imagePullPolicy: Never`；不会推送镜像。其他集群需另外实现镜像发布并修改拉取策略。
 -
 
-默认镜像标签为Asia/Shanghai时间戳与进程ID，每次发布生成新标签。构建拒绝覆盖已有同名镜像，避免同标签重建后Pod仍使用旧镜像；复用已有镜像请使用SKIP_BUILD。源码清单不写入动态标签；部署时在内存中选择资源并绑定镜像。
+默认镜像标签为系统本地时间戳与进程ID，每次发布生成新标签。构建拒绝覆盖已有同名镜像，避免同标签重建后Pod仍使用旧镜像；复用已有镜像请使用SKIP_BUILD。源码清单不写入动态标签；部署时在内存中选择资源并绑定镜像。
 
 - Dockerfile通过`JAR_FILE`接收实际构建产物，不固定项目版本；`.dockerignore`仅允许启动JAR与Dockerfile进入构建上下文。
 
@@ -50,7 +49,7 @@ SKIP_BUILD=1 IMAGE_TAG=release-002 ./scripts/deploy.sh all
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经kubectl本地dry-run输出的JSON：全量选择13个资源（namespace及六组Deployment/Service），单应用选择3个资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+经kubectl本地dry-run输出的JSON：全量选择19个资源（namespace及六组Deployment/HTTP Service/gRPC Headless Service），单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为 50051；渲染器拒绝缺失、重复或不符合约定的 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
@@ -75,7 +74,7 @@ limitcenter 业务 JAR/镜像可沿用 `./limitcenter/build.sh -Plimitcenter-bus
 ；需另行注入数据库、签发方和同名运行时profile，见[业务说明](../limitcenter/README.md)。默认部署清单仍为基础骨架，本批没有发布业务镜像。
 
 acquire 普通创单业务包使用 `./acquire/build.sh -Pacquire-business`，运行时同时设置
-`SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product HTTP 配置见[acquire说明](../acquire/README.md)
+`SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product gRPC 配置见[acquire说明](../acquire/README.md)
 。现有部署清单仍需业务 Secret/ConfigMap 覆盖层，本轮未构建或部署该业务镜像。
 
 acquire-business 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、
@@ -86,20 +85,20 @@ payment 业务 JAR/镜像使用 `./payment/build.sh -Ppayment-business`，运行
 INIT，未对接渠道；现有部署清单仍需配置覆盖层，详见[payment说明](../payment/README.md)。本批仅完成窄范围源码/测试源码编译，没有打包部署业务镜像。
 
 acquire-business 付款发起/结果刷新还需
-PAYMENT_BASE_URL、PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和
+PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和
 ACQUIRE_PAYMENT_TOKEN_FILE。服务 JWT 由外部 Secret 文件挂载并轮换，需包含受信 SERVICE/sub/service_id/tenant_id/aud 与 pay:
 payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。部署清单尚未补业务覆盖层，本批未打包或部署。最新
 outcome/refresh 源码按用户要求暂不检查或构建。
 
 acquire 显式关单继续使用同一挂载服务 JWT，新增需要 pay:payment:close、pay:payment:fence 和 pay:payment:fence:read 权限；固定
-payment HTTP 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent
+payment gRPC 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent
 迁移，服务实际8表。当前仍需业务配置覆盖层，本批没有打包、部署或执行迁移。
 
 acquire-business 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增
 V20261022070000__order_extension_receipt.sql，实际9表。未在本批打包部署或执行迁移，自动到期任务尚未启用。
 
-LimitCenter 额度终态业务新增 payment-evidence HTTP 客户端，配置
-PAYMENT_BASE_URL/PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID 与
+LimitCenter 额度终态业务新增 payment 事实 gRPC 客户端，配置
+PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID 与
 LIMITCENTER_PAYMENT_TOKEN_FILE；令牌挂载文件需 pay:payment:limit-facts。payment 使用 PAYMENT_LIMITCENTER_SERVICE_ID
 限定读取者（默认 limitcenter）。新 V20261022080000 尚未执行，镜像/业务部署仍未运行。
 
@@ -116,3 +115,15 @@ publish/suspend/revoke/read；不授予商户或 acquire 运维权限。新三�
 payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE、LIMITCENTER_BASE_URL；挂载令牌需 pay:limit:
 reserve/execute/verify，不能用商户 JWT。内部首笔尝试接口另要求 acquire SERVICE 的 pay:payment:attempt:start。新增
 V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像部署未运行。
+
+## 应用间 gRPC 发布
+
+六应用 `application.yml` 固定 gRPC 50051、30秒优雅退出，Pod 终止窗口45秒。出站 channel 使用 `dns:///<peer>-headless:50051` 和 `default.load-balancing-policy: round_robin`；`loadup.rpc.clients.<peer>` 配置 channel 名和3秒 deadline。Java 通过 Spring 配置类读取，无应用间 HTTP 地址或降级路径。
+
+业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产 TLS 配置。默认骨架构建不包含业务 adapter，也没有业务 gRPC 监听；只声明 Headless Service 与 containerPort 不会启动监听。
+
+`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 gRPC Headless Service。`verify.sh` 目前仅检查 Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 gRPC 调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
+
+双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 兼容通道；旧 HTTP 镜像与新 gRPC 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
+
+协议与调用关系见[RPC 规范](../design/RPC.md)，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。

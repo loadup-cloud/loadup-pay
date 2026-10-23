@@ -166,7 +166,7 @@ class OrderCreationCodecImplTest {
         var restored = mapper.readValue(payload, OrderFeePolicy.class);
         assertEquals(policy, restored);
         assertEquals(
-                policy.calculate(io.github.loadup.pay.common.DomainChecks.amount(9007199254740993L, "CNY")),
-                restored.calculate(io.github.loadup.pay.common.DomainChecks.amount(9007199254740993L, "CNY")));
+                policy.calculate(io.github.loadup.commons.validation.DomainChecks.cnyAmount(9007199254740993L, "CNY")),
+                restored.calculate(io.github.loadup.commons.validation.DomainChecks.cnyAmount(9007199254740993L, "CNY")));
     }
 }

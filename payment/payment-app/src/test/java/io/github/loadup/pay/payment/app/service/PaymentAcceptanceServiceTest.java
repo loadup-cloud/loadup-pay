@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -87,7 +87,7 @@ class PaymentAcceptanceServiceTest {
     final UnitTransactions manager = new UnitTransactions();
     final AtomicInteger sequence = new AtomicInteger();
     final PaymentExecuteCommand command = PaymentFixtures.command();
-    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final PaymentAcceptanceService service = new PaymentAcceptanceService(
             actor::get,
             store,
@@ -236,7 +236,7 @@ class PaymentAcceptanceServiceTest {
                                 "order",
                                 "allocation",
                                 "merchant",
-                                io.github.loadup.pay.common.DomainChecks.amount(4000, "CNY"),
+                                io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
                                 "operation",
                                 LocalDateTime.now(clock)),
                         "admission",
@@ -319,7 +319,7 @@ class PaymentAcceptanceServiceTest {
                             "order",
                             "allocation",
                             "merchant",
-                            io.github.loadup.pay.common.DomainChecks.amount(4000, "CNY"),
+                            io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
                             "winning-operation",
                             LocalDateTime.now(clock)),
                     "admission",
@@ -363,7 +363,7 @@ class PaymentAcceptanceServiceTest {
                 command.currency(),
                 command.requestDigest(),
                 new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
-                        io.github.loadup.pay.common.Channel.ALIPAY, io.github.loadup.pay.common.PaymentMethod.H5),
+                        io.github.loadup.commons.payment.Channel.ALIPAY, io.github.loadup.commons.payment.PaymentMethod.H5),
                 null,
                 command.admittedTerms());
         assertSame(

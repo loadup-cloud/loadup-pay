@@ -1,4 +1,4 @@
--- Payment-owned durable acceptance. All business timestamps use local Asia/Shanghai time.
+-- Payment-owned durable acceptance. All business timestamps use the deployment system local time.
 -- No channel attempts, raw sensitive inputs, refunds or external submissions are created here.
 CREATE TABLE payment_parent_gate
 (

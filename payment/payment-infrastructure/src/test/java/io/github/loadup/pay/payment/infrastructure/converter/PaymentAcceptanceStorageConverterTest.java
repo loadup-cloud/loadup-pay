@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
@@ -45,7 +45,7 @@ class PaymentAcceptanceStorageConverterTest {
                 "order",
                 "allocation",
                 "merchant",
-                DomainChecks.amount(4000, "CNY"),
+                DomainChecks.cnyAmount(4000, "CNY"),
                 "operation",
                 LocalDateTime.of(2026, 10, 22, 12, 0));
         var value = new StoredPaymentAcceptance(

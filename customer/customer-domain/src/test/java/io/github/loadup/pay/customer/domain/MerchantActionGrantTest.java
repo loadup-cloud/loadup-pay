@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.customer.domain;
 
-import io.github.loadup.pay.common.DomainViolation;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.customer.domain.model.GrantState;
 import io.github.loadup.pay.customer.domain.model.MerchantAction;
 import io.github.loadup.pay.customer.domain.model.MerchantActionGrant;

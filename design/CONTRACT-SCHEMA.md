@@ -102,7 +102,6 @@ lateCollectionPolicy只控制独立异常资金处置，不允许重开CLOSED。
 |-------------------------------------|---------|------------------------------------------------|
 | `limit.policyRef`                   | STRING  | 稳定policyId；版本在签约时解析并冻结           |
 | `limit.countingBasis`               | STRING  | 首期INITIATED_AT，每PaymentOrder首次受理时点   |
-| `limit.timezone`                    | STRING  | 固定Asia/Shanghai                              |
 | `limit.weekStart`                   | INTEGER | 默认1（周一），1..7；已活跃桶不可直接改形状    |
 | `limit.<window>.<metric>.enabled`   | BOOLEAN | 是否启用该窗口/指标                            |
 | `limit.<window>.<metric>.threshold` | INTEGER | ≥0；启用0表示禁止新增，不解释成无限            |
@@ -180,3 +179,5 @@ product
 初始发布只消费框架不可变revision1的完整收单配置，生成policyVersion1的八个自然窗口/指标规则；关闭门禁仍持续计量。稳定scope仅包含可信tenant/payee和协议名，不含policy/contract版本；父级聚合及商户多个初始合约绑定暂拒绝。完整商业配置仍通过既有封闭词汇编译器校验，不依赖伪造ACTIVE来通过校验。
 
 发布意图和Outbox同事务；远程激活后匹配ACK才写本地ACTIVE，无回执继续拒绝新单。ACK不恢复停止/到期合约，既有原DENIED不改判。当前只完成额度规则就绪协议，实际渠道开通、routing/return/notification引用的可执行性与归属发布验收继续后续实施；不能据额度ACK宣称渠道已开通或支付可成功。未执行真实合约发布或数据库迁移，见[product说明](../product/README.md)。
+
+额度窗口时区使用系统默认值，不提供 `limit.timezone` 合约项；服务端运行规则记录实际 zone 并校验环境一致性。

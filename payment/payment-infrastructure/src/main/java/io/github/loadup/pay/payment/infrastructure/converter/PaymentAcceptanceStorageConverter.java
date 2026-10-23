@@ -31,7 +31,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(
             target = "amount",
             expression =
-                    "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     // A domain transition is not a fluent setter.
     @Mapping(target = "applyAttempt", ignore = true)

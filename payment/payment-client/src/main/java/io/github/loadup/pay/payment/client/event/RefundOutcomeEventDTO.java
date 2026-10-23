@@ -16,9 +16,9 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -50,13 +50,13 @@ public record RefundOutcomeEventDTO(
         DomainViolation.require(
                 amountMinor > 0 && refundVersion > 0 && state != null && cumulativePaymentRefundedMinor >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
-        DomainChecks.amount(amountMinor, currency);
+        DomainChecks.cnyAmount(amountMinor, currency);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(evidenceId);
         if (state == RefundState.SUCCEEDED)
             DomainViolation.require(cumulativePaymentRefundedMinor >= amountMinor, DomainViolation.Reason.CONFLICT);
     }
 
-    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+    public void requireEnvelope(EventEnvelope<?> envelope) {
         DomainViolation.require(
                 equals(envelope.data()) && Set.of("pay.payment.refund.limit.v1").contains(envelope.eventType()),
                 DomainViolation.Reason.CONFLICT);

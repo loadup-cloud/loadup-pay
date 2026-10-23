@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.client;
 
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
@@ -109,7 +109,7 @@ class PaymentEventContractTest {
                 created.plusMinutes(1),
                 3);
         assertEquals(ZoneOffset.ofHours(8), event.succeededAt().getOffset());
-        var envelope = new PayEventEnvelope<>(
+        var envelope = new EventEnvelope<>(
                 "delivery",
                 "business-event",
                 "payment",
@@ -122,7 +122,7 @@ class PaymentEventContractTest {
         assertDoesNotThrow(() -> event.requireEnvelope(envelope));
         assertThrows(
                 DomainViolation.class,
-                () -> event.requireEnvelope(new PayEventEnvelope<>(
+                () -> event.requireEnvelope(new EventEnvelope<>(
                         "delivery",
                         "business-event",
                         "payment",
@@ -134,7 +134,7 @@ class PaymentEventContractTest {
                         event)));
         assertThrows(
                 DomainViolation.class,
-                () -> event.requireEnvelope(new PayEventEnvelope<>(
+                () -> event.requireEnvelope(new EventEnvelope<>(
                         "delivery",
                         "business-event",
                         "payment",

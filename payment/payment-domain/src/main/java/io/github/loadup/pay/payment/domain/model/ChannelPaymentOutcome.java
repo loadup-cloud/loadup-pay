@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
@@ -25,7 +25,7 @@ public record ChannelPaymentOutcome(Kind kind, ChannelPaymentIdentity identity, 
     public ChannelPaymentOutcome {
         Objects.requireNonNull(kind);
         Objects.requireNonNull(identity);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         if (kind == Kind.SUCCEEDED || kind == Kind.NO_COLLECTION || kind == Kind.CLOSED_WITH_FUNDS_RETURNED)
             DomainChecks.id(evidenceId);
     }

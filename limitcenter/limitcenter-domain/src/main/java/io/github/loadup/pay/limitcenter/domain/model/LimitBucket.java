@@ -19,10 +19,10 @@ import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record LimitBucket(LimitBucketKey key, long used, long held, long version) {
     public LimitBucket {

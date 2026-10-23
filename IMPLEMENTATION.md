@@ -1,5 +1,19 @@
 # 第一阶段：应用初始化与契约层
 
+## 2026-10-23：公共能力收敛与默认时区
+
+pay-common/pay-rpc 已从支付工程移除：JDK-only 的 DomainViolation 进入框架 commons-error，BusinessTime/EventEnvelope/ContractReference/共享枚举与显式 CNY 守卫进入 commons-dto，通用调用与 JWT/校验支持进入现有 gRPC binder。各服务继续维护自己的 RPC 契约。Wire↔DTO 普通字段改为 MapStruct 生成，protobuf presence/oneof/Timestamp/集合语义保留。
+
+系统时区取默认值，移除 JVM/TZ/JDBC/K8s/Headlamp 强制时区和合约 limit.timezone；额度运行规则记录实际 zone，建表脚本取消固定地区约束。本节覆盖下文历史批次中 pay-common/pay-rpc 与固定上海时区的状态。通过 IDEA MCP 完成受影响框架模块及六业务应用依赖的 clean test-compile，未运行测试、数据库变更或部署。详见[当前 RPC 规范](design/RPC.md)。
+
+## 2026-10-23：内部传输统一 gRPC
+
+本节覆盖下文各历史批次中的内部 HTTP/Ping/无协议模块状态。新增6个提供方自维护的 `*-rpc` 模块：分别维护 Protobuf service、消息映射与方法定义，共25个 unary 方法；通用调用、JWT与错误处理支持归框架现有 gRPC binder。9个内部 HTTP 客户端迁移为 gRPC，移除对应内部 servlet 入口与业务 profile 的全部 `loadup.http`/`*_BASE_URL` 配置。商户、运营、收银台和外部渠道 HTTP 不变。
+
+channel 由 Spring 配置类读取，固定同 Namespace Headless DNS、50051、round_robin、3秒 deadline；SERVICE token 逐次重读，商户委托令牌保持原 audience 约束。服务器复用资源服务器的签名/issuer/audience/token_use 校验与权限转换，在每个 gRPC 回调中隔离并恢复 SecurityContext。业务异常仅通过固定错误码 trailer 返回，调用方继续显式白名单映射；未知异常不输出载荷或凭证。
+
+构建 profile 仍区分默认骨架与业务装配；业务镜像、Secret、TLS 和部署参数须匹配。协议切换不保留 HTTP 兼容；跨服务循环依赖须先启动整套提供方，不能用新旧协议镜像混跑。回归测试源码已同步为 gRPC，并新增 Protobuf presence/oneof/Timestamp、认证隔离与原生 unary 调用测试。本批通过 IDEA MCP 终端执行六个业务 bootstrap 及其依赖的 `mvnd clean test-compile -am`（启用六个 business profile），结果 BUILD SUCCESS，协议生成及业务/测试源码编译通过；未执行 JUnit、DDL或集群发布。IDE 工程需重新加载 Maven 识别新模块。详见 [RPC 规范](design/RPC.md)。
+
 日期：2026-10-21 ｜ 基线：[详细设计](DETAILED-DESIGN.md) ｜ 状态：P0/P1源码及六应用构建、镜像、Kubernetes启动验收完成；单测与业务执行待验收
 
 ## 1. 优先级与完成范围

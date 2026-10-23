@@ -15,23 +15,20 @@
  */
 package io.github.loadup.pay.limitcenter;
 
-import io.github.loadup.pay.common.BusinessTime;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
 import java.time.Clock;
-import java.util.TimeZone;
 
 @SpringBootApplication
 public class LimitCenterApplication {
     public static void main(String[] args) {
-        TimeZone.setDefault(TimeZone.getTimeZone(BusinessTime.ZONE));
         SpringApplication.run(LimitCenterApplication.class, args);
     }
 
     @Bean
     Clock businessClock() {
-        return Clock.system(BusinessTime.ZONE);
+        return Clock.systemDefaultZone();
     }
 }

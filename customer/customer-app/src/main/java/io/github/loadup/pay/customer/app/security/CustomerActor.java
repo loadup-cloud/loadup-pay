@@ -16,7 +16,7 @@
 package io.github.loadup.pay.customer.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
 
 import java.util.Objects;

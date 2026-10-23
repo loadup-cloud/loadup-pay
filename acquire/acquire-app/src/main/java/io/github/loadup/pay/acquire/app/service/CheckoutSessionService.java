@@ -21,7 +21,7 @@ import io.github.loadup.pay.acquire.client.command.CheckoutSessionCreateCommand;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 import io.github.loadup.pay.acquire.client.facade.CheckoutSessionFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;

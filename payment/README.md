@@ -1,5 +1,7 @@
 # Payment 业务实现
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 当前实现付款受理、权威查询、父订单执行封禁及单笔关闭的 COLA 业务切片。默认 bootstrap 仍为基础骨架；Maven 与 Spring 的
 payment-business profile 共同启用业务装配。真实渠道提交、查询和退款仍待接入。
 
@@ -96,7 +98,7 @@ mvnd clean test-compile -pl payment/payment-bootstrap -am -Ppayment-business \
 ./payment/build.sh -Ppayment-business
 ```
 
-运行设置 SPRING_PROFILES_ACTIVE=payment-business，JVM/TZ 为 Asia/Shanghai，paymentClock 默认 systemDefaultZone，业务时间
+运行设置 SPRING_PROFILES_ACTIVE=payment-business，JVM/TZ 为 系统默认时区，paymentClock 默认 systemDefaultZone，业务时间
 DATETIME (6)，数据库会话 +08:00。配置稳定数据库 ID sequence site，并注入：
 
 | 环境变量                                                                | 用途                               |
@@ -356,7 +358,7 @@ MySQL/HTTP/JWT/Outbox 端到端验收仍待进行。无新增业务表。
 
 新增 PaymentAcquireOutcomeOutboxHandler 和 PaymentAcquireOutcomeDelivery，第三个独立目标经既有
 PaymentOutcomeDeliverySupport 复核源队列与原终态/交易号证据，再在本地锁释放后通过 SERVICE HTTP 调 acquire
-/api/acquire/events/payment-outcome。重试保持原 PayEventEnvelope，必须收到 accepted=true、原
+/api/acquire/events/payment-outcome。重试保持原 EventEnvelope，必须收到 accepted=true、原
 delivery/businessEvent/payment/version/evidence 一致且 orderVersion 合法的语义
 ACK；空回执、错误版本/证据、网络失败不完成队列。acquire/realtime 不会与额度/风控串行绑定；realtime handler 仍待实现。
 

@@ -1,0 +1,76 @@
+syntax = "proto3";
+package loadup.pay.realtime.v1;
+option java_package = "io.github.loadup.pay.realtime.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+import "acquire.proto";
+import "payment.proto";
+
+// This service owns these messages and permanent field numbers. Reserve deleted fields.
+// Enum symbols are explicit strings; unknown symbols are rejected.
+
+message WirePayEventEnvelopeOfOrderSnapshotEventDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string event_type = 4;
+  optional int32 schema_version = 5;
+  optional string aggregate_id = 6;
+  optional int64 aggregate_version = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  loadup.pay.acquire.v1.WireOrderSnapshotEventDTO data = 9;
+}
+
+message WireProjectionAckDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string aggregate_id = 4;
+  optional int64 source_version = 5;
+  optional int64 projected_version = 6;
+  optional string disposition = 7;
+  optional bool accepted = 8;
+}
+
+message WirePayEventEnvelopeOfPaymentSnapshotEventDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string event_type = 4;
+  optional int32 schema_version = 5;
+  optional string aggregate_id = 6;
+  optional int64 aggregate_version = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  loadup.pay.payment.v1.WirePaymentSnapshotEventDTO data = 9;
+}
+
+message WirePayEventEnvelopeOfRefundSnapshotEventDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string event_type = 4;
+  optional int32 schema_version = 5;
+  optional string aggregate_id = 6;
+  optional int64 aggregate_version = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  loadup.pay.payment.v1.WireRefundSnapshotEventDTO data = 9;
+}
+
+message WirePayEventEnvelopeOfOrderRefundSummaryEventDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string event_type = 4;
+  optional int32 schema_version = 5;
+  optional string aggregate_id = 6;
+  optional int64 aggregate_version = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  loadup.pay.payment.v1.WireOrderRefundSummaryEventDTO data = 9;
+}
+
+service RealtimeRpc {
+  rpc Order (WirePayEventEnvelopeOfOrderSnapshotEventDTO) returns (WireProjectionAckDTO);
+  rpc Payment (WirePayEventEnvelopeOfPaymentSnapshotEventDTO) returns (WireProjectionAckDTO);
+  rpc Refund (WirePayEventEnvelopeOfRefundSnapshotEventDTO) returns (WireProjectionAckDTO);
+  rpc RefundSummary (WirePayEventEnvelopeOfOrderRefundSummaryEventDTO) returns (WireProjectionAckDTO);
+}

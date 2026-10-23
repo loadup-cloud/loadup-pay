@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
@@ -47,7 +47,7 @@ final class OutcomeDeliveryFixtures {
         var data = new PaymentOutcomeEventDTO(payment.id(), payment.orderId(), payment.allocationId(), payment.limitOperationId(),
                 payment.payeeMerchantId(), payment.amount().getCent(), payment.amount().getCurrencyValue(),
                 io.github.loadup.pay.payment.client.enums.PaymentState.valueOf(payment.state().name()), payment.version(), "evidence", !succeeded);
-        var envelope = new PayEventEnvelope<>("delivery", "evidence", "payment", type, 1, payment.id(), payment.version(),
+        var envelope = new EventEnvelope<>("delivery", "evidence", "payment", type, 1, payment.id(), payment.version(),
                 BusinessTime.external(AttemptFixtures.NOW), data);
         return new PaymentDeliverySnapshot("tenant", envelope, stored, attempt, succeeded ? AttemptFixtures.NOW : null);
     }

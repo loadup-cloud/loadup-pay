@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 
@@ -33,7 +33,7 @@ public record PaymentInputDTO(
         @Schema(description = "Expires at") OffsetDateTime expiresAt) {
     public PaymentInputDTO {
         if (expiresAt != null)
-            expiresAt = expiresAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            expiresAt = expiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

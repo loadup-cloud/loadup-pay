@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -33,7 +33,7 @@ public record RefundTransactionClaim(String id, String tenantId, String refundId
         Objects.requireNonNull(original);
         DomainChecks.text(channelRefundNo, 64);
         DomainChecks.text(originalChannelTransactionNo, 128);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         DomainChecks.positive(amount.getCent());
         DomainChecks.text(channelRefundTransactionNo, 128);
         Objects.requireNonNull(succeededAt);

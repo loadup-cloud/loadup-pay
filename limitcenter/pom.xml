@@ -14,6 +14,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>limitcenter-client</module>
+        <module>limitcenter-rpc</module>
         <module>limitcenter-domain</module>
         <module>limitcenter-app</module>
         <module>limitcenter-infrastructure</module>

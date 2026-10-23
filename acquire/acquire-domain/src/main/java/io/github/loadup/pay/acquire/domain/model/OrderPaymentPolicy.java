@@ -17,11 +17,11 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record OrderPaymentPolicy(
         long minAmountMinor, long maxAmountMinor, Integer maxSuccessfulPayments, boolean allowExactRemainderBelowMin) {
@@ -34,7 +34,7 @@ public record OrderPaymentPolicy(
     }
 
     public void validate(Money payment, long available, long occupiedCount) {
-        DomainChecks.amount(payment);
+        DomainChecks.cnyAmount(payment);
         require(
                 payment.getCent() > 0 && payment.getCent() <= available && payment.getCent() <= maxAmountMinor,
                 AMOUNT_EXCEEDED);

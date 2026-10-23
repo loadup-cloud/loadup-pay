@@ -16,7 +16,7 @@
 package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.product.client.enums.AdmissionDecision;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -54,10 +54,10 @@ public record OrderAdmissionDTO(
         @Schema(description = "Terms") @Valid AcquiringTermsDTO terms) {
     public OrderAdmissionDTO {
         if (admittedAt != null)
-            admittedAt = admittedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            admittedAt = admittedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (materializeBefore != null)
             materializeBefore =
-                    materializeBefore.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+                    materializeBefore.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

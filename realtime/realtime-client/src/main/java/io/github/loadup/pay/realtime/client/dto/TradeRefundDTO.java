@@ -16,7 +16,7 @@
 package io.github.loadup.pay.realtime.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
@@ -48,11 +48,11 @@ public record TradeRefundDTO(
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeRefundDTO {
         if (refundCreatedAt != null)
-            refundCreatedAt = refundCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            refundCreatedAt = refundCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (succeededAt != null)
-            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (snapshotAt != null)
-            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

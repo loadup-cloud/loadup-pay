@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.app.service;
 
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverterImpl;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
@@ -66,7 +66,7 @@ class LimitServiceFixture implements AutoCloseable {
                     "pay:limit:verify",
                     "pay:limit:expire"));
     final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 10, 0);
-    final Clock clock = Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final UnitTransactions manager = new UnitTransactions();
     final LimitTransactions transactions = new LimitTransactions(() -> actor, validation.getValidator(), manager);
     final AtomicInteger ids = new AtomicInteger();
@@ -108,7 +108,7 @@ class LimitServiceFixture implements AutoCloseable {
                 "merchant",
                 amount,
                 "CNY",
-                now.minusDays(1).atZone(BusinessTime.ZONE).toOffsetDateTime(),
+                now.minusDays(1).atZone(BusinessTime.zone()).toOffsetDateTime(),
                 "policy",
                 1,
                 policy(1, 100).policyHash(),

@@ -17,7 +17,7 @@ package io.github.loadup.pay.limitcenter.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.app.converter.LimitConverter;
 import io.github.loadup.pay.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;

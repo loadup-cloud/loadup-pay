@@ -17,12 +17,12 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Only trusted, persisted payment facts may be adapted to this value.
@@ -38,7 +38,7 @@ public record VerifiedPaymentOutcome(
     public VerifiedPaymentOutcome {
         DomainChecks.id(orderId);
         DomainChecks.id(paymentId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(kind);
         // A tombstone has no payment row or invented payment version.
         require(kind == Kind.NOT_ACCEPTED ? paymentVersion == 0 : paymentVersion > 0, INVALID_ARGUMENT);

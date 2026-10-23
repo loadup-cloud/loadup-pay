@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentSnapshotEnvelopeCodec;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import org.springframework.stereotype.Component;
@@ -35,10 +35,10 @@ public class PaymentSnapshotEnvelopeCodecImpl implements PaymentSnapshotEnvelope
     }
 
     @Override
-    public PayEventEnvelope<PaymentSnapshotEventDTO> decode(String payload) {
+    public EventEnvelope<PaymentSnapshotEventDTO> decode(String payload) {
         try {
             if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
-            var event = mapper.readValue(payload, new TypeReference<PayEventEnvelope<PaymentSnapshotEventDTO>>() {
+            var event = mapper.readValue(payload, new TypeReference<EventEnvelope<PaymentSnapshotEventDTO>>() {
             });
             if (event == null) throw new CommonException(SNAPSHOT_INVALID);
             event.data().requireEnvelope(event);

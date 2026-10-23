@@ -32,7 +32,7 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;

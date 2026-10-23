@@ -37,7 +37,7 @@ import java.util.List;
 public interface RefundStorageConverter {
     RefundRequestReference toReference(RefundRequestDO row);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "apply", ignore = true)
     RefundRequest toRequest(RefundRequestDO row, List<RefundOrder> children);
@@ -46,7 +46,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "termsPayload", source = "row.refundTerms")
     StoredRefundRequest toStored(RefundRequestDO row, RefundRequest request, List<StoredRefundChild> allocations);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "recordOutcome", ignore = true)
     RefundOrder toRefund(RefundOrderDO row);

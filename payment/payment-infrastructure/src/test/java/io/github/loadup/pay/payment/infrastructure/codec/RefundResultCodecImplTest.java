@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
@@ -52,7 +52,7 @@ class RefundResultCodecImplTest {
 
     RefundObservation observation(String originalTransaction, String refundTransaction, long amount, String key) {
         return new RefundObservation("refund", new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request"),
-                "refund-request", originalTransaction, ChannelRefundOutcome.Kind.SUCCEEDED, DomainChecks.amount(amount, "CNY"), refundTransaction,
+                "refund-request", originalTransaction, ChannelRefundOutcome.Kind.SUCCEEDED, DomainChecks.cnyAmount(amount, "CNY"), refundTransaction,
                 LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789), RefundObservation.Source.CALLBACK, key, "b".repeat(64));
     }
 

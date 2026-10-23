@@ -11,15 +11,15 @@ database、数据源、数据库账号与Flyway历史；开发可共用实例。
 |--------------|------------------------------|---------------------------------------------|
 | `id`         | `VARCHAR(64) NOT NULL`       | 主键，IdGenerator生成，外部业务ID可显式指定 |
 | `tenant_id`  | `VARCHAR(64) NOT NULL`       | 可信租户；商户业务唯一键按租户隔离          |
-| `created_at` | `DATETIME(6) NOT NULL`       | Asia/Shanghai创建时间                       |
-| `updated_at` | `DATETIME(6) NOT NULL`       | Asia/Shanghai更新时间                       |
+| `created_at` | `DATETIME(6) NOT NULL`       | 系统默认时区创建时间                       |
+| `updated_at` | `DATETIME(6) NOT NULL`       | 系统默认时区更新时间                       |
 | `deleted`    | `TINYINT NOT NULL DEFAULT 0` | BaseDO标准字段；交易/累计事实禁止逻辑删除   |
 
 `row_version`
 不是BaseDO自带字段，需要逐表显式声明；应用按行锁或条件更新维护。公共审计时间不等于业务事件发生时间。SQL草案没有把状态默认成成功：业务过程显式以INIT开始，在同事务内可以进入HELD/ACTIVE等已完成准备状态；框架Outbox/任务/合约生命周期保留原定义。
 
 金额/计数为有符号BIGINT并校验非负，业务金额限制应小于long上限；货币缺省值在应用规范化成CNY，不依赖DB默认值。所有DATETIME (6)
-为Asia/Shanghai会话时间，SQL不做UTC默认转换。业务ID长度≤64，商户订单/退款号≤64、action/requestKey≤128，严格校验且不静默截断。大JSON/密文不建通用索引，字段大小另由请求/产品定义约束；关键状态/金额不只埋在JSON里。
+为系统默认时区会话时间，SQL不做UTC默认转换。业务ID长度≤64，商户订单/退款号≤64、action/requestKey≤128，严格校验且不静默截断。大JSON/密文不建通用索引，字段大小另由请求/产品定义约束；关键状态/金额不只埋在JSON里。
 
 交易、准入、幂等、门禁、成功退款、额度累计不允许通过deleted=1复用业务唯一键。索引不包含deleted；归档必须连同幂等/累计保留方案另行设计，当前不定保留期。租户插件之外，跨服务命令还要显式校验tenant/merchant归属。
 
@@ -860,7 +860,7 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 | `currency`            | `CHAR(3) NOT NULL`           | 笔数也按原付款币种隔离                     |
 | `window_type`         | `VARCHAR(16) NOT NULL`       | DAY / WEEK / MONTH / LIFETIME              |
 | `week_start`          | `TINYINT NOT NULL DEFAULT 1` | ISO星期1-7，非WEEK不参与计算               |
-| `timezone`            | `VARCHAR(64) NOT NULL`       | 固定Asia/Shanghai                          |
+| `timezone`            | `VARCHAR(64) NOT NULL`       | 固定系统默认时区                          |
 | `current_limit`       | `BIGINT NOT NULL`            | 当前阈值，可低于已用+占用                  |
 | `enforcement_enabled` | `TINYINT NOT NULL DEFAULT 1` | 是否用此阈值拒绝新增；0仍保留持续计量      |
 | `metering_enabled`    | `TINYINT NOT NULL DEFAULT 1` | 已激活稳定范围持续计量，首期不允许直接关闭 |
@@ -1169,7 +1169,7 @@ Gateway封装，不在业务层引入JdbcTemplate或拼接SQL。
 DATABASE/USE/DROP、没有数据库账号或真实凭证，也没有框架表。不得直接对运行库执行。实施时按服务和功能切成
 `src/main/resources/db/migration/VyyyyMMddHHmmss__...sql`，选择唯一14位版本号并避免与所引入组件迁移冲突；不要重命名既有组件迁移版本。
 
-1. 数据库连接/连接池及Flyway初始化显式设置Asia/Shanghai对应会话时区（固定+08:
+1. 数据库连接/连接池及Flyway初始化显式设置系统默认时区对应会话时区（固定+08:
    00也可）；DB服务器、JVM、任务Clock保持一致。DATETIME不自动转换时区，必须保证写入方和读取方约定一致。
 2. 每服务schema先引入需要的组件迁移，再执行新增业务表；复用merchant/contract表只由其owner服务装配。sequence
    site由部署配置稳定分配，不让多个独立分配库使用同一编码site。

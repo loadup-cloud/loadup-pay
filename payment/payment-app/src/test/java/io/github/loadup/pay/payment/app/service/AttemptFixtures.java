@@ -15,9 +15,9 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
@@ -56,7 +56,7 @@ final class AttemptFixtures {
     static StoredPaymentAttempt prepared() {
         var command = command();
         var attempt = PaymentAttempt.init("attempt", command.paymentId(), 1,
-                DomainChecks.amount(command.amountMinor(), command.currency()), binding(), command.choice().method(), "a".repeat(32));
+                DomainChecks.cnyAmount(command.amountMinor(), command.currency()), binding(), command.choice().method(), "a".repeat(32));
         return new StoredPaymentAttempt(attempt, "operation", "acquire", "initial", "b".repeat(64), command.requestDigest(),
                 command.preparedInputRef(), null, null, NOW, null, 0);
     }
@@ -64,7 +64,7 @@ final class AttemptFixtures {
     static StoredPaymentAcceptance accepted(boolean attempted) {
         var command = command();
         var payment = PaymentOrder.init(command.paymentId(), command.orderId(), command.allocationId(), command.payeeMerchantId(),
-                DomainChecks.amount(command.amountMinor(), command.currency()), "operation", NOW);
+                DomainChecks.cnyAmount(command.amountMinor(), command.currency()), "operation", NOW);
         if (attempted) payment = payment.prepareAttempt(prepared().attempt(), null);
         return new StoredPaymentAcceptance(payment, command.admissionId(), command.requestDigest(), "acquire", "payload", "c".repeat(64), null);
     }

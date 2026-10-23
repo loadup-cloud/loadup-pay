@@ -17,12 +17,12 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Order monetary aggregate, independent of order/payment lifecycle and individual request versions.
@@ -32,7 +32,7 @@ public record OrderRefundSummary(String orderId, String payeeMerchantId, Money o
     public OrderRefundSummary {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(orderAmount);
+        DomainChecks.cnyAmount(orderAmount);
         require(orderAmount.getCent() > 0 && refundedMinor >= 0 && refundedMinor <= orderAmount.getCent()
                 && reservedMinor >= 0 && reservedMinor <= orderAmount.getCent() - refundedMinor && version >= 0, INVALID_ARGUMENT);
     }

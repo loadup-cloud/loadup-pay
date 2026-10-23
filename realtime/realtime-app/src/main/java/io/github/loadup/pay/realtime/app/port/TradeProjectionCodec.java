@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.realtime.app.port;
 
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
 import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
@@ -42,5 +42,5 @@ public interface TradeProjectionCodec {
 
     String hash(String payload);
 
-    String requestDigest(String tenant, String service, PayEventEnvelope<?> event, String factsHash);
+    String requestDigest(String tenant, String service, EventEnvelope<?> event, String factsHash);
 }

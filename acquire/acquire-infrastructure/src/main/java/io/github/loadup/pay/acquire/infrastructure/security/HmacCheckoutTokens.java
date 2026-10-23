@@ -21,7 +21,7 @@ import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;

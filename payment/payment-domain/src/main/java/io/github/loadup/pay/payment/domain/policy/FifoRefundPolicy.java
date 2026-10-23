@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.domain.policy;
 
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundPlanItem;
 
@@ -26,10 +26,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.AMOUNT_EXCEEDED;
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.AMOUNT_EXCEEDED;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * The application persists this result and all capacity reservations in one transaction.
@@ -43,7 +43,7 @@ public final class FifoRefundPolicy {
             List<PaymentRefundCapacity> candidates) {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         var sorted = candidates.stream()
                 .sorted(Comparator.comparing(PaymentRefundCapacity::succeededAt)
@@ -70,7 +70,7 @@ public final class FifoRefundPolicy {
                 result.add(new RefundPlanItem(
                         result.size() + 1,
                         capacity.paymentId(),
-                        DomainChecks.amount(portion, amount.getCurrencyValue())));
+                        DomainChecks.cnyAmount(portion, amount.getCurrencyValue())));
                 remaining -= portion;
             }
             if (remaining == 0) break;

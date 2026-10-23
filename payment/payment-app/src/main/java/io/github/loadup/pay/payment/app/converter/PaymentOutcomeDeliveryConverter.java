@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
 import io.github.loadup.pay.payment.domain.model.PaymentState;

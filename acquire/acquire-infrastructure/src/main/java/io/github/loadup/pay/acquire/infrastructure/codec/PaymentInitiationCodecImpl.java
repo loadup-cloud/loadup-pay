@@ -69,8 +69,8 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
                     || !value.currency().equals(value.admittedTerms().currency())
                     || value.amountMinor() > value.admittedTerms().orderAmountMinor()
                     || value.admittedTerms().terms().schemaVersion() != 1) throw new CommonException(SNAPSHOT_INVALID);
-            if (value.preparedInputRef() != null) io.github.loadup.pay.common.DomainChecks.id(value.preparedInputRef());
-            if (value.choice().method() == io.github.loadup.pay.common.PaymentMethod.H5
+            if (value.preparedInputRef() != null) io.github.loadup.commons.validation.DomainChecks.id(value.preparedInputRef());
+            if (value.choice().method() == io.github.loadup.commons.payment.PaymentMethod.H5
                     && value.preparedInputRef() != null) throw new CommonException(SNAPSHOT_INVALID);
             // A sensitive intent may be staged before secure preparation. It cannot be accepted until attached.
             return value;

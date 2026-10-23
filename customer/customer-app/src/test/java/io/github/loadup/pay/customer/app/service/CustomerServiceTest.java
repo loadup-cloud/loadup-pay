@@ -21,7 +21,7 @@ import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.globalunique.GlobalUniqueTemplate;
 import io.github.loadup.components.globalunique.model.GlobalUniqueClaim;
 import io.github.loadup.modules.merchant.client.facade.MerchantQueryFacade;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.customer.app.converter.CustomerConverter;
 import io.github.loadup.pay.customer.app.security.CustomerActor;
 import io.github.loadup.pay.customer.app.security.CustomerActorProvider;
@@ -74,7 +74,7 @@ class CustomerServiceTest {
             new CustomerCommandExecutor(unique),
             converter,
             ids,
-            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE),
+            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
             validation.getValidator());
 
     CustomerServiceTest() {

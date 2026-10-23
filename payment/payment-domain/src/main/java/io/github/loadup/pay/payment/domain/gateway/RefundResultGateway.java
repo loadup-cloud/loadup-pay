@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.common.Channel;
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.pay.payment.domain.model.RefundObservation;

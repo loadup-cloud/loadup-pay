@@ -1,5 +1,7 @@
 # Realtime 独立交易投影
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。payment
 当前已在终态事务生产完整付款快照并通过第四个独立 Outbox 目标投递；订单、退款及退款汇总接收/查询代码已补，但对应生产端和付款
 INIT/中间态事件仍待接入。所有新增源码和 DDL 尚未执行验证。
@@ -33,7 +35,7 @@ sourceVersion；读取重算规范哈希并核对索引与负载，拒绝未知�
 
 V20261023020000__trade_projections.sql 新增
 trade_order_projection、trade_payment_projection、trade_refund_projection、trade_refund_summary、trade_projection_receipt。应用保存本地
-DATETIME (6) 微秒，JVM/Clock/会话时区 Asia/Shanghai，无 UTC 数据库列。读接口使用独立只读一致事务；投影写入和回执用本地事务/唯一键/源版本
+DATETIME (6) 微秒，JVM/Clock/会话时区 系统默认时区，无 UTC 数据库列。读接口使用独立只读一致事务；投影写入和回执用本地事务/唯一键/源版本
 CAS，不锁主交易库。无序 HTTP 完整快照以每行 sourceVersion 为推进依据，流级重建/checkpoint 尚未实现，不冒充全局就绪状态。
 
 业务运行需 REALTIME_JDBC_URL/USERNAME/PASSWORD、REALTIME_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI，构建与运行同时选择

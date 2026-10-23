@@ -33,7 +33,7 @@ import java.time.LocalDateTime;
 public interface PaymentOutcomeStorageConverter {
     @Mapping(target = "kind", source = "outcomeKind")
     @Mapping(target = "paymentVersion", source = "paymentSourceVersion")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(row.getAmountMinor(),row.getCurrency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(),row.getCurrency()))")
     VerifiedPaymentOutcome toOutcome(OrderPaymentOutcomeDO row);
 
     @Mapping(target = "outcome", source = "outcome")

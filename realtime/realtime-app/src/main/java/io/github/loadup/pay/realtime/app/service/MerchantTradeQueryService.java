@@ -17,7 +17,7 @@ package io.github.loadup.pay.realtime.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.app.security.RealtimeActor;
 import io.github.loadup.pay.realtime.app.security.RealtimeActorProvider;

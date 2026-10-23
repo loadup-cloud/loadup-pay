@@ -14,6 +14,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>realtime-client</module>
+        <module>realtime-rpc</module>
         <module>realtime-domain</module>
         <module>realtime-app</module>
         <module>realtime-infrastructure</module>

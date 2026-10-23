@@ -14,7 +14,11 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>pay-common</artifactId>
+            <artifactId>product-rpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-dto</artifactId>
         </dependency>
 
         <dependency>
@@ -28,10 +32,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-error</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-commons-dto</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

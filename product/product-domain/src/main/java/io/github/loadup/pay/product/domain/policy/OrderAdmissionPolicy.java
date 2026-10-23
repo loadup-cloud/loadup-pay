@@ -24,8 +24,8 @@ import io.github.loadup.pay.product.domain.model.OrderAdmission;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Evaluate under the current-contract lock; reuse persisted admissions before consulting this policy.
@@ -34,8 +34,8 @@ public final class OrderAdmissionPolicy {
     public boolean acceptsRequestedDeadline(AdmissionIntent intent, LocalDateTime now, long maximumWaitSeconds) {
         Objects.requireNonNull(intent);
         Objects.requireNonNull(now);
-        io.github.loadup.pay.common.DomainViolation.require(
-                maximumWaitSeconds > 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT);
+        io.github.loadup.commons.error.DomainViolation.require(
+                maximumWaitSeconds > 0, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
         return intent.requestedDueAt() == null
                 || intent.requestedDueAt().isAfter(now)
                 && !intent.requestedDueAt().isAfter(now.plusSeconds(maximumWaitSeconds));

@@ -17,7 +17,7 @@ package io.github.loadup.pay.acquire.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -35,7 +35,7 @@ public record CheckoutDTO(
     public CheckoutDTO {
         if (sessionExpiresAt != null)
             sessionExpiresAt =
-                    sessionExpiresAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+                    sessionExpiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

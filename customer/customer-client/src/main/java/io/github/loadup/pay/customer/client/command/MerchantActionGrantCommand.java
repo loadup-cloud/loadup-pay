@@ -16,7 +16,7 @@
 package io.github.loadup.pay.customer.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.customer.client.enums.MerchantAction;
 import io.github.loadup.pay.customer.client.enums.PrincipalType;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,9 +46,9 @@ public record MerchantActionGrantCommand(
         String requestKey) {
     public MerchantActionGrantCommand {
         if (validFrom != null)
-            validFrom = validFrom.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            validFrom = validFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (validTo != null)
-            validTo = validTo.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            validTo = validTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

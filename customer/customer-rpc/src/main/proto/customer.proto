@@ -1,0 +1,37 @@
+syntax = "proto3";
+package loadup.pay.customer.v1;
+option java_package = "io.github.loadup.pay.customer.rpc.proto";
+option java_multiple_files = true;
+
+// This service owns these messages and permanent field numbers. Reserve deleted fields.
+// Enum symbols are explicit strings; unknown symbols are rejected.
+
+message WireMerchantActionAuthorizeCommand {
+  optional string payee_merchant_id = 1;
+  optional string action = 2;
+}
+
+message WireMerchantEligibilityDTO {
+  optional bool allowed = 1;
+  optional string reason_code = 2;
+  WireMerchantProfileDTO merchant = 3;
+  optional int64 merchant_fact_version = 4;
+  optional string grant_id = 5;
+  optional int64 grant_version = 6;
+}
+
+message WireMerchantProfileDTO {
+  optional string id = 1;
+  optional string tenant_id = 2;
+  optional string merchant_code = 3;
+  optional string type = 4;
+  optional string industry = 5;
+  optional string country = 6;
+  optional string province = 7;
+  optional string city = 8;
+  optional bool active = 9;
+}
+
+service CustomerRpc {
+  rpc Authorize (WireMerchantActionAuthorizeCommand) returns (WireMerchantEligibilityDTO);
+}

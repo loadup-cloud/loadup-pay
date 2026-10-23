@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
@@ -30,7 +30,7 @@ import java.time.OffsetDateTime;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInputConverter {
     @Mapping(target = "id", source = "inputRef")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.pay.common.DomainChecks.amount(command.amountMinor(), command.currency()))")
+    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(), command.currency()))")
     @Mapping(target = "channel", source = "command.choice.channel")
     @Mapping(target = "method", source = "command.choice.method")
     @Mapping(target = "state", constant = "INIT")

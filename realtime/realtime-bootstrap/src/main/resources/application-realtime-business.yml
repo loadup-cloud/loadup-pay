@@ -4,8 +4,6 @@ spring:
     url: ${REALTIME_JDBC_URL}
     username: ${REALTIME_JDBC_USERNAME}
     password: ${REALTIME_JDBC_PASSWORD}
-    hikari:
-      connection-init-sql: "SET time_zone = '+08:00'"
 loadup:
   modules:
     realtime:

@@ -16,10 +16,10 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.RoutingProfileConverter;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -88,7 +88,7 @@ class RoutingProfileServiceTest {
             Set.of("pay:payment:routing:publish", "pay:payment:routing:read")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
-    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final RoutingProfileService service = new RoutingProfileService(actor::get, profiles, bindings,
             context.getBean(RoutingProfileConverter.class), codec, new PaymentAcceptanceTransactions(manager),
             () -> "profile-" + ids.incrementAndGet(), validation.getValidator(), clock, "pay-ops");

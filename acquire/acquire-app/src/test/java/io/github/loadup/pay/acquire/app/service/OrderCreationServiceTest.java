@@ -34,10 +34,10 @@ import io.github.loadup.pay.acquire.domain.model.FeeState;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
@@ -140,10 +140,10 @@ class OrderCreationServiceTest {
                     context.getBean(AcquireOrderConverter.class),
                     context.getBean(CheckoutConverter.class),
                     () -> "renewed-" + sequence.incrementAndGet(),
-                    Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE)),
+                    Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone())),
             () -> "id-" + sequence.incrementAndGet(),
             validation.getValidator(),
-            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), snapshots);
+            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), snapshots);
     final AcquireOrderCreateCommand command =
             new AcquireOrderCreateCommand("merchant", "M001", "scope", 10000, "CNY", "test order", null);
 

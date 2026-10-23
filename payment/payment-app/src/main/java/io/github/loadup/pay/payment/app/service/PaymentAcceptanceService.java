@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -136,7 +136,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                         command.orderId(),
                         command.allocationId(),
                         command.payeeMerchantId(),
-                        DomainChecks.amount(command.amountMinor(), command.currency()),
+                        DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
                         ids.generate(),
                         now());
                 String payload = codec.encode(command);

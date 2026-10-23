@@ -16,7 +16,7 @@
 package io.github.loadup.pay.customer.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.BusinessTime;
+import io.github.loadup.commons.time.BusinessTime;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -38,9 +38,9 @@ public record MerchantRelationshipCreateCommand(
         String requestKey) {
     public MerchantRelationshipCreateCommand {
         if (validFrom != null)
-            validFrom = validFrom.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            validFrom = validFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (validTo != null)
-            validTo = validTo.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            validTo = validTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

@@ -16,9 +16,9 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.AccessMode;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.pay.payment.client.dto.AlipayAccountIdentityDTO;

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
@@ -39,7 +39,7 @@ class RefundStorageConverterTest {
     final LocalDateTime now = LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456000);
 
     StoredRefundRequest stored() {
-        var child = RefundOrder.init("refund", "request", "payment", DomainChecks.amount(4000, "CNY"), "a".repeat(32));
+        var child = RefundOrder.init("refund", "request", "payment", DomainChecks.cnyAmount(4000, "CNY"), "a".repeat(32));
         var original = new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "b".repeat(64), "original-request");
         var allocation = new StoredRefundChild(child, 1, original, "original-transaction", now.minusHours(1));
         var request = RefundRequest.init("request", "order", "merchant", "R001", child.amount(), List.of(child));
@@ -79,7 +79,7 @@ class RefundStorageConverterTest {
 
     @Test
     void reservationPatchChangesOnlyHeldCapacityAndVersion() {
-        var before = new PaymentRefundCapacity("payment", "order", "merchant", now, DomainChecks.amount(10000, "CNY"), 2000, 1000, 3);
+        var before = new PaymentRefundCapacity("payment", "order", "merchant", now, DomainChecks.cnyAmount(10000, "CNY"), 2000, 1000, 3);
         var patch = converter.toReservationPatch(before.reserve(4000));
         assertEquals(5000, patch.getReservedMinor().longValue());
         assertEquals(4, patch.getRowVersion().longValue());

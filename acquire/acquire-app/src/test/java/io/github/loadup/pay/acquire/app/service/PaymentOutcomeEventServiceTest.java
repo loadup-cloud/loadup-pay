@@ -39,11 +39,11 @@ import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
@@ -127,7 +127,7 @@ class PaymentOutcomeEventServiceTest {
 
     void prepare(long amount, PaymentState state) {
         var original = CheckoutFixtures.order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
-        var intent = new PaymentIntent("allocation", "payment", "merchant/" + OWNER, "action", "f".repeat(64), DomainChecks.amount(amount, "CNY"));
+        var intent = new PaymentIntent("allocation", "payment", "merchant/" + OWNER, "action", "f".repeat(64), DomainChecks.cnyAmount(amount, "CNY"));
         var held = original.order().reservePayment(intent, NOW);
         order.set(context.getBean(PaymentProgressConverter.class).withOrder(original, held.order()));
         allocation.set(new StoredPaymentAllocation(held.allocation(), OWNER, "intent", "d".repeat(64), 0));
@@ -138,10 +138,10 @@ class PaymentOutcomeEventServiceTest {
                 state, "attempt", null, "proof", 2, BusinessTime.external(NOW)), "operation", "merchant", state != PaymentState.SUCCEEDED));
     }
 
-    PayEventEnvelope<PaymentOutcomeEventDTO> event(String delivery) {
+    EventEnvelope<PaymentOutcomeEventDTO> event(String delivery) {
         var f = facts.get();
         var p = f.payment();
-        return new PayEventEnvelope<>(delivery, p.terminalEvidenceId(), "payment", PaymentOutcomeEventService.TYPE, 1,
+        return new EventEnvelope<>(delivery, p.terminalEvidenceId(), "payment", PaymentOutcomeEventService.TYPE, 1,
                 "payment", p.version(), BusinessTime.external(NOW), new PaymentOutcomeEventDTO("payment", "order", "allocation",
                 f.limitOperationId(), f.payeeMerchantId(), p.amountMinor(), "CNY", p.state(), p.version(), p.terminalEvidenceId(), f.executionFenced()));
     }
@@ -278,7 +278,7 @@ class PaymentOutcomeEventServiceTest {
     void sameDeliveryCannotChangeTheCanonicalPayloadAfterItWasAccepted() {
         var original = event("delivery");
         service.accept(original);
-        var altered = new PayEventEnvelope<>(original.deliveryId(), original.businessEventId(), original.producer(), original.eventType(),
+        var altered = new EventEnvelope<>(original.deliveryId(), original.businessEventId(), original.producer(), original.eventType(),
                 1, original.aggregateId(), original.aggregateVersion(), original.occurredAt().plusSeconds(1), original.data());
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.accept(altered)).getResultCode());
     }
@@ -287,7 +287,7 @@ class PaymentOutcomeEventServiceTest {
     void eventCannotSubstituteAnotherLimitOperationForTheAuthoritativePayment() {
         var original = event("delivery");
         var d = original.data();
-        var altered = new PayEventEnvelope<>(original.deliveryId(), original.businessEventId(), original.producer(), original.eventType(),
+        var altered = new EventEnvelope<>(original.deliveryId(), original.businessEventId(), original.producer(), original.eventType(),
                 1, original.aggregateId(), original.aggregateVersion(), original.occurredAt(),
                 new PaymentOutcomeEventDTO(d.paymentId(), d.orderId(), d.allocationId(), "other-operation", d.payeeMerchantId(),
                         d.amountMinor(), d.currency(), d.state(), d.paymentVersion(), d.evidenceId(), d.executionFenced()));

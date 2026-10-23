@@ -17,14 +17,14 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record OrderFeePolicy(
         BigDecimal rate,
@@ -46,7 +46,7 @@ public record OrderFeePolicy(
     }
 
     public Money calculate(Money orderAmount) {
-        DomainChecks.amount(orderAmount);
+        DomainChecks.cnyAmount(orderAmount);
         require(orderAmount.getCent() > 0, INVALID_ARGUMENT);
         long rounded = BigDecimal.valueOf(orderAmount.getCent())
                 .multiply(rate)
@@ -55,7 +55,7 @@ public record OrderFeePolicy(
                 .longValueExact();
         long fee = Math.max(minimumMinor, rounded);
         if (maximumMinor != null) fee = Math.min(maximumMinor, fee);
-        return DomainChecks.amount(fee, orderAmount.getCurrencyValue());
+        return DomainChecks.cnyAmount(fee, orderAmount.getCurrencyValue());
     }
 
     public long refundableFee(long originalFee, long orderAmount, long cumulativeRefund) {

@@ -1,5 +1,7 @@
 # Product 订单准入与额度发布
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 本批补齐 COLA 的 product-app、product-infrastructure、product-adapter，落地 OrderAdmissionFacade 的持久化准入/原决定查询，以及
 LimitPolicyPublicationFacade 的初始额度可靠发布、ACK与失败重放。复用框架合约主档、不可变
 revision、ContractCodec、ContractRuntimeResolver、MyBatis-Flex、ID、HTTP、JWT 与统一响应；不复制 merchant_contract 主档。
@@ -104,7 +106,7 @@ mise exec -- mvnd clean verify -pl product/product-bootstrap -am -Pproduct-busin
 # 仅打包JAR与本地镜像；既有脚本默认跳过测试。
 ./product/build.sh -Pproduct-business
 
-TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
+java \
   -jar product/product-bootstrap/target/product-bootstrap-0.0.1-SNAPSHOT.jar \
   --spring.profiles.active=product-business
 ```

@@ -1,5 +1,7 @@
 # Customer 业务实现
 
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+
 本批实现商户逐项授权这一条 COLA 业务链路：HTTP adapter → app Facade → domain → MyBatis-Flex Gateway。完整商户主档复用框架
 merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 的订单准入和业务 gRPC 仍为后续批次。
 
@@ -69,7 +71,7 @@ mvnd clean verify -pl customer/customer-bootstrap -am -Pcustomer-business
 ./customer/build.sh -Pcustomer-business
 
 # 准备下表外部配置后，运行上面构建的业务 JAR。
-TZ=Asia/Shanghai java -Duser.timezone=Asia/Shanghai \
+java \
   -jar customer/customer-bootstrap/target/customer-bootstrap-0.0.1-SNAPSHOT.jar \
   --spring.profiles.active=customer-business
 ```

@@ -16,10 +16,10 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.Channel;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
@@ -81,7 +81,7 @@ class PaymentInputServiceTest {
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(
             "tenant", "acquire", Set.of("pay:payment:input:prepare")));
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
-    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.ZONE);
+    final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final PaymentInputPrepareCommand command = command(PaymentMethod.PAYMENT_CODE,
             new PaymentCodeInteractionDTO("synthetic-payer-code"));
     final PaymentInputService service = new PaymentInputService(actor::get, store, cipher,

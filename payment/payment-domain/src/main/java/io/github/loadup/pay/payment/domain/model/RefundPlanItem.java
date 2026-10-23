@@ -17,15 +17,15 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record RefundPlanItem(int sequenceNo, String paymentId, Money amount) {
     public RefundPlanItem {
         DomainChecks.id(paymentId);
-        DomainChecks.amount(amount);
+        DomainChecks.cnyAmount(amount);
         require(sequenceNo > 0 && amount.getCent() > 0, INVALID_ARGUMENT);
     }
 

@@ -23,9 +23,9 @@ import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.event.EventEnvelope;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -62,7 +62,7 @@ public class OrderSnapshotEvents {
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var event = new PayEventEnvelope<>(ids.generate(), ids.generate(), "acquire", TYPE, 1, orderId, expectedVersion,
+        var event = new EventEnvelope<>(ids.generate(), ids.generate(), "acquire", TYPE, 1, orderId, expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()), data);
         outbox.publish(new OutboxMessage(tenant, TYPE, 1, orderId, JsonUtil.toJson(event)));
     }

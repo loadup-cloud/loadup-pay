@@ -20,7 +20,7 @@ import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.modules.contract.domain.model.ResolvedConfiguration;
 import io.github.loadup.modules.contract.domain.model.TypedValue;
 import io.github.loadup.modules.contract.domain.model.ValueType;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRuleDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitMetric;
@@ -79,7 +79,6 @@ public class LimitPolicyCompiler {
             String policy = text(values, "limit.policyRef");
             DomainChecks.id(policy);
             if (!"CNY".equals(text(values, "trade.defaultCurrency"))
-                    || !"Asia/Shanghai".equals(text(values, "limit.timezone"))
                     || !"INITIATED_AT".equals(text(values, "limit.countingBasis"))
                     || bool(values, "limit.parentAggregationEnabled", false))
                 throw new CommonException(UNSUPPORTED_POLICY);

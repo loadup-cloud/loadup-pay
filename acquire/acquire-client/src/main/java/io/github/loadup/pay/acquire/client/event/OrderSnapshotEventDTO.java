@@ -17,18 +17,18 @@ package io.github.loadup.pay.acquire.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
-import io.github.loadup.pay.common.BusinessTime;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Complete source-owned snapshot; no synchronous source lookup is required by realtime.
@@ -56,7 +56,7 @@ public record OrderSnapshotEventDTO(
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.text(merchantOrderNo, 64);
-        DomainChecks.amount(amountMinor, currency);
+        DomainChecks.cnyAmount(amountMinor, currency);
         require(
                 amountMinor > 0
                         && paidAmountMinor >= 0
@@ -74,13 +74,13 @@ public record OrderSnapshotEventDTO(
         Objects.requireNonNull(sourceUpdatedAt);
         require(!sourceUpdatedAt.isBefore(orderCreatedAt), INVALID_ARGUMENT);
         if (orderCreatedAt != null)
-            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+            orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (sourceUpdatedAt != null)
             sourceUpdatedAt =
-                    sourceUpdatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
+                    sourceUpdatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
-    public void requireEnvelope(PayEventEnvelope<?> envelope) {
+    public void requireEnvelope(EventEnvelope<?> envelope) {
         require(equals(envelope.data()), CONFLICT);
         envelope.requireSource("pay.acquire.snapshot.realtime.v1", "acquire", orderId, sourceVersion);
     }

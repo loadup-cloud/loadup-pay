@@ -16,7 +16,7 @@
 package io.github.loadup.pay.limitcenter.infrastructure.security;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservation;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.infrastructure.config.LimitPermitProperties;
@@ -43,7 +43,7 @@ class HmacExecutionPermitIssuerTest {
                         "payment",
                         "order",
                         "merchant",
-                        DomainChecks.amount(amount, "CNY"),
+                        DomainChecks.cnyAmount(amount, "CNY"),
                         "policy",
                         1,
                         now.minusHours(1),

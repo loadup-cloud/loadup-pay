@@ -14,6 +14,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>product-client</module>
+        <module>product-rpc</module>
         <module>product-domain</module>
         <module>product-app</module>
         <module>product-infrastructure</module>

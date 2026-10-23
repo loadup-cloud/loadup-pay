@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.converter;
 
-import io.github.loadup.pay.common.DomainChecks;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucket;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
 import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
@@ -72,7 +72,7 @@ class LimitStorageConverterTest {
                 "payment",
                 "order",
                 "merchant",
-                DomainChecks.amount(400, "CNY"),
+                DomainChecks.cnyAmount(400, "CNY"),
                 "policy",
                 3,
                 initiated,

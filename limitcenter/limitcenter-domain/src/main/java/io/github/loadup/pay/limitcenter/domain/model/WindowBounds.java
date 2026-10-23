@@ -20,8 +20,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.pay.common.DomainViolation.require;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record WindowBounds(LocalDateTime start, LocalDateTime end) {
     public WindowBounds {
