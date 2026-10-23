@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProper
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
@@ -50,6 +51,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_ACCEPT;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_DETAIL;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FACTS;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_SUMMARY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -135,6 +137,14 @@ class PaymentAcceptanceGrpcClientTest {
         var calls = ArgumentCaptor.forClass(String.class);
         verify(rpc).call(eq(PAYMENT_DETAIL), eq(new IdQuery("payment")), calls.capture());
 
+    }
+
+    @Test
+    void refundAuthorityReadsTheOrderSummaryThroughItsDedicatedOperation() {
+        var summary = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
+        when(rpc.call(eq(PAYMENT_REFUND_SUMMARY), any(), any())).thenReturn(summary);
+        assertEquals(summary, client.refundSummary("tenant", "order"));
+        verify(rpc).call(eq(PAYMENT_REFUND_SUMMARY), eq(new IdQuery("order")), any());
     }
 
     @Test

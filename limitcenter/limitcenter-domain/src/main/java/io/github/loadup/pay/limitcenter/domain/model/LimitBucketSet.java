@@ -84,4 +84,17 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
     public String toString() {
         return ToStringAsJson.reflectionToString(this);
     }
+
+    /** Applies only positive deltas to the original buckets, preserving their held quantities. */
+    public LimitBucketSet restoreRefund(List<LimitItemRestore> changes) {
+        require(!changes.isEmpty() && changes.size() == buckets.size(), CONFLICT);
+        Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);
+        Set<LimitBucketKey> seen = new HashSet<>();
+        for (var change : changes) {
+            var key = change.item().bucket();
+            require(seen.add(key) && buckets.containsKey(key), CONFLICT);
+            if (change.delta() > 0) updated.put(key, buckets.get(key).restore(change.delta()));
+        }
+        return new LimitBucketSet(updated);
+    }
 }

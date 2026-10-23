@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 
 public interface RefundResultCodec {
     String encode(RefundObservation observation);

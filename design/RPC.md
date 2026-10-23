@@ -4,7 +4,7 @@
 
 ## 服务所有权
 
-各服务在自己的 `*-rpc` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，合计6个 service、25个 unary 方法。消费方引用提供方契约，client/domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
+各服务在自己的 `*-rpc` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，合计6个 service、29个 unary 方法。消费方引用提供方契约，client/domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
 
 | 提供方 | 协议入口 |
 | --- | --- |
@@ -19,10 +19,10 @@
 | --- | --- | --- |
 | acquire | product | 订单准入 |
 | product | customer / limitcenter | 商户资格 / 策略激活 |
-| acquire | payment | 安全输入、受理、查询、控制和结算事实 |
-| payment | limitcenter | 预占、执行许可、确认和释放 |
-| limitcenter | payment | 权威结算事实 |
-| payment | acquire | 结果事件 |
+| acquire | payment | 安全输入、受理、查询、控制、结算事实和退款金额汇总权威查询 |
+| payment | limitcenter | 预占、执行许可、确认、释放和退款恢复 |
+| limitcenter | payment | 权威付款结算与成功退款事实 |
+| payment | acquire | 付款结果事件和退款费用基数事件 |
 | acquire / payment | realtime | 完整交易快照 |
 
 ## 公共能力归属

@@ -645,7 +645,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 | `channel`                       | `VARCHAR(24) NOT NULL`      | 原渠道                                           |
 | `account_scope_hash`            | `CHAR(64) NOT NULL`         | 原账户唯一范围                                   |
 | `channel_refund_no`             | `VARCHAR(64) NOT NULL`      | 固定子退款请求号                                 |
-| `channel_refund_transaction_no` | `VARCHAR(128) NULL`         | 渠道退款流水                                     |
+| `channel_refund_transaction_no` | `VARCHAR(128) NULL`         | 渠道退款引用（厂商流水或验签自然键）               |
 | `amount_minor`                  | `BIGINT NOT NULL`           | 子退款固定金额                                   |
 | `currency`                      | `CHAR(3) NOT NULL`          | 原币种                                           |
 | `state`                         | `VARCHAR(24) NOT NULL`      | INIT / PROCESSING / UNKNOWN / SUCCEEDED / FAILED |
@@ -1570,11 +1570,11 @@ parent 协议。此批没有结果写入器，未提前生成成功退款或恢�
 
 未部署的 V20261023030000__refund_planning.sql 增加 refund_order.submission_started_at，INIT 必须为空，其余状态必须非空。INIT
 仅允许一次 beginSubmission CAS，同事务更新申请进度；UNKNOWN 保留原标记，不得通过重置 INIT 重新发送。仅终态保存
-terminal_evidence_id；成功另需真实退款流水和渠道成功时间，所有时间本地 DATETIME (6)。
+terminal_evidence_id；成功另需渠道退款引用和渠道成功时间，所有时间本地 DATETIME (6)。
 
 V20261023040000__refund_results.sql 新增三表：refund_channel_receipt（tenant/refund/source/receiptKey 唯一，资金事实摘要、源摘要、规范
 JSON、APPLIED/IGNORED/CONFLICT）、refund_result_anomaly（tenant/receipt/factsDigest/reason 唯一）及
-refund_transaction_claim（保存完整原支付身份/交易号、原退款请求号、金额、实际退款流水/成功时间及回执）。实际退款流水永久全局唯一
+refund_transaction_claim（保存完整原支付身份/交易号、原退款请求号、金额、渠道退款引用/成功时间及回执）。渠道退款引用永久全局唯一
 channel/account_scope_hash/channel_refund_transaction_no，另有 tenant/refund 唯一；不因 deleted 或凭证/app/tenant 变化而重认领。
 
 锁顺序 parent→request→capacity 按 paymentId→child。首发或查证结果在锁内复核永久原支付 claim 与原
@@ -1598,3 +1598,74 @@ Outbox；消息与业务任一写入失败整事务回滚。
 OrderRefundSummaryEventDTO 当前为六项固定大小金额快照，不再存历史请求数组。realtime 原 summary 投影 JSON/哈希结构继续使用当前强类型
 DTO，删除旧请求进度模型与完整历史替换约束；高版本累计已退不下降，身份/币种不变。前期直接重构，无数据格式兼容或在线迁移承诺。渠道成功时间和本地
 createdAt 不强制比较，不伪造精度；全部本地数据库日期依旧 DATETIME (6)。新增 DDL/源码/测试未运行验证。
+
+## 2026-10-23 退费调整实际迁移
+
+V20261023060000__fee_adjustment.sql 新增 fee_adjustment，除 BaseDO 字段，保存 order_id/fee_id/trigger_key/source_event_id/source_version/adjustment_minor/currency/cumulative_refunded_minor/rule_snapshot/applied_at。实际只保存正差额；无差额不建零记录。tenant/fee/trigger 唯一，订单查询索引，CNY、正金额/版本、合法 JSON 及规则字节上限 CHECK，所有本地时间 DATETIME(6)。不使用单个 refund_request_id 代表累计退款来源。
+
+调用方先持有原订单锁，再锁 order_fee；applyRefundBasis 只接受已通过权威校验的累计事实，保存基数并按已确认原费用计算差额。费用 INIT 时保留依据，确认时补算。写入调整与更新费用基数/累计已退/确认状态/行版本必须同事务，任一步失败回滚。FEE_CONFIRMED 的源标识是本地 feeId，REFUND_SUMMARY:version 使用原验证事件标识。旧版本不能携带比最新更多的退款，相同版本不能改金额，新累计不能下降。
+
+该批仅持久化与领域逻辑源码，尚无 gRPC 退款汇总权威查询/费用接收和自动投递闭环；DDL、生成代码编译、测试和真实数据库回滚/并发均未执行。
+
+## 2026-10-23 费用退款业务接收回执
+
+V20261023070000__fee_refund_receipt.sql 新增 fee_refund_receipt，除 BaseDO 五字段，包含 delivery_id/business_event_id/order_id/source_version/applied_version/request_digest/caller_service_id/accepted_at。tenant/delivery 唯一，tenant/order/appliedVersion 索引，sourceVersion>0、appliedVersion>=sourceVersion，accepted_at 为系统本地 DATETIME(6)。保存首次接受的来源版本与权威验证版本，不以当前费用行覆盖旧 ACK。
+
+同库事务中先锁原订单，再更新 order_fee/插入正差额 fee_adjustment，最后保存不可变回执。业务失败或回执写入失败均回滚，唯一键竞争沿用 READ_COMMITTED 事务整体有限重试；重复 delivery 先验证请求摘要和可信来源服务再回放首次 ACK，不依赖远程再次查询。完整信封摘要采用字段 UTF-8 长度分帧与绝对协议时刻，包含金额/预占/版本，禁止同 delivery 静默改参。
+
+该回执是本用例的业务 Inbox，同时承担参数绑定和语义 ACK；不再双写通用 Inbox。没有跨服务外键或跨服务数据库事务。费用调整与回执 DDL、本批业务源码及测试尚未执行验证或部署。
+
+## 2026-10-23 成功退款额度接收回执
+
+V20261023080000__limit_refund_receipt.sql 新增 limit_refund_receipt。除 BaseDO 五字段，保存 caller_service_id/operation_id/payment_id/refund_id/refund_version/business_event_id/refund_evidence_id/request_digest、原 cumulative_payment_refunded_minor、verified_payment_refunded_minor/verified_payment_refund_version、result/restored_amount_minor/restored_payment_count/accepted_at。tenant/refundId 唯一、tenant/operation 索引；本地时间 DATETIME(6)，布尔为 TINYINT(0/1)，原/权威累计、版本和结果/正差额具有 CHECK 约束。
+
+原 reservation/item 保持其付款窗口和成功消费量，item.restored_value 是恢复高水位。原 gate 锁串行化同付款恢复；policy head 与原 revision 核对形状/哈希，再按统一 bucket 顺序锁原桶。仅正差额减少 bucket.used，held 不动，无差额跳过 bucket 更新。全部 bucket CAS、item 恢复更新及不可变回执在同一数据库事务提交，不建立跨服务外键、不让数据库锁跨网络。
+
+回执不替代原付款 Confirm 回执；原付款确认未到时不写退款回执。原已确认但缺确认回执属于损坏。新 delivery 无法使同一 refund 额外恢复；原参数重放复用首次结果，摘要改动拒绝。新的权威累计即使被旧退款事件带到，也只能恢复原单笔付款已真实退款的范围，后续原消息为 NO_ACTION 或只补剩余差额。
+
+建表及测试源码未执行；内存事务夹具不作为真实数据库原子回滚/并发的完成证据。
+
+## 2026-10-23 退款恢复续行游标
+
+V20261023090000__refund_recovery_cursor.sql 新增 refund_recovery_cursor。BaseDO.id 直接复用原 refund_request.id，不重复存 request_id；tenant_id/created_at/updated_at/deleted 沿标准。额外字段 generation BIGINT>=0、due_at DATETIME(6)、completed TINYINT(0/1)，tenant 索引。generation 是续行 CAS 与任务 bizId 代次，不复用退款财务版本；completed 不改变任何退款终态或金额。
+
+首行与原退款计划、容量预占、各目标 Outbox 和首轮 DelayedTask 同事务插入。worker 按 parent→request→cursor 读取，不持数据库锁调用渠道。渠道返回并由原结果服务落账后，另一个本地事务读取最新请求：完成游标或 CAS 推进 generation/到期时间，并登记原子后继任务。CAS 包含 tenant/id/deleted/generation/completed=0；已完成不能重排，旧代次无副作用。
+
+DelayedTask 公共表和索引复用组件迁移，不复制为业务表。原任务领取事务与原结果应用事务独立；只有游标推进和后继登记共享本地事务。崩溃后重放原号，旧 ACK 丢失不会重复登记后继。没有业务任务 payload，也不在调度记录保存凭证或渠道输入。正常等待通过新代次继续，异常执行才消耗同代原生重试预算。
+
+前期不兼容历史计划：新增源码不会扫描旧计划自动补游标，既有开发数据的处理属于显式初始化/迁移验收。上述 DDL/组件装配、真实数据库回滚/竞争和多 Pod 租约恢复均未执行验证。
+
+支付宝普通退款使用经过验签的 trade_no/out_request_no 规范引用作为 channel_refund_transaction_no（alipay:sha256），原始自然键仍存于 claim。现有 VARCHAR(128) 与全局 channel/account_scope_hash/refund 引用唯一约束可复用，无新增 DDL。
+
+支付渠道回执 observation_source 可保存 CLOSE_RESPONSE（现有文本列范围内）；source_digest 为支付宝未付款关闭时两份验签响应摘要的组合哈希。无需新增 DDL，未运行数据库操作。单独关闭状态查询不能写入未收款终态。
+
+原 subject/payableUntil 现已纳入 payment 的不可变 intent JSON 及其完整哈希，不增加重复列；新 JSAPI 标识类型写入原短期 KMS 密文。旧开发快照/密文不做兼容解析，未清理或执行迁移。付款动作快照表及生命周期接线见下节，尚未执行迁移或验证。
+
+
+## 2026-10-23 付款动作快照
+
+V20261023100000__payment_action.sql 新增 payment_action，BaseDO.id 复用原 attemptId，不增加重复 attempt_id。除标准五字段，保存 payment_id/channel/binding_revision_id/account_scope_hash/channel_request_no、amount_minor/currency、execution_epoch、receipt_id/source_digest、issued_at/expires_at、action_kind/action_payload/payload_hash。tenant/payment 索引、tenant/receipt 唯一；金额和 epoch 为正、币种 CNY、deleted 固定 0。时间为系统本地 DATETIME(6)，issuedAt/动作到期统一微秒精度。
+
+记录追加不可更新；原执行门禁串行化同 attempt 的读取与首次插入，动作与原 ACCEPTED 回执由同一 Y3 事务提交。来源回执、原身份/金额/epoch 与动作均固定；等价结果重放不覆盖首次回执，交易号或有效期变化拒绝。过期、封禁或终态只改变读取可见性，不删除审计快照。
+
+action_payload 保存有界前端唤起数据，隐藏诊断输出，不含签名私钥、服务商长期授权或付款码；最长 8192 字符，类型由 channel-core 的严格白名单 codec 解析，并核验 SHA-256、未知字段/重复键/尾随内容和 expires_at 镜像。SHA-256 是内容一致性校验，不替代渠道响应验签或数据库权限。DO Mapper/TableDef 交由数据库注解处理器生成，不手写 Mapper。
+
+本次仅有 DDL 与源码，未运行迁移、生成代码编译、测试或真实数据库回滚/竞争验证；自动渠道提交生产者仍待接线。
+
+
+## 2026-10-23 付款恢复续行游标
+
+V20261023110000__payment_recovery_cursor.sql 新增 payment_recovery_cursor。BaseDO.id 为原 paymentId，附 generation BIGINT>=0、due_at DATETIME(6)、completed TINYINT(0/1) 与 tenant 索引，deleted 固定 0。没有原始渠道输入、状态事实或凭证 payload。cursor 与 payment INIT、原生首轮任务在同一个受理事务插入；既有开发受理不自动补旧游标。
+
+任务在原 parent→single→payment 门禁后锁 cursor；先核对任务租户/身份、RUNNING 状态、尝试次数和有效租约。终态完成游标，正常等待以 generation CAS 推进并登记不同业务号的后继，同事务提交。结果 Y3 与续行登记是独立本地事务，结果先提交后发生崩溃时，重放按持久状态查询，不能重发扣款。游标不授予 Y2 权限，过时代次无副作用，异常原生重试不创建正常后继。
+
+DO/MapStruct/生成 Mapper 接入与迁移仅为源码；数据库回滚/竞争、原子任务登记、生成代码编译和多 Pod 租约演练均未执行。
+
+
+## 2026-10-24 原渠道通知查找索引
+
+V20261024010000__payment_callback_lookup.sql 为 payment_attempt 增加 ix_attempt_callback_request(tenant_id,binding_revision_id,channel_request_no)。原全局渠道账户/请求号唯一约束不变；lookup 同时限制 tenant/deleted/原 revision/请求号，最多读取两条，歧义或原 binding 快照不匹配均拒绝。入口的 tenant/revision 来自可信配置，未验签 raw hint 不可选择数据库作用域。
+
+复用现有 payment_channel_receipt 的 CALLBACK source，不新增收包表。归一观察的 receiptKey 为 notify_id+查询 factsDigest 的摘要，sourceDigest 组合验签 canonical 内容与原查单响应摘要；完整财务事实仍由 Y3 与 claim/付款/Outbox 同事务提交。通知 ID 不代替查询事实版本；同一触发后续查明成功可产生新回执，金额影响仍由原状态机/全局认领幂等。原始签名报文当前不归档为业务 payload，只保留归一事实与源摘要。
+
+索引迁移、真实事务提交/回滚、并发通知与轮询竞态、签名原文归档及运行验收均未执行；现有源码未构建或测试。

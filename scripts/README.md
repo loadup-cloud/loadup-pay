@@ -127,3 +127,5 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 兼容通道；旧 HTTP 镜像与新 gRPC 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
 
 协议与调用关系见[RPC 规范](../design/RPC.md)，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
+
+渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的 -am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款 Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。

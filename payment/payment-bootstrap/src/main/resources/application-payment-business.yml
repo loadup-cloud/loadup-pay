@@ -10,6 +10,10 @@ loadup:
       limitcenter-service-id: ${PAYMENT_LIMITCENTER_SERVICE_ID:limitcenter}
       acquire-service-id: ${PAYMENT_ACQUIRE_SERVICE_ID:acquire}
       channel-management-service-id: ${PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID:pay-ops}
+      payment-recovery:
+        poll-delay-seconds: ${PAYMENT_POLL_DELAY_SECONDS:30}
+      refund-recovery:
+        poll-delay-seconds: ${PAYMENT_REFUND_POLL_DELAY_SECONDS:30}
       realtime:
         tenant-id: ${PAYMENT_REALTIME_TENANT_ID:${PAYMENT_LIMITCENTER_TENANT_ID}}
         service-id: ${PAYMENT_SERVICE_ID:payment}
@@ -40,6 +44,16 @@ loadup:
     connect-timeout: 2s
     read-timeout: 2s
     max-input-bytes: 65536
+  delayedtask:
+    enabled: true
+    batch-size: ${PAYMENT_TASK_BATCH_SIZE:100}
+    max-attempts: ${PAYMENT_TASK_MAX_ATTEMPTS:5}
+    lease: ${PAYMENT_TASK_LEASE:PT5M}
+    retry-delay: ${PAYMENT_TASK_RETRY_DELAY:PT1M}
+  scheduler:
+    binder-type: local
+    local:
+      interval: ${PAYMENT_SCAN_INTERVAL:PT30S}
   database:
     multi-tenant:
       enabled: true
@@ -55,6 +69,8 @@ loadup:
   security:
     resource-server:
       enabled: true
+      permit-all:
+        - /api/payment/channel-callbacks/*
       issuer-uri: ${PAYMENT_JWT_ISSUER_URI}
       audience: ${PAYMENT_JWT_AUDIENCE}
       jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI}

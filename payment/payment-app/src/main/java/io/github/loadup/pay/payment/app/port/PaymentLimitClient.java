@@ -20,6 +20,8 @@ import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
@@ -37,4 +39,6 @@ public interface PaymentLimitClient {
     LimitReservationDTO confirm(String tenant, LimitConfirmCommand command);
 
     LimitReleaseDTO release(String tenant, LimitReleaseCommand command);
+
+    LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command);
 }

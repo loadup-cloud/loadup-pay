@@ -77,4 +77,29 @@ public interface AcquireRpcMapper {
 
     io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO fromWireOrderSnapshotEventDTO(io.github.loadup.pay.acquire.rpc.proto.WireOrderSnapshotEventDTO value);
 
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "deliveryId", source = "deliveryId")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "producer", source = "producer")
+    @Mapping(target = "eventType", source = "eventType")
+    @Mapping(target = "schemaVersion", source = "schemaVersion")
+    @Mapping(target = "aggregateId", source = "aggregateId")
+    @Mapping(target = "aggregateVersion", source = "aggregateVersion")
+    @Mapping(target = "occurredAt", source = "occurredAt")
+    @Mapping(target = "data", source = "data")
+    io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO> value);
+
+    io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO> fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "deliveryId", source = "deliveryId")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "sourceVersion", source = "sourceVersion")
+    @Mapping(target = "appliedVersion", source = "appliedVersion")
+    @Mapping(target = "accepted", source = "accepted")
+    io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO toWireFeeRefundAckDTO(io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO value);
+
+    io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO fromWireFeeRefundAckDTO(io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO value);
+
 }

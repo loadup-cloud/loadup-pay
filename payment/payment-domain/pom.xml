@@ -14,6 +14,11 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>channel-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-dto</artifactId>
         </dependency>
         <dependency>

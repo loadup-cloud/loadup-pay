@@ -128,6 +128,33 @@ message WireLimitReleaseDTO {
   optional string no_collection_evidence_id = 6;
 }
 
+message WireLimitRefundRestoreCommand {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional string refund_id = 3;
+  optional int64 refund_version = 4;
+  optional string business_event_id = 5;
+  optional int64 refund_amount_minor = 6;
+  optional int64 cumulative_payment_refunded_minor = 7;
+  optional string currency = 8;
+  optional string refund_evidence_id = 9;
+}
+
+message WireLimitRestoreDTO {
+  optional string operation_id = 1;
+  optional string payment_id = 2;
+  optional string refund_id = 3;
+  optional int64 refund_version = 4;
+  optional string business_event_id = 5;
+  optional string refund_evidence_id = 6;
+  optional int64 cumulative_payment_refunded_minor = 7;
+  optional int64 verified_payment_refunded_minor = 8;
+  optional int64 verified_payment_refund_version = 9;
+  optional string result = 10;
+  optional int64 restored_amount_minor = 11;
+  optional bool restored_payment_count = 12;
+}
+
 service LimitCenterRpc {
   rpc Activate (WireLimitPolicyActivateCommand) returns (WireLimitPolicyActivationDTO);
   rpc Reserve (WireLimitReserveCommand) returns (WireLimitReservationDTO);
@@ -137,4 +164,5 @@ service LimitCenterRpc {
   rpc Expire (WireLimitExpireCommand) returns (WireLimitReservationDTO);
   rpc Confirm (WireLimitConfirmCommand) returns (WireLimitReservationDTO);
   rpc Release (WireLimitReleaseCommand) returns (WireLimitReleaseDTO);
+  rpc RestoreRefund (WireLimitRefundRestoreCommand) returns (WireLimitRestoreDTO);
 }

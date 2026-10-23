@@ -15,6 +15,9 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;

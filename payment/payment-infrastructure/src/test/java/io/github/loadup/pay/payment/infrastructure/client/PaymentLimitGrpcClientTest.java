@@ -19,7 +19,10 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
@@ -49,6 +52,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_CONFIRM;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RELEASE;
+import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RESTORE_REFUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -69,6 +73,8 @@ class PaymentLimitGrpcClientTest {
     final LimitConfirmCommand confirm = new LimitConfirmCommand("operation", "payment", 2, "evidence", "evidence", 1000, "CNY",
             OffsetDateTime.now(clock));
     final LimitReleaseCommand release = new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED");
+    final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand("operation", "payment", "refund", 3,
+            "refund-event", 1000, 1500, "CNY", "refund-evidence");
     @TempDir
     Path directory;
     PaymentLimitGrpcClient client;
@@ -123,6 +129,16 @@ class PaymentLimitGrpcClientTest {
     }
 
     @Test
+    void refundRestoreUsesItsNamedOperationAndOriginalTypedCommandWithMountedCredential() throws Exception {
+        var ack = new LimitRestoreDTO("operation", "payment", "refund", 3, "refund-event", "refund-evidence",
+                1500, 1500, 4, LimitRestoreResult.RESTORED, 1000, true);
+        when(rpc.call(eq(LIMITCENTER_RESTORE_REFUND), any(), any())).thenReturn(ack);
+
+        assertEquals(ack, client.restoreRefund("tenant", refundRestore));
+        verify(rpc).call(eq(LIMITCENTER_RESTORE_REFUND), eq(refundRestore), eq(Files.readString(tokenFile)));
+    }
+
+    @Test
     void mountedServiceTokenIsRereadBetweenRetriesAndOperations() throws Exception {
         String first = Files.readString(tokenFile);
         client.confirm("tenant", confirm);
@@ -158,6 +174,17 @@ class PaymentLimitGrpcClientTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> client.release("tenant", release)).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+        verifyNoInteractions(rpc);
+    }
+
+    @Test
+    void refundRestoreCannotRunInsideAnOuterTransaction() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> client.restoreRefund("tenant", refundRestore)).getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }

@@ -23,4 +23,8 @@ public final class AcquireRpcOperations {
     public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO>, io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO, io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfPaymentOutcomeEventDTO, io.github.loadup.pay.acquire.rpc.proto.WirePaymentOutcomeAckDTO> ACQUIRE_PAYMENT_OUTCOME =
             new RpcOperation<>("acquire", io.github.loadup.pay.acquire.rpc.proto.AcquireRpcGrpc.getPaymentOutcomeMethod(),
                     AcquireRpcMapper.INSTANCE::toWirePayEventEnvelopeOfPaymentOutcomeEventDTO, AcquireRpcMapper.INSTANCE::fromWirePaymentOutcomeAckDTO);
+
+    public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO>, io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO, io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO, io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO> ACQUIRE_FEE_REFUND =
+            new RpcOperation<>("acquire", io.github.loadup.pay.acquire.rpc.proto.AcquireRpcGrpc.getFeeRefundMethod(),
+                    AcquireRpcMapper.INSTANCE::toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO, AcquireRpcMapper.INSTANCE::fromWireFeeRefundAckDTO);
 }

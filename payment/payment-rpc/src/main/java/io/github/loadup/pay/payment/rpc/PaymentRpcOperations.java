@@ -55,4 +55,12 @@ public final class PaymentRpcOperations {
     public static final RpcOperation<io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand, io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO, io.github.loadup.pay.payment.rpc.proto.WirePaymentAttemptStartCommand, io.github.loadup.pay.payment.rpc.proto.WirePaymentExecutionDTO> PAYMENT_START_ATTEMPT =
             new RpcOperation<>("payment", io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.getStartAttemptMethod(),
                     PaymentRpcMapper.INSTANCE::toWirePaymentAttemptStartCommand, PaymentRpcMapper.INSTANCE::fromWirePaymentExecutionDTO);
+
+    public static final RpcOperation<io.github.loadup.commons.request.query.IdQuery, io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO, io.github.loadup.pay.payment.rpc.proto.WireIdQuery, io.github.loadup.pay.payment.rpc.proto.WireOrderRefundSummaryEventDTO> PAYMENT_REFUND_SUMMARY =
+            new RpcOperation<>("payment", io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.getRefundSummaryMethod(),
+                    PaymentRpcMapper.INSTANCE::toWireIdQuery, PaymentRpcMapper.INSTANCE::fromWireOrderRefundSummaryEventDTO);
+
+    public static final RpcOperation<io.github.loadup.commons.request.query.IdQuery, io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO, io.github.loadup.pay.payment.rpc.proto.WireIdQuery, io.github.loadup.pay.payment.rpc.proto.WireRefundSettlementFactsDTO> PAYMENT_REFUND_FACTS =
+            new RpcOperation<>("payment", io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.getRefundFactsMethod(),
+                    PaymentRpcMapper.INSTANCE::toWireIdQuery, PaymentRpcMapper.INSTANCE::fromWireRefundSettlementFactsDTO);
 }

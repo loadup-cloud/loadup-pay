@@ -18,9 +18,14 @@ package io.github.loadup.pay.payment.app.port;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 
 public interface RefundProjectionEnvelopeCodec {
     EventEnvelope<RefundSnapshotEventDTO> child(String payload);
 
     EventEnvelope<OrderRefundSummaryEventDTO> summary(String payload);
+
+    EventEnvelope<OrderRefundSummaryEventDTO> fee(String payload);
+
+    EventEnvelope<RefundOutcomeEventDTO> limit(String payload);
 }

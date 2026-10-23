@@ -25,6 +25,9 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
+import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
+import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
@@ -42,19 +45,25 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 public class RefundProjectionEvents {
     public static final String CHILD = "pay.payment.refund.realtime.v1";
     public static final String SUMMARY = "pay.payment.refund-summary.realtime.v1";
+    public static final String FEE = "pay.payment.refund.fee.v1";
+    public static final String LIMIT = "pay.payment.refund.limit.v1";
     private final RefundSummaryGateway summaries;
     private final RefundSnapshotReader reader;
     private final RefundProjectionConverter converter;
     private final OutboxTemplate outbox;
     private final IdGenerator ids;
+    private final PaymentAcceptanceGateway payments;
+    private final RefundSettlementConverter financial;
 
     public RefundProjectionEvents(RefundSummaryGateway summaries, RefundSnapshotReader reader, RefundProjectionConverter converter,
-                                  OutboxTemplate outbox, IdGenerator ids) {
+                                  OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial) {
         this.summaries = summaries;
         this.reader = reader;
         this.converter = converter;
         this.outbox = outbox;
         this.ids = ids;
+        this.payments = payments;
+        this.financial = financial;
     }
 
     public void planned(String tenant, StoredRefundRequest request, Money orderAmount) {
@@ -74,7 +83,7 @@ public class RefundProjectionEvents {
 
     public void changed(String tenant, RefundProgressChange change) {
         writable(tenant);
-        publishChild(tenant, change.request().orderId(), change.request().payeeMerchantId(), change.refund().id(), change.refund().version());
+        var facts = publishChild(tenant, change.request().orderId(), change.request().payeeMerchantId(), change.refund().id(), change.refund().version());
         if (!change.refund().terminal()) return;
         var before = summaries.lock(tenant, change.request().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!before.payeeMerchantId().equals(change.request().payeeMerchantId())
@@ -83,9 +92,20 @@ public class RefundProjectionEvents {
         var next = before.settle(change.refund().amount().getCent(), change.refund().state() == RefundState.SUCCEEDED);
         summaries.update(tenant, before, next);
         publishSummary(tenant, next);
+        if (change.refund().state() == RefundState.SUCCEEDED) {
+            var original = payments.find(tenant, change.refund().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var payment = original.payment();
+            if (payment.state() != io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED
+                    || original.terminalEvidenceId() == null || !payment.orderId().equals(change.request().orderId())
+                    || !payment.payeeMerchantId().equals(change.request().payeeMerchantId())
+                    || !payment.amount().equals(change.capacity().succeededAmount()))
+                throw new CommonException(SNAPSHOT_INVALID);
+            send(tenant, LIMIT, change.refund().id(), change.refund().version(), facts.sourceUpdatedAt(),
+                    financial.toOutcome(change.refund(), change.request(), payment, change.capacity()));
+        }
     }
 
-    private void publishChild(String tenant, String order, String merchant, String refundId, long version) {
+    private RefundSnapshotFacts publishChild(String tenant, String order, String merchant, String refundId, long version) {
         var facts = reader.child(tenant, refundId);
         if (facts == null || !refundId.equals(facts.refundId()) || !order.equals(facts.orderId()) || !merchant.equals(facts.payeeMerchantId())
                 || facts.sourceVersion() != version) throw new CommonException(SNAPSHOT_INVALID);
@@ -96,12 +116,14 @@ public class RefundProjectionEvents {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         send(tenant, CHILD, refundId, version, facts.sourceUpdatedAt(), data);
+        return facts;
     }
 
     private void publishSummary(String tenant, OrderRefundSummary expected) {
         var facts = reader.summary(tenant, expected.orderId());
         if (facts == null || !expected.equals(facts.summary())) throw new CommonException(SNAPSHOT_INVALID);
         send(tenant, SUMMARY, expected.orderId(), expected.version(), facts.sourceUpdatedAt(), converter.toEvent(facts.summary()));
+        send(tenant, FEE, expected.orderId(), expected.version(), facts.sourceUpdatedAt(), converter.toEvent(facts.summary()));
     }
 
     private <T> void send(String tenant, String type, String id, long version, java.time.LocalDateTime at, T data) {

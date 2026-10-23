@@ -293,7 +293,7 @@ Spring MapStruct、BaseDO 和生成 Mapper/TableDef。新增22个测试方法源
 
 新增内部 PaymentResultService.record (tenant, PaymentObservation)，不暴露商户/运维 HTTP 成功上报入口。PaymentChannelGateway
 的支付 submit/query/close 返回类型已改为包含完整规范事实的 PaymentObservation；旧 ChannelPaymentOutcome
-保留为领域状态迁移输入。适配器必须先完成验签/解密及实际 app/商户/子商户身份校验，随后构造观察值；当前尚无真实渠道适配器，也没有将类型名称、sourceDigest
+保留为领域状态迁移输入。适配器必须先完成验签/解密及实际 app/商户/子商户身份校验，随后构造观察值；当前已补支付宝退款、查单/关闭协议源码，收款提交与自动驱动仍待接；不将类型名称、sourceDigest
 或客户端 evidenceId 当作真实性证明。超时、NOT_FOUND 和无验签响应不能产生 NO_COLLECTION。
 
 观察值包含原 payment/attempt/channel/bindingRevision/accountScopeHash/requestNo、金额币种、结果、可空真实交易号/渠道成功时间、来源、稳定
@@ -479,3 +479,139 @@ APPLIED/DUPLICATE/STALE。两个目标独立失败/重试，不读取当前交�
 
 V20261023050000__order_refund_summary.sql 新增金额汇总表。新增领域金额/事件事务/时间冻结/消息重放/ACK/严格解码/HTTP
 操作测试源码，同步原服务调用方和已重构投影契约。未运行检查、构建、测试、DDL、镜像或部署。自动调度、真实渠道、费用基数/退费与额度恢复下游、商户退款通知、重建及端到端验收仍待完成。
+
+## 2026-10-23 退款汇总权威查询与费用独立投递（新增源码）
+
+`PaymentRpc/RefundSummary(IdQuery(orderId))` 提供六字段固定大小 `OrderRefundSummaryEventDTO`。仅配置的 acquire SERVICE 加 `pay:payment:refund-summary:read` 可调用，还必须匹配原 parent gate 的 callerServiceId。按 parent→summary 锁顺序读取同租户事实，原门禁 FENCED 不阻断独立退款查询；缺少汇总返回 NOT_FOUND，不伪造零退款。
+
+退款规划与终态结算更新金额汇总时，在原事务内新增独立 `pay.payment.refund.fee.v1` Outbox 目标。费用与 realtime 目标各有稳定 delivery/businessEvent 和独立重试，负载冻结为当时同一金额版本；任一目标入队失败原事务回滚。新增 `RefundFeeOutboxHandler`/`RefundFeeDelivery` 校验可信租户、已登记 PROCESSING 队列及精确类型/聚合，再事务外调用 `AcquireRpc/FeeRefund`。严格 codec 防止 fee/realtime 负载混用，不用当前金额重建旧消息。
+
+ACK 必须匹配原 deliveryId/businessEventId/orderId/sourceVersion，accepted=true 且 appliedVersion>=sourceVersion。更高 appliedVersion 表示 acquire 已回查验证更晚的累计事实；不能凭其他目标成功确认费用目标。重试复用原负载及原身份，最终确认依赖 acquire 的费用与业务回执同事务提交。
+
+复用已有 acquire gRPC channel、`PAYMENT_ACQUIRE_TOKEN_FILE`/`ACQUIRE_JWT_AUDIENCE`，payment SERVICE 增加 `pay:acquire:fee:refund`。反向权威查询复用 acquire 的 payment channel 和凭证，需上述查询权限。每次发送仍重读挂载文件支持凭证轮换。无新增内部 HTTP 或兼容回退。
+
+本批新增 app/codec/投递/客户端测试源码并更新原事件数量断言，未运行检查、构建、测试、DDL 或部署。真实渠道退款、自动驱动/恢复、额度恢复与商户通知仍未完成。
+
+## 2026-10-23 退款额度目标与权威事实（新增源码）
+
+成功子退款在原结果事务追加 `pay.payment.refund.limit.v1` 独立 Outbox 任务，冻结原 refund/version/evidence、operation、金额及该付款成功退款累计。INIT/PROCESSING/UNKNOWN/FAILED 不生产额度恢复成功事件。逐笔 realtime、订单金额 realtime、费用和额度目标有独立身份、重试和 ACK；任一任务入队失败，原退款结果事务回滚。
+
+`RefundLimitOutboxHandler`/`RefundLimitDelivery` 校验原已领取队列与可信租户，严格解码并转换原冻结事件为 `LimitRefundRestoreCommand`，事务外调用 `LimitCenterRpc/RestoreRefund`。ACK 精确绑定 operation/payment/refund/version/businessEvent/evidence/原累计，权威累计不能小于原累计，且必须有正权威版本及一致的 RESTORED/NO_ACTION 结果。Confirm 晚到、依赖失败或落库失败不会确认额度任务；不要求 fee/realtime 先完成。
+
+`PaymentRpc/RefundFacts` 只供配置的 limitcenter SERVICE 和 `pay:payment:refund-facts` 查询。它复用原财务加锁路径，核验成功子项、原付款永久成功 claim 与真实退款全局 claim，返回 `RefundSettlementFactsDTO`：成功退款事实、原成功付款金额/版本/证据/attempt/受理时间及当前付款退款容量版本。不存在或未成功不返回成功恢复证明，旧事件可由接收方回查取得更晚的付款累计事实。
+
+复用已有 limitcenter channel/`PAYMENT_LIMITCENTER_TOKEN_FILE` 和反向 `LIMITCENTER_PAYMENT_TOKEN_FILE`，分别需 `pay:limit:refund:restore` 与 `pay:payment:refund-facts`。无新增 HTTP 回退、假渠道或商户成功记账端点。新增鉴权/事实核验/独立事件/严格 codec/ACK/精确 int64/客户端测试源码，未执行编译、测试、数据库或 RPC 验收。
+
+## 2026-10-23 退款自动驱动与恢复调度（新增源码）
+
+退款计划持久化时，`RefundPlanningService` 在原 parent/request/容量/Outbox 事务中登记 `refund_recovery_cursor` 与 DelayedTask 首轮任务。首个 dueAt 使用原 plannedAt，重复商户请求沿用原计划，不新增游标或任务。登记失败使整个原事务失败，不能出现受理了计划却未登记恢复工作的提交。
+
+任务类型 `pay.payment.refund.progress`，bizId 为 `requestId.generation`（按最后一个点解析，支持带点的原业务 ID）。generation 从0开始，每轮后继递增，和退款申请/子项的财务版本独立。游标只保存当前续行身份；任务领取、次数、租约和执行状态仍由 loadup DelayedTask 负责，没有另建第二套执行队列。
+
+`RefundRecoveryTaskHandler` 在组件已领取并提交后调用应用服务。应用核对可信租户、持久任务的 RUNNING/attempt/有效租约和规范 key，再于 parent→request→cursor 锁顺序下读取当前事实。旧代次、已完成游标直接结束；所有子退款已终结时只标记游标完成，无须渠道 provider。否则事务外调用原 `RefundExecutionService.progress`：第一提交仍只有持久 INIT→PROCESSING 赢家，重复/恢复执行查询原渠道退款号，UNKNOWN 仍阻止固定 FIFO 后续子项。
+
+一次进度完成后，再在本地事务重读原请求与游标。已终结则完成游标；仍未终结则 CAS 推进代次、保存下轮 dueAt，并原子登记新的 DelayedTask。正常等待通过后继任务继续轮询，不抛失败来耗尽重试次数；每轮仍只驱动原固定计划的一个子项。任务后继登记失败会回滚游标推进并向 dispatcher 报错。若旧任务完成 ACK 丢失，重放发现游标已推进即结束，不重复登记下一代。
+
+渠道异常、缺少真实 binder、任务处理崩溃等仍沿用 DelayedTask 的失败重试和租约恢复；重试耗尽后任务保持 FAILED，资金预占和原计划不变，不据此自动释放或伪造成功。当前可由受控运维在可信租户范围使用组件 `retryFailed(type,bizId)` 恢复同一代任务；专用运维鉴权/查询/重放入口尚待实现。通用任务取消不能撤销渠道副作用，也不等同于业务退款取消或强截止封禁。
+
+payment-app 引入 `loadup-components-delayedtask`，payment-business bootstrap 选择现有 local Scheduler binder，默认骨架不引入业务调度。组件扫描、Mapper、共享 DataSource/事务管理器及 `classpath:db/migration` 沿用当前装配；需要同时包含组件的 V20261019000001__create_delayed_task.sql 和本批 V20261023090000__refund_recovery_cursor.sql。未运行迁移，前期历史开发数据不自动补建游标。
+
+| 环境变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| PAYMENT_REFUND_POLL_DELAY_SECONDS | 30 | 正常处理中下一代任务的最早等待，范围1–86400秒 |
+| PAYMENT_SCAN_INTERVAL | PT30S | local Scheduler 唤醒扫描器的 fixedDelay；首次等待沿组件默认一分钟 |
+| PAYMENT_TASK_BATCH_SIZE | 100 | 每次有界逐条领取 |
+| PAYMENT_TASK_MAX_ATTEMPTS | 5 | 同一代异常执行的重试上限，不是正常处理中总轮询上限 |
+| PAYMENT_TASK_LEASE | PT5M | 单次执行租约，须大于处理可能耗时；无自动续租 |
+| PAYMENT_TASK_RETRY_DELAY | PT1M | 异常重试间隔 |
+
+任务与日期均使用系统本地时区，不强制 JVM/TZ/JDBC 时区。多 Pod 均可扫描，领取由数据库条件更新互斥；租约过期仍是至少一次，原退款号和结果幂等负责副作用安全。正常轮询会产生保留的后继任务历史，归档/清理与失败积压运维仍待补。
+
+已补计划注册/失败传播、key/cursor、正常后继、旧代次、终结、异常与竞争边界测试源码。内存夹具只验证调用事务边界，不证明数据库回滚或多副本行为；本批未运行 IDEA 检查、构建、测试、DDL、镜像或部署。真实渠道仍待接入，不能宣称已完成真实自动退款。
+
+## 独立渠道模块（2026-10-23）
+
+渠道协议从 payment-infrastructure 抽离到 [channel 模块](../channel/README.md)。payment-domain 的渠道端口引用 channel-api 统一契约；PaymentChannelGatewayImpl 只负责取得可信租户/原绑定 revision 并委托 ChannelPaymentFacade。统一 Facade 通过 Provider 注册表按请求 channel 路由，payment 不导入支付宝或微信协议实现。
+
+payment-business bootstrap 组合 channel-alipay/channel-wechat；支付宝协议配置改为 loadup.pay.channel.alipay，并使用 channelClock。新增渠道模块不增加 K8s 应用。退款事务内的 canRefund 为纯本地注册能力查询；后续提交和查询在事务外取得原 revision。支付宝付款码/JSAPI 提交、查询/关闭、退款 Provider 与支付动作持久化/授权查询源码已补；自动收款驱动源码已补；支付宝签名回调与原号查证源码已补；H5、微信及银联回调仍待实现。源码及测试源码未验证。
+
+支付宝退款策略已在独立插件内条件注册，复用原退款单步执行与恢复链路；运行组合 payment-business,payment-alipay，配置/限制见 [支付宝模块](../channel/channel-alipay/README.md)。已补源码与测试源码，未运行验证或真实调用。
+
+## 支付宝查单/关闭统一契约（2026-10-23）
+
+PaymentChannelGateway 与统一 ChannelPaymentFacade 的 query/close 均改用 ChannelPaymentTarget(identity, amount)，查询返回也验证原金额。协议映射在独立 channel-alipay，payment 基础设施仅透传原绑定上下文。PaymentObservation.Source 增加 CLOSE_RESPONSE；真实待付款查询与关闭成功的组合事实才可形成支付宝未收款观察。单独 TRADE_CLOSED/NOT_FOUND 保持未知。
+
+可选 payment-alipay runtime profile 已配置支付查询/关闭及退款两类操作。当前已补受理后自动提交/查单/关闭驱动源码，不增加商户上报成功入口。测试源码与设计已更新，未运行构建、测试或真实渠道调用。
+
+## 收款提交上下文与动作（2026-10-23）
+
+PaymentExecuteCommand 增加 @NotBlank subject 和 @NotNull payableUntil，由 acquire 从 StoredAcquireOrder.subject/order.orderDueAt 冻结；不可从付款受理时间重新推导订单期限。新增受理在幂等重放分支之后校验期限，Y2 准备及持锁原子边界再检查；原请求的过期重放不重新扣款。
+
+JSAPI ChannelIdentityInteractionDTO 改为 channel/identifier/appScope/identityType，identifier 为已解析渠道用户标识，identityType=USER_ID/OPEN_ID，不是授权 code。该变更同步 provider-owned payment.proto 与 Mapper，不保留旧字段或兼容构造；旧开发密文/意图需重新准备，未执行任何清理或迁移。
+
+PaymentChannelRequestFactory 核对原 SUBMITTING attempt、金额、epoch、调用方、额度操作与许可/风控，再通过 PaymentInputAccess 打开原绑定输入；PaymentChannelInputConverter 生成独立渠道请求与前端动作 DTO。桥接提交返回 ChannelPaymentSubmission，不再仅返回 PaymentObservation。付款码/JSAPI 协议在独立支付宝插件实现；目前支付动作快照、Y3 同事务写入和授权详情/outcome/幂等返回已有源码；自动驱动发送源码已补；托管 cashier 的前端交互仍待补。
+
+可选 payment-alipay runtime profile 增加 trade-pay/trade-create 操作；尚未开启或部署。新增源码和测试源码未编译或执行，详见 [支付宝说明](../channel/channel-alipay/README.md)。
+
+
+## 动作生命周期与模块责任（2026-10-23）
+
+PaymentActionService 仅编排原 attempt 的动作快照和可见性；PaymentResultService.recordSubmission 将受理观察与动作放在同一 Y3 本地事务。首次动作固定原交易号、执行 epoch、有效期及来源回执，重复受理不能替换或延期。PaymentAcceptanceService 的详情/outcome/幂等返回在原服务身份校验与执行门禁下读取，只有 PROCESSING、双门禁 OPEN、当前 SUBMITTING/PENDING/UNKNOWN attempt 且未过期才附带 action。
+
+payment_action 的 DO、生成 Mapper 接入、MapStruct、迁移源码位于 payment-infrastructure；动作格式由 channel-api/core 的 ChannelActionCodec 负责，厂商支付协议由 channel-alipay/channel-wechat 负责。payment 仅做存储和客户端 DTO 投影，不在编排中选择厂商实现。
+
+本地事务保持外部调用禁入；持有门禁读取动作不会触发渠道查询。动作存储失败或与首次动作冲突使同一 Y3 事务失败。该源码已有自动提交生产者接线，尚不能据此宣称真实支付闭环已完成；新增迁移、编译、测试、数据库回滚/竞争和运行装配未执行验证。
+
+
+## 付款执行任务（2026-10-23）
+
+payment-business 已组合原生 DelayedTask/Scheduler local binder。受理事务在保存 payment INIT 后调用 PaymentRecoveryService.register，同库写 payment_recovery_cursor 并登记 pay.payment.collection.progress；回放原受理不补发任务。前期不兼容旧受理，现有开发数据不会自动补游标。
+
+PaymentExecutionService 从原固定命令创建首个 attempt，再执行渠道本地 validate、风险咨询与原额度/Y2。validate 的输入不带 executionEpoch；短期原输入在锁外 KMS 打开。唯一 ticket 可调用渠道一次，响应通过 PaymentResultService.recordSubmission 落入 Y3。后续代次只按原身份/金额 query；支付期限到达或门禁封禁时先在本地请求关闭，再锁外 close。仅从未 Y2 或已核验的无收款证明可终结并发布释放事件。
+
+任务 handler 校验可信租户、登记任务、RUNNING 状态、尝试次数与有效租约。正常等待原子登记下一代任务，异常由原生重试处理；代次是调度幂等号，不能替代渠道请求号或提交权。参数 loadup.modules.payment.payment-recovery.poll-delay-seconds 默认 30，范围 1..86400；runtime PAYMENT_POLL_DELAY_SECONDS 可覆盖，所有业务时间为系统本地时间。
+
+尚未执行编译、测试、迁移、真实数据库回滚/并发或多 Pod 恢复演练。JSAPI 创建 ACK 丢失后的动作查询重建已有源码；关闭 ACK 丢失、耗尽任务运维重放、H5/托管授权/其他渠道回调及真实回调验收继续待办；不通过盲目重复提交弥补缺口。
+
+
+## 不重提扣款的动作恢复（2026-10-23）
+
+已 SUBMITTING/PENDING/UNKNOWN 且未进入关闭流程的任务使用 ChannelPaymentRecovery→PaymentChannelGateway.recover。PaymentSubmissionConverter 只投影原 attempt 身份、金额、方式、epoch 和原冻结 payableUntil；不生成 PaymentSubmissionTicket，也不走 PaymentChannelRequestFactory/PaymentInputAccess。即使原短期输入已过期，仍可查询原交易，渠道签名凭证仍按原绑定版本解析。
+
+插件返回的 QUERY_RESPONSE 观察与动作通过 PaymentResultService.recordRecovery 复用 Y3 原子应用；动作写入/冲突与观察回执同事务，动作读取仍受 PROCESSING/当前 attempt/epoch/双门禁/期限限制。UNKNOWN 财务状态不被中间查询降级。首次提交仍只来自内存 Y2 赢家，关闭仍先持久门禁再使用原 target close。
+
+本批只补源码和测试源码，没有运行构建、测试或真实操作；支付宝 WAIT 原交易的 JSAPI 动作可查询重建，其他渠道/方式不制造动作，关闭 ACK 丢失仍需要额外确定证据。
+
+
+## 渠道回调入口（2026-10-24）
+
+`POST /api/payment/channel-callbacks/{endpointRef}` 返回渠道原生 ACK，不包装 SuccessResponse。当前 HTTP 收包为 application/x-www-form-urlencoded，最大 65536 字节，拒绝空包与 query string；支付宝策略提供 success/failure，只有 Y3 写入返回非冲突才输出 success。该路径通过 resource-server 的 permit-all 放行 JWT，实际认证由原冻结平台公钥验签与账户/金额核验完成，其余业务接口保持 SERVICE 鉴权。
+
+协议 success 表示通知处理已提交；付款结果以查询事实和原状态机为准，未知结果继续保留占用并由原恢复任务查证。
+
+endpointRef 只是配置定位号，不能替代签名。可信配置固定 tenantId/channel/bindingRevisionId；通过原 binding revision+out_trade_no 查已进入 Y2 的 attempt，核验原 payment/金额/限额操作/调用方摘要，再验签。只有验签成功后才查原渠道原账户；回调状态仅作触发，金额/成功时间来自原查询。Y3 保存 CALLBACK 回执及组合摘要，重复金融事实不会再次应用；未知或关闭通知不产生未收款证明，退款不回写付款成功额。
+
+以下为外部 ConfigMap 的配置形状，示例 ID/地址需替换为真实配置；旧 revision 的 endpoint/平台公钥在原交易和回调收敛前应保留：
+
+```yaml
+loadup:
+  modules:
+    payment:
+      channel-callback:
+        endpoints:
+          alipay-revision-20261024:
+            tenant-id: tenant-example
+            channel: ALIPAY
+            binding-revision-id: binding-example
+  pay:
+    channel:
+      alipay:
+        notifications:
+          notify-urls:
+            tenant-example:
+              binding-example: https://pay.example.com/api/payment/channel-callbacks/alipay-revision-20261024
+```
+
+URL 目录只作用于 JSAPI CREATE 的 notify_url，要求 HTTPS、无用户信息/query/fragment，按可信 tenant+原 revision 精确匹配；未配置时沿现有查询任务跟踪，不声明回调已启用。付款码不附加该 URL。endpoint 目录默认空，未登记入口无法处理付款。新增 V20261024010000__payment_callback_lookup.sql 为查找建立索引，不新增收包业务表。
+
+已补原生入口、校验顺序、失败 ACK、签名/字段/编码和配置约束测试源码；内存夹具不证明真实提交。未执行构建、测试、迁移、公开路由或真实渠道回调，微信/银联通知、H5、托管授权与完整资金验收继续待办。

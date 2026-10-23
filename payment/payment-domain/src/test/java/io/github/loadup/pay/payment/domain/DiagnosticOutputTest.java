@@ -15,15 +15,17 @@
  */
 package io.github.loadup.pay.payment.domain;
 
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -43,7 +45,7 @@ class DiagnosticOutputTest {
                 "a".repeat(64),
                 "credential-reference-must-stay-hidden",
                 "v1",
-                new io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity("app", "seller", null, null, null),
+                new io.github.loadup.pay.channel.api.model.AlipayAccountIdentity("app", "seller", null, null, null),
                 Set.of(PaymentMethod.H5));
     }
 

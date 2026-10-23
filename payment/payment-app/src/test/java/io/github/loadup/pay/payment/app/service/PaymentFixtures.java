@@ -32,15 +32,19 @@ import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
 final class PaymentFixtures {
+    static final String SUBJECT = "Test payment subject";
+    static final OffsetDateTime PAYABLE_UNTIL = OffsetDateTime.parse("2030-01-01T00:00:00+08:00");
+
     static PaymentExecuteCommand command() {
         return new PaymentExecuteCommand("payment", "order", "allocation", "admission", "merchant", 4000, "CNY",
                 "a".repeat(64), new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), null,
                 new AdmittedOrderTermsDTO("admission", "order", "merchant", 10000, "CNY", "contract", 1, 1,
-                        "snapshot", "b".repeat(64), terms()));
+                        "snapshot", "b".repeat(64), terms()), SUBJECT, PAYABLE_UNTIL);
     }
 
     static AcquiringTermsDTO terms() {

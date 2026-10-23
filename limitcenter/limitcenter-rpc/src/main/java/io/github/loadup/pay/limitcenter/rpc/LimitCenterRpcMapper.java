@@ -189,4 +189,35 @@ public interface LimitCenterRpcMapper {
 
     io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO fromWireLimitReleaseDTO(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReleaseDTO value);
 
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "operationId", source = "operationId")
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "refundId", source = "refundId")
+    @Mapping(target = "refundVersion", source = "refundVersion")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "refundAmountMinor", source = "refundAmountMinor")
+    @Mapping(target = "cumulativePaymentRefundedMinor", source = "cumulativePaymentRefundedMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "refundEvidenceId", source = "refundEvidenceId")
+    io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRefundRestoreCommand toWireLimitRefundRestoreCommand(io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand value);
+
+    io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand fromWireLimitRefundRestoreCommand(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRefundRestoreCommand value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "operationId", source = "operationId")
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "refundId", source = "refundId")
+    @Mapping(target = "refundVersion", source = "refundVersion")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "refundEvidenceId", source = "refundEvidenceId")
+    @Mapping(target = "cumulativePaymentRefundedMinor", source = "cumulativePaymentRefundedMinor")
+    @Mapping(target = "verifiedPaymentRefundedMinor", source = "verifiedPaymentRefundedMinor")
+    @Mapping(target = "verifiedPaymentRefundVersion", source = "verifiedPaymentRefundVersion")
+    @Mapping(target = "result", source = "result")
+    @Mapping(target = "restoredAmountMinor", source = "restoredAmountMinor")
+    @Mapping(target = "restoredPaymentCount", source = "restoredPaymentCount")
+    io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRestoreDTO toWireLimitRestoreDTO(io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO value);
+
+    io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO fromWireLimitRestoreDTO(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRestoreDTO value);
+
 }

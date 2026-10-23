@@ -21,7 +21,7 @@ import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.model.RefundExecutionWork;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
-import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundState;

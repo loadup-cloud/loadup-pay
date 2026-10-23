@@ -20,6 +20,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -58,6 +59,45 @@ class RefundProjectionEnvelopeCodecImplTest {
         var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         var event = new EventEnvelope<>("delivery", "change", "payment", "pay.payment.refund.fee.v1", 1, "order", 3, at, data);
         assertThrows(CommonException.class, () -> codec.summary(json.writeValueAsString(event)));
+    }
+
+    @Test
+    void feeStreamRoundTripsOnlyThroughTheFeeCodec() {
+        var data = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
+        var event = new EventEnvelope<>("delivery-fee", "change-fee", "payment", "pay.payment.refund.fee.v1", 1, "order", 3, at, data);
+        var payload = json.writeValueAsString(event);
+        assertEquals(event, codec.fee(payload));
+        assertThrows(CommonException.class, () -> codec.summary(payload));
+
+        var realtime = new EventEnvelope<>("delivery-summary", "change-summary", "payment", "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, data);
+        assertEquals(realtime, codec.summary(json.writeValueAsString(realtime)));
+        assertThrows(CommonException.class, () -> codec.fee(json.writeValueAsString(realtime)));
+    }
+
+    @Test
+    void successfulLimitStreamRoundTripsOnlyThroughTheLimitCodec() {
+        var data = new RefundOutcomeEventDTO("refund", "request", "payment", "order", "operation", "merchant",
+                1000, "CNY", RefundState.SUCCEEDED, 2, 1000, "refund-evidence");
+        var event = new EventEnvelope<>("delivery-limit", "change-limit", "payment", "pay.payment.refund.limit.v1",
+                1, "refund", 2, at, data);
+        var payload = json.writeValueAsString(event);
+        assertEquals(event, codec.limit(payload));
+        assertThrows(CommonException.class, () -> codec.fee(payload));
+        assertThrows(CommonException.class, () -> codec.summary(payload));
+
+        var summary = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
+        var feeEvent = new EventEnvelope<>("delivery-fee", "change-fee", "payment", "pay.payment.refund.fee.v1",
+                1, "order", 3, at, summary);
+        var summaryEvent = new EventEnvelope<>("delivery-summary", "change-summary", "payment",
+                "pay.payment.refund-summary.realtime.v1", 1, "order", 3, at, summary);
+        assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(feeEvent)));
+        assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(summaryEvent)));
+
+        var failed = new RefundOutcomeEventDTO("refund", "request", "payment", "order", "operation", "merchant",
+                1000, "CNY", RefundState.FAILED, 2, 0, "refund-evidence");
+        var failedEvent = new EventEnvelope<>("delivery-failed", "change-failed", "payment", "pay.payment.refund.limit.v1",
+                1, "refund", 2, at, failed);
+        assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(failedEvent)));
     }
 
     @Test

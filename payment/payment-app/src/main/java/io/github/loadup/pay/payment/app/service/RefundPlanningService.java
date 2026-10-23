@@ -84,11 +84,12 @@ public class RefundPlanningService implements RefundFacade {
     private final Clock clock;
     private final FifoRefundPolicy fifo = new FifoRefundPolicy();
     private final RefundProjectionEvents projections;
+    private final RefundRecoveryService recovery;
 
     public RefundPlanningService(RefundActorProvider actors, RefundGateway refunds, PaymentAcceptanceGateway payments,
                                  PaymentResultGateway results, PaymentAttemptGateway attempts, PaymentAcceptanceCodec codec, RefundPlanningConverter converter,
                                  PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator, @Qualifier("paymentClock") Clock clock,
-                                 RefundProjectionEvents projections) {
+                                 RefundProjectionEvents projections, RefundRecoveryService recovery) {
         this.actors = actors;
         this.refunds = refunds;
         this.payments = payments;
@@ -101,6 +102,7 @@ public class RefundPlanningService implements RefundFacade {
         this.validator = validator;
         this.clock = clock;
         this.projections = projections;
+        this.recovery = recovery;
     }
 
     @Override
@@ -186,6 +188,7 @@ public class RefundPlanningService implements RefundFacade {
             var stored = converter.toStored(request, command, digest, actor.subjectHash(), admitted.admissionId(), payload, codec.checksum(payload), now, children);
             refunds.insertPlan(actor.tenantId(), stored, reservations);
             projections.planned(actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
+            recovery.register(actor.tenantId(), stored);
             return dto(stored);
         });
     }

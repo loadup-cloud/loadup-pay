@@ -19,7 +19,7 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;

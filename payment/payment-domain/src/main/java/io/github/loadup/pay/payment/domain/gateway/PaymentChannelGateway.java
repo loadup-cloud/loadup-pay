@@ -15,21 +15,30 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
-import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 
 /**
  * Verified channel integration, invoked outside local payment transactions. Capability lookup is local only.
  */
 public interface PaymentChannelGateway {
-    PaymentObservation submit(PreparedChannelPayment payment);
+    /** Pre-Y2 validation only; never submits a channel request. */
+    void validate(ChannelPaymentValidation request);
 
-    PaymentObservation query(ChannelPaymentIdentity identity);
+    ChannelPaymentSubmission submit(PreparedChannelPayment payment);
 
-    PaymentObservation close(ChannelPaymentIdentity identity);
+    PaymentObservation query(ChannelPaymentTarget target);
+
+    /** Read-only channel recovery; an original attempt snapshot never grants another submission. */
+    ChannelPaymentSubmission recover(ChannelPaymentRecovery request);
+
+    PaymentObservation close(ChannelPaymentTarget target);
 
     /**
      * Pure local capability lookup; no network, credential loading or external side effects.

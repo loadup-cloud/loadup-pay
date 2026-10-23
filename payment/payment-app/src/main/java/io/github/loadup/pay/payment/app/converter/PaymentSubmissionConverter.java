@@ -21,7 +21,8 @@ import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionComman
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.payment.domain.model.RiskConsultation;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
@@ -77,6 +78,13 @@ public interface PaymentSubmissionConverter {
     @Mapping(target = "method", source = "attempt.method")
     @Mapping(target = "executionEpoch", source = "attempt.executionEpoch")
     PreparedChannelPayment toPrepared(StoredPaymentAttempt value);
+
+    @Mapping(target = "identity", expression = "java(value.attempt().identity())")
+    @Mapping(target = "amount", source = "value.attempt.amount")
+    @Mapping(target = "method", source = "value.attempt.method")
+    @Mapping(target = "executionEpoch", source = "value.attempt.executionEpoch")
+    @Mapping(target = "payableUntil", source = "payableUntil")
+    ChannelPaymentRecovery toRecovery(StoredPaymentAttempt value, OffsetDateTime payableUntil);
 
     @Named("executionKey")
     default String executionKey(String attemptId) {

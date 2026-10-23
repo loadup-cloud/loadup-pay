@@ -372,3 +372,38 @@ Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存prod
 实施时通过Facade验证：100元30+20+50、并发超额、同action重放、渠道超时保留双占用、停单前准入恢复/原单续付、CLOSE/KEEP_PENDING、终态独立退款、FIFO跨渠道部分成功、费率整单一次计算、额度多窗口全回滚/月界/版本不清零、乱序通知和投影。并发/唯一键/回滚用真实MySQL针对性验证；渠道关闭证据和身份用对应沙箱验收。
 
 本轮仅做文档静态一致性检查，没有运行构建、测试或DDL。容量、保留期、SLO/RTO/RPO仍按用户决定暂不展开；实际合约数值与渠道授权材料在实施对应能力前填入，不再作为已确认业务语义的待决问题。
+
+## 渠道集成模块边界更新（2026-10-23）
+
+渠道技术实现不再归属 payment-infrastructure。统一契约归 channel-api，Facade/Registry 归 channel-core，协议策略分别归 channel-alipay/channel-wechat。payment 的领域 Gateway 保留，基础设施仅提供原绑定解析适配器；依赖从 payment 指向 channel，不允许 channel 反向依赖 payment。统一 API、路由约束和当前未完成边界详见 [渠道模块](channel/README.md)。该调整不增加独立部署服务，也不增加内部 HTTP 调用。
+
+payment-infrastructure 显式依赖 channel-api，channel-core 和厂商插件统一由 payment-bootstrap 装配。类型化 ChannelAccountIdentity 通过多态提供所属渠道、接入模式与实际收款主体；payment 的账户摘要计算不再按厂商类型分支。完整依赖图、设计模式和扩展约束见 [渠道架构](channel/ARCHITECTURE.md)。
+
+支付渠道 query/close 使用 ChannelPaymentTarget，统一携带原金额；支付宝已补查单与待付款关闭的协议映射，未付款关闭采用明确 CLOSE_RESPONSE 组合来源。payment 主链自动驱动已有源码，关闭 ACK 丢失恢复仍为后续工作，详见 [支付宝说明](channel/channel-alipay/README.md)。
+
+收款提交现采用独立 ChannelPaymentRequest/Submission，将付款码/已解析渠道标识和唤起动作与资金事实分开；原订单标题、截止时间在 acquire→payment 的持久意图/gRPC 中冻结。支付宝付款码/JSAPI 适配源码已补；动作快照/Y3 同事务记录/授权查询已补源码；Y2 前本地预检与自动执行已有源码；H5 仍待实现，详见 [提交契约](design/CLIENT-API.md)。
+
+
+### 付款自动续行协议
+
+受理事务登记 payment_recovery_cursor 和原生首轮 DelayedTask；任务只保存 paymentId/generation，不保存付款码、凭证或成功状态。正常等待与异常重试分开：正常等待在原门禁/游标 CAS 事务登记下一代，异常沿用原生租约重试。事务失败不能只提交游标或只登记后继。
+
+首笔固定路由后，锁外打开原未绑定输入并调用统一 ChannelPaymentFacade.validate，再执行风控与额度/Y2。仅返回给 Y2 赢家的内存 ticket 允许一次 submit；任何恢复都不能从持久 attempt 重新创建提交许可。Y3 接收原观察与动作。已进入 Y2 的 attempt 保持原身份 query/close；到期/封禁先持久关闭门禁，渠道未知仍保留资金/额度占用。
+
+源码已接线不等于验收；关闭及 JSAPI 动作 ACK 丢失的确定恢复仍待后续协议。原生异常重试有上限，专用运维重放/监控与清理仍待补。未执行本批编译、测试、迁移或真实渠道验证。
+
+
+### JSAPI 创建响应丢失后的恢复
+
+查询恢复使用不带输入/提交许可的 ChannelPaymentRecovery，包含原 identity/amount/method/executionEpoch/payableUntil；统一 Facade 路由到原 Provider。支付宝插件仅从验签的原交易 WAIT_BUYER_PAY 重建原 trade_no 和原到期时间的 JSAPI 动作。调用 recover 不产生新的渠道创单或扣款请求，原短期输入到期不阻止查询。
+
+payment 的非关闭任务经 recover→recordRecovery 接收观察与动作，二者仍由原 Y3 事务应用；首次 submit 与 close 路径保持独立。已有动作的交易号/期限不能被重放覆盖。动作可见性仍要求 PROCESSING、原 active attempt/epoch、双门禁 OPEN 且未过期；UNKNOWN 中间财务状态不降级。此接线不提供商户结果写入 API，不解决关闭 ACK 丢失的确定未收款证据问题，未执行编译/测试/真实环境验收。
+
+
+### 渠道异步通知入口
+
+接收流程为可信 endpointRef→tenant/channel/bindingRevision、无权限 identify→原已 Y2 attempt→原公钥 verify→原渠道 query→归一 CALLBACK 观察→Y3 原子应用→渠道 ACK。签名失败之前不能查询渠道或写付款；原 HTTP/body 参数不能覆盖配置中的租户、绑定或收款账户。本地锁不跨文件/KMS/渠道调用。
+
+复用现有 payment_channel_receipt，receiptKey 为 notifyId 与 query factsDigest 的长度分帧摘要，sourceDigest 组合验签内容和查询源摘要；同一通知先未知后查明成功可以形成不同查证回执，重复相同事实仍幂等。没有新增双写 Inbox，只有 payment_attempt 查找索引。CALLBACK 资金事实来自验签后原号查询，不直接使用回调状态或 gmt_payment；终态与独立退款不被中间通知回退。
+
+公开路径只放行 JWT，渠道签名与冻结账户核验仍为实际认证。当前 form/RSA2 原生协议 ACK 与 JSAPI notify_url 配置已有源码；其他渠道、公开路径装配、生成代码/事务/真实回调验收仍未执行，业务目标继续按实现清单推进。

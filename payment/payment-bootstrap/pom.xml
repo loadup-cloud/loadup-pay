@@ -44,6 +44,22 @@
             <dependencies>
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>
+                    <artifactId>channel-core</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>io.github.loadup-cloud</groupId>
+                    <artifactId>channel-alipay</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>io.github.loadup-cloud</groupId>
+                    <artifactId>channel-wechat</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>io.github.loadup-cloud</groupId>
+                    <artifactId>loadup-components-scheduler-binder-local</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>io.github.loadup-cloud</groupId>
                     <artifactId>payment-adapter</artifactId>
                 </dependency>
                 <dependency>

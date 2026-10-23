@@ -861,3 +861,16 @@ checkout session。托管收银台是商户可选的交互适配，共用订单�
 
 DirectPay 继续作为 API 便利入口，扫码枪流程保留；Native 的 code_url/展示二维码动作移除。上述范围覆盖直连及服务商/子商户模式，但具体渠道能力受实际开通产品限制。当前
 DirectPay、付款码输入准备及真实渠道执行仍需实现，契约恢复不代表业务链路已经完成。
+
+## 渠道模块边界更新（2026-10-23）
+
+渠道技术能力独立为 channel 聚合：channel-api 定义统一 Facade、Provider 策略和不可变协议契约；channel-core 收集 Provider 构建按 Channel 索引的注册表；channel-alipay/channel-wechat 分别维护各渠道协议、签名和凭证。payment 保留交易编排与本地持久化，仅由基础设施桥接调用渠道 Facade。
+
+上游选择渠道/支付方式，经合约与商户绑定校验后冻结；后续查询/关闭/退款始终复用原 revision 和收款账户，禁止路由回退。插件随 payment 进程组合，不新增部署单元。新渠道无需修改核心分支，按 SPI 注册；当前已条件注册支付宝退款 Provider；统一路由与退款协议适配为源码实现，收款/动作和微信 Provider 仍待完成。详见 [渠道设计](channel/README.md)。
+
+channel-api 的 submit 现区分资金事实与唤起动作；付款码/已解析渠道买家标识只在 payment 原绑定密文打开后进入插件。原订单 subject/payableUntil 由 acquire 冻结，渠道不能自行延长。支付宝付款码和 JSAPI 提交源码已补，动作快照、Y3 同事务记录与授权返回已有源码；自动首次提交/原号查单/门禁关闭与 Y2 前预检已有源码；H5 未完成。
+
+
+### 渠道回调的信任边界（2026-10-24）
+
+公开通知入口由可信 endpoint 配置选择原 tenant/binding revision，原始 body 只能提供不可信定位提示；独立 ChannelNotificationFacade/Provider 完成协议认证和原账户/金额核验。payment 随后在事务外查原交易，再通过 Y3 持久化 CALLBACK 回执与金融事实，提交后才发送固定协议 ACK。通知字段不是商户可写成功证据，不绕过原执行 gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道与真实验收仍待完成，细节见 [渠道模块](channel/README.md)。

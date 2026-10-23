@@ -19,7 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;

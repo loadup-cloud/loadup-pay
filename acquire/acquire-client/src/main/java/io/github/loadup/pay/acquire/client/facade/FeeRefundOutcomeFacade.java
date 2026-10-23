@@ -22,5 +22,5 @@ import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
  * Business use cases; identity and authorization come from a trusted invocation context.
  */
 public interface FeeRefundOutcomeFacade {
-    void accept(EventEnvelope<OrderRefundSummaryEventDTO> event);
+    io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO accept(EventEnvelope<OrderRefundSummaryEventDTO> event);
 }

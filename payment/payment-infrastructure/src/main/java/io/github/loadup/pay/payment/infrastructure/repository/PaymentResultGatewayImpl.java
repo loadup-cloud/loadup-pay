@@ -23,7 +23,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;

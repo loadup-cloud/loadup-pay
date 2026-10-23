@@ -18,9 +18,11 @@ package io.github.loadup.pay.payment.infrastructure.client;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
@@ -47,6 +49,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.AC
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_PAYMENT_OUTCOME;
+import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_FEE_REFUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -100,6 +103,16 @@ class PaymentAcquireGrpcClientTest {
         verify(rpc).call(eq(ACQUIRE_PAYMENT_OUTCOME), eq(event), call.capture());
 
         assertTrue(call.getValue().split("[.]").length == 3);
+    }
+
+    @Test
+    void feeTargetUsesItsOwnTypedOperationAndTheSameRotatableServiceCredential() {
+        var fee = new EventEnvelope<>("fee-delivery", "fee-business", "payment", "pay.payment.refund.fee.v1", 1, "order", 3,
+                OffsetDateTime.now(clock), new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
+        var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
+        when(rpc.call(eq(ACQUIRE_FEE_REFUND), any(), any())).thenReturn(ack);
+        assertEquals(ack, client.acceptFeeRefund("tenant", fee));
+        verify(rpc).call(eq(ACQUIRE_FEE_REFUND), eq(fee), any());
     }
 
     @Test

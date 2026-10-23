@@ -27,13 +27,14 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
@@ -41,6 +42,18 @@ import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentActionType;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +61,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +94,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 class PaymentResultServiceTest {
@@ -91,6 +106,7 @@ class PaymentResultServiceTest {
     final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
     final PaymentResultCodec codec = mock(PaymentResultCodec.class);
     final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentActionService actions = mock(PaymentActionService.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));
     final AtomicReference<StoredPaymentAttempt> attempt = new AtomicReference<>(AttemptFixtures.prepared()
             .beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW));
@@ -105,7 +121,42 @@ class PaymentResultServiceTest {
             new PaymentAcceptanceTransactions(manager), codec, context.getBean(PaymentResultConverter.class),
             context.getBean(PaymentControlConverter.class), context.getBean(PaymentAcceptanceConverter.class), events,
             () -> "result-" + ids.incrementAndGet(),
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()));
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), actions);
+
+    PreparedChannelPayment jsapiPayment(io.github.loadup.commons.money.Money amount) {
+        var previous = attempt.get();
+        var binding = new ChannelBindingRevision("binding-revision", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
+                "a".repeat(64), "credential", "v1", new AlipayAccountIdentity("app", "seller", null, null, null),
+                java.util.Set.of(PaymentMethod.JSAPI));
+        var channelAttempt = new PaymentAttempt("attempt", "payment", 1, accepted.get().payment().amount(), binding,
+                PaymentMethod.JSAPI, "channel-request", PaymentAttemptState.SUBMITTING, 1, null);
+        var stored = new StoredPaymentAttempt(channelAttempt, previous.limitOperationId(), previous.callerServiceId(),
+                previous.requestKey(), previous.requestDigest(), previous.paymentRequestDigest(), previous.preparedInputRef(),
+                previous.riskDecision(), previous.executionPermitHash(), previous.preparedAt(), previous.submissionStartedAt(),
+                previous.rowVersion());
+        attempt.set(stored);
+        return new PreparedChannelPayment(channelAttempt.identity(), amount, PaymentMethod.JSAPI, 1, stored.preparedInputRef());
+    }
+
+    ChannelPaymentSubmission jsapiSubmission(PreparedChannelPayment original, String tradeNo) {
+        var observation = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.ACCEPTED, original.amount(),
+                tradeNo, null, PaymentObservation.Source.SUBMIT_RESPONSE, "submit-receipt", "f".repeat(64));
+        var action = new AlipayJsapiChannelAction(tradeNo, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
+        return new ChannelPaymentSubmission(original.identity(), original.amount(), observation, action);
+    }
+
+    ChannelPaymentRecovery recovery(PreparedChannelPayment original) {
+        return new ChannelPaymentRecovery(original.identity(), original.amount(), original.method(),
+                original.executionEpoch(), AttemptFixtures.command().payableUntil());
+    }
+
+    ChannelPaymentSubmission jsapiRecoverySubmission(ChannelPaymentRecovery original, String tradeNo,
+            PaymentObservation.Source source) {
+        var observation = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.ACCEPTED,
+                original.amount(), tradeNo, null, source, "query-receipt", "f".repeat(64));
+        var action = new AlipayJsapiChannelAction(tradeNo, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
+        return new ChannelPaymentSubmission(original.identity(), original.amount(), observation, action);
+    }
 
     PaymentObservation observation(ChannelPaymentOutcome.Kind kind, String key, PaymentObservation.Source source) {
         boolean collected = kind == ChannelPaymentOutcome.Kind.SUCCEEDED || kind == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED;
@@ -208,6 +259,119 @@ class PaymentResultServiceTest {
         assertEquals(AttemptFixtures.NOW, capacity.get().succeededAt());
         assertEquals(1, manager.commits);
         verify(events).publish(eq("tenant"), eq(accepted.get()), eq(false), any());
+    }
+
+    @Test
+    void acceptedJsapiSubmissionRecordsActionAfterReceiptAndReturnsActionPresentation() {
+        var original = jsapiPayment(accepted.get().payment().amount());
+        var submission = jsapiSubmission(original, "trade-1");
+        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
+                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
+                new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
+                null, 1, BusinessTime.external(AttemptFixtures.NOW));
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        when(actions.present("tenant", locked)).thenReturn(presented);
+        doAnswer(call -> {
+            active();
+            return null;
+        }).when(actions).record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+
+        var result = service.recordSubmission("tenant", original, submission);
+
+        assertEquals(APPLIED, result.disposition());
+        assertEquals("result-1", result.receiptId());
+        assertSame(presented, result.payment());
+        assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
+        var calls = inOrder(results, actions);
+        calls.verify(results).insertReceipt(eq("tenant"), org.mockito.ArgumentMatchers.argThat(receipt ->
+                receipt.id().equals(result.receiptId()) && receipt.identity().equals(original.identity())));
+        calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
+        calls.verify(actions).present("tenant", locked);
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void recoveredJsapiActionUsesTheSameReceiptThenActionAndPresentationTransaction() {
+        var prepared = jsapiPayment(accepted.get().payment().amount());
+        var original = recovery(prepared);
+        var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
+        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
+                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
+                new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
+                null, 1, BusinessTime.external(AttemptFixtures.NOW));
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        when(actions.present("tenant", locked)).thenReturn(presented);
+        doAnswer(call -> {
+            active();
+            return null;
+        }).when(actions).record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+
+        var result = service.recordRecovery("tenant", original, submission);
+
+        assertEquals(APPLIED, result.disposition());
+        assertSame(presented, result.payment());
+        var calls = inOrder(results, actions);
+        calls.verify(results).insertReceipt(eq("tenant"), org.mockito.ArgumentMatchers.argThat(receipt ->
+                receipt.id().equals(result.receiptId()) && receipt.identity().equals(original.identity())));
+        calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
+        calls.verify(actions).present("tenant", locked);
+    }
+
+    @Test
+    void conflictingRecoveredObservationDoesNotRecordItsAction() {
+        var prepared = jsapiPayment(DomainChecks.cnyAmount(3999, "CNY"));
+        var original = recovery(prepared);
+        var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
+
+        var result = service.recordRecovery("tenant", original, submission);
+
+        assertEquals(CONFLICT, result.disposition());
+        verify(actions, never()).record(anyString(), any(), any(), any(), anyString());
+        verify(actions, never()).present(anyString(), any());
+    }
+
+    @Test
+    void recoveryCannotApplyASubmissionResponse() {
+        var prepared = jsapiPayment(accepted.get().payment().amount());
+        var original = recovery(prepared);
+        var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.SUBMIT_RESPONSE);
+
+        assertThrows(CommonException.class, () -> service.recordRecovery("tenant", original, submission));
+
+        verifyNoInteractions(locks, results, actions);
+    }
+
+    @Test
+    void actionRecordingFailurePropagatesAndRollsBackTheUnitTransaction() {
+        var original = jsapiPayment(accepted.get().payment().amount());
+        var submission = jsapiSubmission(original, "trade-1");
+        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doAnswer(call -> {
+            active();
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }).when(actions).record(eq("tenant"), eq(locked), eq(original), eq(submission), anyString());
+
+        assertThrows(CommonException.class, () -> service.recordSubmission("tenant", original, submission));
+
+        assertEquals(0, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        // The in-memory receipt map does not roll back; the transaction counters only verify lifecycle propagation.
+        verify(results).insertReceipt(eq("tenant"), any());
+    }
+
+    @Test
+    void conflictingObservationDoesNotAttemptToRecordItsAction() {
+        var original = jsapiPayment(DomainChecks.cnyAmount(3999, "CNY"));
+        var submission = jsapiSubmission(original, "trade-1");
+
+        var result = service.recordSubmission("tenant", original, submission);
+
+        assertEquals(CONFLICT, result.disposition());
+        verify(actions, never()).record(anyString(), any(), any(), any(), anyString());
+        verify(actions, never()).present(anyString(), any());
     }
 
     @Test

@@ -17,9 +17,13 @@ package io.github.loadup.pay.payment.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.components.rpc.grpc.RpcOperation;
+import com.google.protobuf.Message;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import java.time.Clock;
@@ -32,6 +36,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.AC
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_PAYMENT_OUTCOME;
+import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_FEE_REFUND;
 
 @Component
 public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
@@ -53,11 +58,20 @@ public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
 
     @Override
     public PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event) {
+        return exchange(tenant, ACQUIRE_PAYMENT_OUTCOME, event);
+    }
+
+    @Override
+    public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
+        return exchange(tenant, ACQUIRE_FEE_REFUND, event);
+    }
+
+    private <Q, R, P extends Message, S extends Message> R exchange(String tenant, RpcOperation<Q, R, P, S> operation, Q request) {
         if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         try {
             var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
-            var response = rpc.call(ACQUIRE_PAYMENT_OUTCOME, event, token);
+            var response = rpc.call(operation, request, token);
             if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return response;
         } catch (RuntimeException failure) {

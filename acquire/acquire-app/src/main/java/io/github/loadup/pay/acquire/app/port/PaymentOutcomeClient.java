@@ -17,6 +17,7 @@ package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 
 public interface PaymentOutcomeClient {
     boolean supportsTenant(String tenant);
@@ -24,4 +25,6 @@ public interface PaymentOutcomeClient {
     PaymentOutcomeDTO outcome(String tenant, String paymentId);
 
     PaymentSettlementFactsDTO facts(String tenant, String paymentId);
+
+    OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId);
 }

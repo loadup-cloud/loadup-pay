@@ -30,6 +30,9 @@ import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceConverter {
+    @Mapping(target = "action", source = "action")
+    PaymentExecutionDTO withAction(PaymentExecutionDTO value, io.github.loadup.pay.payment.client.dto.PaymentActionDTO action);
+
     @Mapping(target = "payment", source = "payment")
     @Mapping(target = "limitOperationId", source = "value.payment.limitOperationId")
     @Mapping(target = "payeeMerchantId", source = "value.payment.payeeMerchantId")

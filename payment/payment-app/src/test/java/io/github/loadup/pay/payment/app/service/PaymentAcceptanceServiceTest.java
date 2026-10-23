@@ -18,10 +18,12 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
@@ -85,6 +87,9 @@ class PaymentAcceptanceServiceTest {
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
             new PaymentActor("tenant", "acquire", Set.of("pay:payment:accept", "pay:payment:read")));
     final UnitTransactions manager = new UnitTransactions();
+    final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
+    final PaymentActionService actions = mock(PaymentActionService.class);
+    final PaymentRecoveryService recovery = mock(PaymentRecoveryService.class);
     final AtomicInteger sequence = new AtomicInteger();
     final PaymentExecuteCommand command = PaymentFixtures.command();
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
@@ -98,7 +103,10 @@ class PaymentAcceptanceServiceTest {
             () -> "id-" + sequence.incrementAndGet(),
             validation.getValidator(),
             clock,
-            "acquire");
+            "acquire",
+            locks,
+            actions,
+            recovery);
 
     @BeforeEach
     void setup() {
@@ -113,6 +121,11 @@ class PaymentAcceptanceServiceTest {
         })
                 .when(store)
                 .insert(eq("tenant"), any());
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertSame(stored.get(), c.getArgument(1));
+            return null;
+        }).when(recovery).register(eq("tenant"), any());
     }
 
     @AfterEach
@@ -121,9 +134,13 @@ class PaymentAcceptanceServiceTest {
         validation.close();
     }
 
+    PaymentExecutionDTO accept(PaymentExecuteCommand value) {
+        return TenantUtil.callWithTenant("tenant", () -> service.accept(value));
+    }
+
     @Test
     void acceptsOneInitPaymentAndBothOpenGatesAtomically() {
-        var result = service.accept(command);
+        var result = accept(command);
         assertEquals("INIT", result.state().name());
         assertNull(result.activeAttemptId());
         assertNull(result.action());
@@ -131,6 +148,7 @@ class PaymentAcceptanceServiceTest {
                 LocalDateTime.of(2026, 10, 22, 12, 0, 0, 123456000),
                 stored.get().payment().initiatedAt());
         assertEquals(1, manager.commits);
+        verify(recovery, times(1)).register(eq("tenant"), eq(stored.get()));
         var calls = inOrder(store);
         calls.verify(store).lockParent("tenant", "order");
         calls.verify(store).insertParent(eq("tenant"), argThat(g -> g.gate().state() == GateState.OPEN));
@@ -143,19 +161,26 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void replayAndDetailRetainTheOriginalOperationAndAcceptanceTimeWithoutGateWrites() {
-        var first = service.accept(command);
+        var first = accept(command);
         var original = stored.get();
-        clearInvocations(store);
-        assertEquals(first, service.accept(command));
+        clearInvocations(store, recovery);
+        assertEquals(first, accept(command));
+        var locked = new io.github.loadup.pay.payment.app.model.LockedPayment(original,
+                AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        when(actions.present("tenant", locked)).thenReturn(first);
         assertEquals(first, service.detail(new IdQuery("payment")));
+        verify(locks).lock("tenant", "payment", "acquire");
+        verify(actions).present("tenant", locked);
         assertSame(original, stored.get());
         verify(store, never()).lockParent(anyString(), anyString());
         verify(store, never()).insert(anyString(), any());
+        verify(recovery, never()).register(anyString(), any());
     }
 
     @Test
     void changedAmountWithTheSameSuppliedDigestCannotReplay() {
-        service.accept(command);
+        accept(command);
         var changed = new PaymentExecuteCommand(
                 command.paymentId(),
                 command.orderId(),
@@ -167,10 +192,12 @@ class PaymentAcceptanceServiceTest {
                 command.requestDigest(),
                 command.choice(),
                 command.preparedInputRef(),
-                command.admittedTerms());
+                command.admittedTerms(),
+                command.subject(),
+                command.payableUntil());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> service.accept(changed))
+                assertThrows(CommonException.class, () -> accept(changed))
                         .getResultCode());
         verify(store, times(1)).insert(anyString(), any());
     }
@@ -186,7 +213,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         verify(store, never()).insertParent(anyString(), any());
         verify(store, never()).lockPayment(anyString(), anyString());
@@ -205,7 +232,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         verify(store, never()).insertPaymentGate(anyString(), any());
         verify(store, never()).insert(anyString(), any());
@@ -222,7 +249,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         verify(store, never()).insert(anyString(), any());
     }
@@ -247,7 +274,7 @@ class PaymentAcceptanceServiceTest {
                         null)));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         verify(store, never()).insert(anyString(), any());
     }
@@ -257,7 +284,7 @@ class PaymentAcceptanceServiceTest {
         actor.set(new PaymentActor("tenant", "other-service", Set.of("pay:payment:accept", "pay:payment:read")));
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         assertSame(
                 ACTION_FORBIDDEN,
@@ -271,14 +298,14 @@ class PaymentAcceptanceServiceTest {
         actor.set(new PaymentActor("tenant", "acquire", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:accept")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> service.accept(command))
+                    assertThrows(CommonException.class, () -> accept(command))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
@@ -299,14 +326,16 @@ class PaymentAcceptanceServiceTest {
                 "a".repeat(64),
                 command.choice(),
                 null,
-                command.admittedTerms());
+                command.admittedTerms(),
+                command.subject(),
+                command.payableUntil());
         assertSame(
                 INVALID_ARGUMENT,
-                assertThrows(CommonException.class, () -> service.accept(changed))
+                assertThrows(CommonException.class, () -> accept(changed))
                         .getResultCode());
         assertSame(
                 INVALID_ARGUMENT,
-                assertThrows(CommonException.class, () -> service.accept(null)).getResultCode());
+                assertThrows(CommonException.class, () -> accept(null)).getResultCode());
         verifyNoInteractions(store);
     }
 
@@ -332,7 +361,7 @@ class PaymentAcceptanceServiceTest {
         })
                 .when(store)
                 .insertParent(eq("tenant"), any());
-        assertEquals("payment", service.accept(command).paymentId());
+        assertEquals("payment", accept(command).paymentId());
         assertEquals("winning-operation", stored.get().payment().limitOperationId());
         assertEquals(1, manager.rollbacks);
         assertEquals(1, manager.commits);
@@ -344,10 +373,22 @@ class PaymentAcceptanceServiceTest {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insert(eq("tenant"), any());
         assertSame(
                 CONCURRENT_UPDATE,
-                assertThrows(CommonException.class, () -> service.accept(command))
+                assertThrows(CommonException.class, () -> accept(command))
                         .getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
+        // Mock ports prove the transaction boundary, not actual database row rollback.
+    }
+
+    @Test
+    void recoveryRegistrationFailurePropagatesAndRollsBackTheAcceptanceTransaction() {
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(eq("tenant"), any());
+        assertSame(CONCURRENT_UPDATE,
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
+        assertEquals(0, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        verify(store).insert(eq("tenant"), any());
+        verify(recovery).register(eq("tenant"), any());
         // Mock ports prove the transaction boundary, not actual database row rollback.
     }
 
@@ -365,10 +406,12 @@ class PaymentAcceptanceServiceTest {
                 new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
                         io.github.loadup.commons.payment.Channel.ALIPAY, io.github.loadup.commons.payment.PaymentMethod.H5),
                 null,
-                command.admittedTerms());
+                command.admittedTerms(),
+                command.subject(),
+                command.payableUntil());
         assertSame(
                 UNSUPPORTED_CAPABILITY,
-                assertThrows(CommonException.class, () -> service.accept(changed))
+                assertThrows(CommonException.class, () -> accept(changed))
                         .getResultCode());
         verifyNoInteractions(store);
     }

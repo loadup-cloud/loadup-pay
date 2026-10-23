@@ -123,6 +123,28 @@ public class PaymentInputAccess {
         });
     }
 
+    /** Opens only the original still-unbound input for local parameter inspection before Y2. */
+    public PaymentInteractionDTO openForPreparation(String tenant, StoredPaymentAcceptance original, String attemptId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        return transactions.read(tenant, () -> {
+            var accepted = payments.find(tenant, original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            if (accepted.payment().state() != PaymentState.PROCESSING
+                    || !attemptId.equals(accepted.payment().activeAttemptId())
+                    || !accepted.requestDigest().equals(original.requestDigest())
+                    || !accepted.callerServiceId().equals(original.callerServiceId())) throw new CommonException(INVALID_STATE);
+            var command = codec.decode(accepted);
+            if (!requiresInput(command)) return new NoInteractionDTO();
+            var input = inputs.find(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            requireBinding(accepted.callerServiceId(), command, input);
+            if (input.state() != PaymentInputState.INIT || input.boundAttemptId() != null)
+                throw new CommonException(INPUT_ALREADY_BOUND);
+            if (input.expired(now())) throw new CommonException(INPUT_EXPIRED);
+            var interaction = cipher.decrypt(tenant, input);
+            if (input.expired(now())) throw new CommonException(INPUT_EXPIRED);
+            return interaction;
+        });
+    }
+
     private boolean requiresInput(PaymentExecuteCommand command) {
         if (command.choice().method() == PaymentMethod.H5) {
             if (command.preparedInputRef() != null) throw new CommonException(INVALID_ARGUMENT);

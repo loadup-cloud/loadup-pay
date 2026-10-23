@@ -18,6 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
@@ -175,7 +176,7 @@ class PaymentInputServiceTest {
     @Test
     void jsapiRequiresMatchingChannelWhileH5DoesNotUseInputPreparation() {
         var invalid = command(PaymentMethod.JSAPI,
-                new ChannelIdentityInteractionDTO(Channel.ALIPAY, "synthetic-ticket", "application"));
+                new ChannelIdentityInteractionDTO(Channel.ALIPAY, "synthetic-open-id", "application", PayerIdentityType.OPEN_ID));
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.prepare(invalid)).getResultCode());
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
                 () -> service.prepare(command(PaymentMethod.H5, new NoInteractionDTO()))).getResultCode());

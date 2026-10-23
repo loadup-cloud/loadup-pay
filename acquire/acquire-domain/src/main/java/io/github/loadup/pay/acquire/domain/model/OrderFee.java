@@ -80,7 +80,15 @@ public record OrderFee(
     }
 
     public OrderFee recordRefundBasis(long sourceVersion, long cumulativeMinor) {
-        if (sourceVersion <= refundBasisVersion) return this;
+        require(sourceVersion >= 0 && cumulativeMinor >= 0 && cumulativeMinor <= baseAmount.getCent(), INVALID_ARGUMENT);
+        if (sourceVersion == refundBasisVersion) {
+            require(cumulativeMinor == refundBasisMinor, CONFLICT);
+            return this;
+        }
+        if (sourceVersion < refundBasisVersion) {
+            require(cumulativeMinor <= refundBasisMinor, CONFLICT);
+            return this;
+        }
         require(cumulativeMinor >= refundBasisMinor, CONFLICT);
         return new OrderFee(
                 id, orderId, baseAmount, feeAmount, policy, state, sourceVersion, cumulativeMinor, adjustedMinor);

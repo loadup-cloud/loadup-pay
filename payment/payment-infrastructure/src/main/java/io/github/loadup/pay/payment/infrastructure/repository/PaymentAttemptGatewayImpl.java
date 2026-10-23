@@ -63,6 +63,16 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
     }
 
     @Override
+    public Optional<StoredPaymentAttempt> findChannelRequest(String tenant, String bindingRevisionId,
+            String channelRequestNo) {
+        var rows = attempts.selectListByQuery(scope(tenant)
+                .and(PAYMENT_ATTEMPT_DO.BINDING_REVISION_ID.eq(bindingRevisionId))
+                .and(PAYMENT_ATTEMPT_DO.CHANNEL_REQUEST_NO.eq(channelRequestNo)).limit(2));
+        if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
+        return rows.isEmpty() ? Optional.empty() : read(tenant, rows.get(0));
+    }
+
+    @Override
     public Optional<StoredPaymentAttempt> lock(String tenant, String id) {
         requireTransaction();
         return read(tenant, attempts.selectOneByQuery(scope(tenant).and(PAYMENT_ATTEMPT_DO.ID.eq(id)).forUpdate()));

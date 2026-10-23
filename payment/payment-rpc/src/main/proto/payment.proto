@@ -46,8 +46,9 @@ message WirePaymentCodeInteractionDTO {
 
 message WireChannelIdentityInteractionDTO {
   optional string channel = 1;
-  optional string authorization_ticket = 2;
+  optional string identifier = 2;
   optional string app_scope = 3;
+  optional string identity_type = 4;
 }
 
 message WirePaymentInputDTO {
@@ -68,6 +69,8 @@ message WirePaymentExecuteCommand {
   WirePaymentChoiceDTO choice = 9;
   optional string prepared_input_ref = 10;
   loadup.pay.product.v1.WireAdmittedOrderTermsDTO admitted_terms = 11;
+  optional string subject = 12;
+  google.protobuf.Timestamp payable_until = 13;
 }
 
 message WirePaymentExecutionDTO {
@@ -233,6 +236,31 @@ message WireOrderRefundSummaryEventDTO {
   optional int64 refund_summary_version = 6;
 }
 
+message WireRefundOutcomeEventDTO {
+  optional string refund_id = 1;
+  optional string refund_request_id = 2;
+  optional string payment_id = 3;
+  optional string order_id = 4;
+  optional string operation_id = 5;
+  optional string payee_merchant_id = 6;
+  optional int64 amount_minor = 7;
+  optional string currency = 8;
+  optional string state = 9;
+  optional int64 refund_version = 10;
+  optional int64 cumulative_payment_refunded_minor = 11;
+  optional string evidence_id = 12;
+}
+
+message WireRefundSettlementFactsDTO {
+  WireRefundOutcomeEventDTO refund = 1;
+  optional int64 payment_amount_minor = 2;
+  optional int64 payment_version = 3;
+  optional string payment_evidence_id = 4;
+  optional string payment_attempt_id = 5;
+  google.protobuf.Timestamp payment_initiated_at = 6;
+  optional int64 payment_refund_version = 7;
+}
+
 service PaymentRpc {
   rpc InputPrepare (WirePaymentInputPrepareCommand) returns (WirePaymentInputDTO);
   rpc Accept (WirePaymentExecuteCommand) returns (WirePaymentExecutionDTO);
@@ -243,4 +271,6 @@ service PaymentRpc {
   rpc FenceParent (WireParentPaymentFenceCommand) returns (WireParentFenceDTO);
   rpc ParentFenceStatus (WireParentFenceStatusQuery) returns (WireParentFenceDTO);
   rpc StartAttempt (WirePaymentAttemptStartCommand) returns (WirePaymentExecutionDTO);
+  rpc RefundSummary (WireIdQuery) returns (WireOrderRefundSummaryEventDTO);
+  rpc RefundFacts (WireIdQuery) returns (WireRefundSettlementFactsDTO);
 }

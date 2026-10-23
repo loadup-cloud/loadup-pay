@@ -17,6 +17,7 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
@@ -25,6 +26,7 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentAttemptStartCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
@@ -80,15 +82,36 @@ class PaymentAttemptServiceTest {
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(false));
     final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>();
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
+    final Clock clock = Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
+    final PaymentInitialAttemptService initial = new PaymentInitialAttemptService(
+            routes,
+            inputs,
+            attempts,
+            payments,
+            codec,
+            context.getBean(PaymentAttemptConverter.class),
+            context.getBean(PaymentControlConverter.class),
+            () -> "attempt",
+            clock);
     final PaymentAttemptService service = new PaymentAttemptService(
-            () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")), locks, attempts, payments, codec,
-            routes, inputs, limits, context.getBean(PaymentAttemptConverter.class), context.getBean(PaymentControlConverter.class),
-            context.getBean(PaymentAcceptanceConverter.class), new PaymentAcceptanceTransactions(manager), () -> "attempt",
-            validation.getValidator(), Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), "acquire");
+            () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")),
+            locks,
+            attempts,
+            codec,
+            limits,
+            context.getBean(PaymentAcceptanceConverter.class),
+            new PaymentAcceptanceTransactions(manager),
+            validation.getValidator(),
+            "acquire",
+            initial);
 
     PaymentAttemptStartCommand command(String key) {
         var original = AttemptFixtures.command();
         return new PaymentAttemptStartCommand(original.paymentId(), key, original.choice(), original.preparedInputRef(), null);
+    }
+
+    PaymentExecutionDTO start(String key) {
+        return TenantUtil.callWithTenant("tenant", () -> service.startAttempt(command(key)));
     }
 
     @BeforeEach
@@ -122,7 +145,7 @@ class PaymentAttemptServiceTest {
 
     @Test
     void freezesRouteAndThirtyTwoCharacterRequestBeforeAnyRemoteExecution() {
-        var result = service.startAttempt(command("initial"));
+        var result = start("initial");
         assertEquals("PROCESSING", result.state().name());
         assertEquals("attempt", result.activeAttemptId());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
@@ -136,10 +159,10 @@ class PaymentAttemptServiceTest {
 
     @Test
     void replayDoesNotSelectAnotherRouteOrRequestNumber() {
-        var first = service.startAttempt(command("initial"));
+        var first = start("initial");
         var original = stored.get();
         clearInvocations(routes, attempts, payments);
-        assertEquals(first, service.startAttempt(command("initial")));
+        assertEquals(first, start("initial"));
         assertSame(original, stored.get());
         verifyNoInteractions(routes);
         verify(attempts, never()).insert(anyString(), any());
@@ -148,15 +171,15 @@ class PaymentAttemptServiceTest {
 
     @Test
     void anotherKeyCannotCreateABlindReplacementAttempt() {
-        service.startAttempt(command("initial"));
-        assertSame(OUTCOME_UNKNOWN, assertThrows(CommonException.class, () -> service.startAttempt(command("other"))).getResultCode());
+        start("initial");
+        assertSame(OUTCOME_UNKNOWN, assertThrows(CommonException.class, () -> start("other")).getResultCode());
         verify(attempts, times(1)).insert(anyString(), any());
     }
 
     @Test
     void failureRollsBackBothAttemptAndPaymentUpdateBoundary() {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(payments).updatePayment(eq("tenant"), any(), anyLong());
-        assertSame(CONCURRENT_UPDATE, assertThrows(CommonException.class, () -> service.startAttempt(command("initial"))).getResultCode());
+        assertSame(CONCURRENT_UPDATE, assertThrows(CommonException.class, () -> start("initial")).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
     }

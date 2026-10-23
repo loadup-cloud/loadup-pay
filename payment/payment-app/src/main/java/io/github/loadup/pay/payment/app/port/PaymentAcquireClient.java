@@ -16,11 +16,15 @@
 package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 
 public interface PaymentAcquireClient {
     boolean supportsTenant(String tenant);
 
     PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event);
+
+    FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event);
 }

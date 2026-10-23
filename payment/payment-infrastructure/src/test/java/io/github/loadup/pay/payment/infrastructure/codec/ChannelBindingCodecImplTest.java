@@ -22,8 +22,8 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.pay.payment.client.dto.AlipayAccountIdentityDTO;
-import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
-import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -80,6 +80,20 @@ class ChannelBindingCodecImplTest {
         var second = new WechatAccountIdentity("provider-app", "provider", null, "sub-two");
         assertNotEquals(codec.accountScopeHash(Channel.WECHAT, first),
                 codec.accountScopeHash(Channel.WECHAT, second));
+        var direct = new WechatAccountIdentity("merchant-app", "sub-one", null, null);
+        var anotherProvider = new WechatAccountIdentity("another-provider-app", "another-provider", "sub-app", "sub-one");
+        assertEquals(codec.accountScopeHash(Channel.WECHAT, first), codec.accountScopeHash(Channel.WECHAT, direct));
+        assertEquals(codec.accountScopeHash(Channel.WECHAT, first), codec.accountScopeHash(Channel.WECHAT, anotherProvider));
+    }
+
+    @Test
+    void rejectsChannelAndAccountTypeMismatchBeforeCalculatingFinancialScope() {
+        var alipay = new AlipayAccountIdentity("app", "seller", null, null, null);
+        var wechat = new WechatAccountIdentity("app", "merchant", null, null);
+        assertThrows(CommonException.class, () -> codec.accountScopeHash(Channel.WECHAT, alipay));
+        assertThrows(CommonException.class, () -> codec.accountScopeHash(Channel.ALIPAY, wechat));
+        assertThrows(CommonException.class, () -> codec.accountScopeHash(null, wechat));
+        assertThrows(CommonException.class, () -> codec.accountScopeHash(Channel.WECHAT, null));
     }
 
     @Test

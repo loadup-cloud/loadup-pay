@@ -22,6 +22,8 @@ import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
 import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
@@ -49,6 +51,7 @@ import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMI
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RELEASE;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RESERVE;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_VERIFY;
+import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RESTORE_REFUND;
 
 @Component
 public class PaymentLimitGrpcClient implements PaymentLimitClient {
@@ -91,6 +94,11 @@ public class PaymentLimitGrpcClient implements PaymentLimitClient {
     @Override
     public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
         return exchange(tenant, LIMITCENTER_RELEASE, command);
+    }
+
+    @Override
+    public LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command) {
+        return exchange(tenant, LIMITCENTER_RESTORE_REFUND, command);
     }
 
     private <Q, R, P extends Message, S extends Message> R exchange(

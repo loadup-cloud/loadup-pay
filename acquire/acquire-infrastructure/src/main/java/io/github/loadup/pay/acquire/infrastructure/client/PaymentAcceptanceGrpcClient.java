@@ -32,6 +32,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcOperation;
@@ -56,6 +57,7 @@ import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FENC
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_PREPARE;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_OUTCOME;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_PARENT_FENCE_STATUS;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_SUMMARY;
 
 @Component
 public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
@@ -101,6 +103,11 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
     @Override
     public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
         return exchange(tenant, PAYMENT_FACTS, new IdQuery(paymentId));
+    }
+
+    @Override
+    public OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId) {
+        return exchange(tenant, PAYMENT_REFUND_SUMMARY, new IdQuery(orderId));
     }
 
     @Override

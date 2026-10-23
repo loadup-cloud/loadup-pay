@@ -17,6 +17,7 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
@@ -97,6 +98,9 @@ class PaymentControlServiceTest {
     final PaymentControlGateway store = mock(PaymentControlGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
+    final PaymentExecutionLocks executionLocks = mock(PaymentExecutionLocks.class);
+    final PaymentActionService actions = mock(PaymentActionService.class);
+    final PaymentRecoveryService recovery = mock(PaymentRecoveryService.class);
     final PaymentResultEvents events = mock(PaymentResultEvents.class);
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(), gate = new AtomicReference<>();
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
@@ -261,7 +265,10 @@ class PaymentControlServiceTest {
                 () -> "new-" + ids.incrementAndGet(),
                 validation.getValidator(),
                 Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
-                "acquire");
+                "acquire",
+                executionLocks,
+                actions,
+                recovery);
     }
 
     @Test
@@ -329,7 +336,8 @@ class PaymentControlServiceTest {
         assertEquals(
                 original.payment().limitOperationId(), payment.get().payment().limitOperationId());
         assertEquals(2, payment.get().payment().version());
-        assertEquals(result.payment(), acceptance().accept(PaymentFixtures.command()));
+        assertEquals(result.payment(), TenantUtil.callWithTenant(
+                "tenant", () -> acceptance().accept(PaymentFixtures.command())));
         service.close(close("close", 1));
         verify(events, times(1)).publish(eq("tenant"), eq(payment.get()), eq(true), any());
     }
@@ -400,7 +408,8 @@ class PaymentControlServiceTest {
         service.close(close("close", 1));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> acceptance().accept(PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> TenantUtil.callWithTenant(
+                                "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
         verify(gates, never()).insert(anyString(), any());
     }
@@ -413,7 +422,8 @@ class PaymentControlServiceTest {
         assertEquals(3, result.closeEpoch());
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> acceptance().accept(PaymentFixtures.command()))
+                assertThrows(CommonException.class, () -> TenantUtil.callWithTenant(
+                                "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
         verify(gates, never()).insertPaymentGate(anyString(), any());
     }

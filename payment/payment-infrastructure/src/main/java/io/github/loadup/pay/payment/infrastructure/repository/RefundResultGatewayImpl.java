@@ -23,7 +23,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
-import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;

@@ -17,9 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 

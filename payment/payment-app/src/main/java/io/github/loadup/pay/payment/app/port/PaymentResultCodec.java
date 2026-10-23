@@ -15,7 +15,7 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 
 public interface PaymentResultCodec {
     String factsDigest(PaymentObservation observation);

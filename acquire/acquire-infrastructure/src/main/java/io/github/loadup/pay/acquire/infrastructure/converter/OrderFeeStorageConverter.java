@@ -38,4 +38,13 @@ public interface OrderFeeStorageConverter {
     @Mapping(target = "rowVersion", source = "rowVersion")
     @Mapping(target = "confirmedAt", source = "confirmedAt")
     OrderFeeDO toConfirmationPatch(OrderFee fee, long rowVersion, LocalDateTime confirmedAt);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "state", source = "fee.state")
+    @Mapping(target = "refundBasisVersion", source = "fee.refundBasisVersion")
+    @Mapping(target = "refundBasisMinor", source = "fee.refundBasisMinor")
+    @Mapping(target = "adjustedAmountMinor", source = "fee.adjustedMinor")
+    @Mapping(target = "rowVersion", source = "rowVersion")
+    @Mapping(target = "confirmedAt", source = "confirmedAt")
+    OrderFeeDO toProgressPatch(OrderFee fee, long rowVersion, LocalDateTime confirmedAt);
 }

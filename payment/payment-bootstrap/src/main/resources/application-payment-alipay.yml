@@ -1,0 +1,38 @@
+# Optional runtime profile, combined with payment-business. No credential values belong here.
+loadup:
+  pay:
+    channel:
+      alipay:
+        enabled: true
+        # Supply credentials/authorizations reference -> version -> absolute Path maps through trusted configuration.
+  http:
+    enabled: true
+    clients:
+      alipay:
+        base-url: ${PAYMENT_ALIPAY_GATEWAY_BASE_URL:https://openapi.alipay.com}
+        connect-timeout: 3s
+        read-timeout: 20s
+        acquire-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 262144
+        max-response-bytes: 1048576
+        operations:
+          trade-pay:
+            method: POST
+            path: /gateway.do
+          trade-create:
+            method: POST
+            path: /gateway.do
+          trade-query:
+            method: POST
+            path: /gateway.do
+          trade-close:
+            method: POST
+            path: /gateway.do
+          trade-refund:
+            method: POST
+            path: /gateway.do
+          refund-query:
+            method: POST
+            path: /gateway.do

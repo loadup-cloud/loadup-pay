@@ -17,9 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingChangeReceiptDO;

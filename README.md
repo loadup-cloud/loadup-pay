@@ -154,3 +154,5 @@ acquire 已新增 `/api/acquire/orders/extend`
 当前付款范围为付款码（商户扫码枪输入）、JSAPI、H5，支持商户纯 API 调用；托管收银台为可选接入。Native 二维码和原生 APP
 支付不在本次范围，最新边界见[架构说明](ARCHITECTURE.md)。付款码/JSAPI 安全输入准备、纯 API start 与 DirectPay
 受理编排源码已补；真实渠道执行仍待接通，新增源码未验证。
+
+渠道协议与支付编排分离：[channel 模块](channel/README.md) 提供统一 Facade、策略注册路由、支付宝/微信独立适配模块；payment 通过渠道端口桥接调用。支付宝退款 Provider 源码已补，收款/动作及微信 Provider 尚待完成。

@@ -133,7 +133,8 @@ class PaymentOutcomeEventServiceTest {
         allocation.set(new StoredPaymentAllocation(held.allocation(), OWNER, "intent", "d".repeat(64), 0));
         command = new PaymentExecuteCommand("payment", "order", "allocation", "admission", "merchant", amount, "CNY", "f".repeat(64),
                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), null,
-                context.getBean(PaymentInitiationConverter.class).toAdmitted(original, admission()));
+                context.getBean(PaymentInitiationConverter.class).toAdmitted(original, admission()),
+                original.subject(), BusinessTime.external(original.order().orderDueAt()));
         facts.set(new PaymentSettlementFactsDTO(new PaymentExecutionDTO("payment", "order", "allocation", amount, "CNY",
                 state, "attempt", null, "proof", 2, BusinessTime.external(NOW)), "operation", "merchant", state != PaymentState.SUCCEEDED));
     }

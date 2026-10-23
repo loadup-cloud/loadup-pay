@@ -65,6 +65,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     private final Validator validator;
     private final Clock clock;
     private final String acquireService;
+    private final PaymentExecutionLocks locks;
+    private final PaymentActionService actions;
+    private final PaymentRecoveryService recovery;
 
     public PaymentAcceptanceService(
             PaymentActorProvider actors,
@@ -76,7 +79,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             IdGenerator ids,
             Validator validator,
             @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
+            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService,
+            PaymentExecutionLocks locks, PaymentActionService actions, PaymentRecoveryService recovery) {
         this.actors = actors;
         this.store = store;
         this.inputs = inputs;
@@ -88,6 +92,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         this.clock = clock;
         DomainChecks.id(acquireService);
         this.acquireService = acquireService;
+        this.locks = locks;
+        this.actions = actions;
+        this.recovery = recovery;
     }
 
     @Override
@@ -130,6 +137,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                 if (prior.isPresent()) return replay(actor, command, prior.get());
                 if (store.findAllocation(actor.tenantId(), command.allocationId())
                         .isPresent()) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                if (!clock.instant().isBefore(command.payableUntil().toInstant()))
+                    throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED);
                 inputs.requireNewAcceptance(actor.tenantId(), actor.serviceId(), command, now());
                 var payment = PaymentOrder.init(
                         command.paymentId(),
@@ -148,6 +157,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                         payload,
                         codec.checksum(payload));
                 store.insert(actor.tenantId(), stored);
+                recovery.register(actor.tenantId(), stored);
                 return converter.toDTO(stored);
             });
         });
@@ -157,12 +167,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     public PaymentExecutionDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:payment:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.write(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var stored = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-            codec.decode(stored);
-            return converter.toDTO(stored);
+            return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), query.id(), actor.serviceId()));
         });
     }
 
@@ -186,7 +193,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             if (!actor.serviceId().equals(current.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
             checkOutcomeGate(actor, command, parent, null);
             checkOutcomeGate(actor, command, gate, query.id());
-            return converter.toOutcome(converter.toDTO(current), gate.gate().state() == GateState.FENCED);
+            return converter.toOutcome(actions.present(actor.tenantId(), new io.github.loadup.pay.payment.app.model.LockedPayment(
+                    current, parent, gate)), gate.gate().state() == GateState.FENCED);
         });
     }
 
@@ -204,7 +212,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         if (!actor.serviceId().equals(prior.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!prior.requestDigest().equals(command.requestDigest())
                 || !codec.decode(prior).equals(command)) throw new CommonException(IDEMPOTENCY_CONFLICT);
-        return converter.toDTO(prior);
+        if (prior.payment().state() != io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING
+                || prior.payment().activeAttemptId() == null) return converter.toDTO(prior);
+        return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), prior.payment().id(), actor.serviceId()));
     }
 
     private void checkGate(

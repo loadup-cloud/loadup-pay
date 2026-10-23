@@ -25,8 +25,20 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OrderFeeTest {
+    @Test
+    void sameVersionCannotChangeTheBasisAndAnOlderSourceCannotClaimMoreThanTheLatestTotal() {
+        var policy = new OrderFeePolicy(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
+        var fee = OrderFee.init("fee", "order", Money.ofMinor(10000, "CNY"), policy).recordRefundBasis(2, 5000);
+        assertEquals(fee, fee.recordRefundBasis(2, 5000));
+        assertEquals(fee, fee.recordRefundBasis(1, 3000));
+        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(2, 4000));
+        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(1, 6000));
+        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(3, 4000));
+    }
+
     @Test
     void earlyRefundBasisIsRetainedUntilTheFeeIsConfirmed() {
         var policy = new OrderFeePolicy(

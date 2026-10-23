@@ -373,3 +373,29 @@ exp/nbf，接收资源服务器仍负责实际验签。原 payment 客户端复�
 新增事务失败/租户/版本、原时间和金额、重复投递/乱序 ACK、严格 JSON 解码及凭证轮换测试源码，并同步既有服务构造器与重放断言。未运行
 IDEA 检查、构建、测试、DDL 或部署；真实 MySQL 同事务回滚、Outbox dispatcher、服务鉴权和 realtime
 端到端验收待执行。商户通知、退款和付款中间态投影、到期自动调度仍按 BUSINESS-IMPLEMENTATION.md 待办。
+
+## 2026-10-23 退款费用基数与独立调整持久化（新增源码）
+
+OrderFeeGateway 新增内部 applyRefundBasis，调用方必须已验证 payment 的权威累计退款事实并持有原订单锁及同库可写事务。后续 gRPC 接线见下一节；不公开商户记账端点。
+
+同一 order_fee 锁下核对原订单总额、冻结规则和原费用，再更新累计成功退款依据。相同源版本必须同金额；旧版本只允许不大于最新累计的事实；新版本不能减少累计，均不能超过原总额。费用未确认时仍保存基数，不提前退费。confirmPaid 在原确认事务中读取既有依据并补算应退，退款先到或后到均使用同一累计规则。
+
+仅对正差额写独立 fee_adjustment，然后 CAS 保存费用状态、原累计基数、adjustedAmountMinor 和行版本。退费额按原整单费用及原合约累计规则计算，原 baseAmount/feeAmount/ruleSnapshot、订单状态和 gross 已付金额不变。无应退差额不写零记录；唯一触发键 FEE_CONFIRMED 或 REFUND_SUMMARY:源版本，重复重放不再次调整。确认补算的 source_event_id 使用原 feeId，配合 FEE_CONFIRMED 识别本地确认事实；退款触发保留经验证的源事件标识。
+
+V20261023060000__fee_adjustment.sql 新增调整表，存原费用/订单、触发键/源版本/事件、本次正差额、成功退款累计、原规则与本地 appliedAt；审计字段由 BaseDO 监听器生成。插入调整或费用 CAS 任一失败整事务回滚。生成 Mapper/TableDef 和 Spring MapStruct 负责持久映射，未手写业务 SQL。
+
+新增领域冲突/乱序和持久层早到基数/确认补算/差额/失败传播测试源码，未运行构建、检查、测试、DDL 或部署。实际 MySQL 回滚/竞争与 gRPC 链路仍待验收。
+
+## 2026-10-23 退款费用 gRPC 与接收回执（新增源码）
+
+`AcquireRpc/FeeRefund` 接收 `EventEnvelope<OrderRefundSummaryEventDTO>`，要求配置的 payment SERVICE 和 `pay:acquire:fee:refund`。acquire-rpc 通过 proto import 引用 payment 拥有的六字段金额消息，不另造金额模型。商户凭证不能调用。
+
+首次接收在本地事务外，经 `PaymentRpc/RefundSummary` 查询权威累计退款；查询要求原 acquire SERVICE 及 `pay:payment:refund-summary:read`。先校验来源、订单/商户/币种、源版本和总额边界。相同版本必须完整金额一致；旧消息允许采用已验证的新版本累计值，ACK 同时保留 incoming sourceVersion 与 verified appliedVersion。已保存费用可能更晚，此时按领域单调规则忽略较旧依据。退款占用不作为成功退款计费依据。
+
+然后在 acquire 可写事务中按订单→费用加锁，验证原准入快照和冻结费率，保存费用基数/应退正差额，并插入 `fee_refund_receipt`，最后返回 `FeeRefundAckDTO`。退款事实早于付款落账也可先保存依据；订单终态不影响独立退费，但退款不改变原订单总额、gross 已付金额或终态。费用确认仍在付款落账原事务中补算早到依据。
+
+V20261023070000__fee_refund_receipt.sql 保存 delivery/businessEvent/order/sourceVersion/appliedVersion、可信来源服务、完整请求摘要和首次 acceptedAt；tenant/delivery 唯一。摘要按 UTF-8 长度分帧，协议时间转绝对时刻，防止字段串联歧义及 wire 时区归一化误判。相同 delivery 改参拒绝；原参数重放返回首次 ACK，无须远端再次可用。回执不能先于费用提交；任一步失败整事务回滚。
+
+复用 `ACQUIRE_PAYMENT_TOKEN_FILE` 和 `PAYMENT_ACQUIRE_TOKEN_FILE`，分别增发上述最小权限，无新目标地址/凭证配置。业务 profile 已有双向 gRPC channel/JWT 装配。新增权限与首次部署 DDL 需随发布提供；本批没有签发令牌或执行迁移。
+
+已补首次/重放、旧版本采用新事实、同版本冲突、服务与权限隔离、锁外查询/事务内落账、失败传播及 RPC 精确 int64/客户端调用测试源码。未运行 IDEA 检查、构建、测试、DDL 或部署；真实数据库原子回滚、多副本竞争及真实 gRPC/Outbox 验收仍待执行。

@@ -16,11 +16,11 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
-import io.github.loadup.pay.payment.domain.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;

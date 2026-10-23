@@ -30,7 +30,7 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
@@ -94,6 +94,7 @@ class RefundPlanningServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundPlanningConverter.class.getPackageName());
     final RefundGateway refunds = mock(RefundGateway.class);
     final RefundProjectionEvents projections = mock(RefundProjectionEvents.class);
+    final RefundRecoveryService recovery = mock(RefundRecoveryService.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final PaymentResultGateway results = mock(PaymentResultGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
@@ -110,7 +111,7 @@ class RefundPlanningServiceTest {
     RefundPlanningService service(LocalDateTime now) {
         return new RefundPlanningService(actor::get, refunds, payments, results, attempts, codec, context.getBean(RefundPlanningConverter.class),
                 new PaymentAcceptanceTransactions(manager), () -> "refund-" + ids.incrementAndGet(), validation.getValidator(),
-                Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), projections);
+                Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), projections, recovery);
     }
 
     RefundCreateCommand command(long amount) {
@@ -142,6 +143,11 @@ class RefundPlanningServiceTest {
             changes.forEach(r -> capacities.put(r.reserved().paymentId(), r.reserved()));
             return null;
         }).when(refunds).insertPlan(eq("tenant"), any(), anyList());
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals("tenant", TenantUtil.getTenantId());
+            return null;
+        }).when(recovery).register(anyString(), any());
         addPayment("z-old", 3000, AttemptFixtures.NOW.minusHours(2));
         addPayment("a-new", 7000, AttemptFixtures.NOW.minusHours(1));
     }
@@ -157,7 +163,7 @@ class RefundPlanningServiceTest {
                 .prepareAttempt(attempt, null).applyAttempt(success.attempt());
         var accepted = new StoredPaymentAcceptance(payment, "admission", "a".repeat(64), "acquire", "payload", "c".repeat(64), "proof-" + id);
         commands.put(id, new PaymentExecuteCommand(id, "order", "allocation-" + id, "admission", "merchant", amount, "CNY", "a".repeat(64),
-                PaymentFixtures.command().choice(), null, admitted));
+                PaymentFixtures.command().choice(), null, admitted, PaymentFixtures.SUBJECT, PaymentFixtures.PAYABLE_UNTIL));
         when(payments.find("tenant", id)).thenReturn(Optional.of(accepted));
         when(attempts.find("tenant", attempt.id())).thenReturn(Optional.of(success));
         when(results.attemptClaim("tenant", attempt.id())).thenReturn(Optional.of(new ChannelTransactionClaim("claim-" + id, "tenant",
@@ -183,6 +189,7 @@ class RefundPlanningServiceTest {
         assertEquals(3000, capacities.get("a-new").reservedMinor());
         assertEquals(1, manager.commits);
         var stored = saved.get(dto.refundRequestId());
+        verify(recovery, times(1)).register("tenant", stored);
         assertEquals("transaction-z-old", stored.allocations().get(0).channelTransactionNo());
         assertEquals("binding-revision", stored.allocations().get(0).original().bindingRevisionId());
         assertEquals(32, stored.allocations().get(0).refund().channelRefundNo().length());
@@ -194,6 +201,7 @@ class RefundPlanningServiceTest {
     void replayAfterRefundWindowExpiresKeepsOriginalPlanAndDoesNotReserveAgain() {
         var first = service(AttemptFixtures.NOW).create(command(6000));
         clearInvocations(refunds, codec, results, attempts);
+        clearInvocations(recovery);
         var replay = service(AttemptFixtures.NOW.plusDays(5)).create(command(6000));
         assertEquals(first, replay);
         verify(refunds, never()).lockCapacities(anyString(), anyString());
@@ -201,6 +209,7 @@ class RefundPlanningServiceTest {
         verify(codec, never()).decode(any());
         verifyNoInteractions(results, attempts);
         verify(projections, times(1)).planned(anyString(), any(), any());
+        verify(recovery, never()).register(anyString(), any());
     }
 
     @Test
@@ -242,6 +251,18 @@ class RefundPlanningServiceTest {
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // Real capacity/request rollback remains a database integration acceptance.
+    }
+
+    @Test
+    void recoveryRegistrationFailurePropagatesAndRollsBackTheOwningTransactionBoundary() {
+        doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(eq("tenant"), any());
+
+        assertThrows(CommonException.class, () -> service(AttemptFixtures.NOW).create(command(6000)));
+
+        assertEquals(0, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        verify(recovery).register(eq("tenant"), any());
+        // The in-memory transaction fixture checks propagation only; real database rollback remains integration acceptance.
     }
 
     @Test

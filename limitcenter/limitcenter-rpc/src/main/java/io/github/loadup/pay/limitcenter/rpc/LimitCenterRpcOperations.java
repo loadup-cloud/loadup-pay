@@ -51,4 +51,8 @@ public final class LimitCenterRpcOperations {
     public static final RpcOperation<io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand, io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO, io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReleaseCommand, io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReleaseDTO> LIMITCENTER_RELEASE =
             new RpcOperation<>("limitcenter", io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpcGrpc.getReleaseMethod(),
                     LimitCenterRpcMapper.INSTANCE::toWireLimitReleaseCommand, LimitCenterRpcMapper.INSTANCE::fromWireLimitReleaseDTO);
+
+    public static final RpcOperation<io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand, io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO, io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRefundRestoreCommand, io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRestoreDTO> LIMITCENTER_RESTORE_REFUND =
+            new RpcOperation<>("limitcenter", io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpcGrpc.getRestoreRefundMethod(),
+                    LimitCenterRpcMapper.INSTANCE::toWireLimitRefundRestoreCommand, LimitCenterRpcMapper.INSTANCE::fromWireLimitRestoreDTO);
 }

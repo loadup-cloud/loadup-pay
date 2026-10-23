@@ -23,7 +23,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;

@@ -43,6 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -113,7 +114,9 @@ class PaymentAcceptanceCodecImplTest {
                         1,
                         "snapshot",
                         "b".repeat(64),
-                        terms()));
+                        terms()),
+                "Payment acceptance test subject",
+                OffsetDateTime.parse("2030-01-01T00:00:00+08:00"));
     }
 
     StoredPaymentAcceptance stored(PaymentExecuteCommand command, String payload, String hash) {

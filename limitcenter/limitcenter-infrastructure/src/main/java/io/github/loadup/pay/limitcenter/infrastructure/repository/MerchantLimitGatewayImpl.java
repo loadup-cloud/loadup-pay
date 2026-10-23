@@ -220,6 +220,7 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     public void updateBuckets(String tenant, LimitBucketSet before, LimitBucketSet after) {
         if (!before.buckets().keySet().equals(after.buckets().keySet())) throw new CommonException(SNAPSHOT_INVALID);
         for (var key : before.buckets().keySet().stream().sorted(BUCKET_ORDER).toList()) {
+            if (before.buckets().get(key).equals(after.buckets().get(key))) continue;
             int changed = buckets.updateByQuery(
                     converter.toBucketDO(tenant, after.buckets().get(key)),
                     true,

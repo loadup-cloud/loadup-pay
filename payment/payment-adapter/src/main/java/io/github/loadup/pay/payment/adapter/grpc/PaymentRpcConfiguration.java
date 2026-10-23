@@ -35,7 +35,9 @@ public class PaymentRpcConfiguration {
             io.github.loadup.pay.payment.client.facade.PaymentOutcomeFacade facade2,
             io.github.loadup.pay.payment.client.facade.PaymentSettlementFactsFacade facade3,
             io.github.loadup.pay.payment.client.facade.PaymentControlFacade facade4,
-            io.github.loadup.pay.payment.client.facade.PaymentAttemptFacade facade5) {
+            io.github.loadup.pay.payment.client.facade.PaymentAttemptFacade facade5,
+            io.github.loadup.pay.payment.client.facade.RefundSummaryFactsFacade facade6,
+            io.github.loadup.pay.payment.client.facade.RefundSettlementFactsFacade facade7) {
         var service = new io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.PaymentRpcImplBase() {
             @Override
             public void inputPrepare(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputPrepareCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WirePaymentInputDTO> observer) {
@@ -81,6 +83,16 @@ public class PaymentRpcConfiguration {
             public void startAttempt(io.github.loadup.pay.payment.rpc.proto.WirePaymentAttemptStartCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WirePaymentExecutionDTO> observer) {
                 support.invoke(request, observer, PaymentRpcMapper.INSTANCE::fromWirePaymentAttemptStartCommand,
                         facade5::startAttempt, PaymentRpcMapper.INSTANCE::toWirePaymentExecutionDTO);
+            }
+            @Override
+            public void refundSummary(io.github.loadup.pay.payment.rpc.proto.WireIdQuery request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WireOrderRefundSummaryEventDTO> observer) {
+                support.invoke(request, observer, PaymentRpcMapper.INSTANCE::fromWireIdQuery,
+                        facade6::refundSummary, PaymentRpcMapper.INSTANCE::toWireOrderRefundSummaryEventDTO);
+            }
+            @Override
+            public void refundFacts(io.github.loadup.pay.payment.rpc.proto.WireIdQuery request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WireRefundSettlementFactsDTO> observer) {
+                support.invoke(request, observer, PaymentRpcMapper.INSTANCE::fromWireIdQuery,
+                        facade7::refundFacts, PaymentRpcMapper.INSTANCE::toWireRefundSettlementFactsDTO);
             }
         };
         return () -> ServerInterceptors.intercept(service, authentication);

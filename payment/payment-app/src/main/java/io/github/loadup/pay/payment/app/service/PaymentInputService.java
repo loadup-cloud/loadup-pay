@@ -124,7 +124,8 @@ public class PaymentInputService implements PaymentInputFacade {
         } else if (command.choice().method() == PaymentMethod.JSAPI
                 && command.interaction() instanceof ChannelIdentityInteractionDTO identity
                 && identity.channel() == command.choice().channel()) {
-            DomainChecks.text(identity.authorizationTicket(), 4096);
+            DomainChecks.text(identity.identifier(), 128);
+            if (identity.identityType() == null) throw new CommonException(INVALID_ARGUMENT);
             DomainChecks.id(identity.appScope());
         } else throw new CommonException(INVALID_ARGUMENT);
     }

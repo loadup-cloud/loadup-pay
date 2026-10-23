@@ -21,6 +21,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcOperation;
 import java.io.IOException;
@@ -42,6 +43,7 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FACTS;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_FACTS;
 
 @Component
 public class PaymentEvidenceGrpcClient implements PaymentEvidenceClient {
@@ -66,6 +68,11 @@ public class PaymentEvidenceGrpcClient implements PaymentEvidenceClient {
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
         return exchange(tenant, PAYMENT_FACTS, new IdQuery(paymentId));
+    }
+
+    @Override
+    public RefundSettlementFactsDTO refundFacts(String tenant, String refundId) {
+        return exchange(tenant, PAYMENT_REFUND_FACTS, new IdQuery(refundId));
     }
 
     private <Q, R, P extends Message, S extends Message> R exchange(

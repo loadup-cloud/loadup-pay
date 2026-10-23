@@ -1092,11 +1092,11 @@ FIFO/显式分配未实现时明确拒绝，不静默改为 FIFO。串行退款�
 原请求号，UNKNOWN 不释放金额或自动改退其他付款。
 
 PaymentChannelGateway 的 submitRefund/queryRefund 改为完整 RefundObservation，需验签/解密及实际原账户核验后生成，包含
-refundId、原 ChannelPaymentIdentity、退款请求号、原支付交易号、金额、kind、成功退款流水/时间、观察来源/稳定键/源摘要。PreparedChannelRefund
+refundId、原 ChannelPaymentIdentity、退款请求号、原支付交易号、金额、kind、成功退款引用/时间、观察来源/稳定键/源摘要。PreparedChannelRefund
 补原成功付款金额和实际交易号。UNKNOWN/ACCEPTED 不携带成功流水/时间；查询未找到、超时或未认证响应不能定义为
 FAILED_WITH_NO_REFUND。
 
-RefundResultService 核对原持久身份/金额及提交标记后处理，观察键重放沿用原事实；同键改金融事实、终态矛盾或真实退款流水冲突持久记录
+RefundResultService 核对原持久身份/金额及提交标记后处理，观察键重放沿用原事实；同键改金融事实、终态矛盾或渠道退款引用冲突持久记录
 CONFLICT，不重复退款/释放容量。渠道正/负终态都不可被商户提供的 evidenceId 直接生成。结果与提交的新增源码及测试未运行，实际渠道适配、自动恢复与下游退款事件仍待接入。
 
 ## 2026-10-23 退款投影生产与固定大小汇总契约
@@ -1112,3 +1112,91 @@ RefundRequestSummaryDTO 与 realtime 申请进度模型已删除。逐笔退款�
 STALE，失败保留独立目标重试。
 
 渠道成功时刻与本地审计创建时刻各自保留原值，不能通过裁时间或拒绝精度差来伪造同一时钟。生产/投递源码已接入原服务，真实渠道、自动任务、数据库/消息端到端和最新源码尚未运行验证。费用/额度恢复和商户退款通知事件另行接入。
+
+## 2026-10-23 费用退款内部 gRPC 契约
+
+当前实际传输遵守 [RPC 规范](RPC.md)，本节替代前稿中费用退款内部 HTTP 占位描述。
+
+| 方法 | 入参 | 返回 | 可信身份与权限 |
+| --- | --- | --- | --- |
+| PaymentRpc/RefundSummary | IdQuery.id=orderId | OrderRefundSummaryEventDTO | 原 acquire SERVICE + pay:payment:refund-summary:read |
+| AcquireRpc/FeeRefund | EventEnvelope&lt;OrderRefundSummaryEventDTO&gt; | FeeRefundAckDTO | 配置的 payment SERVICE + pay:acquire:fee:refund |
+
+金额消息是 orderId/payeeMerchantId/currency/refundedMinor/refundReservedMinor/refundSummaryVersion 六字段完整快照；只用 refundedMinor 作为退费基数，所有金额/版本 wire 字段为 int64。事件固定 producer=payment、eventType=pay.payment.refund.fee.v1、schemaVersion=1，aggregateId=orderId，aggregateVersion=refundSummaryVersion>0。
+
+ACK 六字段为 deliveryId/businessEventId/orderId/sourceVersion/appliedVersion/accepted。sourceVersion 精确对应原事件，appliedVersion 是接收方验证并接受的源金额版本，可大于 sourceVersion；费用存储也可能已更新至更高版本。投递方不要求旧消息阻塞等待精确旧版本查询。
+
+新 delivery 接收先事务外查询权威事实。相同源版本必须完整匹配消息；较新权威版本的累计成功退款不得低于原消息且不超过原固定总额，再按最新累计执行原冻结费用规则。查询与接收都校验原订单/收款商户/币种和服务所有权。接收本地事务内持原订单锁，费用基数/正差额与接收回执原子提交。退款已到、付款结果未到时仅留基数，原付款费用确认时补算。
+
+tenant/deliveryId 是接收身份，同身份完整参数变化返回 IDEMPOTENCY_CONFLICT；原请求重放直接返回首次 ACK。查询不可用、新消息权威事实不符或本地落库失败均不返回 accepted ACK，交由框架 Outbox 重试。realtime 目标与费用目标的 delivery/businessEvent 独立，不相互确认。商户不能自行提交金额依据或退费成功事实。
+
+## 2026-10-23 成功退款额度恢复实际契约
+
+| 方法 | 入参 | 返回 | 权限 |
+| --- | --- | --- | --- |
+| PaymentRpc/RefundFacts | IdQuery.id=refundId | RefundSettlementFactsDTO | 配置的 limitcenter SERVICE + pay:payment:refund-facts |
+| LimitCenterRpc/RestoreRefund | LimitRefundRestoreCommand | LimitRestoreDTO | 原 payment SERVICE + pay:limit:refund:restore |
+
+`RefundSettlementFactsDTO` 七字段为 refund（RefundOutcomeEventDTO）、paymentAmountMinor/paymentVersion/paymentEvidenceId/paymentAttemptId/paymentInitiatedAt/paymentRefundVersion。refund 包含原子项/申请/付款/订单/operation/商户、金额/币种/状态/源版本、该付款当前累计已退和终结证据。只为已验证 SUCCEEDED 退款提供该事实；缺记录不伪造零。与 acquire 整单费用基数不同，额度按原单笔 payment 及其 reservation 恢复。
+
+`LimitRestoreDTO` 当前十二字段：operationId/paymentId/refundId/refundVersion/businessEventId/refundEvidenceId/cumulativePaymentRefundedMinor/verifiedPaymentRefundedMinor/verifiedPaymentRefundVersion/result/restoredAmountMinor/restoredPaymentCount。前七项绑定原请求，第八/九项是权威回查累计和版本。result 为 RESTORED 或 NO_ACTION；金额/笔数为首次接收该成功退款时实际产生的逻辑恢复差额，不是跨窗口求和或当前总余额。
+
+成功子退款的 LIMIT 事件只生产一次，重试保留原 command 身份和累计。接收先事务外查证；较新权威累计可高于消息累计，再按原冻结规则推进所有原 item 的恢复高水位。tenant/refundId 已有回执时核对完整命令摘要和可信来源，原参数回放首次 ACK，改参冲突。bucket/item/回执同事务，Confirm 未到仍重试，不能提前 NO_ACTION。合约停止或新规则变更不阻断旧成功事实处理。
+
+前稿四字段 `LimitRestoreDTO` 占位已直接替换，无兼容构造器。当前方案未执行编译、测试、迁移或真实 gRPC 验收。
+
+## 2026-10-23 退款自动恢复调用边界
+
+商户仍使用原 RefundFacade.create/detail，不新增“任务完成即退款成功”的 API。create 新计划必须与恢复游标和首轮 DelayedTask 同事务登记；原商户请求重放既有计划，不额外排队。detail 展示实际退款事实，轮询任务或异常重试不改变状态含义。
+
+内部 RefundRecoveryService/RefundRecoveryTaskHandler 只由持久任务在可信租户执行；不依赖调度线程遗留的商户/JWT 身份。每轮使用冻结原计划和渠道退款号，渠道网络调用在本地事务外，成功/失败事实继续由 RefundResultService 验证并落账。恢复游标代次不作为付款/退款成功证据或渠道幂等键。
+
+处理中自动登记后继，正常等待不耗尽异常次数；异常预算耗尽保留 FAILED 任务及原资金占用，不给商户返回假成功或释放额度。组件内部受控 retryFailed 可恢复同代，专门的运维权限/查询/重放 API 尚未提供。未实现退款取消；通用任务 cancel 也不是业务取消协议。真实渠道和端到端运行仍待后续实现及验收。
+
+## 进程内渠道统一 API（2026-10-23）
+
+channel-api 独立提供 ChannelPaymentFacade：validate/submit/query/recover/close/canRefund/submitRefund/queryRefund。策略实现 ChannelProvider，声明唯一 Channel，由 channel-core 注册路由。调用上下文由 payment 基础设施桥接解析可信租户与原 binding revision，API 不允许任意上游网关地址或未解析凭证。该接口是应用内部插件契约，不是新增商户 HTTP/RPC 入口。详细输入、校验和未完成范围见 [渠道模块](../channel/README.md)。
+
+支付宝普通退款的 channelRefundTransactionNo 为验签后原 trade_no/out_request_no 自然键的稳定规范引用（alipay:sha256），不声称渠道颁发独立流水；原元组仍完整保存在退款/claim。只有查询核验 REFUND_SUCCESS、身份、单次金额和成功时间后允许写入；退款提交 10000 仅为 ACCEPTED。
+
+进程内支付 query/close 已改为 ChannelPaymentTarget(identity, amount)，不保留旧重载；统一 Facade 校验所有支付操作返回的原身份与金额。PaymentObservation.Source 增加 CLOSE_RESPONSE，支付宝该来源代表待付款查询与关闭成功双响应组合证据；单独 TRADE_CLOSED 不构成 NO_COLLECTION。该变更不新增商户 HTTP/RPC 入口。
+
+## 收款提交契约更新（2026-10-23）
+
+PaymentExecuteCommand 必须携带冻结的原订单 subject、payableUntil，gRPC WirePaymentExecuteCommand 同步为 subject(12)/payable_until(13)。原订单截止由 acquire 当前持久 orderDueAt 冻结，重放按原意图，不因受理或后台重试延长。
+
+JSAPI 输入 ChannelIdentityInteractionDTO 定义为 channel、identifier（隐藏诊断，最长128）、appScope、identityType（USER_ID/OPEN_ID）。它表示已完成渠道授权后解析出的标识，不接受 OAuth 授权 code 作为买家 ID；商户自行完成所属应用授权。Wire 字段2改为 identifier，新增 identity_type(4)，不提供兼容分支。平台仍无消费者用户资源。
+
+进程内 submit(context, ChannelPaymentRequest) 返回 ChannelPaymentSubmission（原身份/金额＋可空观察＋可空动作，至少一项）。AlipayJsapiChannelAction 映射 INVOKE_JSAPI + AlipayJsapiActionDTO，不构成成功；有动作的观察只能 ACCEPTED。付款码确认成功统一使用查询路径取得渠道成功时间。动作持久化及 payment 详情/outcome/受理重放的授权返回已接源码；主链自动驱动已有源码；托管 cashier 页面仍待实现。
+
+
+### 动作快照读取约束
+
+不增加外部写动作或上报成功 API。内部 recordSubmission 只接收原 PreparedChannelPayment 与渠道 Facade 返回的 ChannelPaymentSubmission；有动作时必须有 ACCEPTED 观察，支付宝 JSAPI tradeNo 必须等于观察中的 channelTransactionNo。观察/动作同事务接收，快照冲突则整体失败。
+
+PaymentExecutionDTO.action 由原 SERVICE 身份授权的详情/outcome 与幂等重放返回。读取在原父门禁、单付款门禁下进行，只暴露当前 active attempt/执行 epoch，支付 PROCESSING 且门禁 OPEN、动作未到期且不超过原 payableUntil；其余状态返回基础 DTO，不回传历史动作。重复受理保留首次动作，不借重放创建新交易或延长支付窗口。
+
+ChannelActionCodec 属于 channel-api 的进程内契约，当前严格实现位于 channel-core。payment 的客户端 DTO 映射只投影动作表示，不负责渠道路由、签名或厂商协议。此接线仍待获准后的编译/事务/运行验收，自动发送已有源码，仍未执行运行验证。
+
+
+### 自动执行与本地预检
+
+accept 返回已持久受理后，payment 自身恢复任务自动创建原首笔并驱动提交/查询，无需 acquire 额外调用 startAttempt 才能启动。startAttempt 保留为既有 SERVICE 入口；与自动任务共享同一首笔创建逻辑，原 active attempt 已存在时不得创建第二笔。任务不使用外部请求伪装 SERVICE 身份，不暴露执行/回执写入 HTTP API。
+
+内部 ChannelPaymentValidation 不带 epoch，仅用于同一 Provider 的本地参数/能力校验；通过不代表已受理或成功。真实 submit 仍需原 Y2 ticket；重试只能原号查询或在关闭门禁下收敛。正常轮询代次及恢复游标不是支付 API 的版本或渠道重试凭证。所有新增执行、任务与 API 接线尚未编译/测试或部署。
+
+
+### 原交易动作恢复的进程内 API
+
+`ChannelPaymentFacade.recover(context, ChannelPaymentRecovery)` 返回 ChannelPaymentSubmission，必须含 QUERY_RESPONSE 观察。请求只包含原 identity、Money、method、executionEpoch 与 payableUntil，不接收明文付款输入、任意渠道 URL、preparedInputRef 或 ticket。它通过 Provider SPI 查询同一交易并重建支持的有效动作，不是提交/重试扣款接口。
+
+`PaymentResultService.recordRecovery` 仅供内部自动恢复编排调用，拒绝非 QUERY_RESPONSE；原观察与首份动作复用 Y3 同事务记录。客户端继续用现有 PaymentExecutionDTO.action 读取，无新增商户 HTTP/gRPC 端点。recover 与 PreparedChannelPayment 共享只读元数据契约不等于可以生成 Y2 ticket；原 UNKNOWN/终态和门禁可见性规则保持不变。本批源码和测试源码尚未执行验证。
+
+
+### 渠道原生回调 Facade
+
+PaymentChannelCallbackFacade.receive(endpointRef, ChannelNotificationInput) 是外部渠道协议入口，HTTP 为 POST /api/payment/channel-callbacks/{endpointRef}；它不提供内部 gRPC 的成功写入方法。当前只收有界 form body，不读取 query/body tenant 参数或租户请求头，返回 ChannelNotificationAcknowledgement 的原生 contentType/body。空包、超限或未登记 endpoint 不产生 success；已识别协议处理失败返回策略固定 failure。
+
+ChannelNotificationFacade.identify 返回不可信 ChannelNotificationHint；verify 使用原 ChannelExecutionContext/ChannelPaymentTarget，返回已验签且核对账户、请求号、金额的触发元数据。只有随后查询产生的资金事实能够进入 Y3，回调状态与通知金额本身不是商户可用的记账 API。服务端按可信 tenant/bindingRevision 配置 JSAPI notify_url，商户支付命令不可指定。
+
+CALLBACK 回执复合键绑定通知 ID 和权威查询事实；成功 ACK 必须在非冲突的 Y3 返回之后，不因解析或验签通过即 ACK。新接口/配置、边界与测试源码尚未执行验证，其他通知协议仍待实现。

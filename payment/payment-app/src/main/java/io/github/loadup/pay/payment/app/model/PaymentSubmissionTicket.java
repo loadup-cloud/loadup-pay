@@ -16,7 +16,7 @@
 package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 
 /**
  * Returned only to the transaction winner; never reconstruct or expose this through an HTTP response.

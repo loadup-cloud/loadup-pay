@@ -57,7 +57,16 @@ public record PaymentExecuteCommand(
         String preparedInputRef,
 
         @Schema(description = "Admitted terms") @NotNull @Valid
-        AdmittedOrderTermsDTO admittedTerms) {
+        AdmittedOrderTermsDTO admittedTerms,
+
+        @Schema(description = "Original order subject") @NotBlank @Size(max = 256) String subject,
+
+        @Schema(description = "Frozen order payment deadline") @NotNull java.time.OffsetDateTime payableUntil) {
+    public PaymentExecuteCommand {
+        if (payableUntil != null) payableUntil = payableUntil.atZoneSameInstant(
+                io.github.loadup.commons.time.BusinessTime.zone()).toOffsetDateTime();
+    }
+
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

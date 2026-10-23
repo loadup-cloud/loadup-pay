@@ -16,9 +16,12 @@
 package io.github.loadup.pay.limitcenter.app.port;
 
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
+import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 
 public interface PaymentEvidenceClient {
     boolean supportsTenant(String tenant);
 
     PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId);
+
+    RefundSettlementFactsDTO refundFacts(String tenant, String refundId);
 }

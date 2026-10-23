@@ -22,11 +22,13 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
@@ -38,6 +40,8 @@ import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.channel.api.model.NoChannelInput;
+import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,6 +89,8 @@ class PaymentSubmissionPreparationTest {
     final RiskConsultGateway risk = mock(RiskConsultGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
+    final PaymentChannelInputConverter channelInputs = context.getBean(PaymentChannelInputConverter.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));
     final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>(AttemptFixtures.prepared());
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>(AttemptFixtures.gate(false));
@@ -92,7 +98,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentSubmissionPreparation service = new PaymentSubmissionPreparation(payments, changes, attempts, locks, inputs, limits,
             risk, codec, context.getBean(PaymentSubmissionConverter.class), context.getBean(PaymentControlConverter.class),
             new PaymentAcceptanceTransactions(manager), () -> "local-no-submission-proof",
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), events);
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), events, channels, channelInputs);
 
     LimitReservationDTO reservation(LimitReservationState state) {
         var policy = AttemptFixtures.command().admittedTerms().terms().limits();
@@ -111,6 +117,7 @@ class PaymentSubmissionPreparationTest {
         when(attempts.find("tenant", "attempt")).thenAnswer(call -> Optional.of(stored.get()));
         when(attempts.lock("tenant", "attempt")).thenAnswer(call -> Optional.of(stored.get()));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
+        when(inputs.openForPreparation(eq("tenant"), any(), eq("attempt"))).thenReturn(new NoInteractionDTO());
         when(codec.checksum(anyString())).thenReturn("b".repeat(64));
         when(risk.consult(any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -157,8 +164,13 @@ class PaymentSubmissionPreparationTest {
         assertEquals(PaymentAttemptState.SUBMITTING, stored.get().attempt().state());
         assertEquals("b".repeat(64), stored.get().executionPermitHash());
         assertFalse(stored.get().toString().contains("e".repeat(64)));
-        var calls = inOrder(risk, limits, locks, inputs, attempts);
+        var calls = inOrder(risk, inputs, channels, limits, locks, attempts);
         calls.verify(risk).consult(any());
+        calls.verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        calls.verify(channels).validate(argThat(validation -> validation.input() instanceof NoChannelInput
+                && validation.method() == io.github.loadup.commons.payment.PaymentMethod.H5
+                && validation.subject().equals(PaymentFixtures.SUBJECT)
+                && validation.payableUntil().equals(PaymentFixtures.PAYABLE_UNTIL)));
         calls.verify(limits).reserve(eq("tenant"), any());
         calls.verify(limits).begin(eq("tenant"), argThat(value -> value.requestKey().equals("attempt/attempt")));
         calls.verify(limits).verify(eq("tenant"), any());
@@ -184,7 +196,7 @@ class PaymentSubmissionPreparationTest {
         });
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         verify(attempts, never()).update(anyString(), any(), anyLong());
-        verifyNoInteractions(inputs);
+        verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
     }
 
     @Test
@@ -206,7 +218,51 @@ class PaymentSubmissionPreparationTest {
         assertSame(EXECUTION_PERMIT_INVALID, assertThrows(CommonException.class,
                 () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
-        verifyNoInteractions(inputs);
+        verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+        verify(channels).validate(any());
+        verify(channels, never()).submit(any());
+    }
+
+    @Test
+    void unsupportedChannelPreflightStopsBeforeReservationBeginAndY2() {
+        var unsupported = new CommonException(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY);
+        doThrow(unsupported).when(channels).validate(any());
+
+        assertSame(unsupported.getResultCode(), assertThrows(CommonException.class,
+                () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
+
+        assertEquals(0, stored.get().attempt().executionEpoch());
+        verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        verify(limits, never()).reserve(anyString(), any());
+        verify(limits, never()).begin(anyString(), any());
+        verify(channels, never()).submit(any());
+    }
+
+    @Test
+    void invalidOrExpiredPreflightInputStopsBeforeChannelValidationAndY2() {
+        var invalid = new CommonException(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT);
+        doThrow(invalid).when(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+        assertSame(invalid.getResultCode(), assertThrows(CommonException.class,
+                () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
+        assertEquals(0, stored.get().attempt().executionEpoch());
+        verify(channels, never()).validate(any());
+        verify(limits, never()).reserve(anyString(), any());
+        verify(limits, never()).begin(anyString(), any());
+        verify(channels, never()).submit(any());
+    }
+
+    @Test
+    void expiredBoundInputStopsBeforeReservationBeginAndY2() {
+        doThrow(new CommonException(INPUT_EXPIRED)).when(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
+
+        assertSame(INPUT_EXPIRED, assertThrows(CommonException.class,
+                () -> service.prepare("tenant", "payment", "attempt")).getResultCode());
+
+        assertEquals(0, stored.get().attempt().executionEpoch());
+        verify(channels, never()).validate(any());
+        verify(limits, never()).reserve(anyString(), any());
+        verify(limits, never()).begin(anyString(), any());
+        verify(channels, never()).submit(any());
     }
 
     @Test

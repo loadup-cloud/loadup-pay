@@ -59,6 +59,8 @@ public interface PaymentInitiationConverter {
     @Mapping(target = "choice", source = "command.choice")
     @Mapping(target = "admittedTerms", source = "admittedTerms")
     @Mapping(target = "preparedInputRef", ignore = true)
+    @Mapping(target = "subject", source = "order.subject")
+    @Mapping(target = "payableUntil", expression = "java(io.github.loadup.commons.time.BusinessTime.external(order.order().orderDueAt()))")
     PaymentExecuteCommand toExecute(
             StoredAcquireOrder order,
             OrderPaymentAllocation allocation,

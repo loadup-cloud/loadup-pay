@@ -50,6 +50,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -127,7 +128,9 @@ class PaymentInitiationPersistenceTest {
                         1,
                         "snapshot",
                         "b".repeat(64),
-                        terms()));
+                        terms()),
+                "Payment initiation test subject",
+                OffsetDateTime.parse("2030-01-01T00:00:00+08:00"));
     }
 
     StoredPaymentAllocation stored(String payload, String hash) {
@@ -186,7 +189,9 @@ class PaymentInitiationPersistenceTest {
                 value.requestDigest(),
                 value.choice(),
                 "synthetic-input",
-                value.admittedTerms()));
+                value.admittedTerms(),
+                value.subject(),
+                value.payableUntil()));
         assertThrows(CommonException.class, () -> codec.decode(stored(prepared, hashes.checksum(prepared))));
     }
 

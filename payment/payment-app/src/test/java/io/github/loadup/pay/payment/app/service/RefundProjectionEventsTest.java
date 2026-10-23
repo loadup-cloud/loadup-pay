@@ -23,15 +23,20 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
+import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
-import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundState;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +77,7 @@ class RefundProjectionEventsTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundProjectionConverter.class.getPackageName());
     final RefundSummaryGateway summaries = mock(RefundSummaryGateway.class);
     final RefundSnapshotReader reader = mock(RefundSnapshotReader.class);
+    final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);
     final OutboxTemplate outbox = mock(OutboxTemplate.class);
     final AtomicReference<OrderRefundSummary> summary = new AtomicReference<>();
     final AtomicReference<RefundProgressChange> current = new AtomicReference<>();
@@ -79,11 +85,12 @@ class RefundProjectionEventsTest {
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(manager);
     final RefundProjectionEvents events = new RefundProjectionEvents(summaries, reader, context.getBean(RefundProjectionConverter.class),
-            outbox, () -> "delivery-" + ids.incrementAndGet());
+            outbox, () -> "delivery-" + ids.incrementAndGet(), payments, context.getBean(RefundSettlementConverter.class));
     final LocalDateTime createdAt = RefundResultFixtures.NOW.minusSeconds(30);
 
     @BeforeEach
     void setup() {
+        when(payments.find("tenant", "payment")).thenReturn(Optional.of(successfulPayment()));
         when(summaries.lock("tenant", "order")).thenAnswer(c -> Optional.ofNullable(summary.get()));
         doAnswer(c -> {
             summary.set(c.getArgument(1));
@@ -105,6 +112,13 @@ class RefundProjectionEventsTest {
             assertEquals("tenant", TenantUtil.getTenantId());
             return null;
         }).when(outbox).publish(any());
+    }
+
+    StoredPaymentAcceptance successfulPayment() {
+        var capacity = RefundResultFixtures.capacity();
+        var payment = new PaymentOrder("payment", "order", "allocation", "merchant", capacity.succeededAmount(), "operation",
+                RefundResultFixtures.NOW.minusHours(1), PaymentState.SUCCEEDED, "attempt", "attempt", 2);
+        return new StoredPaymentAcceptance(payment, "admission", "a".repeat(64), "payment-service", "{}", "b".repeat(64), "payment-evidence");
     }
 
     @AfterEach
@@ -143,17 +157,30 @@ class RefundProjectionEventsTest {
     void planningFreezesEveryInitChildAndOneBoundedOrderMonetarySnapshot() {
         plan();
         var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(3)).publish(capture.capture());
+        verify(outbox, times(4)).publish(capture.capture());
         assertEquals(1500, summary.get().reservedMinor());
         assertEquals(1, summary.get().version());
         var message = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.SUMMARY)).findFirst().orElseThrow();
+        var feeMessage = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.FEE)).findFirst().orElseThrow();
         var json = JsonMapper.builder().build();
         Map<?, ?> envelope = json.readValue(message.payload(), Map.class);
+        Map<?, ?> feeEnvelope = json.readValue(feeMessage.payload(), Map.class);
         var data = (Map<?, ?>) envelope.get("data");
+        var feeData = (Map<?, ?>) feeEnvelope.get("data");
         assertFalse(data.containsKey("requests"));
         assertTrue(message.payload().length() < 2048);
         assertEquals(1500, ((Number) data.get("refundReservedMinor")).longValue());
         assertEquals("order", envelope.get("aggregateId"));
+        assertEquals(RefundProjectionEvents.FEE, feeMessage.type());
+        assertEquals(RefundProjectionEvents.FEE, feeEnvelope.get("eventType"));
+        assertEquals("order", feeEnvelope.get("aggregateId"));
+        assertEquals(envelope.get("aggregateVersion"), feeEnvelope.get("aggregateVersion"));
+        assertFalse(envelope.get("deliveryId").equals(feeEnvelope.get("deliveryId")));
+        assertFalse(envelope.get("businessEventId").equals(feeEnvelope.get("businessEventId")));
+        assertEquals(data.get("orderId"), feeData.get("orderId"));
+        assertEquals(data.get("refundedMinor"), feeData.get("refundedMinor"));
+        assertEquals(data.get("refundReservedMinor"), feeData.get("refundReservedMinor"));
+        assertEquals(data.get("refundSummaryVersion"), feeData.get("refundSummaryVersion"));
         var child = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.CHILD)).findFirst().orElseThrow();
         Map<?, ?> childEnvelope = json.readValue(child.payload(), Map.class);
         var childData = (Map<?, ?>) childEnvelope.get("data");
@@ -163,15 +190,29 @@ class RefundProjectionEventsTest {
     }
 
     @Test
-    void successConsumesTheOrderHoldAndPublishesIndependentChildAndSummaryVersions() {
+    void successConsumesTheOrderHoldAndPublishesIndependentChildSummaryFeeAndLimitEvents() {
         plan();
         clearInvocations(outbox, summaries);
         changed(change(ChannelRefundOutcome.Kind.SUCCEEDED));
         assertEquals(1000, summary.get().refundedMinor());
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
-        verify(outbox, times(2)).publish(any());
+        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
+        verify(outbox, times(4)).publish(capture.capture());
         verify(summaries).update(eq("tenant"), any(), any());
+        var limitMessage = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.LIMIT)).findFirst().orElseThrow();
+        var json = JsonMapper.builder().build();
+        Map<?, ?> limitEnvelope = json.readValue(limitMessage.payload(), Map.class);
+        var data = (Map<?, ?>) limitEnvelope.get("data");
+        assertEquals("refund", limitEnvelope.get("aggregateId"));
+        assertEquals(2, ((Number) limitEnvelope.get("aggregateVersion")).longValue());
+        assertEquals("refund", data.get("refundId"));
+        assertEquals("SUCCEEDED", data.get("state"));
+        assertEquals("refund-transaction", data.get("evidenceId"));
+        assertEquals(1000, ((Number) data.get("cumulativePaymentRefundedMinor")).longValue());
+        assertEquals(BusinessTime.external(RefundResultFixtures.NOW).toInstant(),
+                java.time.OffsetDateTime.parse((String) limitEnvelope.get("occurredAt")).toInstant());
+        verify(payments).find("tenant", "payment");
     }
 
     @Test
@@ -184,6 +225,7 @@ class RefundProjectionEventsTest {
         assertEquals(1, summary.get().version());
         verify(outbox, times(1)).publish(argThat(m -> m.type().equals(RefundProjectionEvents.CHILD)));
         verify(summaries, never()).update(anyString(), any(), any());
+        verifyNoInteractions(payments);
     }
 
     @Test
@@ -193,6 +235,8 @@ class RefundProjectionEventsTest {
         assertEquals(0, summary.get().refundedMinor());
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
+        verify(outbox, times(3)).publish(any());
+        verifyNoInteractions(payments);
     }
 
     @Test

@@ -92,8 +92,9 @@ public interface PaymentRpcMapper {
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "channel", source = "channel")
-    @Mapping(target = "authorizationTicket", source = "authorizationTicket")
+    @Mapping(target = "identifier", source = "identifier")
     @Mapping(target = "appScope", source = "appScope")
+    @Mapping(target = "identityType", source = "identityType")
     io.github.loadup.pay.payment.rpc.proto.WireChannelIdentityInteractionDTO toWireChannelIdentityInteractionDTO(io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO value);
 
     io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO fromWireChannelIdentityInteractionDTO(io.github.loadup.pay.payment.rpc.proto.WireChannelIdentityInteractionDTO value);
@@ -118,6 +119,8 @@ public interface PaymentRpcMapper {
     @Mapping(target = "choice", source = "choice")
     @Mapping(target = "preparedInputRef", source = "preparedInputRef")
     @Mapping(target = "admittedTerms", source = "admittedTerms")
+    @Mapping(target = "subject", source = "subject")
+    @Mapping(target = "payableUntil", source = "payableUntil")
     io.github.loadup.pay.payment.rpc.proto.WirePaymentExecuteCommand toWirePaymentExecuteCommand(io.github.loadup.pay.payment.client.command.PaymentExecuteCommand value);
 
     io.github.loadup.pay.payment.client.command.PaymentExecuteCommand fromWirePaymentExecuteCommand(io.github.loadup.pay.payment.rpc.proto.WirePaymentExecuteCommand value);
@@ -333,5 +336,34 @@ public interface PaymentRpcMapper {
     io.github.loadup.pay.payment.rpc.proto.WireOrderRefundSummaryEventDTO toWireOrderRefundSummaryEventDTO(io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO value);
 
     io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO fromWireOrderRefundSummaryEventDTO(io.github.loadup.pay.payment.rpc.proto.WireOrderRefundSummaryEventDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "refund", source = "refund")
+    @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor")
+    @Mapping(target = "paymentVersion", source = "paymentVersion")
+    @Mapping(target = "paymentEvidenceId", source = "paymentEvidenceId")
+    @Mapping(target = "paymentAttemptId", source = "paymentAttemptId")
+    @Mapping(target = "paymentInitiatedAt", source = "paymentInitiatedAt")
+    @Mapping(target = "paymentRefundVersion", source = "paymentRefundVersion")
+    io.github.loadup.pay.payment.rpc.proto.WireRefundSettlementFactsDTO toWireRefundSettlementFactsDTO(io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO value);
+
+    io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO fromWireRefundSettlementFactsDTO(io.github.loadup.pay.payment.rpc.proto.WireRefundSettlementFactsDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "refundId", source = "refundId")
+    @Mapping(target = "refundRequestId", source = "refundRequestId")
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "operationId", source = "operationId")
+    @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
+    @Mapping(target = "amountMinor", source = "amountMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "state", source = "state")
+    @Mapping(target = "refundVersion", source = "refundVersion")
+    @Mapping(target = "cumulativePaymentRefundedMinor", source = "cumulativePaymentRefundedMinor")
+    @Mapping(target = "evidenceId", source = "evidenceId")
+    io.github.loadup.pay.payment.rpc.proto.WireRefundOutcomeEventDTO toWireRefundOutcomeEventDTO(io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO value);
+
+    io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO fromWireRefundOutcomeEventDTO(io.github.loadup.pay.payment.rpc.proto.WireRefundOutcomeEventDTO value);
 
 }

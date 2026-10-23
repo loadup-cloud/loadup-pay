@@ -30,12 +30,18 @@ import org.springframework.context.annotation.Import;
 public class AcquireRpcConfiguration {
     @Bean
     BindableService acquireRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            io.github.loadup.pay.acquire.client.facade.PaymentOutcomeFacade facade0) {
+            io.github.loadup.pay.acquire.client.facade.PaymentOutcomeFacade facade0,
+            io.github.loadup.pay.acquire.client.facade.FeeRefundOutcomeFacade facade1) {
         var service = new io.github.loadup.pay.acquire.rpc.proto.AcquireRpcGrpc.AcquireRpcImplBase() {
             @Override
             public void paymentOutcome(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfPaymentOutcomeEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.acquire.rpc.proto.WirePaymentOutcomeAckDTO> observer) {
                 support.invoke(request, observer, AcquireRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfPaymentOutcomeEventDTO,
                         facade0::accept, AcquireRpcMapper.INSTANCE::toWirePaymentOutcomeAckDTO);
+            }
+            @Override
+            public void feeRefund(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO> observer) {
+                support.invoke(request, observer, AcquireRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO,
+                        facade1::accept, AcquireRpcMapper.INSTANCE::toWireFeeRefundAckDTO);
             }
         };
         return () -> ServerInterceptors.intercept(service, authentication);

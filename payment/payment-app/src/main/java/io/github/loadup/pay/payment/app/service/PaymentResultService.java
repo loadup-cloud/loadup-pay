@@ -28,12 +28,12 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.pay.payment.domain.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
-import io.github.loadup.pay.payment.domain.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
@@ -75,12 +75,13 @@ public class PaymentResultService {
     private final PaymentResultEvents events;
     private final IdGenerator ids;
     private final Clock clock;
+    private final PaymentActionService actions;
 
     public PaymentResultService(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
                                 PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentExecutionLocks locks,
                                 PaymentAcceptanceTransactions transactions, PaymentResultCodec codec, PaymentResultConverter converter,
                                 PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentResultEvents events,
-                                IdGenerator ids, @Qualifier("paymentClock") Clock clock) {
+                                IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentActionService actions) {
         this.payments = payments;
         this.changes = changes;
         this.attempts = attempts;
@@ -94,6 +95,7 @@ public class PaymentResultService {
         this.events = events;
         this.ids = ids;
         this.clock = clock;
+        this.actions = actions;
     }
 
     public PaymentResultApplication record(String tenant, PaymentObservation observation) {
@@ -106,6 +108,44 @@ public class PaymentResultService {
             var original = payments.find(tenant, observation.identity().paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.write(tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
+        });
+    }
+
+    public PaymentResultApplication recordSubmission(String tenant,
+            io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+        return recordWithAction(tenant, original, submission);
+    }
+
+    public PaymentResultApplication recordRecovery(String tenant,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+        if (submission == null || submission.observation() == null
+                || submission.observation().source() != PaymentObservation.Source.QUERY_RESPONSE)
+            throw new CommonException(INVALID_ARGUMENT);
+        return recordWithAction(tenant, original, submission);
+    }
+
+    private PaymentResultApplication recordWithAction(String tenant,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (original == null || submission == null || submission.observation() == null
+                || !original.identity().equals(submission.identity()) || !original.amount().equals(submission.amount()))
+            throw new CommonException(INVALID_ARGUMENT);
+        if (submission.action() == null) return record(tenant, submission.observation());
+        return transactions.read(tenant, () -> {
+            var observation = submission.observation();
+            String digest = codec.factsDigest(observation), payload = codec.encode(observation);
+            var accepted = payments.find(tenant, original.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            return transactions.write(tenant, () -> {
+                var applied = apply(tenant, accepted.callerServiceId(), observation, digest, payload);
+                if (applied.disposition() == CONFLICT) return applied;
+                // Re-read under the same parent/payment locks; Y3 may already have observed a terminal winner.
+                var current = locks.lock(tenant, original.identity().paymentId(), accepted.callerServiceId());
+                actions.record(tenant, current, original, submission, applied.receiptId());
+                return new PaymentResultApplication(applied.disposition(), applied.receiptId(), actions.present(tenant, current));
+            });
         });
     }
 

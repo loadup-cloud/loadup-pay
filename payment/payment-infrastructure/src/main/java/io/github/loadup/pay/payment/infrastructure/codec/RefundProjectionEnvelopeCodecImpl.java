@@ -21,6 +21,8 @@ import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
+import io.github.loadup.pay.payment.client.enums.RefundState;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
@@ -50,11 +52,20 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
 
     @Override
     public EventEnvelope<OrderRefundSummaryEventDTO> summary(String payload) {
+        return monetary(payload, RefundProjectionEvents.SUMMARY);
+    }
+
+    @Override
+    public EventEnvelope<OrderRefundSummaryEventDTO> fee(String payload) {
+        return monetary(payload, RefundProjectionEvents.FEE);
+    }
+
+    private EventEnvelope<OrderRefundSummaryEventDTO> monetary(String payload, String type) {
         try {
             var event = decode(payload, new TypeReference<EventEnvelope<OrderRefundSummaryEventDTO>>() {
             });
             event.data().requireEnvelope(event);
-            event.requireSource(RefundProjectionEvents.SUMMARY, "payment", event.data().orderId(), event.data().refundSummaryVersion());
+            event.requireSource(type, "payment", event.data().orderId(), event.data().refundSummaryVersion());
             return event;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -66,5 +77,17 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
         var event = json.readValue(payload, type);
         if (event == null) throw new CommonException(SNAPSHOT_INVALID);
         return event;
+    }
+
+    @Override
+    public EventEnvelope<RefundOutcomeEventDTO> limit(String payload) {
+        try {
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {});
+            event.data().requireEnvelope(event);
+            if (event.data().state() != RefundState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
+            return event;
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

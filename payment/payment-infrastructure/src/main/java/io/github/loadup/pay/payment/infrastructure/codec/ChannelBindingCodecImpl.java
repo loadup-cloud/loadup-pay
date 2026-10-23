@@ -23,9 +23,7 @@ import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.pay.payment.client.command.ChannelBindingRevokeCommand;
 import io.github.loadup.pay.payment.client.command.ChannelBindingSuspendCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelAccountIdentityDTO;
-import io.github.loadup.pay.payment.domain.model.AlipayAccountIdentity;
-import io.github.loadup.pay.payment.domain.model.ChannelAccountIdentity;
-import io.github.loadup.pay.payment.domain.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
@@ -109,17 +107,9 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
     @Override
     public String accountScopeHash(Channel channel, ChannelAccountIdentity identity) {
         // Financial uniqueness follows the real collecting account, across tenant/app/credential aliases.
-        String receiver = switch (identity) {
-            case AlipayAccountIdentity alipay -> {
-                if (channel != Channel.ALIPAY) throw new CommonException(SNAPSHOT_INVALID);
-                yield alipay.sellerId();
-            }
-            case WechatAccountIdentity wechat -> {
-                if (channel != Channel.WECHAT) throw new CommonException(SNAPSHOT_INVALID);
-                yield wechat.subMerchantId() == null ? wechat.merchantId() : wechat.subMerchantId();
-            }
-        };
-        return framedHash(List.of("payment-collecting-account-v1", channel.name(), receiver));
+        if (channel == null || identity == null || channel != identity.channel())
+            throw new CommonException(SNAPSHOT_INVALID);
+        return framedHash(List.of("payment-collecting-account-v1", channel.name(), identity.collectingAccountId()));
     }
 
     private String framedHash(List<String> fields) {

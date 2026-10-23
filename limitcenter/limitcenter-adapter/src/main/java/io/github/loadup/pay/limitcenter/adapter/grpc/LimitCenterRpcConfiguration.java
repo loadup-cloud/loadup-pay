@@ -33,7 +33,8 @@ public class LimitCenterRpcConfiguration {
             io.github.loadup.pay.limitcenter.client.facade.LimitPolicyFacade facade0,
             io.github.loadup.pay.limitcenter.client.facade.LimitReservationFacade facade1,
             io.github.loadup.pay.limitcenter.client.facade.LimitExecutionFacade facade2,
-            io.github.loadup.pay.limitcenter.client.facade.LimitSettlementFacade facade3) {
+            io.github.loadup.pay.limitcenter.client.facade.LimitSettlementFacade facade3,
+            io.github.loadup.pay.limitcenter.client.facade.LimitRefundFacade facade4) {
         var service = new io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpcGrpc.LimitCenterRpcImplBase() {
             @Override
             public void activate(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitPolicyActivateCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.limitcenter.rpc.proto.WireLimitPolicyActivationDTO> observer) {
@@ -74,6 +75,11 @@ public class LimitCenterRpcConfiguration {
             public void release(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReleaseCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReleaseDTO> observer) {
                 support.invoke(request, observer, LimitCenterRpcMapper.INSTANCE::fromWireLimitReleaseCommand,
                         facade3::release, LimitCenterRpcMapper.INSTANCE::toWireLimitReleaseDTO);
+            }
+            @Override
+            public void restoreRefund(io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRefundRestoreCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRestoreDTO> observer) {
+                support.invoke(request, observer, LimitCenterRpcMapper.INSTANCE::fromWireLimitRefundRestoreCommand,
+                        facade4::restoreRefund, LimitCenterRpcMapper.INSTANCE::toWireLimitRestoreDTO);
             }
         };
         return () -> ServerInterceptors.intercept(service, authentication);

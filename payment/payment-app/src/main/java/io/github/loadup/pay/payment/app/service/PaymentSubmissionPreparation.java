@@ -55,6 +55,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
@@ -80,12 +81,16 @@ public class PaymentSubmissionPreparation {
     private final IdGenerator ids;
     private final Clock clock;
     private final PaymentResultEvents events;
+    private final io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels;
+    private final io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs;
 
     public PaymentSubmissionPreparation(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
                                         PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
                                         RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
                                         PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
-                                        @Qualifier("paymentClock") Clock clock, PaymentResultEvents events) {
+                                        @Qualifier("paymentClock") Clock clock, PaymentResultEvents events,
+                                        io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels,
+                                        io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs) {
         this.payments = payments;
         this.changes = changes;
         this.attempts = attempts;
@@ -100,6 +105,8 @@ public class PaymentSubmissionPreparation {
         this.ids = ids;
         this.clock = clock;
         this.events = events;
+        this.channels = channels;
+        this.channelInputs = channelInputs;
     }
 
     /**
@@ -122,6 +129,21 @@ public class PaymentSubmissionPreparation {
             if (decision.decision() == RiskDecisionType.DENY) {
                 rejectUnsubmitted(tenant, accepted, attemptId, decision);
                 return Optional.empty();
+            }
+            if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
+                rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                throw new CommonException(PAYMENT_EXPIRED);
+            }
+            try {
+                var interaction = inputs.openForPreparation(tenant, accepted, attemptId);
+                channels.validate(channelInputs.toValidation(stored, original, channelInputs.toInput(interaction)));
+            } catch (CommonException rejected) {
+                var code = rejected.getResultCode();
+                if (code == INPUT_EXPIRED || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
+                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
+                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH)
+                    rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                throw rejected;
             }
             final LimitExecutionPermitDTO permit;
             try {
@@ -148,13 +170,14 @@ public class PaymentSubmissionPreparation {
                     locks.requireOpen(locked);
                     if (locked.payment().payment().state() != PaymentState.PROCESSING)
                         throw new CommonException(EXECUTION_FENCED);
+                    if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
                     inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
                     attempts.update(tenant, started, current.rowVersion());
                     return Optional.of(new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
                 });
             } catch (CommonException rejected) {
-                if (rejected.getResultCode() == INPUT_EXPIRED) rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED) rejectUnsubmitted(tenant, accepted, attemptId, decision);
                 throw rejected;
             }
         });

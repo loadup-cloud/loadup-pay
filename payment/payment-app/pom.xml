@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-delayedtask</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>realtime-client</artifactId>
         </dependency>
         <dependency>

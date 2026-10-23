@@ -24,7 +24,7 @@ import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.pay.payment.domain.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
 import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;

@@ -151,29 +151,46 @@ CREATE TABLE order_fee
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
-CREATE TABLE fee_adjustment
-(
-    id                        VARCHAR(64)  NOT NULL,
-    tenant_id                 VARCHAR(64)  NOT NULL,
-    created_at                DATETIME(6)  NOT NULL,
-    updated_at                DATETIME(6)  NOT NULL,
-    deleted                   TINYINT      NOT NULL DEFAULT 0,
-    order_id                  VARCHAR(64)  NOT NULL,
-    fee_id                    VARCHAR(64)  NOT NULL,
-    refund_request_id         VARCHAR(64)  NULL,
-    trigger_key               VARCHAR(128) NOT NULL,
-    source_event_id           VARCHAR(64)  NOT NULL,
-    source_version            BIGINT       NOT NULL,
-    adjustment_minor          BIGINT       NOT NULL,
-    cumulative_refunded_minor BIGINT       NOT NULL,
-    rule_snapshot             JSON         NOT NULL,
-    PRIMARY KEY (id),
+CREATE TABLE fee_adjustment (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    order_id VARCHAR(64) NOT NULL,
+    fee_id VARCHAR(64) NOT NULL,
+    trigger_key VARCHAR(128) NOT NULL,
+    source_event_id VARCHAR(64) NOT NULL,
+    source_version BIGINT NOT NULL,
+    adjustment_minor BIGINT NOT NULL,
+    currency CHAR(3) NOT NULL,
+    cumulative_refunded_minor BIGINT NOT NULL,
+    rule_snapshot LONGTEXT NOT NULL,
+    applied_at DATETIME(6) NOT NULL,
     UNIQUE KEY uk_fee_adjust_trigger (tenant_id, fee_id, trigger_key),
     KEY ix_fee_adjust_order (tenant_id, order_id, created_at, id),
-    CHECK (adjustment_minor >= 0)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_bin;
+    CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND cumulative_refunded_minor > 0),
+    CHECK (JSON_VALID(rule_snapshot) AND OCTET_LENGTH(rule_snapshot) <= 32768)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+CREATE TABLE fee_refund_receipt (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    delivery_id VARCHAR(64) NOT NULL,
+    business_event_id VARCHAR(64) NOT NULL,
+    order_id VARCHAR(64) NOT NULL,
+    source_version BIGINT NOT NULL,
+    applied_version BIGINT NOT NULL,
+    request_digest CHAR(64) NOT NULL,
+    caller_service_id VARCHAR(64) NOT NULL,
+    accepted_at DATETIME(6) NOT NULL,
+    UNIQUE KEY uk_fee_refund_delivery (tenant_id, delivery_id),
+    KEY ix_fee_refund_order (tenant_id, order_id, applied_version),
+    CHECK (deleted = 0 AND source_version > 0 AND applied_version >= source_version)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE TABLE checkout_session
 (
