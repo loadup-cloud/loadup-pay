@@ -16,6 +16,7 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.pay.common.DomainChecks;
 
 import java.util.Objects;
 
@@ -23,16 +24,22 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record RiskOutcome(
+        String tenantId,
+        String businessEventId,
         RiskConsultation consultation,
         RiskDecision decision,
         PaymentState paymentState,
         long sourceVersion,
         String evidenceId) {
     public RiskOutcome {
+        DomainChecks.id(tenantId);
+        DomainChecks.id(businessEventId);
+        DomainChecks.id(evidenceId);
         Objects.requireNonNull(consultation);
         Objects.requireNonNull(decision);
         Objects.requireNonNull(paymentState);
-        require(sourceVersion > 0, INVALID_ARGUMENT);
+        require(sourceVersion > 0 && (paymentState == PaymentState.SUCCEEDED
+                || paymentState == PaymentState.FAILED || paymentState == PaymentState.CLOSED), INVALID_ARGUMENT);
     }
 
     @Override

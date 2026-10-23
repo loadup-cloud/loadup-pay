@@ -52,6 +52,7 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+    private final OrderSnapshotEvents snapshots;
 
     public PaymentInitiationService(
             AcquireActorProvider actors,
@@ -64,7 +65,7 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
             OrderCreationTransactions transactions,
             IdGenerator ids,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
+            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.orders = orders;
         this.allocations = allocations;
@@ -76,6 +77,7 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
         this.ids = ids;
         this.validator = validator;
         this.clock = clock;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -147,6 +149,7 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
                         change.order(),
                         allocation,
                         order.order().version());
+                snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
                 return allocation;
             });
             // No transaction spans the network. Failure leaves the original hold and exact command recoverable.

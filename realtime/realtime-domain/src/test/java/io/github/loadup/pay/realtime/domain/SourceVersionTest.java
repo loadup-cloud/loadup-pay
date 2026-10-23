@@ -16,7 +16,6 @@
 package io.github.loadup.pay.realtime.domain;
 
 import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.realtime.domain.model.RefundRequestProgress;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import org.junit.jupiter.api.Test;
@@ -41,15 +40,13 @@ class SourceVersionTest {
     }
 
     @Test
-    void fullRefundSummaryKeepsOriginalOrderIdentityAndIndependentRequestProgress() {
-        var request = new RefundRequestProgress("request", "merchant-refund", 100, "PARTIAL_SUCCEEDED", 40, 60, 0, 3);
+    void monetaryRefundSummaryKeepsOriginalOrderIdentityAndIndependentSourceVersion() {
         var summary = new TradeRefundSummary(
                 "order",
                 "merchant",
                 "CNY",
                 40,
                 0,
-                List.of(request),
                 new SourceVersion("payment", "OrderRefundSummary", "order", 2),
                 LocalDateTime.of(2026, 10, 21, 10, 0));
         assertEquals(40, summary.refundedMinor());
@@ -57,9 +54,6 @@ class SourceVersionTest {
         assertThrows(
                 DomainViolation.class,
                 () -> new TradeRefundSummary(
-                        "order", "merchant", "CNY", 40, 0, List.of(), summary.source(), summary.snapshotAt()));
-        assertThrows(
-                DomainViolation.class,
-                () -> new RefundRequestProgress("request", "merchant-refund", 100, "PAID", 40, 0, 0, 3));
+                        "other-order", "merchant", "CNY", 40, 0, summary.source(), summary.snapshotAt()));
     }
 }

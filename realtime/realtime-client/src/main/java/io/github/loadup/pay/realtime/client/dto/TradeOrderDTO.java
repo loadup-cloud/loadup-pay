@@ -35,10 +35,11 @@ public record TradeOrderDTO(
         @Schema(description = "Original order creation time")
         OffsetDateTime orderCreatedAt,
 
-        @Schema(description = "Refunded minor") long refundedMinor,
-        @Schema(description = "Net received minor") long netReceivedMinor,
+        @Schema(description = "Refunded minor; null before the refund summary arrives") Long refundedMinor,
+        @Schema(description = "Observed net amount; null without the refund summary") Long netReceivedMinor,
         @Schema(description = "Order source version") long orderSourceVersion,
-        @Schema(description = "Refund source version") long refundSourceVersion,
+        @Schema(description = "Refund source version; null when unavailable") Long refundSourceVersion,
+        @Schema(description = "Independent source amounts currently agree") boolean amountsConsistent,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeOrderDTO {
         if (orderCreatedAt != null)

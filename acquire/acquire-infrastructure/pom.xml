@@ -11,6 +11,8 @@
     <artifactId>acquire-infrastructure</artifactId>
     <name>LoadUp Pay Acquire Infrastructure</name>
     <dependencies>
+        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-components-outbox</artifactId></dependency>
+        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>realtime-client</artifactId></dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-util</artifactId>

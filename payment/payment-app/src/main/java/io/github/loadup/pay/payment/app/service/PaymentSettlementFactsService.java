@@ -40,30 +40,37 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
     private final PaymentAcceptanceTransactions transactions;
     private final Validator validator;
     private final String limitService;
+    private final String acquireService;
 
     public PaymentSettlementFactsService(PaymentActorProvider actors, PaymentAcceptanceGateway store,
             PaymentAcceptanceCodec codec, PaymentAcceptanceConverter converter, PaymentAcceptanceTransactions transactions,
-            Validator validator, @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService) {
+            Validator validator, @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService,
+            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors; this.store = store; this.codec = codec; this.converter = converter;
         this.transactions = transactions; this.validator = validator; this.limitService = limitService;
         DomainChecks.id(limitService);
+        this.acquireService = DomainChecks.id(acquireService);
     }
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(IdQuery query) {
         if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
-        if (!limitService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:limit-facts"))
+        boolean limitAccess = limitService.equals(actor.serviceId()) && actor.permissions().contains("pay:payment:limit-facts");
+        boolean acquireAccess = acquireService.equals(actor.serviceId()) && actor.permissions().contains("pay:payment:acquire-facts");
+        if (!limitAccess && !acquireAccess)
             throw new CommonException(ACTION_FORBIDDEN);
         return transactions.write(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var first = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            if (acquireAccess && !actor.serviceId().equals(first.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
             var parent = store.lockParent(actor.tenantId(), first.payment().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var gate = store.lockPayment(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var current = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             codec.decode(current);
+            if (acquireAccess && !actor.serviceId().equals(current.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
             check(parent, current, null);
             check(gate, current, query.id());
             return converter.toSettlementFacts(current, converter.toDTO(current), gate.gate().state() == GateState.FENCED);

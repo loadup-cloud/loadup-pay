@@ -351,3 +351,53 @@ DirectPaymentFacade/Service/Controller 已组合纯 API create→start→detail�
 已补内部结果应用、规范资金摘要、不可变回执/差错、全局渠道交易号认领、成功时间/退款容量、四目标事务 Outbox，以及本地未提交关单/风控拒绝的事件生产源码。支付成功状态/证据/渠道时间为同一行 CAS；跨租户同真实账户也不能重认领交易号，资金冲突只记录差错。新增 V20261022130000__payment_results.sql 四表与付款成功事实约束，复用框架 Outbox 迁移及同 DataSource 事务。
 
 新增25个测试方法源码，并同步原编排构造器和本地终态事件断言；未执行检查/编译/测试/DDL/部署。当前没有真实渠道协议/验签/发送器，Y3 仅供后续受信适配器调用；四目标 Outbox 只有生产端，投递/接收幂等仍待闭环。其余完整范围保持 BUSINESS-IMPLEMENTATION.md 中的待办状态。
+
+## 2026-10-23 额度/风控 Outbox 消费续批
+
+新增两个独立 handler、严格事件解码、队列/租户/原终态/交易号与退款容量复核；短事务返回一致快照后才调用下游。额度复用原 confirm/release API、SERVICE JWT、ACK校验和持久幂等，释放允许空 reservation 或已过期。风控使用原咨询/决策及租户/业务事件幂等；未咨询不伪造，外部失败不默认成功。
+
+新增39个测试方法源码；同步命名 HTTP 操作和权限说明，无新增业务表。按用户暂停要求未执行检查、编译、测试、DDL 或部署。acquire/realtime 消费和 BUSINESS-IMPLEMENTATION.md 的完整待办继续推进，不据此宣称所有业务或真实链路已完成。
+
+## 2026-10-23 acquire 事件接收与第三目标投递续批
+
+已补指定 SERVICE 的 acquire 接收/语义 ACK、原事实回查权限、原 merchant owner 从数据库恢复、order/allocation/fee 与业务 Inbox 原子提交；payment 新增 acquire 独立 Outbox handler、HTTP 客户端与挂载凭证配置，校验原事件/版本/证据 ACK 后才完成目标。重放/商户 refresh/不同 delivery 不重复落账；未新建测试 RPC 或伪造渠道成功。
+
+新增一张接收回执表和37个测试方法源码，复用原 COLA 领域收敛、MapStruct、BaseDO、生成 Mapper/TableDef、HttpTemplate 和共享 SERVICE 凭证读取。按要求未运行检查/编译/测试/DDL/部署。下一步继续 realtime 独立查询投影、真实渠道发送/动作/查证、退款申请计划执行、通知及完整剩余业务。
+
+## 2026-10-23 Realtime 独立查询续批
+
+新增 realtime app/infrastructure/adapter、四类完整快照接收/语义回执、独立五表、源版本/哈希/终态与身份检查、商户授权查询/分页，以及 realtime-business 组装和配置。付款/退款可先于订单存储；缺来源不伪造金额，详情子列表改为分页，退款不改原 paid 或生成可支付金额。
+
+payment 第四目标改为设计中的完整付款快照，Y3/本地终态同事务冻结原渠道和业务时间，独立 Outbox/HTTP/ACK 投递，不同步查询 realtime 或从 realtime 决策资金。终态自动生产源码已补，订单/退款与付款中间态生产、重建和其他完整待办仍未完成。
+
+新增与同步领域/接收/查询/编码/鉴权/生产/发送测试源码，未运行检查、构建、测试、迁移、镜像或部署。新增业务 profile 不由旧骨架运行记录证明可用；继续 BUSINESS-IMPLEMENTATION.md 的全部原始范围。
+
+## 2026-10-23 acquire 订单快照生产与投递
+
+OrderSnapshotReader/MapStruct 从原订单可写事务读取落库完整头部及真实审计时间；OrderSnapshotEvents 在创单、占用、结果、关闭和延期的每个新订单版本后写同库 Outbox，检查精确版本，失败向外传播并回滚该事务。重复请求不生成新版本；输入附加/会话/关闭游标不另造快照。
+
+OrderSnapshotDelivery/handler、严格 JSON codec、AcquireRealtimeHttpClient 和 acquire-business 配置已补，沿用完整原信封发送至 realtime/order；可信租户/PROCESSING 元数据校验和 ACK 身份/版本/处置校验，网络在本地事务外。新增 acquire 挂载服务凭证读取器并复用到原 payment 出站客户端，各目标配置仍独立。未新增业务表，复用 loadup_outbox_event。
+
+同步既有测试构造器与幂等断言，新增事件生产事务失败、时间/金额冻结、独立投递与 ACK、严格解码、SERVICE 凭证轮换等测试源码。依用户要求未执行检查、构建、测试、DDL 或部署；所有新增代码状态为未验证。完整业务目标及未完事项保留于 BUSINESS-IMPLEMENTATION.md。
+
+## 2026-10-23 独立退款申请与容量预占
+
+已补 RefundPlanningService、RefundGatewayImpl、生成 Mapper/TableDef 所需三类 BaseDO、Spring MapStruct Converter、商户 JWT actor 和 RefundController。首次以原成功付款/attempt/claim/冻结合约为事实，在 parent_gate→capacity(paymentId) 锁内生成固定 FIFO 子项，原请求号与原渠道身份不随重试改变；申请、计划、子退款和所有容量 CAS 同事务提交。退款号原参数重放不重新分配，查询仅可信商户，原收款 FENCED 不阻止独立退款。
+
+V20261023030000__refund_planning.sql 新增 request/plan/child 三表，首次 INIT。按原成功时间应用合约窗口，所有金额继承 CNY 和原商户，容量预占不改 gross 已收或退款成功计数。新增业务/存储映射/鉴权测试源码，未运行。串行渠道执行/未知查证、终态应用、汇总、费用/限额恢复及投影通知保持未完，不能把计划受理作为渠道退款成功。遵守暂停验证：无检查/构建/测试/DDL/部署。
+
+## 2026-10-23 退款提交与结果事务
+
+已补 RefundExecutionLocks、RefundExecutionService、RefundResultService 及其纯领域变化约束。单步仅第一个未终结固定子项可推进；INIT→PROCESSING/submissionStartedAt 与申请版本同事务提交，只有赢家可首次 submit，重复执行 query 原号。网络不在本地事务内；本地超时只标 UNKNOWN 保留占用，缺真实渠道 binder 时不跨首次提交边界。
+
+验证结果携带完整原身份、双方渠道请求/交易号、金额与原成功时间，按稳定观察键保存回执、差错和财务认领。成功子项/申请累计/容量变化/唯一退款流水认领/回执同事务落账，失败只释放容量，重复或乱序观察不重复落账或重开终态。新增三结果表及原规划迁移的未部署提交时间列，均为源码且未执行。无商户成功注入端点，也不改原订单/付款 gross 金额。
+
+补领域边界、执行/结果服务、JSON 金额与事实摘要、存储转换测试源码；依用户要求未运行检查、构建或测试。真实渠道退款协议、自动任务驱动/未知查证、订单退款汇总/投影、退费/限额恢复和通知仍未完成；完整目标保持不变。
+
+## 2026-10-23 退款金额汇总与 realtime 自动来源
+
+新增 OrderRefundSummary 的领域/网关/BaseDO/MapStruct/生成 Mapper 接线及 V20261023050000 迁移。在退款规划/结果原事务内增加占用或确认/释放，独立金额版本不受 UNKNOWN 观察和原订单状态影响。RefundProjectionEvents 同事务读取落库原审计元数据，冻结逐笔退款全版本与金额汇总 Outbox；规划/首次提交/结果/本地 UNKNOWN 均已接入，重复观察不新增事件。
+
+新增两类独立投递/严格类型解码/命名 HTTP 操作，复用既有 payment 到 realtime 的 SERVICE 认证与原消息重试，按语义 ACK 完成目标。订单退款汇总直接去除无限历史申请列表，当前六字段金额快照及 realtime 兼容性检查/测试/文档已同步重构，无旧协议兼容。逐笔查询仍独立分页，渠道实际时间与数据库审计时间不相互伪造。
+
+本批新增及同步测试源码未运行；未执行检查、构建、测试、DDL、镜像或部署。业务完整目标仍未完成，后续为真实渠道与自动驱动、费用/额度恢复、商户通知、重建和对账。

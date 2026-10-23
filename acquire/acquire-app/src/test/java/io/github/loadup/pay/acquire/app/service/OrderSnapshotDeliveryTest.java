@@ -1,0 +1,81 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.acquire.app.service;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.outbox.*;
+import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.acquire.app.port.*;
+import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
+import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
+import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
+import org.junit.jupiter.api.*;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.util.Optional;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class OrderSnapshotDeliveryTest {
+    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final OrderSnapshotEnvelopeCodec codec = mock(OrderSnapshotEnvelopeCodec.class);
+    final AcquireRealtimeClient client = mock(AcquireRealtimeClient.class);
+    final OrderSnapshotDelivery delivery = new OrderSnapshotDelivery(outbox, codec, client);
+    final PayEventEnvelope<OrderSnapshotEventDTO> snapshot = new PayEventEnvelope<>("delivery", "change", "acquire",
+            OrderSnapshotEvents.TYPE, 1, "order", 2, BusinessTime.external(CheckoutFixtures.NOW),
+            new OrderSnapshotEventDTO("order", "merchant", "M001", 10000, "CNY", 4000, 2000, AcquireOrderState.PENDING,
+                    BusinessTime.external(CheckoutFixtures.NOW.minusDays(1)), BusinessTime.external(CheckoutFixtures.NOW), 2));
+    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage("tenant", OrderSnapshotEvents.TYPE, 1, "order", "payload"),
+            snapshot.occurredAt().toInstant(), null);
+    @BeforeEach void setup() {
+        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", OrderSnapshotEvents.TYPE, "order", "PROCESSING", 1, null)));
+        when(codec.decode("payload")).thenReturn(snapshot); when(client.supportsTenant("tenant")).thenReturn(true);
+        when(client.apply("tenant", snapshot)).thenAnswer(c -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 2, "APPLIED", true);
+        });
+    }
+    void send() { TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event)); }
+    @Test void retriesTheOriginalSnapshotAndIdentityWithoutReadingTheCurrentOrder() {
+        send(); send(); verify(client, times(2)).apply("tenant", snapshot);
+    }
+    @Test void aLaterProjectionMayAcknowledgeAnOlderSnapshotAsStale() {
+        when(client.apply("tenant", snapshot)).thenReturn(new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 5, "STALE", true));
+        assertDoesNotThrow(this::send);
+    }
+    @Test void wrongDeliveryOrSourceVersionCannotAcknowledgeThisTarget() {
+        when(client.apply("tenant", snapshot)).thenReturn(new ProjectionAckDTO("other", "change", "acquire", "order", 2, 2, "APPLIED", true));
+        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, this::send).getResultCode());
+        when(client.apply("tenant", snapshot)).thenReturn(new ProjectionAckDTO("delivery", "change", "acquire", "order", 3, 3, "APPLIED", true));
+        assertThrows(CommonException.class, this::send);
+    }
+    @Test void anotherTenantOrUnclaimedQueueCannotSend() {
+        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
+        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", OrderSnapshotEvents.TYPE, "order", "SUCCEEDED", 1, null)));
+        assertThrows(CommonException.class, this::send); verify(client, never()).apply(anyString(), any());
+    }
+    @Test void downstreamFailureLeavesTheTargetAvailableForDispatcherRetry() {
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(client).apply(anyString(), any());
+        assertThrows(CommonException.class, this::send);
+    }
+    @Test void outerTransactionCannotContainProjectionNetworkIo() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, this::send).getResultCode()); }
+        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        verifyNoInteractions(client);
+    }
+}

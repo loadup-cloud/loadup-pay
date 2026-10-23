@@ -1,0 +1,37 @@
+# Build with -Prealtime-business and activate this runtime profile.
+spring:
+  datasource:
+    url: ${REALTIME_JDBC_URL}
+    username: ${REALTIME_JDBC_USERNAME}
+    password: ${REALTIME_JDBC_PASSWORD}
+    hikari:
+      connection-init-sql: "SET time_zone = '+08:00'"
+loadup:
+  modules:
+    realtime:
+      payment-service-id: ${REALTIME_PAYMENT_SERVICE_ID:payment}
+      acquire-service-id: ${REALTIME_ACQUIRE_SERVICE_ID:acquire}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        parameter-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${REALTIME_JWT_ISSUER_URI}
+      audience: ${REALTIME_JWT_AUDIENCE}
+      jwk-set-uri: ${REALTIME_JWT_JWK_SET_URI}
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: [readinessState, db]

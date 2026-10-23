@@ -25,13 +25,16 @@ import static io.github.loadup.pay.common.DomainViolation.Reason.INVALID_ARGUMEN
 import static io.github.loadup.pay.common.DomainViolation.require;
 
 public record PreparedChannelRefund(
-        ChannelPaymentIdentity original, String refundId, String channelRefundNo, Money amount) {
+        ChannelPaymentIdentity original, String refundId, String channelRefundNo, Money amount,
+        Money originalAmount, String originalChannelTransactionNo) {
     public PreparedChannelRefund {
         Objects.requireNonNull(original);
         DomainChecks.id(refundId);
         DomainChecks.text(channelRefundNo, 64);
         DomainChecks.amount(amount);
-        require(amount.getCent() > 0, INVALID_ARGUMENT);
+        DomainChecks.amount(originalAmount); DomainChecks.text(originalChannelTransactionNo, 128);
+        require(amount.getCent() > 0 && amount.getCent() <= originalAmount.getCent()
+                && amount.getCurrencyValue().equals(originalAmount.getCurrencyValue()), INVALID_ARGUMENT);
     }
 
     @Override

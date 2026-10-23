@@ -1,0 +1,128 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.app.service;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.outbox.*;
+import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.payment.app.model.*;
+import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
+import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
+import io.github.loadup.pay.payment.domain.model.*;
+import org.junit.jupiter.api.*;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class RefundProjectionEventsTest {
+    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundProjectionConverter.class.getPackageName());
+    final RefundSummaryGateway summaries = mock(RefundSummaryGateway.class);
+    final RefundSnapshotReader reader = mock(RefundSnapshotReader.class);
+    final OutboxTemplate outbox = mock(OutboxTemplate.class);
+    final AtomicReference<OrderRefundSummary> summary = new AtomicReference<>();
+    final AtomicReference<RefundProgressChange> current = new AtomicReference<>();
+    final AtomicInteger ids = new AtomicInteger();
+    final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
+    final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(manager);
+    final RefundProjectionEvents events = new RefundProjectionEvents(summaries, reader, context.getBean(RefundProjectionConverter.class),
+            outbox, () -> "delivery-" + ids.incrementAndGet());
+    final LocalDateTime createdAt = RefundResultFixtures.NOW.minusSeconds(30);
+    @BeforeEach void setup() {
+        when(summaries.lock("tenant", "order")).thenAnswer(c -> Optional.ofNullable(summary.get()));
+        doAnswer(c -> { summary.set(c.getArgument(1)); return null; }).when(summaries).insert(eq("tenant"), any());
+        doAnswer(c -> { summary.set(c.getArgument(2)); return null; }).when(summaries).update(eq("tenant"), any(), any());
+        when(reader.summary("tenant", "order")).thenAnswer(c -> new RefundSummaryFacts(summary.get(), RefundResultFixtures.NOW));
+        when(reader.child(eq("tenant"), anyString())).thenAnswer(c -> {
+            var original = RefundResultFixtures.initial().allocations().stream().filter(a -> a.refund().id().equals(c.getArgument(1))).findFirst().orElseThrow();
+            var child = current.get() != null && current.get().refund().id().equals(original.refund().id()) ? current.get().refund() : original.refund();
+            return new RefundSnapshotFacts(child.id(), child.refundRequestId(), child.paymentId(), "order", "merchant", child.amount(),
+                    child.state().name(), createdAt, RefundResultFixtures.NOW, child.state() == RefundState.SUCCEEDED ? RefundResultFixtures.NOW : null, child.version());
+        });
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive()); assertEquals("tenant", TenantUtil.getTenantId());
+            return null;
+        }).when(outbox).publish(any());
+    }
+    @AfterEach void close() { context.close(); }
+    void plan() { transactions.write("tenant", () -> { events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY")); return true; }); }
+    RefundProgressChange change(ChannelRefundOutcome.Kind kind) {
+        var stored = RefundResultFixtures.initial(); var child = stored.allocations().getFirst();
+        var started = child.refund().beginSubmission();
+        var request = stored.request().apply(started);
+        var before = new RefundExecutionFacts(context.getBean(RefundExecutionConverter.class).withRefund(child, started), RefundResultFixtures.NOW, null, null);
+        var outcome = RefundResultFixtures.capacity().applyOutcome(started, new ChannelRefundOutcome(started.id(), kind, started.amount(), "receipt"));
+        return new RefundProgressChange(before, outcome.refund(), request, request.apply(outcome.refund()), RefundResultFixtures.capacity(), outcome.capacity(),
+                RefundResultFixtures.NOW, kind == ChannelRefundOutcome.Kind.SUCCEEDED ? "refund-transaction" : null,
+                kind == ChannelRefundOutcome.Kind.SUCCEEDED ? RefundResultFixtures.NOW : null);
+    }
+    void changed(RefundProgressChange change) {
+        current.set(change); transactions.write("tenant", () -> { events.changed("tenant", change); return true; });
+    }
+    @Test void planningFreezesEveryInitChildAndOneBoundedOrderMonetarySnapshot() {
+        plan();
+        var capture = ArgumentCaptor.forClass(OutboxMessage.class); verify(outbox, times(3)).publish(capture.capture());
+        assertEquals(1500, summary.get().reservedMinor()); assertEquals(1, summary.get().version());
+        var message = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.SUMMARY)).findFirst().orElseThrow();
+        var json = JsonMapper.builder().build();
+        Map<?, ?> envelope = json.readValue(message.payload(), Map.class);
+        var data = (Map<?, ?>)envelope.get("data");
+        assertFalse(data.containsKey("requests")); assertTrue(message.payload().length() < 2048);
+        assertEquals(1500, ((Number)data.get("refundReservedMinor")).longValue()); assertEquals("order", envelope.get("aggregateId"));
+        var child = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.CHILD)).findFirst().orElseThrow();
+        Map<?, ?> childEnvelope = json.readValue(child.payload(), Map.class);
+        var childData = (Map<?, ?>)childEnvelope.get("data");
+        assertEquals(0, ((Number)childData.get("sourceVersion")).longValue()); assertEquals("INIT", childData.get("state"));
+        assertEquals(BusinessTime.external(createdAt).toInstant(), java.time.OffsetDateTime.parse((String)childData.get("refundCreatedAt")).toInstant());
+    }
+    @Test void successConsumesTheOrderHoldAndPublishesIndependentChildAndSummaryVersions() {
+        plan(); clearInvocations(outbox, summaries);
+        changed(change(ChannelRefundOutcome.Kind.SUCCEEDED));
+        assertEquals(1000, summary.get().refundedMinor()); assertEquals(500, summary.get().reservedMinor()); assertEquals(2, summary.get().version());
+        verify(outbox, times(2)).publish(any()); verify(summaries).update(eq("tenant"), any(), any());
+    }
+    @Test void unknownPublishesOnlyTheChildAndKeepsTheOrderMonetaryVersion() {
+        plan(); clearInvocations(outbox, summaries);
+        changed(change(ChannelRefundOutcome.Kind.UNKNOWN));
+        assertEquals(0, summary.get().refundedMinor()); assertEquals(1500, summary.get().reservedMinor()); assertEquals(1, summary.get().version());
+        verify(outbox, times(1)).publish(argThat(m -> m.type().equals(RefundProjectionEvents.CHILD)));
+        verify(summaries, never()).update(anyString(), any(), any());
+    }
+    @Test void definiteFailureOnlyReleasesTheHoldAndDoesNotCountAsReturnedMoney() {
+        plan(); changed(change(ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND));
+        assertEquals(0, summary.get().refundedMinor()); assertEquals(500, summary.get().reservedMinor()); assertEquals(2, summary.get().version());
+    }
+    @Test void outboxFailureAbortsTheWholeOwningTransactionBoundary() {
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(outbox).publish(any());
+        assertThrows(CommonException.class, this::plan); assertEquals(0, manager.commits); assertEquals(1, manager.rollbacks);
+        // The mock manager checks propagation only; real summary/request/capacity rollback requires MySQL acceptance.
+    }
+    @Test void anotherTenantOrMissingTransactionCannotPublish() {
+        assertSame(INVALID_STATE, assertThrows(CommonException.class,
+                () -> events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY"))).getResultCode());
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> transactions.write("other",
+                () -> { events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.amount(10000, "CNY")); return true; })).getResultCode());
+        verifyNoInteractions(summaries, outbox);
+    }
+}

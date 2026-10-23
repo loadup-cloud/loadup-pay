@@ -26,16 +26,12 @@ import java.util.List;
 
 public record TradeDetailDTO(
         @Schema(description = "Order") @Valid TradeOrderDTO order,
-        @Schema(description = "Payments") @Valid List<TradePaymentDTO> payments,
-        @Schema(description = "Refunds") @Valid List<TradeRefundDTO> refunds,
 
         @Schema(description = "Independent complete refund summary") @Valid
         OrderRefundSummaryEventDTO refundSummary,
 
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {
-        payments = payments == null ? List.of() : List.copyOf(payments);
-        refunds = refunds == null ? List.of() : List.copyOf(refunds);
         if (snapshotAt != null)
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
     }

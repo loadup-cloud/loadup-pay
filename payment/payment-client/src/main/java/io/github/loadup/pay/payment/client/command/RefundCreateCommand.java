@@ -35,12 +35,12 @@ public record RefundCreateCommand(
         @Schema(description = "Merchant refund no") @NotBlank @Size(max = 64)
         String merchantRefundNo,
 
-        @Schema(description = "Amount minor") @Positive long amountMinor,
+        @Schema(description = "Fixed requested refund amount in CNY minor units (fen)") @Positive long amountMinor,
 
         @Schema(description = "Reason code") @NotBlank @Size(max = 64)
         String reasonCode,
 
-        @Schema(description = "Explicit allocations") @Valid List<RefundExplicitAllocationDTO> explicitAllocations) {
+        @Schema(description = "Explicit allocations; must be empty for the supported FIFO policy") @Valid List<RefundExplicitAllocationDTO> explicitAllocations) {
     public RefundCreateCommand {
         explicitAllocations = explicitAllocations == null ? List.of() : List.copyOf(explicitAllocations);
     }

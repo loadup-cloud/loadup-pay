@@ -16,58 +16,29 @@
 package io.github.loadup.pay.payment.client.event;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.common.DomainChecks;
-import io.github.loadup.pay.common.DomainViolation;
-import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.payment.client.dto.RefundRequestSummaryDTO;
+import io.github.loadup.pay.common.*;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.Valid;
-
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import static io.github.loadup.pay.common.DomainViolation.*;
+import static io.github.loadup.pay.common.DomainViolation.Reason.*;
 
+/** Complete monetary snapshot, bounded independently of historical refund-request count. */
 public record OrderRefundSummaryEventDTO(
         @Schema(description = "Order id") String orderId,
         @Schema(description = "Payee merchant id") String payeeMerchantId,
         @Schema(description = "Currency") String currency,
-        @Schema(description = "Refunded minor") long refundedMinor,
-        @Schema(description = "Refund reserved minor") long refundReservedMinor,
-        @Schema(description = "Refund summary version") long refundSummaryVersion,
-
-        @Schema(description = "Complete refund request progress snapshots") @Valid
-        List<RefundRequestSummaryDTO> requests) {
+        @Schema(description = "Cumulative verified successful refund amount in minor units") long refundedMinor,
+        @Schema(description = "Amount held by all unfinished refund children in minor units") long refundReservedMinor,
+        @Schema(description = "Independent source monetary summary version") long refundSummaryVersion) {
     public OrderRefundSummaryEventDTO {
-        DomainChecks.id(orderId);
-        DomainChecks.id(payeeMerchantId);
-        DomainViolation.require(
-                refundedMinor >= 0 && refundReservedMinor >= 0 && refundSummaryVersion >= 0,
-                DomainViolation.Reason.INVALID_ARGUMENT);
-        DomainChecks.amount(refundedMinor, currency);
-        requests = List.copyOf(requests);
-        var ids = new HashSet<String>();
-        long succeeded = 0;
-        long reserved = 0;
-        for (var request : requests) {
-            DomainViolation.require(ids.add(request.refundRequestId()), DomainViolation.Reason.CONFLICT);
-            succeeded = Math.addExact(succeeded, request.succeededMinor());
-            reserved = Math.addExact(reserved, request.reservedMinor());
-        }
-        DomainViolation.require(
-                succeeded == refundedMinor && reserved == refundReservedMinor, DomainViolation.Reason.CONFLICT);
+        DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId); DomainChecks.amount(refundedMinor, currency);
+        require(refundedMinor >= 0 && refundReservedMinor >= 0 && refundReservedMinor <= Long.MAX_VALUE - refundedMinor
+                && refundSummaryVersion >= 0, INVALID_ARGUMENT);
     }
-
     public void requireEnvelope(PayEventEnvelope<?> envelope) {
-        DomainViolation.require(
-                equals(envelope.data())
-                        && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
-                                .contains(envelope.eventType()),
-                DomainViolation.Reason.CONFLICT);
+        require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
+                .contains(envelope.eventType()), CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
     }
-
-    @Override
-    public String toString() {
-        return ToStringAsJson.reflectionToString(this);
-    }
+    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

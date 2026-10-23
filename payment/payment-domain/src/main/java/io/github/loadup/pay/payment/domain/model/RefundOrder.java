@@ -43,6 +43,7 @@ public record RefundOrder(
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(terminalEvidenceId);
+        else require(terminalEvidenceId == null, INVALID_ARGUMENT);
     }
 
     public static RefundOrder init(String id, String request, String payment, Money amount, String channelRefundNo) {
@@ -51,6 +52,12 @@ public record RefundOrder(
 
     public boolean terminal() {
         return state == RefundState.SUCCEEDED || state == RefundState.FAILED;
+    }
+
+    /** A durable one-way boundary: only the transaction winner may make the first network submission. */
+    public RefundOrder beginSubmission() {
+        require(state == RefundState.INIT && version == 0, io.github.loadup.pay.common.DomainViolation.Reason.INVALID_STATE);
+        return new RefundOrder(id, refundRequestId, paymentId, amount, channelRefundNo, RefundState.PROCESSING, null, Math.incrementExact(version));
     }
 
     public RefundOrder recordOutcome(ChannelRefundOutcome verified) {
@@ -74,7 +81,7 @@ public record RefundOrder(
                 amount,
                 channelRefundNo,
                 outcome,
-                verified.evidenceId(),
+                outcome == RefundState.SUCCEEDED || outcome == RefundState.FAILED ? verified.evidenceId() : null,
                 Math.incrementExact(version));
     }
 

@@ -15,24 +15,18 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.pay.payment.domain.model.RefundRequest;
-
+import io.github.loadup.pay.payment.domain.model.*;
 import java.util.List;
 import java.util.Optional;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/** The caller owns the parent gate lock and one writable payment transaction. */
 public interface RefundGateway {
-    Optional<RefundRequest> find(String tenantId, String refundRequestId);
-
-    Optional<RefundRequest> findMerchantRefund(String tenantId, String payeeMerchantId, String merchantRefundNo);
-
-    /** Lock parent gate, then request, capacity by paymentId, then child; never reverse that order. */
-    RefundRequest lock(String tenantId, String refundRequestId);
-
-    List<PaymentRefundCapacity> lockCapacities(String tenantId, String orderId);
-
-    void savePlan(String tenantId, RefundRequest request, List<PaymentRefundCapacity> capacities);
-
-    void saveOutcome(String tenantId, RefundRequest request, PaymentRefundCapacity capacity, long expectedVersion);
+    Optional<RefundRequestReference> reference(String tenant, String id);
+    Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String merchantRefundNo);
+    StoredRefundRequest load(String tenant, String id);
+    StoredRefundRequest lock(String tenant, String id);
+    /** Ascending paymentId locks; FIFO sorting happens only after every capacity is locked. */
+    List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId);
+    /** Request, immutable plan, stable children and all capacity CAS writes are one local transaction. */
+    void insertPlan(String tenant, StoredRefundRequest value, List<RefundCapacityReservation> reservations);
 }

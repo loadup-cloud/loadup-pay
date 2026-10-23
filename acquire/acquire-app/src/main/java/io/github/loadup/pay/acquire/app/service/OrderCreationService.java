@@ -49,6 +49,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
     private final Validator validator;
     private final Clock clock;
     private final CheckoutSessionOperations sessions;
+    private final OrderSnapshotEvents snapshots;
 
     public OrderCreationService(
             AcquireActorProvider actors,
@@ -60,7 +61,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             CheckoutSessionOperations sessions,
             IdGenerator ids,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
+            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.store = store;
         this.product = product;
@@ -71,6 +72,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         this.ids = ids;
         this.validator = validator;
         this.clock = clock;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -194,6 +196,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             if (initial != null) sessions.insertInitial(actor.tenantId(), initial);
             var finished = locked.finish("COMPLETED", admission.admissionId(), before, "SUCCESS");
             store.updateIntent(actor.tenantId(), finished, locked.rowVersion());
+            snapshots.publish(actor.tenantId(), order.id(), order.version());
             return finished;
         });
         // Throw only after committing a stable rejection/expiry; do not roll its evidence back.

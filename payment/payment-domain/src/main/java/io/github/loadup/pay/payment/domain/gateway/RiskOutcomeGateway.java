@@ -17,7 +17,10 @@ package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.RiskOutcome;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/**
+ * At-least-once result delivery. Providers deduplicate tenantId/businessEventId and bind the full source version/fact.
+ * Return only after the receiver accepted the fact; propagate failures so Outbox can retry.
+ */
 public interface RiskOutcomeGateway {
     void confirm(RiskOutcome outcome);
 }

@@ -48,6 +48,7 @@ class OrderCreationServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(AcquireOrderConverter.class.getPackageName());
     final OrderCreationGateway store = mock(OrderCreationGateway.class);
+    final OrderSnapshotEvents snapshots = mock(OrderSnapshotEvents.class);
     final OrderAdmissionClient product = mock(OrderAdmissionClient.class);
     final OrderCreationCodec codec = mock(OrderCreationCodec.class);
     final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);
@@ -82,7 +83,7 @@ class OrderCreationServiceTest {
                     Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE)),
             () -> "id-" + sequence.incrementAndGet(),
             validation.getValidator(),
-            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE));
+            Clock.fixed(now.atZone(BusinessTime.ZONE).toInstant(), BusinessTime.ZONE), snapshots);
     final AcquireOrderCreateCommand command =
             new AcquireOrderCreateCommand("merchant", "M001", "scope", 10000, "CNY", "test order", null);
 
@@ -91,6 +92,13 @@ class OrderCreationServiceTest {
 
     @BeforeEach
     void setup() {
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            assertEquals(order.get().order().id(), c.getArgument(1));
+            assertEquals(order.get().order().version(), (long) c.getArgument(2));
+            return null;
+        }).when(snapshots).publish(eq("tenant"), anyString(), anyLong());
         when(codec.checkoutDigest(anyString(), anyString(), any())).thenReturn("a".repeat(64));
         when(codec.encodeCheckout(any())).thenReturn("checkout-json");
         when(codec.decodeCheckout(any())).thenReturn(checkout);
@@ -224,6 +232,7 @@ class OrderCreationServiceTest {
                                 && fee.feeAmount().getCent() == 30
                                 && fee.state() == FeeState.INIT),
                         eq("fee-json"));
+        verify(snapshots).publish("tenant", dto.orderId(), order.get().order().version());
     }
 
     @Test
@@ -236,6 +245,17 @@ class OrderCreationServiceTest {
         assertEquals(first, read);
         verifyNoInteractions(product);
         verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verify(snapshots, times(1)).publish(eq("tenant"), eq(first.orderId()), anyLong());
+    }
+
+    @Test
+    void snapshotFailureRollsBackMaterializationWhileKeepingTheCommittedOriginalIntent() {
+        doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(snapshots).publish(anyString(), anyString(), anyLong());
+        assertSame(DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> service.create(command)).getResultCode());
+        assertEquals(1, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        // The unit transaction manager proves boundary propagation, not real database rollback.
     }
 
     @Test

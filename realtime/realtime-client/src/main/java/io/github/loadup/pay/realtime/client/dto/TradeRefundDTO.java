@@ -42,10 +42,13 @@ public record TradeRefundDTO(
         String currency,
 
         @Schema(description = "State") RefundState state,
+        @Schema(description = "Original child refund creation time") OffsetDateTime refundCreatedAt,
         @Schema(description = "Succeeded at") OffsetDateTime succeededAt,
         @Schema(description = "Source version") long sourceVersion,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeRefundDTO {
+        if (refundCreatedAt != null)
+            refundCreatedAt = refundCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
         if (succeededAt != null)
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
         if (snapshotAt != null)

@@ -1,0 +1,63 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.infrastructure.client;
+
+import io.github.loadup.commons.enums.CommonResultCodeEnum;
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.http.*;
+import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
+import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
+import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
+import java.time.Clock;
+import java.util.Map;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+@Component
+public class PaymentAcquireHttpClient implements PaymentAcquireClient {
+    private final HttpTemplate http;
+    private final JsonMapper mapper;
+    private final PaymentAcquireProperties properties;
+    private final PaymentServiceTokenReader tokens;
+    public PaymentAcquireHttpClient(HttpTemplate http, JsonMapper mapper, PaymentAcquireProperties properties,
+            @Qualifier("paymentClock") Clock clock) {
+        this.http = http; this.mapper = mapper; this.properties = properties; this.tokens = new PaymentServiceTokenReader(mapper, clock);
+    }
+    @Override public boolean supportsTenant(String tenant) { return properties.tenantId().equals(tenant); }
+    @Override public PaymentOutcomeAckDTO accept(String tenant, PayEventEnvelope<PaymentOutcomeEventDTO> event) {
+        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        try {
+            var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
+            var response = http.exchange("acquire", "payment-outcome",
+                    new HttpCall(Map.of(), Map.of(), Map.of("Authorization", "Bearer " + token), event));
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            var body = mapper.readValue(response.getBody(), new TypeReference<SuccessResponse<PaymentOutcomeAckDTO>>() {});
+            if (body == null || body.result() == null || body.data() == null
+                    || !CommonResultCodeEnum.SUCCESS.getCode().equals(body.result().getCode())
+                    || !CommonResultCodeEnum.SUCCESS.getStatus().equals(body.result().getStatus()))
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            return body.data();
+        } catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+    }
+}

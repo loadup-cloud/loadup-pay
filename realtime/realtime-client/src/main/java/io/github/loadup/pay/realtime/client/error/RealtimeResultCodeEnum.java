@@ -22,6 +22,11 @@ public enum RealtimeResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("REALTIME_INVALID_ARGUMENT", "Invalid argument"),
     INVALID_PAGE("REALTIME_INVALID_PAGE", "Invalid page"),
     NOT_FOUND("REALTIME_NOT_FOUND", "Trade projection not found"),
+    INVALID_STATE("REALTIME_INVALID_STATE", "Invalid projection transaction state"),
+    SOURCE_CONFLICT("REALTIME_SOURCE_CONFLICT", "Source snapshot conflicts with a stored fact"),
+    IDEMPOTENCY_CONFLICT("REALTIME_IDEMPOTENCY_CONFLICT", "Delivery payload changed"),
+    SNAPSHOT_INVALID("REALTIME_SNAPSHOT_INVALID", "Stored projection is invalid"),
+    CONCURRENT_UPDATE("REALTIME_CONCURRENT_UPDATE", "Concurrent projection update"),
     QUERY_FORBIDDEN("REALTIME_QUERY_FORBIDDEN", "Merchant query scope is not authorized");
 
     private final String code;

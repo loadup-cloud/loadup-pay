@@ -11,6 +11,11 @@
     <artifactId>payment-app</artifactId>
     <name>LoadUp Pay Payment App</name>
     <dependencies>
+        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>realtime-client</artifactId></dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-outbox</artifactId>

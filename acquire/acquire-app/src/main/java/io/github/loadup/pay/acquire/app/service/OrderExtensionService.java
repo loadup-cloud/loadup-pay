@@ -49,11 +49,12 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+    private final OrderSnapshotEvents snapshots;
 
     public OrderExtensionService(AcquireActorProvider actors, OrderCreationGateway orders, OrderExtensionGateway store,
             OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
             OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
+            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -64,6 +65,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         this.ids = ids;
         this.validator = validator;
         this.clock = clock;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -101,6 +103,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
             var receipt = converter.toReceipt(command, order, ids.generate(), actor.scopeHash(), digest,
                     originalDue, requested, Math.incrementExact(deadlineVersion), appliedAt);
             store.extend(actor.tenantId(), extended, receipt);
+            snapshots.publish(actor.tenantId(), extended.id(), extended.version());
             return orderConverter.toDTO(orders.findOrder(actor.tenantId(), command.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
         });

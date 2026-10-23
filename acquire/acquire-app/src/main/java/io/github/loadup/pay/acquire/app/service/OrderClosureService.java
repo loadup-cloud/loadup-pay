@@ -52,11 +52,12 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+    private final OrderSnapshotEvents snapshots;
 
     public OrderClosureService(AcquireActorProvider actors, OrderCreationGateway orders, OrderClosureGateway store,
             PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
             AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
-            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
+            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -69,6 +70,7 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
         this.ids = ids;
         this.validator = validator;
         this.clock = clock;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -99,6 +101,7 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
                 var closing = order.order().requestClose();
                 var value = converter.toIntent(command, closing, ids.generate(), actor.scopeHash(), digest, now());
                 store.start(actor.tenantId(), closing, value, order.order().version());
+                snapshots.publish(actor.tenantId(), closing.id(), closing.version());
                 return value;
             });
             var original = current(actor, intent);
@@ -129,6 +132,7 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
                     return orderConverter.toDTO(order, now());
                 var closed = order.order().finishClose(converter.toEvidence(intent, status));
                 store.finish(actor.tenantId(), closed, order.order().version(), now());
+                snapshots.publish(actor.tenantId(), closed.id(), closed.version());
                 return orderConverter.toDTO(orders.findOrder(actor.tenantId(), intent.orderId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
             });

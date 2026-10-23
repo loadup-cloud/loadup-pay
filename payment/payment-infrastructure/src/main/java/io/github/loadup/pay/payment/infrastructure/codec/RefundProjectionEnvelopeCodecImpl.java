@@ -1,0 +1,53 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.infrastructure.codec;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.common.PayEventEnvelope;
+import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
+import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
+import io.github.loadup.pay.payment.client.event.*;
+import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+@Component
+public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelopeCodec {
+    private final JsonMapper json;
+    public RefundProjectionEnvelopeCodecImpl(JsonMapper json) { this.json = json.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(); }
+    @Override public PayEventEnvelope<RefundSnapshotEventDTO> child(String payload) {
+        try {
+            var event = decode(payload, new TypeReference<PayEventEnvelope<RefundSnapshotEventDTO>>() {});
+            event.data().requireEnvelope(event); return event;
+        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+    }
+    @Override public PayEventEnvelope<OrderRefundSummaryEventDTO> summary(String payload) {
+        try {
+            var event = decode(payload, new TypeReference<PayEventEnvelope<OrderRefundSummaryEventDTO>>() {});
+            event.data().requireEnvelope(event);
+            event.requireSource(RefundProjectionEvents.SUMMARY, "payment", event.data().orderId(), event.data().refundSummaryVersion());
+            return event;
+        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+    }
+    private <T> T decode(String payload, TypeReference<T> type) {
+        if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
+        var event = json.readValue(payload, type);
+        if (event == null) throw new CommonException(SNAPSHOT_INVALID);
+        return event;
+    }
+}

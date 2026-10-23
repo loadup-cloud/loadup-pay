@@ -9,7 +9,13 @@ spring:
 loadup:
   modules:
     acquire:
+      payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
       product-audience: ${PRODUCT_JWT_AUDIENCE}
+      realtime:
+        tenant-id: ${ACQUIRE_REALTIME_TENANT_ID:${ACQUIRE_PAYMENT_TENANT_ID}}
+        service-id: ${ACQUIRE_SERVICE_ID:acquire}
+        audience: ${REALTIME_JWT_AUDIENCE}
+        token-file: ${ACQUIRE_REALTIME_TOKEN_FILE}
       payment:
         tenant-id: ${ACQUIRE_PAYMENT_TENANT_ID}
         service-id: ${ACQUIRE_SERVICE_ID:acquire}
@@ -42,6 +48,21 @@ loadup:
   http:
     enabled: true
     clients:
+      realtime:
+        base-url: ${REALTIME_BASE_URL}
+        allow-private-addresses: true
+        connect-timeout: 2s
+        read-timeout: 3s
+        acquire-timeout: 1s
+        max-request-bytes: 65536
+        max-response-bytes: 16384
+        operations:
+          order:
+            method: POST
+            path: /api/realtime/projections/order
+            headers:
+              Content-Type: application/json
+              Accept: application/json
       payment:
         base-url: ${PAYMENT_BASE_URL}
         allow-private-addresses: true
@@ -72,6 +93,12 @@ loadup:
           outcome:
             method: POST
             path: /api/payment/executions/outcome
+            headers:
+              Content-Type: application/json
+              Accept: application/json
+          facts:
+            method: POST
+            path: /api/payment/facts/payment
             headers:
               Content-Type: application/json
               Accept: application/json

@@ -15,6 +15,9 @@
     <modules>
         <module>realtime-client</module>
         <module>realtime-domain</module>
+        <module>realtime-app</module>
+        <module>realtime-infrastructure</module>
+        <module>realtime-adapter</module>
         <module>realtime-bootstrap</module>
     </modules>
 </project>

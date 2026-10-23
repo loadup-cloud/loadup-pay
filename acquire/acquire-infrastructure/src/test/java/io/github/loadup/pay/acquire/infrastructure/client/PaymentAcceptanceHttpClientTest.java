@@ -23,6 +23,7 @@ import io.github.loadup.components.http.*;
 import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import java.nio.file.*;
 import java.time.*;
@@ -109,6 +110,20 @@ class PaymentAcceptanceHttpClientTest {
         client.detail("tenant", "payment");
         var calls = ArgumentCaptor.forClass(HttpCall.class);
         verify(http).exchange(eq("payment"), eq("detail"), calls.capture());
+        assertEquals(new IdQuery("payment"), calls.getValue().body());
+    }
+
+    @Test
+    void eventAuthorityUsesTheRichFactsOperationInsteadOfDiscardingOperationAndPayee() {
+        var payment = new PaymentExecutionDTO("payment", "order", "allocation", 100, "CNY", PaymentState.SUCCEEDED,
+                "attempt", null, "proof", 2, OffsetDateTime.now(clock));
+        when(http.exchange(eq("payment"), eq("facts"), any(HttpCall.class))).thenReturn(ResponseEntity.ok(
+                mapper.writeValueAsBytes(SuccessResponse.of(new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))));
+        var facts = client.facts("tenant", "payment");
+        assertEquals("operation", facts.limitOperationId());
+        assertEquals("merchant", facts.payeeMerchantId());
+        var calls = ArgumentCaptor.forClass(HttpCall.class);
+        verify(http).exchange(eq("payment"), eq("facts"), calls.capture());
         assertEquals(new IdQuery("payment"), calls.getValue().body());
     }
 

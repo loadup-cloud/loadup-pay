@@ -50,7 +50,6 @@ public record TradeRefundProjection(
         Objects.requireNonNull(snapshotAt);
         Objects.requireNonNull(refundCreatedAt);
         require("SUCCEEDED".equals(state) == (succeededAt != null), INVALID_STATE);
-        if (succeededAt != null) require(!succeededAt.isBefore(refundCreatedAt), INVALID_ARGUMENT);
         require(
                 amount.getCent() > 0
                         && state != null

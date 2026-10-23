@@ -370,7 +370,7 @@ public record RefundAllocationDTO(
 
 金额/币种和原商户校验由payment完成，币种继承原付款/订单，不能通过退款换汇。默认FIFO；explicitAllocations只有原合约选择且实际实现EXPLICIT时可传，金额求和必须恰等于申请额，paymentId归同一order/payee/currency。FIFO下传显式分配是参数错误；首期未实现LIFO/EXPLICIT时在发布配置时拒绝，不运行时静默降为FIFO。
 
-创建申请返回PROCESSING或即时已知进度。原订单/成功付款一直保持原状态；部分已收订单能否退及窗口按原退款条款，不把“父订单PAID后禁止订单操作”解释成禁止独立退款。
+首次创建申请返回INIT及固定分配计划；原退款号重试返回当前已知进度。INIT仅表示本地申请和容量预占已提交，不表示渠道已执行。原订单/成功付款一直保持原状态；部分已收订单能否退及窗口按原退款条款，不把“父订单PAID后禁止订单操作”解释成禁止独立退款。
 
 首期按plan.sequenceNo串行执行，前项确定成功/失败后继续固定计划下一项，UNKNOWN先等待查证。确定FAILED不重新打开；通信重放只查原请求号/原ID。退款查询由payment读取申请与固定子项，商户同refundNo重试返回原计划；子项UNKNOWN不释放可退容量，不把同一个计划失败项自动改退另一笔成功付款。成功后的RefundSucceeded通知与订单完成通知完全独立。
 
@@ -577,10 +577,10 @@ reconciliation后置消费独立事件镜像/受控权威快照。预留`SubmitE
 
 ```java
 public interface TradeProjectionFacade {
-    void applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
-    void applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event);
-    void applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event);
-    void applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
+    ProjectionAckDTO applyOrder(PayEventEnvelope<OrderSnapshotEventDTO> event);
+    ProjectionAckDTO applyPayment(PayEventEnvelope<PaymentSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefund(PayEventEnvelope<RefundSnapshotEventDTO> event);
+    ProjectionAckDTO applyRefundSummary(PayEventEnvelope<OrderRefundSummaryEventDTO> event);
 }
 ```
 
@@ -589,9 +589,9 @@ public interface TradeProjectionFacade {
 | OrderSnapshotEventDTO      | order/payee/merchantOrderNo、原总额币种、gross paid/held、state、orderCreatedAt/sourceUpdatedAt、sourceVersion |
 | PaymentSnapshotEventDTO    | payment/order/payee、原付款金额币种、state、channel/accessMode、initiatedAt/succeededAt、sourceVersion         |
 | RefundSnapshotEventDTO     | refund/request/payment/order/payee、原退款金额币种、state、refundCreatedAt/succeededAt、sourceVersion          |
-| OrderRefundSummaryEventDTO | order/payee/currency、refunded/held、独立summaryVersion、完整requests进度列表                                  |
+| OrderRefundSummaryEventDTO | order/payee/currency、refunded/held、独立summaryVersion；固定大小金额快照，不携带历史申请列表                                  |
 
-不再用商户查询DTO替代这些投影事件。RefundOutcomeEventDTO专供额度恢复事实，不能充当缺少原创建/成功时间的退款完整快照。RefundRequestSummaryDTO包含申请/商户退款号、申请额、state、成功/失败额、unknownCount/version；各申请成功额之和等于refunded，各未收敛额之和等于refundReserved。列表是完整替换快照，不能发送增量列表或空列表却声明非零累计。
+不再用商户查询DTO替代这些投影事件。RefundOutcomeEventDTO专供额度恢复事实，不能充当缺少原创建/成功时间的退款完整快照。OrderRefundSummaryEventDTO只包含独立版本的累计已退/占用金额，由payment同库订单退款聚合产生，不由realtime逐笔累加。已移除无限增长的requests列表及其专用进度DTO；逐笔退款通过独立快照投影和分页查询，申请详情仍使用RefundFacade。
 
 快照的`requireEnvelope`
 核对载荷、生产方、固定投递type、schemaVersion=1、聚合ID和版本；结果事件也提供相应检查。入站适配必须另行核验经过认证的服务身份/租户，app在本地事务中处理Inbox与版本CAS。信封中的producer和业务Evidence本身不授予可信权限。
@@ -889,3 +889,61 @@ PaymentResultService.record 为应用内部用例，不新增公共 HTTP 成功�
 未来渠道回调只能先完成验签/解密/账户校验再调用该内部入口，并在事务提交之后判断返回 PaymentResultApplication：APPLIED/IGNORED 表示已保存回执，CONFLICT 表示差错事实，不能伪装普通成功 ACK。身份/金额不一致和交易号归属冲突不会更新正常付款金额。NOT_FOUND、网络错误、未认证响应均不能证明 NO_COLLECTION；资金已退回需独立补偿。
 
 终态事件复用 PaymentOutcomeEventDTO 和 PayEventEnvelope。类型为 pay.payment.outcome.acquire.v1、pay.payment.outcome.limit.v1、pay.payment.outcome.realtime.v1、pay.payment.outcome.risk.v1；每目标独立 deliveryId，共用首个终态 evidenceId 作为 businessEventId。完整原 payment/order/allocation/limitOperation/payee/金额币种、正源版本和 executionFenced 冻结在事务消息中。事件生产者字符串只作结构校验，后续消费仍需受信传输身份及各自权威事实核验。投递 handler、接收方 Inbox、商户通知签名/ACK 尚未完成，不能将入队当作送达或宣称四服务已联通。新增源码及测试未执行验证。
+
+## 33. 额度/风控终态投递实际契约
+
+PaymentLimitClient 新增 confirm(tenant, LimitConfirmCommand)、release(tenant, LimitReleaseCommand)，经 limitcenter/confirm|release 命名 HTTP 操作调用原 /api/limit/settlement/confirm|release。复用 payment 专用 SERVICE JWT，需 pay:limit:confirm|release，出站 tenant 显式固定；接收方反查付款权威事实。没有新增商户上报成功的接口。
+
+本地 limit/risk Outbox handler 核对已登记 PROCESSING 队列、目标/schema、原终态/版本/证据，再在本地锁释放后调用外部服务。释放 reason 固定 PAYMENT_FAILED/CLOSED，原 businessEvent/付款版本/证据在重试中不变。确认 ACK 核对 CONFIRMED、原 operation/payment/policy/initiatedAt；释放 ACK 核对版本/证据/fenced，reservation 可空或原 RELEASED/EXPIRED。错误回执或调用失败不完成任务。
+
+RiskOutcome 新增 tenantId/businessEventId，consultation/decision 来自原持久尝试，paymentState 仅 SUCCEEDED/FAILED/CLOSED、sourceVersion>0、evidenceId 必填。RiskOutcomeGateway.confirm 是至少一次调用，外部实现必须按 tenant/businessEvent 去重并校验同源版本/事实。未咨询的本地关闭不调用；DEFAULT_ALLOW/NOT_CONNECTED 仅来自实际默认咨询，不能吞掉已配置外部异常。外部风控协议实现仍后置。acquire/realtime 消费与商户通知签名/ACK、重放管理尚未完成；新测试源码未执行。
+
+## 34. acquire 付款事件语义 ACK 与回查权限
+
+| 接口 | 信任要求 | 结果 |
+|---|---|---|
+| POST /api/acquire/events/payment-outcome | 指定 payment SERVICE + pay:acquire:payment:outcome | SuccessResponse<PaymentOutcomeAckDTO>，本地原子提交后返回 |
+| POST /api/payment/facts/payment | 指定 acquire SERVICE + pay:payment:acquire-facts，限原 callerServiceId 付款 | 原 PaymentSettlementFactsDTO，包含原 operation/payee/状态/版本/证据/封禁 |
+| 同上事实接口的既有角色 | 指定 limitcenter SERVICE + pay:payment:limit-facts | 保留原额度查证权限 |
+
+PaymentOutcomeFacade.accept 现返回语义 ACK，字段为 deliveryId、businessEventId、paymentId、paymentVersion、evidenceId、orderVersion、accepted。orderVersion 为首次接收时观察的订单版本；同 delivery 原参数重放返回原 ACK。不同 delivery 的同一资金事实仍由原 allocation outcome receipt 去重，不能重复加 paid/减 reserved/确认费用。事件请求不包含可自行授予的 merchant owner scope。
+
+回查发生于本地锁外，接收端不凭事件标签/证据字符串直接记账。原渠道实际事实由 payment Y3 和签名适配器负责，acquire 再核对原冻结命令、operation/payee、金额/币种、终态/版本/证据。ACK 必须源标识完全相符才完成发送目标，网络超时保留原消息重试。令牌权限、单出站租户与路径配置见 payment/acquire README。新增源码未运行验证，realtime 和商户通知等尚未完成。
+
+## 35. Realtime 完整快照与商户读模型实际接口
+
+投影接口前缀 /api/realtime/projections：/order、/payment、/refund、/refund-summary，分别接既有 OrderSnapshotEventDTO、PaymentSnapshotEventDTO、RefundSnapshotEventDTO、OrderRefundSummaryEventDTO 的 PayEventEnvelope。TradeProjectionFacade 四方法现返回 ProjectionAckDTO，包含原 delivery/businessEvent/producer/aggregate/sourceVersion、接收时 projectedVersion、APPLIED/DUPLICATE/STALE 和 accepted。仅指定 acquire/payment SERVICE + 对应 pay:realtime:projection:* 权限可写。
+
+付款终态第四目标实际使用 pay.payment.snapshot.realtime.v1，取代旧不完整的 outcome.realtime；来源事务已经冻结原尝试渠道、模式、原受理/成功时间和正源版本。realtime 不进行同步来源查询。其他三类接收已补、自动生产仍待接入，不能把预留端点当作所有来源已就绪。
+
+查询前缀 /api/realtime/trades：/detail、/orders、/payments、/refunds，复用原 Query 类型和规范 SuccessResponse/PageResponse，只接受可信 merchant_id 与 pay:realtime:trade:read。请求的 payee 必须等于可信商户，SERVICE/无范围 OPERATOR 不获得任意读取权限。订单未到不阻止分页查询付款，detail 不伪造父订单。
+
+TradeDetailDTO 改为订单头、独立退款汇总与源快照时间；移除无上限 payments/refunds 内嵌数组，用独立分页接口查询。TradeOrderDTO 的退款额/净额/退款源版本可空并新增 amountsConsistent，缺退款汇总不是0；来源暂时不一致时不裁零。TradePaymentDTO/TradeRefundDTO 分别补原 initiatedAt/refundCreatedAt，分页按这些业务时间和稳定ID倒序，默认1/20、上限100。所有变更为前期直接契约重构，无旧协议适配。新增源码未运行验证。
+
+## 2026-10-23 acquire 到 realtime 的订单版本投递
+
+生产端 OrderSnapshotEvents 在订单版本事务内生成 pay.acquire.snapshot.realtime.v1 完整信封，producer=acquire、aggregate=orderId、aggregateVersion=精确 rowVersion；occurredAt/sourceUpdatedAt 使用落库更新时间，orderCreatedAt 使用原始审计创建时间。不同版本具有独立 deliveryId/businessEventId，框架重试沿用原负载和身份；普通请求回放不生成新事件。
+
+发送端使用 acquire SERVICE JWT（pay:realtime:projection:order）调用现有 POST /api/realtime/projections/order，不能转发商户 JWT。原版本已被较新快照覆盖时接受匹配身份的 STALE ACK，projectedVersion 必须不小于 sourceVersion；异常 ACK 不完成 Outbox 目标。重试不读取当前主订单，不强求实时查询已先看到所有历史版本。延期只推进当前事件已有字段和源版本，未向事件加入订单截止字段。新源码尚未运行验证。
+
+## 2026-10-23 RefundFacade 的首期实现边界
+
+POST /api/payment/refunds/create 与 /detail 使用可信 MERCHANT/MERCHANT_APP JWT：pay:payment:refund:create/read、签名 merchant_id 与当前 tenant。payeeMerchantId 不能由 body 提升到其他商户，SERVICE/OPERATOR 不获得绕过入口。创建返回 INIT 固定 FIFO 计划，子项 INIT、版本0，表示本地受理与容量已预占。相同 tenant/payee/merchantRefundNo 与相同 order/amount/reason 返回原计划/当前进度，窗口后来到期也不重新规划；改参数返回 PAYMENT_IDEMPOTENCY_CONFLICT。
+
+窗口按每笔原成功时间计算，精确截止不可新增分配；过期部分不参与 eligible FIFO。partialAllowed=false 要求当前窗口内全部可退且无占用，true 可手动输入部分金额。合约停单/原 parent_gate FENCED 不撤销原成功事实的独立退款资格；不回写 acquire 状态或 gross 已付金额。非 FIFO/显式分配未实现时明确拒绝，不静默改为 FIFO。串行退款渠道执行、查询恢复和结果事件尚未接通，新入口不是渠道退款成功证明。新增实现与测试源码未运行验证。
+
+## 2026-10-23 退款内部执行与观察契约
+
+无新增商户记账端点。RefundFacade 创建仍返回 INIT 原计划；detail 可读取后续 PROCESSING/UNKNOWN 子项与申请累计。RefundExecutionService.progress 是内部单步编排，后续由可信持久任务驱动；真实渠道 binder 暂缺，缺能力时明确拒绝且不设置已提交标记。INIT→PROCESSING 的已提交本地边界只给一次首次网络票据，重复调用只 query 原请求号，UNKNOWN 不释放金额或自动改退其他付款。
+
+PaymentChannelGateway 的 submitRefund/queryRefund 改为完整 RefundObservation，需验签/解密及实际原账户核验后生成，包含 refundId、原 ChannelPaymentIdentity、退款请求号、原支付交易号、金额、kind、成功退款流水/时间、观察来源/稳定键/源摘要。PreparedChannelRefund 补原成功付款金额和实际交易号。UNKNOWN/ACCEPTED 不携带成功流水/时间；查询未找到、超时或未认证响应不能定义为 FAILED_WITH_NO_REFUND。
+
+RefundResultService 核对原持久身份/金额及提交标记后处理，观察键重放沿用原事实；同键改金融事实、终态矛盾或真实退款流水冲突持久记录 CONFLICT，不重复退款/释放容量。渠道正/负终态都不可被商户提供的 evidenceId 直接生成。结果与提交的新增源码及测试未运行，实际渠道适配、自动恢复与下游退款事件仍待接入。
+
+## 2026-10-23 退款投影生产与固定大小汇总契约
+
+RefundSnapshotEventDTO 在 INIT、PROCESSING、UNKNOWN 与确定终态的新子项版本后，由原事务冻结原审计创建时间、真实渠道成功时间及状态/金额；同版本请求重放/忽略观察不再生产。OrderRefundSummaryEventDTO 现为 orderId/payeeMerchantId/currency/refundedMinor/refundReservedMinor/refundSummaryVersion 六字段，完整替换金额快照，不含历史申请列表；原 RefundRequestSummaryDTO 与 realtime 申请进度模型已删除。逐笔退款继续独立分页投影，申请详情使用 RefundFacade。
+
+金额汇总由 payment 同库 parent 锁协议下的独立聚合产生，规划增加占用、成功确认已退、确定失败释放占用；UNKNOWN 不推进金额版本。两类完整信封分别写本地 Outbox，事务外调用 /api/realtime/projections/refund、/refund-summary。payment SERVICE 凭证需 pay:realtime:projection:refund/refund-summary 两个具体权限，不能用商户凭证替代。ACK 精确匹配原身份/入站版本并允许高版本已覆盖时的 STALE，失败保留独立目标重试。
+
+渠道成功时刻与本地审计创建时刻各自保留原值，不能通过裁时间或拒绝精度差来伪造同一时钟。生产/投递源码已接入原服务，真实渠道、自动任务、数据库/消息端到端和最新源码尚未运行验证。费用/额度恢复和商户退款通知事件另行接入。

@@ -17,9 +17,7 @@ package io.github.loadup.pay.payment.client;
 
 import io.github.loadup.pay.common.DomainViolation;
 import io.github.loadup.pay.common.PayEventEnvelope;
-import io.github.loadup.pay.payment.client.dto.RefundRequestSummaryDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.pay.payment.client.enums.RefundRequestState;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
@@ -83,23 +81,18 @@ class PaymentEventContractTest {
     }
 
     @Test
-    void refundProgressSnapshotIsCompleteAndItsTotalsCannotBeForgedOrDoubleCounted() {
-        var request = new RefundRequestSummaryDTO(
-                "request", "merchant-refund", 100, RefundRequestState.PROCESSING, 40, 20, 1, 3);
-        var mutable = new ArrayList<>(List.of(request));
-        var event = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 40, 40, 2, mutable);
-        mutable.clear();
-        assertEquals(1, event.requests().size());
+    void monetaryRefundSummaryHasIndependentVersionAndRejectsInvalidOrOverflowingTotals() {
+        var event = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 40, 40, 2);
+        assertEquals(2, event.refundSummaryVersion());
         assertThrows(
                 DomainViolation.class,
-                () -> new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 41, 40, 2, List.of(request)));
+                () -> new OrderRefundSummaryEventDTO("order", "merchant", "CNY", -1, 40, 2));
         assertThrows(
                 DomainViolation.class,
-                () -> new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 80, 80, 2, List.of(request, request)));
+                () -> new OrderRefundSummaryEventDTO("order", "merchant", "CNY", Long.MAX_VALUE, 1, 2));
         assertThrows(
                 DomainViolation.class,
-                () -> new RefundRequestSummaryDTO(
-                        "request", "merchant-refund", 100, RefundRequestState.SUCCEEDED, 40, 0, 1, 3));
+                () -> new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 40, 0, -1));
     }
 
     @Test

@@ -19,6 +19,7 @@ import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
 import io.github.loadup.pay.realtime.domain.model.TradePaymentProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
+import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
 
 import java.util.Optional;
 
@@ -28,11 +29,11 @@ public interface TradeProjectionGateway {
 
     Optional<TradeRefundSummary> findRefundSummary(String tenantId, String orderId);
 
-    void applyOrderIfNewer(String tenantId, TradeOrderProjection snapshot);
+    ProjectionAdvance applyOrderIfNewer(String tenantId, TradeOrderProjection snapshot, String factsHash);
 
-    void applyPaymentIfNewer(String tenantId, TradePaymentProjection snapshot);
+    ProjectionAdvance applyPaymentIfNewer(String tenantId, TradePaymentProjection snapshot, String factsHash);
 
-    void applyRefundIfNewer(String tenantId, TradeRefundProjection snapshot);
+    ProjectionAdvance applyRefundIfNewer(String tenantId, TradeRefundProjection snapshot, String factsHash);
 
-    void applyRefundSummaryIfNewer(String tenantId, TradeRefundSummary snapshot);
+    ProjectionAdvance applyRefundSummaryIfNewer(String tenantId, TradeRefundSummary snapshot, String factsHash);
 }

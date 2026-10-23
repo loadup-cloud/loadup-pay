@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.outbox.*;
 import io.github.loadup.pay.payment.app.converter.*;
 import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.*;
 import org.junit.jupiter.api.*;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -34,14 +35,19 @@ class PaymentResultEventsTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentResultConverter.class.getPackageName());
     final OutboxTemplate outbox = mock(OutboxTemplate.class);
     final AtomicInteger ids = new AtomicInteger();
+    final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
+    final PaymentResultGateway results = mock(PaymentResultGateway.class);
     final PaymentResultEvents events = new PaymentResultEvents(outbox, context.getBean(PaymentResultConverter.class),
-            () -> "delivery-" + ids.incrementAndGet());
+            () -> "delivery-" + ids.incrementAndGet(), attempts, results, context.getBean(PaymentRealtimeConverter.class));
     StoredPaymentAcceptance failed() {
         var original = AttemptFixtures.accepted(true);
         var order = original.payment().fail(new NoCollectionEvidence("evidence", "payment", true));
         return context.getBean(PaymentControlConverter.class).withPayment(original, order, "evidence");
     }
     @AfterEach void close() { TransactionSynchronizationManager.setActualTransactionActive(false); context.close(); }
+    @BeforeEach void setup() {
+        when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(AttemptFixtures.prepared().closeBeforeSubmission("evidence", null)));
+    }
 
     @Test void eachTargetGetsAnIndependentDeliveryOfTheSameFrozenBusinessFact() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
@@ -61,7 +67,11 @@ class PaymentResultEventsTest {
             assertEquals("payment", envelope.get("aggregateId"));
             assertEquals(2, ((Number) envelope.get("aggregateVersion")).longValue());
             assertEquals("FAILED", data.get("state"));
-            assertEquals(Boolean.TRUE, data.get("executionFenced"));
+            if (message.type().equals(PaymentResultEvents.REALTIME)) {
+                assertNotNull(data.get("initiatedAt"));
+                assertEquals("WECHAT", data.get("channel"));
+                assertFalse(data.containsKey("executionFenced"));
+            } else assertEquals(Boolean.TRUE, data.get("executionFenced"));
             deliveries.add((String) envelope.get("deliveryId"));
         }
         assertEquals(4, deliveries.size());
@@ -70,5 +80,23 @@ class PaymentResultEventsTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> events.publish("tenant", failed(), true, AttemptFixtures.NOW)).getResultCode());
         verifyNoInteractions(outbox);
+    }
+    @Test void completeSuccessSnapshotUsesOriginalChannelIdentityAndClaimTime() {
+        var submitted = AttemptFixtures.prepared().beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
+        var succeeded = submitted.applyOutcome(new ChannelPaymentOutcome(ChannelPaymentOutcome.Kind.SUCCEEDED,
+                submitted.attempt().identity(), submitted.attempt().amount(), "evidence"), false);
+        when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(succeeded));
+        when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.of(new ChannelTransactionClaim("claim", "tenant",
+                succeeded.attempt().identity(), succeeded.attempt().amount(), "channel-transaction", AttemptFixtures.NOW.plusSeconds(1), "evidence")));
+        var original = AttemptFixtures.accepted(true);
+        var payment = context.getBean(PaymentControlConverter.class).withPayment(original, original.payment().applyAttempt(succeeded.attempt()), "evidence");
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        events.publish("tenant", payment, false, AttemptFixtures.NOW.plusMinutes(1));
+        var messages = ArgumentCaptor.forClass(OutboxMessage.class); verify(outbox, times(4)).publish(messages.capture());
+        var message = messages.getAllValues().stream().filter(m -> m.type().equals(PaymentResultEvents.REALTIME)).findFirst().orElseThrow();
+        Map<?, ?> envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
+        var data = (Map<?, ?>) envelope.get("data");
+        assertEquals("WECHAT", data.get("channel")); assertEquals("DIRECT", data.get("accessMode"));
+        assertNotNull(data.get("succeededAt")); assertNotNull(data.get("initiatedAt"));
     }
 }

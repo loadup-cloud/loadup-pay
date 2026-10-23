@@ -62,7 +62,6 @@ public record RefundSnapshotEventDTO(
         require(amountMinor > 0 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
         require((state == RefundState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(refundCreatedAt);
-        if (succeededAt != null) require(!succeededAt.isBefore(refundCreatedAt), INVALID_ARGUMENT);
         if (refundCreatedAt != null)
             refundCreatedAt =
                     refundCreatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();

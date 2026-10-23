@@ -49,6 +49,7 @@ class PaymentInitiationServiceTest {
     final OrderCreationCodec hashes = mock(OrderCreationCodec.class);
     final PaymentInitiationCodec codec = mock(PaymentInitiationCodec.class);
     final PaymentAcceptanceClient payment = mock(PaymentAcceptanceClient.class);
+    final OrderSnapshotEvents snapshots = mock(OrderSnapshotEvents.class);
     final AtomicReference<AcquireActor> actor =
             new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:start")));
     final AtomicReference<StoredAcquireOrder> order =
@@ -70,11 +71,16 @@ class PaymentInitiationServiceTest {
                 new OrderCreationTransactions(tx),
                 () -> "id-" + ids.incrementAndGet(),
                 validation.getValidator(),
-                clock);
+                clock, snapshots);
     }
 
     @BeforeEach
     void setup() {
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals(order.get().order().version(), (long) c.getArgument(2));
+            return null;
+        }).when(snapshots).publish(eq("tenant"), eq("order"), anyLong());
         when(orders.lockOrder("tenant", "order")).thenAnswer(c -> order.get());
         when(hashes.decodeAdmission(anyString(), anyString())).thenReturn(admission());
         when(hashes.checksum(anyString()))
@@ -159,6 +165,7 @@ class PaymentInitiationServiceTest {
         assertEquals(admission().terms(), frozen.admittedTerms().terms());
         assertEquals(10000, frozen.admittedTerms().orderAmountMinor());
         assertNull(frozen.preparedInputRef());
+        verify(snapshots).publish("tenant", "order", order.get().order().version());
     }
 
     @Test
@@ -177,6 +184,7 @@ class PaymentInitiationServiceTest {
         assertEquals(4000, order.get().order().paymentReservedMinor());
         verify(allocations, times(1)).reserve(eq("tenant"), any(), any(), anyLong());
         verify(payment, times(2)).accept("tenant", frozen);
+        verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
     }
 
     @Test

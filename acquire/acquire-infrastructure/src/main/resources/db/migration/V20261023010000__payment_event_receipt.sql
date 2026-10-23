@@ -1,0 +1,21 @@
+CREATE TABLE acquire_payment_event_receipt (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id VARCHAR(64) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted TINYINT NOT NULL DEFAULT 0,
+    delivery_id VARCHAR(64) NOT NULL,
+    business_event_id VARCHAR(64) NOT NULL,
+    payment_id VARCHAR(64) NOT NULL,
+    order_id VARCHAR(64) NOT NULL,
+    allocation_id VARCHAR(64) NOT NULL,
+    payment_version BIGINT NOT NULL,
+    evidence_id VARCHAR(64) NOT NULL,
+    request_digest CHAR(64) NOT NULL,
+    caller_service_id VARCHAR(64) NOT NULL,
+    order_version BIGINT NOT NULL,
+    accepted_at DATETIME(6) NOT NULL,
+    UNIQUE KEY uk_acquire_payment_delivery (tenant_id, delivery_id),
+    KEY ix_acquire_payment_event (tenant_id, payment_id, payment_version, business_event_id),
+    CHECK (deleted = 0 AND payment_version > 0 AND order_version >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

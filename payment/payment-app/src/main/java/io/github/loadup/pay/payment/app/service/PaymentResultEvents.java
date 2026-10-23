@@ -21,6 +21,10 @@ import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.*;
 import io.github.loadup.pay.common.*;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
+import io.github.loadup.pay.payment.domain.gateway.*;
+import io.github.loadup.pay.payment.domain.model.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -32,22 +36,47 @@ import java.util.List;
 public class PaymentResultEvents {
     public static final String ACQUIRE = "pay.payment.outcome.acquire.v1";
     public static final String LIMIT = "pay.payment.outcome.limit.v1";
-    public static final String REALTIME = "pay.payment.outcome.realtime.v1";
+    public static final String REALTIME = "pay.payment.snapshot.realtime.v1";
     public static final String RISK = "pay.payment.outcome.risk.v1";
     private final OutboxTemplate outbox;
     private final PaymentResultConverter converter;
     private final IdGenerator ids;
-    public PaymentResultEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids) {
+    private final PaymentAttemptGateway attempts;
+    private final PaymentResultGateway results;
+    private final PaymentRealtimeConverter snapshots;
+    public PaymentResultEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
+            PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots) {
         this.outbox = outbox; this.converter = converter; this.ids = ids;
+        this.attempts = attempts; this.results = results; this.snapshots = snapshots;
     }
     public void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, LocalDateTime occurredAt) {
         if (!TransactionSynchronizationManager.isActualTransactionActive())
             throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE);
         var data = converter.toEvent(payment, fenced);
-        for (var type : List.of(ACQUIRE, LIMIT, REALTIME, RISK)) {
+        for (var type : List.of(ACQUIRE, LIMIT, RISK)) {
             var envelope = new PayEventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", type, 1,
                     payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), data);
             outbox.publish(new OutboxMessage(tenant, type, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
         }
+        StoredPaymentAttempt attempt = payment.payment().activeAttemptId() == null ? null
+                : attempts.find(tenant, payment.payment().activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (attempt != null && (!attempt.attempt().paymentId().equals(payment.payment().id())
+                || !attempt.attempt().amount().equals(payment.payment().amount())
+                || !attempt.attempt().binding().payeeMerchantId().equals(payment.payment().payeeMerchantId())))
+            throw new CommonException(SNAPSHOT_INVALID);
+        LocalDateTime succeededAt = null;
+        if (payment.payment().state() == PaymentState.SUCCEEDED) {
+            if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
+            var claim = results.attemptClaim(tenant, attempt.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (!claim.tenantId().equals(tenant) || !claim.identity().equals(attempt.attempt().identity())
+                    || !claim.amount().equals(payment.payment().amount()) || !claim.receiptId().equals(payment.terminalEvidenceId()))
+                throw new CommonException(SNAPSHOT_INVALID);
+            succeededAt = claim.succeededAt();
+        }
+        var snapshot = snapshots.toSnapshot(payment, attempt == null ? null : attempt.attempt().binding().channel(),
+                attempt == null ? null : attempt.attempt().binding().accessMode(), succeededAt);
+        var envelope = new PayEventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", REALTIME, 1,
+                payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), snapshot);
+        outbox.publish(new OutboxMessage(tenant, REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
     }
 }

@@ -204,3 +204,27 @@ PaymentOutcomeOperations 在订单恰好付清的 A3 事务中确认原 order_fe
 普通 create→startPayment 同样是纯 API，付款码由商户扫码枪读取后放入 type=PAYMENT_CODE 的 interaction；JSAPI 传同渠道票据，H5 使用 NONE。JSAPI/H5 后续执行返回的 action 仍需商户前端交互，不能将 API 返回 INIT 当作收款成功。SERVICE 出站 JWT 新增 `pay:payment:input:prepare` 权限，复用同一 payment HTTP 客户端和租户限制。
 
 该批源码未运行 IDEA 检查、构建、测试或部署；新的敏感输入路径、只附加引用的 CAS、DirectPay 和真实 MySQL 事务/竞争验收仍待执行。
+
+## 2026-10-23 付款事件接收与语义 ACK（新增源码）
+
+新增 PaymentOutcomeFacade.accept 的应用实现与 POST /api/acquire/events/payment-outcome，返回 SuccessResponse<PaymentOutcomeAckDTO>。仅 ACQUIRE_PAYMENT_SERVICE_ID（默认 payment）指定受信 SERVICE 且有 pay:acquire:payment:outcome 可调用；从已验证 JWT 读取 tenant/service/subject/权限，商户 JWT 不获得该入口。原商户查询/刷新仍使用原 AcquireActorProvider，事件不接收调用方自行声明的 owner scope。
+
+首见事件核对 type/schema/producer/aggregate/sourceVersion/businessEvent/evidence，再从原订单读取 merchant owner、原 allocation 和冻结命令。回查 payment 的 /api/payment/facts/payment（在本地事务外），逐项核对 operation、实际 payee、order/payment/allocation、金额/CNY、原终态/版本/证据及执行封禁。已有成功之后新增 fence 可以兼容原正事实，负终态必须有持久 fence。事件标签或公开 evidenceId 本身不作为资金证明。
+
+金额收敛复用原 PaymentOutcomeOperations：原 converge 事务体抽为 convergeLocked，由本次接收事务调用；原商户 refresh/关单路径继续调用同一实现。order→allocation 锁下核对原命令和既有付款回执，HELD 只会消耗/释放一次；满额转 PAID 并按原订单总金额同事务确认费用，部分付款保持 PENDING。新语义接收回执与订单/占用/付款事实/费用同事务提交，失败不返回成功 ACK。不重开 CLOSED/PAID，真实迟到收款和补偿仍按已有门禁/后续补偿范围处理。
+
+V20261023010000__payment_event_receipt.sql 新增 acquire_payment_event_receipt，tenant/deliveryId 唯一，存原完整事件摘要、来源服务、payment/order/allocation、版本/证据/businessEvent、首次观察到的 orderVersion 和本地接收时间。它是业务 Inbox 和 ACK 证据，能够绑定原参数并回放 ACK；通用 Inbox 只有消费去重标识，不能单独满足本用例的参数冲突/ACK 回放，因此不双写第二份通用 Inbox。
+
+原 delivery 重放校验完整摘要并返回首次 ACK，不依赖 payment 此时可用；改金额/时间/来源等原参数拒绝。新 delivery 指向同资金事实时仍由既有 allocation outcome receipt 幂等，不重复加支付金额/确认费用。即使原商户 refresh 已落账，也能为后到事件生成接收回执。ACK 含 deliveryId/businessEventId/paymentId/paymentVersion/evidenceId/orderVersion/accepted，orderVersion 是首次接收时观察版本，后续订单变化不改旧 ACK。
+
+acquire 原 ACQUIRE_PAYMENT_TOKEN_FILE 的 SERVICE 凭证需新增 pay:payment:acquire-facts；payment 事实入口对该角色额外限制原 callerServiceId=acquire，limitcenter 仍保留原独立 scope。新增命名 HTTP 操作 payment/facts，无商户 token 转发。所有时间 DATETIME(6) 本地时区，BaseDO/MapStruct/生成 Mapper/TableDef 和 QueryWrapper 不变。本批及新增测试源码未执行任何检查/构建/测试/DDL/部署。
+
+## 2026-10-23 订单版本快照与 realtime 投递（新增源码）
+
+OrderSnapshotEvents 已接入创单（ORDER/CHECKOUT）、A2 金额占用、A3 付款成功/释放、关单 CLOSING/CLOSED 和延期事务。各次订单版本写入后，在原可写事务中读取刚落库的完整订单头，校验精确 rowVersion，冻结真实 BaseDO.createdAt/updatedAt、原商户/订单号、固定总额、累计成功额、占用额和状态，写入同库 Outbox。不得用合约准入时间或发送时刻代替原始创建时间。重复请求/既有付款事实回放不重写版本，也不新增快照；会话/输入引用/关单游标变化不修改订单版本，不单独生产快照。延期投影推进源版本和更新时间，目前快照字段不含截止时间。
+
+独立 OrderSnapshotOutboxHandler 处理 pay.acquire.snapshot.realtime.v1，通过命名 HttpTemplate realtime/order POST /api/realtime/projections/order。worker 校验可信租户、已登记 PROCESSING 队列元数据和完整类型化信封；事务外重放原持久负载，不回查此时订单，也不在交易事务中请求 realtime。ACK 必须匹配原 delivery/businessEvent/producer/aggregate/sourceVersion，projectedVersion 不小于源版本，且 disposition 为 APPLIED/DUPLICATE/STALE。异常沿用框架重试与原事件身份；at-least-once 不作为财务互斥。
+
+acquire-business 新增 REALTIME_BASE_URL、REALTIME_JWT_AUDIENCE、ACQUIRE_REALTIME_TOKEN_FILE；ACQUIRE_REALTIME_TENANT_ID 默认沿用 ACQUIRE_PAYMENT_TENANT_ID。凭证是 acquire SERVICE 专用挂载 JWT，需 pay:realtime:projection:order；realtime 接收端 REALTIME_ACQUIRE_SERVICE_ID 默认 acquire。每次发送重读文件以支持凭证轮换，预检 tenant/service/audience/epoch exp/nbf，接收资源服务器仍负责实际验签。原 payment 客户端复用 acquire 本地凭证读取器；不同目标凭证文件及 audience 仍独立配置。
+
+新增事务失败/租户/版本、原时间和金额、重复投递/乱序 ACK、严格 JSON 解码及凭证轮换测试源码，并同步既有服务构造器与重放断言。未运行 IDEA 检查、构建、测试、DDL 或部署；真实 MySQL 同事务回滚、Outbox dispatcher、服务鉴权和 realtime 端到端验收待执行。商户通知、退款和付款中间态投影、到期自动调度仍按 BUSINESS-IMPLEMENTATION.md 待办。

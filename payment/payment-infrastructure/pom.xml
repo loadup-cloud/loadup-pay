@@ -11,6 +11,11 @@
     <artifactId>payment-infrastructure</artifactId>
     <name>LoadUp Pay Payment Infrastructure</name>
     <dependencies>
+        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>realtime-client</artifactId></dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-http</artifactId>

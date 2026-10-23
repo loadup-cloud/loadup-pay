@@ -52,12 +52,13 @@ public class PaymentOutcomeOperations {
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+    private final OrderSnapshotEvents snapshots;
 
     public PaymentOutcomeOperations(OrderCreationGateway orders, PaymentOutcomeGateway allocations, OrderFeeGateway fees,
             PaymentOutcomeClient payment, PaymentInitiationCodec codec, OrderCreationCodec orderCodec,
             PaymentInitiationConverter initiation, PaymentProgressConverter converter, AcquireOrderConverter orderConverter,
             OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
+            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
         this.orders = orders;
         this.allocations = allocations;
         this.fees = fees;
@@ -71,6 +72,7 @@ public class PaymentOutcomeOperations {
         this.ids = ids;
         this.validator = validator;
         this.clock = clock;
+        this.snapshots = snapshots;
     }
 
     PaymentProgressDTO refresh(AcquireActor actor, PaymentProgressRefreshCommand query) {
@@ -140,7 +142,11 @@ public class PaymentOutcomeOperations {
     }
 
     private StoredAcquireOrder converge(AcquireActor actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.write(actor.tenantId(), () -> convergeLocked(actor, command, outcome));
+    }
+
+    StoredAcquireOrder convergeLocked(AcquireActor actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
             var currentOrder = orders.lockOrder(actor.tenantId(), command.orderId());
             owned(actor, currentOrder);
             var current = allocations.lockPayment(actor.tenantId(), command.orderId(), command.paymentId())
@@ -170,11 +176,11 @@ public class PaymentOutcomeOperations {
                 var admission = orderCodec.decodeAdmission(currentOrder.admissionPayload(), currentOrder.payloadHash());
                 fees.confirmPaid(actor.tenantId(), change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
             }
+            snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
             return converter.withOrder(currentOrder, change.order());
-        });
     }
 
-    private VerifiedPaymentOutcome terminal(PaymentExecuteCommand command, PaymentOutcomeDTO response) {
+    VerifiedPaymentOutcome terminal(PaymentExecuteCommand command, PaymentOutcomeDTO response) {
         if (response == null || !validator.validate(response).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
         var value = response.payment();
         if (value == null || value.state() == null || value.version() < 0 || value.initiatedAt() == null

@@ -1,0 +1,67 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.infrastructure.codec;
+
+import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.pay.common.*;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.domain.model.*;
+import org.junit.jupiter.api.*;
+import tools.jackson.databind.json.JsonMapper;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.HexFormat;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class RefundResultCodecImplTest {
+    final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
+    final PaymentAcceptanceCodec hashes = mock(PaymentAcceptanceCodec.class);
+    final RefundResultCodecImpl codec = new RefundResultCodecImpl(json, hashes);
+    @BeforeEach void setup() {
+        when(hashes.checksum(anyString())).thenAnswer(c -> HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(((String)c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
+    }
+    RefundObservation observation(String originalTransaction, String refundTransaction, long amount, String key) {
+        return new RefundObservation("refund", new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request"),
+                "refund-request", originalTransaction, ChannelRefundOutcome.Kind.SUCCEEDED, DomainChecks.amount(amount, "CNY"), refundTransaction,
+                LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789), RefundObservation.Source.CALLBACK, key, "b".repeat(64));
+    }
+    @Test void financialDigestBindsOriginalAndRefundTransactionsAndExactLongAmount() {
+        var original = observation("original-transaction", "refund-transaction", 9007199254740993L, "event");
+        var digest = codec.factsDigest(original);
+        assertTrue(digest.matches("[0-9a-f]{64}"));
+        assertNotEquals(digest, codec.factsDigest(observation("other-original", "refund-transaction", 9007199254740993L, "event")));
+        assertNotEquals(digest, codec.factsDigest(observation("original-transaction", "other-refund", 9007199254740993L, "event")));
+        assertNotEquals(digest, codec.factsDigest(observation("original-transaction", "refund-transaction", 9007199254740993L - 1, "event")));
+        assertEquals(digest, codec.factsDigest(observation("original-transaction", "refund-transaction", 9007199254740993L, "other-delivery")));
+        assertEquals(123456000, original.succeededAt().getNano());
+    }
+    @Test void retainedNormalizedPayloadRoundTripsWithoutAmountPrecisionLoss() {
+        var original = observation("original-transaction", "refund-transaction", 9007199254740993L, "event");
+        assertEquals(original, json.readValue(codec.encode(original), RefundObservation.class));
+    }
+    @Test void missingRefundTransactionOrSuccessTimeCannotBeVerifiedSuccess() {
+        var original = observation("original-transaction", "refund-transaction", 1000, "event");
+        assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(),
+                original.originalChannelTransactionNo(), original.kind(), original.amount(), null, original.succeededAt(),
+                original.source(), original.receiptKey(), original.sourceDigest()));
+        assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(),
+                original.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.UNKNOWN, original.amount(), original.channelRefundTransactionNo(),
+                original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest()));
+    }
+}

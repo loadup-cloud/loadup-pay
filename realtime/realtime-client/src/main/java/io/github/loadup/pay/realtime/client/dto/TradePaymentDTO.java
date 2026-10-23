@@ -41,10 +41,13 @@ public record TradePaymentDTO(
         @Schema(description = "State") PaymentState state,
         @Schema(description = "Channel") Channel channel,
         @Schema(description = "Access mode") AccessMode accessMode,
+        @Schema(description = "Original payment acceptance time") OffsetDateTime initiatedAt,
         @Schema(description = "Succeeded at") OffsetDateTime succeededAt,
         @Schema(description = "Source version") long sourceVersion,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradePaymentDTO {
+        if (initiatedAt != null)
+            initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
         if (succeededAt != null)
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.ZONE).toOffsetDateTime();
         if (snapshotAt != null)

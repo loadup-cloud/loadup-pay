@@ -17,11 +17,11 @@ package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.PaymentObservation;
-import io.github.loadup.pay.payment.domain.model.ChannelRefundOutcome;
+import io.github.loadup.pay.payment.domain.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.domain.model.PreparedChannelRefund;
 
-/** Persistence or integration port; implementations own transactions and trusted tenant isolation. */
+/** Verified channel integration, invoked outside local payment transactions. Capability lookup is local only. */
 public interface PaymentChannelGateway {
     PaymentObservation submit(PreparedChannelPayment payment);
 
@@ -29,7 +29,10 @@ public interface PaymentChannelGateway {
 
     PaymentObservation close(ChannelPaymentIdentity identity);
 
-    ChannelRefundOutcome submitRefund(PreparedChannelRefund refund);
+    /** Pure local capability lookup; no network, credential loading or external side effects. */
+    boolean canRefund(PreparedChannelRefund refund);
 
-    ChannelRefundOutcome queryRefund(PreparedChannelRefund refund);
+    RefundObservation submitRefund(PreparedChannelRefund refund);
+
+    RefundObservation queryRefund(PreparedChannelRefund refund);
 }

@@ -23,4 +23,6 @@ public interface PaymentLimitClient {
     LimitReservationDTO reserve(String tenant, LimitReserveCommand command);
     LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command);
     LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command);
+    LimitReservationDTO confirm(String tenant, LimitConfirmCommand command);
+    LimitReleaseDTO release(String tenant, LimitReleaseCommand command);
 }

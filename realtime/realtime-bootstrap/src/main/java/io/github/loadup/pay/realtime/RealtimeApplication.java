@@ -31,7 +31,7 @@ public class RealtimeApplication {
     }
 
     @Bean
-    Clock businessClock() {
+    Clock realtimeClock() {
         return Clock.system(BusinessTime.ZONE);
     }
 }

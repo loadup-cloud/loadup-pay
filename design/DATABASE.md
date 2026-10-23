@@ -1384,3 +1384,63 @@ V20261022130000__payment_results.sql 新增 payment 第11—14张业务表：
 Y3 在 parent gate→payment gate→payment→attempt 锁下核对事实，认领交易号、成功/失败状态、容量、receipt 与四个目标Outbox 同事务。全局认领精确查询有意绕过租户过滤，仅用于检测同真实账户跨租户别名重复；结果不外泄。并发唯一冲突回滚再读赢家，形成差错事实；不捕获冲突后继续提交部分成功。receiptKey 复用而资金事实变化时保留原回执并追加差错；新回执若与已成功事实完全相符，只加回执，不再加容量或重复事件。
 
 资金差额、身份错误、终态矛盾、交易号重认领、资金已退回均不修改正常资金计数。仅有框架/源码级事务设计，未运行DDL/编译/测试或真实数据库隔离与回滚验收；原途退款申请/计划/执行、差错复核后台和下游投递仍待完成。
+
+## 25. 额度/风控投递事务边界
+
+无新增业务表，复用 loadup_outbox_event。处理器要求原消息 PROCESSING 且租户/目标/aggregate 匹配，再短事务稳定锁门禁/付款/attempt，复核原事件的正源版本、终态/证据和意图。成功还复核 channel_transaction_claim 与 payment_refund_capacity 原成功时间/金额；负终态必须持久 FENCED。读取后立即释放事务，才执行远端额度确认/释放或风控结果通知。
+
+退款不改变原成功金额/终态/源版本；重试沿用 businessEvent/evidence、金额和渠道成功时间。额度接收方使用既有 settlement receipt 去重，ACK 后由框架原 claim token/lease CAS 完成投递；租约丢失可能重投，不能把租约当财务互斥。release-before-reserve 的 reservation 可以为空，不创建假金额占位。
+
+风险外部 provider 须按 tenant/businessEvent 幂等；未咨询明确跳过，默认未连接的结果 no-op 不冒充外部回执。失败保留框架失败/重试记录，尚无业务运维重放入口；acquire/realtime 消费仍待接入。数据库锁、HTTP回查、并发重投及新源码均未运行验证。
+
+## 26. acquire 付款事件业务 Inbox 实际迁移
+
+V20261023010000__payment_event_receipt.sql 新增 acquire_payment_event_receipt，除 BaseDO 公共字段，记录 delivery_id/business_event_id/payment_id/order_id/allocation_id/payment_version/evidence_id/request_digest/caller_service_id/order_version/accepted_at。tenant+deliveryId 唯一、不因 deleted 复用，CHECK deleted=0、paymentVersion>0、orderVersion>=0；按 tenant/payment/version/businessEvent 查询索引，业务时间本地 DATETIME(6)。仅插入和按原 delivery 查询，没有覆写/删除入口。
+
+requestDigest 以 UTF-8 长度分帧包含原 tenant/service、完整 envelope 与资金元数据，等价偏移时间先由事件模型转换到本地。原 key 改参数或来源服务拒绝；旧 key 原参数可不依赖远端回查而回放首次 ACK。新 key 同源事实仍通过原 order_payment_outcome 唯一付款回执幂等，不重复变更金额/费用。
+
+付款事实回查在事务外。接收事务内先重读原事件回执，再按 order→allocation 加锁并复用原金额收敛体，同时提交订单、allocation、付款 outcome、整单费用确认及本表。唯一键竞争回滚整笔后由原有限事务重试读赢家；不会在插入回执失败后提交部分资金。此业务回执同时保存语义 ACK/参数绑定，不重复写一份不含业务参数的通用 Inbox。真实 MySQL 回滚/并发与新增 DDL/源码均未运行验证。
+
+## 27. Realtime 独立投影实际迁移
+
+V20261023020000__trade_projections.sql 新增四类投影表和 trade_projection_receipt，共五张业务表。实际结构采用完整强类型源 JSON LONGTEXT（上限1MiB、合法JSON）、content_hash/source_version/snapshot_at，以及商户/原聚合ID/父订单/退款申请/状态/业务创建时间等必要索引列；不在本库建立可支付余额或财务计数。查询结果通过严格类型解码，哈希校验并核对索引字段，不能凭被改动的索引读取另一商户负载。
+
+各表 tenant/原aggregateId 唯一；订单另有 tenant/payee/merchantOrderNo 唯一。商户分页索引 tenant/payee/businessCreatedAt/稳定ID，付款/退款有 merchant/order 过滤索引，子退款另有 refundRequest 索引。源业务时间/本地应用时间均为本地 DATETIME(6)，来源时间在转换时规范微秒；本地应用时间不进入源内容摘要。没有跨服务外键，付款/退款可先于订单到达。
+
+写事务锁本库原聚合行，按源版本比较：高版本白名单 CAS，低版本不覆盖，相同版本哈希冲突拒绝；不可变身份/金额/创建时间与终态受领域检查。首次并发插入经唯一键回滚/有限重试重读赢家。语义回执以 tenant/producer/deliveryId 唯一，绑定原完整信封摘要、来源服务、incoming/projectedVersion 和处置，与投影同事务提交，旧 delivery 原参数回放首次 ACK；不重复写无业务绑定的通用 Inbox。
+
+退款汇总独立表/版本，不能由逐笔退款累加或覆盖 acquire paid。读接口按可信商户过滤 SQL，重复读快照内组合本库多个来源；无摘要返回空值，有摘要但来源领先时保留实际观测差额和不一致标记。行级 sourceVersion 是本批完整快照推进依据，草案中的流级 checkpoint/重建仍待实现。DDL、版本并发、数据库隔离及全部新源码尚未运行验证。
+
+## 2026-10-23 订单快照的同库 Outbox 边界
+
+无新增业务表。acquire 各次订单版本更新后在同一可写事务中锁读原 acquire_order，核对 rowVersion，读取 BaseDO.createdAt/updatedAt 与完整金额/状态并写 loadup_outbox_event。Outbox 写入失败须回滚本次订单版本；A0 创单意图独立已提交的事实不因此丢失。事务外 worker 不读取当前订单来重建旧负载，只重试原始完整 JSON，realtime 的投影 CAS/语义接收回执负责乱序和重复投递。
+
+新金额/关闭/延期快照不创建第二套订单时间，不改原数据库审计监听器；预占输入引用附加和关单游标仅变化各自记录，不伪造新订单版本。数据库本地 DATETIME(6) 与事件偏移时间通过 BusinessTime 转换。单元测试仅新增源码，真实数据库 rollback/并发和 dispatcher 链路未验证。
+
+## 2026-10-23 退款规划实际迁移与锁边界
+
+V20261023030000__refund_planning.sql 新增 refund_request、refund_allocation_plan、refund_order。request 增加 reason_code、caller_subject_hash、admission_id、planned_at、terms_hash；refund_terms 实际为完整原 AdmittedOrderTermsDTO 的 LONGTEXT，CHECK JSON_VALID 和 262144 字节上限，按原字节保存 SHA256，BaseDO createdAt/updatedAt 与业务 plannedAt 分开。当前只接受 FIFO、planVersion=1，初始申请/子项 INIT、rowVersion=0。
+
+child 在草案列之外冻结 original_channel_request_no/original_channel_transaction_no/original_succeeded_at；这些是成功支付原事实，不能用退款提交时间替代。plan.id 使用稳定 refundId，跨表主键各自独立；tenant/request/version/sequence、tenant/request/version/payment 与 tenant/refund 唯一，原渠道 account_scope/channel_refund_no 全局唯一。所有金额/终态字段有 CHECK，不建立跨服务外键，所有本地时间 DATETIME(6)。
+
+首次创建锁 parent_gate，随后按 paymentId 升序锁所有容量，业务 FIFO 排序只在锁定后进行；已有成功付款在同一 parent 锁协议下稳定。写入固定 request/plan/children 后，按相同顺序 CAS capacity 的原 version/reserved/refunded/成功金额/时间，仅变更 reservedMinor/版本。唯一键竞争/瞬态错误向既有事务重试传播，任何写失败整事务回滚。不先更新容量后在另一事务创建申请。
+
+读取先定位原 order，再持有 parent 锁组合请求/计划/子项，严格复核保存条款摘要、计划顺序、子项归属/金额/币种及派生累计。退款结果写者后续须遵循同一 parent 协议。此批没有结果写入器，未提前生成成功退款或恢复额度；DDL/编译/测试和真实事务验收未执行。
+
+## 2026-10-23 退款结果实际迁移
+
+未部署的 V20261023030000__refund_planning.sql 增加 refund_order.submission_started_at，INIT 必须为空，其余状态必须非空。INIT 仅允许一次 beginSubmission CAS，同事务更新申请进度；UNKNOWN 保留原标记，不得通过重置 INIT 重新发送。仅终态保存 terminal_evidence_id；成功另需真实退款流水和渠道成功时间，所有时间本地 DATETIME(6)。
+
+V20261023040000__refund_results.sql 新增三表：refund_channel_receipt（tenant/refund/source/receiptKey 唯一，资金事实摘要、源摘要、规范 JSON、APPLIED/IGNORED/CONFLICT）、refund_result_anomaly（tenant/receipt/factsDigest/reason 唯一）及 refund_transaction_claim（保存完整原支付身份/交易号、原退款请求号、金额、实际退款流水/成功时间及回执）。实际退款流水永久全局唯一 channel/account_scope_hash/channel_refund_transaction_no，另有 tenant/refund 唯一；不因 deleted 或凭证/app/tenant 变化而重认领。
+
+锁顺序 parent→request→capacity 按 paymentId→child。首发或查证结果在锁内复核永久原支付 claim 与原 attempt/金额/商户，事务内从不调用渠道。成功只对原 capacity 增加 refunded、释放 reserved；确定未退款失败只释放 reserved；中间态不改容量。child/request/capacity/退款交易 claim/结果回执任一写入失败整事务回滚，差错独立留痕不改变正常资金计数。数据读取/更新全部通过生成 Mapper/TableDef、QueryWrapper 与 Spring MapStruct，未手写业务 SQL。
+
+本批没有自动任务、订单退款汇总、退款投影或退费/恢复额度写入；新增 DDL/源码未编译、测试或实际执行，真实数据库事务/竞争验收仍待完成。
+
+## 2026-10-23 独立订单退款金额汇总与同事务投影
+
+V20261023050000__order_refund_summary.sql 新增 order_refund_summary，除 BaseDO 公共字段，包含 order_id/payee_merchant_id/order_amount_minor/currency/refunded_minor/reserved_minor/row_version。tenant/order 唯一；固定总额/CNY不可变，refunded/reserved 非负且合计不超过原订单总额，版本从首次实际预占的1开始。新申请以固定计划总额增加 reserved；子项首次成功将预占转为 refunded，首次确定失败只释放预占；中间状态不改金额版本。
+
+持 parent 锁的规划/结果事务最后锁本表，CAS 校验原 version/refunded/reserved，与子项/申请/容量及结果回执同事务提交。没有后台异步再累加，realtime 不从子项事件算钱。逐笔快照读取刚落库 child.createdAt/updatedAt/真实 succeededAt，金额汇总读取本表 updatedAt，在同一事务写两类独立 Outbox；消息与业务任一写入失败整事务回滚。
+
+OrderRefundSummaryEventDTO 当前为六项固定大小金额快照，不再存历史请求数组。realtime 原 summary 投影 JSON/哈希结构继续使用当前强类型 DTO，删除旧请求进度模型与完整历史替换约束；高版本累计已退不下降，身份/币种不变。前期直接重构，无数据格式兼容或在线迁移承诺。渠道成功时间和本地 createdAt 不强制比较，不伪造精度；全部本地数据库日期依旧 DATETIME(6)。新增 DDL/源码/测试未运行验证。

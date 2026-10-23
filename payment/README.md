@@ -189,3 +189,75 @@ NO_COLLECTION 仅在真实适配器证明终局不可收款后使用；本批首
 原本地 INIT 付款关单、INIT attempt 未跨 Y2 的关单，以及风控/额度拒绝产生的本地终态，也已接入同事务四目标事件。原键重放及已终态查询不重复发事件。每个目标有独立 deliveryId，同一终态共用 businessEventId/付款版本；复用框架 OutboxTemplate 和同 DataSource 事务，任一写入失败回滚整笔 Y3。本批只完成生产端；四目标投递 handler/接收方 Inbox、重放管理和真实链路尚待闭环，不以任务已入库宣称送达。框架对未注册 handler 的事件会保留失败/重试记录，不应手工 ACK。
 
 V20261022130000__payment_results.sql 新增四张业务表，payment 累计14张业务表；Outbox 标准表复用组件自带迁移。MapStruct/BaseDO/生成 Mapper 和 QueryWrapper 延续原规范。新增25个测试方法源码，覆盖成功原子边界、回执幂等、金额/身份冲突、跨租户认领、终态顺序、关单竞争、四目标事件和失败回滚边界；旧本地关单/风控测试源码同步。按暂停验证要求未运行 IDEA、编译、测试、DDL、镜像或部署，mock 事务边界不能代替真实 MySQL 并发/回滚验收。
+
+## 2026-10-23 额度与风控终态消费（新增源码）
+
+新增 PaymentLimitOutcomeOutboxHandler 与 PaymentRiskOutcomeOutboxHandler，分别消费 pay.payment.outcome.limit.v1 和 pay.payment.outcome.risk.v1。复用框架 Outbox 的租约、次数、失败记录与重试；每个目标独立完成，失败不阻塞其他目标。acquire/realtime 两个消费者仍待实现，不声明四服务链路已经联通。
+
+PaymentOutcomeDeliverySupport 校验当前 tenant 上下文、已登记且 PROCESSING 的队列元数据、预期 type/schema、producer/aggregate/paymentVersion/businessEvent/evidence，再严格解码。原事实在 parent gate→payment gate→payment→attempt 锁下复核，包括原命令、金额/CNY、商户、服务、额度 operation、方式及敏感引用。成功必须具备原 attempt 的真实交易号 claim 和同金额/原时间的退款容量；已退款金额不减少原成功基数。负终态必须持续 FENCED 且 attempt 未收款证据一致。成功事件之后新增的 gate fence 不撤销既有成功事实。锁内只读一致快照，返回后释放本地事务才调用下游，避免额度回查 payment 时形成持锁等待。
+
+额度确认使用 claim 原渠道成功时间、原正付款版本/evidence/businessEvent 和原金额/CNY；负终态以固定 PAYMENT_FAILED/PAYMENT_CLOSED 原因释放。confirm ACK 要求 CONFIRMED 及原 payment/operation/policy/version/initiatedAt 一致；release ACK 要求 fenced、原付款版本/证据一致，reservation 可空，非空时为原 RELEASED 或 EXPIRED。超时、错误 ACK/信封或业务失败均传播给框架保留重试，不能伪造成功。limitcenter 仍反查 payment 权威事实。
+
+PaymentLimitClient/PaymentLimitHttpClient 新增 confirm/release，复用现有单出站 tenant、挂载 SERVICE JWT、audience 和轮换读取。application-payment-business.yml 增加 HTTP 命名操作，路径 /api/limit/settlement/confirm|release。PAYMENT_LIMITCENTER_TOKEN_FILE 对应令牌除 reserve/execute/verify 外还需 pay:limit:confirm、pay:limit:release；接收侧继续验签与校验 issuer/audience/服务权限。limitcenter 回查使用原专用凭证和 pay:payment:limit-facts，不转发商户 token。
+
+风控确认复用原持久咨询与 RiskDecision。RiskOutcome 新增 tenantId/businessEventId，绑定正 sourceVersion/终态/evidence；外部实现须按 tenant/businessEvent 去重，接收方接受事实后才返回，异常不得转换为默认放行或成功。只有咨询/结果两个角色均未配置时才装配默认 NOT_CONNECTED 实现；外部集成需同时提供两个角色，不能混用外部咨询和静默丢弃结果。没有 attempt 或从未咨询的本地关单只完成“无需通知”任务，不伪造 DEFAULT_ALLOW/咨询。默认未连接 provider 的结果 no-op 是明确配置契约，不冒充外部送达。
+
+新增39个测试方法源码，覆盖源/租户/队列/版本复核、成功证据/容量、后置 fence、空 reservation/已过期释放、ACK 绑定、稳定重试、风控未咨询/失败、JWT轮换/错误身份/事务边界及默认装配。本批未运行 IDEA、构建、测试、数据库迁移或部署；真实 MySQL/HTTP/JWT/Outbox 端到端验收仍待进行。无新增业务表。
+
+## 2026-10-23 acquire 目标投递续批（新增源码）
+
+新增 PaymentAcquireOutcomeOutboxHandler 和 PaymentAcquireOutcomeDelivery，第三个独立目标经既有 PaymentOutcomeDeliverySupport 复核源队列与原终态/交易号证据，再在本地锁释放后通过 SERVICE HTTP 调 acquire /api/acquire/events/payment-outcome。重试保持原 PayEventEnvelope，必须收到 accepted=true、原 delivery/businessEvent/payment/version/evidence 一致且 orderVersion 合法的语义 ACK；空回执、错误版本/证据、网络失败不完成队列。acquire/realtime 不会与额度/风控串行绑定；realtime handler 仍待实现。
+
+新增 PaymentAcquireProperties，配置 PAYMENT_ACQUIRE_TENANT_ID（默认复用 PAYMENT_LIMITCENTER_TENANT_ID）、PAYMENT_SERVICE_ID、ACQUIRE_JWT_AUDIENCE、PAYMENT_ACQUIRE_TOKEN_FILE、ACQUIRE_BASE_URL。挂载令牌需 pay:acquire:payment:outcome；接收侧配置 ACQUIRE_PAYMENT_SERVICE_ID，默认 payment。payment 的 limit/acquire 客户端复用 PaymentServiceTokenReader，每次调用重新读挂载文件，核对 tenant/sub/service/principal type/audience/exp/nbf；只做出站预检，接收侧继续验签，令牌不进入事件或数据库。
+
+/api/payment/facts/payment 增加指定 acquire SERVICE+pay:payment:acquire-facts，只读原 callerServiceId 所属付款；原 limitcenter SERVICE+pay:payment:limit-facts 不变。acquire 因而能够反查原额度 operation 和实际 payee，不能只凭队列上报资金事实。payment app/infra 增加 acquire-client 协议依赖，没有反向依赖 acquire 实现或破坏领域层隔离。
+
+新增37个测试方法源码（含 acquire HTTP facts 回查测试），覆盖端到端应用事务边界、原 delivery/同资金事实/商户 refresh 幂等、部分/全额/未收款、事件来源/版本/operation、防伪服务身份、ACK 校验、挂载令牌轮换和事实角色权限。未运行检查/构建/测试/DDL/部署；真实渠道发送、realtime、退款与全部剩余范围继续推进，不能据此宣称业务链路已通过联调。
+
+## 2026-10-23 realtime 第四目标与完整付款快照
+
+第四目标由原占位 pay.payment.outcome.realtime.v1 改为设计中的 pay.payment.snapshot.realtime.v1，直接删除旧消息形式，不做前期兼容分支。PaymentResultEvents 在 Y3/本地终态事务内读取固定 attempt（若有）与成功 claim，冻结 channel/accessMode、原 initiatedAt、原渠道 succeededAt 和源版本；三类 acquire/limit/risk 继续使用自己的终态事件。未成功/未尝试没有伪造成功时间或渠道，接收侧不需要反查 payment。
+
+新增独立 handler、严格快照解码、SERVICE HTTP 与 ProjectionAckDTO 校验。只从已登记 PROCESSING 队列发送原完整快照；接收方已投影更高版本时，STALE ACK 也是合法接收，不能重置到旧状态。ACK 必须绑定 delivery/businessEvent/producer/aggregate/收到版本，projectedVersion>=收到版本且处置为 APPLIED/DUPLICATE/STALE。目标故障保留原任务重试，不影响其他目标或已经提交的交易。
+
+配置 REALTIME_BASE_URL、REALTIME_JWT_AUDIENCE、PAYMENT_REALTIME_TOKEN_FILE，令牌需 pay:realtime:projection:payment；出站 tenant 默认复用 PAYMENT_LIMITCENTER_TENANT_ID，可用 PAYMENT_REALTIME_TENANT_ID 覆盖。realtime 自有数据库、源版本与商户读取权限，完整说明见 realtime/README.md。当前仅自动生产付款终态；INIT/中间态、订单/退款来源生产和重建仍待完成。新增源码/测试未运行任何验证或部署。
+
+## 2026-10-23 商户退款申请与固定计划（新增源码）
+
+新增 RefundFacade 的 app/infra/adapter 实现及 POST /api/payment/refunds/create、/detail，返回 SuccessResponse<RefundRequestDTO>。只接受已验证 JWT 的 MERCHANT/MERCHANT_APP、实际 merchant_id 和 pay:payment:refund:create/read 权限；请求 payee 必须等于可信商户，未知商户资源查询返回 NOT_FOUND。SERVICE/OPERATOR 不因权限字符串获得任意商户退款入口，不转发 acquire 的内部 SERVICE 凭证。发起主体按 issuer/type/subject/merchant 保存摘要用于审计，幂等键仍为 tenant/payee/merchantRefundNo，商户内授权应用可回放同一原申请。
+
+首次请求锁 parent_gate，再按 paymentId 升序锁成功付款容量；在此锁下读取同库已验证原付款、成功 attempt、永久渠道交易号 claim 及原冻结 admitted terms。不回查当前 product/customer/acquire，不锁着数据库跨服务请求。每笔候选金额、币种、实际商户、原订单/attempt/claim/成功时间和统一准入条款须一致，成功总额不得超过固定订单额。原 parent FENCED 仅禁止继续收款，不禁止退款；已部分收款订单也可按既有可退容量退款，不重开订单或修改 gross 已付金额。
+
+新申请按原每笔 succeededAt + refund.windowSeconds 检查窗口，精确边界及过期付款不参与分配；以 eligible succeededAt/paymentId 排序生成 FIFO 固定计划。原 enabled=false 拒绝，非 FIFO 规则返回 UNSUPPORTED_CAPABILITY，显式分配参数在 FIFO 下拒绝。partialAllowed=true 可按申请金额部分分配；false 要求本次金额等于所有窗口内可退余额，且窗口内无已有占用。已退/已预占金额均扣除可用容量。
+
+同一可写事务保存 refund_request、refund_allocation_plan、refund_order 与全部 capacity CAS。申请和每个子项初始 INIT、版本0；原子冻结原成功 attempt/binding/channel/account scope/请求号/交易号/成功时间与完整准入条款摘要。固定32位子退款请求号首次产生后持久保存，不在重试时重新路由或改退其他付款。容量变化仅增加 reservedMinor/版本，不提前增加 refundedMinor，也不修改成功付款或 acquire 订单。任一步失败回滚整个本次计划；唯一键竞争由既有有限事务重试读取赢家。
+
+同 merchantRefundNo 原参数重试直接读取原计划及当前进度，不重新检查当前窗口/合约、不重做分配或容量预占；改 order/amount/reason 拒绝。查询在原 parent 锁下组合申请、固定计划及子项，复核金额/顺序/版本/身份/保存条款 hash。本节为规划批次记录；后续单步串行执行边界与结果落账源码见下节。真实渠道退款协议、自动查证、订单退款汇总、退费/额度恢复及事件仍未接通；INIT 不代表钱已退回。
+
+新增 V20261023030000__refund_planning.sql 三张表。refund_terms 实际采用强类型原准入 JSON 的 LONGTEXT + JSON_VALID/字节上限/sha256，避免审计日志输出；新增原支付请求号/实际交易号/成功时间以固定原路信息，审计时间仍由 BaseDO 监听器生成。新增规划、边界、重放、容量占用、商户鉴权和 MapStruct 存储转换测试源码，全部未运行；未执行 IDEA 检查、构建、测试、DDL、镜像或部署。真实数据库并发/回滚及渠道验收仍待执行。
+
+## 2026-10-23 退款提交边界与验证结果收敛（新增源码）
+
+RefundExecutionService 提供内部单步串行编排：在 parent_gate→refund_request→capacity（paymentId）→当前子退款锁下，只选择第一个未终结子项。INIT 赢家将子项与申请一起持久推进 PROCESSING 并写 submissionStartedAt，提交事务后才拿到首次提交票据；重复 worker 只按原退款号 queryRefund。PROCESSING/UNKNOWN 阻止后续子项，确定成功或失败后，下一次驱动才选择原固定计划下一项，不重新分配失败金额。当前尚无自动任务注册，progress 不会自己创建后台线程或循环发网络请求。
+
+PaymentChannelGateway 退款接口改为返回完整 RefundObservation，PreparedChannelRefund 补原付款金额与实际交易号，以满足原路退款所需原总额/身份。canRefund 仅允许本地能力查找；无真实 binder 或明确不支持时，在提交边界之前拒绝。单步渠道调用在本地事务外，原始回复必须绑定当前退款及相应提交/查单来源。网络异常仅产生本地 UNKNOWN，不伪造渠道回执、不释放占用；已提交后即使查询 NOT_FOUND，也不能当作确定未退款或重新发起另一请求。当前无真实 PaymentChannelGateway 实现，不能宣称渠道退款已联通。
+
+RefundResultService.record 只接内部验签/解密/实际账户核验后的强类型事实，无商户 HTTP 成功注入入口。锁内核对原成功付款/attempt/claim、冻结退款/原渠道请求号、原支付交易号、金额/币种、成功时间和既有提交边界。异常身份/金额、相同回执改资金事实、终态矛盾、真实退款流水已被另一退款或租户认领，写不可变回执/差错而不修改资金。回执键是单次渠道观察标识（tenant/refund/source/receiptKey），不能将会变化的查单结果都复用同一个退款号作为观察键。
+
+成功同时写永久 refund_transaction_claim、子退款成功/时间/流水、申请成功累计及 capacity.refunded+=amount/reserved-=amount；确定未退款的失败只释放 reserved，并累计 failed；UNKNOWN 保持容量。中间观察不回退 UNKNOWN，终态不重开；同回执或不同观察重复证明同一成功不能重复消耗容量。原付款/订单状态、gross 成功额、原总额及 fee 均不被退款改写。提交、结果及回执任一步失败由同一本地事务回滚，数据库唯一键竞争通过既有有限重试重读认领赢家。
+
+V20261023030000__refund_planning.sql 补未部署的 submission_started_at 列与状态 CHECK；V20261023040000__refund_results.sql 新增 refund_channel_receipt、refund_result_anomaly、refund_transaction_claim。实际退款流水以 channel/account_scope_hash/channel_refund_transaction_no 全局唯一，不包含 tenant/app/credential 以免重复认领；跨租户读取仅内部精确键，绝不对外列举。结果观测保存规范化非秘密 JSON，诊断输出隐藏负载。
+
+新增提交防重/事务外网络、能力缺失、UNKNOWN、终态冲突、重复回执/认领、存储转换及结果摘要测试源码。未运行 IDEA 检查、构建、测试、DDL、镜像或部署；真实 MySQL 并发/回滚/唯一键重试仍待验收。真实渠道协议、自动串行驱动/查证、订单退款汇总/投影、退费、限额恢复、Outbox 通知继续按 BUSINESS-IMPLEMENTATION.md 完整范围推进。
+
+## 2026-10-23 订单退款金额聚合与投影事件（新增源码）
+
+新增纯领域 OrderRefundSummary 和独立 order_refund_summary 表，冻结原 order/payee/CNY/固定总额，持有累计 refunded/reserved 及独立版本。首次退款计划在同一事务增加本次总占用；子项确定成功把 reserved 转为 refunded，确定未退款失败仅释放 reserved。INIT→PROCESSING/UNKNOWN 等非资金变化不推进金额汇总版本。原订单/付款生命周期与 gross 已收金额保持原模型。锁顺序沿用 parent→request/capacity/child，最后在已持 parent 锁的事务内锁金额汇总，CAS 校验原版本和金额。
+
+RefundProjectionEvents 已接规划、首次提交、渠道结果和本地 UNKNOWN 的事务。逐笔退款每个新版本读取刚落库的完整子项/申请头，校验精确版本，冻结真实 BaseDO.createdAt、实际渠道 succeededAt 与完整状态/金额，写 pay.payment.refund.realtime.v1；真实 updatedAt 用作原事件时间。资金汇总新版本同时写 pay.payment.refund-summary.realtime.v1。任何本地汇总/Outbox 写失败回滚该业务事务；幂等重放和 IGNORED/CONFLICT 观察不重复生成版本事件。
+
+直接重构旧 OrderRefundSummaryEventDTO：只保留 orderId/payeeMerchantId/currency/refundedMinor/refundReservedMinor/refundSummaryVersion 六项固定大小字段，移除随历史申请无限增长的 requests 列表、RefundRequestSummaryDTO 和 realtime 的专用申请进度模型。金额聚合是完整替换快照，逐笔退款保持独立版本与分页读取，申请详情仍走 RefundFacade；realtime 不逐笔累加金额。此为前期直接契约重构，无旧格式兼容。原数据库审计时钟与渠道时钟独立，退款投影保留两者原值，不用本地 createdAt 强制校正或拒绝真实渠道 succeededAt。
+
+新增两个独立 Outbox handler 和严格类型解码，命名 HttpTemplate realtime/refund、realtime/refund-summary，复用 PAYMENT_REALTIME_TOKEN_FILE 和 REALTIME_JWT_AUDIENCE。payment SERVICE 凭证额外需要 pay:realtime:projection:refund、pay:realtime:projection:refund-summary。worker 校验可信租户、已登记 PROCESSING 队列、消息目标/聚合，事务外重放原完整负载；ACK 需匹配 delivery/businessEvent/producer/aggregate/sourceVersion，projectedVersion 不小于源版本，允许 APPLIED/DUPLICATE/STALE。两个目标独立失败/重试，不读取当前交易来重建旧消息。
+
+V20261023050000__order_refund_summary.sql 新增金额汇总表。新增领域金额/事件事务/时间冻结/消息重放/ACK/严格解码/HTTP 操作测试源码，同步原服务调用方和已重构投影契约。未运行检查、构建、测试、DDL、镜像或部署。自动调度、真实渠道、费用基数/退费与额度恢复下游、商户退款通知、重建及端到端验收仍待完成。
