@@ -40,12 +40,15 @@ public class OrderSnapshotEvents {
     private final OrderSnapshotConverter converter;
     private final OutboxTemplate outbox;
     private final IdGenerator ids;
+    private final MerchantNotificationEvents notifications;
 
-    public OrderSnapshotEvents(OrderSnapshotReader headers, OrderSnapshotConverter converter, OutboxTemplate outbox, IdGenerator ids) {
+    public OrderSnapshotEvents(OrderSnapshotReader headers, OrderSnapshotConverter converter, OutboxTemplate outbox, IdGenerator ids,
+            MerchantNotificationEvents notifications) {
         this.headers = headers;
         this.converter = converter;
         this.outbox = outbox;
         this.ids = ids;
+        this.notifications = notifications;
     }
 
     public void publish(String tenant, String orderId, long expectedVersion) {
@@ -65,5 +68,6 @@ public class OrderSnapshotEvents {
         var event = new EventEnvelope<>(ids.generate(), ids.generate(), "acquire", TYPE, 1, orderId, expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()), data);
         outbox.publish(new OutboxMessage(tenant, TYPE, 1, orderId, JsonUtil.toJson(event)));
+        notifications.order(tenant, header);
     }
 }

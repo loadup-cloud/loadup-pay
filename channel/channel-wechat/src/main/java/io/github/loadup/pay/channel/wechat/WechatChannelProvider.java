@@ -15,18 +15,17 @@
  */
 package io.github.loadup.pay.channel.wechat;
 
-import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 /** Independent WeChat strategy; unsupported capabilities never fall back to another channel. */
 public final class WechatChannelProvider implements ChannelProvider {
     private final WechatSubmitAdapter submissions;
     private final WechatPaymentAdapter payments;
-    public WechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments) {
-        this.submissions = submissions; this.payments = payments;
+    private final WechatRefundAdapter refunds;
+    public WechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments, WechatRefundAdapter refunds) {
+        this.submissions = submissions; this.payments = payments; this.refunds = refunds;
     }
     @Override public Channel channel() { return Channel.WECHAT; }
     @Override public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) { submissions.validate(context, request); }
@@ -34,7 +33,8 @@ public final class WechatChannelProvider implements ChannelProvider {
     @Override public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.query(context, target); }
     @Override public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) { return payments.recover(context, request); }
     @Override public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.close(context, target); }
-    @Override public boolean canRefund(PreparedChannelRefund refund) { return false; }
-    @Override public RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { throw new CommonException(UNSUPPORTED_CAPABILITY); }
-    @Override public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { throw new CommonException(UNSUPPORTED_CAPABILITY); }
+    @Override public boolean canRefund(PreparedChannelRefund refund) { return refunds.canRefund(refund); }
+    @Override public RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.submit(context, refund); }
+    @Override public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.recover(context, refund); }
+    @Override public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.query(context, refund); }
 }

@@ -19,6 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.rpc.grpc.GrpcScalarMapper;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
+import org.mapstruct.BeforeMapping;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -68,6 +69,7 @@ public interface PaymentRpcMapper {
         if (value instanceof io.github.loadup.pay.payment.client.dto.NoInteractionDTO variant) result.setOption0(toWireNoInteractionDTO(variant));
         else if (value instanceof io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO variant) result.setOption1(toWirePaymentCodeInteractionDTO(variant));
         else if (value instanceof io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO variant) result.setOption2(toWireChannelIdentityInteractionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO variant) result.setOption3(toWireH5SceneInteractionDTO(variant));
         else throw new IllegalArgumentException("Unknown RPC variant");
         return result.build();
     }
@@ -76,6 +78,7 @@ public interface PaymentRpcMapper {
             case OPTION0 -> fromWireNoInteractionDTO(value.getOption0());
             case OPTION1 -> fromWirePaymentCodeInteractionDTO(value.getOption1());
             case OPTION2 -> fromWireChannelIdentityInteractionDTO(value.getOption2());
+            case OPTION3 -> fromWireH5SceneInteractionDTO(value.getOption3());
             default -> throw new IllegalArgumentException("RPC variant is required");
         };
     }
@@ -98,6 +101,21 @@ public interface PaymentRpcMapper {
     io.github.loadup.pay.payment.rpc.proto.WireChannelIdentityInteractionDTO toWireChannelIdentityInteractionDTO(io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO value);
 
     io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO fromWireChannelIdentityInteractionDTO(io.github.loadup.pay.payment.rpc.proto.WireChannelIdentityInteractionDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "payerClientIp", source = "payerClientIp")
+    @Mapping(target = "sceneType", expression = "java(value.sceneType().name())")
+    io.github.loadup.pay.payment.rpc.proto.WireH5SceneInteractionDTO toWireH5SceneInteractionDTO(io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO value);
+
+    @BeforeMapping
+    default void requireH5SceneFields(io.github.loadup.pay.payment.rpc.proto.WireH5SceneInteractionDTO value) {
+        if (value == null || !value.hasPayerClientIp() || !value.hasSceneType()) {
+            throw new IllegalArgumentException("RPC H5 scene fields are required");
+        }
+    }
+
+    @Mapping(target = "sceneType", expression = "java(io.github.loadup.pay.channel.api.model.H5SceneType.valueOf(value.getSceneType()))")
+    io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO fromWireH5SceneInteractionDTO(io.github.loadup.pay.payment.rpc.proto.WireH5SceneInteractionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "inputRef", source = "inputRef")
@@ -365,5 +383,49 @@ public interface PaymentRpcMapper {
     io.github.loadup.pay.payment.rpc.proto.WireRefundOutcomeEventDTO toWireRefundOutcomeEventDTO(io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO value);
 
     io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO fromWireRefundOutcomeEventDTO(io.github.loadup.pay.payment.rpc.proto.WireRefundOutcomeEventDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "aggregateType", source = "aggregateType")
+    @Mapping(target = "refundId", source = "refundId")
+    @Mapping(target = "refundRequestId", source = "refundRequestId")
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
+    @Mapping(target = "merchantRefundNo", source = "merchantRefundNo")
+    @Mapping(target = "amountMinor", source = "amountMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "state", source = "state")
+    @Mapping(target = "succeededMinor", source = "succeededMinor")
+    @Mapping(target = "failedMinor", source = "failedMinor")
+    @Mapping(target = "sourceVersion", source = "sourceVersion")
+    @Mapping(target = "succeededAt", source = "succeededAt")
+    io.github.loadup.pay.payment.rpc.proto.WireRefundMerchantEventDTO toWireRefundMerchantEventDTO(io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "aggregateType", source = "aggregateType")
+    @Mapping(target = "refundId", expression = "java(value.hasRefundId() ? value.getRefundId() : null)")
+    @Mapping(target = "refundRequestId", source = "refundRequestId")
+    @Mapping(target = "paymentId", expression = "java(value.hasPaymentId() ? value.getPaymentId() : null)")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
+    @Mapping(target = "merchantRefundNo", source = "merchantRefundNo")
+    @Mapping(target = "amountMinor", source = "amountMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "state", source = "state")
+    @Mapping(target = "succeededMinor", source = "succeededMinor")
+    @Mapping(target = "failedMinor", source = "failedMinor")
+    @Mapping(target = "sourceVersion", source = "sourceVersion")
+    @Mapping(target = "succeededAt", source = "succeededAt")
+    io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO fromWireRefundMerchantEventDTO(io.github.loadup.pay.payment.rpc.proto.WireRefundMerchantEventDTO value);
+
+    @BeforeMapping
+    default void requireRefundMerchantEventFields(io.github.loadup.pay.payment.rpc.proto.WireRefundMerchantEventDTO value) {
+        if (value == null || !value.hasAggregateType() || !value.hasRefundRequestId() || !value.hasOrderId()
+                || !value.hasPayeeMerchantId() || !value.hasMerchantRefundNo() || !value.hasAmountMinor()
+                || !value.hasCurrency() || !value.hasState() || !value.hasSucceededMinor()
+                || !value.hasFailedMinor() || !value.hasSourceVersion()) {
+            throw new IllegalArgumentException("RPC refund merchant event fields are required");
+        }
+    }
 
 }

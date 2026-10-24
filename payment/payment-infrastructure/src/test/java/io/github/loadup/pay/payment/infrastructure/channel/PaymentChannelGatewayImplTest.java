@@ -73,6 +73,7 @@ class PaymentChannelGatewayImplTest {
         when(channels.close(expectedContext, target)).thenReturn(queryResult);
         when(channels.submitRefund(expectedContext, refund)).thenReturn(refundResult);
         when(channels.queryRefund(expectedContext, refund)).thenReturn(refundResult);
+        when(channels.recoverRefund(expectedContext, refund)).thenReturn(refundResult);
 
         TenantUtil.runWithTenant("tenant", () -> {
             assertSame(paymentResult, gateway.submit(payment));
@@ -81,9 +82,10 @@ class PaymentChannelGatewayImplTest {
             assertSame(queryResult, gateway.close(target));
             assertSame(refundResult, gateway.submitRefund(refund));
             assertSame(refundResult, gateway.queryRefund(refund));
+            assertSame(refundResult, gateway.recoverRefund(refund));
         });
 
-        verify(bindings, times(6)).findRevision("tenant", "frozen-revision");
+        verify(bindings, times(7)).findRevision("tenant", "frozen-revision");
         verify(bindings, never()).lockActive(anyString(), anyString(), any(), anySet(), any());
         verify(requests).create("tenant", payment);
         verify(channels).submit(expectedContext, paymentRequest);
@@ -92,6 +94,7 @@ class PaymentChannelGatewayImplTest {
         verify(channels).close(expectedContext, target);
         verify(channels).submitRefund(expectedContext, refund);
         verify(channels).queryRefund(expectedContext, refund);
+        verify(channels).recoverRefund(expectedContext, refund);
         verifyNoMoreInteractions(requests);
     }
 

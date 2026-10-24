@@ -39,9 +39,11 @@ public final class DefaultChannelNotificationFacade implements ChannelNotificati
         }
         providers = Map.copyOf(registry);
     }
-    @Override public ChannelNotificationHint identify(Channel channel, ChannelNotificationInput input) {
-        if (input == null) throw new CommonException(INVALID_ARGUMENT);
-        var result = provider(channel).identify(channel, input);
+    @Override public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (context == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        var result = provider(context.binding().channel()).identify(context, input);
         if (result == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
         return result;
     }
@@ -57,6 +59,25 @@ public final class DefaultChannelNotificationFacade implements ChannelNotificati
         var result = provider(identity.channel()).verify(context, target, input);
         if (result == null || !identity.equals(result.identity()) || !target.amount().equals(result.amount()))
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        return result;
+    }
+    @Override public ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (context == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        var result = provider(context.binding().channel()).identifyRefund(context, input);
+        if (result == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        return result;
+    }
+    @Override public VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (context == null || target == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        var identity = target.original();
+        if (context.binding().channel() != identity.channel() || !context.binding().id().equals(identity.bindingRevisionId())
+                || !context.binding().accountScopeHash().equals(identity.accountScopeHash())) throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        var result = provider(identity.channel()).verifyRefund(context, target, input);
+        if (result == null || !target.equals(result.refund())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
         return result;
     }
     @Override public ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted) {

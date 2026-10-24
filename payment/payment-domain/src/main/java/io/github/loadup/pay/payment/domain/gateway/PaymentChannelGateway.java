@@ -48,4 +48,7 @@ public interface PaymentChannelGateway {
     RefundObservation submitRefund(PreparedChannelRefund refund);
 
     RefundObservation queryRefund(PreparedChannelRefund refund);
+
+    /** Recovery only: may repeat the same provider-idempotent original refund, never creates another refund identity. */
+    RefundObservation recoverRefund(PreparedChannelRefund refund);
 }

@@ -68,7 +68,10 @@ public final class WechatResponseReader {
     public void amount(Map<?, ?> value, long expected) {
         if (!(value.get("amount") instanceof Map<?, ?> amount)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
         match(amount, "currency", "CNY");
-        Object total = amount.get("total");
+        minorUnits(amount, "total", expected);
+    }
+    public void minorUnits(Map<?, ?> amount, String name, long expected) {
+        Object total = amount.get(name);
         if (!(total instanceof Integer || total instanceof Long || total instanceof BigInteger)
                 || !new BigInteger(total.toString()).equals(BigInteger.valueOf(expected)))
             throw new CommonException(CHANNEL_RESPONSE_INVALID);

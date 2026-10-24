@@ -221,6 +221,15 @@ class ChannelBindingServiceTest {
     }
 
     @Test
+    void typedIdentityRejectsAnotherChannelBeforeBindingWrites() {
+        var invalid = new ChannelBindingPublishCommand("merchant", "primary", Channel.WECHAT, AccessMode.DIRECT,
+                new AlipayAccountIdentityDTO("app", "seller", null, null, null),
+                "signing-reference", "v1", Set.of(PaymentMethod.JSAPI), 100, "first", 0);
+        assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.publish(invalid)).getResultCode());
+        verifyNoInteractions(store);
+    }
+
+    @Test
     void detailReturnsRouteMetadataWithoutCredentialOrIdentityPayload() {
         service.publish(publish("first", 0, "v1", 100));
         var result = service.detail(new ChannelBindingDetailQuery("merchant", "primary"));

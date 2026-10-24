@@ -71,6 +71,11 @@ public final class AlipayChannelProvider implements ChannelProvider {
     }
 
     @Override
+    public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        return refunds.recover(context, refund);
+    }
+
+    @Override
     public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
         return refunds.query(context, refund);
     }

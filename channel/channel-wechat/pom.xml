@@ -10,8 +10,20 @@
     </parent>
     <artifactId>channel-wechat</artifactId>
     <name>LoadUp Pay Channel WeChat</name>
-    <description>WeChat APIv3 KMS signing, frozen credential descriptors and strict pinned response verification; adapters remain pending.</description>
+    <description>WeChat APIv3 JSAPI and domestic refund strategy with frozen credentials, KMS signing and pinned response verification.</description>
     <dependencies>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-json</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-commons-error</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>channel-api</artifactId>

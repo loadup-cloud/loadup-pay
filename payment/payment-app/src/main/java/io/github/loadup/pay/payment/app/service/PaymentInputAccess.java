@@ -146,10 +146,7 @@ public class PaymentInputAccess {
     }
 
     private boolean requiresInput(PaymentExecuteCommand command) {
-        if (command.choice().method() == PaymentMethod.H5) {
-            if (command.preparedInputRef() != null) throw new CommonException(INVALID_ARGUMENT);
-            return false;
-        }
+        if (command.choice().method() == PaymentMethod.H5 && command.preparedInputRef() == null) return false;
         if (command.preparedInputRef() == null) throw new CommonException(INVALID_ARGUMENT);
         DomainChecks.id(command.preparedInputRef());
         return true;

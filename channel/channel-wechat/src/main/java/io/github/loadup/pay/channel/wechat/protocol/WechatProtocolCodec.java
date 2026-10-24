@@ -96,10 +96,24 @@ public class WechatProtocolCodec {
         byte[] body = response.getBody() == null ? new byte[0] : response.getBody();
         int status = response.getStatusCode().value();
         if (body.length > 1048576 || body.length == 0 && status != 204) throw new CommonException(CHANNEL_RESPONSE_INVALID);
-        String serial = header(response.getHeaders(), "Wechatpay-Serial", 128);
-        String timestamp = header(response.getHeaders(), "Wechatpay-Timestamp", 20);
-        String nonce = header(response.getHeaders(), "Wechatpay-Nonce", 256);
-        String encoded = header(response.getHeaders(), "Wechatpay-Signature", 1024);
+        verifySignature(credentials, response.getHeaders(), body);
+        try {
+            String payload = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(body)).toString();
+            if (body.length != 0 && json.readValue(payload, Map.class) == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            return new WechatVerifiedResponse(operation, status, payload,
+                    DigestUtils.sha256("wechat-response-v1|" + operation.name() + "|" + status + "|" + payload));
+        } catch (Exception invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+    }
+
+    /** Shared signature verification for original HTTP response or notification bytes. */
+    public void verifySignature(WechatCredentials credentials, HttpHeaders headers, byte[] body) {
+        if (credentials == null || headers == null || body == null || body.length > 1048576)
+            throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        String serial = header(headers, "Wechatpay-Serial", 128);
+        String timestamp = header(headers, "Wechatpay-Timestamp", 20);
+        String nonce = header(headers, "Wechatpay-Nonce", 256);
+        String encoded = header(headers, "Wechatpay-Signature", 1024);
         if (!serial.equals(credentials.platformKeyId()) || !timestamp.matches("[0-9]{1,20}")
                 || nonce.chars().anyMatch(c -> c < 33 || c > 126)) throw new CommonException(CHANNEL_SIGNATURE_INVALID);
         try {
@@ -114,13 +128,6 @@ public class WechatProtocolCodec {
             if (!verifier.verify(Base64.getDecoder().decode(encoded))) throw new CommonException(CHANNEL_SIGNATURE_INVALID);
         } catch (CommonException invalid) { throw invalid; }
         catch (Exception invalid) { throw new CommonException(CHANNEL_SIGNATURE_INVALID); }
-        try {
-            String payload = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(body)).toString();
-            if (body.length != 0 && json.readValue(payload, Map.class) == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
-            return new WechatVerifiedResponse(operation, status, payload,
-                    DigestUtils.sha256("wechat-response-v1|" + operation.name() + "|" + status + "|" + payload));
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
     }
 
     private String header(HttpHeaders headers, String name, int maximum) {

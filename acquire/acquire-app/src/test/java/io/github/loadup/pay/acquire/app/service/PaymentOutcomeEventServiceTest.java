@@ -120,7 +120,8 @@ class PaymentOutcomeEventServiceTest {
     final AtomicInteger ids = new AtomicInteger();
     final PaymentOutcomeOperations operations = new PaymentOutcomeOperations(orders, allocations, fees, payment, intents, admissions,
             context.getBean(PaymentInitiationConverter.class), context.getBean(PaymentProgressConverter.class),
-            context.getBean(AcquireOrderConverter.class), transactions, () -> "outcome-" + ids.incrementAndGet(), validation.getValidator(), clock(NOW), snapshots);
+            context.getBean(AcquireOrderConverter.class), transactions, () -> "outcome-" + ids.incrementAndGet(), validation.getValidator(), clock(NOW), snapshots,
+            mock(MerchantNotificationEvents.class));
     final PaymentOutcomeEventService service = new PaymentOutcomeEventService(actor::get, payment, orders, allocations, events, operations,
             digests, context.getBean(PaymentEventConverter.class), transactions, () -> "event-" + ids.incrementAndGet(), clock(NOW), "payment");
     PaymentExecuteCommand command;

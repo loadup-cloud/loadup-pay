@@ -117,6 +117,18 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         return checked(refund, provider.queryRefund(context, refund));
     }
 
+    @Override
+    public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        var provider = route(context, refund.original());
+        if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        var result = checked(refund, provider.recoverRefund(context, refund));
+        if (result.source() != RefundObservation.Source.QUERY_RESPONSE && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
+                || result.source() == RefundObservation.Source.SUBMIT_RESPONSE && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
+                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        return result;
+    }
+
     private ChannelProvider route(ChannelExecutionContext context, ChannelPaymentIdentity identity) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (context == null || identity == null) throw new CommonException(INVALID_ARGUMENT);

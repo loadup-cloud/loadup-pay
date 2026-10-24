@@ -196,7 +196,7 @@ class AlipayNotificationCodecTest {
     }
 
     private static ChannelNotificationInput input(String body, String contentType) {
-        return new ChannelNotificationInput(contentType, body.getBytes(StandardCharsets.US_ASCII));
+        return new ChannelNotificationInput(contentType, java.util.Map.of(), body.getBytes(StandardCharsets.US_ASCII));
     }
 
     private static KeyPair rsaKeyPair() throws Exception {

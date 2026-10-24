@@ -60,7 +60,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
         boolean accepted;
         try {
             accepted = transactions.read(endpoint.tenantId(), () -> {
-                var hint = notifications.identify(endpoint.channel(), input);
+                var hint = notifications.identify(endpoint.channel(), endpoint.bindingRevisionId(), input);
                 var stored = attempts.findChannelRequest(endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
                 var attempt = stored.attempt();

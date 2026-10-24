@@ -39,7 +39,7 @@ public record ChannelPaymentValidation(ChannelPaymentIdentity identity, Money am
         boolean matches = switch (method) {
             case PAYMENT_CODE -> input instanceof ChannelPaymentCodeInput;
             case JSAPI -> input instanceof ChannelPayerIdentityInput payer && payer.channel() == identity.channel();
-            case H5 -> input instanceof NoChannelInput;
+            case H5 -> input instanceof NoChannelInput || input instanceof ChannelH5Input;
             default -> false;
         };
         require(matches, INVALID_ARGUMENT);

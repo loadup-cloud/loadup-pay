@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,7 +42,7 @@ class DefaultChannelNotificationFacadeTest {
     private final ChannelNotificationProvider wechat = provider(Channel.WECHAT);
     private final DefaultChannelNotificationFacade facade = new DefaultChannelNotificationFacade(List.of(alipay, wechat));
     private final ChannelNotificationInput input = new ChannelNotificationInput("application/x-www-form-urlencoded",
-            "notify=untrusted".getBytes(StandardCharsets.US_ASCII));
+            Map.of(), "notify=untrusted".getBytes(StandardCharsets.US_ASCII));
 
     @Test
     void routesIdentifyVerifyAndAcknowledgementToTheSelectedStrategy() {
@@ -49,20 +50,20 @@ class DefaultChannelNotificationFacadeTest {
         var target = target(Channel.ALIPAY, "revision-1", HASH, ORDER_NO, AMOUNT);
         var hint = new ChannelNotificationHint(ORDER_NO);
         var verified = verified(target.identity(), AMOUNT);
-        var acknowledgement = new ChannelNotificationAcknowledgement("text/plain; charset=utf-8", "success");
-        var rejectedAcknowledgement = new ChannelNotificationAcknowledgement("text/plain; charset=utf-8", "failure");
-        when(alipay.identify(Channel.ALIPAY, input)).thenReturn(hint);
+        var acknowledgement = new ChannelNotificationAcknowledgement(200, "text/plain; charset=utf-8", "success");
+        var rejectedAcknowledgement = new ChannelNotificationAcknowledgement(500, "text/plain; charset=utf-8", "failure");
+        when(alipay.identify(context, input)).thenReturn(hint);
         when(alipay.verify(context, target, input)).thenReturn(verified);
         when(alipay.acknowledgement(Channel.ALIPAY, true)).thenReturn(acknowledgement);
         when(alipay.acknowledgement(Channel.ALIPAY, false)).thenReturn(rejectedAcknowledgement);
         clearInvocations(alipay, wechat);
 
-        assertSame(hint, facade.identify(Channel.ALIPAY, input));
+        assertSame(hint, TenantUtil.callWithTenant("tenant", () -> facade.identify(context, input)));
         assertSame(verified, TenantUtil.callWithTenant("tenant", () -> facade.verify(context, target, input)));
         assertSame(acknowledgement, facade.acknowledgement(Channel.ALIPAY, true));
         assertSame(rejectedAcknowledgement, facade.acknowledgement(Channel.ALIPAY, false));
 
-        verify(alipay).identify(Channel.ALIPAY, input);
+        verify(alipay).identify(context, input);
         verify(alipay).verify(context, target, input);
         verify(alipay).acknowledgement(Channel.ALIPAY, true);
         verify(alipay).acknowledgement(Channel.ALIPAY, false);
@@ -74,9 +75,9 @@ class DefaultChannelNotificationFacadeTest {
         assertThrows(CommonException.class,
                 () -> new DefaultChannelNotificationFacade(List.of(alipay, provider(Channel.ALIPAY))));
         var withoutWechat = new DefaultChannelNotificationFacade(List.of(alipay));
-        assertThrows(CommonException.class, () -> withoutWechat.identify(Channel.WECHAT, input));
-        assertThrows(CommonException.class, () -> withoutWechat.acknowledgement(Channel.WECHAT, false));
         var context = context(Channel.WECHAT, "wx-revision", HASH);
+        TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class, () -> withoutWechat.identify(context, input)));
+        assertThrows(CommonException.class, () -> withoutWechat.acknowledgement(Channel.WECHAT, false));
         var target = target(Channel.WECHAT, "wx-revision", HASH, ORDER_NO, AMOUNT);
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> withoutWechat.verify(context, target, input)));

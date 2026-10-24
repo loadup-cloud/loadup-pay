@@ -35,9 +35,15 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -67,6 +73,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AC
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
@@ -175,9 +182,88 @@ class PaymentInitiationServiceTest {
         });
     }
 
+    @Test
+    void h5SceneInputIsPreparedOutsideTransactionsAndOnlyOpaqueReferenceIsRetainedAcrossReplay() {
+        var interaction = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.IOS);
+        var inputCalls = new java.util.ArrayList<PaymentInputPrepareCommand>();
+        when(payment.prepareInput(eq("tenant"), any())).thenAnswer(c -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            inputCalls.add(c.getArgument(1));
+            return new PaymentInputDTO("opaque-prepared-input", "a".repeat(64), NOW.plusMinutes(5));
+        });
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            StoredPaymentAllocation prepared = c.getArgument(2);
+            saved.put(prepared.allocation().actionKey(), prepared);
+            return null;
+        }).when(allocations).attachInput(eq("tenant"), any(), any());
+
+        var command = h5Command("h5", 4000, interaction);
+        var first = service(clock(NOW)).startPayment(command);
+        var stored = saved.get("h5");
+        var frozen = commands.get(first.paymentId());
+        var second = service(clock(NOW.plusMinutes(1))).startPayment(command);
+
+        assertEquals(first.paymentId(), second.paymentId());
+        assertEquals("opaque-prepared-input", frozen.preparedInputRef());
+        assertEquals("opaque-prepared-input", commands.get(first.paymentId()).preparedInputRef());
+        assertEquals(first.paymentId(), stored.intentPayload());
+        assertFalse(stored.intentPayload().contains(interaction.payerClientIp()));
+        assertEquals(2, inputCalls.size());
+        var expectedInput = new PaymentInputPrepareCommand(
+                first.paymentId(), "order", stored.allocation().id(), frozen.payeeMerchantId(), 4000,
+                "CNY", "h5", new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), interaction);
+        assertEquals(java.util.List.of(expectedInput, expectedInput), inputCalls);
+
+        var accepted = org.mockito.ArgumentCaptor.forClass(PaymentExecuteCommand.class);
+        verify(payment, times(2)).accept(eq("tenant"), accepted.capture());
+        assertTrue(accepted.getAllValues().stream().allMatch(value -> "opaque-prepared-input".equals(value.preparedInputRef())));
+        verify(allocations, times(1)).reserve(eq("tenant"), any(), any(), anyLong());
+        verify(allocations, times(1)).attachInput(eq("tenant"), any(), any());
+        verify(snapshots, times(1)).publish(eq("tenant"), eq("order"), anyLong());
+    }
+
+    @Test
+    void h5RejectsChannelIdentityInteractionBeforeAnyWrites() {
+        var unsupported = h5Command(
+                "h5", 4000,
+                new ChannelIdentityInteractionDTO(Channel.WECHAT, "openid", "wx-app", PayerIdentityType.OPEN_ID));
+
+        assertSame(
+                INVALID_ARGUMENT,
+                assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(unsupported))
+                        .getResultCode());
+
+        verifyNoInteractions(orders, allocations, payment);
+        assertTrue(saved.isEmpty());
+    }
+
+    @Test
+    void changingH5InteractionKindForSameActionConflictsBeforeAnySecondWrite() {
+        service(clock(NOW)).startPayment(command("one", 4000));
+        clearInvocations(payment, allocations);
+
+        assertSame(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service(clock(NOW)).startPayment(
+                        h5Command("one", 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP))))
+                        .getResultCode());
+
+        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        verify(allocations, never()).attachInput(anyString(), any(), any());
+        verify(payment, never()).prepareInput(anyString(), any());
+        verify(payment, never()).accept(anyString(), any());
+        assertEquals(1, saved.size());
+    }
+
     PaymentStartCommand command(String key, long amount) {
         return new PaymentStartCommand(
                 "order", key, amount, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), null);
+    }
+
+    PaymentStartCommand h5Command(String key, long amount, io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO interaction) {
+        return new PaymentStartCommand("order", key, amount,
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), interaction);
     }
 
     PaymentExecutionDTO response(PaymentExecuteCommand value) {

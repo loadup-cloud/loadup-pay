@@ -19,6 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
@@ -53,19 +55,22 @@ public class PaymentInputService implements PaymentInputFacade {
     private final PaymentInputGateway store;
     private final PaymentInputCipher cipher;
     private final PaymentInputConverter converter;
+    private final PaymentChannelInputConverter channelInputs;
     private final PaymentAcceptanceTransactions transactions;
     private final Validator validator;
     private final Clock clock;
     private final String acquireService;
 
     public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputCipher cipher,
-                               PaymentInputConverter converter, PaymentAcceptanceTransactions transactions, Validator validator,
+                               PaymentInputConverter converter, PaymentChannelInputConverter channelInputs,
+                               PaymentAcceptanceTransactions transactions, Validator validator,
                                @Qualifier("paymentClock") Clock clock,
                                @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.store = store;
         this.cipher = cipher;
         this.converter = converter;
+        this.channelInputs = channelInputs;
         this.transactions = transactions;
         this.validator = validator;
         this.clock = clock;
@@ -127,6 +132,9 @@ public class PaymentInputService implements PaymentInputFacade {
             DomainChecks.text(identity.identifier(), 128);
             if (identity.identityType() == null) throw new CommonException(INVALID_ARGUMENT);
             DomainChecks.id(identity.appScope());
+        } else if (command.choice().method() == PaymentMethod.H5
+                && command.interaction() instanceof H5SceneInteractionDTO scene) {
+            channelInputs.toH5(scene);
         } else throw new CommonException(INVALID_ARGUMENT);
     }
 

@@ -34,6 +34,7 @@ message WirePaymentInteractionDTO {
     WireNoInteractionDTO option0 = 1;
     WirePaymentCodeInteractionDTO option1 = 2;
     WireChannelIdentityInteractionDTO option2 = 3;
+    WireH5SceneInteractionDTO option3 = 4;
   }
 }
 
@@ -49,6 +50,11 @@ message WireChannelIdentityInteractionDTO {
   optional string identifier = 2;
   optional string app_scope = 3;
   optional string identity_type = 4;
+}
+
+message WireH5SceneInteractionDTO {
+  optional string payer_client_ip = 1;
+  optional string scene_type = 2;
 }
 
 message WirePaymentInputDTO {
@@ -249,6 +255,23 @@ message WireRefundOutcomeEventDTO {
   optional int64 refund_version = 10;
   optional int64 cumulative_payment_refunded_minor = 11;
   optional string evidence_id = 12;
+}
+
+message WireRefundMerchantEventDTO {
+  optional string aggregate_type = 1;
+  optional string refund_id = 2;
+  optional string refund_request_id = 3;
+  optional string payment_id = 4;
+  optional string order_id = 5;
+  optional string payee_merchant_id = 6;
+  optional string merchant_refund_no = 7;
+  optional int64 amount_minor = 8;
+  optional string currency = 9;
+  optional string state = 10;
+  optional int64 succeeded_minor = 11;
+  optional int64 failed_minor = 12;
+  optional int64 source_version = 13;
+  google.protobuf.Timestamp succeeded_at = 14;
 }
 
 message WireRefundSettlementFactsDTO {

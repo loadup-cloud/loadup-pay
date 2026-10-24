@@ -36,6 +36,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
@@ -225,7 +226,8 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
 
     private void validateInteraction(PaymentStartCommand command) {
         boolean valid = switch (command.choice().method()) {
-            case H5 -> command.interaction() instanceof NoInteractionDTO;
+            case H5 -> command.interaction() instanceof NoInteractionDTO
+                    || command.interaction() instanceof H5SceneInteractionDTO;
             case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
             case JSAPI -> command.interaction() instanceof ChannelIdentityInteractionDTO identity
                     && identity.channel() == command.choice().channel();
@@ -246,8 +248,12 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
                 order.order().amount().getCurrencyValue(),
                 command.choice().channel().name(),
                 command.choice().method().name(),
-                command.interaction() instanceof NoInteractionDTO ? "NONE"
-                        : command.interaction() instanceof PaymentCodeInteractionDTO ? "PAYMENT_CODE" : "CHANNEL_IDENTITY",
+                switch (command.interaction()) {
+                    case NoInteractionDTO ignored -> "NONE";
+                    case PaymentCodeInteractionDTO ignored -> "PAYMENT_CODE";
+                    case ChannelIdentityInteractionDTO ignored -> "CHANNEL_IDENTITY";
+                    case H5SceneInteractionDTO ignored -> "H5_SCENE";
+                },
                 order.admission().requestDigest()))
             canonical
                     .append(field.getBytes(StandardCharsets.UTF_8).length)

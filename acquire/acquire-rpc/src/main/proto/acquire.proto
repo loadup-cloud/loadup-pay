@@ -65,7 +65,29 @@ message WireFeeRefundAckDTO {
   optional bool accepted = 6;
 }
 
+message WirePayEventEnvelopeOfRefundMerchantEventDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string producer = 3;
+  optional string event_type = 4;
+  optional int32 schema_version = 5;
+  optional string aggregate_id = 6;
+  optional int64 aggregate_version = 7;
+  google.protobuf.Timestamp occurred_at = 8;
+  loadup.pay.payment.v1.WireRefundMerchantEventDTO data = 9;
+}
+
+message WireRefundNotificationAckDTO {
+  optional string delivery_id = 1;
+  optional string business_event_id = 2;
+  optional string aggregate_id = 3;
+  optional int64 source_version = 4;
+  optional string merchant_event_id = 5;
+  optional string disposition = 6;
+}
+
 service AcquireRpc {
   rpc PaymentOutcome (WirePayEventEnvelopeOfPaymentOutcomeEventDTO) returns (WirePaymentOutcomeAckDTO);
   rpc FeeRefund (WirePayEventEnvelopeOfOrderRefundSummaryEventDTO) returns (WireFeeRefundAckDTO);
+  rpc RefundNotification (WirePayEventEnvelopeOfRefundMerchantEventDTO) returns (WireRefundNotificationAckDTO);
 }

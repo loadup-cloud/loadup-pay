@@ -348,6 +348,7 @@ CREATE TABLE refund_order
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_channel_no (channel, account_scope_hash, channel_refund_no),
     KEY ix_refund_child_request (tenant_id, refund_request_id, id),
+    KEY ix_refund_callback_lookup (tenant_id, binding_revision_id, channel_refund_no),
     KEY ix_refund_query (tenant_id, state, next_query_at, id),
     CHECK (amount_minor > 0)
 ) ENGINE = InnoDB

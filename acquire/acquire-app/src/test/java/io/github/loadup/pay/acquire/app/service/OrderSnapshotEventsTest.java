@@ -61,7 +61,7 @@ class OrderSnapshotEventsTest {
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
     final OrderSnapshotEvents events = new OrderSnapshotEvents(headers, context.getBean(OrderSnapshotConverter.class), outbox,
-            () -> "event-" + ids.incrementAndGet());
+            () -> "event-" + ids.incrementAndGet(), mock(MerchantNotificationEvents.class));
     final OrderSnapshotFacts header = new OrderSnapshotFacts("order", "merchant", "M001", DomainChecks.cnyAmount(10000, "CNY"),
             4000, 2000, "PENDING", NOW.minusDays(1), NOW, 2);
 

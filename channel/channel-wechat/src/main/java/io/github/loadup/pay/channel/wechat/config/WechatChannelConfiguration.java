@@ -21,6 +21,8 @@ import io.github.loadup.pay.channel.wechat.protocol.*;
 import io.github.loadup.pay.channel.wechat.WechatChannelProvider;
 import io.github.loadup.pay.channel.wechat.WechatSubmitAdapter;
 import io.github.loadup.pay.channel.wechat.WechatPaymentAdapter;
+import io.github.loadup.pay.channel.wechat.WechatRefundAdapter;
+import io.github.loadup.pay.channel.wechat.WechatNotificationProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,6 +36,12 @@ import java.time.Clock;
 @ConditionalOnProperty(prefix = "loadup.pay.channel.wechat", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties({WechatProperties.class, WechatNotificationProperties.class})
 public class WechatChannelConfiguration {
+    @Bean WechatNotificationCodec wechatNotificationCodec(WechatCredentialReader credentials, WechatProtocolCodec signatures, JsonMapper json) {
+        return new WechatNotificationCodec(credentials, signatures, json);
+    }
+    @Bean WechatNotificationProvider wechatNotificationProvider(WechatNotificationCodec codec) {
+        return new WechatNotificationProvider(codec);
+    }
     @Bean WechatJsapiSigner wechatJsapiSigner(WechatCredentialReader credentials, KmsTemplate kms, @Qualifier("channelClock") Clock clock) {
         return new WechatJsapiSigner(credentials, kms, clock);
     }
@@ -44,11 +52,14 @@ public class WechatChannelConfiguration {
     @Bean WechatPaymentAdapter wechatPaymentAdapter(WechatProtocolClient client, JsonMapper json, @Qualifier("channelClock") Clock clock) {
         return new WechatPaymentAdapter(client, json, clock);
     }
-    @Bean WechatChannelProvider wechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments) {
-        return new WechatChannelProvider(submissions, payments);
+    @Bean WechatRefundAdapter wechatRefundAdapter(WechatProtocolClient client, JsonMapper json, @Qualifier("channelClock") Clock clock, WechatNotificationProperties notifications) {
+        return new WechatRefundAdapter(client, json, clock, notifications);
     }
-    @Bean WechatCredentialReader wechatCredentialReader(WechatProperties properties, JsonMapper json) {
-        return new WechatCredentialReader(properties, json);
+    @Bean WechatChannelProvider wechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments, WechatRefundAdapter refunds) {
+        return new WechatChannelProvider(submissions, payments, refunds);
+    }
+    @Bean WechatCredentialReader wechatCredentialReader(WechatProperties properties, JsonMapper json, KmsTemplate kms) {
+        return new WechatCredentialReader(properties, json, kms);
     }
     @Bean WechatProtocolCodec wechatProtocolCodec(JsonMapper json, KmsTemplate kms, @Qualifier("channelClock") Clock clock) {
         return new WechatProtocolCodec(json, kms, clock);

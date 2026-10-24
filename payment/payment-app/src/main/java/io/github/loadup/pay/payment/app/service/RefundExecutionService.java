@@ -22,6 +22,7 @@ import io.github.loadup.pay.payment.app.model.RefundExecutionWork;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundState;
@@ -79,13 +80,17 @@ public class RefundExecutionService {
         final RefundObservation observation;
         try {
             observation = transactions.read(tenant, () -> step.firstSubmission()
-                    ? channel.submitRefund(step.prepared()) : channel.queryRefund(step.prepared()));
+                    ? channel.submitRefund(step.prepared()) : channel.recoverRefund(step.prepared()));
         } catch (RuntimeException unavailable) {
             results.uncertain(tenant, requestId, step.prepared().refundId());
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
-        var expectedSource = step.firstSubmission() ? RefundObservation.Source.SUBMIT_RESPONSE : RefundObservation.Source.QUERY_RESPONSE;
-        if (observation == null || !observation.refundId().equals(step.prepared().refundId()) || observation.source() != expectedSource) {
+        boolean validSource = observation != null && (step.firstSubmission()
+                ? observation.source() == RefundObservation.Source.SUBMIT_RESPONSE
+                : observation.source() == RefundObservation.Source.QUERY_RESPONSE || observation.source() == RefundObservation.Source.SUBMIT_RESPONSE
+                && (observation.kind() == ChannelRefundOutcome.Kind.ACCEPTED
+                || observation.kind() == ChannelRefundOutcome.Kind.UNKNOWN));
+        if (!validSource || !observation.refundId().equals(step.prepared().refundId())) {
             results.uncertain(tenant, requestId, step.prepared().refundId());
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

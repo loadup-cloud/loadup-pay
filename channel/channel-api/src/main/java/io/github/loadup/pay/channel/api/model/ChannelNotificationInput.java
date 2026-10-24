@@ -18,15 +18,33 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Locale;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 /** Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings. */
-public record ChannelNotificationInput(String contentType, @DiagnosticHidden byte[] body) {
+public record ChannelNotificationInput(String contentType, @DiagnosticHidden Map<String, List<String>> headers, @DiagnosticHidden byte[] body) {
     public static final int MAX_BODY_BYTES = 65536;
     public ChannelNotificationInput {
         DomainChecks.text(contentType, 256);
         require(body != null && body.length > 0 && body.length <= MAX_BODY_BYTES, INVALID_ARGUMENT);
+        require(headers != null && headers.size() <= 16, INVALID_ARGUMENT);
+        var normalized = new HashMap<String, List<String>>();
+        int length = 0;
+        for (var entry : headers.entrySet()) {
+            require(entry.getKey() != null && entry.getKey().matches("[A-Za-z0-9-]{1,64}")
+                    && entry.getValue() != null && !entry.getValue().isEmpty() && entry.getValue().size() <= 8, INVALID_ARGUMENT);
+            for (var value : entry.getValue()) {
+                require(value != null && value.length() <= 2048 && value.chars().noneMatch(Character::isISOControl), INVALID_ARGUMENT);
+                length += value.length();
+            }
+            require(normalized.putIfAbsent(entry.getKey().toLowerCase(Locale.ROOT), List.copyOf(entry.getValue())) == null, INVALID_ARGUMENT);
+        }
+        require(length <= 16384, INVALID_ARGUMENT);
+        headers = Map.copyOf(normalized);
         body = body.clone();
     }
     @Override public byte[] body() { return body.clone(); }

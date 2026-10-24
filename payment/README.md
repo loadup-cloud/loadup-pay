@@ -158,15 +158,14 @@ PAYMENT_LIMITCENTER_SERVICE_ID（默认 limitcenter）对应 SERVICE 和 pay:pay
 
 POST `/api/payment/inputs/prepare` 由 PaymentInputFacade 承接，仅允许指定 acquire SERVICE 和 `pay:payment:input:prepare`
 。命令固定 paymentId/orderId/allocationId/payeeMerchantId/amountMinor/CNY/inputKey/choice/interaction；接受 PAYMENT_CODE
-付款码与 JSAPI 同渠道身份票据，H5 + NONE 不走此接口。
+付款码、JSAPI 同渠道身份票据，以及 H5_SCENE（真实终端 IP 与 WAP/IOS/ANDROID 场景）。H5 + NONE 不走此接口，微信 H5 策略明确要求 H5_SCENE。
 
 服务在数据库事务外复用 LoadUp KmsTemplate/OpenBao Transit 加密完整作用域负载；持久层只保存密文、keyName/version 和
 HMAC-SHA256 指纹，付款意图只保存256位随机不透明引用。指纹绑定租户、受理服务及完整命令，避免对低熵付款码保存可离线枚举的普通哈希。业务唯一键
 tenant+paymentId，不能换 inputKey 或敏感值覆盖原记录；重放使用原
 fingerprintKeyId，不重新加密或延长到期时间。并发唯一键失败先回滚再读赢家。新建输入默认120秒，配置范围1—600秒；过期重放仍返回原引用/时间，受理和使用时拒绝过期输入。
 
-首次 accept 在父门禁→单笔门禁之后锁 input，核对租户/原 acquire、订单/付款/占用/收款商户/金额/币种/渠道/方式。H5 禁止携带
-inputRef；付款码/JSAPI 必须有匹配的 INIT 输入。既有付款的 accept 重放不因输入过期改变原事实。内部
+首次 accept 在父门禁→单笔门禁之后锁 input，核对租户/原 acquire、订单/付款/占用/收款商户/金额/币种/渠道/方式。带 inputRef 的 H5 与付款码/JSAPI 一样，必须有匹配的 INIT 输入；无引用的 H5 只提供空输入，由实际渠道策略判断是否支持。既有付款的 accept 重放不因输入过期改变原事实。内部
 PaymentInputAccess.bindToAttempt 可加入后续 Y2 同事务，将输入 INIT→BOUND 固定给唯一 attempt；另一个 attempt
 无法复用。openForAttempt 仅为原活跃 PROCESSING attempt 在事务外解密，核对密文负载与原作用域/HMAC/有效期；不提供 HTTP
 解密入口，也不把解密当作渠道提交或重试许可。真实 Y2/渠道工作流尚未实现。
@@ -533,7 +532,7 @@ payment-app 引入 `loadup-components-delayedtask`，payment-business bootstrap 
 
 渠道协议从 payment-infrastructure 抽离到 [channel 模块](../channel/README.md)。payment-domain 的渠道端口引用 channel-api 统一契约；PaymentChannelGatewayImpl 只负责取得可信租户/原绑定 revision 并委托 ChannelPaymentFacade。统一 Facade 通过 Provider 注册表按请求 channel 路由，payment 不导入支付宝或微信协议实现。
 
-payment-business bootstrap 组合 channel-alipay/channel-wechat；支付宝协议配置改为 loadup.pay.channel.alipay，并使用 channelClock。新增渠道模块不增加 K8s 应用。退款事务内的 canRefund 为纯本地注册能力查询；后续提交和查询在事务外取得原 revision。支付宝付款码/JSAPI 提交、查询/关闭、退款 Provider 与支付动作持久化/授权查询源码已补；自动收款驱动源码已补；支付宝签名回调与原号查证源码已补；H5、微信及银联回调仍待实现。源码及测试源码未验证。
+payment-business bootstrap 组合 channel-alipay/channel-wechat；支付宝协议配置改为 loadup.pay.channel.alipay，并使用 channelClock。新增渠道模块不增加 K8s 应用。退款事务内的 canRefund 为纯本地注册能力查询；后续提交和查询在事务外取得原 revision。支付宝付款码/JSAPI 提交、查询/关闭、退款 Provider 与支付动作持久化/授权查询源码已补；自动收款驱动源码已补；支付宝签名回调与原号查证源码已补；微信支付通知已有源码；H5、微信退款及银联回调仍待实现。源码及测试源码未验证。
 
 支付宝退款策略已在独立插件内条件注册，复用原退款单步执行与恢复链路；运行组合 payment-business,payment-alipay，配置/限制见 [支付宝模块](../channel/channel-alipay/README.md)。已补源码与测试源码，未运行验证或真实调用。
 
@@ -585,7 +584,7 @@ PaymentExecutionService 从原固定命令创建首个 attempt，再执行渠道
 
 ## 渠道回调入口（2026-10-24）
 
-`POST /api/payment/channel-callbacks/{endpointRef}` 返回渠道原生 ACK，不包装 SuccessResponse。当前 HTTP 收包为 application/x-www-form-urlencoded，最大 65536 字节，拒绝空包与 query string；支付宝策略提供 success/failure，只有 Y3 写入返回非冲突才输出 success。该路径通过 resource-server 的 permit-all 放行 JWT，实际认证由原冻结平台公钥验签与账户/金额核验完成，其余业务接口保持 SERVICE 鉴权。
+`POST /api/payment/channel-callbacks/{endpointRef}` 返回渠道原生 ACK，不包装 SuccessResponse。当前 HTTP 收包支持 application/x-www-form-urlencoded 和 application/json，最大 65536 字节，拒绝空包与 query string；支付宝策略提供 success/failure，只有 Y3 写入返回非冲突才输出 success。该路径通过 resource-server 的 permit-all 放行 JWT，实际认证由原冻结平台公钥验签与账户/金额核验完成，其余业务接口保持 SERVICE 鉴权。
 
 协议 success 表示通知处理已提交；付款结果以查询事实和原状态机为准，未知结果继续保留占用并由原恢复任务查证。
 
@@ -615,3 +614,33 @@ loadup:
 URL 目录只作用于 JSAPI CREATE 的 notify_url，要求 HTTPS、无用户信息/query/fragment，按可信 tenant+原 revision 精确匹配；未配置时沿现有查询任务跟踪，不声明回调已启用。付款码不附加该 URL。endpoint 目录默认空，未登记入口无法处理付款。新增 V20261024010000__payment_callback_lookup.sql 为查找建立索引，不新增收包业务表。
 
 已补原生入口、校验顺序、失败 ACK、签名/字段/编码和配置约束测试源码；内存夹具不证明真实提交。未执行构建、测试、迁移、公开路由或真实渠道回调，微信/银联通知、H5、托管授权与完整资金验收继续待办。
+
+
+## 微信加密支付通知（2026-10-24）
+
+回调入口支持 JSON，采集五类 Wechatpay 签名头的原多值，不读取请求租户或绑定。先由可信 endpointRef 配置加载原 tenant/channel/revision，将上下文交给 channel 的 identify；微信插件在验签/解密后提取原订单号，payment 才查原 attempt，随后 verify 原 target、查询渠道并沿既有 Y3 落事实。没有微信报文或密钥处理进入 payment。
+
+统一 ACK 新增 httpStatus；控制器返回微信策略的成功 200 或失败 500，支付宝仍用原生 success/failure。apiV3Key 密文配置归微信原版本凭证，KMS 解封/清零和平台公钥验证归插件。相关协议与客户端构造器直接更新，不保留兼容重载。测试源码已补，未运行验证；微信退款通知、轮换及真实回调验收继续待办。
+
+
+## 微信退款通知（2026-10-24）
+
+POST /api/payment/channel-callbacks/{endpointRef}/refund 接收原生 JSON，仅委托 RefundChannelCallbackFacade。可信配置仍固定 tenant/channel/原 revision；微信通知策略验签/解密取得原订单和退款号，RefundCallbackTargetGateway 在原绑定下有界查找已提交子退款，核对原付款成功容量，得到固定 PreparedChannelRefund。未提交 INIT 不能被回调激活，重复定位拒绝。
+
+verifyRefund 通过后查原渠道退款，核对原身份、金额及真实退款流水；RefundCallbackObservationConverter 转为 CALLBACK，回执键绑定通知 ID 与金融事实摘要，沿 RefundResultService 的原事务落结果/容量/独立 Outbox，非冲突提交后才返回微信 200，异常/冲突为 500。没有微信协议进入 payment，也不修改原付款成功额。
+
+微信 notifications.refund-notify-urls 按 tenant/revision 配置退款专用 HTTPS 地址，提交时由插件附加 notify_url；缺失时保留平台默认，不复用收款地址。新增查询索引 migration V20261024140000__refund_callback_lookup.sql，仅源码未执行。测试源码已补，尚未运行构建、测试、数据库或真实回调验收。
+
+
+## 退款恢复与纯查询分离（2026-10-24）
+
+RefundExecutionService 首个 INIT 赢家保留本地提交边界后执行 submitRefund；所有非首次进度改用统一 recoverRefund，不在 payment 选择厂商重提条件。Facade/Provider 按原绑定处理，允许原号查询及明确幂等条件下的一次原参数重提。恢复的 SUBMIT_RESPONSE 只能为 ACCEPTED/UNKNOWN；查询成功/关闭仍走既有金融结果接收，CALLBACK 或终态提交观察不能作为恢复结果越过查询确认。
+
+原请求号、计划、原付款、金额与账户不变，容量保持占用；查询/提交/记录仍在本地事务外/既有 Y3 中分别执行。transport 失败继续记 uncertain，结果冲突不确认任务。纯查询及退款回调保持 queryRefund，不产生退款申请副作用。已有原生游标/后继任务/租约机制继续使用，无新增业务表、迁移、内部 RPC 或模拟资金结果。已补测试源码，未运行验证或真实恢复演练。
+
+
+## 微信 H5 接线（2026-10-24）
+
+H5_SCENE 输入复用短期 KMS 密文/原 HMAC/唯一付款引用与 INIT→BOUND 生命周期；无 H5 特殊解密或跳过绑定路径。PaymentChannelInputConverter 将场景映射为 ChannelH5Input，微信插件返回 WechatH5ChannelAction 后，统一 Y3/action 快照与授权展示转换为客户端 REDIRECT。action_kind=WECHAT_H5 由 channel-core 的严格白名单编码支持，payment 不解析 h5_url 厂商响应。直连/服务商的固定 H5 operation 已加入可选 payment-wechat 配置。
+
+地址有效期为原截止与渠道调用开始加五分钟的较早值，受理不是资金事实；原查询恢复不重复下单，也不重新生成或延长旧地址。初始 payment_input CHECK 已直接允许 H5；按前期不兼容原则同步初始建表源码，没有运行 DDL。详见 [渠道 H5 说明](../channel/channel-wechat/README.md)。本批未运行构建、测试或真实调用。

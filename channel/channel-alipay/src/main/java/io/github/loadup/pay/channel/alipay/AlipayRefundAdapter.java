@@ -72,10 +72,37 @@ public final class AlipayRefundAdapter {
 
     public RefundObservation query(ChannelExecutionContext context, PreparedChannelRefund refund) {
         requireContext(context, refund);
+        return interpret(refund, lookup(context, refund));
+    }
+
+    public RefundObservation recover(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        requireContext(context, refund);
+        var queried = lookup(context, refund);
+        var response = responses.read(queried, AlipayMethod.REFUND_QUERY);
+        optionalIdentity(response, refund);
+        boolean originalIdentity = refund.originalChannelTransactionNo().equals(responses.text(response, "trade_no"))
+                && refund.original().channelRequestNo().equals(responses.text(response, "out_trade_no"))
+                && refund.channelRefundNo().equals(responses.text(response, "out_request_no"));
+        if (!"10000".equals(responses.text(response, "code")) || responses.text(response, "refund_status") != null || !originalIdentity)
+            return interpret(refund, queried);
+        String amount = responses.text(response, "refund_amount");
+        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount)) responses.requireAmount(amount, refund.amount().getCent());
+        if (response.get("total_amount") != null) responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+        // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider idempotency.
+        var submitted = submit(context, refund);
+        var digest = DigestUtils.sha256("alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
+        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
+                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest);
+    }
+
+    private AlipayVerifiedResponse lookup(ChannelExecutionContext context, PreparedChannelRefund refund) {
         var request = request(refund);
         request.put("query_options", List.of("gmt_refund_pay"));
-        var verified = client.call(context.tenantId(), context.binding(), AlipayMethod.REFUND_QUERY,
+        return client.call(context.tenantId(), context.binding(), AlipayMethod.REFUND_QUERY,
                 json.writeValueAsString(request), Map.of());
+    }
+
+    private RefundObservation interpret(PreparedChannelRefund refund, AlipayVerifiedResponse verified) {
         var response = responses.read(verified, AlipayMethod.REFUND_QUERY);
         optionalIdentity(response, refund);
         var kind = ChannelRefundOutcome.Kind.UNKNOWN;

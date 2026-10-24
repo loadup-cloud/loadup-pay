@@ -20,6 +20,9 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -74,6 +77,32 @@ class DefaultChannelActionCodecTest {
         assertEquals("WECHAT_JSAPI", kind);
         assertTrue(payload.contains("prepay_id=synthetic-prepay-token"));
         assertEquals(expected, codec.decode(kind, payload, codec.checksum(payload)));
+    }
+
+    @Test
+    void h5SnapshotPreservesTheVerifiedUrlAndCannotChangeKindOrAddUnknownFields() {
+        String url = "https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=opaque%2Fvalue&sign=a%2Bb%3D&package=1";
+        var expected = new WechatH5ChannelAction(url, action().expiresAt());
+        String payload = codec.encode(expected);
+        assertEquals("WECHAT_H5", codec.kind(expected));
+        assertEquals(expected, codec.decode("WECHAT_H5", payload, codec.checksum(payload)));
+        assertRejected("WECHAT_JSAPI", payload);
+        assertRejected("WECHAT_H5", payload.substring(0, payload.length() - 1) + ",\"redirectUrl\":\"https://other.example/\"}");
+        assertRejected("WECHAT_H5", payload.substring(0, payload.length() - 1) + ",\"unexpected\":true}");
+        assertRejected("WECHAT_H5", payload.replace("wx.tenpay.com", "attacker.example"));
+        assertThrows(CommonException.class, () -> codec.decode("WECHAT_H5", payload, "0".repeat(64)));
+        assertFalse(expected.toString().contains("opaque%2Fvalue"));
+    }
+
+    @Test
+    void h5InputAcceptsIpLiteralsWithoutDnsAndRejectsForwardingChainsAndSpecialAddresses() {
+        assertEquals("203.0.113.10", new ChannelH5Input("203.0.113.10", H5SceneType.WAP).payerClientIp());
+        assertEquals("2001:db8::1", new ChannelH5Input("2001:db8::1", H5SceneType.IOS).payerClientIp());
+        for (String invalid : java.util.List.of("merchant.example", "127.0.0.1", "0.0.0.0", "224.0.0.1", "::", "::1",
+                "fe80::1%en0", "[2001:db8::1]", "203.0.113.10, 198.51.100.1", "203.0.113.10:443")) {
+            assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> new ChannelH5Input(invalid, H5SceneType.WAP));
+        }
+        assertFalse(new ChannelH5Input("203.0.113.10", H5SceneType.WAP).toString().contains("203.0.113.10"));
     }
 
     @Test

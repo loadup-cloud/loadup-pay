@@ -54,5 +54,9 @@ class AcquiringTermsTest {
                 () -> new NotificationTermsDTO(true, "target", "signer", 3000, 1, new BigDecimal("0.5"), 60, 10, 3600));
         assertDoesNotThrow(
                 () -> new NotificationTermsDTO(false, null, null, 3000, 1, BigDecimal.valueOf(2), 60, 10, 3600));
+        assertThrows(DomainViolation.class, () -> new NotificationTermsDTO(true, "target", "signer", 3000, 1,
+                new BigDecimal("1.0000000000000000001"), 60, 10, 3600));
+        assertThrows(DomainViolation.class, () -> new NotificationTermsDTO(true, "target", "signer", 3000, 1,
+                new BigDecimal("100000000000000000000"), 60, 10, 3600));
     }
 }

@@ -1,0 +1,34 @@
+# Optional profile with acquire-business. Catalog references and HTTP clients must be immutable versions.
+# Configure loadup.modules.acquire.merchant-notifications.targets.<tenant>.<target-v1>:
+#   payee-merchant-id: merchant-id
+#   client: merchant-v1
+#   operation: notify
+#   uri: https://approved-merchant.example/payment-events
+# Configure signing-identities.<tenant>.<signing-v1>:
+#   payee-merchant-id: merchant-id
+#   identity:
+#     app-id: acquiring-platform
+#     audience: merchant-id
+#     key: { name: merchant-signing, version: 1 }
+#     algorithm: RSA_SHA256_PKCS1
+# Configure loadup.http.clients.<merchant-v1> with fixed HTTPS base-url and POST /payment-events.
+#   allow-private-addresses: false; no proxy or credential-ref; max-response-bytes: 4096; max-request-bytes: 65536
+#   connect-timeout + acquire-timeout + read-timeout must fit the frozen contract timeout-millis.
+loadup:
+  http:
+    enabled: true
+  components:
+    signature:
+      enabled: true
+      request:
+        enabled: true
+        verification-enabled: false
+        max-payload-bytes: 65536
+  kms:
+    enabled: true
+    endpoint: ${ACQUIRE_NOTIFICATION_KMS_ENDPOINT}
+    token-env: ACQUIRE_NOTIFICATION_KMS_TOKEN
+    management-enabled: false
+    connect-timeout: 2s
+    read-timeout: 2s
+    max-input-bytes: 65536

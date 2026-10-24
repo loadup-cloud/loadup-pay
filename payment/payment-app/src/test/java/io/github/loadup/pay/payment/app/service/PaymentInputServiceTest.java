@@ -22,6 +22,7 @@ import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
@@ -30,6 +31,7 @@ import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
@@ -86,7 +88,8 @@ class PaymentInputServiceTest {
     final PaymentInputPrepareCommand command = command(PaymentMethod.PAYMENT_CODE,
             new PaymentCodeInteractionDTO("synthetic-payer-code"));
     final PaymentInputService service = new PaymentInputService(actor::get, store, cipher,
-            context.getBean(PaymentInputConverter.class), new PaymentAcceptanceTransactions(manager),
+            context.getBean(PaymentInputConverter.class), context.getBean(PaymentChannelInputConverter.class),
+            new PaymentAcceptanceTransactions(manager),
             validation.getValidator(), clock, "acquire");
 
     PaymentInputPrepareCommand command(PaymentMethod method, PaymentInteractionDTO input) {
@@ -144,6 +147,7 @@ class PaymentInputServiceTest {
     void fingerprintRotationReplaysUsingOriginalKeyAndDoesNotRenewExpiredInput() {
         var first = service.prepare(command);
         var later = new PaymentInputService(actor::get, store, cipher, context.getBean(PaymentInputConverter.class),
+                context.getBean(PaymentChannelInputConverter.class),
                 new PaymentAcceptanceTransactions(manager), validation.getValidator(),
                 Clock.offset(clock, Duration.ofDays(1)), "acquire");
         when(cipher.activeFingerprintKeyId()).thenReturn("v2");
@@ -174,12 +178,70 @@ class PaymentInputServiceTest {
     }
 
     @Test
-    void jsapiRequiresMatchingChannelWhileH5DoesNotUseInputPreparation() {
+    void jsapiRequiresMatchingChannelAndH5NoneCannotPrepareAnInput() {
         var invalid = command(PaymentMethod.JSAPI,
                 new ChannelIdentityInteractionDTO(Channel.ALIPAY, "synthetic-open-id", "application", PayerIdentityType.OPEN_ID));
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.prepare(invalid)).getResultCode());
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
                 () -> service.prepare(command(PaymentMethod.H5, new NoInteractionDTO()))).getResultCode());
+        verifyNoInteractions(cipher, store);
+    }
+
+    @Test
+    void preparesH5SceneInputThroughTheSameEncryptedLifecycle() {
+        var h5 = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10",
+                io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+
+        var result = service.prepare(h5);
+
+        assertEquals("opaque-reference", result.inputRef());
+        assertEquals(LocalDateTime.now(clock).plusSeconds(120), persisted.get().expiresAt());
+        assertEquals(PaymentInputState.INIT, persisted.get().state());
+        assertEquals(1, manager.commits);
+        verify(cipher).encrypt(eq("tenant"), eq("acquire"), eq("opaque-reference"), eq(h5));
+    }
+
+    @Test
+    void changedH5SceneOrIpConflictsForTheSamePayment() {
+        var original = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10",
+                io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+        service.prepare(original);
+
+        var changedIp = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.11",
+                io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+        when(cipher.fingerprint("tenant", "acquire", changedIp, "v1")).thenReturn("b".repeat(64));
+        assertSame(IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service.prepare(changedIp)).getResultCode());
+
+        var changedScene = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10",
+                io.github.loadup.pay.channel.api.model.H5SceneType.ANDROID));
+        when(cipher.fingerprint("tenant", "acquire", changedScene, "v1")).thenReturn("c".repeat(64));
+        assertSame(IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service.prepare(changedScene)).getResultCode());
+        verify(store, times(1)).insert(anyString(), any());
+    }
+
+    @Test
+    void invalidH5IpLiteralsAreRejectedBeforeCipherOrStorage() {
+        for (var invalidIp : new String[] { "payer.example", "203.0.113.10, 203.0.113.11", "fe80::1%en0",
+                "[2001:db8::1]", "0.0.0.0", "127.0.0.1", "224.0.0.1" }) {
+            var invalid = command(PaymentMethod.H5, new H5SceneInteractionDTO(invalidIp,
+                    io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+            assertSame(INVALID_ARGUMENT,
+                    assertThrows(CommonException.class, () -> service.prepare(invalid)).getResultCode(), invalidIp);
+        }
+        verifyNoInteractions(cipher, store);
+    }
+
+    @Test
+    void h5SceneRequiresH5AndH5RequiresSceneInput() {
+        assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
+                () -> service.prepare(command(PaymentMethod.H5, new NoInteractionDTO()))).getResultCode());
+        var scene = new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.WAP);
+        assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
+                () -> service.prepare(command(PaymentMethod.JSAPI, scene))).getResultCode());
+        assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
+                () -> service.prepare(command(PaymentMethod.PAYMENT_CODE, scene))).getResultCode());
         verifyNoInteractions(cipher, store);
     }
 

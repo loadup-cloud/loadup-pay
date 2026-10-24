@@ -57,7 +57,7 @@ public record PaymentInput(
         Objects.requireNonNull(state);
         Objects.requireNonNull(preparedAt);
         Objects.requireNonNull(expiresAt);
-        require(method == PaymentMethod.PAYMENT_CODE || method == PaymentMethod.JSAPI, INVALID_ARGUMENT);
+        require(method == PaymentMethod.PAYMENT_CODE || method == PaymentMethod.JSAPI || method == PaymentMethod.H5, INVALID_ARGUMENT);
         require(inputDigest != null && inputDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         require(encryptionVersion > 0 && expiresAt.isAfter(preparedAt) && rowVersion >= 0, INVALID_ARGUMENT);
         if (boundAttemptId != null) DomainChecks.id(boundAttemptId);

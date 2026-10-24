@@ -5,6 +5,16 @@ spring:
     username: ${ACQUIRE_JDBC_USERNAME}
     password: ${ACQUIRE_JDBC_PASSWORD}
 loadup:
+  delayedtask:
+    enabled: true
+    batch-size: ${ACQUIRE_TASK_BATCH_SIZE:100}
+    max-attempts: ${ACQUIRE_TASK_MAX_ATTEMPTS:5}
+    lease: ${ACQUIRE_TASK_LEASE:PT5M}
+    retry-delay: ${ACQUIRE_TASK_RETRY_DELAY:PT1M}
+  scheduler:
+    binder-type: local
+    local:
+      interval: ${ACQUIRE_SCAN_INTERVAL:PT5S}
   modules:
     acquire:
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}

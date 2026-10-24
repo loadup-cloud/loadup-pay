@@ -192,12 +192,12 @@ mvnd clean compile -pl acquire/acquire-infrastructure -am -Pacquire-business \
 ## 商户付款发起与 A2 金额占用
 
 POST `/api/acquire/payments/start` 接收 PaymentStartCommand，必须是原订单调用主体且具有 `pay:acquire:payment:start`
-权限。当前受理支持 H5 + NONE、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；选择必须属于原冻结合约能力。敏感输入由 payment
+权限。当前受理支持 H5 + H5_SCENE（微信要求真实终端 IP 与场景）、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；NONE 只保留空输入语义，不能替代渠道必填场景。选择必须属于原冻结合约能力。敏感输入由 payment
 加密准备，不写入 acquire 数据库。商户手工指定正整数人民币分值，不改变订单固定总额。
 
 A2 在主库独立 READ_COMMITTED 事务中先锁原订单，以 tenant+orderId+merchant/原主体hash+actionKey 定位动作。新动作固定
 allocationId/paymentId，领域校验可付款窗口、剩余金额、单笔上下限/尾款例外和成功笔数上限（包含已占用笔数），同事务增加订单占用/笔数并插入
-HELD allocation 与固定付款意图。H5 命令可直接受理；敏感方式先保存无原始输入的固定标识/条款，再在独立步骤附加已加密引用。订单进入
+HELD allocation 与固定付款意图。H5_SCENE 与其他敏感方式先保存无原始输入的固定标识/条款，再在独立步骤附加已加密引用。订单进入
 PENDING，已付金额仍为0。只更新占用/状态/版本四列，不覆盖原截止版本或条款。
 
 提交后才调用 payment.accept；同 actionKey 重试先校验摘要、金额、选择和原条款，始终沿用原
@@ -317,7 +317,7 @@ create → startPayment → detail，各步骤独立提交，不创建 CheckoutS
 A2 后的当前订单与实际付款受理结果；当前 payment 仍只受理 INIT，真实扣款执行/动作尚未接通。
 
 普通 create→startPayment 同样是纯 API，付款码由商户扫码枪读取后放入 type=PAYMENT_CODE 的 interaction；JSAPI 传同渠道票据，H5
-使用 NONE。JSAPI/H5 后续执行返回的 action 仍需商户前端交互，不能将 API 返回 INIT 当作收款成功。SERVICE 出站 JWT 新增
+按渠道要求传 H5_SCENE；微信需要真实终端 IP 与 WAP/IOS/ANDROID 场景。JSAPI/H5 后续执行返回的 action 仍需商户前端交互，不能将 API 返回 INIT 当作收款成功。SERVICE 出站 JWT 新增
 `pay:payment:input:prepare` 权限，复用同一 payment HTTP 客户端和租户限制。
 
 该批源码未运行 IDEA 检查、构建、测试或部署；新的敏感输入路径、只附加引用的 CAS、DirectPay 和真实 MySQL 事务/竞争验收仍待执行。
@@ -399,3 +399,24 @@ V20261023070000__fee_refund_receipt.sql 保存 delivery/businessEvent/order/sour
 复用 `ACQUIRE_PAYMENT_TOKEN_FILE` 和 `PAYMENT_ACQUIRE_TOKEN_FILE`，分别增发上述最小权限，无新目标地址/凭证配置。业务 profile 已有双向 gRPC channel/JWT 装配。新增权限与首次部署 DDL 需随发布提供；本批没有签发令牌或执行迁移。
 
 已补首次/重放、旧版本采用新事实、同版本冲突、服务与权限隔离、锁外查询/事务内落账、失败传播及 RPC 精确 int64/客户端调用测试源码。未运行 IDEA 检查、构建、测试、DDL 或部署；真实数据库原子回滚、多副本竞争及真实 gRPC/Outbox 验收仍待执行。
+
+
+## 商户异步通知（2026-10-24）
+
+已接通 acquire 的 PaymentSucceeded、OrderFullyPaid、OrderClosed 三类源码。PaymentSucceeded 在原付款结果的 acquire 收敛事务中登记；两个订单终态在原订单快照事务中登记。成功付款可能同时产生单笔成功与整单付清事件，eventId/type 各自独立，不保证送达顺序。OrderClosed 可包含部分已付金额，不表示退款完成。停用通知的原合约不生产投递记录；在途事件只使用订单冻结通知条款，不读取当前新合约。
+
+新增 merchant_notification_delivery 与首轮 DelayedTask 同源事务提交，不跨锁调用网络。eventId 按租户/type/聚合/来源版本确定，固定 UTF-8 JSON body、摘要、occurredAt、金额/汇总及通知策略保持不变。这里直接复用组件原生任务的同库事务登记，不再增加只用于转交的重复 Outbox。源交易的既有 realtime Outbox 保留独立职责。
+
+任务以 deliveryId:已启动次数作为代次身份。短事务先锁投递行、增加尝试计数并登记不同身份的后继任务，再在事务外发送；发送前后中断不会丢失后继。旧代次再次领取不重发。正常未 ACK 由合约的指数退避/上限/窗口推进；框架的原生失败重试只处理基础设施异常，不能替代合约窗口。窗口截止或尝试许可耗尽记 EXHAUSTED。尝试数按已提交发送许可计，进程中断和缺配置也可能消费许可；至少一次投递要求商户按 eventId 去重。重试不生成新事件，不延长原窗口。
+
+传输复用 loadup HttpTemplate 的固定 named client/operation、最终 URI/字节签名回调及 RequestSigner 的 loadup-request-v1/KMS 显式版本。每次签原 body，重新生成 timestamp/nonce；签名头使用 X-App-Id、X-Signature-Audience、X-Key-Version 等框架字段。商户必须返回 2xx 和精确两字段 JSON {"eventId":"原事件","result":"SUCCESS"}；空响应、额外/重复字段、错误编码、非字符串或 ID 不同均未确认。响应最多4096字节，超过原超时预算或窗口的 ACK 不被确认。
+
+目标目录位于 loadup.modules.acquire.merchant-notifications.targets.<tenant>.<targetRef>，签名目录为 signing-identities.<tenant>.<signingIdentityRef>，两者均绑定收款商户。引用必须是已审核的不可变版本，禁止原地重指向；更改目标或密钥用新引用且仅影响新订单。第一次成功解析配置后冻结 URL/client/operation/应用/受众/KMS key+version/算法/合约超时的路由指纹，后续配置不一致时拒绝发送，不能自动迁移旧事件。第一轮解析前依赖版本目录的不可变性约定，product 发布前引用开通验证与目录生命周期管理仍待补。
+
+只允许固定 HTTPS 443 目标，无 userinfo、fragment、query；HTTP 组件继续限制私网地址/DNS 和自动重定向。固定 operation 必须 POST，实际 URI 必须与审核地址完全相同；不接受订单或通知 payload 提供任意 URL。HTTP client 不可配置 credential-ref、私网放行或代理，响应上限不超过4096，请求容量至少65536；连接/连接池获取/读取超时之和必须在原合约 timeoutMillis 内。签名/KMS 与 HTTP 返回总耗时超预算也不接受 ACK；这不承诺强制取消已在途的网络请求。
+
+可选 [application-acquire-notifications.yml](acquire-bootstrap/src/main/resources/application-acquire-notifications.yml) 提供 RequestSigner/KMS 装配与目录示例；与 acquire-business 一起启用。私钥只由 KMS 管理，显式指定原版本，保留至通知窗口结束。通知不需要 RequestVerifier/Redis nonce store，样例只启用签名并关闭验证；商户接收方仍需验签、防重放和业务去重。acquire-business 已装配 native delayedtask 与 local scheduler，扫描间隔和 native 重试参数可通过 ACQUIRE_TASK_*/ACQUIRE_SCAN_INTERVAL 配置。
+
+DDL 为 V20261024180000__merchant_notification_delivery.sql，只修改源码未执行；DO/Mapper/TableDef 由 LoadUp 数据库处理器生成，状态更新只写游标列并按 rowVersion CAS。正文/URL诊断隐藏，不保存原签名或商户响应明文；SQL 与业务时间使用本地 DATETIME(6)。
+
+本批未运行 IDEA 检查、构建、测试、DDL、部署或实际发送。退款通知、投递查询/审计重放、目标授权迁移/紧急吊销、历史密钥保留与清理、真实数据库竞态/签名/商户 ACK 验收继续待办。

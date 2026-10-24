@@ -19,6 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.kms.KmsKeyRef;
+import io.github.loadup.components.kms.KmsTemplate;
+import java.util.Arrays;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatProperties;
@@ -39,12 +41,35 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 public class WechatCredentialReader {
     private final WechatProperties properties;
     private final JsonMapper json;
-    public WechatCredentialReader(WechatProperties properties, JsonMapper json) {
-        this.properties = properties;
+    private final KmsTemplate kms;
+    public WechatCredentialReader(WechatProperties properties, JsonMapper json, KmsTemplate kms) {
+        this.properties = properties; this.kms = kms;
         this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     }
     public WechatCredentials read(String tenant, ChannelBindingRevision binding) {
+        var document = document(tenant, binding);
+        try {
+            return new WechatCredentials(tenant, document.appId(), document.merchantId(), document.merchantSerial(),
+                    new KmsKeyRef(document.signingKeyName(), document.signingKeyVersion()), document.platformKeyId(), publicKey(document.platformPublicKey()));
+        } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+    }
+
+    /** Caller owns and must zero the returned APIv3 key. No fallback to a current key version. */
+    public byte[] apiV3Key(String tenant, ChannelBindingRevision binding) {
+        var encrypted = document(tenant, binding).apiV3Key();
+        if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        final byte[] value;
+        try { value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted); }
+        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        if (value == null || value.length != 32) {
+            if (value != null) Arrays.fill(value, (byte) 0);
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
+        return value;
+    }
+
+    private WechatCredentialDocument document(String tenant, ChannelBindingRevision binding) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!properties.enabled() || binding == null || binding.channel() != Channel.WECHAT
@@ -61,9 +86,7 @@ public class WechatCredentialReader {
                     || !document.merchantSerial().matches("[0-9A-F]{8,64}") || document.signingKeyVersion() <= 0
                     || document.platformKeyId() == null || !document.platformKeyId().matches("(?:PUB_KEY_ID_[A-Za-z0-9]{1,116}|[0-9A-F]{8,64})"))
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
-            var key = new KmsKeyRef(document.signingKeyName(), document.signingKeyVersion());
-            return new WechatCredentials(tenant, account.appId(), account.merchantId(), document.merchantSerial(), key,
-                    document.platformKeyId(), publicKey(document.platformPublicKey()));
+            return document;
         } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
     }
     private PublicKey publicKey(String value) throws Exception {

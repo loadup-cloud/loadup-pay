@@ -173,7 +173,7 @@ class PaymentInitiationPersistenceTest {
     }
 
     @Test
-    void unknownFieldsAndSensitivePreparedReferencesCannotEnterThisH5Protocol() {
+    void unknownFieldsAreRejectedWhileH5StoresOnlyAnOpaquePreparedReference() {
         String original = codec.encode(command());
         String unknown = "{\"unexpected\":true," + original.substring(1);
         assertThrows(CommonException.class, () -> codec.decode(stored(unknown, hashes.checksum(unknown))));
@@ -192,7 +192,7 @@ class PaymentInitiationPersistenceTest {
                 value.admittedTerms(),
                 value.subject(),
                 value.payableUntil()));
-        assertThrows(CommonException.class, () -> codec.decode(stored(prepared, hashes.checksum(prepared))));
+        assertEquals("synthetic-input", codec.decode(stored(prepared, hashes.checksum(prepared))).preparedInputRef());
     }
 
     @Test

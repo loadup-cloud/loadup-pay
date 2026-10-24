@@ -74,12 +74,13 @@ public class PaymentOutcomeOperations {
     private final Validator validator;
     private final Clock clock;
     private final OrderSnapshotEvents snapshots;
+    private final MerchantNotificationEvents notifications;
 
     public PaymentOutcomeOperations(OrderCreationGateway orders, PaymentOutcomeGateway allocations, OrderFeeGateway fees,
                                     PaymentOutcomeClient payment, PaymentInitiationCodec codec, OrderCreationCodec orderCodec,
                                     PaymentInitiationConverter initiation, PaymentProgressConverter converter, AcquireOrderConverter orderConverter,
                                     OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-                                    @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+                                    @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, MerchantNotificationEvents notifications) {
         this.orders = orders;
         this.allocations = allocations;
         this.fees = fees;
@@ -94,6 +95,7 @@ public class PaymentOutcomeOperations {
         this.validator = validator;
         this.clock = clock;
         this.snapshots = snapshots;
+        this.notifications = notifications;
     }
 
     PaymentProgressDTO refresh(AcquireActor actor, PaymentProgressRefreshCommand query) {
@@ -203,6 +205,7 @@ public class PaymentOutcomeOperations {
             fees.confirmPaid(actor.tenantId(), change.order(), orderConverter.toFeePolicy(admission.terms().fee()), accepted.observedAt());
         }
         snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
+        notifications.payment(actor.tenantId(), change.order().id(), outcome);
         return converter.withOrder(currentOrder, change.order());
     }
 

@@ -1,0 +1,53 @@
+# Optional runtime profile combined with payment-business. Credentials and callback URLs come from trusted configuration.
+loadup:
+  pay:
+    channel:
+      wechat:
+        enabled: true
+        # credentials: reference -> version -> absolute descriptor Path
+        # notifications.notify-urls: tenant -> immutable binding revision -> payment HTTPS callback URI without query
+        # notifications.refund-notify-urls: tenant -> immutable binding revision -> /{endpointRef}/refund HTTPS callback URI
+        # Configure the matching trusted loadup.modules.payment.channel-callback.endpoints entry separately.
+  http:
+    enabled: true
+    clients:
+      wechat:
+        base-url: ${PAYMENT_WECHAT_GATEWAY_BASE_URL:https://api.mch.weixin.qq.com}
+        connect-timeout: 3s
+        read-timeout: 20s
+        acquire-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 65536
+        max-response-bytes: 1048576
+        operations:
+          direct-jsapi:
+            method: POST
+            path: /v3/pay/transactions/jsapi
+          partner-jsapi:
+            method: POST
+            path: /v3/pay/partner/transactions/jsapi
+          direct-h5:
+            method: POST
+            path: /v3/pay/transactions/h5
+          partner-h5:
+            method: POST
+            path: /v3/pay/partner/transactions/h5
+          direct-query:
+            method: GET
+            path: /v3/pay/transactions/out-trade-no/{out_trade_no}
+          partner-query:
+            method: GET
+            path: /v3/pay/partner/transactions/out-trade-no/{out_trade_no}
+          direct-close:
+            method: POST
+            path: /v3/pay/transactions/out-trade-no/{out_trade_no}/close
+          partner-close:
+            method: POST
+            path: /v3/pay/partner/transactions/out-trade-no/{out_trade_no}/close
+          refund-create:
+            method: POST
+            path: /v3/refund/domestic/refunds
+          refund-query:
+            method: GET
+            path: /v3/refund/domestic/refunds/{out_refund_no}

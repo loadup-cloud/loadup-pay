@@ -20,7 +20,10 @@ import io.github.loadup.pay.channel.api.model.*;
 
 /** Notification protocol only; neither identification nor verification applies payment state. */
 public interface ChannelNotificationOperations {
-    ChannelNotificationHint identify(Channel channel, ChannelNotificationInput input);
+    /** Resolve a locator using a trusted original binding; encrypted protocols must authenticate before decryption. */
+    ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input);
     VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target, ChannelNotificationInput input);
+    ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input);
+    VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input);
     ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted);
 }

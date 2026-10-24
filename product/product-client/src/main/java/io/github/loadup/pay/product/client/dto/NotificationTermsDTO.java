@@ -59,6 +59,9 @@ public record NotificationTermsDTO(
         if (enabled) {
             DomainChecks.text(targetRef, 128);
             DomainChecks.text(signingIdentityRef, 128);
+            var normalized = retryMultiplier.stripTrailingZeros();
+            DomainViolation.require((long) normalized.precision() - normalized.scale() <= 20 && normalized.scale() <= 18,
+                    DomainViolation.Reason.INVALID_ARGUMENT);
         }
     }
 

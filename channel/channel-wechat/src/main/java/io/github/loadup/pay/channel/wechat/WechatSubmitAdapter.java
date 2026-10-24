@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** APIv3 JSAPI prepay adapter for direct and service-provider merchant accounts. */
+/** APIv3 JSAPI and H5 prepay adapter for direct and service-provider merchant accounts. */
 public final class WechatSubmitAdapter {
     private final WechatProtocolClient client;
     private final WechatJsapiSigner signer;
@@ -50,18 +50,20 @@ public final class WechatSubmitAdapter {
     private void validate(ChannelExecutionContext context, ChannelPaymentIdentity identity, long amount,
             PaymentMethod method, String subject, OffsetDateTime until, ChannelPaymentInput input) {
         var account = WechatBindingGuard.require(context, identity);
-        if (method != PaymentMethod.JSAPI || !context.binding().capabilities().contains(method))
+        if ((method != PaymentMethod.JSAPI && method != PaymentMethod.H5) || !context.binding().capabilities().contains(method))
             throw new CommonException(UNSUPPORTED_CAPABILITY);
-        if (!identity.channelRequestNo().matches("[A-Za-z0-9_-]{1,32}") || amount <= 0 || amount > Integer.MAX_VALUE
+        if (!identity.channelRequestNo().matches("[A-Za-z0-9_-]{1,32}") || amount <= 0
                 || subject == null || subject.getBytes(StandardCharsets.UTF_8).length > 127
                 || subject.isBlank() || subject.chars().anyMatch(Character::isISOControl) || until == null
                 || Duration.between(clock.instant(), until.withNano(0).toInstant()).getSeconds() < 60)
             throw new CommonException(INVALID_ARGUMENT);
-        if (!(input instanceof ChannelPayerIdentityInput payer) || payer.identityType() != PayerIdentityType.OPEN_ID
-                || !payer.identifier().matches("[A-Za-z0-9_-]{1,128}")) throw new CommonException(INVALID_ARGUMENT);
-        String appId = account.subAppId() == null ? account.appId() : account.subAppId();
-        if (payer.channel() != identity.channel() || !appId.equals(payer.appScope()))
-            throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        if (method == PaymentMethod.JSAPI) {
+            if (!(input instanceof ChannelPayerIdentityInput payer) || payer.identityType() != PayerIdentityType.OPEN_ID
+                    || !payer.identifier().matches("[A-Za-z0-9_-]{1,128}")) throw new CommonException(INVALID_ARGUMENT);
+            String appId = account.subAppId() == null ? account.appId() : account.subAppId();
+            if (payer.channel() != identity.channel() || !appId.equals(payer.appScope()))
+                throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        } else if (!(input instanceof ChannelH5Input)) throw new CommonException(INVALID_ARGUMENT);
         if (notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id()) == null)
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
     }
@@ -70,7 +72,6 @@ public final class WechatSubmitAdapter {
         var payment = request.payment();
         validate(context, payment.identity(), payment.amount().getCent(), payment.method(), request.subject(), request.payableUntil(), request.input());
         var account = (WechatAccountIdentity) context.binding().identity();
-        var payer = (ChannelPayerIdentityInput) request.input();
         var body = new TreeMap<String, Object>();
         boolean partner = account.subMerchantId() != null;
         body.put(partner ? "sp_appid" : "appid", account.appId());
@@ -81,8 +82,21 @@ public final class WechatSubmitAdapter {
         body.put("amount", Map.of("total", payment.amount().getCent(), "currency", "CNY"));
         body.put("time_expire", request.payableUntil().withNano(0).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         body.put("notify_url", notifications.notifyUrls().get(context.tenantId()).get(context.binding().id()).toASCIIString());
-        body.put("payer", Map.of(partner ? (account.subAppId() == null ? "sp_openid" : "sub_openid") : "openid", payer.identifier()));
-        var operation = partner ? WechatMethod.PARTNER_JSAPI : WechatMethod.DIRECT_JSAPI;
+        final WechatMethod operation;
+        if (payment.method() == PaymentMethod.H5) {
+            var scene = (ChannelH5Input) request.input();
+            String type = switch (scene.sceneType()) {
+                case WAP -> "Wap";
+                case IOS -> "iOS";
+                case ANDROID -> "Android";
+            };
+            body.put("scene_info", Map.of("payer_client_ip", scene.payerClientIp(), "h5_info", Map.of("type", type)));
+            operation = partner ? WechatMethod.PARTNER_H5 : WechatMethod.DIRECT_H5;
+        } else {
+            var payer = (ChannelPayerIdentityInput) request.input();
+            body.put("payer", Map.of(partner ? (account.subAppId() == null ? "sp_openid" : "sub_openid") : "openid", payer.identifier()));
+            operation = partner ? WechatMethod.PARTNER_JSAPI : WechatMethod.DIRECT_JSAPI;
+        }
         var startedAt = OffsetDateTime.now(clock).withNano(0);
         var response = client.call(context.tenantId(), context.binding(), operation, Map.of(), Map.of(), json.writeValueAsString(body));
         var data = responses.read(response, operation);
@@ -90,8 +104,16 @@ public final class WechatSubmitAdapter {
         var observation = new PaymentObservation(payment.identity(), kind, payment.amount(), null, null,
                 PaymentObservation.Source.SUBMIT_RESPONSE, operation.operation() + ":" + response.sourceDigest(), response.sourceDigest());
         if (response.status() != 200) return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, null);
-        var prepayId = responses.text(data, "prepay_id", 128);
         var expiry = request.payableUntil().withNano(0);
+        if (payment.method() == PaymentMethod.H5) {
+            if (startedAt.plusMinutes(5).isBefore(expiry)) expiry = startedAt.plusMinutes(5);
+            final WechatH5ChannelAction action;
+            try { action = new WechatH5ChannelAction(responses.text(data, "h5_url", 4096), expiry); }
+            catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+            return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation,
+                    expiry.toInstant().isAfter(clock.instant()) ? action : null);
+        }
+        var prepayId = responses.text(data, "prepay_id", 128);
         if (startedAt.plusHours(2).isBefore(expiry)) expiry = startedAt.plusHours(2);
         var action = expiry.toInstant().isAfter(clock.instant()) ? signer.sign(context, payment.identity(), prepayId, expiry) : null;
         return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, action);

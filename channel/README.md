@@ -7,7 +7,7 @@
 | channel-api | ChannelPaymentFacade/ChannelNotificationFacade、两类 Provider SPI、ChannelActionCodec、不可变请求/结果与绑定契约、渠道错误码 | 已有源码，零 payment/Spring/数据库依赖 |
 | channel-core | DefaultChannelPaymentFacade、不可变 Provider 注册表、严格动作快照编解码、自动装配 | 已有源码，按 channel 路由；重复注册启动失败 |
 | channel-alipay | 支付宝协议、签名、验签、版本化凭证 | OpenAPI v2/RSA2、版本化凭证、付款码/JSAPI、退款、查单/关闭与回调验签策略源码已补；H5 待实现 |
-| channel-wechat | 微信独立适配边界 | 已有 APIv3 签名/响应验签及凭证基础源码，支付适配器/Provider 待实现 |
+| channel-wechat | 微信独立适配边界 | 已有 APIv3 签名/验签、凭证、直连/服务商 JSAPI、原号查询/关闭与普通退款 Provider、支付/退款通知源码；H5 待实现 |
 
 ## 调用与依赖
 
@@ -30,7 +30,7 @@ payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facad
 
 ## 统一 API
 
-`ChannelPaymentFacade` 提供八个操作：
+`ChannelPaymentFacade` 提供九个操作：
 
 | 操作 | 输入与语义 |
 |---|---|
@@ -41,7 +41,8 @@ payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facad
 | close(context, target) | 同一原身份/原金额下收敛关闭；调用方负责先持久化关闭门禁，不能把超时视为未收款 |
 | canRefund(refund) | 纯本地能力查询；允许在业务事务内调用，不读取绑定、文件、KMS 或网络 |
 | submitRefund(context, refund) | 原交易、原请求号、退款金额与固定退款请求号 |
-| queryRefund(context, refund) | 查询同一退款，不重建或改路由退款请求 |
+| queryRefund(context, refund) | 只查询同一退款，不重建或改路由退款请求 |
+| recoverRefund(context, refund) | 查询原退款；仅在渠道明确幂等保证与特定验签条件下重提原号原参数，不创建新退款身份 |
 
 `ChannelExecutionContext` 包含可信 tenantId 与调用方解析的不可变 `ChannelBindingRevision`。
 Facade 在调用策略前校验租户、channel、bindingRevisionId、accountScopeHash；submit 还校验绑定的支付方式能力。
@@ -58,7 +59,7 @@ Facade 在调用策略前校验租户、channel、bindingRevisionId、accountSco
 4. 在应用 bootstrap 组合插件和配置，新增路由无需修改 channel-core 的分支或工厂代码。
 5. Provider 对响应验签、实际收款账户、金额和状态负责；未知结果保留 UNKNOWN，不制造成功或未收款证据。
 
-支付宝插件启用时注册 AlipayChannelProvider，已实现退款提交/查询、支付查单和未付款关闭的协议映射；付款码与 JSAPI 提交已补源码，H5 仍明确拒绝未实现能力。微信已有 APIv3 协议基础源码，尚未注册 Provider。后续在独立插件内补齐 H5 与微信异步回调；支付宝验签回调已有源码；payment 自动提交/查单/关闭驱动已有源码，仍需后续验证；银联产品与接入机构仍待确认。源码接入不等于真实资金链路验收通过。
+支付宝插件启用时注册 AlipayChannelProvider，已实现退款提交/查询、支付查单和未付款关闭的协议映射；付款码与 JSAPI 提交已补源码，H5 仍明确拒绝未实现能力。微信已条件注册 JSAPI/H5/查单/关闭与普通退款 Provider，支付与退款异步通知也已有接线；付款码仍未实现。后续在独立插件内补齐支付宝 H5 与微信付款码等能力；支付宝验签回调已有源码；payment 自动提交/查单/关闭驱动已有源码，仍需后续验证；银联产品与接入机构仍待确认。源码接入不等于真实资金链路验收通过。
 
 本批只调整源码、依赖、文档与测试源码。按用户要求，未运行 IDE 检查、构建、测试、迁移、部署或真实渠道操作。
 
@@ -67,7 +68,7 @@ Facade 在调用策略前校验租户、channel、bindingRevisionId、accountSco
 
 ## 提交请求与结果
 
-ChannelPaymentRequest 包含 PreparedChannelPayment、原 subject、原 payableUntil 和隐藏诊断的 ChannelPaymentInput。输入按付款码、已解析渠道买家标识、无输入三类建模；不能将 OAuth 授权码当成 buyer_id/open_id。ChannelPaymentSubmission 包含原身份/金额、可空的验签观察和可空动作，至少有一项；有动作时观察只能为受理，不得同时宣称支付成功。动作的渠道、支付方式和有效期由 Facade 与原请求核验。
+ChannelPaymentRequest 包含 PreparedChannelPayment、原 subject、原 payableUntil 和隐藏诊断的 ChannelPaymentInput。输入按付款码、已解析渠道买家标识、H5 终端场景、无输入四类建模；不能将 OAuth 授权码当成 buyer_id/open_id。ChannelPaymentSubmission 包含原身份/金额、可空的验签观察和可空动作，至少有一项；有动作时观察只能为受理，不得同时宣称支付成功。动作的渠道、支付方式和有效期由 Facade 与原请求核验。
 
 payment 的 PaymentChannelRequestFactory 在事务外核对原 SUBMITTING attempt、执行 epoch、风控/额度许可与调用方/原金额，再读取单 attempt 绑定的短期密文输入；通过 MapStruct 转为渠道请求。独立渠道模块不反向读取 payment 的库或解密接口。当前提交协议、动作持久化与 payment 授权查询/幂等受理返回已有源码；主链自动驱动已有源码，托管 cashier 交互仍待完成。
 
@@ -90,7 +91,7 @@ payment_action 与 Y3 受理回执在同一事务记录；重复结果保留首�
 
 ChannelPaymentValidation 携带原身份/金额、method、subject、payableUntil 和短期输入，刻意不带 executionEpoch。Facade 通过同一 Provider 注册表调用 validate；该方法只做能力与参数校验，不能发送 HTTP、加载文件、解密 KMS 或产生任何交易。解密由 payment 在事务外校验原未绑定输入后进行，明文仅传给本地策略。
 
-支付宝 validate 与 submit 共用参数规则；尚未实现的 H5、无 Provider 的微信、错误付款码、错误应用作用域或不符合渠道时间窗的请求在额度申请/Y2 之前拒绝。拒绝时仍需在原门禁下核实 attempt 没有进入 Y2，才能生成本地无收款证明；并发赢家已经进入 Y2 时改为查询原交易。预检通过不保证后续网络成功，也不授权任务重试重新扣款。
+支付宝 validate 与 submit 共用参数规则；尚未实现的 H5/微信付款码、错误付款码、错误应用作用域或不符合渠道时间窗的请求在额度申请/Y2 之前拒绝。拒绝时仍需在原门禁下核实 attempt 没有进入 Y2，才能生成本地无收款证明；并发赢家已经进入 Y2 时改为查询原交易。预检通过不保证后续网络成功，也不授权任务重试重新扣款。
 
 
 ## 查询恢复唤起动作（2026-10-23）
@@ -113,3 +114,28 @@ ChannelNotificationFacade/ChannelNotificationProvider 与支付 Facade 共用同
 payment 回调入口先由配置 endpointRef 定位 tenant/binding revision，不能由请求头/参数选择租户；验签成功后锁外 query 原交易，归一为 CALLBACK 来源观察，再沿原 Y3 记回执/资金事实/Outbox。回执键绑定 notify_id 与权威查询事实摘要，允许同一触发的未知→成功查证推进；重复相同金融事实不重复应用。ACK 只在 Y3 返回已提交且非 CONFLICT 后产生，异常返回失败 ACK。验签通知的 trade_status 不直接决定付款金额或终态。
 
 依据：[官方异步通知与验签规则](https://developer.alibaba.com/docs/doc.htm?articleId=105301&docType=1&treeId=193)、[官方 Java 验签实现](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/internal/util/AlipaySignature.java)。源码/测试源码已补，未运行构建、测试、数据库或真实渠道验收；微信/银联通知和退款外部通知仍待实现。
+
+
+## 微信 JSAPI 策略（2026-10-24）
+
+独立微信插件已有直连/服务商 JSAPI 下单、原号查询/恢复/关闭与 KMS 唤起签名源码。ChannelPaymentAction 新增 WechatJsapiChannelAction，core 白名单编码与 payment MapStruct 客户端投影同步，复用既有动作持久化、可见性和 gRPC DTO。固定 HTTP operation、原版本凭证和必填可信通知地址在插件内维护。微信 query-only recover 不重新下单，预支付 ACK 丢失时暂不能重建动作。退款/H5/付款码/通知与实际接入继续待办，详见 [微信插件](channel-wechat/README.md)；未运行编译、测试或真实资金验收。
+
+
+微信普通退款已接统一 Provider，直连/服务商保持原 transaction_id、out_trade_no、out_refund_no、sub_mchid 与 gross 金额；申请只受理，查询确认成功/关闭，ABNORMAL/不存在不释放容量。沿用 payment 的固定计划/恢复任务/退款回执与金融结果落库，没有新增 vendor 路由或业务表。新增固定退款 operation 与源码测试，未运行编译或真实资金验证；异常退款处置、未达渠道时的原号重提及微信通知继续待办。
+
+
+## 加密通知与原生 ACK 契约（2026-10-24）
+
+ChannelNotificationOperations.identify(context,input) 现在取得可信原绑定，以支持微信加密订单定位；payment Gateway.identify 传原 channel/revision，先加载原绑定，不让请求选择租户/密钥。ChannelNotificationInput 新增不可变多值签名头；ChannelNotificationAcknowledgement 新增 httpStatus，控制器原样返回策略状态和固定报文。支付宝成功/失败仍为 HTTP 200 success/failure，微信支付通知为 Y3 提交后 200 SUCCESS、失败 500 FAIL。不保留旧参数重载。
+
+微信支付通知已接原字节验签、APIv3 KMS 密文解封/AES-GCM、原账户/金额/订单核验与原号查证。退款通知、轮换策略和实际回调验收仍待办，见 [微信通知设计](channel-wechat/README.md)。
+
+
+退款通知已接统一通知策略的独立 identifyRefund/verifyRefund，复用微信验签/解密，分别核验原退款身份/总额/本次退款额；payment 独立退款入口在验签后查原退款，并复用原退款结果事务/ACK。支付宝退款通知尚无策略实现。退款与收款 URL 按原 tenant/revision 分开配置，微信退款回调源码细节见 [微信插件](channel-wechat/README.md)；未运行验证或真实回调。
+
+
+## 原号退款恢复（2026-10-24）
+
+recoverRefund 与 queryRefund 分开：回调和纯查询继续使用 queryRefund；原生退款恢复任务使用 recoverRefund。统一 Facade 仍按原 channel/revision/账户作用域路由并核验原退款身份/金额；恢复只接受 QUERY_RESPONSE，或非终态 ACCEPTED/UNKNOWN 的 SUBMIT_RESPONSE，不能把重提受理当退款成功。payment 的 INIT 首次赢家仍仅调用一次 submitRefund，其后原状态/固定计划交渠道策略恢复，没有厂商分支。
+
+微信只有验签的 HTTP404 RESOURCE_NOT_EXISTS 才按原请求号/原交易/原金额重提一次；支付宝只有验签 code10000、原三项自然键齐备匹配且 refund_status 缺失，附带金额核验后才原号重提。各自依靠官方原退款号幂等保证，不把缺失/不存在当未退款证明。错误、异常状态或已有终态不触发重提；查询异常/验签失败不提交。重提结果用查询与提交摘要组成恢复证据，资金占用保留到原查询金融终态。详见各插件说明。源码/测试源码已补，未运行构建或真实退款。

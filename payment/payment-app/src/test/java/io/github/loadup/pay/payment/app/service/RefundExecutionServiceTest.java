@@ -103,12 +103,15 @@ class RefundExecutionServiceTest {
             assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
             return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.ACCEPTED, "submit", RefundObservation.Source.SUBMIT_RESPONSE);
         });
-        when(channel.queryRefund(any())).thenAnswer(c -> {
+        when(channel.recoverRefund(any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.UNKNOWN, "query", RefundObservation.Source.QUERY_RESPONSE);
+            return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.UNKNOWN, "recover", RefundObservation.Source.QUERY_RESPONSE);
         });
-        when(results.record(eq("tenant"), any())).thenAnswer(c -> new RefundResultApplication(RefundReceiptDisposition.IGNORED, "receipt",
-                views.toDTO(request.get().request(), views.toAllocations(request.get().allocations()))));
+        when(results.record(eq("tenant"), any())).thenAnswer(c -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return new RefundResultApplication(RefundReceiptDisposition.IGNORED, "receipt",
+                    views.toDTO(request.get().request(), views.toAllocations(request.get().allocations())));
+        });
     }
 
     @AfterEach
@@ -117,12 +120,14 @@ class RefundExecutionServiceTest {
     }
 
     @Test
-    void onlyTheInitWinnerSubmitsAndEveryReplayQueriesTheSameOriginalRequest() {
+    void onlyTheInitWinnerSubmitsAndEveryReplayRecoversTheSameOriginalRequest() {
         service.progress("tenant", "request");
         service.progress("tenant", "request");
         verify(channel, times(1)).submitRefund(argThat(p -> p.refundId().equals("refund") && p.channelRefundNo().equals("refund-request")
                 && p.originalChannelTransactionNo().equals("original-transaction") && p.originalAmount().getCent() == 4000));
-        verify(channel, times(1)).queryRefund(any());
+        verify(channel, times(1)).recoverRefund(argThat(p -> p.refundId().equals("refund")
+                && p.channelRefundNo().equals("refund-request")
+                && p.originalChannelTransactionNo().equals("original-transaction") && p.originalAmount().getCent() == 4000));
         verify(changes, times(1)).update(anyString(), any());
         verify(projections, times(1)).changed(eq("tenant"), any());
         assertEquals(1000, RefundResultFixtures.capacity().reservedMinor());
@@ -135,7 +140,50 @@ class RefundExecutionServiceTest {
         verify(results).uncertain("tenant", "request", "refund");
         service.progress("tenant", "request");
         verify(channel, times(1)).submitRefund(any());
-        verify(channel, times(1)).queryRefund(any());
+        verify(channel, times(1)).recoverRefund(any());
+    }
+
+    @Test
+    void recoveryAcceptsOnlyOriginalIdAcceptedOrUnknownSubmitResponsesOutsideTheTransaction() {
+        service.progress("tenant", "request");
+        when(channel.recoverRefund(any())).thenAnswer(c -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.ACCEPTED, "refund-request",
+                    RefundObservation.Source.SUBMIT_RESPONSE);
+        });
+        service.progress("tenant", "request");
+        when(channel.recoverRefund(any())).thenAnswer(c -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return RefundResultFixtures.observation(ChannelRefundOutcome.Kind.UNKNOWN, "refund-request",
+                    RefundObservation.Source.SUBMIT_RESPONSE);
+        });
+        service.progress("tenant", "request");
+        verify(channel, times(2)).recoverRefund(argThat(p -> p.refundId().equals("refund")
+                && p.channelRefundNo().equals("refund-request")));
+        verify(channel, times(1)).submitRefund(any());
+        verify(results, times(3)).record(eq("tenant"), any());
+        verify(changes, times(1)).update(anyString(), any());
+    }
+
+    @Test
+    void recoveryRejectsCallbackAndTerminalSubmitResponsesWithoutRecordingThem() {
+        service.progress("tenant", "request");
+        org.mockito.Mockito.clearInvocations(results);
+        when(channel.recoverRefund(any())).thenReturn(RefundResultFixtures.observation(ChannelRefundOutcome.Kind.ACCEPTED,
+                "refund-request", RefundObservation.Source.CALLBACK));
+        assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
+        verify(results).uncertain("tenant", "request", "refund");
+        verify(results, never()).record(eq("tenant"), any());
+
+        when(channel.recoverRefund(any())).thenReturn(RefundResultFixtures.observation(ChannelRefundOutcome.Kind.SUCCEEDED,
+                "refund-request", RefundObservation.Source.SUBMIT_RESPONSE));
+        assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
+        when(channel.recoverRefund(any())).thenReturn(RefundResultFixtures.observation(ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND,
+                "refund-request", RefundObservation.Source.SUBMIT_RESPONSE));
+        assertThrows(CommonException.class, () -> service.progress("tenant", "request"));
+        verify(results, times(3)).uncertain("tenant", "request", "refund");
+        verify(results, never()).record(eq("tenant"), any());
+        verify(channel, times(1)).submitRefund(any());
     }
 
     @Test

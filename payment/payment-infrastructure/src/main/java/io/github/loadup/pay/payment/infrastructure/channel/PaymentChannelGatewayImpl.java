@@ -78,6 +78,11 @@ public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
     }
 
     @Override
+    public RefundObservation recoverRefund(PreparedChannelRefund refund) {
+        return channels.recoverRefund(context(refund.original()), refund);
+    }
+
+    @Override
     public RefundObservation queryRefund(PreparedChannelRefund refund) {
         return channels.queryRefund(context(refund.original()), refund);
     }

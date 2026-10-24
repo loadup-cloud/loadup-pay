@@ -71,6 +71,7 @@ loadup:
       enabled: true
       permit-all:
         - /api/payment/channel-callbacks/*
+        - /api/payment/channel-callbacks/*/refund
       issuer-uri: ${PAYMENT_JWT_ISSUER_URI}
       audience: ${PAYMENT_JWT_AUDIENCE}
       jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI}

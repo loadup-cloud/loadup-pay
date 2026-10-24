@@ -37,5 +37,8 @@ public interface ChannelPaymentOperations {
     RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
 
     RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
+
+    /** Query first; a provider may repeat the exact original idempotent refund request only under its explicit protocol guarantee. */
+    RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
 }
 

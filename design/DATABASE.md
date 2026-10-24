@@ -280,32 +280,36 @@ DDL草案：[acquire.sql](schema/acquire.sql)。
 
 #### `merchant_notification_delivery`
 
-该服务独立的商户语义通知投递；相同事件重试body不变。
+acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；其 DDL 与 schema/acquire.sql 已同步。公共 BaseDO 五字段以外列如下。payment 下文的退款通知表仍是后续草案，两个服务不共库。
 
-以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
+| 列 | 类型/约束 | 说明 |
+|---|---|---|
+| event_id | VARCHAR(64) NOT NULL | 商户幂等事件身份，与 native task ID 分离 |
+| order_id | VARCHAR(64) NOT NULL | 原订单 |
+| payee_merchant_id | VARCHAR(64) NOT NULL | 通知所属商户/子商户 |
+| event_type | VARCHAR(64) NOT NULL | PaymentSucceeded / OrderFullyPaid / OrderClosed |
+| aggregate_id | VARCHAR(64) NOT NULL | 原 payment 或 order |
+| source_version | BIGINT NOT NULL | 原来源聚合版本 |
+| body | MEDIUMTEXT NOT NULL | 固定 JSON，以同一 UTF-8 字节签名发送，不重新序列化 |
+| body_digest | CHAR(64) NOT NULL | 原字节 SHA-256 |
+| target_ref | VARCHAR(128) NOT NULL | 原审核目标的不可变版本引用 |
+| signing_identity_ref | VARCHAR(128) NOT NULL | 原审核签名身份引用，目录映射显式 KMS 版本 |
+| timeout_millis | INT NOT NULL | 合约超时预算 |
+| retry_initial_seconds | BIGINT NOT NULL | 首轮重试间隔 |
+| retry_multiplier | DECIMAL(38,18) NOT NULL | 退避倍率，无损表示且不小于1 |
+| retry_maximum_seconds | BIGINT NOT NULL | 间隔上限 |
+| retry_max_attempts | INT NOT NULL | 发送许可次数上限 |
+| retry_window_seconds | BIGINT NOT NULL | 原事件起重试窗口 |
+| occurred_at | DATETIME(6) NOT NULL | 不可变事件时刻 |
+| expires_at | DATETIME(6) NOT NULL | 原事件时刻加合约窗口 |
+| next_attempt_at | DATETIME(6) NOT NULL | 后继调度/最终耗尽检查时刻 |
+| attempt_count | INT NOT NULL DEFAULT 0 | 已提交发送许可数，包含崩溃或缺配置时的许可 |
+| state | VARCHAR(24) NOT NULL | INIT / PENDING / ACKED / EXHAUSTED |
+| route_fingerprint | CHAR(64) NULL | 首次解析后冻结目标与签名身份指纹 |
+| acknowledged_at | DATETIME(6) NULL | 仅严格语义 ACK 成功时存在 |
+| row_version | BIGINT NOT NULL DEFAULT 0 | 独立投递游标 CAS |
 
-| 列                  | 类型/约束                   | 说明                                                                |
-|---------------------|-----------------------------|---------------------------------------------------------------------|
-| `business_event_id` | `VARCHAR(64) NOT NULL`      | 商户去重eventId，与底层outboxId区分                                 |
-| `aggregate_id`      | `VARCHAR(64) NOT NULL`      | 订单/退款申请等                                                     |
-| `aggregate_version` | `BIGINT NOT NULL`           | 聚合业务版本                                                        |
-| `event_type`        | `VARCHAR(64) NOT NULL`      | PaymentSucceeded / OrderFullyPaid / OrderClosed / RefundSucceeded等 |
-| `payee_merchant_id` | `VARCHAR(64) NOT NULL`      | 通知归属                                                            |
-| `target_ref`        | `VARCHAR(128) NOT NULL`     | 经审核的不可变目标版本引用                                          |
-| `key_ref`           | `VARCHAR(128) NOT NULL`     | 原配置密钥引用/版本，禁止存私钥                                     |
-| `body_bytes`        | `MEDIUMBLOB NOT NULL`       | 固定UTF-8签名原始body字节，允许脱敏非秘密载荷                       |
-| `body_digest`       | `CHAR(64) NOT NULL`         | 原body摘要                                                          |
-| `policy_snapshot`   | `JSON NOT NULL`             | 超时/重试/窗口/签名策略                                             |
-| `state`             | `VARCHAR(24) NOT NULL`      | INIT / PENDING / ACKED / EXHAUSTED                                  |
-| `attempt_count`     | `INT NOT NULL DEFAULT 0`    | 投递尝试次数                                                        |
-| `next_attempt_at`   | `DATETIME(6) NULL`          | 当前投递调度                                                        |
-| `acknowledged_at`   | `DATETIME(6) NULL`          | 语义ACK成功                                                         |
-| `row_version`       | `BIGINT NOT NULL DEFAULT 0` | 投递状态CAS                                                         |
-
-约束/索引：
-
-- `UNIQUE KEY uk_notification_event_target (tenant_id,business_event_id,target_ref)`
-- `KEY ix_notification_pending (tenant_id,state,next_attempt_at,id)`
+唯一键为 (tenant_id,event_id,target_ref)，按 (tenant_id,state,next_attempt_at,id) 扫描及 (tenant_id,order_id,occurred_at,id) 查询。原事件与首任务同事务；每次 HTTP 前提交游标与不同身份的后继任务。ACK 另开短事务。状态更新禁止修改 body/身份/原策略及非空路由指纹，不承担任何资金记账。未执行 DDL 或运行验收。
 
 ### payment（15张新增表）
 
@@ -1389,6 +1393,8 @@ payment/order/allocation/payee、分值/CNY、input_key、channel/method、calle
 为256位随机不透明引用；tenant+paymentId 唯一，逻辑删除不复用。DATETIME (6) 本地时间；金额必须正、有效期严格递增，INIT/空attempt/version0
 或 BOUND/非空attempt/version1。
 
+payment_input.method 支持 PAYMENT_CODE、JSAPI、H5。H5_SCENE 的终端 IP 与场景随完整作用域命令加密保存，不增加明文 IP 列；H5 引用与其他输入一样绑定单一 attempt。按前期不要求兼容的规则，初始 V20261022090000__payment_input.sql 的 CHECK 已直接同步，不新增兼容分支或对存量数据库执行变更。已有试验库的迁移校验和/重建由后续部署处理，本轮没有执行 DDL。
+
 加密在事务外执行，密文负载含租户/服务/inputRef/完整原输入命令；原敏感数据不进入普通付款/订单意图。新记录写入时重读唯一键，竞争先回滚再读赢家；原
 key version 指纹检查重放，不更新 expiry。首次受理锁序为 parent_gate→payment_gate→input，后续 Y2 在既有付款/attempt同一事务固定绑定
 input，CAS 只更新 state/bound_attempt_id/row_version。解密在事务外且只允许已绑定活跃 attempt，必须验证密文内部作用域和
@@ -1669,3 +1675,17 @@ V20261024010000__payment_callback_lookup.sql 为 payment_attempt 增加 ix_attem
 复用现有 payment_channel_receipt 的 CALLBACK source，不新增收包表。归一观察的 receiptKey 为 notify_id+查询 factsDigest 的摘要，sourceDigest 组合验签 canonical 内容与原查单响应摘要；完整财务事实仍由 Y3 与 claim/付款/Outbox 同事务提交。通知 ID 不代替查询事实版本；同一触发后续查明成功可产生新回执，金额影响仍由原状态机/全局认领幂等。原始签名报文当前不归档为业务 payload，只保留归一事实与源摘要。
 
 索引迁移、真实事务提交/回滚、并发通知与轮询竞态、签名原文归档及运行验收均未执行；现有源码未构建或测试。
+
+
+### 退款通知查询索引（2026-10-24）
+
+refund_order 新增 ix_refund_callback_lookup(tenant_id,binding_revision_id,channel_refund_no)，配合 original_channel_request_no 精确过滤与最多两条候选拒绝歧义。回调只读取 submission_started_at 非空且非 INIT 的原子退款，核验 payment_refund_capacity 原成功金额/时间/币种后再到渠道查询；退款金融写入仍走既有锁序与结果事务，不在查询仓库持锁调用渠道。迁移为 V20261024140000__refund_callback_lookup.sql，仅编写源码，未执行。
+
+
+## acquire 商户通知实际投递表（2026-10-24）
+
+V20261024180000__merchant_notification_delivery.sql 与 design/schema/acquire.sql 已同步，未执行 DDL。实际表为 merchant_notification_delivery；除 BaseDO 字段外保存 event_id/order_id/merchant/event_type/aggregate_id/source_version、固定 UTF-8 body/body_digest、原 target_ref/signing_identity_ref、8项通知策略、occurred_at/expires_at/next_attempt_at、attempt_count/state、首次路由指纹、acknowledged_at/row_version。重试倍率使用 DECIMAL(38,18)，领域值规范化尾零，启用通知的合约提前拒绝不能无损表示的倍率。
+
+唯一键 (tenant_id,event_id,target_ref) 保留原事件；按订单与待投递游标索引查询。主体事务登记投递与首轮 native task；每次发送前同库事务 CAS 增加尝试和后继登记，发送后 ACK 单独事务更新。更新只触及游标、状态、首次指纹及 ACK 时间；不得覆盖原 body、身份或策略。route_fingerprint 一经非空不能变更。框架任务表持有运行租约，不复制为业务租约。
+
+INIT/PENDING/ACKED/EXHAUSTED 与 ACK 时间一致；next_attempt_at 在事件时刻与窗口截止内。body 为 MEDIUMTEXT 的固定 JSON，每次只做同一 UTF-8 编码不重新序列化，摘要按真正字节复核。实际 HTTP/签名在本地事务外。notification 表不承担资金账务，不把收包或框架任务完成当作商户 ACK。原支付端退款通知表和人工重放审计仍待实现。

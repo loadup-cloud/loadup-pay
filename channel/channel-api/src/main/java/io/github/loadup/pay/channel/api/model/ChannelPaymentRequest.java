@@ -34,7 +34,7 @@ public record ChannelPaymentRequest(PreparedChannelPayment payment, String subje
         boolean matches = switch (payment.method()) {
             case PAYMENT_CODE -> input instanceof ChannelPaymentCodeInput;
             case JSAPI -> input instanceof ChannelPayerIdentityInput payer && payer.channel() == payment.identity().channel();
-            case H5 -> input instanceof NoChannelInput;
+            case H5 -> input instanceof NoChannelInput || input instanceof ChannelH5Input;
             default -> false;
         };
         require(matches, INVALID_ARGUMENT);

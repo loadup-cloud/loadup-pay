@@ -18,11 +18,13 @@ package io.github.loadup.pay.payment.rpc;
 
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentInteractionDTO;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
 import org.junit.jupiter.api.Test;
 import java.time.OffsetDateTime;
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,6 +38,22 @@ class PaymentRpcMapperTest {
         assertEquals(input, PaymentRpcMapper.INSTANCE.fromWirePaymentInputPrepareCommand(WirePaymentInputPrepareCommand.parseFrom(bytes)));
         assertThrows(IllegalArgumentException.class,
                 () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInteractionDTO(WirePaymentInteractionDTO.getDefaultInstance()));
+    }
+
+    @Test
+    void h5SceneInteractionBinaryRoundTripRequiresKnownSceneAndPresentFields() throws Exception {
+        var input = new PaymentInputPrepareCommand("payment", "order", "allocation", "merchant", 100, "CNY", "input",
+                null, new H5SceneInteractionDTO("203.0.113.1", H5SceneType.WAP));
+
+        var bytes = PaymentRpcMapper.INSTANCE.toWirePaymentInputPrepareCommand(input).toByteArray();
+        assertEquals(input, PaymentRpcMapper.INSTANCE.fromWirePaymentInputPrepareCommand(WirePaymentInputPrepareCommand.parseFrom(bytes)));
+
+        var unknownScene = io.github.loadup.pay.payment.rpc.proto.WireH5SceneInteractionDTO.newBuilder()
+                .setPayerClientIp("203.0.113.1").setSceneType("UNKNOWN").build();
+        var missingScene = io.github.loadup.pay.payment.rpc.proto.WireH5SceneInteractionDTO.newBuilder()
+                .setPayerClientIp("203.0.113.1").build();
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWireH5SceneInteractionDTO(unknownScene));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWireH5SceneInteractionDTO(missingScene));
     }
 
     @Test

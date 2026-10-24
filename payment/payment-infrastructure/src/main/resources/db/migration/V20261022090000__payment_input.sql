@@ -30,7 +30,7 @@ CREATE TABLE payment_input
     UNIQUE KEY uk_input_payment (tenant_id, payment_id),
     KEY ix_input_expiry (tenant_id, expires_at, id),
     CHECK (amount_minor > 0 AND currency = 'CNY'),
-    CHECK (method IN ('PAYMENT_CODE', 'JSAPI')),
+    CHECK (method IN ('PAYMENT_CODE', 'JSAPI', 'H5')),
     CHECK (expires_at > prepared_at AND encryption_version > 0),
     CHECK ((state = 'INIT' AND bound_attempt_id IS NULL AND row_version = 0)
         OR (state = 'BOUND' AND bound_attempt_id IS NOT NULL AND row_version = 1))

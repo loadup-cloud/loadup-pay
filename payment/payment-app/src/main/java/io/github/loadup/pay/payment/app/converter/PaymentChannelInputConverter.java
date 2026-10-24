@@ -28,10 +28,13 @@ public interface PaymentChannelInputConverter {
 
     ChannelPayerIdentityInput toIdentity(ChannelIdentityInteractionDTO value);
 
+    ChannelH5Input toH5(H5SceneInteractionDTO value);
+
     default ChannelPaymentInput toInput(PaymentInteractionDTO value) {
         return switch (value) {
             case PaymentCodeInteractionDTO code -> toCode(code);
             case ChannelIdentityInteractionDTO payer -> toIdentity(payer);
+            case H5SceneInteractionDTO h5 -> toH5(h5);
             case NoInteractionDTO ignored -> new NoChannelInput();
         };
     }
@@ -56,6 +59,7 @@ public interface PaymentChannelInputConverter {
         return switch (value) {
             case AlipayJsapiChannelAction alipay -> toAlipayAction(alipay);
             case WechatJsapiChannelAction wechat -> toWechatAction(wechat);
+            case WechatH5ChannelAction h5 -> toH5Action(h5);
         };
     }
 
@@ -70,5 +74,11 @@ public interface PaymentChannelInputConverter {
     PaymentActionDTO toWechatAction(WechatJsapiChannelAction value);
 
     WechatJsapiActionDTO toWechatData(WechatJsapiChannelAction value);
+
+    @Mapping(target = "type", constant = "REDIRECT")
+    @Mapping(target = "data", expression = "java(toH5Data(value))")
+    PaymentActionDTO toH5Action(WechatH5ChannelAction value);
+
+    RedirectActionDTO toH5Data(WechatH5ChannelAction value);
 }
 

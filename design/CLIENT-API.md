@@ -789,7 +789,7 @@ gate，返回 SNAPSHOT_INVALID。相同 key 重放不补 gate、不换证据，�
 
 PaymentInitiationFacade.startPayment 已实现 POST `/api/acquire/payments/start`，输入 PaymentStartCommand，返回
 SuccessResponse<PaymentStartDTO>。原已验证商户主体还需 `pay:acquire:payment:start` 权限，只能操作自身原订单。当前支持 H5 +
-NONE、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；敏感输入在 A2 后由 payment 加密准备并附加固定引用，不接受商户自填
+H5_SCENE（微信要求真实终端 IP 与场景）、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；NONE 只表示空输入，能否执行由渠道能力决定。敏感输入在 A2 后由 payment 加密准备并附加固定引用，不接受商户自填
 preparedInputRef。
 
 A2 以 tenant/orderId/actorScope/actionKey 固定一笔付款：actorScope 当前为 merchant/原主体hash。锁订单后原子写占用及 HELD
@@ -1155,7 +1155,7 @@ tenant/deliveryId 是接收身份，同身份完整参数变化返回 IDEMPOTENC
 
 ## 进程内渠道统一 API（2026-10-23）
 
-channel-api 独立提供 ChannelPaymentFacade：validate/submit/query/recover/close/canRefund/submitRefund/queryRefund。策略实现 ChannelProvider，声明唯一 Channel，由 channel-core 注册路由。调用上下文由 payment 基础设施桥接解析可信租户与原 binding revision，API 不允许任意上游网关地址或未解析凭证。该接口是应用内部插件契约，不是新增商户 HTTP/RPC 入口。详细输入、校验和未完成范围见 [渠道模块](../channel/README.md)。
+channel-api 独立提供 ChannelPaymentFacade：validate/submit/query/recover/close/canRefund/submitRefund/queryRefund/recoverRefund。策略实现 ChannelProvider，声明唯一 Channel，由 channel-core 注册路由。调用上下文由 payment 基础设施桥接解析可信租户与原 binding revision，API 不允许任意上游网关地址或未解析凭证。该接口是应用内部插件契约，不是新增商户 HTTP/RPC 入口。详细输入、校验和未完成范围见 [渠道模块](../channel/README.md)。
 
 支付宝普通退款的 channelRefundTransactionNo 为验签后原 trade_no/out_request_no 自然键的稳定规范引用（alipay:sha256），不声称渠道颁发独立流水；原元组仍完整保存在退款/claim。只有查询核验 REFUND_SUCCESS、身份、单次金额和成功时间后允许写入；退款提交 10000 仅为 ACCEPTED。
 
@@ -1200,3 +1200,66 @@ PaymentChannelCallbackFacade.receive(endpointRef, ChannelNotificationInput) 是�
 ChannelNotificationFacade.identify 返回不可信 ChannelNotificationHint；verify 使用原 ChannelExecutionContext/ChannelPaymentTarget，返回已验签且核对账户、请求号、金额的触发元数据。只有随后查询产生的资金事实能够进入 Y3，回调状态与通知金额本身不是商户可用的记账 API。服务端按可信 tenant/bindingRevision 配置 JSAPI notify_url，商户支付命令不可指定。
 
 CALLBACK 回执复合键绑定通知 ID 和权威查询事实；成功 ACK 必须在非冲突的 Y3 返回之后，不因解析或验签通过即 ACK。新接口/配置、边界与测试源码尚未执行验证，其他通知协议仍待实现。
+
+
+### 微信 JSAPI 动作实现（2026-10-24）
+
+channel-api 新增 WechatJsapiChannelAction，字段 appId/timeStamp/nonceStr/packageValue/signType/paySign/expiresAt，core 以 WECHAT_JSAPI 白名单快照保存。payment MapStruct 映射为已有 INVOKE_JSAPI/WechatJsapiActionDTO（外部字段 package）；复用现有动作查询授权和 Protobuf 分支，无新增内部 RPC。该动作只表示预支付会话可唤起，支付成功仍以原渠道查询的验签事实确定。具体能力、必需配置和未实现范围见 [微信插件](../channel/channel-wechat/README.md)。
+
+
+### 微信普通退款执行（2026-10-24）
+
+统一 submitRefund/queryRefund 已接微信策略，PreparedChannelRefund 继续使用原身份、原交易号、原金额、本次退款金额与固定 channelRefundNo，不增加商户可注入的退款成功入口。普通退款受理不等于成功；只有查询 SUCCESS/完整原号与金额/渠道成功时间产生成功金融事实，CLOSED 的失败证明沿原结果接收流程处理。外部回调、异常退款处置及未达渠道时的原号安全重提待后续。细节见 [微信退款协议](../channel/channel-wechat/README.md)。
+
+
+### 加密通知协议修订（2026-10-24）
+
+ChannelNotificationInput(contentType,headers,body) 保留有界多值签名头与原始字节；identify 改为接收可信原 ChannelExecutionContext，payment Gateway 传原 channel/bindingRevisionId 并按可信租户解析。ChannelNotificationAcknowledgement(httpStatus,contentType,body) 返回渠道原生状态，微信支付通知失败必须为非 2xx；支付宝保持自身 ACK 规则。删除旧构造器/参数，调用方与测试同步。该契约只供应用内渠道插件及外部回调控制器使用，不新增内部 RPC 或任意金融写入口。微信通知只触发原号查证，金融事实仍沿 Y3 接收。
+
+
+### 原生退款通知入口（2026-10-24）
+
+RefundChannelCallbackFacade.receive(endpointRef,input) 承接 /api/payment/channel-callbacks/{endpointRef}/refund 原生 JSON。统一通知 Facade 的 identifyRefund(context,input) 返回 ChannelRefundNotificationHint，verifyRefund(context,PreparedChannelRefund,input) 返回已认证的原退款触发元数据；这些都不能直接写金融终态。payment 通过原退款查询与既有 RefundResultService 接收 CALLBACK 事实，ACK 仅在非冲突事务提交后成功。微信退款 URL 使用独立可信 refund-notify-urls 目录，不从商户请求取 URL。不新增内部 HTTP/RPC 或商户成功写入口。
+
+
+### 原号退款恢复 API（2026-10-24）
+
+ChannelPaymentOperations/PaymentChannelGateway 新增 recoverRefund，仍接同一 PreparedChannelRefund，不提供商户选择新退款号或重写金融参数的入口。queryRefund 保持只读，回调沿用纯查询；恢复任务明确使用 recoverRefund，渠道策略仅在各自原号幂等保证和精确验签条件下重复原请求。返回为 QUERY_RESPONSE 或非终态 SUBMIT_RESPONSE（ACCEPTED/UNKNOWN），Facade 与 app 双重拒绝 CALLBACK/终态提交来源，不把受理响应替代退款查证。无兼容重载、额外 RPC、业务表或 DDL。
+
+
+## 微信 H5 场景与统一跳转（2026-10-24）
+
+纯 API 的 PaymentStartCommand 与 DirectPayCommand 选择 WECHAT/H5 时，传类型化 H5_SCENE；无需 CheckoutSession。示例为已有订单的付款发起：
+
+```json
+{
+  "orderId": "order-001",
+  "actionKey": "pay-001",
+  "amountMinor": 1000,
+  "choice": { "channel": "WECHAT", "method": "H5" },
+  "interaction": {
+    "type": "H5_SCENE",
+    "payerClientIp": "203.0.113.10",
+    "sceneType": "WAP"
+  }
+}
+```
+
+payerClientIp 必须由已认证商户服务端提供真实付款终端的 IPv4/IPv6 字面量，不能填商户服务器地址、转发头链或主机名。sceneType 为 WAP、IOS、ANDROID，表示付款环境，不是新增原生 APP 支付产品。公网示例地址仅为文档保留地址，实际请求必须提供真实终端 IP。拒绝回环/未指定/组播、端口、方括号和 zone id；校验无 DNS 访问。
+
+acquire 在原 A2 占用后调用仅限受信 SERVICE 的 PaymentInputFacade.prepare，敏感场景经 KMS 加密与 keyed 指纹固定；原意图只保存不透明引用。改变 IP、场景、金额或原付款作用域不能覆盖原输入。同 actionKey 重放仍沿用原 allocation/payment；H5 无场景的 NONE 不满足微信渠道要求。
+
+gRPC 的 WirePaymentInteractionDTO 新增 option3=4，WireH5SceneInteractionDTO 的 payer_client_ip=1、scene_type=2 均要求存在，场景符号严格限定。输入与输出仍走既有 prepare/accept/detail API，不增加厂商专用业务入口。
+
+异步执行后，PaymentExecutionDTO.action 可返回 REDIRECT、expiresAt 与 RedirectActionDTO.redirectUrl（JSON 数据类型为既有 REDIRECT）。地址只来自微信验签响应，限定当前官方 HTTPS 跳转主机/路径，原编码与参数原样保留；商户不能自填跳转地址、附加任意参数或把页面回跳当成收款成功。期限为原订单截止与调用开始后五分钟的较早值；原 action 快照和重放不延长地址寿命，过期不展示。支付结果查询/回调沿用原渠道与原绑定，不在查询恢复中重新下单获取地址。
+
+该路径已有源码和相关测试源码；尚未运行编译、测试、DDL、H5 域名/Referer 与真实浏览器/渠道验收。托管收银台、支付宝 H5 和安全刷新/丢失响应恢复仍为后续工作。
+
+
+## 商户通知 acquire 实际接线（2026-10-24）
+
+PaymentSucceeded 的 sourceVersion 为原 paymentVersion，aggregateType=PaymentOrder；OrderFullyPaid/OrderClosed 使用 AcquireOrder/orderVersion。data 固定包含 orderId、可空 paymentId、payeeMerchantId、amountMinor/CNY、orderPaidAmountMinor、orderAmountMinor、orderState。单笔成功金额为本笔金额，订单事件金额为订单总额；金额汇总是该事件时刻的快照，不保证跨聚合通知全序。
+
+eventId/body/occurredAt/原策略不可变，新增投递表与首任务同源事务，不对外暴露任意事件入队或发送 URL 接口。任务和签名细节见 [acquire 通知说明](../acquire/README.md)。语义 ACK 严格为2xx及两字段 {"eventId":"原事件","result":"SUCCESS"}，每次使用新的签名 nonce/timestamp，其他参数保持原冻结值。投递未 ACK 不能回滚已提交的收款事实，也不修改付款状态。
+
+目录以 tenant+不可变版本引用定位且绑定商户；实际请求只使用审核的固定 HTTPS POST operation，无 query。原应用/受众/显式 KMS key 版本、URI 和配置指纹绑定，不能由 payload 任意选密钥、目标或修改旧事件的路由。原生延迟任务的后继在发送前持久化，崩溃重放保持原事件；达到次数/窗口后 EXHAUSTED，运维审计重放接口、退款商户通知及目录发布验证后续补齐。新增源码和测试源码未执行验证或实际投递。

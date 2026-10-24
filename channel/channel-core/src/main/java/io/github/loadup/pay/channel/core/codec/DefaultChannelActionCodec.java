@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import tools.jackson.core.StreamReadFeature;
@@ -41,6 +42,7 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
         return switch (action) {
             case AlipayJsapiChannelAction ignored -> "ALIPAY_JSAPI";
             case WechatJsapiChannelAction ignored -> "WECHAT_JSAPI";
+            case WechatH5ChannelAction ignored -> "WECHAT_H5";
         };
     }
 
@@ -49,6 +51,7 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
         var payload = switch (action) {
             case AlipayJsapiChannelAction alipay -> json.writerFor(AlipayJsapiChannelAction.class).writeValueAsString(alipay);
             case WechatJsapiChannelAction wechat -> json.writerFor(WechatJsapiChannelAction.class).writeValueAsString(wechat);
+            case WechatH5ChannelAction h5 -> json.writerFor(WechatH5ChannelAction.class).writeValueAsString(h5);
         };
         if (payload.length() > 8192) throw new CommonException(ACTION_SNAPSHOT_INVALID);
         return payload;
@@ -65,6 +68,7 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
             ChannelPaymentAction result = switch (kind) {
                 case "ALIPAY_JSAPI" -> json.readValue(payload, AlipayJsapiChannelAction.class);
                 case "WECHAT_JSAPI" -> json.readValue(payload, WechatJsapiChannelAction.class);
+                case "WECHAT_H5" -> json.readValue(payload, WechatH5ChannelAction.class);
                 default -> throw new CommonException(ACTION_SNAPSHOT_INVALID);
             };
             if (result == null) throw new CommonException(ACTION_SNAPSHOT_INVALID);

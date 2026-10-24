@@ -26,6 +26,7 @@ import io.github.loadup.pay.acquire.client.facade.DirectPaymentFacade;
 import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
@@ -67,7 +68,8 @@ public class DirectPaymentService implements DirectPaymentFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         boolean valid = switch (command.choice().method()) {
-            case H5 -> command.interaction() instanceof NoInteractionDTO;
+            case H5 -> command.interaction() instanceof NoInteractionDTO
+                    || command.interaction() instanceof H5SceneInteractionDTO;
             case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
             case JSAPI -> command.interaction() instanceof ChannelIdentityInteractionDTO identity
                     && identity.channel() == command.choice().channel();

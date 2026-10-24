@@ -17,7 +17,6 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
@@ -52,7 +51,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 @Service
 public class ChannelBindingService implements ChannelBindingFacade {
@@ -89,9 +87,7 @@ public class ChannelBindingService implements ChannelBindingFacade {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.id(command.bindingCode());
             DomainChecks.text(command.requestKey(), 128);
-            if (command.channel() != Channel.ALIPAY && command.channel() != Channel.WECHAT)
-                throw new CommonException(UNSUPPORTED_CAPABILITY);
-            // Validate the typed mode before taking locks. No channel availability is inferred from this declaration.
+            // The typed identity validates channel and mode; executable capabilities belong to registered providers.
             var candidate = converter.toBinding(command, "candidate", codec.accountScopeHash(command.channel(), converter.toIdentity(command.identity())));
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), "PUBLISH", command);
             return transactions.write(actor.tenantId(), () -> {

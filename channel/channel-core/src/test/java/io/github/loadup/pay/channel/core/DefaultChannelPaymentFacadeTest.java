@@ -290,6 +290,43 @@ class DefaultChannelPaymentFacadeTest {
                 () -> facade.submit(context, jsapiRequest)));
     }
 
+    @Test
+    void refundRecoveryRoutesByOriginalIdentityAndAcceptsQueryOrNonterminalSubmitObservations() {
+        var context = context(Channel.WECHAT, "wx-binding", HASH);
+        var refund = refund(payment(Channel.WECHAT, "wx-binding", HASH).identity());
+        when(wechat.canRefund(refund)).thenReturn(true);
+        var submitted = refundObservation(refund);
+        var queried = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
+                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64));
+        when(wechat.recoverRefund(context, refund)).thenReturn(queried, submitted);
+        TenantUtil.runWithTenant("tenant", () -> {
+            assertSame(queried, facade.recoverRefund(context, refund));
+            assertSame(submitted, facade.recoverRefund(context, refund));
+        });
+        verify(wechat, times(2)).recoverRefund(context, refund);
+        verify(alipay, never()).recoverRefund(any(), any());
+    }
+
+    @Test
+    void refundRecoveryRejectsCallbackAndTerminalSubmitFactsAndWrongAmounts() {
+        var context = context(Channel.ALIPAY, "ali-binding", HASH);
+        var refund = refund(payment(Channel.ALIPAY, "ali-binding", HASH).identity());
+        when(alipay.canRefund(refund)).thenReturn(true);
+        var callback = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
+                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.CALLBACK, "callback", "e".repeat(64));
+        var terminalSubmit = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
+                ChannelRefundOutcome.Kind.SUCCEEDED, refund.amount(), "vendor-refund", java.time.LocalDateTime.of(2026, 10, 24, 12, 0),
+                RefundObservation.Source.SUBMIT_RESPONSE, "submit", "e".repeat(64));
+        var wrongAmount = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
+                ChannelRefundOutcome.Kind.ACCEPTED, Money.ofMinor(1, "CNY"), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64));
+        when(alipay.recoverRefund(context, refund)).thenReturn(callback, terminalSubmit, wrongAmount);
+        TenantUtil.runWithTenant("tenant", () -> {
+            assertThrows(CommonException.class, () -> facade.recoverRefund(context, refund));
+            assertThrows(CommonException.class, () -> facade.recoverRefund(context, refund));
+            assertThrows(CommonException.class, () -> facade.recoverRefund(context, refund));
+        });
+    }
+
     private static ChannelProvider provider(Channel channel) {
         var provider = mock(ChannelProvider.class);
         when(provider.channel()).thenReturn(channel);

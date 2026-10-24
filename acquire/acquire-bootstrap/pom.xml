@@ -44,6 +44,10 @@
             <dependencies>
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>
+                    <artifactId>loadup-components-scheduler-binder-local</artifactId>
+                </dependency>
+                <dependency>
+                    <groupId>io.github.loadup-cloud</groupId>
                     <artifactId>acquire-adapter</artifactId>
                 </dependency>
                 <dependency>

@@ -20,7 +20,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({CheckoutProperties.class, PaymentTransportProperties.class, AcquireRealtimeProperties.class})
+@EnableConfigurationProperties({CheckoutProperties.class, PaymentTransportProperties.class, AcquireRealtimeProperties.class,
+        MerchantNotificationProperties.class})
 @MapperScan("io.github.loadup.pay.acquire.infrastructure.mapper")
 public class AcquirePersistenceConfiguration {
 }

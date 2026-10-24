@@ -49,6 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
@@ -89,7 +90,7 @@ class PaymentChannelCallbackServiceTest {
     private final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>();
     private final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>();
     private final ChannelNotificationInput input = new ChannelNotificationInput(
-            "application/x-www-form-urlencoded", "notify=raw".getBytes(StandardCharsets.UTF_8));
+            "application/x-www-form-urlencoded", Map.of(), "notify=raw".getBytes(StandardCharsets.UTF_8));
     private final PaymentChannelCallbackService service = new PaymentChannelCallbackService(endpoints, attempts,
             payments, notifications, channels, results, commands, observations,
             context.getBean(PaymentCallbackObservationConverter.class), transactions);
@@ -108,7 +109,7 @@ class PaymentChannelCallbackServiceTest {
                 "channel-transaction", "CALLBACK_STATUS_SAYS_FAILED", sourceDigest);
     }
     private ChannelNotificationAcknowledgement acknowledgement(boolean success) {
-        return new ChannelNotificationAcknowledgement("text/plain", success ? "accepted" : "retry");
+        return new ChannelNotificationAcknowledgement(success ? 200 : 500, "text/plain", success ? "accepted" : "retry");
     }
 
     @BeforeEach
@@ -126,7 +127,7 @@ class PaymentChannelCallbackServiceTest {
             return Optional.ofNullable(accepted.get());
         });
         when(commands.decode(any(StoredPaymentAcceptance.class))).thenReturn(AttemptFixtures.command());
-        when(notifications.identify(any(), eq(input))).thenAnswer(call -> {
+        when(notifications.identify(any(), anyString(), eq(input))).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return new ChannelNotificationHint(stored.get().attempt().channelRequestNo());
         });
@@ -176,7 +177,7 @@ class PaymentChannelCallbackServiceTest {
         verify(attempts).findChannelRequest(TENANT, endpoint.get().bindingRevisionId(),
                 stored.get().attempt().channelRequestNo());
         verify(payments).find(TENANT, stored.get().attempt().paymentId());
-        calls.verify(notifications).identify(endpoint.get().channel(), input);
+        calls.verify(notifications).identify(endpoint.get().channel(), endpoint.get().bindingRevisionId(), input);
         calls.verify(notifications).verify(target(), input);
         calls.verify(channels).query(target());
         calls.verify(results).record(eq(TENANT), any(PaymentObservation.class));

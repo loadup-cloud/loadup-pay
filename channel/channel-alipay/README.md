@@ -80,3 +80,12 @@ AlipayCredentialReader.verificationKey 从原版本描述文件读取平台 RSA 
 `loadup.pay.channel.alipay.notifications.notify-urls.<tenant>.<bindingRevisionId>` 是可信 HTTPS URL 目录，仅用于 CREATE 附加 notify_url；不接受商户输入的任意通知地址。回调请求中的 tenant/endpoint 不能改变冻结收款账户。完整入口配置见 [payment 说明](../../payment/README.md)。
 
 依据：[官方异步通知](https://developer.alibaba.com/docs/doc.htm?articleId=105301&docType=1&treeId=193)、[官方 V1 RSA2 验签实现](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/internal/util/AlipaySignature.java)、[官方创单 notifyUrl 字段](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/request/AlipayTradeCreateRequest.java)。源码和测试源码未执行构建/测试或真实回调验收，证书模式/其他通知类型未在本批扩展。
+
+
+## 原退款号恢复（2026-10-24）
+
+独立 recoverRefund 先调用原 alipay.trade.fastpay.refund.query，queryRefund 继续只读。只在原版本验签通过、code=10000、refund_status 未返回，且 trade_no/out_trade_no/out_request_no 三项全部返回并精确匹配原固定退款时，才允许重复原 alipay.trade.refund。若 refund_amount 返回，必须为合法零值或本次原退款金额；total_amount 若返回必须匹配原 gross 总额。金额/身份不符、缺字段、业务错误或显式状态不构成重提许可，REFUND_SUCCESS 沿查询正常收敛。
+
+原 out_request_no 始终存在，原交易、退款金额、账户与凭证版本不变。退款状态缺失不代表失败或未退款，重提依靠支付宝对 out_request_no 的幂等保证。提交即使成功也只受理，查询/提交摘要组合为恢复证据；不凭 refund_fee 累计额或 fund_change 直接认领成功，不生成新退款号。恢复由原生任务调度，不在 HTTP 层自动循环。
+
+依据：[支付宝官方交易退款幂等说明](https://developer.alibaba.com/docs/doc.htm?articleId=106384&docType=1&treeId=327)。源码与测试源码已补，未运行构建、测试或真实退款；未满足上述明确条件的未知结果继续保留占用并等待后续查询/运维处置。

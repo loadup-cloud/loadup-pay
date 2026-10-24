@@ -25,11 +25,15 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 
 /** Trusted server callback URLs by tenant and immutable binding revision; never supplied by a merchant request. */
 @ConfigurationProperties("loadup.pay.channel.wechat.notifications")
-public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyUrls) {
+public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyUrls, Map<String, Map<String, URI>> refundNotifyUrls) {
     public WechatNotificationProperties {
-        notifyUrls = notifyUrls == null ? Map.of() : notifyUrls.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+        notifyUrls = immutable(notifyUrls);
+        refundNotifyUrls = immutable(refundNotifyUrls);
+    }
+    private static Map<String, Map<String, URI>> immutable(Map<String, Map<String, URI>> values) {
+        var urls = values == null ? Map.<String, Map<String, URI>>of() : values.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
-        for (var tenant : notifyUrls.entrySet()) {
+        for (var tenant : urls.entrySet()) {
             io.github.loadup.commons.validation.DomainChecks.id(tenant.getKey());
             for (var binding : tenant.getValue().entrySet()) {
                 io.github.loadup.commons.validation.DomainChecks.id(binding.getKey());
@@ -40,6 +44,7 @@ public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyU
                         INVALID_ARGUMENT);
             }
         }
+        return urls;
     }
     @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

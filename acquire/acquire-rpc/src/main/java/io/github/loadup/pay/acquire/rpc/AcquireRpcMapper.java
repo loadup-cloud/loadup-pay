@@ -19,6 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.rpc.grpc.GrpcScalarMapper;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
+import org.mapstruct.BeforeMapping;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -101,5 +102,39 @@ public interface AcquireRpcMapper {
     io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO toWireFeeRefundAckDTO(io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO value);
 
     io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO fromWireFeeRefundAckDTO(io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "deliveryId", source = "deliveryId")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "producer", source = "producer")
+    @Mapping(target = "eventType", source = "eventType")
+    @Mapping(target = "schemaVersion", source = "schemaVersion")
+    @Mapping(target = "aggregateId", source = "aggregateId")
+    @Mapping(target = "aggregateVersion", source = "aggregateVersion")
+    @Mapping(target = "occurredAt", source = "occurredAt")
+    @Mapping(target = "data", source = "data")
+    io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfRefundMerchantEventDTO toWirePayEventEnvelopeOfRefundMerchantEventDTO(io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO> value);
+
+    @BeforeMapping
+    default void requireRefundMerchantEventEnvelope(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfRefundMerchantEventDTO value) {
+        if (value == null || !value.hasDeliveryId() || !value.hasBusinessEventId() || !value.hasProducer()
+                || !value.hasEventType() || !value.hasSchemaVersion() || !value.hasAggregateId()
+                || !value.hasAggregateVersion() || !value.hasOccurredAt() || !value.hasData()) {
+            throw new IllegalArgumentException("RPC refund event envelope fields are required");
+        }
+    }
+
+    io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO> fromWirePayEventEnvelopeOfRefundMerchantEventDTO(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfRefundMerchantEventDTO value);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "deliveryId", source = "deliveryId")
+    @Mapping(target = "businessEventId", source = "businessEventId")
+    @Mapping(target = "aggregateId", source = "aggregateId")
+    @Mapping(target = "sourceVersion", source = "sourceVersion")
+    @Mapping(target = "merchantEventId", source = "merchantEventId")
+    @Mapping(target = "disposition", source = "disposition")
+    io.github.loadup.pay.acquire.rpc.proto.WireRefundNotificationAckDTO toWireRefundNotificationAckDTO(io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO value);
+
+    io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO fromWireRefundNotificationAckDTO(io.github.loadup.pay.acquire.rpc.proto.WireRefundNotificationAckDTO value);
 
 }
