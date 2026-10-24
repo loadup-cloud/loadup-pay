@@ -22,6 +22,9 @@ import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentControlFacade {
+    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+
     PaymentCloseDTO close(PaymentCloseCommand command);
 
     ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);

@@ -125,9 +125,9 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
             if (batch.isEmpty() && !intent.cursorPaymentId().isEmpty())
                 batch = store.heldAfter(actor.tenantId(), intent.orderId(), "", BATCH_SIZE);
             for (var allocation : batch) {
-                outcomes.bound(actor, original, allocation);
+                outcomes.bound(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), original, allocation);
                 var closed = payment.close(actor.tenantId(), converter.toPaymentClose(intent, allocation));
-                outcomes.applyClose(actor, intent, allocation, closed);
+                outcomes.applyClose(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), intent, allocation, closed);
             }
             String nextCursor = batch.size() == BATCH_SIZE ? batch.getLast().allocation().paymentId() : "";
             advance(actor, intent, nextCursor);

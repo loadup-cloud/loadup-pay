@@ -140,6 +140,20 @@ class PaymentOutcomeEventServiceTest {
                 state, "attempt", null, "proof", 2, BusinessTime.external(NOW)), "operation", "merchant", state != PaymentState.SUCCEEDED));
     }
 
+    @Test
+    void checkoutPaymentConvergesFromThePersistedOwnerWithoutAnActiveBrowserSession() {
+        prepare(4000, PaymentState.SUCCEEDED);
+        var stored = allocation.get();
+        var original = stored.allocation();
+        var scoped = new io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation(original.id(), original.orderId(), original.paymentId(),
+                "checkout/session", original.actionKey(), original.requestDigest(), original.amount(), original.state(), original.paymentSourceVersion());
+        allocation.set(new StoredPaymentAllocation(scoped, stored.callerScopeHash(), stored.intentPayload(), stored.payloadHash(), stored.rowVersion()));
+        service.accept(event("checkout-delivery"));
+        assertEquals(4000, order.get().order().paidAmountMinor());
+        assertEquals(0, order.get().order().paymentReservedMinor());
+        assertEquals(AllocationState.CONSUMED, allocation.get().allocation().state());
+    }
+
     EventEnvelope<PaymentOutcomeEventDTO> event(String delivery) {
         var f = facts.get();
         var p = f.payment();
@@ -249,7 +263,7 @@ class PaymentOutcomeEventServiceTest {
 
     @Test
     void eventAfterMerchantRefreshReusesTheAlreadyCommittedOutcomeReceipt() {
-        operations.refresh(new AcquireActor("tenant", OWNER, null, Set.of()),
+        operations.refresh(new OrderPaymentScope("tenant", OWNER),
                 new io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand("order", "payment"));
         service.accept(event("delivery"));
         verify(allocations, times(1)).apply(eq("tenant"), any(), any(), any(), anyLong());

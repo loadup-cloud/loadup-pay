@@ -5,14 +5,14 @@
 | 模块 | 职责 | 当前实现 |
 |---|---|---|
 | channel-api | ChannelPaymentFacade/ChannelNotificationFacade、两类 Provider SPI、ChannelActionCodec、不可变请求/结果与绑定契约、渠道错误码 | 已有源码，零 payment/Spring/数据库依赖 |
-| channel-core | DefaultChannelPaymentFacade、不可变 Provider 注册表、严格动作快照编解码、自动装配 | 已有源码，按 channel 路由；重复注册启动失败 |
+| channel-core | DefaultChannelPaymentFacade、共享 ChannelStrategyRegistry、严格动作快照编解码、自动装配 | 已有源码，按 channel 路由；重复注册启动失败 |
 | channel-alipay | 支付宝协议、签名、验签、版本化凭证 | OpenAPI v2/RSA2、版本化凭证、付款码/JSAPI、退款、查单/关闭与回调验签策略源码已补；H5 待实现 |
-| channel-wechat | 微信独立适配边界 | 已有 APIv3 签名/验签、凭证、直连/服务商 JSAPI、原号查询/关闭与普通退款 Provider、支付/退款通知源码；H5 待实现 |
+| channel-wechat | 微信独立适配边界 | 已有 APIv3 签名/验签、凭证、直连/服务商 JSAPI/H5、原号查询/关闭与普通退款 Provider、支付/退款通知源码；付款码待实现 |
 
 ## 调用与依赖
 
 ```text
-上游 PaymentChoice(channel, method, bindingCode)
+上游 PaymentChoiceDTO(channel, method) + 已准入合约的 routingProfileRef
   -> payment 业务编排 / 冻结 bindingRevisionId + accountScopeHash
   -> payment-domain: PaymentChannelGateway
   -> payment-infrastructure: PaymentChannelGatewayImpl
@@ -24,9 +24,18 @@
 ```
 
 渠道 API、引擎和适配模块均不依赖 payment-client/domain/app/infrastructure。payment-domain 只依赖 channel-api；
-payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facade；payment-bootstrap 的 payment-business profile 显式装配 channel-core 和具体插件。它们当前随 payment 进程运行，不增加独立部署单元，也不增加测试 RPC。
+payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facade；payment-bootstrap 的 payment-business profile 通过 runtime 依赖显式装配 channel-core 和具体插件。它们当前随 payment 进程运行，不增加独立部署单元，也不增加测试 RPC。
 
 模块依赖、模式职责与扩展步骤见 [渠道架构](ARCHITECTURE.md)。
+
+上游调用示例中的支付选择为 `"choice": {"channel": "WECHAT", "method": "H5"}`，
+切换为支付宝时由上游传入 `ALIPAY`。`bindingCode`、直连/服务商模式和实际收款账户由已准入合约的
+路由配置与商户绑定确定，不接受调用方直接指定凭证或绑定版本。Facade 不维护厂商分支：Spring 收集
+`ChannelProvider`，注册表按冻结的 channel 查找策略。
+
+`ChannelModuleBoundaryTest` 提供模块依赖约束的测试源码：payment 业务模块只能引用 channel-api；
+channel 引擎和插件不得引用 payment 或彼此的实现；bootstrap 中 core 与厂商插件必须为 runtime 依赖。
+payment-app 显式声明 channel-api，避免依赖领域模块的传递暴露。本轮未执行该测试。
 
 ## 统一 API
 

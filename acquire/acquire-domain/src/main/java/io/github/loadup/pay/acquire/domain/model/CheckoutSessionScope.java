@@ -24,7 +24,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
- * First capability version grants a read-only order summary.
+ * An order-scoped capability grants summary, payment initiation and original-session progress only.
  */
 public record CheckoutSessionScope(
         int schemaVersion, String callerScopeHash, String returnTargetCode, Set<String> permissions) {
@@ -34,7 +34,7 @@ public record CheckoutSessionScope(
                 INVALID_ARGUMENT);
         DomainChecks.text(returnTargetCode, 128);
         permissions = Set.copyOf(permissions);
-        require(permissions.equals(Set.of("ORDER_SUMMARY")), INVALID_ARGUMENT);
+        require(permissions.equals(Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")), INVALID_ARGUMENT);
     }
 
     @Override

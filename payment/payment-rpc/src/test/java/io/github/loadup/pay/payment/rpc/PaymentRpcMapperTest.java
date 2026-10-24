@@ -31,6 +31,38 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PaymentRpcMapperTest {
     @Test
+    void inputLookupRoundTripPreservesScopeExactAmountAndExplicitAbsence() throws Exception {
+        var query = new io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery("payment", "order", "allocation", "merchant",
+                9_007_199_254_740_993L, "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
+        var wire = PaymentRpcMapper.INSTANCE.toWirePaymentInputLookupQuery(query);
+        assertEquals(query, PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupQuery(
+                io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery.parseFrom(wire.toByteArray())));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupQuery(wire.toBuilder().clearAmountMinor().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupQuery(wire.toBuilder().clearChoice().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupQuery(wire.toBuilder()
+                .setChoice(wire.getChoice().toBuilder().setChannel("UNKNOWN_CHANNEL")).build()));
+        var absent = new io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO(false, null);
+        var absentWire = PaymentRpcMapper.INSTANCE.toWirePaymentInputLookupDTO(absent);
+        assertTrue(absentWire.hasFound());
+        assertFalse(absentWire.getFound());
+        assertFalse(absentWire.hasInput());
+        assertEquals(absent, PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(absentWire));
+        var input = new io.github.loadup.pay.payment.client.dto.PaymentInputDTO("original-input", "a".repeat(64),
+                OffsetDateTime.parse("2026-10-24T12:00:00.123456+08:00"));
+        var found = new io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO(true, input);
+        var roundTrip = PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(
+                io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO.parseFrom(
+                        PaymentRpcMapper.INSTANCE.toWirePaymentInputLookupDTO(found).toByteArray()));
+        assertTrue(roundTrip.found());
+        assertEquals(input, roundTrip.input());
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(absentWire.toBuilder().clearFound().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(absentWire.toBuilder().setFound(true).build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(absentWire.toBuilder()
+                .setInput(PaymentRpcMapper.INSTANCE.toWirePaymentInputDTO(input)).build()));
+    }
+
+    @Test
     void binaryRoundTripPreservesSensitiveOneofAndAbsentValues() throws Exception {
         var input = new PaymentInputPrepareCommand("payment", "order", "allocation", "merchant", 100, "CNY", "input",
                 null, new PaymentCodeInteractionDTO("synthetic-code"));

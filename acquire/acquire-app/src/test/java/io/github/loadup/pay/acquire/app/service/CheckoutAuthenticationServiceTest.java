@@ -85,6 +85,15 @@ class CheckoutAuthenticationServiceTest {
     }
 
     @Test
+    void aCryptographicallyMatchingRevokedCapabilityCannotAuthenticateEvenAfterCompletion() {
+        for (var state : List.of(CheckoutSessionState.ACTIVE, CheckoutSessionState.COMPLETED)) {
+            var revoked = session(state, NOW.plusMinutes(5)).revoke(0L, NOW);
+            when(sessions.find("tenant", "session")).thenReturn(Optional.of(revoked));
+            assertThrows(CommonException.class, () -> service.authenticate("tenant", TOKEN, ORIGIN));
+        }
+    }
+
+    @Test
     void completedSessionsRemainReadOnlyUntilTheirOriginalExpiry() {
         when(sessions.find("tenant", "session"))
                 .thenReturn(Optional.of(session(CheckoutSessionState.COMPLETED, NOW.plusMinutes(5))));

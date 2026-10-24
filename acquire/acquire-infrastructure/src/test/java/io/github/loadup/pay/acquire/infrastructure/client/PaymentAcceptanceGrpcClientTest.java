@@ -243,6 +243,22 @@ class PaymentAcceptanceGrpcClientTest {
         }
         verifyNoInteractions(rpc);
     }
+    @Test
+    void inputLookupUsesTypedRpcAndNeverTreatsTransportFailureAsInputAbsence() {
+        var query = new io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery("payment", "order", "allocation", "merchant", 100L,
+                "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
+        var operation = io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_LOOKUP;
+        var absent = new io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO(false, null);
+        when(rpc.call(eq(operation), eq(query), any())).thenReturn(absent);
+        assertSame(absent, client.lookupInput("tenant", query));
+        when(rpc.call(eq(operation), eq(query), any())).thenThrow(remoteFailure("PAYMENT_NOT_FOUND"));
+        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.lookupInput("tenant", query)).getResultCode());
+        when(rpc.call(eq(operation), eq(query), any())).thenThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT"));
+        assertSame(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query)).getResultCode());
+    }
+
     private static io.grpc.StatusRuntimeException remoteFailure(String code) {
         var trailers = new Metadata();
         trailers.put(RpcServerSupport.RESULT_CODE, code);

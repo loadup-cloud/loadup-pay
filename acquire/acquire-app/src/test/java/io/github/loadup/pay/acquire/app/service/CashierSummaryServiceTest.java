@@ -54,8 +54,12 @@ class CashierSummaryServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(CheckoutConverter.class.getPackageName());
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
+    final CashierAccess access = mock(CashierAccess.class);
+    final CashierChoices choices = mock(CashierChoices.class);
 
     CashierSummaryService service(java.time.LocalDateTime expires) {
+        when(access.read(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("ORDER_SUMMARY")))
+                .thenReturn(CheckoutFixtures.session(io.github.loadup.pay.acquire.domain.model.CheckoutSessionState.ACTIVE, expires));
         return new CashierSummaryService(
                 () -> new CashierActor("tenant", "session", "order", expires),
                 orders,
@@ -63,7 +67,7 @@ class CashierSummaryServiceTest {
                 context.getBean(CheckoutConverter.class),
                 new OrderCreationTransactions(new UnitTransactions()),
                 validation.getValidator(),
-                clock(NOW));
+                clock(NOW), access, choices);
     }
 
     @AfterEach
@@ -79,6 +83,10 @@ class CashierSummaryServiceTest {
                         Optional.of(order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10))));
         var dto = service(NOW.plusMinutes(5)).summary(new IdQuery("order"));
         assertEquals(2000, dto.paidAmountMinor());
+        assertEquals(1, dto.minimumPaymentMinor());
+        assertEquals(100000, dto.maximumPaymentMinor());
+        assertTrue(dto.allowExactRemainderBelowMin());
+        assertNull(dto.remainingPaymentCount());
         assertTrue(dto.choices().isEmpty());
         assertNull(dto.merchantDisplayName());
         var json = JsonUtil.toJson(dto);

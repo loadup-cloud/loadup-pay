@@ -22,6 +22,7 @@ import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -109,5 +110,31 @@ class RefundProjectionEnvelopeCodecImplTest {
         var payload = json.writeValueAsString(valid);
         assertThrows(CommonException.class, () -> codec.summary(payload.substring(0, payload.length() - 1) + ",\"requests\":[]}"));
         assertThrows(CommonException.class, () -> codec.child("x".repeat(65537)));
+    }
+
+    @Test
+    void merchantStreamPreservesExactChildAndRequestIdentitiesWithoutInventingCrossClockOrdering() {
+        var child = new RefundMerchantEventDTO("RefundOrder", "refund", "request", "payment", "order", "merchant", "R001",
+                1000, "CNY", "SUCCEEDED", 1000, 0, 9007199254740993L, at.plusSeconds(1));
+        var childEvent = new EventEnvelope<>("delivery", "change", "payment", RefundMerchantEventDTO.TYPE, 1,
+                "refund", child.sourceVersion(), at, child);
+        assertEquals(childEvent, codec.merchant(json.writeValueAsString(childEvent)));
+        var request = new RefundMerchantEventDTO("RefundRequest", null, "request", null, "order", "merchant", "R001",
+                1500, "CNY", "PARTIAL_SUCCEEDED", 1000, 500, 5, null);
+        var requestEvent = new EventEnvelope<>("request-delivery", "request-change", "payment", RefundMerchantEventDTO.TYPE, 1, "request", 5, at, request);
+        assertEquals(requestEvent, codec.merchant(json.writeValueAsString(requestEvent)));
+        assertThrows(CommonException.class, () -> codec.limit(json.writeValueAsString(childEvent)));
+    }
+
+    @Test
+    void merchantCodecRejectsMismatchedSourceDuplicateFieldsAndTrailingDocuments() {
+        var data = new RefundMerchantEventDTO("RefundOrder", "refund", "request", "payment", "order", "merchant", "R001",
+                1000, "CNY", "FAILED", 0, 1000, 3, null);
+        var event = new EventEnvelope<>("delivery", "change", "payment", RefundMerchantEventDTO.TYPE, 1, "refund", 3, at, data);
+        String payload = json.writeValueAsString(event);
+        assertThrows(CommonException.class, () -> codec.merchant(payload + " {}"));
+        assertThrows(CommonException.class, () -> codec.merchant(payload.replace("\"producer\":\"payment\"", "\"producer\":\"payment\",\"producer\":\"payment\"")));
+        var wrong = new EventEnvelope<>("delivery", "change", "payment", RefundMerchantEventDTO.TYPE, 1, "refund", 4, at, data);
+        assertThrows(CommonException.class, () -> codec.merchant(json.writeValueAsString(wrong)));
     }
 }

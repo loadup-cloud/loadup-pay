@@ -56,6 +56,7 @@ class PaymentChannelCallbackControllerTest {
         byte[] body = "{\"refund\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var request = request(body, null);
         when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON_VALUE);
+        when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of("Wechatpay-Signature")));
         when(request.getHeaders("Wechatpay-Signature")).thenReturn(Collections.enumeration(List.of("refund-signature")));
         when(refundCallbacks.receive(eq(ENDPOINT_REF), any(ChannelNotificationInput.class)))
                 .thenReturn(new ChannelNotificationAcknowledgement(200, "application/json", "{\"code\":\"SUCCESS\"}"));
@@ -125,17 +126,20 @@ class PaymentChannelCallbackControllerTest {
     }
 
     @Test
-    void capturesJsonRawBytesAndOnlyWechatSignatureHeadersIncludingDuplicates() throws IOException {
+    void capturesRawBytesAndVendorHeadersWithoutAChannelSpecificAllowlist() throws IOException {
         byte[] body = "{\"event\":\"paid\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         var request = request(body, null);
         when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON_VALUE);
+        when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of(
+                "Wechatpay-Serial", "Wechatpay-Timestamp", "Wechatpay-Nonce", "Wechatpay-Signature",
+                "Wechatpay-Signature-Type", "X-Tenant", "X-Another-Provider-Signature")));
         when(request.getHeaders("Wechatpay-Serial")).thenReturn(Collections.enumeration(List.of("serial-1", "serial-2")));
         when(request.getHeaders("Wechatpay-Timestamp")).thenReturn(Collections.enumeration(List.of("timestamp")));
         when(request.getHeaders("Wechatpay-Nonce")).thenReturn(Collections.enumeration(List.of("nonce")));
         when(request.getHeaders("Wechatpay-Signature")).thenReturn(Collections.enumeration(List.of("sig-1", "sig-2")));
         when(request.getHeaders("Wechatpay-Signature-Type")).thenReturn(Collections.enumeration(List.of("WECHATPAY2-SHA256-RSA2048")));
         when(request.getHeaders("X-Tenant")).thenReturn(Collections.enumeration(List.of("attacker-tenant")));
-        when(request.getHeaders("X-Unrelated")).thenReturn(Collections.enumeration(List.of("ignored")));
+        when(request.getHeaders("X-Another-Provider-Signature")).thenReturn(Collections.enumeration(List.of("opaque-signature")));
         when(callbacks.receive(eq(ENDPOINT_REF), any(ChannelNotificationInput.class)))
                 .thenReturn(new ChannelNotificationAcknowledgement(200, "text/plain", "ok"));
 
@@ -150,8 +154,33 @@ class PaymentChannelCallbackControllerTest {
                 "wechatpay-timestamp", List.of("timestamp"),
                 "wechatpay-nonce", List.of("nonce"),
                 "wechatpay-signature", List.of("sig-1", "sig-2"),
-                "wechatpay-signature-type", List.of("WECHATPAY2-SHA256-RSA2048")), captured.getValue().headers());
+                "wechatpay-signature-type", List.of("WECHATPAY2-SHA256-RSA2048"),
+                "x-tenant", List.of("attacker-tenant"),
+                "x-another-provider-signature", List.of("opaque-signature")), captured.getValue().headers());
         verify(request, never()).getParameter(anyString());
+    }
+
+    @Test
+    void tooManyHeaderNamesAreRejectedBeforeCallingTheFacade() throws IOException {
+        var request = request("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+        var names = java.util.stream.IntStream.rangeClosed(0, ChannelNotificationInput.MAX_HEADER_NAMES)
+                .mapToObj(index -> "X-Header-" + index).toList();
+        when(request.getHeaderNames()).thenReturn(Collections.enumeration(names));
+        for (var name : names) when(request.getHeaders(name)).thenReturn(Collections.enumeration(List.of("value")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, controller.receive(ENDPOINT_REF, request).getStatusCode());
+        verify(callbacks, never()).receive(anyString(), any());
+    }
+
+    @Test
+    void tooManyValuesAreRejectedInsteadOfDroppingDuplicateSignatureHeaders() throws IOException {
+        var request = request("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+        when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of("X-Provider-Signature")));
+        when(request.getHeaders("X-Provider-Signature")).thenReturn(Collections.enumeration(
+                Collections.nCopies(ChannelNotificationInput.MAX_HEADER_VALUES + 1, "signature")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, controller.receive(ENDPOINT_REF, request).getStatusCode());
+        verify(callbacks, never()).receive(anyString(), any());
     }
 
     @Test

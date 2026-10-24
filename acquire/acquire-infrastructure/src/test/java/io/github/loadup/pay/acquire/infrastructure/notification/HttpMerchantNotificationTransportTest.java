@@ -265,6 +265,59 @@ class HttpMerchantNotificationTransportTest {
                 MERCHANT, "merchant-hook", "deliver", URI.create("https://hooks.example.test/v1/events?tenant=tenant-a")));
     }
 
+    @Test
+    void refundNotificationsUseTheSameFixedByteTransportAndSemanticAck() {
+        var fixture = fixture(validProperties(), validHttpProperties());
+        fixture.signers().set(mock(RequestSigner.class));
+        var sent = new ArrayList<byte[]>();
+        doAnswer(call -> {
+            HttpCall request = call.getArgument(2);
+            sent.add((byte[]) request.body());
+            return ok(ack(EVENT));
+        }).when(fixture.httpTemplate()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
+        var successBody = refundBody("RefundSucceeded", "RefundOrder", "refund-a", "SUCCEEDED", 1250, 0);
+        var requestBody = refundBody("RefundRequestCompleted", "RefundRequest", "request-a", "PARTIAL_SUCCEEDED", 1000, 250);
+        TenantUtil.runWithTenant(TENANT, () -> {
+            assertTrue(fixture.transport().send(TENANT, refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", successBody)));
+            assertTrue(fixture.transport().send(TENANT, refundDelivery(fixture.delivery(), "RefundRequestCompleted", "request-a", requestBody)));
+        });
+        assertEquals(2, sent.size());
+        assertArrayEquals(bytes(successBody), sent.get(0));
+        assertArrayEquals(bytes(requestBody), sent.get(1));
+    }
+
+    @Test
+    void corruptRefundTypeAmountsScopeAndTerminalFactsAreRejectedBeforeHttp() {
+        var fixture = fixture(validProperties(), validHttpProperties());
+        fixture.signers().set(mock(RequestSigner.class));
+        String valid = refundBody("RefundSucceeded", "RefundOrder", "refund-a", "SUCCEEDED", 1250, 0);
+        TenantUtil.runWithTenant(TENANT, () -> {
+            for (var corrupt : List.of(valid.replace("\"producer\":\"payment\"", "\"producer\":\"acquire\""),
+                    valid.replace("\"succeededMinor\":1250", "\"succeededMinor\":1249"),
+                    valid.replace("\"payeeMerchantId\":\"merchant-a\"", "\"payeeMerchantId\":\"other\""),
+                    valid.replace("\"aggregateType\":\"RefundOrder\"", "\"aggregateType\":\"RefundRequest\""),
+                    valid.replace("\"state\":\"SUCCEEDED\"", "\"state\":\"UNKNOWN\""))) {
+                assertThrows(CommonException.class, () -> fixture.transport().send(TENANT,
+                        refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", corrupt)));
+            }
+        });
+        verify(fixture.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
+    }
+
+    private static String refundBody(String type, String aggregateType, String aggregate, String state, long succeeded, long failed) {
+        boolean child = "RefundOrder".equals(aggregateType);
+        return JsonUtil.toJson(new io.github.loadup.pay.acquire.app.model.MerchantNotificationBody<>(EVENT, type, 1, "payment",
+                aggregateType, aggregate, 7, BusinessTime.external(NOW), new io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData(
+                        "order-a", "request-a", "R001", child ? "refund-a" : null, child ? "payment-a" : null, MERCHANT,
+                        1250, "CNY", state, succeeded, failed, child && "SUCCEEDED".equals(state) ? BusinessTime.external(NOW.minusSeconds(1)) : null)));
+    }
+
+    private static MerchantNotificationDelivery refundDelivery(MerchantNotificationDelivery original, String type, String aggregate, String body) {
+        return new MerchantNotificationDelivery(original.id(), original.eventId(), original.orderId(), original.payeeMerchantId(), type,
+                aggregate, original.sourceVersion(), body, digest(bytes(body)), original.policy(), original.occurredAt(), original.expiresAt(),
+                original.nextAttemptAt(), original.attemptCount(), original.state(), original.routeFingerprint(), original.acknowledgedAt(), original.rowVersion());
+    }
+
     private static Fixture fixture(MerchantNotificationProperties properties, HttpProperties httpProperties) {
         var httpTemplate = mock(HttpTemplate.class);
         var httpProvider = provider(httpTemplate);

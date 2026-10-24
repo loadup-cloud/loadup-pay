@@ -26,6 +26,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
@@ -59,6 +60,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -263,6 +265,87 @@ class PaymentInputServiceTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(cipher, store);
+    }
+
+    PaymentInputLookupQuery lookupQuery() {
+        return new PaymentInputLookupQuery(command.paymentId(), command.orderId(), command.allocationId(), command.payeeMerchantId(),
+                command.amountMinor(), command.currency(), command.inputKey(), command.choice());
+    }
+
+    @Test
+    void lookupReturnsOnlyOriginalMetadataWithoutCipherOrAnotherWrite() {
+        var prepared = service.prepare(command);
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        clearInvocations(cipher, store);
+        var result = service.lookup(lookupQuery());
+        assertTrue(result.found());
+        assertEquals(prepared, result.input());
+        assertFalse(result.toString().contains("synthetic-payer-code"));
+        assertFalse(result.toString().contains("opaque-reference"));
+        verifyNoInteractions(cipher);
+        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).bind(anyString(), any(), org.mockito.ArgumentMatchers.anyLong());
+        assertEquals(1, manager.commits);
+    }
+
+    @Test
+    void missingInputIsExplicitAndBoundExpiredInputRetainsItsOriginalReferenceAndDeadline() {
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read", "pay:payment:input:prepare")));
+        var missing = service.lookup(lookupQuery());
+        assertFalse(missing.found());
+        assertNull(missing.input());
+        var prepared = service.prepare(command);
+        persisted.set(persisted.get().bind("attempt", LocalDateTime.now(clock)));
+        var original = persisted.get();
+        var later = new PaymentInputService(actor::get, store, cipher, context.getBean(PaymentInputConverter.class),
+                context.getBean(PaymentChannelInputConverter.class), new PaymentAcceptanceTransactions(manager),
+                validation.getValidator(), Clock.offset(clock, Duration.ofDays(1)), "acquire");
+        clearInvocations(cipher, store);
+        assertEquals(prepared, later.lookup(lookupQuery()).input());
+        assertSame(original, persisted.get());
+        verifyNoInteractions(cipher);
+        verify(store, never()).insert(anyString(), any());
+        verify(store, never()).bind(anyString(), any(), org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void lookupRejectsWrongOriginalScopeRatherThanReturningAnotherInput() {
+        service.prepare(command);
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        var q = lookupQuery();
+        for (var changed : java.util.List.of(
+                new PaymentInputLookupQuery(q.paymentId(), "other-order", q.allocationId(), q.payeeMerchantId(), q.amountMinor(), q.currency(), q.inputKey(), q.choice()),
+                new PaymentInputLookupQuery(q.paymentId(), q.orderId(), "other-allocation", q.payeeMerchantId(), q.amountMinor(), q.currency(), q.inputKey(), q.choice()),
+                new PaymentInputLookupQuery(q.paymentId(), q.orderId(), q.allocationId(), "other-merchant", q.amountMinor(), q.currency(), q.inputKey(), q.choice()),
+                new PaymentInputLookupQuery(q.paymentId(), q.orderId(), q.allocationId(), q.payeeMerchantId(), q.amountMinor() + 1, q.currency(), q.inputKey(), q.choice()),
+                new PaymentInputLookupQuery(q.paymentId(), q.orderId(), q.allocationId(), q.payeeMerchantId(), q.amountMinor(), q.currency(), "other-action", q.choice()),
+                new PaymentInputLookupQuery(q.paymentId(), q.orderId(), q.allocationId(), q.payeeMerchantId(), q.amountMinor(), q.currency(), q.inputKey(),
+                        new PaymentChoiceDTO(Channel.ALIPAY, PaymentMethod.PAYMENT_CODE)))) {
+            assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.lookup(changed)).getResultCode());
+        }
+    }
+
+    @Test
+    void lookupNeedsItsOwnPermissionAndRejectsWrongServiceAndOuterTransactions() {
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.lookup(lookupQuery())).getResultCode());
+        actor.set(new PaymentActor("tenant", "unrelated", Set.of("pay:payment:input:read")));
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.lookup(lookupQuery())).getResultCode());
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.lookup(lookupQuery())).getResultCode());
+        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        verifyNoInteractions(cipher, store);
+    }
+
+    @Test
+    void lookupRejectsAnInputStoredForAnotherCallerService() {
+        var now = LocalDateTime.now(clock);
+        persisted.set(context.getBean(PaymentInputConverter.class).toInput(command, "opaque-reference", "other-service", "v1", "a".repeat(64),
+                new EncryptedPaymentInput("key", 1, "ciphertext"), now, now.plusMinutes(2)));
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.lookup(lookupQuery())).getResultCode());
+        verifyNoInteractions(cipher);
     }
 
     @Test

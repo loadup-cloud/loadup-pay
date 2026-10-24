@@ -159,7 +159,7 @@ class CheckoutSessionServiceTest {
                 NOW.plusSeconds(300).truncatedTo(ChronoUnit.SECONDS),
                 stored.get().session().expiresAt());
         assertEquals(CheckoutSessionState.ACTIVE, stored.get().session().state());
-        assertEquals(Set.of("ORDER_SUMMARY"), stored.get().scope().permissions());
+        assertEquals(Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"), stored.get().scope().permissions());
         assertTrue(result.checkoutUrl().contains("#tenant=tenant"));
         assertFalse(stored.get().toString().contains("A".repeat(43)));
     }
@@ -177,6 +177,19 @@ class CheckoutSessionServiceTest {
         assertSame(original, stored.get());
         verify(sessions, never()).insert(anyString(), any());
         verify(tokens).issue(original.session(), original.tokenNonce(), "checkout", "v1");
+    }
+
+    @Test
+    void revokedIssuanceReplayCannotReconstructOrReenableTheOriginalLink() {
+        service(clock(NOW)).create(command("request"));
+        stored.set(stored.get().revoke(0L, NOW));
+        clearInvocations(sessions, tokens);
+        assertSame(SESSION_UNAVAILABLE, assertThrows(CommonException.class,
+                () -> service(clock(NOW)).create(command("request"))).getResultCode());
+        verify(sessions, never()).insert(anyString(), any());
+        verify(tokens, never()).issue(any(), anyString(), anyString(), anyString());
+        assertEquals(1L, stored.get().rowVersion());
+        assertEquals(NOW, stored.get().revokedAt());
     }
 
     @Test

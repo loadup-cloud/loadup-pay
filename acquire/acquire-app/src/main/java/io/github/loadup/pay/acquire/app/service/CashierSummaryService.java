@@ -21,7 +21,6 @@ import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
 import io.github.loadup.pay.acquire.app.security.CashierActorProvider;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
-import io.github.loadup.pay.acquire.client.facade.CashierSummaryFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,7 +33,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
 
 @Service
-public class CashierSummaryService implements CashierSummaryFacade {
+public class CashierSummaryService {
     private final CashierActorProvider actors;
     private final OrderCreationGateway orders;
     private final AcquireOrderConverter orderConverter;
@@ -42,6 +41,8 @@ public class CashierSummaryService implements CashierSummaryFacade {
     private final OrderCreationTransactions transactions;
     private final Validator validator;
     private final Clock clock;
+    private final CashierAccess access;
+    private final CashierChoices choices;
 
     public CashierSummaryService(
             CashierActorProvider actors,
@@ -50,7 +51,7 @@ public class CashierSummaryService implements CashierSummaryFacade {
             CheckoutConverter converter,
             OrderCreationTransactions transactions,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
+            @Qualifier("acquireClock") Clock clock, CashierAccess access, CashierChoices choices) {
         this.actors = actors;
         this.orders = orders;
         this.orderConverter = orderConverter;
@@ -58,9 +59,10 @@ public class CashierSummaryService implements CashierSummaryFacade {
         this.transactions = transactions;
         this.validator = validator;
         this.clock = clock;
+        this.access = access;
+        this.choices = choices;
     }
 
-    @Override
     public CashierOrderDTO summary(IdQuery query) {
         if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current(); // The HTTP provider always authenticates the opaque capability first.
@@ -70,8 +72,11 @@ public class CashierSummaryService implements CashierSummaryFacade {
                     .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
             if (!now.isBefore(actor.expiresAt())) throw new CommonException(SESSION_UNAUTHORIZED);
-            // Paid/closed orders remain readable. Empty choices deliberately expose no unimplemented payment adapter.
-            return converter.toSummary(orderConverter.toDTO(stored, now), stored.subject(), actor.expiresAt());
+            var session = access.read(actor, stored, "ORDER_SUMMARY");
+            var available = session.session().state() == io.github.loadup.pay.acquire.domain.model.CheckoutSessionState.ACTIVE
+                    ? choices.choices(stored, now) : java.util.Set.<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO>of();
+            return converter.toSummary(orderConverter.toDTO(stored, now), stored.subject(), actor.expiresAt(), available,
+                    stored.order().paymentPolicy(), (long) stored.order().successfulPaymentCount() + stored.order().reservedPaymentCount());
         });
     }
 }

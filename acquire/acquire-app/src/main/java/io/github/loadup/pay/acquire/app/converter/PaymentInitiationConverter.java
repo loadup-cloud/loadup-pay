@@ -26,6 +26,7 @@ import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import org.mapstruct.Mapper;
@@ -76,6 +77,9 @@ public interface PaymentInitiationConverter {
     @Mapping(target = "interaction", source = "interaction")
     PaymentInputPrepareCommand toInputPreparation(PaymentExecuteCommand command, String inputKey,
                                                   PaymentInteractionDTO interaction);
+
+    @Mapping(target = "inputKey", source = "inputKey")
+    PaymentInputLookupQuery toInputLookup(PaymentExecuteCommand command, String inputKey);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")
     PaymentExecuteCommand withPreparedInput(PaymentExecuteCommand original, String inputRef);

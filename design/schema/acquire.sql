@@ -209,13 +209,15 @@ CREATE TABLE checkout_session
     token_key_version VARCHAR(64)  NOT NULL,
     state             VARCHAR(24)  NOT NULL,
     expires_at        DATETIME(6)  NOT NULL,
+    revoked_at        DATETIME(6)  NULL,
     allowed_origin    VARCHAR(512) NULL,
     scope_snapshot    JSON         NOT NULL,
     row_version       BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_request (tenant_id, order_id, request_key),
     UNIQUE KEY uk_session_token (token_hash),
-    KEY ix_session_order (tenant_id, order_id, state)
+    KEY ix_session_order (tenant_id, order_id, state),
+    CONSTRAINT ck_checkout_revocation_version CHECK (revoked_at IS NULL OR row_version > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -272,6 +274,7 @@ CREATE TABLE merchant_notification_delivery
     PRIMARY KEY (id),
     UNIQUE KEY uk_notification_event_target (tenant_id, event_id, target_ref),
     KEY ix_notification_order (tenant_id, order_id, occurred_at, id),
+    KEY ix_notification_merchant (tenant_id, payee_merchant_id, occurred_at, id),
     KEY ix_notification_pending (tenant_id, state, next_attempt_at, id),
     CHECK (source_version > 0 AND row_version >= 0),
     CHECK (attempt_count >= 0 AND attempt_count <= retry_max_attempts AND retry_max_attempts > 0),
@@ -280,6 +283,96 @@ CREATE TABLE merchant_notification_delivery
     CHECK (expires_at > occurred_at),
     CHECK (state IN ('INIT', 'PENDING', 'ACKED', 'EXHAUSTED')),
     CHECK ((state = 'ACKED' AND acknowledged_at IS NOT NULL) OR (state <> 'ACKED' AND acknowledged_at IS NULL))
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
+
+
+-- Durable internal registration acknowledgement; merchant delivery uses merchant_notification_delivery.
+CREATE TABLE refund_notification_receipt
+(
+    id                 VARCHAR(64) NOT NULL,
+    tenant_id          VARCHAR(64) NOT NULL,
+    created_at         DATETIME(6) NOT NULL,
+    updated_at         DATETIME(6) NOT NULL,
+    deleted            TINYINT NOT NULL DEFAULT 0,
+    delivery_id        VARCHAR(64) NOT NULL,
+    business_event_id  VARCHAR(64) NOT NULL,
+    aggregate_id       VARCHAR(64) NOT NULL,
+    source_version     BIGINT NOT NULL,
+    order_id           VARCHAR(64) NOT NULL,
+    payee_merchant_id  VARCHAR(64) NOT NULL,
+    request_digest     CHAR(64) NOT NULL,
+    caller_service_id  VARCHAR(64) NOT NULL,
+    merchant_event_id  CHAR(64) NOT NULL,
+    disposition        VARCHAR(24) NOT NULL,
+    accepted_at        DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_refund_notification_delivery (tenant_id, delivery_id),
+    KEY ix_refund_notification_order (tenant_id, order_id, accepted_at, id),
+    CHECK (source_version > 0),
+    CHECK (disposition IN ('ENQUEUED', 'DISABLED'))
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
+
+
+-- Immutable notification wake operation audit.
+CREATE TABLE merchant_notification_wake_receipt
+(
+    id                VARCHAR(64) NOT NULL,
+    tenant_id         VARCHAR(64) NOT NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
+    deleted           TINYINT NOT NULL DEFAULT 0,
+    delivery_id       VARCHAR(64) NOT NULL,
+    event_id          VARCHAR(64) NOT NULL,
+    request_key       VARCHAR(128) NOT NULL,
+    caller_scope_hash CHAR(64) NOT NULL,
+    principal_type    VARCHAR(24) NOT NULL,
+    principal_id      VARCHAR(128) NOT NULL,
+    reason            VARCHAR(500) NOT NULL,
+    request_digest    CHAR(64) NOT NULL,
+    result            VARCHAR(24) NOT NULL,
+    attempt_count     INT NOT NULL,
+    delivery_version  BIGINT NOT NULL,
+    native_task_id    VARCHAR(64) NULL,
+    accepted_at       DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notification_wake_request (tenant_id, caller_scope_hash, request_key),
+    KEY ix_notification_wake_delivery (tenant_id, delivery_id, accepted_at, id),
+    CHECK (principal_type IN ('OPERATOR', 'SERVICE')),
+    CHECK (attempt_count >= 0 AND delivery_version >= 0),
+    CHECK (result IN ('REGISTERED', 'RETRIED', 'RESCHEDULED', 'PENDING', 'RUNNING', 'WAITING', 'ACKED', 'EXHAUSTED', 'EXPIRED'))
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
+
+CREATE TABLE checkout_session_revocation_receipt
+(
+    id                VARCHAR(64) NOT NULL,
+    tenant_id         VARCHAR(64) NOT NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
+    deleted           TINYINT NOT NULL DEFAULT 0,
+    session_id        VARCHAR(64) NOT NULL,
+    order_id          VARCHAR(64) NOT NULL,
+    request_key       VARCHAR(128) NOT NULL,
+    caller_scope_hash CHAR(64) NOT NULL,
+    request_digest    CHAR(64) NOT NULL,
+    reason            VARCHAR(500) NOT NULL,
+    newly_revoked     TINYINT NOT NULL,
+    before_version    BIGINT NOT NULL,
+    session_version   BIGINT NOT NULL,
+    revoked_at        DATETIME(6) NOT NULL,
+    accepted_at       DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_session_revocation_request (tenant_id, caller_scope_hash, request_key),
+    KEY ix_session_revocation_history (tenant_id, session_id, accepted_at, id),
+    CHECK (newly_revoked IN (0, 1)),
+    CHECK (before_version >= 0 AND session_version > 0),
+    CHECK ((newly_revoked = 1 AND session_version - before_version = 1)
+        OR (newly_revoked = 0 AND session_version = before_version))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;

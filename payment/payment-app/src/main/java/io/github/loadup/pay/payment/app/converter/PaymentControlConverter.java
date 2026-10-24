@@ -28,6 +28,21 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentControlConverter {
+    @Mapping(target = "paymentId", source = "command.paymentId")
+    @Mapping(target = "orderId", source = "command.orderId")
+    @Mapping(target = "disposition", source = "disposition")
+    @Mapping(target = "closed", source = "closed")
+    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO toInputExpiry(
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command,
+            io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition disposition,
+            PaymentCloseDTO closed);
+
+    @Mapping(target = "requestKey", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
+    @Mapping(target = "fenceEpoch", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+    @Mapping(target = "reasonCode", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
+    io.github.loadup.pay.payment.client.command.PaymentCloseCommand toInputExpiryClose(
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+
     @Mapping(target = "gate", source = "gate")
     @Mapping(target = "rowVersion", expression = "java(Math.incrementExact(current.rowVersion()))")
     StoredPaymentGate withGate(StoredPaymentGate current, PaymentExecutionGate gate);

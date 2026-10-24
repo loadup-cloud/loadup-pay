@@ -18,6 +18,7 @@ loadup:
   modules:
     acquire:
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
+      notification-operations-service-id: ${ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID:pay-ops}
       product-audience: ${PRODUCT_JWT_AUDIENCE}
       realtime:
         tenant-id: ${ACQUIRE_REALTIME_TENANT_ID:${ACQUIRE_PAYMENT_TENANT_ID}}

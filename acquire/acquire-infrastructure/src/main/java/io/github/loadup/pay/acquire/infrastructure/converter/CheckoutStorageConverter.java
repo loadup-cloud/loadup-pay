@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.BeanMapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface CheckoutStorageConverter {
@@ -45,4 +46,9 @@ public interface CheckoutStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")
     CheckoutSessionDO toDO(String tenant, StoredCheckoutSession value, String payload);
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "revokedAt", source = "revokedAt")
+    @Mapping(target = "rowVersion", source = "rowVersion")
+    CheckoutSessionDO toRevocationPatch(StoredCheckoutSession value);
 }

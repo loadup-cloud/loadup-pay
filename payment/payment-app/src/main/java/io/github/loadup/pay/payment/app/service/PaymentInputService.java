@@ -28,6 +28,8 @@ import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.facade.PaymentInputFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
@@ -113,6 +115,31 @@ public class PaymentInputService implements PaymentInputFacade {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         // Retain the original reference and expiry, including after expiry or attempt binding.
         return converter.toDTO(prior);
+    }
+
+    @Override
+    public PaymentInputLookupDTO lookup(PaymentInputLookupQuery query) {
+        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        var actor = actors.current();
+        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:read"))
+            throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        return transactions.read(actor.tenantId(), () -> {
+            DomainChecks.id(query.paymentId()); DomainChecks.id(query.orderId()); DomainChecks.id(query.allocationId());
+            DomainChecks.id(query.payeeMerchantId()); DomainChecks.text(query.inputKey(), 128);
+            DomainChecks.positive(query.amountMinor()); DomainChecks.cnyAmount(query.amountMinor(), query.currency());
+            var known = store.findByPayment(actor.tenantId(), query.paymentId());
+            if (known.isEmpty()) return converter.toLookup(false, null);
+            var input = known.get();
+            if (!actor.serviceId().equals(input.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!input.paymentId().equals(query.paymentId()) || !input.orderId().equals(query.orderId())
+                    || !input.allocationId().equals(query.allocationId()) || !input.payeeMerchantId().equals(query.payeeMerchantId())
+                    || !input.inputKey().equals(query.inputKey()) || input.amount().getCent() != query.amountMinor()
+                    || !input.amount().getCurrencyValue().equals(query.currency()) || input.channel() != query.choice().channel()
+                    || input.method() != query.choice().method()) throw new CommonException(IDEMPOTENCY_CONFLICT);
+            // This is metadata, including for bound/expired inputs. Never decrypt, fingerprint, renew or mutate it.
+            return converter.toLookup(true, converter.toDTO(input));
+        });
     }
 
     private void validate(PaymentInputPrepareCommand command) {

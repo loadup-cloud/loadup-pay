@@ -35,6 +35,7 @@ public class CheckoutSessionDO extends BaseDO {
     private String tokenKeyVersion;
     private String state;
     private LocalDateTime expiresAt;
+    private LocalDateTime revokedAt;
     private String allowedOrigin;
     @DiagnosticHidden
     private String scopeSnapshot;
@@ -123,6 +124,10 @@ public class CheckoutSessionDO extends BaseDO {
     public String getAllowedOrigin() {
         return allowedOrigin;
     }
+
+    public LocalDateTime getRevokedAt() { return revokedAt; }
+
+    public void setRevokedAt(LocalDateTime value) { revokedAt = value; }
 
     public void setAllowedOrigin(String value) {
         allowedOrigin = value;

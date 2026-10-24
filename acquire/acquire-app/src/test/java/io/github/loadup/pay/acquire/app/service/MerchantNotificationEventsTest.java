@@ -203,7 +203,7 @@ class MerchantNotificationEventsTest {
         assertEquals(4000, ((Number) data.get("orderPaidAmountMinor")).longValue());
         assertEquals(10000, ((Number) data.get("orderAmountMinor")).longValue());
         assertEquals("PENDING", data.get("orderState"));
-        assertEquals(9, delivery.sourceVersion());
+        assertEquals(3, delivery.sourceVersion());
     }
 
     @Test
@@ -261,6 +261,65 @@ class MerchantNotificationEventsTest {
                 fixture.admittedAt(), fixture.callerScopeHash(), fixture.snapshotId(), fixture.admissionPayload(), fixture.payloadHash()));
         currentFacts.set(new OrderSnapshotFacts(ORDER_ID, MERCHANT_ID, fixture.merchantOrderNo(), order.amount(), paid, 0,
                 state.name(), NOW.minusDays(1), updatedAt, version));
+    }
+
+    @Test
+    void terminalRefundUsesOriginalPolicyAndSourceIdentityWithoutChangingOrderAmounts() {
+        enableNotifications(TARGET, "signing-v1");
+        var source = refundEvent("RefundOrder", "SUCCEEDED", 1000, 1000, 0);
+        var original = storedOrder.get();
+        var registered = transactions.write(TENANT, () -> events.refund(TENANT, source));
+        var replay = transactions.write(TENANT, () -> events.refund(TENANT, source));
+
+        assertEquals(registered, replay);
+        assertEquals("ENQUEUED", registered.disposition());
+        var delivery = onlyDelivery();
+        var body = json(delivery.body());
+        var data = (Map<?, ?>) body.get("data");
+        assertEquals("payment", body.get("producer"));
+        assertEquals("RefundSucceeded", body.get("eventType"));
+        assertEquals("refund", body.get("aggregateId"));
+        assertEquals("request", data.get("refundRequestId"));
+        assertEquals("R001", data.get("merchantRefundNo"));
+        assertEquals(1000, ((Number) data.get("succeededMinor")).longValue());
+        assertEquals(source.occurredAt().toInstant(), io.github.loadup.commons.time.BusinessTime.external(delivery.occurredAt()).toInstant());
+        assertEquals(original, storedOrder.get());
+        verify(deliveries, times(1)).insert(eq(TENANT), any());
+        verify(tasks, times(1)).register(anyString(), anyString(), any());
+    }
+
+    @Test
+    void completedPartialRefundRequestKeepsFixedTotalAndDistinctEventType() {
+        enableNotifications(TARGET, "signing-v1");
+        var source = refundEvent("RefundRequest", "PARTIAL_SUCCEEDED", 1500, 1000, 500);
+        transactions.write(TENANT, () -> events.refund(TENANT, source));
+        var body = json(onlyDelivery().body());
+        var data = (Map<?, ?>) body.get("data");
+        assertEquals("RefundRequestCompleted", body.get("eventType"));
+        assertEquals("request", body.get("aggregateId"));
+        assertEquals("PARTIAL_SUCCEEDED", data.get("state"));
+        assertEquals(1500, ((Number) data.get("amountMinor")).longValue());
+        assertEquals(500, ((Number) data.get("failedMinor")).longValue());
+    }
+
+    @Test
+    void disabledRefundPolicyReturnsStableDispositionWithoutATask() {
+        var source = refundEvent("RefundOrder", "FAILED", 1000, 0, 1000);
+        var registration = transactions.write(TENANT, () -> events.refund(TENANT, source));
+        assertEquals("DISABLED", registration.disposition());
+        assertEquals(64, registration.merchantEventId().length());
+        verifyNoInteractions(deliveries, tasks, ids);
+    }
+
+    private io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO> refundEvent(
+            String aggregateType, String state, long amount, long succeeded, long failed) {
+        boolean child = "RefundOrder".equals(aggregateType);
+        var data = new io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO(aggregateType, child ? "refund" : null,
+                "request", child ? "payment" : null, ORDER_ID, MERCHANT_ID, "R001", amount, "CNY", state, succeeded, failed, 3,
+                child && "SUCCEEDED".equals(state) ? io.github.loadup.commons.time.BusinessTime.external(NOW.minusSeconds(1)) : null);
+        return new io.github.loadup.commons.event.EventEnvelope<>("internal-delivery", "internal-business", "payment",
+                io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE, 1, data.aggregateId(), 3,
+                io.github.loadup.commons.time.BusinessTime.external(NOW), data);
     }
 
     private void enableNotifications(String targetRef, String signingIdentityRef) {

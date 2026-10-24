@@ -20,6 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
+import java.time.LocalDateTime;
 
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
@@ -35,6 +36,7 @@ public record StoredCheckoutSession(
         String tokenKeyVersion,
         String allowedOrigin,
         CheckoutSessionScope scope,
+        LocalDateTime revokedAt,
         long rowVersion) {
     public StoredCheckoutSession {
         Objects.requireNonNull(session);
@@ -52,8 +54,18 @@ public record StoredCheckoutSession(
                         && tokenNonce != null
                         && tokenNonce.matches("[0-9a-f]{64}")
                         && rowVersion >= 0
+                        && (revokedAt == null || rowVersion > 0)
                         && session.expiresAt().getNano() == 0,
                 INVALID_ARGUMENT);
+    }
+
+    /** Security revocation is permanent and independent of the session's business terminal state. */
+    public StoredCheckoutSession revoke(long expectedVersion, LocalDateTime at) {
+        require(expectedVersion == rowVersion, io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT);
+        Objects.requireNonNull(at);
+        if (revokedAt != null) return this;
+        return new StoredCheckoutSession(session, payeeMerchantId, requestKey, requestDigest, tokenHash, tokenNonce,
+                tokenKeyRef, tokenKeyVersion, allowedOrigin, scope, at, Math.incrementExact(rowVersion));
     }
 
     @Override

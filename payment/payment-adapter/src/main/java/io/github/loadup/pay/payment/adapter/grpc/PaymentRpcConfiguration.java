@@ -40,6 +40,11 @@ public class PaymentRpcConfiguration {
             io.github.loadup.pay.payment.client.facade.RefundSettlementFactsFacade facade7) {
         var service = new io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.PaymentRpcImplBase() {
             @Override
+            public void inputLookup(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO> observer) {
+                support.invoke(request, observer, PaymentRpcMapper.INSTANCE::fromWirePaymentInputLookupQuery,
+                        facade0::lookup, PaymentRpcMapper.INSTANCE::toWirePaymentInputLookupDTO);
+            }
+            @Override
             public void inputPrepare(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputPrepareCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.payment.rpc.proto.WirePaymentInputDTO> observer) {
                 support.invoke(request, observer, PaymentRpcMapper.INSTANCE::fromWirePaymentInputPrepareCommand,
                         facade0::prepare, PaymentRpcMapper.INSTANCE::toWirePaymentInputDTO);

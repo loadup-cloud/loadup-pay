@@ -1,0 +1,7 @@
+# Optional hosted H5 launch catalog. Enable only channels with deployed payment providers and channel products.
+# The HTTP server must resolve remoteAddr through a trusted ingress/container policy when behind a proxy.
+loadup:
+  modules:
+    acquire:
+      cashier:
+        h5-channels: ${ACQUIRE_CASHIER_H5_CHANNELS}

@@ -20,6 +20,10 @@ import io.github.loadup.components.rpc.grpc.RpcOperation;
 public final class PaymentRpcOperations {
     private PaymentRpcOperations() {}
 
+    public static final RpcOperation<io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery, io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO, io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery, io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO> PAYMENT_INPUT_LOOKUP =
+            new RpcOperation<>("payment", io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.getInputLookupMethod(),
+                    PaymentRpcMapper.INSTANCE::toWirePaymentInputLookupQuery, PaymentRpcMapper.INSTANCE::fromWirePaymentInputLookupDTO);
+
     public static final RpcOperation<io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand, io.github.loadup.pay.payment.client.dto.PaymentInputDTO, io.github.loadup.pay.payment.rpc.proto.WirePaymentInputPrepareCommand, io.github.loadup.pay.payment.rpc.proto.WirePaymentInputDTO> PAYMENT_INPUT_PREPARE =
             new RpcOperation<>("payment", io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc.getInputPrepareMethod(),
                     PaymentRpcMapper.INSTANCE::toWirePaymentInputPrepareCommand, PaymentRpcMapper.INSTANCE::fromWirePaymentInputDTO);

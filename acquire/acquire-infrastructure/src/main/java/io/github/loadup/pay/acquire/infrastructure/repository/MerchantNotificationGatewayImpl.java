@@ -20,6 +20,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
+import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.mapper.MerchantNotificationDeliveryDOMapper;
 import org.springframework.stereotype.Repository;
@@ -42,6 +44,33 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
             MerchantNotificationStorageConverter converter) {
         this.mapper = mapper;
         this.converter = converter;
+    }
+
+    @Override
+    public Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId) {
+        tenant(tenant);
+        var row = mapper.selectOneByQuery(QueryWrapper.create()
+                .where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
+                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
+                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.ID.eq(deliveryId)));
+        return row == null ? Optional.empty() : Optional.of(decode(row));
+    }
+
+    @Override
+    public PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter) {
+        tenant(tenant);
+        var query = QueryWrapper.create().where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
+                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
+                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
+        if (filter.orderId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.ORDER_ID.eq(filter.orderId()));
+        if (filter.eventId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.EVENT_ID.eq(filter.eventId()));
+        if (filter.state() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.STATE.eq(filter.state().name()));
+        if (filter.occurredFrom() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.ge(filter.occurredFrom()));
+        if (filter.occurredTo() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.lt(filter.occurredTo()));
+        long total = mapper.selectCountByQuery(query);
+        query.orderBy(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.desc(), MERCHANT_NOTIFICATION_DELIVERY_DO.ID.desc())
+                .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
+        return PageResult.of(mapper.selectListByQuery(query).stream().map(this::decode).toList(), total, filter.page(), filter.size());
     }
 
     @Override

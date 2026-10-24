@@ -22,6 +22,8 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.components.rpc.grpc.RpcOperation;
 import com.google.protobuf.Message;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
@@ -37,6 +39,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_PAYMENT_OUTCOME;
 import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_FEE_REFUND;
+import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_REFUND_NOTIFICATION;
 
 @Component
 public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
@@ -64,6 +67,11 @@ public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
     @Override
     public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
         return exchange(tenant, ACQUIRE_FEE_REFUND, event);
+    }
+
+    @Override
+    public RefundNotificationAckDTO acceptRefundNotification(String tenant, EventEnvelope<RefundMerchantEventDTO> event) {
+        return exchange(tenant, ACQUIRE_REFUND_NOTIFICATION, event);
     }
 
     private <Q, R, P extends Message, S extends Message> R exchange(String tenant, RpcOperation<Q, R, P, S> operation, Q request) {

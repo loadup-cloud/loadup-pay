@@ -47,6 +47,7 @@ public class RefundProjectionEvents {
     public static final String SUMMARY = "pay.payment.refund-summary.realtime.v1";
     public static final String FEE = "pay.payment.refund.fee.v1";
     public static final String LIMIT = "pay.payment.refund.limit.v1";
+    public static final String MERCHANT = io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE;
     private final RefundSummaryGateway summaries;
     private final RefundSnapshotReader reader;
     private final RefundProjectionConverter converter;
@@ -85,6 +86,9 @@ public class RefundProjectionEvents {
         writable(tenant);
         var facts = publishChild(tenant, change.request().orderId(), change.request().payeeMerchantId(), change.refund().id(), change.refund().version());
         if (!change.refund().terminal()) return;
+        if (!facts.refundRequestId().equals(change.request().id()) || !facts.paymentId().equals(change.refund().paymentId())
+                || !facts.state().equals(change.refund().state().name()) || !facts.amount().equals(change.refund().amount())
+                || !java.util.Objects.equals(facts.succeededAt(), change.succeededAt())) throw new CommonException(SNAPSHOT_INVALID);
         var before = summaries.lock(tenant, change.request().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!before.payeeMerchantId().equals(change.request().payeeMerchantId())
                 || !before.orderAmount().getCurrencyValue().equals(change.refund().amount().getCurrencyValue()))
@@ -92,6 +96,11 @@ public class RefundProjectionEvents {
         var next = before.settle(change.refund().amount().getCent(), change.refund().state() == RefundState.SUCCEEDED);
         summaries.update(tenant, before, next);
         publishSummary(tenant, next);
+        send(tenant, MERCHANT, change.refund().id(), change.refund().version(), facts.sourceUpdatedAt(),
+                converter.toMerchantEvent(facts, change.request().merchantRefundNo()));
+        if (change.request().children().stream().allMatch(io.github.loadup.pay.payment.domain.model.RefundOrder::terminal))
+            send(tenant, MERCHANT, change.request().id(), change.request().version(), facts.sourceUpdatedAt(),
+                    converter.toMerchantEvent(change.request()));
         if (change.refund().state() == RefundState.SUCCEEDED) {
             var original = payments.find(tenant, change.refund().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var payment = original.payment();

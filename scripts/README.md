@@ -129,3 +129,14 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 协议与调用关系见[RPC 规范](../design/RPC.md)，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
 
 渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的 -am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款 Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。
+
+
+## 托管收银台浏览器核心测试源码
+
+H5 页面核心使用原生 ES module/BigInt，无新增前端依赖。用户恢复验证后，可在 loadup-pay 根目录单独执行：
+
+```bash
+node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
+```
+
+本轮没有执行此命令。该测试只覆盖纯逻辑，不替代 Java 生成代码/事务、浏览器/CSP/标签页存储、可信代理、渠道域名及真实 H5 跳转验收。静态页面与 /checkout.js、/checkout-core.js、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。

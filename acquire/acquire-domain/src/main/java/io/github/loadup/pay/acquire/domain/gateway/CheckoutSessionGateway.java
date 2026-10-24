@@ -25,7 +25,11 @@ import java.util.Optional;
 public interface CheckoutSessionGateway {
     Optional<StoredCheckoutSession> find(String tenantId, String sessionId);
 
+    Optional<StoredCheckoutSession> lock(String tenantId, String sessionId);
+
     Optional<StoredCheckoutSession> findRequest(String tenantId, String orderId, String requestKey);
 
     void insert(String tenantId, StoredCheckoutSession session);
+
+    void revoke(String tenantId, StoredCheckoutSession before, StoredCheckoutSession after);
 }

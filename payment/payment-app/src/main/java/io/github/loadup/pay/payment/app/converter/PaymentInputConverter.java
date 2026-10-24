@@ -19,6 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import org.mapstruct.Mapper;
@@ -29,6 +30,10 @@ import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInputConverter {
+    @Mapping(target = "found", source = "found")
+    @Mapping(target = "input", source = "input")
+    PaymentInputLookupDTO toLookup(boolean found, PaymentInputDTO input);
+
     @Mapping(target = "id", source = "inputRef")
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(), command.currency()))")
     @Mapping(target = "channel", source = "command.choice.channel")

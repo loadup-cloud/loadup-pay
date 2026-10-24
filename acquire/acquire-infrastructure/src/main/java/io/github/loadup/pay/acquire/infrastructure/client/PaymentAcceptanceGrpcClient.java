@@ -30,6 +30,8 @@ import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
@@ -55,6 +57,7 @@ import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_DETA
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FACTS;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FENCE_PARENT;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_PREPARE;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_LOOKUP;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_OUTCOME;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_PARENT_FENCE_STATUS;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_SUMMARY;
@@ -83,6 +86,11 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
     @Override
     public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
         return exchange(tenant, PAYMENT_INPUT_PREPARE, command);
+    }
+
+    @Override
+    public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
+        return exchange(tenant, PAYMENT_INPUT_LOOKUP, query);
     }
 
     @Override
@@ -134,7 +142,8 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
             if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return response;
         } catch (RuntimeException failure) {
-            if (operation.descriptor().equals(PAYMENT_INPUT_PREPARE.descriptor()) || operation.descriptor().equals(PAYMENT_ACCEPT.descriptor())) {
+            if (operation.descriptor().equals(PAYMENT_INPUT_PREPARE.descriptor()) || operation.descriptor().equals(PAYMENT_ACCEPT.descriptor())
+                    || operation.descriptor().equals(PAYMENT_INPUT_LOOKUP.descriptor())) {
                 var code = switch (RpcServerSupport.resultCode(failure)) {
                     case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
                     case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;

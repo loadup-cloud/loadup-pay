@@ -19,6 +19,8 @@ import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 
 /**
  * Service identity is supplied by the transport, never by the merchant.
@@ -27,6 +29,8 @@ public interface PaymentAcceptanceClient {
     boolean supportsTenant(String tenant);
 
     PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command);
+
+    PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query);
 
     PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command);
 

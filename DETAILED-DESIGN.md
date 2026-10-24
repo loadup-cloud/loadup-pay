@@ -407,3 +407,72 @@ payment 的非关闭任务经 recover→recordRecovery 接收观察与动作，�
 复用现有 payment_channel_receipt，receiptKey 为 notifyId 与 query factsDigest 的长度分帧摘要，sourceDigest 组合验签内容和查询源摘要；同一通知先未知后查明成功可以形成不同查证回执，重复相同事实仍幂等。没有新增双写 Inbox，只有 payment_attempt 查找索引。CALLBACK 资金事实来自验签后原号查询，不直接使用回调状态或 gmt_payment；终态与独立退款不被中间通知回退。
 
 公开路径只放行 JWT，渠道签名与冻结账户核验仍为实际认证。当前 form/RSA2 原生协议 ACK 与 JSAPI notify_url 配置已有源码；其他渠道、公开路径装配、生成代码/事务/真实回调验收仍未执行，业务目标继续按实现清单推进。
+
+
+## 退款商户通知实施归属（2026-10-24）
+
+退款结果归 payment，商户签名投递统一归 acquire。payment 在既有退款结果/容量事务写独立商户目标 Outbox；acquire 通过 SERVICE gRPC 验证源身份、原订单及子付款绑定，按原订单通知条款登记固定正文、原生任务和不可变接收回执。此接收是通知事实投影，不作金融裁决、不写交易金额，也不跨数据库事务。
+
+终态通知分别为 RefundSucceeded、RefundFailed、RefundRequestCompleted，整笔申请保留固定总额及成功/失败两部分，允许 PARTIAL_SUCCEEDED。未知不通知成失败，退款不减少原付款成功金额。共用 acquire merchant_notification_delivery 引擎，移除 payment 侧重复投递表草案。内部 ACK 表示持久登记/原策略禁用，外部 2xx+精确 eventId/SUCCESS 才是送达。契约与 DDL 见 design/CLIENT-API.md、design/DATABASE.md；未运行验证或真实发送。
+
+
+## 通知运营入口与恢复边界（2026-10-24）
+
+通知元数据查询按商户 JWT 隔离，运营由 OPERATOR/配置的 pay-ops SERVICE 与专门 manage 权限授权。client Facade 不输出私有正文和签名路由；分页复用框架契约。
+
+运营恢复是当前 native wake 的有界恢复：原业务预算、窗口、退避、正文/事件身份、不可变路由不变。当前代次缺任务登记原 due，FAILED 调组件 retryFailed，CANCELLED 调组件 reschedule 原 due；运行租约不抢占，PENDING 不加速，终态/超期不另授许可。SUCCEEDED/current generation 不一致必须显式修复，不能通过重复发送掩盖。
+
+wake receipt 与调度变化同库事务，操作身份绑定已验证主体、请求键和完整参数，重复请求回首次决定；新操作显式 expectedVersion，防止误操作已推进通知。审计只给运营读取，不修改任何交易金额或生命周期。本批源码/测试源码未运行，真实数据库原子性与调度竞态仍为未验证项。
+
+
+## Cashier 付款编排复用（2026-10-24）
+
+商户 API 的授权切片调用共享 PaymentInitiationOperations，cashier 使用 capability 授权切片调用同一 A2/安全输入/受理链路。原金额与次数规则不复制；内部 PaymentInitiationPrincipal 仅封装可信 owner、幂等 actorScope 和本地授权策略，不能由 HTTP 参数构造。收银台 checkout/sessionId 与 merchant/ownerHash 分开幂等，原收款商户、合约和数据归属不改变。
+
+新动作 order→session 行锁内核验 ACTIVE、期限、原 scope 与当前会话权限；原已预占意图在到期后继续履约。结果收敛改用内部 OrderPaymentScope，核对原归属/意图与 merchant 或 checkout 范围，不授予创建或商户 API 权限；后台不依赖浏览器能力仍有效。会话进度入口另行核对精确 session actorScope，不能跨会话查询。
+
+当前托管交互子集为服务端场景的 H5/WAP，choices 来自显式部署目录与原冻结能力交集；JSAPI 身份等待可信 OAuth。浏览器请求不持商户令牌、OpenID 或任意渠道参数，响应只给安全 CashierPaymentDTO 与原动作。scope 初期直接更新，无兼容层；未做运行验证。H5 页面交互/轮询源码已补，OAuth 与实网域名/代理验收仍待完成；撤销源码见本文末节。
+
+
+## 托管 H5 页面状态（2026-10-24）
+
+页面以未确认付款操作为边界维护固定 actionKey、金额/渠道选择和可空 paymentId；原操作在第一次 HTTP 前保存到当前标签页 sessionStorage，token/支付 URL 只留内存。未知或网络失败只允许原动作重试；取得 paymentId 后只查原付款，start 返回终态也先经 progress/A3 收敛，才移除操作并允许下一笔手动付款。损坏/不可保存状态不静默生成新动作。
+
+金额输入和 JSON 边界用精确整数分，展示原单笔/准确尾款/剩余笔数规则；服务端仍行锁校验并发总额、笔数和终态。响应必需 accepted 判别未受理，不把状态字段缺失等价未收款。轮询有次数上限、页面隐藏暂停，超时不迁移金融状态；支付 URL 保留原文/原期限、不自动重建付款。
+
+四个静态 GET 资源单独公开，业务 capability POST 独立鉴权；无内联/第三方脚本，安全文本渲染，API 无 referrer，支付链接只发送 strict-origin。现有页面已由摘要页扩展为 H5 操作页面源码；JSAPI OAuth/动作与真实浏览器/域名/恢复验证仍需完成；撤销管理源码见本文末节，未执行构建/测试/实际发送。
+
+
+## 收银台链接撤销（2026-10-24）
+
+独立 revoked_at 永久标记与 checkout_session_revocation_receipt 实现原签发者管理；商户 detail/revoke/revocations
+API、专门 read/revoke 权限、客户端契约与 MapStruct/DO/Gateway/迁移源码已补。撤销不改业务终态、金额、凭证或原期限，
+已付清/关闭订单链接可撤销；没有恢复原链接的入口。原签发键重放已撤销链接明确拒绝。
+
+撤销和新付款按订单→session 行锁串行化，锁后重查操作回执；标记和回执同事务，原已提交 A2 意图继续履约。
+新键需当前版本，同键同参回首次回执，改参拒绝；审计查询绑定原 issuer/hash，输出不含能力凭证。
+新增领域/管理服务/认证/预占/已提交意图/签发重放测试源码，全部运行验证仍暂停。
+JSAPI OAuth、动作丢失/期限恢复、其他渠道能力、通知生命周期、交易重建、风控/后置对账及完整验证继续保留。
+
+
+## 收银台原付款意图恢复（2026-10-24）
+
+新增 capability 范围的 recover Command/DTO/Facade/HTTP 入口，按原 actionKey 定位 A2，即使 start 回复丢失仍保留原 paymentId。
+共享 PaymentInitiationOperations 在原订单→会话锁内绑定 owner/scope/金额/choice/原准入，返回明确三态；
+未观察到意图不创建预占，原安全输入未绑定保留 INPUT_REQUIRED，已绑定则在事务外使用原执行命令幂等受理。
+非 HELD 意图不重受理；结果经过 PaymentOutcomeOperations/A3 后安全投影给页面，不把恢复成功等同支付成功。
+
+页面原操作先恢复再重试，已知 paymentId 走原进度入口；未知不清元数据、不换键，终态经证据收敛后才允许下笔。
+补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；到期后的有证据关闭仍需完成，
+真实集成、JSAPI OAuth、其他渠道与对账等完整目标不变。
+
+
+## 原安全输入引用恢复（2026-10-24）
+
+payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
+只返回原 opaque 引用/摘要/期限，不解密、指纹计算、改数据或续期。found 明确存在并与可空 input 一致；
+过期/BOUND 仍回原元数据。acquire 恢复缺失引用时事务外查询，再在原订单→会话锁下 CAS 绑定原引用，继续原命令幂等受理和 A3。
+不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
+
+新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
+未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。

@@ -644,3 +644,23 @@ RefundExecutionService 首个 INIT 赢家保留本地提交边界后执行 submi
 H5_SCENE 输入复用短期 KMS 密文/原 HMAC/唯一付款引用与 INIT→BOUND 生命周期；无 H5 特殊解密或跳过绑定路径。PaymentChannelInputConverter 将场景映射为 ChannelH5Input，微信插件返回 WechatH5ChannelAction 后，统一 Y3/action 快照与授权展示转换为客户端 REDIRECT。action_kind=WECHAT_H5 由 channel-core 的严格白名单编码支持，payment 不解析 h5_url 厂商响应。直连/服务商的固定 H5 operation 已加入可选 payment-wechat 配置。
 
 地址有效期为原截止与渠道调用开始加五分钟的较早值，受理不是资金事实；原查询恢复不重复下单，也不重新生成或延长旧地址。初始 payment_input CHECK 已直接允许 H5；按前期不兼容原则同步初始建表源码，没有运行 DDL。详见 [渠道 H5 说明](../channel/channel-wechat/README.md)。本批未运行构建、测试或真实调用。
+
+
+## 退款商户通知来源（2026-10-24）
+
+RefundProjectionEvents 在子退款终态事务写独立 `pay.payment.refund.merchant.v1` Outbox，最后一个固定子退款完成时再写整笔申请终态（允许 PARTIAL_SUCCEEDED）。源身份/金额/商户退款号与原计划一致，审计时刻来自落库快照；初始/处理中/未知不产生终态通知。
+
+RefundMerchantOutboxHandler/RefundMerchantDelivery 核对可信租户、已登记 PROCESSING 源消息、精确聚合/版本，事务外调用 AcquireRpc/RefundNotification。逐字段核对原 delivery/business/aggregate/version 和确定性 merchantEventId；ENQUEUED/DISABLED 只是原策略登记结果。其他目标成功不能确认此消息；失败独立重试，不回滚已完成退款。payment 不再单独实现商户签名发送表/引擎。
+
+沿用 PAYMENT_ACQUIRE_TOKEN_FILE 与 acquire channel；发行的 payment SERVICE token 需增加 `pay:acquire:refund:notification`。没有签发新令牌或实际发送。详见 [客户端契约](../design/CLIENT-API.md)。生产/投递与部分成功测试源码已补，未运行验证。
+
+
+## 原安全输入引用恢复（2026-10-24）
+
+payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
+只返回原 opaque 引用/摘要/期限，不解密、指纹计算、改数据或续期。found 明确存在并与可空 input 一致；
+过期/BOUND 仍回原元数据。acquire 恢复缺失引用时事务外查询，再在原订单→会话锁下 CAS 绑定原引用，继续原命令幂等受理和 A3。
+不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
+
+新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
+未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。

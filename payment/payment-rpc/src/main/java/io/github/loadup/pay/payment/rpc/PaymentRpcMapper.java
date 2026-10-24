@@ -129,6 +129,41 @@ public interface PaymentRpcMapper {
     @Mapping(target = "paymentId", source = "paymentId")
     @Mapping(target = "orderId", source = "orderId")
     @Mapping(target = "allocationId", source = "allocationId")
+    @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
+    @Mapping(target = "amountMinor", source = "amountMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "inputKey", source = "inputKey")
+    @Mapping(target = "choice", source = "choice")
+    io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery toWirePaymentInputLookupQuery(io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery value);
+
+    io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery fromWirePaymentInputLookupQuery(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery value);
+
+    @BeforeMapping
+    default void requireInputLookupFields(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery value) {
+        if (value == null || !value.hasPaymentId() || !value.hasOrderId() || !value.hasAllocationId()
+                || !value.hasPayeeMerchantId() || !value.hasAmountMinor() || !value.hasCurrency()
+                || !value.hasInputKey() || !value.hasChoice()) throw new IllegalArgumentException("RPC input lookup fields are required");
+    }
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "found", source = "found")
+    @Mapping(target = "input", source = "input")
+    io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO toWirePaymentInputLookupDTO(io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO value);
+
+    @Mapping(target = "input", expression = "java(value.hasInput() ? fromWirePaymentInputDTO(value.getInput()) : null)")
+    io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO fromWirePaymentInputLookupDTO(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO value);
+
+    @BeforeMapping
+    default void requireInputLookupResult(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO value) {
+        if (value == null || !value.hasFound() || value.getFound() != value.hasInput()
+                || value.hasInput() && (!value.getInput().hasInputRef() || !value.getInput().hasInputDigest()
+                || !value.getInput().hasExpiresAt())) throw new IllegalArgumentException("RPC input lookup result is invalid");
+    }
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "allocationId", source = "allocationId")
     @Mapping(target = "admissionId", source = "admissionId")
     @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
     @Mapping(target = "amountMinor", source = "amountMinor")

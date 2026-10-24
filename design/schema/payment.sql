@@ -355,34 +355,8 @@ CREATE TABLE refund_order
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
-CREATE TABLE merchant_notification_delivery
-(
-    id                VARCHAR(64)  NOT NULL,
-    tenant_id         VARCHAR(64)  NOT NULL,
-    created_at        DATETIME(6)  NOT NULL,
-    updated_at        DATETIME(6)  NOT NULL,
-    deleted           TINYINT      NOT NULL DEFAULT 0,
-    business_event_id VARCHAR(64)  NOT NULL,
-    aggregate_id      VARCHAR(64)  NOT NULL,
-    aggregate_version BIGINT       NOT NULL,
-    event_type        VARCHAR(64)  NOT NULL,
-    payee_merchant_id VARCHAR(64)  NOT NULL,
-    target_ref        VARCHAR(128) NOT NULL,
-    key_ref           VARCHAR(128) NOT NULL,
-    body_bytes        MEDIUMBLOB   NOT NULL,
-    body_digest       CHAR(64)     NOT NULL,
-    policy_snapshot   JSON         NOT NULL,
-    state             VARCHAR(24)  NOT NULL,
-    attempt_count     INT          NOT NULL DEFAULT 0,
-    next_attempt_at   DATETIME(6)  NULL,
-    acknowledged_at   DATETIME(6)  NULL,
-    row_version       BIGINT       NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_notification_event_target (tenant_id, business_event_id, target_ref),
-    KEY ix_notification_pending (tenant_id, state, next_attempt_at, id)
-) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_bin;
+-- Merchant notifications are registered and dispatched by acquire; payment owns the refund Outbox source.
+
 
 CREATE TABLE refund_recovery_cursor (
     id VARCHAR(64) NOT NULL PRIMARY KEY,

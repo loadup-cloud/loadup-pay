@@ -121,8 +121,8 @@ final class CheckoutFixtures {
                 "checkout",
                 "v1",
                 ORIGIN,
-                new CheckoutSessionScope(1, OWNER, "return-v1", Set.of("ORDER_SUMMARY")),
-                0);
+                new CheckoutSessionScope(1, OWNER, "return-v1", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
+                null, 0);
     }
 
     static AcquiringTermsDTO terms() {

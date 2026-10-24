@@ -4,7 +4,7 @@
 
 ## 服务所有权
 
-各服务在自己的 `*-rpc` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，合计6个 service、29个 unary 方法。消费方引用提供方契约，client/domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
+各服务在自己的 `*-rpc` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，各业务方法由提供方维护。消费方引用提供方契约，client/domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
 
 | 提供方 | 协议入口 |
 | --- | --- |
@@ -22,7 +22,7 @@
 | acquire | payment | 安全输入、受理、查询、控制、结算事实和退款金额汇总权威查询 |
 | payment | limitcenter | 预占、执行许可、确认、释放和退款恢复 |
 | limitcenter | payment | 权威付款结算与成功退款事实 |
-| payment | acquire | 付款结果事件和退款费用基数事件 |
+| payment | acquire | 付款结果、退款费用基数和退款商户通知登记事件 |
 | acquire / payment | realtime | 完整交易快照 |
 
 ## 公共能力归属
@@ -87,3 +87,23 @@ BusinessTime 每次读取 `ZoneId.systemDefault()`，默认 Clock 使用 `Clock.
 业务 gRPC 随各应用的 `*-business` 构建/运行 profile 装配，默认骨架仅有 HTTP 健康入口。部署前准备数据库、JWT、挂载令牌和生产 TLS；Headless/端口声明不能证明实际监听或认证链路成功。当前本地脚本固定 loadup-pay Namespace，不等于生产流水线。
 
 通过 IDEA MCP 终端完成框架受影响模块与六业务应用及其依赖的窄范围 `clean test-compile`，普通字段映射由 MapStruct 生成。系统默认时区、optional/oneof/Timestamp、集合和认证隔离的测试源码已编译，未执行测试、DDL或部署。真实环境仍需验收 JWT/TLS、幂等重放、多副本请求分布和滚动发布。详细清单与发布步骤见[框架 K8s 规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
+
+
+## 退款商户通知登记（2026-10-24）
+
+`AcquireRpc/RefundNotification` 接收 `EventEnvelope<RefundMerchantEventDTO>`，返回 `RefundNotificationAckDTO`。源 DTO/Wire 消息属于 payment，acquire 的信封通过 proto import 引用。Wire 标量使用 optional/int64，保留 request 级事件缺少 refundId/paymentId/succeededAt 的存在性；拒绝缺必需字段、未知聚合或终态。使用已有 acquire channel/deadline/token-file，无内部 HTTP 回退。
+
+只允许配置的 payment SERVICE 和 `pay:acquire:refund:notification`。现有挂载令牌须由发行方增加该权限；逐次读取文件继续支持令牌轮换。本轮没有签发令牌、部署或发出真实调用。语义 ACK 精确绑定 deliveryId/businessEventId/aggregateId/sourceVersion/merchantEventId，disposition=ENQUEUED/DISABLED；不表示商户已收到。
+
+
+## 原安全输入引用查询（2026-10-24）
+
+新增 `PaymentRpc/InputLookup(WirePaymentInputLookupQuery) -> WirePaymentInputLookupDTO`，消息仍归 payment-rpc。
+请求保留原付款/订单/预占/商户/金额/CNY/inputKey/choice 完整范围；响应 found 为 optional bool，必须显式存在，
+与 input 消息 presence 一致。缺请求字段、found 未设置、found/input 不匹配、缺引用/摘要/期限或未知渠道符号均拒绝。
+金额仍为 int64，期限使用 Timestamp，DTO 恢复本地时区。新消息不复用或重排已有字段号；生成类不提交。
+
+复用 payment channel/deadline、逐次读取 SERVICE token 和现有 GrpcTransport，独立权限为 `pay:payment:input:read`。
+provider 不解密/续期，不接受自报 tenant/service；consumer 不把异常或远端 NOT_FOUND 当作 found=false。
+只白名单映射原幂等/参数错误，未知失败继续 ACQUIRE_DEPENDENCY_UNAVAILABLE。无 HTTP 回退和跨网络本地事务。
+已同步 Facade/port/operation/服务绑定/MapStruct/consumer 及测试源码；未运行编译、测试或真实 JWT/RPC 验收，挂载凭证权限尚需发行方配置。

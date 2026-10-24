@@ -173,7 +173,7 @@ public class CheckoutSessionOperations {
         String keyRef = tokens.keyRef();
         String keyVersion = tokens.activeKeyVersion();
         String token = tokens.issue(session, nonce, keyRef, keyVersion);
-        var scope = new CheckoutSessionScope(1, actor.scopeHash(), target, Set.of("ORDER_SUMMARY"));
+        var scope = new CheckoutSessionScope(1, actor.scopeHash(), target, Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"));
         return converter.toStored(
                 session,
                 order.order().payeeMerchantId(),
@@ -193,6 +193,7 @@ public class CheckoutSessionOperations {
     }
 
     private CheckoutDTO present(AcquireActor actor, StoredAcquireOrder order, StoredCheckoutSession stored) {
+        if (stored.revokedAt() != null) throw new CommonException(SESSION_UNAVAILABLE);
         if (!presentation.allowedOrigin().equals(stored.allowedOrigin()))
             throw new CommonException(SESSION_UNAVAILABLE);
         // Rebuild the original token, never renew the session or select the new active key on replay.

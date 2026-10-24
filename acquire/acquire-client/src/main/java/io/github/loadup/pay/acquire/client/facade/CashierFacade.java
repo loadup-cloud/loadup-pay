@@ -17,14 +17,18 @@ package io.github.loadup.pay.acquire.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
-import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
-import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
+import io.github.loadup.pay.acquire.client.command.CashierPaymentRecoverCommand;
+import io.github.loadup.pay.acquire.client.dto.CashierPaymentRecoveryDTO;
+import io.github.loadup.pay.acquire.client.dto.CashierPaymentDTO;
 
 /**
  * Business use cases; identity and authorization come from a trusted invocation context.
  */
 public interface CashierFacade extends CashierSummaryFacade {
-    PaymentStartDTO startPayment(CashierPaymentStartCommand command);
+    CashierPaymentDTO startPayment(CashierPaymentStartCommand command);
 
-    PaymentProgressDTO paymentProgress(IdQuery query);
+    CashierPaymentDTO paymentProgress(IdQuery query);
+
+    /** Resolve only an existing original action; never allocates another payment or replaces its input. */
+    CashierPaymentRecoveryDTO recoverPayment(CashierPaymentRecoverCommand command);
 }

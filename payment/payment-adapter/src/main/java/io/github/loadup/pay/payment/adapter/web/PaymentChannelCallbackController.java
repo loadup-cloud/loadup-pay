@@ -57,13 +57,16 @@ public class PaymentChannelCallbackController {
         if (body.length == 0 || request.getQueryString() != null) return ResponseEntity.badRequest().build();
         try {
             var headers = new java.util.HashMap<String, java.util.List<String>>();
-            for (String name : java.util.List.of("Wechatpay-Serial", "Wechatpay-Timestamp", "Wechatpay-Nonce", "Wechatpay-Signature", "Wechatpay-Signature-Type")) {
+            var names = request.getHeaderNames();
+            while (names != null && names.hasMoreElements()) {
+                if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES) return ResponseEntity.badRequest().build();
+                String name = names.nextElement();
                 var values = request.getHeaders(name);
-                if (values != null && values.hasMoreElements()) {
-                    var captured = new java.util.ArrayList<String>();
-                    while (values.hasMoreElements() && captured.size() <= 8) captured.add(values.nextElement());
-                    headers.put(name, captured);
-                }
+                if (values == null || !values.hasMoreElements()) return ResponseEntity.badRequest().build();
+                var captured = new java.util.ArrayList<String>();
+                while (values.hasMoreElements() && captured.size() <= ChannelNotificationInput.MAX_HEADER_VALUES)
+                    captured.add(values.nextElement());
+                if (headers.putIfAbsent(name, captured) != null) return ResponseEntity.badRequest().build();
             }
             var acknowledgement = receiver.apply(endpointRef, new ChannelNotificationInput(request.getContentType(), headers, body));
             return ResponseEntity.status(acknowledgement.httpStatus()).cacheControl(CacheControl.noStore())

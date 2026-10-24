@@ -346,7 +346,7 @@ product 在线。
 | 存量履约      | 已准入INIT/PENDING继续完成，不因合约停止拒绝；终态不重开                                                  | acquire以原条款履约                   |
 | 总额计费      | feeBase固定ORDER_AMOUNT；费率/舍入/保底/封顶可配置；一订单一费用记录                                      | acquire/order_fee                     |
 | 独立退款      | refundAllocationPolicy默认FIFO，可配已实现的LIFO/EXPLICIT；partialRefundAllowed/refundFeePolicy           | payment退款子域                       |
-| 商户通知      | 至少PaymentSucceeded、OrderFullyPaid；关闭/退款事件独立，签名/目标/ACK/退避配置                           | acquire订单/付款通知，payment退款通知 |
+| 商户通知      | 至少PaymentSucceeded、OrderFullyPaid；关闭/退款事件独立，签名/目标/ACK/退避配置                           | acquire统一投递，payment提供退款事实 |
 | 商户限额      | DAY/WEEK/MONTH/LIFETIME、阈值/是否启用、父级汇总、受支持的统计和恢复规则可配置                            | limitcenter                           |
 | 风控预留      | 默认放行，提交渠道前咨询，支付结果后异步反馈；厂商/细节后置                                               | payment适配                           |
 
@@ -576,7 +576,7 @@ payload；deliveryId 属于各目标投递记录。至少一次投递，消费�
 |-------------------------------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
 | AcquireOrderChanged                             | acquire → realtime                                                       | 完整订单金额/状态汇总及 version，不覆盖独立付款明细                                       |
 | PaymentChanged                                  | payment → acquire、realtime                                              | 每笔付款完整事实及 version，acquire 只累计该笔一次                                        |
-| RefundChanged / RefundRequestChanged            | payment → realtime、退款商户通知，按策略给limitcenter/独立费用调整消费者 | 独立原paymentId与退款聚合版本；只影响退款/额度恢复/独立费用调整，不迁移订单状态或支付金额 |
+| RefundChanged / RefundRequestChanged            | payment → realtime/acquire通知登记，按策略给limitcenter/独立费用调整消费者 | 独立原paymentId与退款聚合版本；只影响退款/额度恢复/独立费用调整，不迁移订单状态或支付金额 |
 | LimitOperationOutcome                           | payment → limitcenter                                                    | 原付款/reservation、确认/释放/恢复证据，独立于查询投影                                    |
 | LimitRuleVersionPublished                       | product → limitcenter                                                    | 激活可确认；未就绪不放行新执行                                                            |
 | PaymentSucceeded / OrderFullyPaid / OrderClosed | acquire → 商户通知任务                                                   | 前两种为首期至少通知类型，关闭独立；付款成功不等于整个订单履约完成                        |
@@ -874,3 +874,10 @@ channel-api 的 submit 现区分资金事实与唤起动作；付款码/已解�
 ### 渠道回调的信任边界（2026-10-24）
 
 公开通知入口由可信 endpoint 配置选择原 tenant/binding revision，原始 body 只能提供不可信定位提示；独立 ChannelNotificationFacade/Provider 完成协议认证和原账户/金额核验。payment 随后在事务外查原交易，再通过 Y3 持久化 CALLBACK 回执与金融事实，提交后才发送固定协议 ACK。通知字段不是商户可写成功证据，不绕过原执行 gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道与真实验收仍待完成，细节见 [渠道模块](channel/README.md)。
+
+
+## 退款商户通知统一投递（2026-10-24）
+
+payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 gRPC 交 acquire 登记。acquire 统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment 通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
+
+RefundSucceeded/RefundFailed 与 RefundRequestCompleted 按各自原聚合版本标识，最终申请可部分成功；与订单/付款事件不要求全局顺序。完整契约、状态和 DDL 见 design/CLIENT-API.md 与 design/DATABASE.md。本批为源码实现，真实验证仍暂停。

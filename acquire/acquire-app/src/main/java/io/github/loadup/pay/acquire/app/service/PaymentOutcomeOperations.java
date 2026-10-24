@@ -23,7 +23,6 @@ import io.github.loadup.pay.acquire.app.converter.PaymentProgressConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
@@ -98,8 +97,9 @@ public class PaymentOutcomeOperations {
         this.notifications = notifications;
     }
 
-    PaymentProgressDTO refresh(AcquireActor actor, PaymentProgressRefreshCommand query) {
+    PaymentProgressDTO refresh(OrderPaymentScope actor, PaymentProgressRefreshCommand query) {
         requireNoTransaction();
+        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
         return transactions.read(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
             DomainChecks.id(query.paymentId());
@@ -127,7 +127,7 @@ public class PaymentOutcomeOperations {
         });
     }
 
-    void applyClose(AcquireActor actor, OrderCloseIntent close, StoredPaymentAllocation allocation, PaymentCloseDTO response) {
+    void applyClose(OrderPaymentScope actor, OrderCloseIntent close, StoredPaymentAllocation allocation, PaymentCloseDTO response) {
         requireNoTransaction();
         transactions.read(actor.tenantId(), () -> {
             if (response == null || !validator.validate(response).isEmpty()
@@ -155,11 +155,12 @@ public class PaymentOutcomeOperations {
         });
     }
 
-    PaymentExecuteCommand bound(AcquireActor actor, StoredAcquireOrder order, StoredPaymentAllocation stored) {
+    PaymentExecuteCommand bound(OrderPaymentScope actor, StoredAcquireOrder order, StoredPaymentAllocation stored) {
         if (!stored.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
         var command = codec.decode(stored);
         var original = orderCodec.decodeAdmission(order.admissionPayload(), order.payloadHash());
-        if (!stored.allocation().actorScope().equals("merchant/" + actor.scopeHash())
+        if (!(stored.allocation().actorScope().equals("merchant/" + actor.scopeHash())
+                || stored.allocation().actorScope().matches("checkout/[A-Za-z0-9_-]{1,64}"))
                 || !order.order().id().equals(command.orderId())
                 || !order.order().payeeMerchantId().equals(command.payeeMerchantId())
                 || !command.admittedTerms().equals(initiation.toAdmitted(order, original)))
@@ -167,11 +168,11 @@ public class PaymentOutcomeOperations {
         return command;
     }
 
-    private StoredAcquireOrder converge(AcquireActor actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
+    private StoredAcquireOrder converge(OrderPaymentScope actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
         return transactions.write(actor.tenantId(), () -> convergeLocked(actor, command, outcome));
     }
 
-    StoredAcquireOrder convergeLocked(AcquireActor actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
+    StoredAcquireOrder convergeLocked(OrderPaymentScope actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         var currentOrder = orders.lockOrder(actor.tenantId(), command.orderId());
         owned(actor, currentOrder);
@@ -232,7 +233,7 @@ public class PaymentOutcomeOperations {
                 succeeded ? VerifiedPaymentOutcome.Kind.SUCCEEDED : VerifiedPaymentOutcome.Kind.NO_COLLECTION, noCollection);
     }
 
-    private void owned(AcquireActor actor, StoredAcquireOrder order) {
+    private void owned(OrderPaymentScope actor, StoredAcquireOrder order) {
         if (!order.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
     }
 

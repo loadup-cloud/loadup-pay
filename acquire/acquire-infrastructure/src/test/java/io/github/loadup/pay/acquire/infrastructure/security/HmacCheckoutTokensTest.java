@@ -67,8 +67,8 @@ class HmacCheckoutTokensTest {
                 "checkout",
                 "v1",
                 "https://pay.example",
-                new CheckoutSessionScope(1, "b".repeat(64), "return-v1", Set.of("ORDER_SUMMARY")),
-                0);
+                new CheckoutSessionScope(1, "b".repeat(64), "return-v1", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
+                null, 0);
     }
 
     @Test

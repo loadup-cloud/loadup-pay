@@ -474,7 +474,7 @@ class OrderCreationServiceTest {
         assertEquals(intent.get().initialSessionId(), dto.sessionId());
         assertEquals(order.get().order().id(), session.get().session().orderId());
         assertEquals(CheckoutSessionState.ACTIVE, session.get().session().state());
-        assertEquals(Set.of("ORDER_SUMMARY"), session.get().scope().permissions());
+        assertEquals(Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"), session.get().scope().permissions());
         assertEquals(2, manager.commits);
         var calls = inOrder(store, sessions);
         calls.verify(store).insertOrder(eq("tenant"), any(), any(), anyString());

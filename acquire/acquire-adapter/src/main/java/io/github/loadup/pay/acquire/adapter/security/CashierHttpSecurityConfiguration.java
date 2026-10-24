@@ -37,6 +37,16 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SE
 @EnableWebSecurity
 public class CashierHttpSecurityConfiguration {
     @Bean
+    @Order(89)
+    SecurityFilterChain checkoutResources(HttpSecurity http) throws Exception {
+        String[] paths = {"/checkout", "/checkout.js", "/checkout-core.js", "/checkout.css"};
+        http.securityMatcher(paths)
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, paths).permitAll().anyRequest().denyAll());
+        return http.build();
+    }
+    @Bean
     @Order(90)
     SecurityFilterChain cashierSecurityFilterChain(HttpSecurity http, ObjectProvider<JsonMapper> mappers)
             throws Exception {
@@ -47,7 +57,8 @@ public class CashierHttpSecurityConfiguration {
         http.securityMatcher("/api/cashier/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.POST, "/api/cashier/order/summary")
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.POST, "/api/cashier/order/summary",
+                                "/api/cashier/payments/start", "/api/cashier/payments/progress", "/api/cashier/payments/recover")
                         .permitAll()
                         .anyRequest()
                         .denyAll())

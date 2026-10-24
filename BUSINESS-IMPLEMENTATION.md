@@ -146,3 +146,70 @@ API/Provider/桥接/编排与策略测试源码、文档同步；未运行构建
 原订单/付款结果事务生成三类确定性事件与 merchant_notification_delivery，并登记 native delayedtask。重试只推进独立投递游标，原 body/事件/策略不变；后继在 HTTP 前提交，崩溃不丢后继。框架 RequestSigner/KMS 显式版本与 HttpTemplate 统一签最终URI/原字节，新 nonce/timestamp、严格语义 ACK、目标/租户/商户/原路由指纹约束、窗口耗尽已有源码。
 
 acquire 业务装配、独立 DDL、配置样例与测试源码已补，未运行 IDEA、构建、测试、DDL、部署或实际发送。退款通知与通知运维/迁移及目录生命周期继续；本批不宣称完整商户通知或全部业务完成，其他渠道/收银台/交易查询/对账等完整目标不变。
+
+
+## 退款商户通知（2026-10-24）
+
+payment 终态退款事件独立 Outbox/gRPC、acquire 认证接收/原订单与已消费付款绑定、原合约登记/不可变 Inbox 回执已补。三类事件覆盖子退款成功/失败与整笔申请部分成功等完成态；统一复用 acquire 固定字节签名/严格语义 ACK/有限重试引擎，原财务金额和生命周期不变。新 receipt 迁移与设计 schema 已同步，payment 重复投递表草案移除。
+
+生产/codec/ACK/接收权限/幂等/乱序付款/部分成功/HTTP 正文及 gRPC optional/int64 测试源码已补；按用户要求未运行 IDEA、构建、测试、DDL、部署、RPC 或实际发送。通知查询与审计重放、目标引用发布验证/授权迁移/吊销、历史密钥生命周期、其他渠道、完整收银台/授权、交易查询重建、风控与后置对账，以及所有未验证范围继续保留，完整目标未完成。
+
+
+## 通知查询与运营恢复（2026-10-24）
+
+新增商户隔离的通知详情/分页和运营专用 wake/审计分页。复用框架 PageQuery/PageDTO/PageResponse、DelayedTask retryFailed/reschedule/register，原生唤醒调整和不可变操作回执同 acquire 本地事务；不另建后台调度服务。当前代次/原业务次数与窗口/原始正文和路由固定，运行任务不抢占，待执行不加速，超期或耗尽不重置。操作者身份、显式版本、请求键和原因绑定，权限与幂等逻辑均在 Facade 应用服务中。
+
+已补迁移/商户查询索引、DO/MapStruct/Gateway/HTTP/JWT 与客户端契约；查询 DTO 排除正文/签名路由和 native 错误，原因只供运营审计并在诊断隐藏。测试源码覆盖权限、隔离、精确重放/改参、版本、预算/窗口/退避、任务状态分支与事务失败传播；按用户要求未运行验证或真实调用。
+
+完整目标继续：跨原预算的人工补发需单独合约授权设计；目标发布前引用验证/授权迁移/吊销、历史密钥生命周期、渠道产品与响应证据恢复、完整收银台/授权、交易查询重建、风控和后置对账，以及所有未验证内容仍保留，不宣称业务全部完成。
+
+
+## 收银台付款后端（2026-10-24）
+
+PaymentInitiationService 拆出共享 PaymentInitiationOperations，商户与 cashier 各自认证后调用相同金额/次数/尾款预占、安全输入与受理逻辑；无业务流程复制或假商户身份。托管幂等 actorScope=checkout/sessionId，原 owner/hash/商户/冻结合约不变；新动作锁原订单再锁会话，原已预占意图允许继续履约。结果刷新/关闭/事件支持两种 scope，使用内部 OrderPaymentScope，不依赖浏览器会话存活。
+
+CashierFacade 后端与专用 POST start/progress、最小安全响应、server H5/WAP remoteAddr、显式托管目录/原能力交集已补。入站不允许浏览器填 OpenID/IP/interaction；JSAPI 不绕过 OAuth。scope 初期直接更新为摘要/本会话付款/进度三权限，不保留旧只读兼容分支。
+
+新代码与授权/幂等/隔离/安全投影/场景/后台收敛测试源码已补，未运行 IDEA/构建/测试/DDL/部署/真实支付。H5 表单/原链接/有界轮询页面源码已续补；JSAPI OAuth、可信代理/真实域名与进一步恢复及浏览器验收仍需完成。其他渠道、通知生命周期、查询重建、风控/对账和全部未验证范围继续保留，完整目标未完成。
+
+
+## 托管 H5 页面（2026-10-24）
+
+页面已补手动部分金额、原单笔/尾款/笔数提示、显式方式、固定动作键重试、原 H5 链接和有界轮询源码。整数分/JSON 原文解析、sessionStorage 原动作恢复且不存 token/URL、accepted 明确判别、progress 收敛后才开放下一笔、超期不换单已有核心源码。新同源 ES module 与静态资源公开链、CSP/文本渲染、最小 referrer 规则及 API DTO/MapStruct 同步。
+
+核心 Node 测试源码与 Java 摘要/accepted 测试源码已补，未运行任何 Node/Java/IDE/浏览器验证、DDL、部署或真实支付。新页面源码不等于完整收银验收；JSAPI OAuth、丢失响应/过期动作进一步恢复及多设备/真实浏览器/渠道证明继续。其他渠道、通知生命周期、交易重建、风控/对账和全部未验证目标仍保留。
+
+
+## 收银台链接撤销（2026-10-24）
+
+独立 revoked_at 永久标记与 checkout_session_revocation_receipt 实现原签发者管理；商户 detail/revoke/revocations
+API、专门 read/revoke 权限、客户端契约与 MapStruct/DO/Gateway/迁移源码已补。撤销不改业务终态、金额、凭证或原期限，
+已付清/关闭订单链接可撤销；没有恢复原链接的入口。原签发键重放已撤销链接明确拒绝。
+
+撤销和新付款按订单→session 行锁串行化，锁后重查操作回执；标记和回执同事务，原已提交 A2 意图继续履约。
+新键需当前版本，同键同参回首次回执，改参拒绝；审计查询绑定原 issuer/hash，输出不含能力凭证。
+新增领域/管理服务/认证/预占/已提交意图/签发重放测试源码，全部运行验证仍暂停。
+JSAPI OAuth、动作丢失/期限恢复、其他渠道能力、通知生命周期、交易重建、风控/后置对账及完整验证继续保留。
+
+
+## 收银台原付款意图恢复（2026-10-24）
+
+新增 capability 范围的 recover Command/DTO/Facade/HTTP 入口，按原 actionKey 定位 A2，即使 start 回复丢失仍保留原 paymentId。
+共享 PaymentInitiationOperations 在原订单→会话锁内绑定 owner/scope/金额/choice/原准入，返回明确三态；
+未观察到意图不创建预占，原安全输入未绑定保留 INPUT_REQUIRED，已绑定则在事务外使用原执行命令幂等受理。
+非 HELD 意图不重受理；结果经过 PaymentOutcomeOperations/A3 后安全投影给页面，不把恢复成功等同支付成功。
+
+页面原操作先恢复再重试，已知 paymentId 走原进度入口；未知不清元数据、不换键，终态经证据收敛后才允许下笔。
+补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；到期后的有证据关闭仍需完成，
+真实集成、JSAPI OAuth、其他渠道与对账等完整目标不变。
+
+
+## 原安全输入引用恢复（2026-10-24）
+
+payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
+只返回原 opaque 引用/摘要/期限，不解密、指纹计算、改数据或续期。found 明确存在并与可空 input 一致；
+过期/BOUND 仍回原元数据。acquire 恢复缺失引用时事务外查询，再在原订单→会话锁下 CAS 绑定原引用，继续原命令幂等受理和 A3。
+不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
+
+新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
+未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。

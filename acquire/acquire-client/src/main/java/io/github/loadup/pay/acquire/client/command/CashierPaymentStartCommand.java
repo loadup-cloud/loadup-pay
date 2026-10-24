@@ -15,11 +15,8 @@
  */
 package io.github.loadup.pay.acquire.client.command;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -35,13 +32,8 @@ public record CashierPaymentStartCommand(
         String actionKey,
 
         @Schema(description = "Amount minor") @Positive long amountMinor,
-        @Schema(description = "Choice") @NotNull @Valid PaymentChoiceDTO choice,
-
-        @Schema(description = "Interaction") @Valid @DiagnosticHidden
-        PaymentInteractionDTO interaction) {
-    public CashierPaymentStartCommand {
-        if (interaction == null) interaction = new NoInteractionDTO();
-    }
+        @Schema(description = "Hosted payment choice; payer interaction is produced by the trusted server adapter")
+        @NotNull @Valid PaymentChoiceDTO choice) {
 
     @Override
     public String toString() {

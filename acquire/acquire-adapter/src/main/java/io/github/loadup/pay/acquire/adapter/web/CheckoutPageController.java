@@ -34,6 +34,11 @@ public class CheckoutPageController {
         return resource("checkout.js", MediaType.valueOf("text/javascript"));
     }
 
+    @GetMapping(value = "/checkout-core.js", produces = "text/javascript")
+    public ResponseEntity<Resource> core() {
+        return resource("checkout-core.mjs", MediaType.valueOf("text/javascript"));
+    }
+
     @GetMapping(value = "/checkout.css", produces = "text/css")
     public ResponseEntity<Resource> style() {
         return resource("checkout.css", MediaType.valueOf("text/css"));

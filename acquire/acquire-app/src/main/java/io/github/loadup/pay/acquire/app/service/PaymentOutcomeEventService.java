@@ -20,7 +20,6 @@ import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.PaymentEventConverter;
 import io.github.loadup.pay.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActorProvider;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
@@ -103,7 +102,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
             var allocation = allocations.findPayment(actor.tenantId(), data.orderId(), data.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             // Original ownership is restored from the stored order, never from an event-supplied merchant scope.
-            var owner = new AcquireActor(actor.tenantId(), order.callerScopeHash(), null, Set.of());
+            var owner = new OrderPaymentScope(actor.tenantId(), order.callerScopeHash());
             var command = outcomes.bound(owner, order, allocation);
             if (!command.payeeMerchantId().equals(data.payeeMerchantId()) || !command.allocationId().equals(data.allocationId())
                     || command.amountMinor() != data.amountMinor() || !command.currency().equals(data.currency()))

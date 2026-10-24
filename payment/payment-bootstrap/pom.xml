@@ -45,14 +45,17 @@
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>
                     <artifactId>channel-core</artifactId>
+                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>
                     <artifactId>channel-alipay</artifactId>
+                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>
                     <artifactId>channel-wechat</artifactId>
+                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>io.github.loadup-cloud</groupId>

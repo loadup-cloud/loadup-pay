@@ -31,6 +31,7 @@ import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface CheckoutConverter {
+    @Mapping(target = "revokedAt", ignore = true)
     StoredCheckoutSession toStored(
             CheckoutSession session,
             String payeeMerchantId,
@@ -47,8 +48,14 @@ public interface CheckoutConverter {
     CheckoutDTO toCheckout(AcquireOrderDTO order, String sessionId, String checkoutUrl, LocalDateTime sessionExpiresAt);
 
     @Mapping(target = "merchantDisplayName", ignore = true)
-    @Mapping(target = "choices", ignore = true)
-    CashierOrderDTO toSummary(AcquireOrderDTO order, String subject, LocalDateTime sessionExpiresAt);
+    @Mapping(target = "choices", source = "choices")
+    @Mapping(target = "minimumPaymentMinor", source = "policy.minAmountMinor")
+    @Mapping(target = "maximumPaymentMinor", source = "policy.maxAmountMinor")
+    @Mapping(target = "allowExactRemainderBelowMin", source = "policy.allowExactRemainderBelowMin")
+    @Mapping(target = "remainingPaymentCount", expression = "java(policy.maxSuccessfulPayments() == null ? null : Integer.valueOf((int) Math.max(0L, policy.maxSuccessfulPayments().longValue() - occupiedCount)))")
+    CashierOrderDTO toSummary(AcquireOrderDTO order, String subject, LocalDateTime sessionExpiresAt,
+            java.util.Set<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO> choices,
+            io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy policy, long occupiedCount);
 
     default OffsetDateTime external(LocalDateTime value) {
         return value == null ? null : BusinessTime.external(value);

@@ -55,7 +55,7 @@ erDiagram
 
 ## 3. 新增表清单
 
-### acquire（9张新增表）
+### acquire
 
 DDL草案：[acquire.sql](schema/acquire.sql)。
 
@@ -280,15 +280,15 @@ DDL草案：[acquire.sql](schema/acquire.sql)。
 
 #### `merchant_notification_delivery`
 
-acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；其 DDL 与 schema/acquire.sql 已同步。公共 BaseDO 五字段以外列如下。payment 下文的退款通知表仍是后续草案，两个服务不共库。
+acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；其 DDL 与 schema/acquire.sql 已同步。公共 BaseDO 五字段以外列如下。付款、订单与退款商户通知统一由 acquire 登记和投递；payment 通过独立 Outbox/gRPC 提供原退款事实，两个服务不共库。
 
 | 列 | 类型/约束 | 说明 |
 |---|---|---|
 | event_id | VARCHAR(64) NOT NULL | 商户幂等事件身份，与 native task ID 分离 |
 | order_id | VARCHAR(64) NOT NULL | 原订单 |
 | payee_merchant_id | VARCHAR(64) NOT NULL | 通知所属商户/子商户 |
-| event_type | VARCHAR(64) NOT NULL | PaymentSucceeded / OrderFullyPaid / OrderClosed |
-| aggregate_id | VARCHAR(64) NOT NULL | 原 payment 或 order |
+| event_type | VARCHAR(64) NOT NULL | PaymentSucceeded / OrderFullyPaid / OrderClosed / RefundSucceeded / RefundFailed / RefundRequestCompleted |
+| aggregate_id | VARCHAR(64) NOT NULL | 原 payment/order/refund/refund request |
 | source_version | BIGINT NOT NULL | 原来源聚合版本 |
 | body | MEDIUMTEXT NOT NULL | 固定 JSON，以同一 UTF-8 字节签名发送，不重新序列化 |
 | body_digest | CHAR(64) NOT NULL | 原字节 SHA-256 |
@@ -311,7 +311,7 @@ acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；�
 
 唯一键为 (tenant_id,event_id,target_ref)，按 (tenant_id,state,next_attempt_at,id) 扫描及 (tenant_id,order_id,occurred_at,id) 查询。原事件与首任务同事务；每次 HTTP 前提交游标与不同身份的后继任务。ACK 另开短事务。状态更新禁止修改 body/身份/原策略及非空路由指纹，不承担任何资金记账。未执行 DDL 或运行验收。
 
-### payment（15张新增表）
+### payment
 
 DDL草案：[payment.sql](schema/payment.sql)。
 
@@ -666,34 +666,9 @@ DDL草案：[payment.sql](schema/payment.sql)。
 - `KEY ix_refund_query (tenant_id,state,next_query_at,id)`
 - CHECK `amount_minor > 0`
 
-#### `merchant_notification_delivery`
+#### 退款商户通知所有权
 
-该服务独立的商户语义通知投递；相同事件重试body不变。
-
-以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
-
-| 列                  | 类型/约束                   | 说明                                                                |
-|---------------------|-----------------------------|---------------------------------------------------------------------|
-| `business_event_id` | `VARCHAR(64) NOT NULL`      | 商户去重eventId，与底层outboxId区分                                 |
-| `aggregate_id`      | `VARCHAR(64) NOT NULL`      | 订单/退款申请等                                                     |
-| `aggregate_version` | `BIGINT NOT NULL`           | 聚合业务版本                                                        |
-| `event_type`        | `VARCHAR(64) NOT NULL`      | PaymentSucceeded / OrderFullyPaid / OrderClosed / RefundSucceeded等 |
-| `payee_merchant_id` | `VARCHAR(64) NOT NULL`      | 通知归属                                                            |
-| `target_ref`        | `VARCHAR(128) NOT NULL`     | 经审核的不可变目标版本引用                                          |
-| `key_ref`           | `VARCHAR(128) NOT NULL`     | 原配置密钥引用/版本，禁止存私钥                                     |
-| `body_bytes`        | `MEDIUMBLOB NOT NULL`       | 固定UTF-8签名原始body字节，允许脱敏非秘密载荷                       |
-| `body_digest`       | `CHAR(64) NOT NULL`         | 原body摘要                                                          |
-| `policy_snapshot`   | `JSON NOT NULL`             | 超时/重试/窗口/签名策略                                             |
-| `state`             | `VARCHAR(24) NOT NULL`      | INIT / PENDING / ACKED / EXHAUSTED                                  |
-| `attempt_count`     | `INT NOT NULL DEFAULT 0`    | 投递尝试次数                                                        |
-| `next_attempt_at`   | `DATETIME(6) NULL`          | 当前投递调度                                                        |
-| `acknowledged_at`   | `DATETIME(6) NULL`          | 语义ACK成功                                                         |
-| `row_version`       | `BIGINT NOT NULL DEFAULT 0` | 投递状态CAS                                                         |
-
-约束/索引：
-
-- `UNIQUE KEY uk_notification_event_target (tenant_id,business_event_id,target_ref)`
-- `KEY ix_notification_pending (tenant_id,state,next_attempt_at,id)`
+payment 不建商户投递表。RefundProgressChange 的终态结果事务冻结独立 `pay.payment.refund.merchant.v1` Outbox；acquire 通过已认证内部 gRPC 接收，登记本服务 merchant_notification_delivery 和 refund_notification_receipt。此投影不写订单/付款/退款金额，不跨服务数据库事务。原 payment 侧独立投递表草案及 schema/payment.sql 占位已删除。
 
 ### customer（2张新增表）
 
@@ -1242,12 +1217,11 @@ payload_hash 含义不同。来源字段 provenance 保留在 product 原 compil
 
 `V20261021220000__checkout_session.sql` 新增本服务第5张表
 checkout_session，沿用第3节唯一键、token摘要/nonce/key引用/版本与原期限模型，scope_snapshot 实际使用 LONGTEXT。scope
-格式1保存原调用主体 hash、归一化回跳 code 与唯一 ORDER_SUMMARY 权限；allowed_origin 从可信托管URL计算且当前必填，expires_at
+格式1保存原调用主体 hash、归一化回跳 code 与 ORDER_SUMMARY/PAYMENT_START/PAYMENT_PROGRESS 三项权限；allowed_origin 从可信托管URL计算且当前必填，expires_at
 强制整秒。
 
 新会话在订单行锁内插入 ACTIVE（领域先 INIT 后激活，合并于同一事务），不与原订单A1混为一个跨请求事务。同 requestKey 不刷新
-nonce、密钥版本、期限或状态。鉴权依赖数据库原摘要与期限/状态，不依赖扫描器改 EXPIRED；暂未提供取消/撤销管理写入口。当前只需
-INSERT/查询，后续状态变更应沿订单→session 锁顺序及 row_version 进行。
+nonce、密钥版本、期限或状态。鉴权依赖数据库原摘要、期限/状态与独立 revoked_at 标记，不依赖扫描器改 EXPIRED。撤销管理与审计迁移见本文末节，沿订单→session 锁顺序及 row_version 执行。
 
 未执行迁移或真实并发验收；仍需验证同键争抢、订单终态竞态、租户隔离、回滚、密钥轮换和HTTP能力边界。
 
@@ -1688,4 +1662,71 @@ V20261024180000__merchant_notification_delivery.sql 与 design/schema/acquire.sq
 
 唯一键 (tenant_id,event_id,target_ref) 保留原事件；按订单与待投递游标索引查询。主体事务登记投递与首轮 native task；每次发送前同库事务 CAS 增加尝试和后继登记，发送后 ACK 单独事务更新。更新只触及游标、状态、首次指纹及 ACK 时间；不得覆盖原 body、身份或策略。route_fingerprint 一经非空不能变更。框架任务表持有运行租约，不复制为业务租约。
 
-INIT/PENDING/ACKED/EXHAUSTED 与 ACK 时间一致；next_attempt_at 在事件时刻与窗口截止内。body 为 MEDIUMTEXT 的固定 JSON，每次只做同一 UTF-8 编码不重新序列化，摘要按真正字节复核。实际 HTTP/签名在本地事务外。notification 表不承担资金账务，不把收包或框架任务完成当作商户 ACK。原支付端退款通知表和人工重放审计仍待实现。
+INIT/PENDING/ACKED/EXHAUSTED 与 ACK 时间一致；next_attempt_at 在事件时刻与窗口截止内。body 为 MEDIUMTEXT 的固定 JSON，每次只做同一 UTF-8 编码不重新序列化，摘要按真正字节复核。实际 HTTP/签名在本地事务外。notification 表不承担资金账务，不把收包或框架任务完成当作商户 ACK。退款通知复用 acquire 此表；人工重放审计仍待实现。
+
+
+## 2026-10-24 退款商户通知接收回执
+
+实际迁移 `V20261024190000__refund_notification_receipt.sql` 与 schema/acquire.sql 同步。除 BaseDO 五字段，保存 delivery_id/business_event_id/aggregate_id/source_version/order_id/payee_merchant_id/request_digest/caller_service_id/merchant_event_id/disposition/accepted_at。tenant/deliveryId 唯一，tenant/orderId/acceptedAt/id 查询索引；sourceVersion>0，disposition 为 ENQUEUED/DISABLED。本地审计时间 DATETIME(6)，不保存渠道原文、凭证、完整签名或响应。
+
+这是该用例的业务 Inbox：原订单锁、子退款对应的已消费 payment allocation 核对、原合约策略、固定商户正文、首轮 native delayedtask 和接收回执同库事务提交。付款成功投影晚到时返回依赖未就绪，不登记回执；交易终态不被通知处理修改。租户来自 SERVICE JWT；receipt 绑定调用服务及完整类型化信封摘要，同 delivery 改参拒绝，重放直接回放首次 ACK。不同内部 delivery 对同一商户事件仍复用 eventId/target 唯一约束。
+
+payment 保持独立数据库和退款结果/容量/Outbox 事务；内部 ACK 只表示 acquire 已登记或原策略禁用，商户的语义 ACK 由现有投递状态机单独管理。DDL、注解处理、测试与真实数据库回滚/并发未执行，等待用户恢复验证。
+
+
+## 2026-10-24 商户通知运营审计
+
+实际迁移 V20261024200000__merchant_notification_operations.sql 为 merchant_notification_delivery 增加 (tenant_id,payee_merchant_id,occurred_at,id) 查询索引，并新建 merchant_notification_wake_receipt；schema/acquire.sql 同步完整建表形态，未执行 DDL。
+
+除 BaseDO 五字段，审计表保存 delivery_id/event_id/request_key/caller_scope_hash/principal_type/principal_id/reason/request_digest/result/attempt_count/delivery_version/native_task_id/accepted_at。tenant/callerScopeHash/requestKey 唯一，tenant/deliveryId/acceptedAt/id 查询索引。运营主体只允许 OPERATOR/SERVICE；版本与次数非负，result 有固定 CHECK。请求键最长128、原因最长500、主体最长128；时间为系统本地 DATETIME(6)。reason 仅运营审计读取、诊断隐藏，不记录 token/私钥/原通知正文或 native 错误。
+
+callerScopeHash 由已认证 tenant/principalType/subject 形成稳定身份，不绑定短期 bearer；requestDigest 覆盖投递 ID、请求键、原观察版本和原因。先按唯一身份重放首次结果，再锁通知行检查新操作版本；业务锁保护当前代次，调用框架原任务 register/retryFailed/reschedule 后写回执，同 DataSource 本地事务提交。失败的唯一键竞争沿用 READ_COMMITTED 整体有限重试。通知 body/策略/来源版本/账户路由/业务次数预算和窗口不被运维修改。
+
+查询按可信租户显式过滤 deleted=0，商户分页额外要求已验证 payeeMerchantId；其他商户的详情对外为 NOT_FOUND。任务的运行租约不在运营事务里强制清除；原生 FAILED 尝试计数可由组件重置，业务 attemptCount 仍由发送状态机在真正开始发送前增加且受原 maxAttempts 限制。SUCCEEDED 的当前代次异常不自动重建任务。真实任务/审计原子回滚、唯一键竞争、多 Pod 租约/崩溃演练仍需 MySQL 与运行验收。
+
+
+## 2026-10-24 收银台付款持久边界
+
+不新增付款或用户表。复用 checkout_session 的 scope_snapshot（schemaVersion=1，原 owner/hash、审核 return target 与 ORDER_SUMMARY/PAYMENT_START/PAYMENT_PROGRESS），新预占在原订单锁后锁 session 校验；不持锁调用 payment。初期直接替换只读 scope 约束，未给存量只读能力做自动升级或兼容读取，没有执行数据库变更。
+
+order_payment_allocation 的原 (tenant,order,actorScope,actionKey) 唯一约束沿用；托管 actorScope=checkout/sessionId，merchant scope 不变。caller_scope_hash 继续绑定原订单归属，原执行意图/金额/币种/收款商户冻结，同 session/actionKey 重放同一 allocation/payment。服务端场景只经原 payment 输入准备加密保存，acquire 本地只附加不透明 inputRef，不保存浏览器 IP/OpenID。
+
+原结果/关单/事件核对持久 scope、owner/hash 与意图；checkout scope 不要求仍有 ACTIVE 浏览器会话，避免会话过期阻塞金融事实收敛。新会话 HTTP 操作仍必须通过 capability 校验。源码和测试源码未编译/运行，真实并发金额占用、会话锁、回滚与期限竞态仍待验收。
+
+
+## 收银台永久撤销与审计（2026-10-24）
+
+迁移源码 `V20261024210000__checkout_session_revocation.sql` 为 checkout_session 增加 nullable
+`revoked_at DATETIME(6)`，并约束非空时 row_version>0。它是独立的安全标记，不属于 session 的业务状态机。
+首次撤销仅通过租户/id/deleted=0/期望 row_version/revoked_at IS NULL 条件更新 revoked_at 与 row_version；
+原 token_hash、nonce、密钥版本、订单归属、scope、到期时间与业务状态不变，没有清空标记的 Gateway 方法。
+设计全量表草案同步在 design/schema/acquire.sql；没有实际执行 DDL。
+
+新增 `checkout_session_revocation_receipt`，包含 BaseDO 五字段与 session_id、order_id、request_key、
+caller_scope_hash、request_digest、reason、newly_revoked、before_version、session_version、revoked_at、accepted_at。
+唯一键 `(tenant_id,caller_scope_hash,request_key)` 保护原请求；历史索引 `(tenant_id,session_id,accepted_at,id)`
+支持按 accepted_at/id 倒序分页。原因诊断隐藏；审计响应只给原签发主体。
+
+CHECK 保证首次撤销 version 差为1、重复撤销版本不变、版本正值及布尔标记合法。
+revoked_at 保留首次时间，accepted_at 表示当前独立审计请求的本地接受时间；不以两台应用墙钟顺序推导幂等性。
+时间均沿用系统本地时区和 DATETIME(6)。DO 继承 BaseDO，Mapper/TableDef 由数据库处理器生成，转换由 MapStruct 执行。
+
+本地 READ_COMMITTED 事务锁原订单再锁会话，核对原签发者与商户，锁后再读请求回执，随后 CAS 标记与插入回执同事务。
+唯一键/瞬态冲突沿用有限重试；审计写失败必须回滚，不能返回成功。新付款预占采用相同锁序并检查标记，
+撤销提交前已落 A2 的意图继续沿原链路收敛，不修改金融数据。真实 MySQL 的回滚、唯一键与锁竞态尚未验证。
+
+
+### 原 actionKey 恢复查询（2026-10-24）
+
+收银台恢复复用 order_payment_allocation 的 `(tenant_id,order_id,actor_scope,action_key)` 原有唯一范围与固定 intent_payload，
+不新增表或 DDL。订单→session 锁内读本会话原预占，校验原 owner/金额/渠道选择/准入；本次不写金额、次数或原命令。
+安全输入已绑定才在事务外重放原幂等受理，再沿既有支付结果事务落 A3/费用/Outbox。
+本地缺记录不制造 NOT_ACCEPTED 证据；远端输入准备到本地绑定间的回复丢失已由精确 InputLookup 接通；到期后的有证据关闭与运行验收继续待办。
+
+
+### 原安全输入引用的补绑（2026-10-24）
+
+InputLookup 复用 payment_input 原 `(tenant_id,payment_id)` 唯一查询，无新表/迁移，不清理或覆写过期行。
+provider 核对 callerServiceId 与完整原意图范围，不解密、不改 INIT/BOUND 和期限；acquire 复用已有 attachInput Gateway，
+在订单→session 锁内重读原 allocation 并仅更新 preparedInputRef 对应的固定命令载荷/摘要/row_version。
+金额、次数、原请求摘要及金融标识不变，同引用并发重放，不同引用冲突。数据与真实数据库并发验收仍未执行。

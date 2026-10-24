@@ -70,3 +70,18 @@ button:disabled {
 #message {
     line-height: 1.6;
 }
+
+[hidden] { display: none !important; }
+form, #payment-operation { margin-top: 24px; padding-top: 8px; border-top: 1px solid #edf1f4; }
+label { display: block; margin: 16px 0 8px; font-weight: 600; }
+input, select { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px;
+    border: 1px solid #b8c9d2; border-radius: 8px; background: #fff; color: inherit; font: inherit; }
+input[readonly], select:disabled { background: #f3f6f8; }
+button, .primary-link { min-height: 44px; font: inherit; }
+.primary-link { display: inline-block; box-sizing: border-box; margin: 16px 12px 0 0; padding: 12px 20px;
+    border-radius: 8px; color: #fff; background: #175e79; text-decoration: none; }
+.secondary { background: #edf3f6; color: #175e79; }
+.hint { font-size: 14px; color: #536b78; line-height: 1.7; overflow-wrap: anywhere; }
+:focus-visible { outline: 3px solid #c17b12; outline-offset: 3px; }
+@media (max-width: 480px) { body { padding: 16px 10px; } main { padding: 20px 16px; }
+    button, .primary-link { width: 100%; text-align: center; } }

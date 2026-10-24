@@ -25,6 +25,11 @@ import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
+import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
@@ -65,6 +70,7 @@ public class PaymentControlService implements PaymentControlFacade {
     private final PaymentAcceptanceGateway gates;
     private final PaymentControlGateway store;
     private final PaymentAttemptGateway attempts;
+    private final PaymentInputGateway inputs;
     private final PaymentAcceptanceCodec codec;
     private final PaymentAcceptanceConverter payments;
     private final PaymentControlConverter converter;
@@ -80,6 +86,7 @@ public class PaymentControlService implements PaymentControlFacade {
             PaymentAcceptanceGateway gates,
             PaymentControlGateway store,
             PaymentAttemptGateway attempts,
+            PaymentInputGateway inputs,
             PaymentAcceptanceCodec codec,
             PaymentAcceptanceConverter payments,
             PaymentControlConverter converter,
@@ -93,6 +100,7 @@ public class PaymentControlService implements PaymentControlFacade {
         this.gates = gates;
         this.store = store;
         this.attempts = attempts;
+        this.inputs = inputs;
         this.codec = codec;
         this.payments = payments;
         this.converter = converter;
@@ -166,115 +174,116 @@ public class PaymentControlService implements PaymentControlFacade {
     public PaymentCloseDTO close(PaymentCloseCommand command) {
         validate(command);
         var actor = actor("pay:payment:close");
-        return transactions.write(actor.tenantId(), () -> {
-            validateIds(command.orderId(), command.payeeMerchantId(), command.requestKey());
-            DomainChecks.id(command.paymentId());
-            DomainChecks.text(command.reasonCode(), 64);
-            String digest = digest(
-                    actor,
-                    "PAYMENT_CLOSE",
-                    command.orderId(),
-                    command.paymentId(),
+        return transactions.write(actor.tenantId(), () -> closeLocked(actor, command));
+    }
+
+    private PaymentCloseDTO closeLocked(PaymentActor actor, PaymentCloseCommand command) {
+        validateIds(command.orderId(), command.payeeMerchantId(), command.requestKey());
+        DomainChecks.id(command.paymentId());
+        DomainChecks.text(command.reasonCode(), 64);
+        String digest = digest(
+                actor,
+                "PAYMENT_CLOSE",
+                command.orderId(),
+                command.paymentId(),
+                command.payeeMerchantId(),
+                command.requestKey(),
+                command.fenceEpoch(),
+                command.reasonCode());
+        var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
+        prior.ifPresent(value -> checked(value, actor, digest));
+        parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
+        var current = gates.lockPayment(actor.tenantId(), command.paymentId());
+        if (current.isEmpty() && prior.isPresent()) throw new CommonException(SNAPSHOT_INVALID);
+        StoredPaymentGate next;
+        if (current.isPresent()) {
+            checkBinding(current.get(), actor, command.orderId(), command.payeeMerchantId(), command.paymentId());
+            next = current.get();
+        } else {
+            next = new StoredPaymentGate(
+                    ids.generate(),
                     command.payeeMerchantId(),
-                    command.requestKey(),
-                    command.fenceEpoch(),
-                    command.reasonCode());
-            var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
-            prior.ifPresent(value -> checked(value, actor, digest));
-            parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
-            var current = gates.lockPayment(actor.tenantId(), command.paymentId());
-            if (current.isEmpty() && prior.isPresent()) throw new CommonException(SNAPSHOT_INVALID);
-            StoredPaymentGate next;
+                    actor.serviceId(),
+                    PaymentExecutionGate.init(command.orderId(), command.paymentId())
+                            .fence(command.fenceEpoch()),
+                    0);
+            gates.insertPaymentGate(actor.tenantId(), next);
+        }
+        prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
+        var payment = store.lockPayment(actor.tenantId(), command.paymentId());
+        payment.ifPresent(value -> checkPayment(value, actor, command));
+        if (prior.isPresent()) {
+            checked(prior.get(), actor, digest);
+            requireFence(next, prior.get().requestedEpoch());
+            return response(command, next, payment.orElse(null), prior.get().noCollectionEvidenceId());
+        }
+        var fenced = fence(next, command.fenceEpoch());
+        if (fenced != next) store.updateGate(actor.tenantId(), fenced, next.rowVersion());
+        String evidence = null;
+        if (payment.isEmpty()) {
             if (current.isPresent()) {
-                checkBinding(current.get(), actor, command.orderId(), command.payeeMerchantId(), command.paymentId());
-                next = current.get();
-            } else {
-                next = new StoredPaymentGate(
+                // A gate without its payment is not sufficient proof of never having collected funds.
+                var proof = store.findNoCollectionReceipt(actor.tenantId(), command.paymentId())
+                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                if (!proof.orderId().equals(command.orderId())
+                        || !proof.payeeMerchantId().equals(command.payeeMerchantId())
+                        || !proof.callerServiceId().equals(actor.serviceId()))
+                    throw new CommonException(SNAPSHOT_INVALID);
+                evidence = proof.noCollectionEvidenceId();
+            } else evidence = ids.generate();
+        } else {
+            var previous = payment.get();
+            var order = previous.payment();
+            if (order.state() == PaymentState.INIT && order.version() == 0 && order.activeAttemptId() == null) {
+                evidence = ids.generate();
+                var closed = order.requestClose().close(new NoCollectionEvidence(evidence, order.id(), true));
+                var updated = converter.withPayment(previous, closed, evidence);
+                store.updatePayment(actor.tenantId(), updated, order.version());
+                events.publish(actor.tenantId(), updated, true, now());
+                payment = Optional.of(updated);
+            } else if (order.state() == PaymentState.INIT
+                    || order.state() == PaymentState.PROCESSING
+                    || order.state() == PaymentState.UNKNOWN) {
+                var unsubmitted = order.activeAttemptId() == null ? Optional.<StoredPaymentAttempt>empty()
+                        : attempts.lock(actor.tenantId(), order.activeAttemptId());
+                var updatedOrder = order.requestClose();
+                if (unsubmitted.isPresent() && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
+                        && unsubmitted.get().attempt().executionEpoch() == 0) {
+                    var attempt = unsubmitted.get();
+                    if (!order.id().equals(attempt.attempt().paymentId())
+                            || !order.amount().equals(attempt.attempt().amount())
+                            || !order.payeeMerchantId().equals(attempt.attempt().binding().payeeMerchantId())
+                            || !order.limitOperationId().equals(attempt.limitOperationId())
+                            || !previous.requestDigest().equals(attempt.paymentRequestDigest())
+                            || !actor.serviceId().equals(attempt.callerServiceId()))
+                        throw new CommonException(SNAPSHOT_INVALID);
+                    evidence = ids.generate();
+                    attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
+                    updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
+                }
+                var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
+                store.updatePayment(actor.tenantId(), updated, order.version());
+                if (updatedOrder.state() == PaymentState.CLOSED)
+                    events.publish(actor.tenantId(), updated, true, now());
+                payment = Optional.of(updated);
+            } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)
+                evidence = previous.terminalEvidenceId();
+        }
+        store.insertReceipt(
+                actor.tenantId(),
+                new PaymentControlReceipt(
                         ids.generate(),
+                        "PAYMENT_CLOSE",
+                        command.paymentId(),
+                        command.orderId(),
                         command.payeeMerchantId(),
                         actor.serviceId(),
-                        PaymentExecutionGate.init(command.orderId(), command.paymentId())
-                                .fence(command.fenceEpoch()),
-                        0);
-                gates.insertPaymentGate(actor.tenantId(), next);
-            }
-            prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
-            var payment = store.lockPayment(actor.tenantId(), command.paymentId());
-            payment.ifPresent(value -> checkPayment(value, actor, command));
-            if (prior.isPresent()) {
-                checked(prior.get(), actor, digest);
-                requireFence(next, prior.get().requestedEpoch());
-                return response(command, next, payment.orElse(null), prior.get().noCollectionEvidenceId());
-            }
-            var fenced = fence(next, command.fenceEpoch());
-            if (fenced != next) store.updateGate(actor.tenantId(), fenced, next.rowVersion());
-            String evidence = null;
-            if (payment.isEmpty()) {
-                if (current.isPresent()) {
-                    // A gate without its payment is not sufficient proof of never having collected funds.
-                    var proof = store.findNoCollectionReceipt(actor.tenantId(), command.paymentId())
-                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                    if (!proof.orderId().equals(command.orderId())
-                            || !proof.payeeMerchantId().equals(command.payeeMerchantId())
-                            || !proof.callerServiceId().equals(actor.serviceId()))
-                        throw new CommonException(SNAPSHOT_INVALID);
-                    evidence = proof.noCollectionEvidenceId();
-                } else evidence = ids.generate();
-            } else {
-                var previous = payment.get();
-                var order = previous.payment();
-                if (order.state() == PaymentState.INIT && order.version() == 0 && order.activeAttemptId() == null) {
-                    evidence = ids.generate();
-                    var closed = order.requestClose().close(new NoCollectionEvidence(evidence, order.id(), true));
-                    var updated = converter.withPayment(previous, closed, evidence);
-                    store.updatePayment(actor.tenantId(), updated, order.version());
-                    events.publish(actor.tenantId(), updated, true, now());
-                    payment = Optional.of(updated);
-                } else if (order.state() == PaymentState.INIT
-                        || order.state() == PaymentState.PROCESSING
-                        || order.state() == PaymentState.UNKNOWN) {
-                    var unsubmitted = order.activeAttemptId() == null ? Optional.<StoredPaymentAttempt>empty()
-                            : attempts.lock(actor.tenantId(), order.activeAttemptId());
-                    var updatedOrder = order.requestClose();
-                    if (unsubmitted.isPresent() && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
-                            && unsubmitted.get().attempt().executionEpoch() == 0) {
-                        var attempt = unsubmitted.get();
-                        if (!order.id().equals(attempt.attempt().paymentId())
-                                || !order.amount().equals(attempt.attempt().amount())
-                                || !order.payeeMerchantId().equals(attempt.attempt().binding().payeeMerchantId())
-                                || !order.limitOperationId().equals(attempt.limitOperationId())
-                                || !previous.requestDigest().equals(attempt.paymentRequestDigest())
-                                || !actor.serviceId().equals(attempt.callerServiceId()))
-                            throw new CommonException(SNAPSHOT_INVALID);
-                        evidence = ids.generate();
-                        attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
-                        updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
-                    }
-                    var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
-                    store.updatePayment(actor.tenantId(), updated, order.version());
-                    if (updatedOrder.state() == PaymentState.CLOSED)
-                        events.publish(actor.tenantId(), updated, true, now());
-                    payment = Optional.of(updated);
-                } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)
-                    evidence = previous.terminalEvidenceId();
-            }
-            store.insertReceipt(
-                    actor.tenantId(),
-                    new PaymentControlReceipt(
-                            ids.generate(),
-                            "PAYMENT_CLOSE",
-                            command.paymentId(),
-                            command.orderId(),
-                            command.payeeMerchantId(),
-                            actor.serviceId(),
-                            command.requestKey(),
-                            digest,
-                            command.fenceEpoch(),
-                            command.reasonCode(),
-                            evidence));
-            return response(command, fenced, payment.orElse(null), evidence);
-        });
-    }
+                        command.requestKey(),
+                        digest,
+                        command.fenceEpoch(),
+                        command.reasonCode(),
+                        evidence));
+        return response(command, fenced, payment.orElse(null), evidence);    }
 
     private PaymentCloseDTO response(
             PaymentCloseCommand command,
@@ -296,6 +305,52 @@ public class PaymentControlService implements PaymentControlFacade {
                 true,
                 payment == null ? null : payments.toDTO(payment),
                 evidence);
+    }
+
+    @Override
+    public PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command) {
+        validate(command);
+        var actor = actor("pay:payment:input:expire");
+        return transactions.write(actor.tenantId(), () -> {
+            DomainChecks.id(command.inputRef()); DomainChecks.id(command.paymentId()); DomainChecks.id(command.orderId());
+            DomainChecks.id(command.allocationId()); DomainChecks.id(command.payeeMerchantId()); DomainChecks.text(command.inputKey(), 128);
+            DomainChecks.positive(command.amountMinor()); DomainChecks.cnyAmount(command.amountMinor(), command.currency());
+            var close = converter.toInputExpiryClose(command);
+            // Coordinate with acceptance/Y2: parent -> child gate -> payment -> input.
+            parent(actor, command.orderId(), command.payeeMerchantId(), false);
+            var gate = gates.lockPayment(actor.tenantId(), command.paymentId());
+            gate.ifPresent(value -> checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
+            var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
+            var input = inputs.lock(actor.tenantId(), command.inputRef())
+                    .orElseThrow(() -> new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND));
+            if (!input.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!input.id().equals(command.inputRef()) || !input.paymentId().equals(command.paymentId())
+                    || !input.orderId().equals(command.orderId()) || !input.allocationId().equals(command.allocationId())
+                    || !input.payeeMerchantId().equals(command.payeeMerchantId()) || !input.inputKey().equals(command.inputKey())
+                    || input.amount().getCent() != command.amountMinor() || !input.amount().getCurrencyValue().equals(command.currency())
+                    || input.channel() != command.choice().channel() || input.method() != command.choice().method())
+                throw new CommonException(IDEMPOTENCY_CONFLICT);
+            if (accepted.isPresent()) {
+                var current = accepted.get();
+                checkPayment(current, actor, close);
+                var original = codec.decode(current);
+                if (gate.isEmpty() || !original.preparedInputRef().equals(command.inputRef())
+                        || !original.allocationId().equals(command.allocationId()) || original.amountMinor() != command.amountMinor()
+                        || !original.currency().equals(command.currency()) || !original.choice().equals(command.choice()))
+                    throw new CommonException(SNAPSHOT_INVALID);
+                // Input expiry cannot revoke an already accepted payment, including one currently in flight.
+                return converter.toInputExpiry(command, PaymentInputExpiryDisposition.PAYMENT_EXISTS, null);
+            }
+            if (input.state() != PaymentInputState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+            var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
+            if (!input.expired(now()) && prior.isEmpty())
+                return converter.toInputExpiry(command, PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+            // The same deterministic receipt also recovers a committed close whose reply was lost.
+            var closed = closeLocked(actor, close);
+            if (!closed.fenced() || closed.payment() != null || closed.noCollectionEvidenceId() == null)
+                throw new CommonException(SNAPSHOT_INVALID);
+            return converter.toInputExpiry(command, PaymentInputExpiryDisposition.EXPIRED_CLOSED, closed);
+        });
     }
 
     private StoredPaymentGate parent(PaymentActor actor, String orderId, String payee, boolean replay) {

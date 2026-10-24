@@ -17,7 +17,7 @@
 
 ```mermaid
 flowchart LR
-    U[上游 channel / method / bindingCode] --> P[payment 合约校验与原绑定冻结]
+    U[上游 channel / method] --> P[payment 合约路由配置与原绑定冻结]
     P --> G[PaymentChannelGateway]
     G --> F[ChannelPaymentFacade]
     F --> R[不可变 Provider 注册表]
@@ -33,14 +33,14 @@ flowchart LR
 
 - **Facade**：`ChannelPaymentFacade` 统一预检、提交、查单、恢复、关单和退款；回调使用独立的 `ChannelNotificationFacade`。
 - **Strategy**：每个渠道实现 `ChannelProvider`，通过 `channel()` 声明所属渠道。同一策略处理直连/服务商及商户/子商户差异。
-- **Registry**：Spring 收集策略构造不可变 Channel→Provider 映射；相同渠道重复注册即失败。缺少策略或能力时明确拒绝，没有默认渠道或跨账户回退。
+- **Registry**：Spring 收集策略，由 `ChannelStrategyRegistry` 构造不可变 Channel→Provider 映射，支付和通知 Facade 共用注册规则；相同渠道重复注册即失败。缺少策略或能力时明确拒绝，没有默认渠道或跨账户回退。注册后的映射不随原集合变更。
 - **Adapter**：`PaymentChannelGatewayImpl` 只把支付领域调用桥接到 Facade；插件内部的适配器负责厂商报文和协议语义。
 
 账户身份通过多态提供 `channel()`、`accessMode()`、`collectingAccountId()`。支付宝以 sellerId、微信直连以 merchantId、微信服务商以 subMerchantId 表示实际收款主体。payment 根据统一接口计算账户作用域摘要，不按厂商类型分支计算；切换应用或凭证版本不能改变同一实际收款主体的资金唯一性范围。
 
 ## 路由与交易约束
 
-1. 上游指定 `PaymentChoice(channel, method, bindingCode)`；payment 按商户合约和绑定选择，冻结 channel、binding revision、账户作用域和支付方式。
+1. 上游指定 `PaymentChoiceDTO(channel, method)`；payment 根据已准入合约的 `routingProfileRef` 获取有序 `bindingCode`/接入模式规则，选择商户绑定，冻结 channel、binding revision、账户作用域和支付方式。调用方不能直接指定密钥或绑定版本。
 2. 基础设施使用可信租户加载原 revision，构造 `ChannelExecutionContext`；请求不能提供任意渠道 URL 或密钥路径。
 3. Facade 按请求原身份的 channel 选择策略，并核验租户、原绑定和账户作用域。付款预检/提交还核验支付方式能力。
 4. 插件解析原绑定并处理协议，返回统一观察与可选唤起动作；Facade 核验结果属于原身份和原金额。
@@ -53,6 +53,10 @@ flowchart LR
 ## 扩展方式与当前边界
 
 新增渠道时增加 `channel-{vendor}`、对应类型化契约和 Provider 自动装配，在 bootstrap 引入插件并配置。新渠道不需要修改 Facade 的路由分支。涉及新的公开账户或动作结构时，同步更新 API/客户端 DTO/Protobuf/MapStruct 和白名单快照编码；这些属于表示契约，不承担支付选路或厂商协议执行。
+
+bootstrap 通过 runtime 依赖装配 core 和具体插件；payment 业务模块的编译依赖只到 channel-api。付款、退款和回调均通过 Facade 调用策略，渠道 HTTP operation、凭证解析、签名验签和原生 ACK 归各插件。
+
+通用回调 Controller 不维护厂商签名头白名单，只采集原始 body 和有界、多值 HTTP headers。上限为 64 个头名称、每个名称 8 个值、单值 2048 字符、全部值 16384 字符，body 上限为 65536 字节；超限拒绝，不截断签名字段。ChannelNotificationInput 统一大小写并保留重复值，插件选择自己的协议头并拒绝不允许的重复签名。HTTP headers 始终是不可信输入，不能提供租户、渠道、商户或密钥路由；endpointRef 对应的服务端配置和原交易冻结绑定决定这些身份。原始 headers/body 在诊断输出中隐藏。
 
 支付宝已有付款码/JSAPI、查询、关闭、退款和回调策略源码；H5 待实现。微信已条件注册直连/服务商 JSAPI/H5、查询/关闭及普通退款 Provider，支付通知已有原字节验签/解密与 Y3 接线，退款通知也已接独立退款结果流程；付款码与异常退款处置待实现。H5 的场景映射、固定 operation 与官方跳转 URL 校验属于微信插件；payment 只传类型化输入和保存统一动作。银联待确定产品和接入机构后增加独立插件。上述源码未运行编译、测试或真实渠道验收。
 

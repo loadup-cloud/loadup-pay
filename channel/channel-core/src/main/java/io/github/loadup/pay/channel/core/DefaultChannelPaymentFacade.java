@@ -16,31 +16,21 @@
 package io.github.loadup.pay.channel.core;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
 import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.Collection;
-import java.util.EnumMap;
-import java.util.Map;
 
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
 /** Immutable strategy registry; routing does not contain provider-specific branches. */
 public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
-    private final Map<Channel, ChannelProvider> providers;
+    private final ChannelStrategyRegistry<ChannelProvider> providers;
 
     public DefaultChannelPaymentFacade(Collection<ChannelProvider> candidates) {
-        if (candidates == null) throw new CommonException(INVALID_ARGUMENT);
-        var registered = new EnumMap<Channel, ChannelProvider>(Channel.class);
-        for (var candidate : candidates) {
-            if (candidate == null || candidate.channel() == null) throw new CommonException(INVALID_ARGUMENT);
-            if (registered.putIfAbsent(candidate.channel(), candidate) != null)
-                throw new CommonException(DUPLICATE_PROVIDER);
-        }
-        providers = Map.copyOf(registered);
+        providers = new ChannelStrategyRegistry<>(candidates, ChannelProvider::channel);
     }
 
     @Override
@@ -97,8 +87,7 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     @Override
     public boolean canRefund(PreparedChannelRefund refund) {
         if (refund == null) throw new CommonException(INVALID_ARGUMENT);
-        var provider = providers.get(refund.original().channel());
-        return provider != null && provider.canRefund(refund);
+        return providers.find(refund.original().channel()).map(provider -> provider.canRefund(refund)).orElse(false);
     }
 
     @Override
@@ -137,9 +126,7 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (binding.channel() != identity.channel() || !binding.id().equals(identity.bindingRevisionId())
                 || !binding.accountScopeHash().equals(identity.accountScopeHash()))
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
-        var provider = providers.get(identity.channel());
-        if (provider == null) throw new CommonException(UNSUPPORTED_CAPABILITY);
-        return provider;
+        return providers.require(identity.channel());
     }
 
     private PaymentObservation checked(ChannelPaymentIdentity identity, PaymentObservation result) {

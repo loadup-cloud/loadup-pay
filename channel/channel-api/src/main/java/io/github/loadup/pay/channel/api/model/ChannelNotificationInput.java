@@ -28,15 +28,17 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 /** Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings. */
 public record ChannelNotificationInput(String contentType, @DiagnosticHidden Map<String, List<String>> headers, @DiagnosticHidden byte[] body) {
     public static final int MAX_BODY_BYTES = 65536;
+    public static final int MAX_HEADER_NAMES = 64;
+    public static final int MAX_HEADER_VALUES = 8;
     public ChannelNotificationInput {
         DomainChecks.text(contentType, 256);
         require(body != null && body.length > 0 && body.length <= MAX_BODY_BYTES, INVALID_ARGUMENT);
-        require(headers != null && headers.size() <= 16, INVALID_ARGUMENT);
+        require(headers != null && headers.size() <= MAX_HEADER_NAMES, INVALID_ARGUMENT);
         var normalized = new HashMap<String, List<String>>();
         int length = 0;
         for (var entry : headers.entrySet()) {
-            require(entry.getKey() != null && entry.getKey().matches("[A-Za-z0-9-]{1,64}")
-                    && entry.getValue() != null && !entry.getValue().isEmpty() && entry.getValue().size() <= 8, INVALID_ARGUMENT);
+            require(entry.getKey() != null && entry.getKey().matches("[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}")
+                    && entry.getValue() != null && !entry.getValue().isEmpty() && entry.getValue().size() <= MAX_HEADER_VALUES, INVALID_ARGUMENT);
             for (var value : entry.getValue()) {
                 require(value != null && value.length() <= 2048 && value.chars().noneMatch(Character::isISOControl), INVALID_ARGUMENT);
                 length += value.length();

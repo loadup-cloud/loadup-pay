@@ -203,7 +203,7 @@ token类。
 `sessionId + "." + base64url_no_padding(HMAC)`
 ；入站恒定时间比较摘要、检查数据库状态和expiresAt，再建立该订单scope。sessionId可由框架IdGenerator生成，tokenNonce使用安全随机源的32字节并以Hex保存；HMAC密钥不下发浏览器或SDK。expiry对齐到秒；数据库记录确切同一值，不能每次重试重新计算到期时间。
 
-同session重放生成完全相同token/期限；会话过期或撤销后不能因重新签出token而恢复权限。旧Secret版本保留至对应会话最长有效期/重试期结束；紧急撤销可取消对应session，轮换新session使用新版本。
+同session重放生成完全相同token/期限；会话过期或撤销后不能因重新签出token而恢复权限。旧Secret版本保留至对应会话最长有效期/重试期结束；单链接撤销使用独立 revoked_at 永久标记，保留业务终态；新签发的 session 使用当前密钥版本。
 
 ## 3. product与customer：准入和授权
 
@@ -691,20 +691,19 @@ REJECTED/EXPIRED，之后同号重试固定拒绝。A1订单/快照/INIT整单�
 当前不注册全量 AcquireOrderFacade 实现，不暴露 directPay/startPayment/close/extend 占位接口；Checkout
 已按第19节实现。自动关单、事件、付款结果和真正收款验收仍待实施。运行和证据边界见[acquire说明](../acquire/README.md)。
 
-## 18. 原单 Checkout 会话与只读 Cashier 首批适配
+## 18. 原单 Checkout 会话与 Cashier 适配
 
 POST `/api/acquire/session/create` 实现 CheckoutSessionFacade.create，要求原商户主体和 pay:acquire:session；POST
 `/api/cashier/order/summary` 实现 CashierSummaryFacade.summary，依赖 Authorization 会话能力及 X-Checkout-Tenant
-定位值，IdQuery 必须属于已验证 scope。GET `/checkout` 与两项本地静态资源提供同源只读页面。完整 CashierFacade 继承摘要切片，尚未注册
-startPayment/paymentProgress 实现。
+定位值，IdQuery 必须属于已验证 scope。GET `/checkout` 已有 H5 手动付款/原动作恢复与进度页面源码；CashierFacade 注册 startPayment/paymentProgress，使用相同会话能力，接口见本文末尾的收银台付款接线与页面补充。
 
 独立续发使用 create→session.create 两步；CheckoutCreateCommand 一步创单/A1同事务签发见第19节。签发按原订单/冻结条款进行，普通合约停单不重新判定；同
 requestKey 返回同 session/token/expiry，不因过期、取消或订单终态而重开会话；新 requestKey 只允许仍可续付订单。returnTargetCode
 为原合约默认或同一审核 code，不能指定任意 URL。
 
-scope 版本1仅 ORDER_SUMMARY。opaque token 沿用2.5 HMAC协议，nonce/密钥引用和版本持久化，固定期限按秒对齐。恒定时间匹配原摘要并检查
-ACTIVE/COMPLETED、严格未过期、Origin 后，才建立订单scope；查询后再次检查期限。其他 cashier API 拒绝，商户API仍用框架JWT。PAID/CLOSED
-可只读，摘要不含条款/凭证，choices 暂为空。详见[acquire运行说明](../acquire/README.md)。
+scope 版本1现在冻结 ORDER_SUMMARY/PAYMENT_START/PAYMENT_PROGRESS，权限仅限原订单和本会话付款。opaque token 沿用2.5 HMAC协议，nonce/密钥引用和版本持久化，固定期限按秒对齐。恒定时间匹配原摘要并检查
+ACTIVE/COMPLETED、严格未过期、Origin 后，才建立订单scope；查询后再次检查期限。只放行摘要、付款发起与本会话进度三类 POST，其他 cashier API 拒绝；商户API仍用框架JWT。PAID/CLOSED
+可只读，摘要不含条款/凭证，choices 是原合约与显式启用托管能力的交集。详见[acquire运行说明](../acquire/README.md)。
 
 ## 19. Checkout 一步创单实际适配
 
@@ -726,7 +725,7 @@ FailureResponse，凭证响应设置 no-store。
 
 商户订单幂等身份与普通 create 共用，入口类型不同即冲突；Checkout 的原始 returnTargetCode（省略值也固定）参与摘要及载荷比较。原生
 ORDER 的摘要版本及持久 JSON 不变。A0 固定 orderId/initialSessionId，A1 同事务写订单/条款/费用/首次 ACTIVE
-会话和完成标记；网络准入不占本地事务。首次会话不发起渠道支付，scope 仍仅 ORDER_SUMMARY。
+会话和完成标记；网络准入不占本地事务。首次会话不直接发起渠道支付，scope 授予原订单摘要/本会话付款发起/进度；仍需用户显式付款操作。
 
 同号同参重试返回当前订单视图和原 sessionId/checkoutUrl/sessionExpiresAt，不是重建订单或刷新会话；订单视图可随后续交易推进。过期/取消/终态不续期，密钥不可用返回
 SESSION_UNAVAILABLE，原首次会话缺失返回 SNAPSHOT_INVALID。独立 `/api/acquire/session/create` 的新 requestKey
@@ -800,7 +799,7 @@ payment.accept。remaining、min/max、尾款及成功笔数（含占用）统�
 actionKey 并同参重试；不同 key 会产生另一笔占用。非 HELD 的原动作只读既有付款，不另建记录。
 
 出站使用独立 SERVICE JWT 挂载文件和固定 payment HTTP 目标，拒绝未配置的租户；商户凭证不转发。权限 pay:payment:accept/read 由
-payment 校验。只读 cashier 的 scope 与接口保持独立。
+payment 校验。cashier 的会话能力与商户 JWT 接口保持独立，付款共用原 A2 编排。
 
 ## 23. 权威结果刷新与金额收敛实际适配
 
@@ -852,7 +851,7 @@ key、改原因冲突。第一次请求已为 PAID/CLOSED 的订单不能另起�
 gross，不隐式退款或重开订单。
 
 资金刷新是写操作，其入参现统一使用 command 包下 PaymentProgressRefreshCommand (orderId,paymentId)，原 Query
-直接移除。收银台能力继续只读，未授予商户关闭或付款权限。本批未做验证。
+直接移除。收银台只授予原订单摘要/本会话付款发起/进度，不授予商户 API、关闭或退款权限。本批未做验证。
 
 ## 25. 原订单延期实际适配
 
@@ -1263,3 +1262,217 @@ PaymentSucceeded 的 sourceVersion 为原 paymentVersion，aggregateType=Payment
 eventId/body/occurredAt/原策略不可变，新增投递表与首任务同源事务，不对外暴露任意事件入队或发送 URL 接口。任务和签名细节见 [acquire 通知说明](../acquire/README.md)。语义 ACK 严格为2xx及两字段 {"eventId":"原事件","result":"SUCCESS"}，每次使用新的签名 nonce/timestamp，其他参数保持原冻结值。投递未 ACK 不能回滚已提交的收款事实，也不修改付款状态。
 
 目录以 tenant+不可变版本引用定位且绑定商户；实际请求只使用审核的固定 HTTPS POST operation，无 query。原应用/受众/显式 KMS key 版本、URI 和配置指纹绑定，不能由 payload 任意选密钥、目标或修改旧事件的路由。原生延迟任务的后继在发送前持久化，崩溃重放保持原事件；达到次数/窗口后 EXHAUSTED，运维审计重放接口、退款商户通知及目录发布验证后续补齐。新增源码和测试源码未执行验证或实际投递。
+
+
+## 退款商户通知实际契约（2026-10-24）
+
+| 内部方法 | 入参 | 返回 | 身份与权限 |
+| --- | --- | --- | --- |
+| AcquireRpc/RefundNotification | EventEnvelope&lt;RefundMerchantEventDTO&gt; | RefundNotificationAckDTO | 配置的 payment SERVICE + pay:acquire:refund:notification |
+
+payment 在原退款结果事务冻结独立 `pay.payment.refund.merchant.v1` Outbox，与费用、额度、realtime 分别投递和确认；非终态不生产商户退款事件。源数据包含 aggregateType、refundId、refundRequestId、paymentId、orderId、payeeMerchantId、merchantRefundNo、amountMinor、currency、state、succeededMinor、failedMinor、sourceVersion、succeededAt。信封 producer=payment/schemaVersion=1，aggregateId/version 必须匹配源数据。金额 CNY/int64，终态满足 succeededMinor+failedMinor=amountMinor。
+
+| 商户 eventType | aggregateType / aggregateId | 语义 |
+| --- | --- | --- |
+| RefundSucceeded | RefundOrder / refundId | 此固定子退款成功，全额为 succeededMinor，保留原渠道成功时刻 |
+| RefundFailed | RefundOrder / refundId | 此固定子退款已确定无退款，金额全计入 failedMinor；不把未知状态当失败 |
+| RefundRequestCompleted | RefundRequest / refundRequestId | 固定分配全部完成，SUCCEEDED/FAILED/PARTIAL_SUCCEEDED；子退款与付款 ID 为空，无单一 succeededAt |
+
+商户外部信封延续 eventId/eventType/schemaVersion/producer/aggregateType/aggregateId/aggregateVersion/occurredAt/data，退款 producer=payment；由 acquire 按原订单冻结的目标、签名身份和重试条款发送。data 不包含 sourceVersion（使用外层 aggregateVersion），其余为上述最小退款业务字段。amountMinor 是此子退款额或申请固定总额，不是减去退款后的原支付金额。订单和付款成功金额保持 gross，不改生命周期。
+
+eventId 为原租户、商户事件类型、源聚合 ID 与版本的确定性 SHA-256；与内部 deliveryId/businessEventId 及 native task ID 分开。不同子退款不能比较版本后丢弃；请求完成和子退款事件也无全局到达顺序，商户以 eventId 去重、按各自 aggregateId/version 收敛。
+
+内部 ACK 六字段为 deliveryId/businessEventId/aggregateId/sourceVersion/merchantEventId/disposition。ENQUEUED 表示 acquire 的回执、固定通知和首轮任务已同事务登记；DISABLED 表示原订单合约禁用通知。二者都不等于已送达，实际商户仍需返回严格的 2xx 与 `{"eventId":"原事件ID","result":"SUCCESS"}`。重试不重建正文、不切换原目标/密钥版本、不延长原结果事件窗口；每次签名使用新 nonce/timestamp。
+
+接收侧只接受已认证源事实投影，核对原订单/商户/CNY、原 gross 支付额与子退款的 CONSUMED allocation；付款投影未到则重试。此用例不执行金融写入，也不引入同步反查的跨服务可用性依赖；退款真实性仍由 payment 原金融结果/证据事务负责。原渠道成功时间和源审计时间各自保留，不能因两个系统时钟不同伪造先后关系。退款通知没有新增商户可调用的成功写入或登记 HTTP 入口。
+
+生产、投递、接收、类型化正文校验与测试源码已补；未运行编译、测试、DDL、真实 RPC 或通知发送。
+
+
+## 商户通知查询与运营唤醒（2026-10-24）
+
+| 外部 HTTP 方法 | Facade | 入参 | 返回 |
+| --- | --- | --- | --- |
+| POST /api/acquire/notifications/detail | MerchantNotificationQueryFacade.detail | IdQuery.id=deliveryId | SuccessResponse&lt;MerchantNotificationDTO&gt; |
+| POST /api/acquire/notifications/page | MerchantNotificationQueryFacade.page | MerchantNotificationPageQuery | PageResponse&lt;MerchantNotificationDTO&gt; |
+| POST /api/acquire/notifications/wake | MerchantNotificationOperationsFacade.wake | MerchantNotificationWakeCommand | SuccessResponse&lt;MerchantNotificationWakeDTO&gt; |
+| POST /api/acquire/notifications/wakes | MerchantNotificationOperationsFacade.wakes | MerchantNotificationWakePageQuery | PageResponse&lt;MerchantNotificationWakeDTO&gt; |
+
+这些是商户/运营 HTTP 入口，不新增内部业务 HTTP 或 gRPC 协议。Facade 分页复用 PageDTO，HTTP 分页保持顶层 data 数组和 pageInfo；响应均 no-store。商户 MERCHANT/MERCHANT_APP 凭证需 `pay:acquire:notification:read`，merchant_id 来自已验证 JWT。详情只返回同商户资源，其他商户为 NOT_FOUND；分页必须显式 payeeMerchantId 且与 JWT 匹配，不能用请求扩展商户范围。父商户跨子商户查询不隐式放开。
+
+运营 OPERATOR 或配置的 SERVICE（默认 pay-ops，主体须等于 service_id）需要 `pay:acquire:notification:manage`。只有这两类可信身份可唤醒和读取原因/操作者审计；普通商户即使有同名字权限也不能调用。运营查询仍限认证租户，分页按显式单商户过滤。缺失权限、非配置的 SERVICE、混合商户/运营声明均拒绝。ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID 可配置服务标识，具体令牌由现有发行方提供，本轮不签发。
+
+MerchantNotificationPageQuery 支持 payeeMerchantId、可选 orderId/eventId/state、occurredFrom（含）/occurredTo（不含）和 page/size；page 从1开始、size最多100。时间按系统本地语义查询，要求1970—9998年、最多微秒精度、from<to。按 occurredAt DESC/id DESC 排序，相同时间有稳定次序；这是查询时的普通分页，不承诺并发写入下的全库快照。
+
+MerchantNotificationDTO 只返回 id/eventId/orderId/payeeMerchantId/eventType/aggregateId/sourceVersion/state/attemptCount/maxAttempts/occurredAt/expiresAt/nextAttemptAt/acknowledgedAt/rowVersion。INIT/PENDING/EXHAUSTED 都不表示送达；只有严格商户 ACK 才进入 ACKED。终态保留历史 nextAttemptAt。接口不返回原通知正文、目标/签名引用、路由指纹或 native 错误。
+
+唤醒示例：
+
+```json
+{
+  "id": "notification-delivery-id",
+  "requestKey": "ops-ticket-001",
+  "expectedVersion": 2,
+  "reason": "依赖恢复后继续当前通知任务"
+}
+```
+
+expectedVersion 是详情的 rowVersion，不是 sourceVersion；必须显式提供。请求没有 URL、密钥、正文、重试次数或新截止时间。授权、完整参数绑定与首次回执重放先于当前版本检查，换令牌不改变操作身份；同运营主体内 requestKey 不得用于不同投递、版本或原因。新键版本不匹配返回 VERSION_CONFLICT；重放只返回首次操作决定，不重做调度。
+
+| result | 已审计决定 |
+| --- | --- |
+| REGISTERED | 当前代次缺 native 任务，在原 nextAttemptAt 登记 |
+| RETRIED | 仅重试当前 FAILED native 任务，原 executeAt 保持不变 |
+| RESCHEDULED | 恢复当前 CANCELLED native 任务，executeAt 仍为原 nextAttemptAt |
+| PENDING | 已有等待任务，不加速或重置 |
+| RUNNING | 不抢占运行/租约；过期租约交框架回收 |
+| WAITING | 尚未到业务退避时间，不跳过退避 |
+| ACKED | 已收到商户 ACK，不再发送 |
+| EXHAUSTED | 终止或业务次数已用尽，不增加许可 |
+| EXPIRED | 原事件投递窗口结束，不延长窗口 |
+
+当前代次的 native 任务若已 SUCCEEDED，但业务代次仍未推进或终止，返回 SNAPSHOT_INVALID，由后续数据修复流程处理，不盲目再发。任何可发送的唤醒仍经原 DelayedTaskHandler、原始商户正文/路由指纹/签名/有限业务次数校验；API 本身不发 HTTP、不重开交易、不改金额。任务重试、登记和不可变审计回执同事务，事务失败不返回成功决定。
+
+MerchantNotificationWakeDTO 返回审计 id、deliveryId/eventId/requestKey、可信 principalType/principalId、原因、result、观察到的 attemptCount/deliveryVersion 和 acceptedAt；不是商户送达确认。/wakes 按 deliveryId/page/size 查询运营记录，acceptedAt DESC/id DESC，原因在诊断 toString 隐藏，只有运营响应可读取。已超期或耗尽后另建人工补发窗口/预算仍需单独明确合约授权，目前明确拒绝越过原条款。
+
+本批仅源码与测试源码，未运行编译、测试、DDL、认证链路或真实调度/发送。
+
+
+## 收银台会话付款后端（2026-10-24）
+
+| 外部 HTTP 方法 | Facade | 入参 | 返回 |
+| --- | --- | --- | --- |
+| POST /api/cashier/order/summary | CashierFacade.summary | IdQuery.id=orderId | SuccessResponse&lt;CashierOrderDTO&gt; |
+| POST /api/cashier/payments/start | CashierFacade.startPayment | CashierPaymentStartCommand | SuccessResponse&lt;CashierPaymentDTO&gt; |
+| POST /api/cashier/payments/progress | CashierFacade.paymentProgress | IdQuery.id=paymentId | SuccessResponse&lt;CashierPaymentDTO&gt; |
+
+这三类入口由每次调用的 opaque capability 校验授权，不进入商户 JWT 解码器。Authorization: Bearer 原 session token；X-Checkout-Tenant 仅为受限查找提示，不能绕过 token 摘要验证；Origin 存在时必须匹配原允许域。响应 no-store/no-referrer。只开放上述 POST，其他 cashier 方法和路径拒绝。
+
+```json
+{
+  "orderId": "original-order",
+  "actionKey": "one-fixed-user-action",
+  "amountMinor": 3000,
+  "choice": { "channel": "WECHAT", "method": "H5" }
+}
+```
+
+CashierPaymentStartCommand 不接受浏览器传 payer IP、OpenID、渠道 URL、商户号、preparedInputRef 或任意 interaction。CashierInteractionProvider 由服务端提供可信场景；当前 HTTP 实现仅 H5/WAP，使用经过服务器/受信代理策略解析的 servlet remoteAddr，并复用 ChannelH5Input 字面量校验，不读取自报 X-Forwarded-For。代理部署必须正确配置可信地址还原；不能把网关地址作为实际付款终端地址。JSAPI 等待会话绑定的渠道 OAuth 身份流，不允许浏览器自填身份冒充授权。商户纯 API 的 JSAPI/H5/付款码入口保持独立，不受托管子集限制。
+
+可选 acquire-cashier profile 使用 ACQUIRE_CASHIER_H5_CHANNELS 显式配置已部署、已开通的托管 H5 渠道，例如已接微信 H5 的环境填 WECHAT；默认目录为空，不伪造渠道可用性。公开 choices 取该目录与原订单冻结能力的交集，PAID/CLOSED/不可续付或可用金额为0时为空。该目录不是当前渠道注册表的远程可用性证明，发布与真实开通仍需渠道验收。
+
+付款共用 PaymentInitiationOperations：原订单行锁、固定金额/次数预占、不可变执行意图、原合约/币种/收款商户、输入准备及 payment 受理均沿原链路。商户与收银台只改变授权策略和幂等作用域；收银台 actorScope=checkout/sessionId，callerScopeHash 仍是原订单持久归属。相同 session/actionKey 重放原 allocation/payment；变更金额/选择冲突，不因不确定响应换新 key。新 key 才代表另一笔手动付款，仍受金额、尾款最小金额例外、累计笔数和原单终态约束。
+
+新预占按 order→session 顺序锁定并验证 ACTIVE/原订单/商户/原 owner/hash/权限/严格期限。进入 A2 后的原持久意图可继续履约，不因会话在网络调用途中到期而丢失占用；过期/取消的会话无法发起下一次 HTTP 操作。已付清或关闭仍不能新预占，已接受付款的权威结果仍可在无浏览器时由后台/事件收敛。
+
+进度只允许原会话创建的付款，不能凭同订单 capability 查询其他会话或商户 API 付款；query.id 必须是 paymentId。应用先核对 session/order/callerScope/actorScope，再使用内部 OrderPaymentScope 执行原权威结果刷新，不构造商户身份。后台成功/关闭/费用/通知流程同样支持 checkout scope，不依赖 session 仍 ACTIVE。
+
+CashierPaymentDTO 仅包含 orderId/paymentId/state/action/version/order（安全摘要），不返回 allocationId、terminalEvidenceId、商户凭证或冻结合约。state/version/action 为空只表示可信关单回执证明从未受理，不编造付款记录；有动作也不表示资金成功，结果只以原服务查询/事件为准。
+
+后端、H5 场景/目录、页面表单/原链接/有界轮询与测试源码已补；JSAPI OAuth、进一步恢复及真实浏览器验收继续待办；会话撤销源码见下文。未运行 IDEA、编译、测试、DDL、部署或实际调用。
+
+
+## 托管页面金额与响应契约补充（2026-10-24）
+
+CashierOrderDTO 新增 minimumPaymentMinor、maximumPaymentMinor、allowExactRemainderBelowMin、remainingPaymentCount，表达原冻结单笔规则和扣除已成功/预占后的可用笔数；remainingPaymentCount=null 表示不限笔数。slots=0 的 choices 为空。它们仅辅助浏览器输入，不能覆盖服务端原 OrderPaymentPolicy 或并发预占。
+
+CashierPaymentDTO 现在明确包含 accepted。start 的真实 PaymentOrder 投影固定 accepted=true；progress 只有原未受理可信回执且 payment 为空时 accepted=false，state/version/action 也为空。JSON accepted 即使为 false 也必须输出；客户端不得把缺失 accepted、丢包或任意错误当成未受理。付款身份必须匹配原操作；终态仍以原权威结果和 A3 收敛为准。
+
+网页先持久化不含 token/支付地址的原动作 metadata，再 POST 固定参数；恢复不从 URL 选金额/渠道，也不重新生成动作键。已知 paymentId 后调用原 progress；start 若提前看到终态仍要 progress，确认原金额贡献已收敛后才允许下一笔。未知结果或操作信息损坏不自动清除记录。没有新增金融 API、平台用户或会计账户。
+
+网页最多三十次、每3秒查询，隐藏时暂停，随后保留手动刷新。可用金额和单笔/尾款规则使用整数分，API int64 精确处理，不能用 parseFloat/Number 四舍五入。H5 支付动作只作为可点击的已验证 HTTPS 原链接；动作过期不换单，不使用浏览器返回信号记成功。页面 GET 资源与商户 JWT 解码链分开，业务三类 POST 仍由原 capability 校验授权。
+
+本批页面、浏览器核心与测试源码已补，未运行验证。JSAPI OAuth 与页面交互、跨窗口过期/丢失响应的进一步恢复、真实浏览器/渠道验收仍未完成；会话撤销源码见下文。
+
+
+## 收银台链接管理与永久撤销（2026-10-24）
+
+`CheckoutSessionManagementFacade` 是商户管理契约，走商户 JWT，不接受买方 capability 作为管理身份。
+所有接口均为 POST + JSON，响应 no-store。租户和原签发主体 hash 来自已验证 JWT，不能由请求指定；
+同商户不同应用/操作主体也不能借 sessionId 管理别人的链接。
+
+| 路径 | 入参 | 权限 | data |
+|---|---|---|---|
+| `/api/acquire/session/detail` | `IdQuery(id=sessionId)` | `pay:acquire:session:read` | `CheckoutSessionStatusDTO` |
+| `/api/acquire/session/revoke` | `CheckoutSessionRevokeCommand` | `pay:acquire:session:revoke` | `CheckoutSessionRevocationDTO` |
+| `/api/acquire/session/revocations` | `CheckoutSessionRevocationPageQuery(sessionId,page,size)` | `pay:acquire:session:read` | 分页 `CheckoutSessionRevocationDTO` |
+
+详情只返回 sessionId、原 orderId、收款商户、业务状态、原期限、明确 revoked 标记、首次 revokedAt 与 rowVersion；
+不返回 token/hash/nonce/密钥引用、scope 或支付链接。先读详情取得当前版本，再提交：
+
+```json
+{"id":"session-1001","requestKey":"revoke-1001","expectedVersion":0,"reason":"Merchant revoked the link"}
+```
+
+首次成功写永久 revoked_at、rowVersion+1 和不可变操作回执；不改变 CheckoutSession.state、订单或付款状态。
+ACTIVE/COMPLETED/EXPIRED/CANCELLED 等原业务状态都允许独立安全撤销，已 PAID/CLOSED 订单也可撤销旧链接。
+`newlyRevoked=true` 表示本次首次写标记；已撤销时以新键及当前版本提交，返回 false，保留首次时间和版本。
+没有恢复原链接的接口。原因只供原签发者审计读取，在日志诊断中隐藏。
+
+requestKey 在 tenant+callerScopeHash 范围唯一，绑定 sessionId、expectedVersion、reason 和完整原请求摘要。
+同键同参返回首次历史回执，即使提交的版本已过时；改参数返回 ACQUIRE_IDEMPOTENCY_CONFLICT。
+新键旧版本返回 ACQUIRE_VERSION_CONFLICT。事务在订单→session 加锁后再次查询回执，处理等锁期间原请求已提交的重放竞态。
+
+撤销与新 A2 预占使用相同订单→会话锁序：先提交的预占可继续物化与渠道履约；撤销先提交则后续新预占被拒绝。
+后台结果/查单/关闭收敛不依赖买方能力仍有效；撤销本身不调用渠道关单或退款。
+每次新认证及页面读入口都检查永久标记；已经通过鉴权的在途读可能完成，不声称全局零窗口撤销。
+已撤销会话的原签发键重放返回 ACQUIRE_SESSION_UNAVAILABLE，不重建旧 token 或自动换链接；
+需新链接时原商户使用新签发键，并重新满足订单仍可付款的条件。普通到期重放仍返回原到期链接，不延长期限。
+
+本批域模型、持久化、API、鉴权/A2 门禁与测试源码已补，未运行 IDEA、构建、测试、DDL、部署或实际调用。
+
+
+## 收银台原 actionKey 恢复（2026-10-24）
+
+POST `/api/cashier/payments/recover` 复用原订单 capability 认证，入参为
+`CashierPaymentRecoverCommand(orderId,actionKey,amountMinor,choice)`；它不接受买方身份/IP、密钥、绑定版本或任意渠道参数。
+字段是第一次明确付款时保存的原值，金额为人民币整数分，choice 为原 channel/method。
+响应 `SuccessResponse<CashierPaymentRecoveryDTO>`，包含原 orderId/actionKey、state 和可空 payment。
+HTTP no-store/no-referrer；只开放此专用 POST，不能持 capability 调商户管理 API。
+
+| state | 含义 | 页面行为 |
+|---|---|---|
+| NOT_OBSERVED | 在当前原订单/会话/actionKey 范围未读到 A2 意图 | 保留原操作；只允许原键原金额重试，不能判定未收款或换键 |
+| INPUT_REQUIRED | 已提交 A2，acquire 尚未绑定且远端未观察到原安全输入引用 | 保留原操作；可以原参数重试 start，不接收替代输入或新身份 |
+| RESOLVED | 找到原意图，必要时用已绑定安全输入的固定命令恢复幂等受理，随后执行原结果收敛 | payment 必须存在，按其中明确 accepted/state/version 和订单摘要展示 |
+
+RESOLVED 不表示已支付成功。payment 仍可为 INIT/PROCESSING/UNKNOWN 等非终态；
+明确 accepted=false 只由原不可变 NOT_ACCEPTED 证据产生，不由 NOT_OBSERVED 或 HTTP/网络失败推导。
+页面在原 paymentId 尚未知时先恢复；取得 id 后继续既有 progress 查询。恢复返回终态已完成 A3 收敛后才清除原操作、允许下一笔手动付款。
+
+恢复先验证当前会话读权限，原订单→会话锁内按 tenant/order/checkout-session/actionKey 查原预占，核对原 issuer、
+订单/商户、金额、choice 与原准入快照；不存在则不预占金额、不创建 input/payment。已提交意图继续履约的 D03 门禁保持不变。
+安全输入已绑定时，在事务外仅用存储的原 PaymentExecuteCommand 进行幂等受理，不重算 interaction、请求摘要或当前路由，
+不换 paymentId、allocationId、输入引用或渠道号。RELEASED/CONSUMED 等非 HELD 意图不再次受理，交既有证据/结果流程处理。
+新付款预占、输入准备和动作重建的语义不并入恢复入口。
+
+payment 已保存安全输入但其回复/本地引用绑定丢失时，恢复通过 InputLookup 查询精确原引用并在 acquire 重新加锁绑定，再按原命令受理。
+当前剩余边界：原输入过期后的有证据关闭、首次准备尚未提交时的网络地址变更竞态，以及已过期/撤销会话的买方恢复，仍需继续原身份恢复/商户核对设计。
+这些情况不得更换付款身份、擅自释放占用或宣称失败。渠道预支付动作重建仍限原 Provider 的已实现能力，不自动重新创单。
+
+Java 与浏览器核心测试源码已补，页面恢复/重试/刷新/有界轮询已接线；未运行任何验证或真实调用。
+
+
+## 安全输入原引用查询与绑定恢复（2026-10-24）
+
+`PaymentInputFacade.lookup(PaymentInputLookupQuery)` 仅通过 `PaymentRpc/InputLookup` 供配置的 acquire SERVICE 调用，
+要求新增独立权限 `pay:payment:input:read`；prepare 权限不会自动授予 read。发行方需为 acquire→payment 挂载的 SERVICE token
+明确配置此权限，本轮没有签发令牌、修改已部署凭证或发起真实调用。不增加内部 HTTP 入口或浏览器查询输入的 API。
+
+Query 包含原 paymentId/orderId/allocationId/payeeMerchantId/amountMinor/CNY/inputKey/choice，不能只按一个公开 paymentId
+取回输入引用。payment 绑定可信租户和原 callerServiceId 后核对每个不可变字段；改参返回 PAYMENT_IDEMPOTENCY_CONFLICT，
+错误 SERVICE/权限返回 PAYMENT_ACTION_FORBIDDEN。返回 `PaymentInputLookupDTO(found,input)`，found 显式传输，
+input 只含原 opaque inputRef、HMAC inputDigest 和 expiresAt。找不到时 found=false/input=null；不说明金融未发生，也不授权释放占用。
+
+此查询不接收或返回付款码/OpenID/IP，不调用 KMS、解密、重新指纹计算、密钥选择或续期，不产生业务写事务。
+INIT/BOUND、有效/过期输入均返回原引用和原期限；过期不伪装成缺记录。输入摘要与引用诊断隐藏，密文永不出库。
+
+acquire 在 A2 已提交而本地 preparedInputRef 缺失时，以存储的原执行意图和 actionKey 构造查询，事务外调用；
+只有明确 found 才沿原订单→会话锁序重新加载意图，保留原金融数据并一次性绑定引用。
+并发线程已绑定同引用则重放，绑定不同引用则冲突；已 RELEASED/终结且没有引用的意图不能重新激活。
+绑定后按原 PaymentExecuteCommand 幂等受理，继续原 A3 收敛。网络失败、非法 found/input 组合、错误参数、缺字段都不回退成 found=false，
+不自动准备新输入或换 paymentId。先前保存的 IP/场景保持原样，浏览器网络变化不会改写已保存输入。
+
+原期限与执行门禁继续有效：查询和补绑不授予新有效期。若从未受理且原输入已过期，受理明确失败并保留占用，
+后续必须有证据关闭/收敛，不能因过期直接判定未收款。首次准备还在途、查询尚未观察到记录时的精确重试竞态继续保留。
+所有源码、RPC 映射与测试源码已补，未运行验证。

@@ -190,7 +190,7 @@ class RefundProjectionEventsTest {
     }
 
     @Test
-    void successConsumesTheOrderHoldAndPublishesIndependentChildSummaryFeeAndLimitEvents() {
+    void successPublishesIndependentFinancialAndMerchantEvents() {
         plan();
         clearInvocations(outbox, summaries);
         changed(change(ChannelRefundOutcome.Kind.SUCCEEDED));
@@ -198,7 +198,7 @@ class RefundProjectionEventsTest {
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
         var capture = ArgumentCaptor.forClass(OutboxMessage.class);
-        verify(outbox, times(4)).publish(capture.capture());
+        verify(outbox, times(5)).publish(capture.capture());
         verify(summaries).update(eq("tenant"), any(), any());
         var limitMessage = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.LIMIT)).findFirst().orElseThrow();
         var json = JsonMapper.builder().build();
@@ -213,6 +213,15 @@ class RefundProjectionEventsTest {
         assertEquals(BusinessTime.external(RefundResultFixtures.NOW).toInstant(),
                 java.time.OffsetDateTime.parse((String) limitEnvelope.get("occurredAt")).toInstant());
         verify(payments).find("tenant", "payment");
+        var merchant = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT)).findFirst().orElseThrow();
+        Map<?, ?> merchantEnvelope = json.readValue(merchant.payload(), Map.class);
+        var refund = (Map<?, ?>) merchantEnvelope.get("data");
+        assertEquals("RefundOrder", refund.get("aggregateType"));
+        assertEquals("R001", refund.get("merchantRefundNo"));
+        assertEquals(1000, ((Number) refund.get("succeededMinor")).longValue());
+        assertEquals(0, ((Number) refund.get("failedMinor")).longValue());
+        assertFalse(merchantEnvelope.get("deliveryId").equals(limitEnvelope.get("deliveryId")));
+        assertFalse(merchant.payload().contains("refund-transaction"));
     }
 
     @Test
@@ -229,13 +238,55 @@ class RefundProjectionEventsTest {
     }
 
     @Test
+    void lastFailedChildAlsoPublishesTheCompletedPartialRequest() {
+        plan();
+        var first = change(ChannelRefundOutcome.Kind.SUCCEEDED);
+        changed(first);
+        clearInvocations(outbox);
+        var second = RefundResultFixtures.initial().allocations().get(1);
+        var started = second.refund().beginSubmission();
+        var request = first.request().apply(started);
+        var capacity = new io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity("payment2", "order", "merchant",
+                second.originalSucceededAt(), DomainChecks.cnyAmount(4000, "CNY"), 0, 500, 1);
+        var outcome = capacity.applyOutcome(started, new ChannelRefundOutcome(started.id(),
+                ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND, started.amount(), "failure-receipt"));
+        var before = new RefundExecutionFacts(context.getBean(RefundExecutionConverter.class).withRefund(second, started),
+                RefundResultFixtures.NOW, null, null);
+        changed(new RefundProgressChange(before, outcome.refund(), request, request.apply(outcome.refund()), capacity, outcome.capacity(),
+                RefundResultFixtures.NOW, null, null));
+
+        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
+        verify(outbox, times(5)).publish(capture.capture());
+        var merchant = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT)).toList();
+        assertEquals(2, merchant.size());
+        var message = merchant.stream().filter(m -> m.businessId().equals("request")).findFirst().orElseThrow();
+        var envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
+        var data = (Map<?, ?>) envelope.get("data");
+        assertEquals("RefundRequest", data.get("aggregateType"));
+        assertEquals("PARTIAL_SUCCEEDED", data.get("state"));
+        assertEquals(1500, ((Number) data.get("amountMinor")).longValue());
+        assertEquals(1000, ((Number) data.get("succeededMinor")).longValue());
+        assertEquals(500, ((Number) data.get("failedMinor")).longValue());
+        assertEquals(1000, summary.get().refundedMinor());
+        assertEquals(0, summary.get().reservedMinor());
+    }
+
+    @Test
     void definiteFailureOnlyReleasesTheHoldAndDoesNotCountAsReturnedMoney() {
         plan();
+        clearInvocations(outbox, summaries);
         changed(change(ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND));
         assertEquals(0, summary.get().refundedMinor());
         assertEquals(500, summary.get().reservedMinor());
         assertEquals(2, summary.get().version());
-        verify(outbox, times(3)).publish(any());
+        var capture = ArgumentCaptor.forClass(OutboxMessage.class);
+        verify(outbox, times(4)).publish(capture.capture());
+        var merchant = capture.getAllValues().stream().filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT)).findFirst().orElseThrow();
+        var envelope = JsonMapper.builder().build().readValue(merchant.payload(), Map.class);
+        var data = (Map<?, ?>) envelope.get("data");
+        assertEquals("FAILED", data.get("state"));
+        assertEquals(0, ((Number) data.get("succeededMinor")).longValue());
+        assertEquals(1000, ((Number) data.get("failedMinor")).longValue());
         verifyNoInteractions(payments);
     }
 

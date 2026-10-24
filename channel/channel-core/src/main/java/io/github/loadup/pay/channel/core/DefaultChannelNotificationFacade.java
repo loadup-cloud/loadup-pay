@@ -23,21 +23,13 @@ import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.Collection;
-import java.util.EnumMap;
-import java.util.Map;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
 /** Notification strategies are selected independently of payment orchestration and never apply financial state. */
 public final class DefaultChannelNotificationFacade implements ChannelNotificationFacade {
-    private final Map<Channel, ChannelNotificationProvider> providers;
+    private final ChannelStrategyRegistry<ChannelNotificationProvider> providers;
     public DefaultChannelNotificationFacade(Collection<ChannelNotificationProvider> candidates) {
-        if (candidates == null) throw new CommonException(INVALID_ARGUMENT);
-        var registry = new EnumMap<Channel, ChannelNotificationProvider>(Channel.class);
-        for (var provider : candidates) {
-            if (provider == null || provider.channel() == null) throw new CommonException(INVALID_ARGUMENT);
-            if (registry.putIfAbsent(provider.channel(), provider) != null) throw new CommonException(DUPLICATE_PROVIDER);
-        }
-        providers = Map.copyOf(registry);
+        providers = new ChannelStrategyRegistry<>(candidates, ChannelNotificationProvider::channel);
     }
     @Override public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
@@ -86,9 +78,6 @@ public final class DefaultChannelNotificationFacade implements ChannelNotificati
         return result;
     }
     private ChannelNotificationProvider provider(Channel channel) {
-        if (channel == null) throw new CommonException(INVALID_ARGUMENT);
-        var provider = providers.get(channel);
-        if (provider == null) throw new CommonException(UNSUPPORTED_CAPABILITY);
-        return provider;
+        return providers.require(channel);
     }
 }

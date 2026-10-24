@@ -64,6 +64,7 @@ public class CheckoutAuthenticationService {
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
             var state = stored.session().state();
             if (!tokens.matches(token, stored)
+                    || stored.revokedAt() != null
                     || (state != CheckoutSessionState.ACTIVE && state != CheckoutSessionState.COMPLETED)
                     || !now.isBefore(stored.session().expiresAt())
                     || !stored.scope().permissions().contains("ORDER_SUMMARY")
