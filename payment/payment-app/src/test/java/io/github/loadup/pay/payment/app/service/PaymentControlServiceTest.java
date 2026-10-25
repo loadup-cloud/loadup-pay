@@ -29,6 +29,7 @@ import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
@@ -97,6 +98,7 @@ class PaymentControlServiceTest {
     final PaymentAcceptanceGateway gates = mock(PaymentAcceptanceGateway.class);
     final PaymentControlGateway store = mock(PaymentControlGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
+    final PaymentInputGateway inputs = mock(PaymentInputGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentExecutionLocks executionLocks = mock(PaymentExecutionLocks.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
@@ -118,6 +120,7 @@ class PaymentControlServiceTest {
             gates,
             store,
             attempts,
+            inputs,
             codec,
             context.getBean(PaymentAcceptanceConverter.class),
             context.getBean(PaymentControlConverter.class),

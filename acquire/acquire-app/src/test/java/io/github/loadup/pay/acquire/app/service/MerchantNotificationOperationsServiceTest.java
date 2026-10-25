@@ -203,8 +203,9 @@ class MerchantNotificationOperationsServiceTest {
         var record = accepted.values().iterator().next();
         when(receipts.page("tenant", "delivery", 2, 10)).thenReturn(PageResult.of(List.of(record), 11, 2, 10));
         var page = service.wakes(new MerchantNotificationWakePageQuery("delivery", 2, 10));
-        assertEquals(record.id(), page.getData().getFirst().id());
-        assertEquals(record.reason(), page.getData().getFirst().reason());
+        var wake = page.getData().iterator().next();
+        assertEquals(record.id(), wake.id());
+        assertEquals(record.reason(), wake.reason());
         actor.set(new MerchantNotificationActor("tenant", "MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.wakes(new MerchantNotificationWakePageQuery("delivery", 1, 20))).getResultCode());
     }

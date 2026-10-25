@@ -71,8 +71,9 @@ class MerchantNotificationQueryServiceTest {
         var original = MerchantNotificationOperationsServiceTest.delivery(NOW);
         when(deliveries.page(eq("tenant"), any())).thenReturn(PageResult.of(List.of(original), 21, 2, 20));
         var page = service.page(new MerchantNotificationPageQuery("merchant", "order", null, null, null, null, 2, 20));
+        var first = page.getData().iterator().next();
         assertEquals(1, page.getData().size());
-        assertEquals(original.id(), page.getData().getFirst().id());
+        assertEquals(original.id(), first.id());
         var filter = org.mockito.ArgumentCaptor.forClass(MerchantNotificationFilter.class);
         verify(deliveries).page(eq("tenant"), filter.capture());
         assertEquals("merchant", filter.getValue().payeeMerchantId());

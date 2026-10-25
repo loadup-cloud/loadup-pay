@@ -23,7 +23,6 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
-import io.github.loadup.pay.channel.alipay.protocol.AlipayPaymentAdapter;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
 import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
