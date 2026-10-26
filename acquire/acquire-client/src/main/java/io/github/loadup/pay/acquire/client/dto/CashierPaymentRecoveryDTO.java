@@ -16,13 +16,13 @@
 package io.github.loadup.pay.acquire.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.enums.CashierPaymentRecoveryState;
+import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record CashierPaymentRecoveryDTO(
         @Schema(description = "Original order id") String orderId,
         @Schema(description = "Original fixed action key") String actionKey,
-        @Schema(description = "Intent lookup result; NOT_OBSERVED is not evidence of non-payment") CashierPaymentRecoveryState state,
+        @Schema(description = "Intent lookup result; NOT_OBSERVED is not evidence of non-payment") PaymentRecoveryState state,
         @Schema(description = "Original payment after result convergence; present only for RESOLVED") CashierPaymentDTO payment) {
     @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

@@ -37,6 +37,11 @@ payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facad
 channel 引擎和插件不得引用 payment 或彼此的实现；bootstrap 中 core 与厂商插件必须为 runtime 依赖。
 payment-app 显式声明 channel-api，避免依赖领域模块的传递暴露。本轮未执行该测试。
 
+边界测试同时覆盖生产源码中的实现类引用：payment（包括 bootstrap 的 Java 代码）不得直接导入或全限定引用
+channel-core、channel-alipay、channel-wechat 等实现包；渠道生产源码不得反向引用 acquire、payment、customer、
+product、limitcenter、realtime 的业务内部类型。配置和 runtime 依赖负责装配，业务 Java 代码只调用公开 API。
+Facade 路由用例补充策略注册顺序变化、选定渠道异常时禁止向另一渠道提交；这些测试源码尚未执行。
+
 ## 统一 API
 
 `ChannelPaymentFacade` 提供九个操作：

@@ -45,7 +45,7 @@ public record OrderCreateIntent(
         String resultCode,
         long rowVersion) {
     public OrderCreateIntent {
-        require("ORDER".equals(entryMode) || "CHECKOUT".equals(entryMode), INVALID_ARGUMENT);
+        require(entryMode != null && Set.of("ORDER", "CHECKOUT", "DIRECT_PAY").contains(entryMode), INVALID_ARGUMENT);
         if ("CHECKOUT".equals(entryMode)) DomainChecks.id(initialSessionId);
         else require(initialSessionId == null, INVALID_ARGUMENT);
         DomainChecks.id(id);

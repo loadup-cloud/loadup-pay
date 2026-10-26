@@ -283,7 +283,8 @@ public class PaymentControlService implements PaymentControlFacade {
                         command.fenceEpoch(),
                         command.reasonCode(),
                         evidence));
-        return response(command, fenced, payment.orElse(null), evidence);    }
+        return response(command, fenced, payment.orElse(null), evidence);
+    }
 
     private PaymentCloseDTO response(
             PaymentCloseCommand command,
@@ -316,8 +317,9 @@ public class PaymentControlService implements PaymentControlFacade {
             DomainChecks.id(command.allocationId()); DomainChecks.id(command.payeeMerchantId()); DomainChecks.text(command.inputKey(), 128);
             DomainChecks.positive(command.amountMinor()); DomainChecks.cnyAmount(command.amountMinor(), command.currency());
             var close = converter.toInputExpiryClose(command);
+            var observedReceipt = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
             // Coordinate with acceptance/Y2: parent -> child gate -> payment -> input.
-            parent(actor, command.orderId(), command.payeeMerchantId(), false);
+            parent(actor, command.orderId(), command.payeeMerchantId(), observedReceipt.isPresent());
             var gate = gates.lockPayment(actor.tenantId(), command.paymentId());
             gate.ifPresent(value -> checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
             var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
@@ -334,7 +336,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 var current = accepted.get();
                 checkPayment(current, actor, close);
                 var original = codec.decode(current);
-                if (gate.isEmpty() || !original.preparedInputRef().equals(command.inputRef())
+                if (gate.isEmpty() || !Objects.equals(original.preparedInputRef(), command.inputRef())
                         || !original.allocationId().equals(command.allocationId()) || original.amountMinor() != command.amountMinor()
                         || !original.currency().equals(command.currency()) || !original.choice().equals(command.choice()))
                     throw new CommonException(SNAPSHOT_INVALID);

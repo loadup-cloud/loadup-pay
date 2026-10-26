@@ -58,6 +58,7 @@ import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FACT
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FENCE_PARENT;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_PREPARE;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_LOOKUP;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_EXPIRE;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_OUTCOME;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_PARENT_FENCE_STATUS;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_SUMMARY;
@@ -91,6 +92,12 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
     @Override
     public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
         return exchange(tenant, PAYMENT_INPUT_LOOKUP, query);
+    }
+
+    @Override
+    public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(String tenant,
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
+        return exchange(tenant, PAYMENT_INPUT_EXPIRE, command);
     }
 
     @Override
@@ -143,7 +150,7 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
             return response;
         } catch (RuntimeException failure) {
             if (operation.descriptor().equals(PAYMENT_INPUT_PREPARE.descriptor()) || operation.descriptor().equals(PAYMENT_ACCEPT.descriptor())
-                    || operation.descriptor().equals(PAYMENT_INPUT_LOOKUP.descriptor())) {
+                    || operation.descriptor().equals(PAYMENT_INPUT_LOOKUP.descriptor()) || operation.descriptor().equals(PAYMENT_INPUT_EXPIRE.descriptor())) {
                 var code = switch (RpcServerSupport.resultCode(failure)) {
                     case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
                     case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;

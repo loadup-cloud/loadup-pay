@@ -36,6 +36,7 @@ public enum PaymentResultCodeEnum implements ResultCode {
     ACTION_FORBIDDEN("PAYMENT_ACTION_FORBIDDEN", "Action is not permitted"),
     INVALID_STATE("PAYMENT_INVALID_STATE", "Invalid payment state"),
     SNAPSHOT_INVALID("PAYMENT_SNAPSHOT_INVALID", "Stored payment intent is invalid"),
+    VERSION_CONFLICT("PAYMENT_VERSION_CONFLICT", "Observed recovery task metadata changed"),
     CONCURRENT_UPDATE("PAYMENT_CONCURRENT_UPDATE", "Concurrent payment update"),
     OUTCOME_UNKNOWN("PAYMENT_OUTCOME_UNKNOWN", "An earlier attempt may still collect funds"),
     EXECUTION_FENCED("PAYMENT_EXECUTION_FENCED", "Payment execution is fenced"),

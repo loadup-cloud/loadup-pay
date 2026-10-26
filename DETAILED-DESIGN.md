@@ -463,7 +463,7 @@ JSAPI OAuth、动作丢失/期限恢复、其他渠道能力、通知生命周�
 非 HELD 意图不重受理；结果经过 PaymentOutcomeOperations/A3 后安全投影给页面，不把恢复成功等同支付成功。
 
 页面原操作先恢复再重试，已知 paymentId 走原进度入口；未知不清元数据、不换键，终态经证据收敛后才允许下笔。
-补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；到期后的有证据关闭仍需完成，
+补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；未受理输入到期的有证据关闭已接 InputExpire，
 真实集成、JSAPI OAuth、其他渠道与对账等完整目标不变。
 
 
@@ -475,4 +475,84 @@ payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验�
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
 
 新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
-未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。
+未运行任何验证；未受理输入到期后的有证据关闭源码已补；第一次准备仍在途的竞态与其余完整业务范围继续。
+
+
+## 未受理输入到期收敛（2026-10-26）
+
+InputExpire 是完整原输入范围绑定的内部条件操作，要求 acquire SERVICE+input:expire 权限。
+在原 parent/child/payment/input 锁序内，已有付款保持原状；有效未受理输入仍可原命令受理；
+到期且从未受理时复用单笔 close 原子写门禁与固定控制回执，不封禁父订单或调用渠道。
+回复丢失可用原请求重放证明，孤立数据没有证明不能按无付款记录直接释放。
+
+acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A3 核对并幂等释放原 allocation。
+paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
+控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
+首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
+
+
+## 商户原 actionKey 恢复入口（2026-10-26）
+
+POST `/api/acquire/payments/recover` 接收原 orderId/actionKey/amountMinor/choice，专门 merchant JWT 权限为
+`pay:acquire:payment:recover`。恢复绑定原 tenant/callerScopeHash 与 merchant scope，不接受自报范围，不读取 checkout 的同名动作。
+复用共享原意图恢复/原输入查回与条件到期证明/A3，找不到或缺输入时 accepted 明确 null；
+只有 RESOLVED 的已受理原付款或经 A3 的未受理证据分别返回 true/false，不把依赖失败伪装成未受理。
+
+补充原合法 NoInteraction H5 的恢复：以原 v1 摘要精确确认 NONE 模式才跳过输入查询/到期接口，
+原字段全量经 MapStruct 重建摘要候选，不依据空引用猜测。敏感输入路径继续查原输入，不能切换到 NONE。
+Java 恢复枚举提升为共享 PaymentRecoveryState，商户与 cashier 使用同一组语义，未保留早期兼容类型。
+
+新增源码与权限/隔离/三态/原证据/未知 JSON 判别/无输入与损坏拒绝测试源码，未执行任何验证、部署或实际支付。
+DirectPay 整体丢失回复、首次输入准备并发、JSAPI OAuth、其他渠道/通知生命周期/交易重建/风控/对账和完整验证仍需继续。
+
+
+## DirectPay 首笔绑定与整体恢复（2026-10-26）
+
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
+
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
+已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
+
+DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
+未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
+
+
+## A2 自主续办（2026-10-26）
+
+A2 原子提交预占与第 0 代 native 恢复任务。任务按原 paymentId 定位 acquire 的不可变 orderId/owner/action，
+禁止调用 start 创建新付款；复用原 intent 的 recover，敏感输入只允许按原键查回 opaque reference。D03 允许已提交意图继续，
+后台无需仍有效的收银台凭证或商户在线；商户/合约门禁继续约束新交易。
+
+任务执行前验证 native 租户/类型/业务键/登记时间/RUNNING/attempts/租约，按 order→allocation→cursor 锁定检查后释放事务。
+原查询、受理或输入关闭 RPC 在锁外；A3 按现有规则落资金事实。之后再锁定，只有精确绑定的终态回执允许完成游标；
+其他情况原子登记 generation+1 和下一轮 native 任务，旧代不继续派生。缺输入及依赖错误不构成关闭或失败证明。
+具体 schema、配置和未完成边界见 acquire README 与数据库设计；本轮未做运行验证。
+
+
+## 订单自动到期与 C0 续办（2026-10-26）
+
+A1 创建与 native 到期任务同事务；延期回执与新版本到期任务同事务。版本由原 acquire_order.deadline_version 驱动，
+旧版任务在订单锁内淘汰。CLOSE 到期通过 C0 落 CLOSING 并禁止新 A2，KEEP_PENDING 按原领域 checkDue 保持续付。
+
+商户接口只负责鉴权并调用共享 OrderClosureOperations；后台按持久化原 scope 续办原请求，不获得商户创建或新关单权限。
+C0 的第 0 代任务与关闭意图同事务，后续扫描游标/rowVersion 与下一代任务同事务。后台校验 native 登记/租约/attempts、
+原订单、关闭意图、scope、epoch 与当前代次，随后在锁外沿原父门禁/子付款关闭/结果收敛流程执行。
+最终 CLOSED 继续依赖完整权威证明，未知结果保持 CLOSING。到期处理与延期使用同一订单锁，不存在旧任务关闭新截止的路径。
+
+复用现有表及 gRPC；没有每笔作业或自建计时器。新增源码与测试源码，暂停验证仍有效；native FAILED 运维续办、真实环境证明继续待办。
+
+
+## Payment/refund 失败唤醒的受限运营路径（2026-10-26）
+
+payment 的恢复运维路径只接 COLLECTION/REFUND_REQUEST 原任务。配置运维 SERVICE 与细分权限校验后，
+按原父门禁、付款/退款计划和游标锁序核验金融归属与当前代次；同库原子调用 native retryFailed 与不可变审计写入。
+PAYMENT_VERSION_CONFLICT 表示原任务观测已变化，不允许用旧观测授权新的重试周期。
+
+运维不获得首次扣款/退款提交许可。native worker 继续使用原 Y2 边界、原请求幂等号、固定退款子单及查询/关闭逻辑；
+终态或旧代只留下 NO_LONGER_NEEDED。完成游标配非终态聚合被视为损坏，拒绝隐藏未结束业务。
+退款锁边界补强 reference→原请求 ID/订单/商户/摘要精确绑定，避免持另一个父门禁锁继续当前请求。
+
+已补客户端/HTTP/存储/测试源码与配置，未运行验证或操作真实任务。列表告警、旧库补登记和整体剩余协议/业务工作继续。

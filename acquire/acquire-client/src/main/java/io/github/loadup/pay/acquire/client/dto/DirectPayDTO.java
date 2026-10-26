@@ -21,7 +21,7 @@ import jakarta.validation.Valid;
 
 public record DirectPayDTO(
         @Schema(description = "Order") @Valid AcquireOrderDTO order,
-        @Schema(description = "Payment") @Valid PaymentStartDTO payment) {
+        @Schema(description = "Original payment after result convergence") @Valid PaymentRecoveryDTO payment) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

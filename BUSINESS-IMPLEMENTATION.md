@@ -200,7 +200,7 @@ JSAPI OAuth、动作丢失/期限恢复、其他渠道能力、通知生命周�
 非 HELD 意图不重受理；结果经过 PaymentOutcomeOperations/A3 后安全投影给页面，不把恢复成功等同支付成功。
 
 页面原操作先恢复再重试，已知 paymentId 走原进度入口；未知不清元数据、不换键，终态经证据收敛后才允许下笔。
-补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；到期后的有证据关闭仍需完成，
+补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；未受理输入到期的有证据关闭已接 InputExpire，
 真实集成、JSAPI OAuth、其他渠道与对账等完整目标不变。
 
 
@@ -212,4 +212,92 @@ payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验�
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
 
 新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
-未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。
+未运行任何验证；未受理输入到期后的有证据关闭源码已补；第一次准备仍在途的竞态与其余完整业务范围继续。
+
+
+## 未受理输入到期收敛（2026-10-26）
+
+InputExpire 是完整原输入范围绑定的内部条件操作，要求 acquire SERVICE+input:expire 权限。
+在原 parent/child/payment/input 锁序内，已有付款保持原状；有效未受理输入仍可原命令受理；
+到期且从未受理时复用单笔 close 原子写门禁与固定控制回执，不封禁父订单或调用渠道。
+回复丢失可用原请求重放证明，孤立数据没有证明不能按无付款记录直接释放。
+
+acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A3 核对并幂等释放原 allocation。
+paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
+控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
+首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
+
+
+## 商户原 actionKey 恢复入口（2026-10-26）
+
+POST `/api/acquire/payments/recover` 接收原 orderId/actionKey/amountMinor/choice，专门 merchant JWT 权限为
+`pay:acquire:payment:recover`。恢复绑定原 tenant/callerScopeHash 与 merchant scope，不接受自报范围，不读取 checkout 的同名动作。
+复用共享原意图恢复/原输入查回与条件到期证明/A3，找不到或缺输入时 accepted 明确 null；
+只有 RESOLVED 的已受理原付款或经 A3 的未受理证据分别返回 true/false，不把依赖失败伪装成未受理。
+
+补充原合法 NoInteraction H5 的恢复：以原 v1 摘要精确确认 NONE 模式才跳过输入查询/到期接口，
+原字段全量经 MapStruct 重建摘要候选，不依据空引用猜测。敏感输入路径继续查原输入，不能切换到 NONE。
+Java 恢复枚举提升为共享 PaymentRecoveryState，商户与 cashier 使用同一组语义，未保留早期兼容类型。
+
+新增源码与权限/隔离/三态/原证据/未知 JSON 判别/无输入与损坏拒绝测试源码，未执行任何验证、部署或实际支付。
+DirectPay 整体丢失回复、首次输入准备并发、JSAPI OAuth、其他渠道/通知生命周期/交易重建/风控/对账和完整验证仍需继续。
+
+
+## DirectPay 首笔绑定与整体恢复（2026-10-26）
+
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
+
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
+已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
+
+DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
+未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
+
+
+## A2 后台付款恢复源码（2026-10-26）
+
+AllocationRecoveryQueue 在新 A2 事务内登记游标和 native 首轮任务，AllocationRecoveryService 实现 DelayedTaskHandler，
+从持久化原 tenant/owner/order/payment/action 恢复内部续办权限。后台复用 PaymentInitiationOperations.recover 与 A3，
+原收银台撤销/到期、商户离线不使已提交意图丢失，也不授予新付款权限。缺输入保持 HELD；原输入到期只有取得 payment 的
+关闭证明并经 A3 落回执才释放。部分付款成功后原 allocation 结束恢复，父订单可继续 PENDING。
+
+处理前核对 native RUNNING/attempts/租约/nextExecuteAt；事务内按订单、allocation、游标锁定，锁外调用 RPC，
+再在事务内根据原回执结束或登记下一代任务。代次淘汰旧唤醒，native 重试失败不转换金融状态。
+已补原子登记、异常回滚、租约/租户、旧代/重复、并发续排、缺输入、到期证明、精确回执和原权限边界测试源码；没有执行验证。
+到期关单扫描/续办及 FAILED 运维处理仍待实现，不以本轮源码代替运行验收。
+
+
+## 订单到期及后台关闭源码（2026-10-26）
+
+已接 A1 原始到期登记、延期版本登记、原生到期 Handler 与关单 Handler。CLOSE 产生共享 C0；KEEP_PENDING
+保持续付语义。C0 与首轮任务、扫描游标与后继任务分别原子提交，后台只使用原不可变关闭请求与内部原 scope。
+商户 Facade 保留权限校验，关闭协议/门禁/资金证据编排提取到 OrderClosureOperations，RPC 均不跨本地事务。
+延期读取原 DIRECT_PAY 元数据补齐，与 ORDER/CHECKOUT 共用原始截止和累计上限规则。
+
+已写到期版本淘汰、到期策略、C0/游标原子登记、旧代/终态、无证明不关闭、缺原意图拒绝、锁外续办、延期重放/任务失败回滚测试源码。
+本轮没有执行 IDEA、构建、测试、DDL 或 RPC；旧库补登记及 native FAILED 运维接口继续待办，完整业务目标未完成。
+
+
+## Acquire FAILED 原任务运维恢复源码（2026-10-26）
+
+新增受限 Facade/运营 HTTP、专用 SERVICE/权限校验、原任务查询与审计重试，只覆盖 acquire 付款恢复/订单到期/关单续办。
+在原订单锁下共用 AllocationRecoveryService 的 held/回执判定和 OrderClosureOperations 的原关闭意图/代次判定，
+不调用工作 Handler、渠道 API 或创建服务。FAILED、原 taskId/attempts/nextExecuteAt 完全匹配才允许重试；过期代次只留审计。
+
+同库 native 重试+不可变回执原子提交；callerScope/requestKey 重放返回首份回执，改参拒绝，避免响应丢失导致再次重置 native 次数。
+已补权限/前置条件/任务白名单/旧代/未来截止/原回执重放/事务回滚/三类业务绑定与诊断隐藏测试源码。
+未运行 IDEA/构建/测试/DDL/HTTP/JWT/调度验证；payment/refund 的 FAILED 运维入口、列表告警、首次准备竞态与完整目标继续。
+
+
+## Payment/refund FAILED 运维恢复源码（2026-10-26）
+
+新增 PaymentRecoveryOperationsFacade 与运营 HTTP，只允许 configured pay-ops SERVICE、recovery read/retry 权限处理
+COLLECTION/REFUND_REQUEST 原 native FAILED。复用原金融锁序、当前游标和终态判断，不执行 Handler 或渠道，不改变计划或资金预算。
+原 taskId/attempts/nextExecuteAt 精确匹配，native 重试与首份审计原子提交，旧代/终态只记不再需要，重放不再次重排。
+
+补强 RefundExecutionLocks 原 reference 与已锁请求的 ID/订单/商户/摘要绑定，新增 PAYMENT_VERSION_CONFLICT 错误码。
+API、领域、BaseDO/MapStruct/生成 Mapper Gateway、Flyway 与测试源码已补；没有执行 IDEA/构建/测试/DDL/HTTP/JWT/调度验收。
+完整业务目标未完成，任务列表告警、首轮准备竞态、JSAPI/其余渠道、通知生命周期、交易重建和对账继续。

@@ -30,6 +30,14 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
+import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
@@ -99,6 +107,7 @@ class PaymentControlServiceTest {
     final PaymentControlGateway store = mock(PaymentControlGateway.class);
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentInputGateway inputs = mock(PaymentInputGateway.class);
+    final AtomicReference<PaymentInput> input = new AtomicReference<>();
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentExecutionLocks executionLocks = mock(PaymentExecutionLocks.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
@@ -133,6 +142,10 @@ class PaymentControlServiceTest {
 
     @BeforeEach
     void setup() {
+        when(inputs.lock("tenant", "input")).thenAnswer(call -> {
+            active();
+            return Optional.ofNullable(input.get());
+        });
         when(gates.lockParent("tenant", "order")).thenAnswer(c -> Optional.ofNullable(parent.get()));
         when(gates.lockPayment("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(gate.get()));
         when(gates.find("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(payment.get()));
@@ -272,6 +285,102 @@ class PaymentControlServiceTest {
                 executionLocks,
                 actions,
                 recovery);
+    }
+
+    PaymentInputExpireCommand expiryCommand() {
+        return new PaymentInputExpireCommand("input", "payment", "order", "allocation", "merchant", 4000, "CNY", "action",
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
+    }
+
+    PaymentInput input(LocalDateTime expiresAt) {
+        return new PaymentInput("input", "payment", "order", "allocation", "merchant", DomainChecks.cnyAmount(4000, "CNY"),
+                "action", Channel.WECHAT, PaymentMethod.H5, "acquire", "v1", "a".repeat(64), "key", 1, "ciphertext",
+                now.minusMinutes(5), expiresAt, PaymentInputState.INIT, null, 0L);
+    }
+
+    @Test
+    void expiredNeverAcceptedInputProducesDurableProofWithoutFencingTheParent() {
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire", "pay:payment:accept")));
+        input.set(input(now));
+        var result = service.expireInput(expiryCommand());
+        assertEquals(PaymentInputExpiryDisposition.EXPIRED_CLOSED, result.disposition());
+        assertTrue(result.closed().fenced());
+        assertNotNull(result.closed().noCollectionEvidenceId());
+        assertNull(result.closed().payment());
+        assertNull(payment.get());
+        assertEquals(GateState.OPEN, parent.get().gate().state());
+        assertEquals(GateState.FENCED, gate.get().gate().state());
+        assertEquals(1, receipts.size());
+        var receipt = receipts.values().iterator().next();
+        assertEquals("input-expiry/allocation", receipt.requestKey());
+        assertEquals("INPUT_EXPIRED", receipt.reasonCode());
+        clearInvocations(store, gates);
+        assertEquals(result, service.expireInput(expiryCommand()));
+        verify(store, never()).insertReceipt(anyString(), any());
+        verify(gates, never()).insertPaymentGate(anyString(), any());
+        verifyNoInteractions(attempts, events);
+        assertSame(EXECUTION_FENCED, assertThrows(CommonException.class,
+                () -> acceptance().accept(PaymentFixtures.command())).getResultCode());
+    }
+
+    @Test
+    void activeUnacceptedInputDoesNotCreateAChildFenceOrCloseReceipt() {
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        input.set(input(now.plusMinutes(1)));
+        var result = service.expireInput(expiryCommand());
+        assertEquals(PaymentInputExpiryDisposition.INPUT_ACTIVE, result.disposition());
+        assertNull(result.closed());
+        assertNull(gate.get());
+        assertTrue(receipts.isEmpty());
+        verifyNoInteractions(attempts, events);
+    }
+
+    @Test
+    void expiryProofReplayCannotRecreateAMissingParentGate() {
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        input.set(input(now));
+        service.expireInput(expiryCommand());
+        parent.set(null);
+        clearInvocations(gates);
+        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> service.expireInput(expiryCommand())).getResultCode());
+        verify(gates, never()).insertParent(anyString(), any());
+    }
+
+    @Test
+    void inputExpiryLeavesEveryAlreadyAcceptedPaymentUnchanged() {
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        var source = PaymentFixtures.command();
+        var frozen = new io.github.loadup.pay.payment.client.command.PaymentExecuteCommand(source.paymentId(), source.orderId(), source.allocationId(),
+                source.admissionId(), source.payeeMerchantId(), source.amountMinor(), source.currency(), source.requestDigest(), source.choice(), "input",
+                source.admittedTerms(), source.subject(), source.payableUntil());
+        when(codec.decode(any())).thenReturn(frozen);
+        for (var state : PaymentState.values()) {
+            accept(state);
+            input.set(input(now));
+            var originalPayment = payment.get();
+            var originalGate = gate.get();
+            var result = service.expireInput(expiryCommand());
+            assertEquals(PaymentInputExpiryDisposition.PAYMENT_EXISTS, result.disposition());
+            assertNull(result.closed());
+            assertSame(originalPayment, payment.get());
+            assertSame(originalGate, gate.get());
+            assertEquals(GateState.OPEN, parent.get().gate().state());
+        }
+        assertTrue(receipts.isEmpty());
+        verifyNoInteractions(attempts, events);
+    }
+
+    @Test
+    void expiryRequiresOwnPermissionAndTheExactOriginalInputScope() {
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.expireInput(expiryCommand())).getResultCode());
+        verifyNoInteractions(inputs);
+        actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
+        input.set(input(now));
+        var altered = new PaymentInputExpireCommand("input", "payment", "order", "allocation", "merchant", 4001, "CNY", "action",
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
+        assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.expireInput(altered)).getResultCode());
+        assertTrue(receipts.isEmpty());
+        assertNull(gate.get());
     }
 
     @Test

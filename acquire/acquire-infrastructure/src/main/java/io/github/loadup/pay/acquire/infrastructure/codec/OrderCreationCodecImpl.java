@@ -153,6 +153,38 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
+    public String encodeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+        return mapper.writeValueAsString(command);
+    }
+
+    @Override
+    public io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent) {
+        try {
+            if (!"DIRECT_PAY".equals(intent.entryMode())) throw new CommonException(SNAPSHOT_INVALID);
+            var value = mapper.readValue(intent.intentPayload(), io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand.class);
+            if (value == null || !validator.validate(value).isEmpty() || value.firstPaymentAmountMinor() > value.amountMinor()
+                    || !value.interactionKind().supports(value.choice().method())
+                    || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.merchantOrderNo().equals(value.merchantOrderNo()))
+                throw new CommonException(SNAPSHOT_INVALID);
+            return value;
+        } catch (RuntimeException failure) { throw new CommonException(SNAPSHOT_INVALID); }
+    }
+
+    @Override
+    public String directPayDigest(String tenant, String scope, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+        var canonical = new StringBuilder();
+        for (String field : Arrays.asList("acquire.direct-pay-create.v1", tenant, scope, "DIRECT_PAY", command.payeeMerchantId(),
+                command.merchantOrderNo(), command.productScopeKey(), Long.toString(command.amountMinor()), command.currency(), command.subject(),
+                command.requestedDueAt() == null ? null : command.requestedDueAt().toString(), command.actionKey(),
+                Long.toString(command.firstPaymentAmountMinor()), command.choice().channel().name(), command.choice().method().name(),
+                command.interactionKind().name())) {
+            if (field == null) canonical.append("-1:");
+            else canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
+        return checksum(canonical.toString());
+    }
+
+    @Override
     public OrderAdmissionDTO decodeAdmission(String payload, String checksum) {
         try {
             if (payload == null

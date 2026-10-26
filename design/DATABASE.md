@@ -1721,7 +1721,7 @@ revoked_at 保留首次时间，accepted_at 表示当前独立审计请求的本
 收银台恢复复用 order_payment_allocation 的 `(tenant_id,order_id,actor_scope,action_key)` 原有唯一范围与固定 intent_payload，
 不新增表或 DDL。订单→session 锁内读本会话原预占，校验原 owner/金额/渠道选择/准入；本次不写金额、次数或原命令。
 安全输入已绑定才在事务外重放原幂等受理，再沿既有支付结果事务落 A3/费用/Outbox。
-本地缺记录不制造 NOT_ACCEPTED 证据；远端输入准备到本地绑定间的回复丢失已由精确 InputLookup 接通；到期后的有证据关闭与运行验收继续待办。
+本地缺记录不制造 NOT_ACCEPTED 证据；远端输入准备到本地绑定间的回复丢失已由精确 InputLookup 接通；到期但未受理的单笔有证据关闭源码已补，运行验收继续待办。
 
 
 ### 原安全输入引用的补绑（2026-10-24）
@@ -1730,3 +1730,107 @@ InputLookup 复用 payment_input 原 `(tenant_id,payment_id)` 唯一查询，无
 provider 核对 callerServiceId 与完整原意图范围，不解密、不改 INIT/BOUND 和期限；acquire 复用已有 attachInput Gateway，
 在订单→session 锁内重读原 allocation 并仅更新 preparedInputRef 对应的固定命令载荷/摘要/row_version。
 金额、次数、原请求摘要及金融标识不变，同引用并发重放，不同引用冲突。数据与真实数据库并发验收仍未执行。
+
+
+### 未受理输入到期的门禁与占用收敛（2026-10-26）
+
+无新增表或 DDL：复用 payment_input、parent/payment gate 与 payment_control_receipt。
+InputExpire 在同一 READ_COMMITTED 事务按 parent→child gate→payment→input 串行化：已受理记录优先，
+只对到期且从未受理的原输入建立单笔 FENCED 门禁和固定 input-expiry/allocationId 控制回执。
+parent 不因单笔输入过期被封禁；原输入行、密文、期限和绑定状态不变。孤立 gate 没有原未收款证据时拒绝。
+
+acquire 不按日期直接释放预占；收到精确原关闭证明后，统一的 applyClose 以原 PaymentCloseCommand 验证响应，
+加载原 allocation 并沿既有 A3 事务写 NOT_ACCEPTED receipt、释放这一笔预占/次数和原 Outbox。
+原 paid gross 与其他 held 金额不变，不创建支付成功额或整单收费。重复证明由本地原 receipt 幂等核对，
+后续 progress 在未受理证明存在时无需请求不存在的 payment 行。真实数据库提交/回滚、门禁竞争和跨库回复丢失演练仍未执行。
+
+
+### 商户恢复与原输入模式确认（2026-10-26）
+
+商户恢复复用原 `(tenant_id,order_id,actor_scope,action_key)` 和 intent_payload，不新增表/DDL 或修改已有请求摘要。
+原 v1 摘要已包含 interaction kind，H5/NONE 候选与原摘要精确相等才可确认有意无输入；
+原 owner、币种、金额、choice、admission digest 与 actionScope 均参与同一摘要，不以 null 引用自行推断。
+原 SCENE/付款码/JSAPI 意图沿原输入恢复。恢复不改已付金额、原动作或预占，仅在可信结果证明下按既有 A3 幂等收敛。
+真实数据库及原模式摘要约束尚未运行验证。
+
+
+## DirectPay 创建意图与恢复边界（2026-10-26）
+
+order_create_intent 的 entry_mode 实际接受 ORDER/CHECKOUT/DIRECT_PAY；DIRECT_PAY 的 initial_session_id 必须为 NULL，
+与 ORDER/CHECKOUT 共享 tenant+payee+merchantOrderNo 唯一性。开发期 V20261022010000 CHECK 扩展源码已直接更新，
+设计表草案同步 caller_scope_hash/initial_session_id/LONGTEXT/三入口约束；没有执行 DDL 或修改已有数据。
+不把旧 ORDER 试验行自动转换成 DIRECT_PAY，也不保留混合入口兼容重放。
+
+DIRECT_PAY 的 intent_payload 是非敏感 DirectPayRecoverCommand，固定全部订单参数与首笔键/金额/choice/输入种类；
+没有 raw interaction。独立 acquire.direct-pay-create.v1 摘要对每字段采用 UTF-8 长度分帧，绑定租户、原主体与入口。
+它同时作为原 product 准入请求摘要，A1 原订单/快照/费用/创建结果同事务不变。
+
+整体恢复先按商户订单号读取原意图并核对身份/摘要/完整载荷，INIT 只允许续办已有 A0；
+A0 事务若找不到行则拒绝，不能因上层先前看到过一条记录就重新分配 ID。COMPLETED 不再请求新准入，
+已拒绝/到期只返回原稳定决定且不虚构 order/payment 行。
+恢复首笔沿原 merchant actionKey 与固定 command/输入/到期证明/A3，仍不创建新的预占。
+所有权限、数据库回滚/并发/跨库回复丢失和真实产品/RPC 验收均未运行。
+
+
+## Acquire allocation 后台恢复游标（2026-10-26）
+
+`allocation_recovery_cursor` 与 order、payment allocation、原命令及 native DelayedTask 使用 acquire 同一数据源与事务管理器。
+`id` 就是原 paymentId，`order_id` 是不可变父订单定位；标准 tenant_id/created_at/updated_at/deleted 沿用 BaseDO。
+其余列为 generation BIGINT、due_at DATETIME(6)、completed TINYINT。游标不存租约、raw input、完整命令或资金终态；
+native DelayedTask 负责 PENDING/RUNNING/重试/租约，allocation 与 PaymentOutcomeReceipt 负责金融事实。
+
+A2 只对新 HELD/sourceVersion=0/rowVersion=0 的 allocation 登记第 0 代游标和首轮任务。后续锁顺序固定为
+order→allocation→cursor；条件更新绑定 tenant、deleted=0、paymentId、orderId、原 generation、dueAt 和 completed=false。
+续排必须 generation+1 且 dueAt 严格增加，与新 native bizId 同库提交；完成只把同代 completed 置 1。
+游标 generation 不能作为渠道请求号、金融版本或执行 epoch。
+
+执行器仅在原 allocation 已 CONSUMED/RELEASED 且精确匹配金额、原 ID、sourceVersion 和结果种类的不可变回执存在时完成；
+HELD 配终态回执、INIT、缺失原 allocation/游标、未来代次或当前代 deadline 不一致均拒绝。过期代次与完成游标幂等跳过。
+全量草案见 `design/schema/acquire.sql`；实际 Flyway 源码为 `V20261026110000__allocation_recovery_cursor.sql`，本轮未执行 DDL。
+
+
+## 订单原生到期任务与关闭代次（2026-10-26）
+
+复用 acquire_order.deadline_version（初始 1）作为到期任务版本，复用 order_close_intent.row_version（初始 0）作为
+关单继续任务代次；两者各用独立 native taskType，不混用金融 close_epoch 或订单 row_version。
+到期登记位于 A1 订单创建事务，延期登记位于更新订单截止/两个版本/回执的原事务；没有额外生命周期游标表。
+
+到期 handler 持原订单锁核对 deadlineVersion 与 executeAt=orderDueAt；旧版跳过，未来版或同版不同期限拒绝。
+CLOSE 使用共享 C0 写门禁与关单首轮任务；KEEP_PENDING 仅允许精确的 INIT→PENDING checkDue 结果，条件更新绑定
+tenant/deleted/id/原状态/原版本/原截止/原 closeEpoch。PENDING 不重复改写，终态不写。
+
+每次成功推进关闭扫描游标，更新 order_close_intent.row_version 并登记不同 bizId 的下一代 native 任务。
+丢失 ACK 后旧 native 任务能安全重试：若游标已推进，后继任务已与其原子提交，旧代无须再派生。
+完成关闭前仍检查原门禁证明、零预占/零预占计数和所有 allocation 的终态回执；调度记录从不充当金融证据。
+本轮未增加 DDL，没有执行数据库或运行验证。
+
+
+## Acquire FAILED 操作回执（2026-10-26）
+
+新增 `acquire_recovery_retry_receipt`：标准 BaseDO 字段、request_key/caller_scope_hash/caller_service_id/request_digest、
+kind/subject_id/generation/order_id/native_task_id、expected_attempts/expected_next_execute_at、reason/result/accepted_at。
+kind 只接受 PAYMENT_ALLOCATION、ORDER_DEADLINE、ORDER_CLOSURE，result 只接受 RETRIED、NO_LONGER_NEEDED；
+正截止版本、非负任务代次、正 observed attempts 与微秒时间受领域校验，SQL 提供基本 CHECK。
+
+唯一索引 tenant_id/caller_scope_hash/request_key 保证首次决定不可覆盖；tenant/order/acceptedAt 索引用于后续审计定位。
+callerScopeHash 绑定已验证运维 service 与 tenant，摘要绑定全部原重试参数及审计原因。reason 从诊断输出隐藏，表不存原付款命令、
+渠道错误或密钥。原订单锁下再核对业务、native 身份/状态/时间快照；native retryFailed 与回执 insert 使用原 acquire 事务。
+重放先找不可变回执，不会因下一次 native FAILED 循环而再次重排。同键跨订单并发由唯一索引与整体事务重试收敛。
+
+这张表只证明运营曾接受什么重试决定，不证明金融结果；现有 allocation/PaymentOutcomeReceipt/关闭门禁保持唯一金融依据。
+迁移源码 `V20261026130000__acquire_recovery_retry_receipt.sql` 与全量草案同步，未执行 DDL；真实 MySQL 回滚/并发验收仍待运行。
+
+
+## Payment FAILED 操作回执（2026-10-26）
+
+新增 `payment_recovery_retry_receipt`，字段与 acquire 操作回执同形，归 payment 自有数据库维护，不跨库共用：
+标准 BaseDO 字段、request_key/caller_scope_hash/caller_service_id/request_digest、kind/subject_id/generation/order_id/native_task_id、
+expected_attempts/expected_next_execute_at/reason/result/accepted_at。kind 只允许 COLLECTION/REFUND_REQUEST，generation 从 0 开始，
+result 只允许 RETRIED/NO_LONGER_NEEDED。reason 从诊断隐藏，表不保存原命令或渠道错误。
+
+唯一约束 tenant/callerScopeHash/requestKey、tenant/order/acceptedAt 索引用于幂等与后续审计定位。原父门禁/付款或退款计划锁后
+读取当前恢复游标，校验原 taskType/bizId/id/status/attempts/nextExecuteAt；native 更新与回执 insert 使用同一 payment 事务。
+首份回执先于后续金融状态判断重放，响应重试不能重新清零下一失败周期的次数。金融证据和退款容量记录不更新。
+
+迁移源码 `V20261026140000__payment_recovery_retry_receipt.sql` 与全量草案已同步，未执行 DDL；实际 MySQL 条件更新、并发和回滚
+证明仍待运行。本轮没有修改 delayedtask 框架或跨服务共享持久化模型。

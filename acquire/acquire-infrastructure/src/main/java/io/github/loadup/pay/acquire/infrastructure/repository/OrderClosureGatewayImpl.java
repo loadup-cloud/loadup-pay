@@ -83,6 +83,21 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
     }
 
     @Override
+    public void keepPending(String tenant, AcquireOrder before, AcquireOrder after) {
+        requireTransaction();
+        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN);
+        if (before.state() != AcquireOrderState.INIT
+                || before.unpaidAction() != io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction.KEEP_PENDING
+                || !after.equals(before.checkDue(before.orderDueAt()))) throw new CommonException(SNAPSHOT_INVALID);
+        int changed = orders.updateByQuery(converter.toClosingPatch(after), true, orderScope(tenant, before.id())
+                .and(ACQUIRE_ORDER_DO.STATE.eq("INIT")).and(ACQUIRE_ORDER_DO.ROW_VERSION.eq(before.version()))
+                .and(ACQUIRE_ORDER_DO.ORDER_DUE_AT.eq(before.orderDueAt()))
+                .and(ACQUIRE_ORDER_DO.CLOSE_EPOCH.eq(before.closeEpoch())));
+        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+    }
+
+    @Override
     public void start(String tenant, AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion) {
         requireTransaction();
         if (closing.state() != AcquireOrderState.CLOSING || !closing.id().equals(intent.orderId())

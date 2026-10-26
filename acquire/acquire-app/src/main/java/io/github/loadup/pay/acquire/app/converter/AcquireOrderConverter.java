@@ -40,6 +40,8 @@ import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface AcquireOrderConverter {
+    AcquireOrderCreateCommand toOrderCreate(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+
     AcquireOrderCreateCommand toOrderCreate(CheckoutCreateCommand command);
 
     OrderPaymentPolicy toPaymentPolicy(PaymentTermsDTO terms);

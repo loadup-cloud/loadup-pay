@@ -525,3 +525,54 @@ gross 金额。
 兼容性检查/测试/文档已同步重构，无旧协议兼容。逐笔查询仍独立分页，渠道实际时间与数据库审计时间不相互伪造。
 
 本批新增及同步测试源码未运行；未执行检查、构建、测试、DDL、镜像或部署。业务完整目标仍未完成，后续为真实渠道与自动驱动、费用/额度恢复、商户通知、重建和对账。
+
+
+## DirectPay 首笔绑定与整体恢复（2026-10-26）
+
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
+
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
+已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
+
+DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
+未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
+
+
+## Acquire A2 native 恢复接线（2026-10-26）
+
+新增 AllocationRecoveryCursor/Key/Gateway、DO/MapStruct/GatewayImpl 和独立 Flyway 迁移；PaymentInitiationOperations
+仅在新预占分支于同事务调用 AllocationRecoveryQueue.register，重放不登记新游标。首轮失败在 RPC 前回滚。
+AllocationRecoveryService 直接实现 native Handler，复用原输入/原命令恢复与 A3 结果收敛；没有新增定时器、RPC 或厂商执行分支。
+`application-acquire-business.yml` 提供轮询间隔环境变量。恢复权限来自已提交原意图，禁止创建操作，不检查原浏览器会话活性。
+源码与测试源码已写入，未运行任何检查/构建/测试/DDL/部署/外部调用；FAILED 恢复与父订单到期任务仍在整体目标范围内。
+
+
+## Native 订单生命周期任务接线（2026-10-26）
+
+新增 OrderTaskKey、OrderDeadlineTasks/Service、OrderClosureTasks/RecoveryService；创建与延期构造器注入同库任务登记器。
+商户 OrderClosureService 缩为鉴权 Facade，原协议编排移至 OrderClosureOperations，供原 C0 的后台续办复用。
+OrderClosureGateway 增加 KEEP_PENDING 的精确状态推进实现；沿用生成 TableDef/Mapper 和现有 MapStruct 补丁。
+A1 使用初始 deadlineVersion=1，延期使用原回执新版本；关闭任务代次使用原 closeIntent.rowVersion，初始为 0。
+DirectPay 延期补齐原意图解码，不增加兼容重载、数据表或 RPC。轮询配置为 ACQUIRE_ORDER_CLOSE_POLL_DELAY_SECONDS。
+源码/测试源码与文档已写入，未运行任何验证或部署，未变更数据库；native FAILED 恢复与外部协议验收仍待推进。
+
+
+## Acquire task retry operations（2026-10-26）
+
+新增 acquire client 的 RecoveryKind/查询/重试命令/DTO/Facade，app 使用独立 MapStruct 与原业务锁/证据检查，
+运营 Controller 显式 no-store。身份复用 JwtAcquireServiceActorProvider，限制 configured pay-ops SERVICE 和独立 recovery 权限。
+新增不可变审计领域/Gateway、BaseDO/生成 Mapper/MapStruct 存储适配与独立 Flyway，原子复用 DelayedTaskTemplate.retryFailed。
+没有框架修改、通用任务代理、内部 HTTP/RPC 或资金执行入口。应用配置新增 ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID。
+源码和测试源码已写入；没有运行任何验证或执行迁移/部署，其他服务的 FAILED 运维能力仍未声称完成。
+
+
+## Payment original-task operational retries（2026-10-26）
+
+新增 payment 自有 RecoveryKind/Query/RetryCommand/DTO/Facade、Spring MapStruct、应用编排与 no-store 运营 Controller。
+身份复用 PaymentActorProvider，配置 PAYMENT_RECOVERY_OPERATIONS_SERVICE_ID；技术重试使用已有 DelayedTaskTemplate，不改框架。
+独立 payment_recovery_retry_receipt 归本服务事务，未创建跨库 pay-common/pay-contract。原金融/退款锁边界维持并补强绑定。
+测试源码覆盖原 callerService、两类命名空间、失败快照、跨周期重放、终态/旧代、未来期限、权限与回滚；新增错误码仍待执行规范门禁。
+本轮未运行验证、DDL 或部署，未调用真实渠道或重试真实任务，整体目标保持进行中。

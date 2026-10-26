@@ -36,6 +36,17 @@ flowchart LR
 - **Registry**：Spring 收集策略，由 `ChannelStrategyRegistry` 构造不可变 Channel→Provider 映射，支付和通知 Facade 共用注册规则；相同渠道重复注册即失败。缺少策略或能力时明确拒绝，没有默认渠道或跨账户回退。注册后的映射不随原集合变更。
 - **Adapter**：`PaymentChannelGatewayImpl` 只把支付领域调用桥接到 Facade；插件内部的适配器负责厂商报文和协议语义。
 
+### 上游参数与统一调用
+
+例如上游传入 `choice={"channel":"WECHAT","method":"H5"}`，payment 用商户合约与路由规则选定并冻结微信收款绑定，
+基础设施调用 `ChannelPaymentFacade.submit(context, request)`，core 从注册表取得 `WechatChannelProvider`。
+上游改为 `ALIPAY` 时走支付宝策略，payment 不增加 `if/switch` 厂商执行分支。`method` 是同一渠道内的产品选择，
+由对应插件检查支持情况；不支持时明确拒绝。策略集合的注入顺序不决定渠道，选定策略异常也不触发另一渠道提交。
+
+payment 中账户 DTO、JSAPI 唤起参数及 Protobuf 的类型映射属于公开表示契约；它们不能包含厂商 HTTP 调用、签名、
+凭证读取或选路执行。源码边界测试禁止 payment 引用渠道实现包，也禁止插件反向依赖业务服务内部类型。
+已有交易的查询、关闭、退款沿原冻结身份调用相同 Facade，后续上游参数或路由配置变化不改变其原渠道。
+
 账户身份通过多态提供 `channel()`、`accessMode()`、`collectingAccountId()`。支付宝以 sellerId、微信直连以 merchantId、微信服务商以 subMerchantId 表示实际收款主体。payment 根据统一接口计算账户作用域摘要，不按厂商类型分支计算；切换应用或凭证版本不能改变同一实际收款主体的资金唯一性范围。
 
 ## 路由与交易约束

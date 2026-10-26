@@ -26,11 +26,37 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Source architecture gate: only the executable assembly may depend on channel implementations. */
 class ChannelModuleBoundaryTest {
+    private static final Pattern CHANNEL_IMPLEMENTATION_REFERENCE = Pattern.compile(
+            "\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\.)[A-Za-z_$][\\w$]*\\.");
+    private static final Pattern BUSINESS_REFERENCE = Pattern.compile(
+            "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime)\\.");
+
+    @Test
+    void paymentProductionSourcesCannotBypassTheChannelApi() throws Exception {
+        for (var module : modules(repositoryRoot().resolve("payment"))) {
+            for (var source : productionSources(module)) {
+                assertFalse(CHANNEL_IMPLEMENTATION_REFERENCE.matcher(Files.readString(source)).find(),
+                        source + " must call channel-api instead of importing or naming a plugin implementation");
+            }
+        }
+    }
+
+    @Test
+    void channelProductionSourcesCannotReachBackIntoBusinessServices() throws Exception {
+        for (var module : modules(repositoryRoot().resolve("channel"))) {
+            for (var source : productionSources(module)) {
+                assertFalse(BUSINESS_REFERENCE.matcher(Files.readString(source)).find(),
+                        source + " must receive channel-api values instead of accessing business internals");
+            }
+        }
+    }
+
     @Test
     void paymentBusinessModulesOnlyDependOnChannelApi() throws Exception {
         var root = repositoryRoot();
@@ -88,6 +114,16 @@ class ChannelModuleBoundaryTest {
     private static List<Path> modules(Path parent) throws Exception {
         try (var children = Files.list(parent)) {
             return children.filter(path -> Files.isRegularFile(path.resolve("pom.xml"))).toList();
+        }
+    }
+
+    private static List<Path> productionSources(Path module) throws Exception {
+        var sourceRoot = module.resolve("src/main/java");
+        if (!Files.isDirectory(sourceRoot)) return List.of();
+        try (var sources = Files.walk(sourceRoot)) {
+            return sources.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+                    .toList();
         }
     }
 

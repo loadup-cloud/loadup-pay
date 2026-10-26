@@ -63,6 +63,25 @@ message WirePaymentInputDTO {
   google.protobuf.Timestamp expires_at = 3;
 }
 
+message WirePaymentInputExpireCommand {
+  optional string input_ref = 1;
+  optional string payment_id = 2;
+  optional string order_id = 3;
+  optional string allocation_id = 4;
+  optional string payee_merchant_id = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  optional string input_key = 8;
+  WirePaymentChoiceDTO choice = 9;
+}
+
+message WirePaymentInputExpiryDTO {
+  optional string payment_id = 1;
+  optional string order_id = 2;
+  optional string disposition = 3;
+  WirePaymentCloseDTO closed = 4;
+}
+
 message WirePaymentInputLookupQuery {
   optional string payment_id = 1;
   optional string order_id = 2;
@@ -303,6 +322,7 @@ message WireRefundSettlementFactsDTO {
 service PaymentRpc {
   rpc InputPrepare (WirePaymentInputPrepareCommand) returns (WirePaymentInputDTO);
   rpc InputLookup (WirePaymentInputLookupQuery) returns (WirePaymentInputLookupDTO);
+  rpc InputExpire (WirePaymentInputExpireCommand) returns (WirePaymentInputExpiryDTO);
   rpc Accept (WirePaymentExecuteCommand) returns (WirePaymentExecutionDTO);
   rpc Detail (WireIdQuery) returns (WirePaymentExecutionDTO);
   rpc Outcome (WireIdQuery) returns (WirePaymentOutcomeDTO);

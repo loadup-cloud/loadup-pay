@@ -30,13 +30,13 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
-import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
@@ -127,17 +127,33 @@ public class PaymentOutcomeOperations {
         });
     }
 
-    void applyClose(OrderPaymentScope actor, OrderCloseIntent close, StoredPaymentAllocation allocation, PaymentCloseDTO response) {
+    PaymentProgressDTO applyInputExpiry(OrderPaymentScope actor, String orderId, String paymentId, PaymentCloseDTO response) {
+        requireNoTransaction();
+        return transactions.read(actor.tenantId(), () -> {
+            var order = orders.findOrder(actor.tenantId(), orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            owned(actor, order);
+            var allocation = allocations.findPayment(actor.tenantId(), orderId, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var command = bound(actor, order, allocation);
+            if (response == null || response.payment() != null) throw new CommonException(SNAPSHOT_INVALID);
+            applyClose(actor, initiation.toInputExpiryClose(command), response);
+            return refresh(actor, new PaymentProgressRefreshCommand(orderId, paymentId));
+        });
+    }
+
+    void applyClose(OrderPaymentScope actor, PaymentCloseCommand close, PaymentCloseDTO response) {
         requireNoTransaction();
         transactions.read(actor.tenantId(), () -> {
             if (response == null || !validator.validate(response).isEmpty()
-                    || !response.paymentId().equals(allocation.allocation().paymentId())
+                    || !response.paymentId().equals(close.paymentId())
                     || !response.orderId().equals(close.orderId())
-                    || response.fenceEpoch() < close.closeEpoch() || !response.fenced())
+                    || response.fenceEpoch() < close.fenceEpoch() || !response.fenced())
                 throw new CommonException(SNAPSHOT_INVALID);
             var order = orders.findOrder(actor.tenantId(), close.orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             owned(actor, order);
+            if (!close.payeeMerchantId().equals(order.order().payeeMerchantId())) throw new CommonException(SNAPSHOT_INVALID);
+            var allocation = allocations.findPayment(actor.tenantId(), close.orderId(), close.paymentId())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var command = bound(actor, order, allocation);
             VerifiedPaymentOutcome outcome;
             if (response.payment() == null) {

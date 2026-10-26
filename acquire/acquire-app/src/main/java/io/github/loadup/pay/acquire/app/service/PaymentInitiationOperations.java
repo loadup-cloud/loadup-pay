@@ -71,6 +71,7 @@ public class PaymentInitiationOperations {
     private final Validator validator;
     private final Clock clock;
     private final OrderSnapshotEvents snapshots;
+    private final AllocationRecoveryQueue recovery;
 
     public PaymentInitiationOperations(
             OrderCreationGateway orders,
@@ -82,7 +83,7 @@ public class PaymentInitiationOperations {
             OrderCreationTransactions transactions,
             IdGenerator ids,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, AllocationRecoveryQueue recovery) {
         this.orders = orders;
         this.allocations = allocations;
         this.ordersCodec = ordersCodec;
@@ -94,6 +95,7 @@ public class PaymentInitiationOperations {
         this.validator = validator;
         this.clock = clock;
         this.snapshots = snapshots;
+        this.recovery = recovery;
     }
 
     PaymentStartDTO start(PaymentInitiationPrincipal actor, PaymentStartCommand command) {
@@ -163,6 +165,7 @@ public class PaymentInitiationOperations {
                         change.order(),
                         allocation,
                         order.order().version());
+                recovery.register(actor.tenantId(), allocation, initiated);
                 snapshots.publish(actor.tenantId(), change.order().id(), change.order().version());
                 return allocation;
             });
@@ -208,7 +211,7 @@ public class PaymentInitiationOperations {
                 var order = orders.lockOrder(actor.tenantId(), orderId);
                 actor.authorize(order, false);
                 var prior = allocations.findAction(actor.tenantId(), orderId, actor.actionScope(), actionKey);
-                if (prior.isEmpty()) return prior;
+                if (prior.isEmpty()) return java.util.Optional.<PaymentRecoveryPlan>empty();
                 var stored = prior.get();
                 var allocation = stored.allocation();
                 var execute = codec.decode(stored);
@@ -223,15 +226,21 @@ public class PaymentInitiationOperations {
                 if (!execute.admittedTerms().equals(converter.toAdmitted(order, admission))) throw new CommonException(SNAPSHOT_INVALID);
                 if (allocation.state() == AllocationState.HELD && (order.order().paymentReservedMinor() < amountMinor
                         || order.order().reservedPaymentCount() < 1)) throw new CommonException(SNAPSHOT_INVALID);
-                return prior;
+                // The v1 digest already commits the interaction kind. Only an exact NONE digest proves input was intentionally absent.
+                boolean inputless = choice.method() == io.github.loadup.commons.payment.PaymentMethod.H5
+                        && allocation.requestDigest().equals(digest(actor, actor.actionScope(),
+                        converter.toInputlessStart(orderId, actionKey, amountMinor, choice), order));
+                if (inputless && execute.preparedInputRef() != null) throw new CommonException(SNAPSHOT_INVALID);
+                return java.util.Optional.of(new PaymentRecoveryPlan(stored, !inputless));
             });
-            if (known.isEmpty()) return new PaymentIntentRecovery(PaymentIntentRecovery.State.NOT_OBSERVED, null);
-            var stored = known.get();
+            if (known.isEmpty()) return new PaymentIntentRecovery(PaymentIntentRecovery.State.NOT_OBSERVED, null, null);
+            var plan = known.get();
+            var stored = plan.allocation();
             var execute = codec.decode(stored);
-            if (stored.allocation().state() == AllocationState.HELD && execute.preparedInputRef() == null) {
+            if (stored.allocation().state() == AllocationState.HELD && plan.inputRequired() && execute.preparedInputRef() == null) {
                 var lookup = payment.lookupInput(actor.tenantId(), converter.toInputLookup(execute, actionKey));
                 if (lookup == null || lookup.found() != (lookup.input() != null)) throw new CommonException(SNAPSHOT_INVALID);
-                if (!lookup.found()) return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null);
+                if (!lookup.found()) return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null, null);
                 validatePrepared(lookup.input());
                 var reference = lookup.input().inputRef();
                 // Preserve even an expired original input. Acceptance and execution keep enforcing its original deadline.
@@ -240,13 +249,31 @@ public class PaymentInitiationOperations {
             }
             // Released/tombstoned intents are resolved by the existing outcome receipt, never accepted again.
             if (stored.allocation().state() == AllocationState.HELD) {
-                if (execute.preparedInputRef() == null)
-                    return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null);
+                if (plan.inputRequired()) {
+                    if (execute.preparedInputRef() == null)
+                        return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null, null);
+                    var resolution = payment.expireInput(actor.tenantId(), converter.toInputExpiry(execute, actionKey));
+                    if (resolution == null || !validator.validate(resolution).isEmpty() || resolution.disposition() == null
+                            || !execute.paymentId().equals(resolution.paymentId()) || !execute.orderId().equals(resolution.orderId()))
+                        throw new CommonException(SNAPSHOT_INVALID);
+                    if (resolution.disposition() == io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
+                        var proof = resolution.closed();
+                        if (proof == null || !validator.validate(proof).isEmpty() || !proof.fenced()
+                                || proof.fenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH
+                                || proof.payment() != null || proof.noCollectionEvidenceId() == null || proof.noCollectionEvidenceId().isBlank()
+                                || !execute.paymentId().equals(proof.paymentId()) || !execute.orderId().equals(proof.orderId()))
+                            throw new CommonException(SNAPSHOT_INVALID);
+                        return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), proof);
+                    }
+                    if (resolution.closed() != null) throw new CommonException(SNAPSHOT_INVALID);
+                    if (resolution.disposition() == io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.PAYMENT_EXISTS)
+                        return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
+                }
                 // Exact original idempotent acceptance; no current route, interaction or financial identity is substituted.
                 var result = payment.accept(actor.tenantId(), execute);
                 validateResult(execute, result);
             }
-            return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, stored.allocation().paymentId());
+            return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, stored.allocation().paymentId(), null);
         });
     }
 
@@ -341,5 +368,9 @@ public class PaymentInitiationOperations {
 
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
+
+    private record PaymentRecoveryPlan(StoredPaymentAllocation allocation, boolean inputRequired) {
+        @Override public String toString() { return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this); }
     }
 }

@@ -34,6 +34,11 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentInitiationConverter {
+    @Mapping(target = "interaction", ignore = true)
+    @Mapping(target = "choice", source = "choice")
+    PaymentStartCommand toInputlessStart(String orderId, String actionKey, long amountMinor,
+            io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice);
+
     @Mapping(
             target = "amount",
             expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(command.amountMinor(), currency))")
@@ -80,6 +85,15 @@ public interface PaymentInitiationConverter {
 
     @Mapping(target = "inputKey", source = "inputKey")
     PaymentInputLookupQuery toInputLookup(PaymentExecuteCommand command, String inputKey);
+
+    @Mapping(target = "inputRef", source = "command.preparedInputRef")
+    @Mapping(target = "inputKey", source = "inputKey")
+    io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand toInputExpiry(PaymentExecuteCommand command, String inputKey);
+
+    @Mapping(target = "requestKey", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")
+    @Mapping(target = "fenceEpoch", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+    @Mapping(target = "reasonCode", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
+    io.github.loadup.pay.payment.client.command.PaymentCloseCommand toInputExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")
     PaymentExecuteCommand withPreparedInput(PaymentExecuteCommand original, String inputRef);

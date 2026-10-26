@@ -33,6 +33,12 @@ public interface OrderCreationCodec {
 
     String checkoutDigest(String tenant, String scopeHash, CheckoutCreateCommand command);
 
+    String encodeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+
+    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent);
+
+    String directPayDigest(String tenant, String scopeHash, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+
     String encodeAdmission(OrderAdmissionDTO admission);
 
     OrderAdmissionDTO decodeAdmission(String payload, String checksum);

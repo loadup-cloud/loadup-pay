@@ -68,6 +68,40 @@ class OrderCreationCodecImplTest {
                 0);
     }
 
+    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct(String action, long first,
+            io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
+        return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null,
+                action, first, choice, kind);
+    }
+
+    @Test
+    void directPayMetadataRoundTripBindsFirstActionAndRejectsOtherEntryModes() {
+        var choice = new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.WECHAT,
+                io.github.loadup.commons.payment.PaymentMethod.H5);
+        var value = direct("first", 4000L, io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.H5_SCENE, choice);
+        var payload = codec.encodeDirectPay(value);
+        var record = new OrderCreateIntent("intent", "order", "merchant", "M001", "a".repeat(64), "b".repeat(64), "DIRECT_PAY", null,
+                payload, "INIT", null, null, null, 0L);
+        assertEquals(value, codec.decodeDirectPay(record));
+        assertThrows(CommonException.class, () -> codec.decodeIntent(record));
+        assertThrows(CommonException.class, () -> codec.decodeDirectPay(intent(payload)));
+        var digest = codec.directPayDigest("tenant", "actor", value);
+        assertNotEquals(digest, codec.requestDigest("tenant", "actor", command(null)));
+        assertNotEquals(digest, codec.directPayDigest("other", "actor", value));
+        assertNotEquals(digest, codec.directPayDigest("tenant", "other", value));
+        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("changed", 4000L, value.interactionKind(), choice)));
+        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4001L, value.interactionKind(), choice)));
+        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L,
+                io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.NONE, choice)));
+        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L, value.interactionKind(),
+                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.ALIPAY,
+                        io.github.loadup.commons.payment.PaymentMethod.H5))));
+        var unknown = payload.replace("H5_SCENE", "UNKNOWN_INPUT");
+        var corrupt = new OrderCreateIntent("intent", "order", "merchant", "M001", "a".repeat(64), "b".repeat(64), "DIRECT_PAY", null,
+                unknown, "INIT", null, null, null, 0L);
+        assertThrows(CommonException.class, () -> codec.decodeDirectPay(corrupt));
+    }
+
     @Test
     void frozenCreatePayloadRetainsIntegersAboveDoublePrecision() {
         var value = command(null);

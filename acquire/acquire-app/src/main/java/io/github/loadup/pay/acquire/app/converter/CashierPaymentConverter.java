@@ -24,19 +24,19 @@ import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.channel.api.model.ChannelH5Input;
 import io.github.loadup.pay.acquire.app.service.PaymentIntentRecovery;
-import io.github.loadup.pay.acquire.client.enums.CashierPaymentRecoveryState;
+import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface CashierPaymentConverter {
-    CashierPaymentRecoveryState toRecoveryState(PaymentIntentRecovery.State value);
+    PaymentRecoveryState toRecoveryState(PaymentIntentRecovery.State value);
 
     @Mapping(target = "orderId", source = "command.orderId")
     @Mapping(target = "actionKey", source = "command.actionKey")
     @Mapping(target = "state", source = "state")
     @Mapping(target = "payment", source = "payment")
-    CashierPaymentRecoveryDTO toRecovery(CashierPaymentRecoverCommand command, CashierPaymentRecoveryState state, CashierPaymentDTO payment);
+    CashierPaymentRecoveryDTO toRecovery(CashierPaymentRecoverCommand command, PaymentRecoveryState state, CashierPaymentDTO payment);
 
     @Mapping(target = "channel", source = "channel")
     @Mapping(target = "method", constant = "H5")

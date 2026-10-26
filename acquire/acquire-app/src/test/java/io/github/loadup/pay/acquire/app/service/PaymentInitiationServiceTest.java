@@ -109,6 +109,7 @@ class PaymentInitiationServiceTest {
     final PaymentInitiationCodec codec = mock(PaymentInitiationCodec.class);
     final PaymentAcceptanceClient payment = mock(PaymentAcceptanceClient.class);
     final OrderSnapshotEvents snapshots = mock(OrderSnapshotEvents.class);
+    final AllocationRecoveryQueue recovery = mock(AllocationRecoveryQueue.class);
     final AtomicReference<AcquireActor> actor =
             new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:start")));
     final AtomicReference<StoredAcquireOrder> order =
@@ -133,11 +134,18 @@ class PaymentInitiationServiceTest {
                 new OrderCreationTransactions(tx),
                 () -> "id-" + ids.incrementAndGet(),
                 validation.getValidator(),
-                clock, snapshots);
+                clock, snapshots, recovery);
     }
 
     @BeforeEach
     void setup() {
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            StoredPaymentAllocation registered = c.getArgument(1);
+            assertEquals(registered, saved.get(registered.allocation().actionKey()));
+            assertTrue(c.getArgument(2) instanceof java.time.LocalDateTime);
+            return null;
+        }).when(recovery).register(eq("tenant"), any(), any());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(order.get().order().version(), (long) c.getArgument(2));
@@ -151,6 +159,11 @@ class PaymentInitiationServiceTest {
                                 .digest(((String) c.getArgument(0)).getBytes(StandardCharsets.UTF_8))));
         when(payment.supportsTenant("tenant")).thenReturn(true);
         when(payment.lookupInput(eq("tenant"), any())).thenReturn(new PaymentInputLookupDTO(false, null));
+        when(payment.expireInput(eq("tenant"), any())).thenAnswer(call -> {
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand q = call.getArgument(1);
+            return new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(q.paymentId(), q.orderId(),
+                    io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+        });
         when(codec.encode(any())).thenAnswer(c -> {
             PaymentExecuteCommand value = c.getArgument(0);
             commands.put(value.paymentId(), value);
@@ -189,6 +202,19 @@ class PaymentInitiationServiceTest {
     }
 
     @Test
+    void aNativeRecoveryRegistrationFailureRollsBackA2BeforeAnyRemoteCall() {
+        var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
+        org.mockito.Mockito.doThrow(failure).when(recovery).register(eq("tenant"), any(), any());
+        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        var command = h5Command("queue-failure", 4000, new io.github.loadup.pay.payment.client.dto.NoInteractionDTO());
+        assertSame(failure, assertThrows(CommonException.class, () -> operations(clock(NOW)).start(principal, command)));
+        assertEquals(1, tx.rollbacks);
+        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).prepareInput(anyString(), any());
+        verifyNoInteractions(snapshots);
+    }
+
+    @Test
     void checkoutUsesTheSharedReservationAndOriginalActionWhileKeepingItsOwnScope() {
         var guarded = new java.util.ArrayList<Boolean>();
         var owner = actor.get();
@@ -203,6 +229,7 @@ class PaymentInitiationServiceTest {
         assertEquals("checkout/session", saved.get("checkout-action").allocation().actorScope());
         assertEquals(owner.scopeHash(), saved.get("checkout-action").callerScopeHash());
         assertEquals(1, guarded.stream().filter(Boolean::booleanValue).count());
+        verify(recovery, times(1)).register(eq("tenant"), eq(saved.get("checkout-action")), eq(NOW));
         verify(allocations, org.mockito.Mockito.times(1)).reserve(anyString(), any(), any(), anyLong());
     }
 
@@ -352,6 +379,96 @@ class PaymentInitiationServiceTest {
         verify(payment, never()).accept(anyString(), any());
         verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
         verify(allocations, never()).attachInput(anyString(), any(), any());
+    }
+
+    PaymentInitiationPrincipal preparedCheckout(String key) {
+        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "checkout/session", (stored, creating) -> {});
+        when(payment.prepareInput(eq("tenant"), any())).thenReturn(new PaymentInputDTO("prepared", "a".repeat(64), BusinessTime.external(NOW.plusMinutes(2))));
+        doAnswer(call -> {
+            StoredPaymentAllocation prepared = call.getArgument(2);
+            saved.put(prepared.allocation().actionKey(), prepared);
+            return null;
+        }).when(allocations).attachInput(eq("tenant"), any(), any());
+        operations(clock(NOW)).start(principal, h5Command(key, 4000, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP)));
+        return principal;
+    }
+
+    @Test
+    void expiredNeverAcceptedInputReturnsTheOriginalProofWithoutReacceptingOrReleasingLocally() {
+        var principal = preparedCheckout("expired");
+        var original = saved.get("expired");
+        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(original.allocation().paymentId(), "order", 1L, true, null, "expiry-proof");
+        when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(
+                original.allocation().paymentId(), "order", io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED, proof));
+        clearInvocations(payment, allocations);
+        var result = operations(clock(NOW.plusMinutes(3))).recover(principal, "order", "expired", 4000,
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
+        assertEquals(proof, result.closed());
+        assertEquals(PaymentIntentRecovery.State.RESOLVED, result.state());
+        assertEquals(original.allocation().paymentId(), result.paymentId());
+        assertSame(original, saved.get("expired"));
+        assertEquals(4000, order.get().order().paymentReservedMinor());
+        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).prepareInput(anyString(), any());
+        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        var request = org.mockito.ArgumentCaptor.forClass(io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand.class);
+        verify(payment).expireInput(eq("tenant"), request.capture());
+        assertEquals("prepared", request.getValue().inputRef());
+        assertEquals("expired", request.getValue().inputKey());
+        assertEquals(original.allocation().id(), request.getValue().allocationId());
+    }
+
+    @Test
+    void anAlreadyAcceptedPaymentNeedsNoRepeatedAcceptanceAndAnInvalidExpiryProofCannotSucceed() {
+        var principal = preparedCheckout("original");
+        String paymentId = saved.get("original").allocation().paymentId();
+        when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(paymentId, "order",
+                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.PAYMENT_EXISTS, null));
+        clearInvocations(payment);
+        var result = operations(clock(NOW)).recover(principal, "order", "original", 4000, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
+        assertEquals(paymentId, result.paymentId());
+        assertNull(result.closed());
+        verify(payment, never()).accept(anyString(), any());
+        var invalid = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(paymentId, "order", 1L, false, null, "unfenced");
+        when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(paymentId, "order",
+                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED, invalid));
+        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> operations(clock(NOW)).recover(principal, "order", "original", 4000,
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5))).getResultCode());
+        verify(payment, never()).accept(anyString(), any());
+    }
+
+    @Test
+    void originalInputlessH5RecoveryUsesItsExactDigestAndDoesNotWaitForAnInputThatNeverExisted() {
+        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "merchant/" + OWNER, (stored, creating) -> {});
+        var command = h5Command("inputless", 4000, new io.github.loadup.pay.payment.client.dto.NoInteractionDTO());
+        operations(clock(NOW)).start(principal, command);
+        var original = saved.get("inputless");
+        var frozen = commands.get(original.allocation().paymentId());
+        clearInvocations(payment, allocations, snapshots);
+        var result = operations(clock(NOW)).recover(principal, "order", "inputless", 4000, command.choice());
+        assertEquals(PaymentIntentRecovery.State.RESOLVED, result.state());
+        assertEquals(frozen.paymentId(), result.paymentId());
+        verify(payment).accept("tenant", frozen);
+        verify(payment, never()).lookupInput(anyString(), any());
+        verify(payment, never()).expireInput(anyString(), any());
+        verify(payment, never()).prepareInput(anyString(), any());
+        verify(allocations, never()).reserve(anyString(), any(), any(), anyLong());
+        assertSame(original, saved.get("inputless"));
+        assertEquals(4000, order.get().order().paymentReservedMinor());
+    }
+
+    @Test
+    void aReferenceCannotBeAddedToAnIntentWhoseOriginalDigestCommittedNoInput() {
+        var principal = new PaymentInitiationPrincipal("tenant", OWNER, "merchant/" + OWNER, (stored, creating) -> {});
+        var command = h5Command("inputless", 4000, new io.github.loadup.pay.payment.client.dto.NoInteractionDTO());
+        operations(clock(NOW)).start(principal, command);
+        var paymentId = saved.get("inputless").allocation().paymentId();
+        commands.put(paymentId, context.getBean(PaymentInitiationConverter.class).withPreparedInput(commands.get(paymentId), "invented-input"));
+        clearInvocations(payment);
+        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
+                () -> operations(clock(NOW)).recover(principal, "order", "inputless", 4000, command.choice())).getResultCode());
+        verify(payment, never()).accept(anyString(), any());
+        verify(payment, never()).lookupInput(anyString(), any());
     }
 
     @Test

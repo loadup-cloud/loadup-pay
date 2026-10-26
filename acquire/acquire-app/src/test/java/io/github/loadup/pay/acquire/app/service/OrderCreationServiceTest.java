@@ -124,6 +124,7 @@ class OrderCreationServiceTest {
             Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:checkout")));
     final LocalDateTime now = LocalDateTime.of(2026, 10, 21, 12, 0);
     final UnitTransactions manager = new UnitTransactions();
+    final OrderDeadlineTasks deadlineTasks = mock(OrderDeadlineTasks.class);
     final AtomicInteger sequence = new AtomicInteger();
     final OrderCreationService service = new OrderCreationService(
             actor::get,
@@ -143,15 +144,39 @@ class OrderCreationServiceTest {
                     Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone())),
             () -> "id-" + sequence.incrementAndGet(),
             validation.getValidator(),
-            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), snapshots);
+            Clock.fixed(now.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), snapshots, deadlineTasks);
     final AcquireOrderCreateCommand command =
             new AcquireOrderCreateCommand("merchant", "M001", "scope", 10000, "CNY", "test order", null);
 
     final CheckoutCreateCommand checkout =
             new CheckoutCreateCommand("merchant", "M001", "scope", 10000, "CNY", "test order", null, null);
 
+    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct() {
+        return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 10000L, "CNY", "test order", null,
+                "first-action", 4000L, new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
+                io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.H5_SCENE);
+    }
+
+    @Test
+    void deadlineTaskFailureRollsBackMaterializationWithoutPublishingTheOrder() {
+        var failure = new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE);
+        org.mockito.Mockito.doThrow(failure).when(deadlineTasks).register(eq("tenant"), any(), anyLong());
+        assertSame(failure, assertThrows(CommonException.class, () -> service.create(command)));
+        assertTrue(manager.rollbacks > 0);
+        verifyNoInteractions(snapshots);
+    }
+
     @BeforeEach
     void setup() {
+        doAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals(order.get().order(), c.getArgument(1));
+            assertEquals(1L, (long) c.getArgument(2));
+            return null;
+        }).when(deadlineTasks).register(eq("tenant"), any(), anyLong());
+        when(codec.directPayDigest(anyString(), anyString(), any())).thenReturn("d".repeat(64));
+        when(codec.encodeDirectPay(any())).thenReturn("direct-metadata");
+        when(codec.decodeDirectPay(any())).thenReturn(direct());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
@@ -220,6 +245,48 @@ class OrderCreationServiceTest {
             assertEquals(1, manager.commits);
             return admitted(call.getArgument(0));
         });
+    }
+
+    @Test
+    void directPayFreezesItsEntryAndFirstActionAndCannotReuseAnOrderEntry() {
+        var created = service.createDirectPay(direct());
+        assertEquals("DIRECT_PAY", intent.get().entryMode());
+        assertNull(intent.get().initialSessionId());
+        assertEquals("COMPLETED", intent.get().state());
+        assertEquals(created.orderId(), service.resumeDirectPay(direct()).orderId());
+        assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.create(command)).getResultCode());
+        var changed = new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 10000L, "CNY", "test order", null,
+                "changed-first-action", 4000L, direct().choice(), direct().interactionKind());
+        assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.createDirectPay(changed)).getResultCode());
+        verify(store, times(1)).insertIntent(anyString(), any());
+        verify(store, times(1)).insertOrder(anyString(), any(), any(), anyString());
+        verifyNoInteractions(sessions);
+    }
+
+    @Test
+    void directPayResumeWithoutA0NeverAllocatesAnOrderOrCallsAdmission() {
+        assertSame(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND,
+                assertThrows(CommonException.class, () -> service.resumeDirectPay(direct())).getResultCode());
+        assertEquals(0, sequence.get());
+        verify(store, never()).insertIntent(anyString(), any());
+        verify(store, never()).insertOrder(anyString(), any(), any(), anyString());
+        verifyNoInteractions(product, sessions);
+    }
+
+    @Test
+    void aLostDirectPayAdmissionReplyResumesTheOriginalReservedOrderIdentity() {
+        when(product.authorize(any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        assertThrows(CommonException.class, () -> service.createDirectPay(direct()));
+        var original = intent.get();
+        assertEquals("INIT", original.state());
+        when(product.authorize(any())).thenAnswer(call -> admitted(call.getArgument(0)));
+        var resumed = service.resumeDirectPay(direct());
+        assertEquals(original.orderId(), resumed.orderId());
+        assertEquals(original.id(), intent.get().id());
+        assertEquals("COMPLETED", intent.get().state());
+        verify(store, times(1)).insertIntent(anyString(), any());
+        verify(store, times(1)).insertOrder(anyString(), any(), any(), anyString());
+        verifyNoInteractions(sessions);
     }
 
     @AfterEach

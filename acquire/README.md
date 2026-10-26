@@ -498,7 +498,7 @@ JWT 分别要求 `pay:acquire:session:read`、`pay:acquire:session:revoke`；原
 缺 id 的恢复轮询也受原次数/可见性边界约束，用户手动重试重启一轮有界查询。
 另一个会话、订单或 merchant 范围不能以同 actionKey 查询，改金额/选择会明确冲突。
 
-远端输入已保存但本地引用丢失的恢复已由 InputLookup 接通；输入过期后的有证据关闭、首次准备并发期间网络地址变更等恢复仍需继续；
+远端输入已保存但本地引用丢失的恢复已由 InputLookup 接通；未受理输入过期的有证据关闭已接 InputExpire；首次准备并发期间网络地址变更等恢复仍需继续；
 已过期/撤销 capability 不绕过鉴权，需商户核对。后端/API/页面和测试源码已补，未运行 Java/Node/IDE/浏览器/数据库或真实渠道验证。
 
 
@@ -510,4 +510,126 @@ payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验�
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
 
 新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
-未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。
+未运行任何验证；未受理输入到期后的有证据关闭源码已补；第一次准备仍在途的竞态与其余完整业务范围继续。
+
+
+## 未受理输入到期收敛（2026-10-26）
+
+InputExpire 是完整原输入范围绑定的内部条件操作，要求 acquire SERVICE+input:expire 权限。
+在原 parent/child/payment/input 锁序内，已有付款保持原状；有效未受理输入仍可原命令受理；
+到期且从未受理时复用单笔 close 原子写门禁与固定控制回执，不封禁父订单或调用渠道。
+回复丢失可用原请求重放证明，孤立数据没有证明不能按无付款记录直接释放。
+
+acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A3 核对并幂等释放原 allocation。
+paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
+控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
+首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
+
+
+## 商户原 actionKey 恢复入口（2026-10-26）
+
+POST `/api/acquire/payments/recover` 接收原 orderId/actionKey/amountMinor/choice，专门 merchant JWT 权限为
+`pay:acquire:payment:recover`。恢复绑定原 tenant/callerScopeHash 与 merchant scope，不接受自报范围，不读取 checkout 的同名动作。
+复用共享原意图恢复/原输入查回与条件到期证明/A3，找不到或缺输入时 accepted 明确 null；
+只有 RESOLVED 的已受理原付款或经 A3 的未受理证据分别返回 true/false，不把依赖失败伪装成未受理。
+
+补充原合法 NoInteraction H5 的恢复：以原 v1 摘要精确确认 NONE 模式才跳过输入查询/到期接口，
+原字段全量经 MapStruct 重建摘要候选，不依据空引用猜测。敏感输入路径继续查原输入，不能切换到 NONE。
+Java 恢复枚举提升为共享 PaymentRecoveryState，商户与 cashier 使用同一组语义，未保留早期兼容类型。
+
+新增源码与权限/隔离/三态/原证据/未知 JSON 判别/无输入与损坏拒绝测试源码，未执行任何验证、部署或实际支付。
+DirectPay 整体丢失回复、首次输入准备并发、JSAPI OAuth、其他渠道/通知生命周期/交易重建/风控/对账和完整验证仍需继续。
+
+
+## DirectPay 首笔绑定与整体恢复（2026-10-26）
+
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
+
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
+已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
+
+DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
+未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
+
+
+## A2 后台付款恢复（2026-10-26）
+
+新付款的预占金额、原命令、`allocation_recovery_cursor` 和首轮 native DelayedTask 在同一个 A2 事务中登记，
+首轮时间为原 initiatedAt 加轮询间隔；任务登记失败使 A2 回滚，之后不发起准备输入或受理 RPC。
+任务类型为 `pay.acquire.payment.intent.progress`，bizId 为 `paymentId.generation`，只携带原身份和恢复代次。
+`ACQUIRE_PAYMENT_RECOVERY_POLL_DELAY_SECONDS` 默认 30，允许 1 至 86400 秒；运行 `acquire-business` 已有的
+DelayedTask/local Scheduler 装配即可唤醒，不为每笔订单创建平台作业。
+
+执行器从可信持久化原归属恢复内部权限，只允许继续原意图，不伪造商户 JWT、不要求原收银台仍在线或会话仍有效，
+不能创建新 A2、换 actionKey、重建付款码/买家身份/IP 或改变渠道。已提交意图经过原输入查回、输入到期门禁、原命令受理和
+原结果查询流程继续；INPUT_REQUIRED 保留预占并登记下一代，不因超时直接释放。取得到期关闭证明时交给现有 A3 收敛，
+非终态继续查询；只有 CONSUMED/RELEASED 且具有精确绑定的 PaymentOutcomeReceipt 才结束恢复。
+
+本地检查按订单→allocation→恢复游标锁定；RPC 在事务外，之后重新锁定原记录。旧代、已完成、重复任务不重复续排；
+后续游标与不同 bizId 的 native 任务原子提交。native 租约只约束唤醒处理，不构成资金执行权或未收款证明。
+依赖异常交给 native 有界重试，FAILED 保留原业务未知状态，不能当作支付失败或释放金额。
+
+新增迁移 `V20261026110000__allocation_recovery_cursor.sql`、DO/生成 Mapper 约定下的 Gateway、转换器、领域/编排/事务测试源码。
+未运行 IDEA、编译、测试、数据库、调度器或 RPC 验收；迁移没有执行。订单到期关单续办、首次准备仍在途且输入尚不可查回的
+最终收敛、FAILED 运维续办另行实现，本任务不声称这些边界已完成。
+
+
+## 订单到期与关单后台续办（2026-10-26）
+
+A1 同事务登记 `pay.acquire.order.deadline`，bizId 为 `orderId.deadlineVersion`，初始版本为 1、executeAt 为原 orderDueAt。
+延期把新截止、订单版本、deadlineVersion、不可变延期回执与新任务一起提交；同键重放不再登记任务。旧版任务不取消远端行为，
+仅在订单锁下按当前版本幂等跳过。延长截止与到期处理争用同一订单锁：延期先提交则旧任务无效，到期 C0 先提交则禁止新延期。
+ORDER、CHECKOUT、DIRECT_PAY 均使用同一创建登记流程；DirectPay 延期也从原类型化创建元数据校验原截止与累计上限。
+
+`OrderDeadlineService` 校验 native RUNNING/attempts/租约/nextExecuteAt、可信租户、原 orderId、正 deadlineVersion 与原期限。
+CLOSE 策略到期通过共享 `OrderClosureOperations.startLocked` 原子登记 C0 与首轮关单任务；服务端请求键为
+`order-deadline/{version}`，原理由 `ORDER_EXPIRED` 标识。KEEP_PENDING 到期不会建立关闭门禁：INIT 仅转为 PENDING，
+金额、预占和合约不变；已 PENDING 不重复写，仍可按原策略续付。
+
+商户关闭入口保留 `pay:acquire:close` 权限；共享编排不伪造商户身份。所有新 C0 同事务登记
+`pay.acquire.order.close.progress`，bizId 为 `orderId.closeIntentRowVersion`，首轮版本为 0、时间为原 requestedAt。
+`OrderClosureRecoveryService` 仅续办精确匹配的原关闭意图，沿原 owner、reason、epoch、父门禁、子付款和游标执行有界批次。
+游标推进与下一代 native 任务同事务提交，重复/旧代或终态不另起批次；RPC 均在本地事务外。
+
+`ACQUIRE_ORDER_CLOSE_POLL_DELAY_SECONDS` 默认 30（1 至 86400）。未知子付款、未收敛父门禁或本地仍有预占都保持 CLOSING；
+只有原权威门禁证明、子付款收敛、本地零预占及完整回执条件满足，才沿原 finishClose 逻辑进入 CLOSED。
+任务租约或失败不证明未收款；native FAILED 不释放预占，运维续办仍需后续实现。
+
+复用现有 deadline_version、order_close_intent.row_version/cursor_payment_id 与 native 表，没有新增业务表或 RPC。
+源码及测试源码已补；未运行 IDEA、构建、测试、数据库、调度或实际 RPC。旧库已有记录的补登记未实现，当前仍按开发期直接重构规则处理。
+
+
+## 失败恢复任务的审计重试（2026-10-26）
+
+新增 `AcquireRecoveryOperationsFacade` 与运营 HTTP 入口：
+
+| 接口 | 权限 | 作用 |
+|---|---|---|
+| POST /api/acquire/operations/recovery/tasks/detail | pay:acquire:recovery:read | 查看一个原任务的状态与精确重试前置条件 |
+| POST /api/acquire/operations/recovery/tasks/retry | pay:acquire:recovery:retry | 对当前仍有业务工作的 FAILED 原任务登记审计并重试 |
+
+两者只接受已验证的 SERVICE 身份，service_id/sub 必须匹配
+`ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID`（默认 pay-ops），租户来自 JWT；商户和付款/退款结果服务不获得运营权限。
+令牌 issuer、签名、受众及有效期沿既有资源服务器校验；本轮没有签发或配置真实令牌。
+
+kind 仅允许 PAYMENT_ALLOCATION、ORDER_DEADLINE、ORDER_CLOSURE，分别映射到既有三类 native taskType。
+subjectId 是原 paymentId（付款恢复）或原 orderId（另两类），generation 为原恢复代次/截止版本/关单游标版本。
+查询不会创建任务，且只返回 native id/status/attempts/maxAttempts/executeAt/nextExecuteAt、businessCurrent 和 retryable；
+不暴露 lastError、原命令或金融证明。retryable 是可变化的查询快照，不授予执行权。
+
+重试要求原 kind/subject/generation、expectedTaskId、expectedAttempts 和微秒精度 expectedNextExecuteAt 全部匹配，
+并使用稳定 requestKey 与必填 reason。只处理 FAILED；PENDING/RUNNING/SUCCEEDED/CANCELLED 不改写，缺任务不补建。
+仍有当前业务工作且原 executeAt 已到时调用 native retryFailed，保留原业务期限；原金融身份、actionKey、渠道、执行 epoch、
+金额、商户合约及业务尝试预算不变。过期代次或业务已结束，只记录 NO_LONGER_NEEDED，不重新唤醒。
+
+操作回执 `acquire_recovery_retry_receipt` 与 native 重试同数据源/同事务提交，唯一键为 tenant/callerScopeHash/requestKey。
+同键完整重放返回首次不可变决定；同键改参冲突，即使原 native 任务再次耗尽，也不会因回复重试而重新清零次数。
+原订单锁序列化同订单操作，native 的状态条件更新处理调度竞争；审计或 native 更新失败一同回滚。
+RETRIED 只代表唤醒已登记，不代表资金成功、失败、未收款或订单已关闭。
+
+新增 `V20261026130000__acquire_recovery_retry_receipt.sql`、生成 Mapper 约定下的 DO/Gateway/MapStruct 和业务/领域测试源码。
+没有新增内部 RPC 或直接执行渠道的入口。未运行 IDEA、编译、测试、数据库/HTTP/JWT/调度器验收；迁移尚未执行。
+本入口目前只覆盖 acquire 三类任务，payment/refund 自身的 FAILED 运维处理仍需继续；任务列表/告警与旧库补登记另行推进。

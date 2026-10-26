@@ -31,6 +31,36 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PaymentRpcMapperTest {
     @Test
+    void inputExpiryRoundTripRequiresItsScopeDispositionAndOriginalFencedProof() throws Exception {
+        var command = new io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand("input", "payment", "order", "allocation", "merchant",
+                9_007_199_254_740_993L, "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
+        var wire = PaymentRpcMapper.INSTANCE.toWirePaymentInputExpireCommand(command);
+        assertEquals(command, PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpireCommand(
+                io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpireCommand.parseFrom(wire.toByteArray())));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpireCommand(wire.toBuilder().clearInputRef().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpireCommand(wire.toBuilder().clearAmountMinor().build()));
+        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO("payment", "order", 1L, true, null, "never-accepted-proof");
+        var result = new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO("payment", "order",
+                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED, proof);
+        var encoded = PaymentRpcMapper.INSTANCE.toWirePaymentInputExpiryDTO(result);
+        assertEquals(result, PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(
+                io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpiryDTO.parseFrom(encoded.toByteArray())));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(encoded.toBuilder().clearDisposition().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(encoded.toBuilder().setDisposition("UNKNOWN").clearClosed().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(encoded.toBuilder().clearClosed().build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(encoded.toBuilder()
+                .setClosed(encoded.getClosed().toBuilder().setFenced(false)).build()));
+        assertThrows(IllegalArgumentException.class, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(encoded.toBuilder()
+                .setClosed(encoded.getClosed().toBuilder().setPaymentId("other")).build()));
+        for (var disposition : java.util.List.of(io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE,
+                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.PAYMENT_EXISTS)) {
+            var unchanged = new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO("payment", "order", disposition, null);
+            assertEquals(unchanged, PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(PaymentRpcMapper.INSTANCE.toWirePaymentInputExpiryDTO(unchanged)));
+        }
+    }
+
+    @Test
     void inputLookupRoundTripPreservesScopeExactAmountAndExplicitAbsence() throws Exception {
         var query = new io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery("payment", "order", "allocation", "merchant",
                 9_007_199_254_740_993L, "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(

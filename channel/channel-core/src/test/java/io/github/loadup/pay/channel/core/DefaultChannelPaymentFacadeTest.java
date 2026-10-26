@@ -44,6 +44,39 @@ class DefaultChannelPaymentFacadeTest {
     private final DefaultChannelPaymentFacade facade = new DefaultChannelPaymentFacade(List.of(alipay, wechat));
 
     @Test
+    void aSelectedProviderFailureDoesNotSubmitToAnotherChannel() {
+        var context = context(Channel.WECHAT, "wx-binding", HASH);
+        var request = request(payment(Channel.WECHAT, "wx-binding", HASH));
+        var failure = new CommonException(
+                io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID);
+        when(wechat.submit(context, request)).thenThrow(failure);
+        clearInvocations(alipay, wechat);
+
+        TenantUtil.runWithTenant("tenant", () ->
+                assertSame(failure, assertThrows(CommonException.class, () -> facade.submit(context, request))));
+
+        verify(wechat).submit(context, request);
+        verifyNoMoreInteractions(wechat);
+        verifyNoInteractions(alipay);
+    }
+
+    @Test
+    void registryOrderCannotOverrideTheRequestedChannel() {
+        var reversed = new DefaultChannelPaymentFacade(List.of(wechat, alipay));
+        var context = context(Channel.ALIPAY, "ali-binding", HASH);
+        var request = request(payment(Channel.ALIPAY, "ali-binding", HASH));
+        var result = submission(request.payment().identity(), AMOUNT);
+        when(alipay.submit(context, request)).thenReturn(result);
+        clearInvocations(alipay, wechat);
+
+        TenantUtil.runWithTenant("tenant", () -> assertSame(result, reversed.submit(context, request)));
+
+        verify(alipay).submit(context, request);
+        verifyNoMoreInteractions(alipay);
+        verifyNoInteractions(wechat);
+    }
+
+    @Test
     void routesPaymentAndRefundOperationsByIdentityChannel() {
         var alipayContext = context(Channel.ALIPAY, "ali-binding", HASH);
         var wechatContext = context(Channel.WECHAT, "wx-binding", HASH);

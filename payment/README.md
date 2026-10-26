@@ -663,4 +663,49 @@ payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验�
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
 
 新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
-未运行任何验证；原输入到期后的有证据关闭、第一次准备仍在途的竞态与其余完整业务范围继续。
+未运行任何验证；未受理输入到期后的有证据关闭源码已补；第一次准备仍在途的竞态与其余完整业务范围继续。
+
+
+## 未受理输入到期收敛（2026-10-26）
+
+InputExpire 是完整原输入范围绑定的内部条件操作，要求 acquire SERVICE+input:expire 权限。
+在原 parent/child/payment/input 锁序内，已有付款保持原状；有效未受理输入仍可原命令受理；
+到期且从未受理时复用单笔 close 原子写门禁与固定控制回执，不封禁父订单或调用渠道。
+回复丢失可用原请求重放证明，孤立数据没有证明不能按无付款记录直接释放。
+
+acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A3 核对并幂等释放原 allocation。
+paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
+控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
+首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
+
+
+## 付款/退款 FAILED 原任务运维恢复（2026-10-26）
+
+`PaymentRecoveryOperationsFacade` 提供两个运营 HTTP 入口，均返回 no-store 标准响应：
+
+| 接口 | 权限 | 作用 |
+|---|---|---|
+| POST /api/payment/operations/recovery/tasks/detail | pay:payment:recovery:read | 查询一个原恢复任务及精确失败快照 |
+| POST /api/payment/operations/recovery/tasks/retry | pay:payment:recovery:retry | 对仍有原业务工作的 FAILED 任务登记审计并重试 |
+
+身份复用 JwtPaymentActorProvider，必须是已验证的 SERVICE，service_id/sub 等于
+`PAYMENT_RECOVERY_OPERATIONS_SERVICE_ID`（默认 pay-ops）；普通 acquire、商户或退款调用者不获得运维权限。
+租户来自验证后的 JWT，issuer/audience/签名/期限沿资源服务器处理，本轮没有签发令牌。
+
+kind 只允许 COLLECTION 与 REFUND_REQUEST，subjectId 分别是原 paymentId、原 refundRequestId；generation 是原恢复代次。
+查询按既有父门禁→单笔门禁→付款/原退款计划锁序读取，再锁恢复游标。付款绑定仍以原 persisted callerServiceId 校验，
+不会把 pay-ops 作为原金融调用者；退款沿原请求/订单/商户/摘要绑定检查。终态、完成游标或旧代不会重新执行金融工作。
+
+重试命令精确绑定 expectedTaskId、expectedAttempts、expectedNextExecuteAt（微秒精度），并带稳定 requestKey 和审计 reason。
+只允许原 native FAILED，原 executeAt 未到不提前唤醒；缺任务不补建，非 FAILED 不改写，不提供改期/取消/执行 Handler 入口。
+执行仍由原 native worker、Y2 首次提交门禁、原渠道查询/退款计划决定；不生成新 attempt/refundRequest/渠道请求号，
+不切换账户、渠道或重排退款子单，也不恢复业务资金预算。native retryFailed 仅重置其技术重试次数，保留原业务 deadline。
+
+`payment_recovery_retry_receipt` 与 native retryFailed 同库事务提交，唯一键为 tenant/callerScopeHash/requestKey。
+完整重放只返回首次回执，即使同一 native 任务又耗尽也不再次重置次数；同键改参冲突。新明确运维决定使用新 key 和最新失败快照。
+RETRIED 表示原唤醒已重排，NO_LONGER_NEEDED 表示该代或业务已结束、只记审计；两者都不是支付/退款结果。
+原金融终态、已消费/预占额度和退款容量不被运维入口修改。query DTO 不返回 native lastError、冻结命令、渠道凭证或付款输入。
+
+迁移 `V20261026140000__payment_recovery_retry_receipt.sql`、BaseDO/生成 Mapper/MapStruct/Gateway、权限/原条件/重放/回滚及
+退款锁绑定测试源码已补。未运行 IDEA、编译、测试、数据库、HTTP/JWT 或调度器验收，也没有执行 DDL、部署或重试实际任务。
+任务列表/告警、旧库补登记、渠道与其他完整业务目标继续待办。

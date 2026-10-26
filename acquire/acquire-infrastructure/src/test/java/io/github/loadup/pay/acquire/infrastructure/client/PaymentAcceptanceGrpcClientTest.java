@@ -264,4 +264,21 @@ class PaymentAcceptanceGrpcClientTest {
         trailers.put(RpcServerSupport.RESULT_CODE, code);
         return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
+
+    @Test
+    void inputExpiryUsesItsTypedOperationAndFailureNeverFabricatesAClosure() {
+        var command = new io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand("input", "payment", "order", "allocation", "merchant", 100L,
+                "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
+        var operation = io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_EXPIRE;
+        var active = new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO("payment", "order",
+                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+        when(rpc.call(eq(operation), eq(command), any())).thenReturn(active);
+        assertSame(active, client.expireInput("tenant", command));
+        when(rpc.call(eq(operation), eq(command), any())).thenThrow(remoteFailure("PAYMENT_NOT_FOUND"));
+        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.expireInput("tenant", command)).getResultCode());
+        when(rpc.call(eq(operation), eq(command), any())).thenThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT"));
+        assertSame(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> client.expireInput("tenant", command)).getResultCode());
+    }
 }

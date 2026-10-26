@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.loadup.pay.acquire.client.enums;
+package io.github.loadup.pay.acquire.client.facade;
 
-/** Local intent recovery status; absence is never proof that no payment can occur. */
-public enum CashierPaymentRecoveryState {
-    NOT_OBSERVED,
-    INPUT_REQUIRED,
-    RESOLVED
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
+import io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO;
+
+/** Resume only a persisted original DirectPay intent; never creates a replacement order or payment. */
+public interface DirectPaymentRecoveryFacade {
+    DirectPayRecoveryDTO recover(DirectPayRecoverCommand command);
 }

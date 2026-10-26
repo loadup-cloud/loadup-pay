@@ -32,6 +32,9 @@ public interface PaymentAcceptanceClient {
 
     PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query);
 
+    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(String tenant,
+            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+
     PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command);
 
     PaymentExecutionDTO detail(String tenant, String paymentId);

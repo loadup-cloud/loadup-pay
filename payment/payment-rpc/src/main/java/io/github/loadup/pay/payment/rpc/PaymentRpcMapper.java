@@ -138,6 +138,54 @@ public interface PaymentRpcMapper {
 
     io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery fromWirePaymentInputLookupQuery(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery value);
 
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "inputRef", source = "inputRef")
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "allocationId", source = "allocationId")
+    @Mapping(target = "payeeMerchantId", source = "payeeMerchantId")
+    @Mapping(target = "amountMinor", source = "amountMinor")
+    @Mapping(target = "currency", source = "currency")
+    @Mapping(target = "inputKey", source = "inputKey")
+    @Mapping(target = "choice", source = "choice")
+    io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpireCommand toWirePaymentInputExpireCommand(io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand value);
+
+    io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand fromWirePaymentInputExpireCommand(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpireCommand value);
+
+    @BeforeMapping
+    default void requireInputExpiryFields(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpireCommand value) {
+        if (value == null || !value.hasInputRef() || !value.hasPaymentId() || !value.hasOrderId() || !value.hasAllocationId()
+                || !value.hasPayeeMerchantId() || !value.hasAmountMinor() || !value.hasCurrency() || !value.hasInputKey()
+                || !value.hasChoice()) throw new IllegalArgumentException("RPC input expiry fields are required");
+    }
+
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "paymentId", source = "paymentId")
+    @Mapping(target = "orderId", source = "orderId")
+    @Mapping(target = "disposition", source = "disposition")
+    @Mapping(target = "closed", source = "closed")
+    io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpiryDTO toWirePaymentInputExpiryDTO(io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO value);
+
+    @Mapping(target = "disposition", expression = "java(io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.valueOf(value.getDisposition()))")
+    @Mapping(target = "closed", expression = "java(value.hasClosed() ? fromWirePaymentCloseDTO(value.getClosed()) : null)")
+    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO fromWirePaymentInputExpiryDTO(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpiryDTO value);
+
+    @BeforeMapping
+    default void requireInputExpiryResult(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputExpiryDTO value) {
+        if (value == null || !value.hasPaymentId() || !value.hasOrderId() || !value.hasDisposition()
+                || "EXPIRED_CLOSED".equals(value.getDisposition()) != value.hasClosed())
+            throw new IllegalArgumentException("RPC input expiry result is invalid");
+        if (value.hasClosed()) {
+            var proof = value.getClosed();
+            if (!proof.hasPaymentId() || !proof.hasOrderId() || !proof.hasFenceEpoch() || !proof.hasFenced()
+                    || !proof.getFenced() || proof.hasPayment() || !proof.hasNoCollectionEvidenceId()
+                    || proof.getFenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH
+                    || proof.getNoCollectionEvidenceId().isBlank()
+                    || !proof.getPaymentId().equals(value.getPaymentId()) || !proof.getOrderId().equals(value.getOrderId()))
+                throw new IllegalArgumentException("RPC input expiry proof is invalid");
+        }
+    }
+
     @BeforeMapping
     default void requireInputLookupFields(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery value) {
         if (value == null || !value.hasPaymentId() || !value.hasOrderId() || !value.hasAllocationId()

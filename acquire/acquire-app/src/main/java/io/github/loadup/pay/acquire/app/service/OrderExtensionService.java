@@ -65,11 +65,12 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
     private final Validator validator;
     private final Clock clock;
     private final OrderSnapshotEvents snapshots;
+    private final OrderDeadlineTasks deadlineTasks;
 
     public OrderExtensionService(AcquireActorProvider actors, OrderCreationGateway orders, OrderExtensionGateway store,
                                  OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
                                  OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-                                 @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots) {
+                                 @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -81,6 +82,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         this.validator = validator;
         this.clock = clock;
         this.snapshots = snapshots;
+        this.deadlineTasks = deadlineTasks;
     }
 
     @Override
@@ -121,6 +123,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
             var receipt = converter.toReceipt(command, order, ids.generate(), actor.scopeHash(), digest,
                     originalDue, requested, Math.incrementExact(deadlineVersion), appliedAt);
             store.extend(actor.tenantId(), extended, receipt);
+            deadlineTasks.register(actor.tenantId(), extended, receipt.deadlineVersion());
             snapshots.publish(actor.tenantId(), extended.id(), extended.version());
             return orderConverter.toDTO(orders.findOrder(actor.tenantId(), command.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
@@ -144,6 +147,10 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 var checkout = codec.decodeCheckout(intent);
                 original = orderConverter.toOrderCreate(checkout);
                 digest = codec.checkoutDigest(actor.tenantId(), actor.scopeHash(), checkout);
+            } else if ("DIRECT_PAY".equals(intent.entryMode())) {
+                var direct = codec.decodeDirectPay(intent);
+                original = orderConverter.toOrderCreate(direct);
+                digest = codec.directPayDigest(actor.tenantId(), actor.scopeHash(), direct);
             } else throw new CommonException(SNAPSHOT_INVALID);
             var due = original.requestedDueAt() == null
                     ? order.admittedAt().plusSeconds(terms.waitSeconds()) : inputTime(original.requestedDueAt());

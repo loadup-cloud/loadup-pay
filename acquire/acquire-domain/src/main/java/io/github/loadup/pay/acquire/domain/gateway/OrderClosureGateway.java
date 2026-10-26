@@ -26,6 +26,9 @@ import java.util.Optional;
 public interface OrderClosureGateway {
     Optional<OrderCloseIntent> findIntent(String tenant, String orderId);
 
+    /** Persist only the exact INIT to PENDING transition prescribed by an expired KEEP_PENDING order. */
+    void keepPending(String tenant, AcquireOrder before, AcquireOrder after);
+
     void start(String tenant, AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion);
 
     List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit);

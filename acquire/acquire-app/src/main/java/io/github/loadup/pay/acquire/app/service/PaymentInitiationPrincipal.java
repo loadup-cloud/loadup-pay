@@ -24,7 +24,7 @@ import java.util.function.BiConsumer;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Ephemeral internal authority supplied only by an authenticated merchant or checkout entry point. */
+/** Ephemeral internal authority bound by an authenticated entry point or a committed original recovery intent. */
 record PaymentInitiationPrincipal(String tenantId, String scopeHash, String actionScope, @DiagnosticHidden BiConsumer<StoredAcquireOrder, Boolean> guard) {
     PaymentInitiationPrincipal {
         DomainChecks.id(tenantId); DomainChecks.text(actionScope, 128); Objects.requireNonNull(guard);

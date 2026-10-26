@@ -129,7 +129,7 @@ public record PaymentStartDTO(
         String orderId, String paymentId, String allocationId,
         PaymentState state, PaymentActionDTO action, long version) {}
 
-public record DirectPayDTO(AcquireOrderDTO order, PaymentStartDTO payment) {}
+public record DirectPayDTO(AcquireOrderDTO order, PaymentRecoveryDTO payment) {}
 
 public record PaymentActionDTO(
         PaymentActionType type, OffsetDateTime expiresAt,
@@ -872,13 +872,15 @@ expectedVersion 对应订单 version，参与幂等摘要；不要用新的订�
 必须换新 key。
 
 新延期只接受仍可续付的 INIT/PENDING，并遵守原冻结 extensionAllowed 和累计 extensionMaxSeconds。原始截止由持久
-ORDER/CHECKOUT 意图及原 admittedAt 恢复，多次延期固定使用原始截止+累计上限，不滚动重置。CLOSE 到期即拒绝，KEEP_PENDING
+ORDER/CHECKOUT/DIRECT_PAY 意图及原 admittedAt 恢复，多次延期固定使用原始截止+累计上限，不滚动重置。CLOSE 到期即拒绝，KEEP_PENDING
 可在旧截止后续期但仍受累计上限及未来时间约束。终态和 CLOSING 不新执行延期，原成功请求的终态重放仅查询。
 
 requestedDueAt
 支持显式偏移且最多微秒精度，等价偏移映射同一摘要；不允许缩短或维持原截止。订单锁内原子写新截止/两个版本和不可变回执，不访问外部准入服务、不延长已有会话、不改变金额或渠道执行窗口。主要固定错误码：ACTION_FORBIDDEN（主体/权限/条款禁止）、VERSION_CONFLICT、ORDER_NOT_PAYABLE、IDEMPOTENCY_CONFLICT、INVALID_ARGUMENT、SNAPSHOT_INVALID。
 
-自动到期任务及其版本淘汰后续接入；本批按要求未验证或部署。
+创建在 A1 同事务登记第 1 版到期任务，延期在原订单锁下同事务登记新 deadlineVersion 的到期任务；旧版到期任务被版本淘汰。
+CLOSE 到期时持久化 C0 与关单任务，KEEP_PENDING 只按领域规则推进到 PENDING，仍允许付款。
+原 C0 的关闭批处理由 native 任务继续，不需要商户持续重放；商户重放仍必须使用原请求键和原参数。源码未验证或部署。
 
 ## 26. 付款码与纯 API 接入范围修订
 
@@ -1447,7 +1449,7 @@ RESOLVED 不表示已支付成功。payment 仍可为 INIT/PROCESSING/UNKNOWN �
 新付款预占、输入准备和动作重建的语义不并入恢复入口。
 
 payment 已保存安全输入但其回复/本地引用绑定丢失时，恢复通过 InputLookup 查询精确原引用并在 acquire 重新加锁绑定，再按原命令受理。
-当前剩余边界：原输入过期后的有证据关闭、首次准备尚未提交时的网络地址变更竞态，以及已过期/撤销会话的买方恢复，仍需继续原身份恢复/商户核对设计。
+原输入到期但从未受理的有证据关闭已接通 InputExpire；剩余边界为首次准备尚未提交时的网络地址变更竞态，以及已过期/撤销会话的买方恢复，仍需继续原身份恢复/商户核对设计。
 这些情况不得更换付款身份、擅自释放占用或宣称失败。渠道预支付动作重建仍限原 Provider 的已实现能力，不自动重新创单。
 
 Java 与浏览器核心测试源码已补，页面恢复/重试/刷新/有界轮询已接线；未运行任何验证或真实调用。
@@ -1473,6 +1475,196 @@ acquire 在 A2 已提交而本地 preparedInputRef 缺失时，以存储的原�
 绑定后按原 PaymentExecuteCommand 幂等受理，继续原 A3 收敛。网络失败、非法 found/input 组合、错误参数、缺字段都不回退成 found=false，
 不自动准备新输入或换 paymentId。先前保存的 IP/场景保持原样，浏览器网络变化不会改写已保存输入。
 
-原期限与执行门禁继续有效：查询和补绑不授予新有效期。若从未受理且原输入已过期，受理明确失败并保留占用，
-后续必须有证据关闭/收敛，不能因过期直接判定未收款。首次准备还在途、查询尚未观察到记录时的精确重试竞态继续保留。
+原期限与执行门禁继续有效：查询和补绑不授予新有效期。若从未受理且原输入已过期，恢复通过 InputExpire 原子建立单笔未受理门禁/证据，随后 A3 收敛；不能因查询到期直接释放占用。首次准备还在途、查询尚未观察到记录时的精确重试竞态继续保留。
 所有源码、RPC 映射与测试源码已补，未运行验证。
+
+
+## 原安全输入到期的条件关闭（2026-10-26）
+
+`PaymentControlFacade.expireInput(PaymentInputExpireCommand)` 经内部 `PaymentRpc/InputExpire` 提供，
+仅允许配置的 acquire SERVICE 和专门 `pay:payment:input:expire` 权限。命令包含原 inputRef 加 InputLookup 的完整原意图范围；
+不由浏览器提供期限，不允许任意 requestKey、reason、fenceEpoch 或金融身份。输入引用诊断隐藏。
+
+结果 `PaymentInputExpiryDTO(paymentId,orderId,disposition,closed)` 使用三种互斥决定：
+
+| disposition | 原子条件与结果 | acquire 行为 |
+|---|---|---|
+| INPUT_ACTIVE | 尚未受理，原输入尚有效，无原到期关闭回执 | 使用原已绑定命令尝试幂等受理，不能延长输入 |
+| PAYMENT_EXISTS | 原付款已受理；原意图与输入范围精确匹配 | 不因输入到期关闭它，继续原权威进度/A3；不再次调用 accept |
+| EXPIRED_CLOSED | 原输入已到期且从未受理，或原关闭回执已提交 | closed 必须带精确单笔持久门禁与非空未受理证明；A3 幂等释放这一笔占用 |
+
+此操作与 Y1/Y2 使用同样的 parent→child gate→payment→input 锁序。先核对已验证 SERVICE/可信租户、
+完整输入范围及已受理记录；付款已存在时保持所有付款/attempt 状态、成功金额及门禁不变。
+仅确实从未受理时，使用固定 `input-expiry/{allocationId}`、epoch=1、reason=INPUT_EXPIRED，
+复用单笔 close 的 gate+不可变控制回执事务；原 parent 保持 OPEN（如果原本已由关单封禁则保持封禁），不禁止订单其他付款。
+可能建立原 parent OPEN 协调门禁，但不会把有效输入或已受理付款关闭。
+
+没有付款记录不等于未收款；必须成功持久化单笔 FENCED 门禁并取得未受理证据，阻止迟到 accept。
+原 gate 有异常孤立状态但找不到证据时拒绝，不制造证明。BOUND 输入却缺原付款也视为损坏。
+原回执支持回复丢失后的精确重放，不以当前墙钟回退而重新开放；同一单笔已有更高门禁版本不会回退。
+输入密文、指纹、期限不改变，没有 KMS、解密或渠道调用。
+
+收银台原 actionKey 恢复在安全输入引用已绑定后调用此条件操作：已受理则查原付款，仍有效则原命令受理，
+EXPIRED_CLOSED 则先将原证明交 PaymentOutcomeOperations 的既有 A3。
+只有原 tenant/order/payment、原 owner/准入/金额、fenced/fenceEpoch/evidence 都匹配，才释放对应 allocation；
+paid gross、其他付款占用、成功笔数及订单业务状态不因此改变。NOT_ACCEPTED 不虚构 payment 行，不确认整单收费。
+回执与释放后的 A3 都可以重放；网络错误、缺字段或不匹配决定保留未知和占用，不能输出 accepted=false。
+页面收到已收敛的明确未受理结果后才清除原动作，允许下一笔明确金额。
+
+这是收银台恢复路径的源码接线；首次准备仍未提交时的地址变化竞态、买方会话过期后的商户核对与全部运行验收继续。
+SERVICE 令牌还需发行方配置 input:expire 权限，本轮没有签发令牌、执行构建/测试/DDL/部署或真实调用。
+
+
+## 商户纯 API 原付款恢复（2026-10-26）
+
+新增 `PaymentRecoveryFacade.recover(PaymentRecoverCommand)` 与商户 JWT 的 POST
+`/api/acquire/payments/recover`，响应 `SuccessResponse<PaymentRecoveryDTO>`、no-store。
+独立权限 `pay:acquire:payment:recover`，start 权限不会自动授予恢复权限。
+命令只带第一次明确付款时的原 orderId/actionKey/amountMinor/choice，不携带付款码、OpenID、IP、输入引用或渠道绑定。
+
+```json
+{"orderId":"O1001","actionKey":"pay-0001","amountMinor":3000,"choice":{"channel":"WECHAT","method":"H5"}}
+```
+
+恢复始终绑定可信 JWT 的 tenant/callerScopeHash 和 `merchant/{callerScopeHash}`：
+不能用该键读别的应用/主体或 `checkout/sessionId` 的意图，不能由参数指定商户、租户或 actorScope。
+已存在意图需精确匹配金额/choice/原准入；改参冲突。此入口不创建新订单、输入、A2 预占或付款身份。
+它与 cashier 共用 PaymentInitiationOperations 与 PaymentOutcomeOperations，原输入查回/补绑、条件到期门禁与 A3 不复制。
+
+`PaymentRecoveryDTO` 返回原 orderId/actionKey、共享 `PaymentRecoveryState`、可空 paymentId、可空 accepted 和 progress：
+
+| state | paymentId / progress | accepted |
+|---|---|---|
+| NOT_OBSERVED | 均为空；本作用域暂未观察到原意图，不是未收款证明 | 明确 null |
+| INPUT_REQUIRED | 均为空；已预占但原安全输入尚未准备或尚不可观察 | 明确 null |
+| RESOLVED | 固定原 paymentId，progress 包含已收敛订单和可空付款 | true 表示原付款已受理；false 只在原未受理证明经过 A3 后返回 |
+
+RESOLVED/accepted=true 不等于支付成功；继续看 progress.payment.state。未观察到、依赖异常、超时或字段缺失不能变成 false。
+原已受理付款只查原结果；到期但从未受理的原输入先获得 InputExpire 持久门禁和证明，再交 A3 释放原占用。
+商户确认当前请求尚未落 A2 时仍只能以原动作键/原金额重试 start，不能将 NOT_OBSERVED 当作安全更换键的许可。
+
+### 原无输入意图的恢复
+
+H5 首次 API 合法使用 NoInteraction 时，本来没有安全输入，不应永远卡在 INPUT_REQUIRED。
+原 v1 幂等摘要已绑定交互种类；恢复在原订单锁内使用框架 MapStruct 构造同元数据的 NONE 候选，
+只有 choice.method=H5 且该摘要与原 allocation.requestDigest 完全相等，才确认原请求有意无输入。
+这一路径使用原落库命令幂等受理，不调用 InputLookup/InputExpire 或重新准备输入；
+不能因为 preparedInputRef 为空就跳过输入流程。原 H5_SCENE/PAYMENT_CODE/JSAPI 仍需原安全输入。
+NONE 摘要的意图却出现 preparedInputRef 属于损坏，明确拒绝。没有回算或存储任何付款码/OpenID/IP。
+是否支持这种 H5 输入仍由具体 Provider 预检，恢复不绕过渠道能力。
+
+商户原调用者可在订单期限后恢复已提交意图，但新付款仍受订单/合约门禁；已到期或撤销的买方 capability 不获得商户权限。
+本入口要求原 orderId 已知。DirectPay 整体回复丢失且未知 orderId 时，使用独立 direct-pay/recover 入口，按原商户订单号及完整非敏感元数据恢复 DIRECT_PAY 意图，见下节。现有 API/共用编排/DTO/权限/测试源码已补，全部运行验证仍暂停。
+
+
+## DirectPay 独立意图与整体恢复（2026-10-26）
+
+DirectPay 当前使用独立 `DIRECT_PAY` 创建意图，不再复用普通 ORDER。
+A0 摘要和 intent_payload 固定原订单字段与首笔 actionKey/firstPaymentAmountMinor/choice/interactionKind。
+唯一范围仍为 tenant+payeeMerchantId+merchantOrderNo，三种入口 ORDER/CHECKOUT/DIRECT_PAY 不能互换；
+相同商户订单号下改变首笔键、金额、渠道/方式或输入类型会冲突，不能重新首付。
+interactionKind 为 NONE/PAYMENT_CODE/CHANNEL_IDENTITY/H5_SCENE，并须与付款方式相符；
+只保存这一种类，不保存付款码、OpenID、IP 等敏感输入值。这些值仍仅由首次明确付款的安全输入流程保管。
+
+`DirectPayDTO` 现为 `{order, payment: PaymentRecoveryDTO}`；不保留早期 PaymentStartDTO 兼容表示。
+DirectPay 权限在原 create/read/payment:start 外增加 `pay:acquire:payment:recover`。
+先以元数据 createDirectPay 提交或重放 A0/A1，再恢复原首笔动作；已 RESOLVED 不重传原 raw input。
+只有原动作尚未观察到或 INPUT_REQUIRED 时，才使用原 DirectPay 请求补做相同 start，随后经原恢复/A3 返回当前订单结果。
+最终 accepted=true 不等于已收款，accepted=false 只可能来自经 A3 的原未受理证明；不会为证明未受理的意图新造 payment 行。
+
+### 未知原 orderId 的恢复入口
+
+POST `/api/acquire/payments/direct-pay/recover`，商户 JWT，no-store；入参 `DirectPayRecoverCommand` 是原创建与首笔付款的
+非敏感元数据，去掉 raw interaction，显式使用原 interactionKind：
+
+```json
+{
+  "payeeMerchantId":"merchant-1001", "merchantOrderNo":"M1001", "productScopeKey":"acquiring",
+  "amountMinor":10000, "currency":"CNY", "subject":"Original subject",
+  "actionKey":"first-action-1001", "firstPaymentAmountMinor":3000,
+  "choice":{"channel":"WECHAT","method":"H5"}, "interactionKind":"H5_SCENE"
+}
+```
+
+若首次请求指定 requestedDueAt，也必须传同一时刻，按系统本地时区归一化。
+需同时具备 `pay:acquire:direct-pay:recover`、`pay:acquire:create`、`pay:acquire:read`、`pay:acquire:payment:recover`，
+因为此命令可能续办已存在的创建意图并读取原付款；不要求 payment:start，也不会新建 A2。
+原调用主体/可信租户及 DIRECT_PAY 的完整摘要和元数据均核对，不接受调用方指定 scope 或原系统 orderId。
+
+| creationState | orderId / order / payment |
+|---|---|
+| NOT_OBSERVED | 均空；当前尚未观察到 A0，不是原请求永不会提交的证明 |
+| REJECTED | 保留原预分配 orderId 与经过白名单核验的原 resultCode，order/payment 为空 |
+| EXPIRED | 保留原预分配 orderId，resultCode=ACQUIRE_ADMISSION_EXPIRED，order/payment 为空 |
+| COMPLETED | 原固定 orderId、当前订单及原首笔 PaymentRecoveryDTO；首笔仍可能 NOT_OBSERVED/INPUT_REQUIRED |
+
+已存在 INIT 只续办原 A0/A1，继续用原 orderId 重放 product 决定。`resumeDirectPay` 在 A0 事务中强制已存在：
+若原行消失或尚未存在则拒绝，不调用 IdGenerator 分配另一个订单。已完成创建重放不重新准入。
+拒绝/到期在首次续办中落库时，恢复返回其原决定；依赖失败、未知错误或损坏数据不转换为创建失败/未付款。
+整个恢复入口不持有 raw input、不调用 start，不生成订单/付款/预占/输入身份；新建只能由商户显式重试原 DirectPay 命令。
+
+开发期模型直接重构：旧 ORDER 行不自动推断成 DIRECT_PAY，旧模式与新 DirectPay 复用同号时明确冲突。
+新增元数据编码/摘要、mode 守卫、两种创建入口（新建/仅续办）、HTTP/Facade/DTO/MapStruct 与测试源码已补。
+已同步开发期 CHECK 迁移源码和表草案，未运行构建、测试、DDL、令牌签发、部署或实际 RPC/渠道调用。
+
+
+## Acquire 原生任务的运维查询与失败重试（2026-10-26）
+
+`AcquireRecoveryOperationsFacade.detail(AcquireRecoveryTaskQuery)` / `retry(AcquireRecoveryRetryCommand)` 对应
+POST `/api/acquire/operations/recovery/tasks/detail` 与 `/retry`，返回标准 SuccessResponse，响应 no-store。
+入口只接受 configured operations SERVICE、可信 tenant 与 recovery:read/retry 独立权限，不允许商户借通知或付款权限使用。
+
+查询示例：
+
+```json
+{"kind":"PAYMENT_ALLOCATION","subjectId":"original-payment-id","generation":0}
+```
+
+重试示例（expected 字段必须取自实际查询结果）：
+
+```json
+{
+  "kind":"PAYMENT_ALLOCATION",
+  "subjectId":"original-payment-id",
+  "generation":0,
+  "expectedTaskId":"observed-native-task-id",
+  "expectedAttempts":5,
+  "expectedNextExecuteAt":"2026-10-26T12:00:00.123456+08:00",
+  "requestKey":"ops-retry-001",
+  "reason":"Dependency configuration corrected"
+}
+```
+
+kind 另允许 ORDER_DEADLINE（generation 从 1 开始）、ORDER_CLOSURE（generation 从 0 开始），subjectId 使用原 orderId。
+查询返回 nativeTaskId/nativeStatus/attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable；不返回 native 错误或敏感付款输入。
+重试精确绑定 taskId、attempts、nextExecuteAt；新 deadline/executeAt、目标渠道或付款命令均不是可提交参数。
+同一个 requestKey 的首次回执保持不变；改 reason、expected 条件或目标也视为改参。不同 key 可以表示新的显式运维决定。
+
+回执 result=RETRIED 表示 native 原任务重新 PENDING；NO_LONGER_NEEDED 表示已过期代次或金融/关闭工作已结束。
+两者都不是支付、退款或关闭的结果。非 FAILED 拒绝；当前业务工作还没到原 executeAt 时拒绝提前唤醒。
+TASK 的预期条件变化返回 VERSION_CONFLICT，native 状态竞争返回 CONCURRENT_UPDATE，未知任务返回 NOT_FOUND；
+缺原业务记录/代次或绑定不一致拒绝，不补建任务、不修改金融表。
+源码与测试源码已补，未执行任何真实 HTTP/JWT、数据库、任务或资金验证。
+
+
+## Payment 付款/退款原恢复任务运维 API（2026-10-26）
+
+`PaymentRecoveryOperationsFacade.detail(PaymentRecoveryTaskQuery)` / `retry(PaymentRecoveryRetryCommand)` 对应
+POST `/api/payment/operations/recovery/tasks/detail` 与 `/retry`，仅 configured pay-ops SERVICE 配独立 recovery:read/retry 权限访问。
+身份不会变成原 acquire 金融调用者，也不能由商户/退款令牌权限继承。返回标准 no-store SuccessResponse。
+
+查询示例：
+
+```json
+{"kind":"REFUND_REQUEST","subjectId":"original-refund-request-id","generation":0}
+```
+
+kind 另支持 COLLECTION（subjectId=原 paymentId）。查询返回与 acquire 运维 API 同形的 nativeTaskId/nativeStatus、
+attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable，不返回 native 错误或原金融报文。
+重试必须把 kind/subjectId/generation 与查询中的 expectedTaskId、expectedAttempts、expectedNextExecuteAt 原样绑定，
+另提供稳定 requestKey、必填 reason；不接收新截止/金融身份/路由/金额。
+
+同键完整重放回放首次 RETRIED/NO_LONGER_NEEDED 回执，改任何原参数均冲突。原 native FAILED 已变化则拒绝，
+任务身份/次数/时间快照变化为 PAYMENT_VERSION_CONFLICT，native 条件更新竞争为 PAYMENT_CONCURRENT_UPDATE。
+FAILED 不等于付款或退款失败；原金融终态/过期代次只审计不唤醒。没有补建、改期、取消、运行任务或直接渠道操作接口。
+源码及测试源码已补，未进行实际 HTTP/JWT/数据库/调度或资金验收。

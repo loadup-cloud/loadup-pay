@@ -106,8 +106,9 @@ public class CashierService implements CashierFacade {
                 command.amountMinor(), command.choice());
         CashierPaymentDTO result = null;
         if (original.state() == PaymentIntentRecovery.State.RESOLVED) {
-            var progress = outcomes.refresh(new OrderPaymentScope(actor.tenantId(), owner),
-                    new PaymentProgressRefreshCommand(actor.orderId(), original.paymentId()));
+            var scope = new OrderPaymentScope(actor.tenantId(), owner);
+            var progress = original.closed() == null ? outcomes.refresh(scope, new PaymentProgressRefreshCommand(actor.orderId(), original.paymentId()))
+                    : outcomes.applyInputExpiry(scope, actor.orderId(), original.paymentId(), original.closed());
             result = converter.toCashier(progress, original.paymentId(), summary(new IdQuery(actor.orderId())));
         }
         return converter.toRecovery(command, converter.toRecoveryState(original.state()), result);

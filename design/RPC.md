@@ -107,3 +107,17 @@ BusinessTime 每次读取 `ZoneId.systemDefault()`，默认 Clock 使用 `Clock.
 provider 不解密/续期，不接受自报 tenant/service；consumer 不把异常或远端 NOT_FOUND 当作 found=false。
 只白名单映射原幂等/参数错误，未知失败继续 ACQUIRE_DEPENDENCY_UNAVAILABLE。无 HTTP 回退和跨网络本地事务。
 已同步 Facade/port/operation/服务绑定/MapStruct/consumer 及测试源码；未运行编译、测试或真实 JWT/RPC 验收，挂载凭证权限尚需发行方配置。
+
+
+## 原安全输入到期条件处理（2026-10-26）
+
+新增 payment 所有权的 `InputExpire(WirePaymentInputExpireCommand) -> WirePaymentInputExpiryDTO`。
+请求含原 inputRef 与完整不可变意图，所有标量保留 optional presence、金额 int64；结果 disposition 必需且只接受
+INPUT_ACTIVE/PAYMENT_EXISTS/EXPIRED_CLOSED，closed 消息仅最后一种允许且必需。
+closed 的原 order/payment、fenced、正 epoch、未受理 evidence 都须存在并匹配，不能夹带 payment 记录。
+普通字段用 MapStruct，严格 hasX/未知枚举/互斥结果校验留在协议边界；旧消息字段号没有改动。
+
+新增 SERVICE 权限 `pay:payment:input:expire`，复用 payment channel/deadline/token-file/JWT 隔离，
+操作内部只有本地数据库事务，不调用网络；消费方在 acquire 事务外调用，再用自己的 A3 落库。
+异常不回退 HTTP、不伪装成未受理或可释放；新权限尚未在真实挂载令牌/部署环境配置。
+协议、服务绑定、consumer 与测试源码已补，未运行任何编译、测试或真实 RPC 验收。

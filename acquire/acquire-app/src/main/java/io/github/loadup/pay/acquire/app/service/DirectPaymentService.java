@@ -16,7 +16,6 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
@@ -24,6 +23,8 @@ import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
 import io.github.loadup.pay.acquire.client.facade.DirectPaymentFacade;
 import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
+import io.github.loadup.pay.acquire.client.facade.PaymentRecoveryFacade;
+import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
@@ -46,14 +47,16 @@ public class DirectPaymentService implements DirectPaymentFacade {
     private final AcquireActorProvider actors;
     private final AcquireOrderCreationFacade orders;
     private final PaymentInitiationFacade payments;
+    private final PaymentRecoveryFacade recovery;
     private final DirectPaymentConverter converter;
     private final Validator validator;
 
     public DirectPaymentService(AcquireActorProvider actors, AcquireOrderCreationFacade orders,
-                                PaymentInitiationFacade payments, DirectPaymentConverter converter, Validator validator) {
+                                PaymentInitiationFacade payments, PaymentRecoveryFacade recovery, DirectPaymentConverter converter, Validator validator) {
         this.actors = actors;
         this.orders = orders;
         this.payments = payments;
+        this.recovery = recovery;
         this.converter = converter;
         this.validator = validator;
     }
@@ -64,7 +67,7 @@ public class DirectPaymentService implements DirectPaymentFacade {
                 || command.firstPaymentAmountMinor() > command.amountMinor())
             throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
-        if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start")))
+        if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start", "pay:acquire:payment:recover")))
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         boolean valid = switch (command.choice().method()) {
@@ -75,10 +78,22 @@ public class DirectPaymentService implements DirectPaymentFacade {
                     && identity.channel() == command.choice().channel();
         };
         if (!valid) throw new CommonException(INVALID_ARGUMENT);
-        var created = orders.create(converter.toCreate(command));
-        var payment = payments.startPayment(converter.toStart(command, created.orderId()));
-        // Read current order after A2 instead of returning the earlier INIT view.
-        var current = orders.detail(new IdQuery(created.orderId()));
-        return converter.toDTO(current, payment);
+        var metadata = converter.toRecovery(command);
+        var created = orders.createDirectPay(metadata);
+        var original = converter.toPaymentRecovery(metadata, created.orderId());
+        var resolved = recovery.recover(original);
+        if (resolved == null || resolved.state() == null || !created.orderId().equals(resolved.orderId())
+                || !command.actionKey().equals(resolved.actionKey()))
+            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+        if (resolved.state() != PaymentRecoveryState.RESOLVED) {
+            // Only the explicit original request may prepare input/start A2. Recovery never creates either.
+            payments.startPayment(converter.toStart(command, created.orderId()));
+            resolved = recovery.recover(original);
+        }
+        if (resolved == null || resolved.state() != PaymentRecoveryState.RESOLVED || resolved.progress() == null
+                || resolved.progress().order() == null || !created.orderId().equals(resolved.orderId())
+                || !command.actionKey().equals(resolved.actionKey()))
+            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+        return converter.toDTO(resolved.progress().order(), resolved);
     }
 }

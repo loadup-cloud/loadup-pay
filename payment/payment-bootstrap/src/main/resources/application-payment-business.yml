@@ -9,6 +9,7 @@ loadup:
     payment:
       limitcenter-service-id: ${PAYMENT_LIMITCENTER_SERVICE_ID:limitcenter}
       acquire-service-id: ${PAYMENT_ACQUIRE_SERVICE_ID:acquire}
+      recovery-operations-service-id: ${PAYMENT_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
       channel-management-service-id: ${PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID:pay-ops}
       payment-recovery:
         poll-delay-seconds: ${PAYMENT_POLL_DELAY_SECONDS:30}

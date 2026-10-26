@@ -26,7 +26,7 @@ import io.github.loadup.pay.acquire.app.port.CashierInteractionProvider;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentRecoverCommand;
-import io.github.loadup.pay.acquire.client.enums.CashierPaymentRecoveryState;
+import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
 import io.github.loadup.pay.acquire.client.dto.*;
 import io.github.loadup.pay.acquire.domain.gateway.*;
 import io.github.loadup.pay.acquire.domain.model.*;
@@ -110,10 +110,10 @@ class CashierServiceTest {
     }
     @Test void recoveryUsesOnlyTheOriginalSessionIntentAndConvergesBeforeReturningPayment() {
         when(initiation.recover(any(), eq("order"), eq("action"), eq(1000L), eq(choice)))
-                .thenReturn(new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, "payment"));
+                .thenReturn(new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, "payment", null));
         when(outcomes.refresh(any(), any())).thenReturn(new PaymentProgressDTO(null, null));
         var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
-        assertEquals(CashierPaymentRecoveryState.RESOLVED, result.state());
+        assertEquals(PaymentRecoveryState.RESOLVED, result.state());
         assertEquals("action", result.actionKey());
         assertEquals("payment", result.payment().paymentId());
         assertFalse(result.payment().accepted());
@@ -127,9 +127,20 @@ class CashierServiceTest {
         verifyNoInteractions(inputs, choices);
         verify(initiation, never()).start(any(), any());
     }
+    @Test void expiryProofMustConvergeBeforeTheCashierCanReportNonAcceptance() {
+        var proof = new PaymentCloseDTO("payment", "order", 1L, true, null, "expiry-proof");
+        when(initiation.recover(any(), eq("order"), eq("action"), eq(1000L), eq(choice)))
+                .thenReturn(new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, "payment", proof));
+        when(outcomes.applyInputExpiry(any(), eq("order"), eq("payment"), eq(proof))).thenReturn(new PaymentProgressDTO(null, null));
+        var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
+        assertFalse(result.payment().accepted());
+        verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
+        verify(outcomes, never()).refresh(any(), any());
+        verifyNoInteractions(inputs);
+    }
     @Test void unresolvedRecoveryCannotInventAPaymentOrCallTheResultService() {
         for (var state : java.util.List.of(PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
-            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any())).thenReturn(new PaymentIntentRecovery(state, null));
+            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any())).thenReturn(new PaymentIntentRecovery(state, null, null));
             var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
             assertNull(result.payment());
             assertEquals(state.name(), result.state().name());

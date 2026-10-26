@@ -222,6 +222,41 @@ class PaymentOutcomeEventServiceTest {
     }
 
     @Test
+    void expiredNeverAcceptedProofReleasesOnlyItsHoldAndPreservesPaidMoneyAndOtherReservations() {
+        prepare(4000, PaymentState.INIT);
+        var previous = order.get();
+        var original = previous.order();
+        var partial = new io.github.loadup.pay.acquire.domain.model.AcquireOrder(original.id(), original.payeeMerchantId(), original.amount(),
+                2000L, 5000L, 1, 2, AcquireOrderState.PENDING, original.orderDueAt(), original.unpaidAction(), original.paymentPolicy(),
+                original.closeEpoch(), original.version());
+        order.set(context.getBean(PaymentProgressConverter.class).withOrder(previous, partial));
+        var scope = new OrderPaymentScope("tenant", OWNER);
+        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO("payment", "order", 1L, true, null, "input-expiry-proof");
+        var result = operations.applyInputExpiry(scope, "order", "payment", proof);
+        org.junit.jupiter.api.Assertions.assertNull(result.payment());
+        assertEquals(2000L, order.get().order().paidAmountMinor());
+        assertEquals(1000L, order.get().order().paymentReservedMinor());
+        assertEquals(1, order.get().order().reservedPaymentCount());
+        assertEquals(AcquireOrderState.PENDING, order.get().order().state());
+        assertEquals(AllocationState.RELEASED, allocation.get().allocation().state());
+        assertTrue(order.get().order().canAcceptNewPayment(NOW));
+        operations.applyInputExpiry(scope, "order", "payment", proof);
+        verify(allocations, times(1)).apply(anyString(), any(), any(), any(), anyLong());
+        verify(payment, never()).outcome(anyString(), anyString());
+        verify(fees, never()).confirmPaid(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void expiryWithoutAnExactFencedProofCannotReleaseMoney() {
+        var held = order.get();
+        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO("payment", "order", 1L, false, null, "untrusted-proof");
+        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
+                () -> operations.applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof)).getResultCode());
+        assertSame(held, order.get());
+        verify(allocations, never()).apply(anyString(), any(), any(), any(), anyLong());
+    }
+
+    @Test
     void eventCommitsOriginalAllocationAmountOrderFeeAndSemanticAckInOneTransaction() {
         var ack = service.accept(event("delivery"));
         assertTrue(ack.accepted());

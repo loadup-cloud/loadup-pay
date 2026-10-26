@@ -54,7 +54,12 @@ public class RefundExecutionLocks {
         if (!parent.payeeMerchantId().equals(reference.payeeMerchantId()) || !parent.gate().orderId().equals(reference.orderId())
                 || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT)
             throw new CommonException(SNAPSHOT_INVALID);
-        return refunds.lock(tenant, requestId);
+        var current = refunds.lock(tenant, requestId);
+        if (!current.request().id().equals(requestId) || !current.request().id().equals(reference.id())
+                || !current.request().orderId().equals(reference.orderId())
+                || !current.request().payeeMerchantId().equals(reference.payeeMerchantId())
+                || !current.requestDigest().equals(reference.requestDigest())) throw new CommonException(SNAPSHOT_INVALID);
+        return current;
     }
 
     public LockedRefund child(String tenant, StoredRefundRequest request, String refundId) {

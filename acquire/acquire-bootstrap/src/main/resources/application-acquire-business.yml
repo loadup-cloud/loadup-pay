@@ -17,7 +17,12 @@ loadup:
       interval: ${ACQUIRE_SCAN_INTERVAL:PT5S}
   modules:
     acquire:
+      order-close:
+        poll-delay-seconds: ${ACQUIRE_ORDER_CLOSE_POLL_DELAY_SECONDS:30}
+      payment-recovery:
+        poll-delay-seconds: ${ACQUIRE_PAYMENT_RECOVERY_POLL_DELAY_SECONDS:30}
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
+      recovery-operations-service-id: ${ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
       notification-operations-service-id: ${ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID:pay-ops}
       product-audience: ${PRODUCT_JWT_AUDIENCE}
       realtime:
