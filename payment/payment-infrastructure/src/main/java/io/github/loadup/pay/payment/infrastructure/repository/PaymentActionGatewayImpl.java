@@ -66,7 +66,10 @@ public class PaymentActionGatewayImpl implements PaymentActionGateway {
             ChannelPaymentAction action = codec.decode(row.getActionKind(), row.getActionPayload(), row.getPayloadHash());
             if (action == null || !BusinessTime.local(action.expiresAt()).equals(row.getExpiresAt()))
                 throw new CommonException(SNAPSHOT_INVALID);
-            return Optional.of(converter.toDomain(row, action));
+            var value = converter.toDomain(row, action);
+            if (value.source() == io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED
+                    && !value.sourceDigest().equals(row.getPayloadHash())) throw new CommonException(SNAPSHOT_INVALID);
+            return Optional.of(value);
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -86,6 +89,8 @@ public class PaymentActionGatewayImpl implements PaymentActionGateway {
             String payloadHash = codec.checksum(payload);
             if (payloadHash == null || !payloadHash.matches("[0-9a-f]{64}"))
                 throw new CommonException(INVALID_ARGUMENT);
+            if (value.source() == io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED
+                    && !value.sourceDigest().equals(payloadHash)) throw new CommonException(INVALID_ARGUMENT);
             PaymentActionDO row = converter.toDO(tenant, value, kind, payload, payloadHash, expiresAt);
             if (mapper.insert(row) != 1) throw new CommonException(CONCURRENT_UPDATE);
         } catch (CommonException failure) {

@@ -51,7 +51,7 @@ class PaymentRiskOutcomeDeliveryTest {
     final RiskOutcomeGateway risk = mock(RiskOutcomeGateway.class);
     final PaymentRiskOutcomeDelivery delivery = new PaymentRiskOutcomeDelivery(support, context.getBean(PaymentOutcomeDeliveryConverter.class),
             context.getBean(PaymentSubmissionConverter.class), risk);
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.RISK, 1, "payment", "{}"),
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.RISK, 1, "payment", "{}"),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     @AfterEach
@@ -60,7 +60,7 @@ class PaymentRiskOutcomeDeliveryTest {
     }
 
     void source(boolean succeeded, boolean consulted) {
-        when(support.load(event, PaymentResultEvents.RISK)).thenReturn(OutcomeDeliveryFixtures.snapshot(succeeded, consulted, PaymentResultEvents.RISK));
+        when(support.load(event, PaymentEvents.RISK)).thenReturn(OutcomeDeliveryFixtures.snapshot(succeeded, consulted, PaymentEvents.RISK));
     }
 
     @Test
@@ -94,8 +94,8 @@ class PaymentRiskOutcomeDeliveryTest {
 
     @Test
     void localCloseWithoutAnAttemptHasNoConsultationToConfirm() {
-        var original = OutcomeDeliveryFixtures.snapshot(false, false, PaymentResultEvents.RISK);
-        when(support.load(event, PaymentResultEvents.RISK)).thenReturn(new PaymentDeliverySnapshot(original.tenantId(), original.envelope(),
+        var original = OutcomeDeliveryFixtures.snapshot(false, false, PaymentEvents.RISK);
+        when(support.load(event, PaymentEvents.RISK)).thenReturn(new PaymentDeliverySnapshot(original.tenantId(), original.envelope(),
                 original.payment(), null, null));
         delivery.deliver(event);
         verifyNoInteractions(risk);

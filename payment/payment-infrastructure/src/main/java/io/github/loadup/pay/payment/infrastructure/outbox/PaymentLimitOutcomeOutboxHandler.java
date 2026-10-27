@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.infrastructure.outbox;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxHandler;
 import io.github.loadup.pay.payment.app.service.PaymentLimitOutcomeDelivery;
-import io.github.loadup.pay.payment.app.service.PaymentResultEvents;
+import io.github.loadup.pay.payment.app.service.PaymentEvents;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -31,7 +31,7 @@ public class PaymentLimitOutcomeOutboxHandler implements OutboxHandler {
 
     @Override
     public String eventType() {
-        return PaymentResultEvents.LIMIT;
+        return PaymentEvents.LIMIT;
     }
 
     @Override

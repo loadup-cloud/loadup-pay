@@ -56,9 +56,64 @@ class AlipaySubmitAdapterTest {
     private final AlipayPaymentAdapter queries = new AlipayPaymentAdapter(client, json, CLOCK);
     private final AlipayNotificationProperties notifications = new AlipayNotificationProperties(Map.of());
     private final AlipaySubmitAdapter adapter = new AlipaySubmitAdapter(client, queries, json, CLOCK,
-            notifications);
+            notifications, new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(null, Map.of()));
     private final ChannelExecutionContext direct = context("revision-1", HASH, AccessMode.DIRECT,
             new AlipayAccountIdentity("main-app", "fixed-seller", null, null, null));
+
+    @Test
+    void directH5PreparesOnlyAnOriginalSignedRedirectWithoutAChannelObservation() {
+        var callback = java.net.URI.create("https://callbacks.example.test/alipay");
+        var returnUrl = java.net.URI.create("https://checkout.example.test/return");
+        var configured = new AlipaySubmitAdapter(client, queries, json, CLOCK,
+                new AlipayNotificationProperties(Map.of("tenant", Map.of("revision-1", callback))),
+                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(
+                        java.net.URI.create("https://openapi.alipay.com/gateway.do"),
+                        Map.of("tenant", Map.of("revision-1", returnUrl))));
+        var request = request(direct, PaymentMethod.H5, new NoChannelInput(), EXPIRY);
+        String url = wapUrl();
+        when(client.directWapUrl(eq("tenant"), eq(direct.binding()), any(), anyString(), anyMap())).thenReturn(url);
+
+        TenantUtil.runWithTenant("tenant", () -> configured.validate(direct, validation(request)));
+        verifyNoInteractions(client);
+        var result = TenantUtil.callWithTenant("tenant", () -> configured.submit(direct, request));
+
+        assertNull(result.observation());
+        var action = assertInstanceOf(AlipayH5ChannelAction.class, result.action());
+        assertEquals(url, action.redirectUrl());
+        assertEquals(EXPIRY.withNano(0), action.expiresAt());
+        var body = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(client).directWapUrl(eq("tenant"), eq(direct.binding()),
+                eq(java.net.URI.create("https://openapi.alipay.com/gateway.do")), body.capture(),
+                eq(Map.of("notify_url", callback.toASCIIString(), "return_url", returnUrl.toASCIIString())));
+        var business = json.readValue(body.getValue(), Map.class);
+        assertEquals(ORDER_NO, business.get("out_trade_no"));
+        assertEquals("1250.00", business.get("total_amount"));
+        assertEquals("QUICK_WAP_WAY", business.get("product_code"));
+        assertEquals("2026-10-23 19:00:00", business.get("time_expire"));
+        assertFalse(business.containsKey("seller_id"));
+        verify(client, never()).call(anyString(), any(), any(), anyString(), anyMap());
+    }
+
+    @Test
+    void h5DelegationIsRejectedBeforeSigningEvenWhenTheProductAndCallbacksAreConfigured() {
+        var delegated = context("revision-1", HASH, AccessMode.SERVICE_PROVIDER,
+                new AlipayAccountIdentity("main-app", "sub-seller", null, "authorization", "v1"));
+        var configured = new AlipaySubmitAdapter(client, queries, json, CLOCK,
+                new AlipayNotificationProperties(Map.of("tenant", Map.of("revision-1", java.net.URI.create("https://callbacks.example.test/alipay")))),
+                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(
+                        java.net.URI.create("https://openapi.alipay.com/gateway.do"), Map.of()));
+        var request = request(delegated, PaymentMethod.H5, new NoChannelInput(), EXPIRY);
+        var failure = assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant",
+                () -> configured.validate(delegated, validation(request))));
+        assertEquals(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY, failure.getResultCode());
+        verifyNoInteractions(client);
+    }
+
+    private static String wapUrl() {
+        return "https://openapi.alipay.com/gateway.do?app_id=main-app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-23+18%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
+    }
 
     @Test
     void payerCodePaySendsOriginalFixedFactsAndCanonicalizesSuccessThroughQuery() throws Exception {
@@ -166,7 +221,8 @@ class AlipaySubmitAdapterTest {
         var notifications = new AlipayNotificationProperties(Map.of(
                 "tenant", Map.of("revision-1", callback, "other-revision", java.net.URI.create("https://other.example/path")),
                 "other-tenant", Map.of("revision-1", java.net.URI.create("https://other-tenant.example/path"))));
-        var configured = new AlipaySubmitAdapter(client, queries, json, CLOCK, notifications);
+        var configured = new AlipaySubmitAdapter(client, queries, json, CLOCK, notifications,
+                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(null, Map.of()));
         var expectedAdditional = Map.of("notify_url", callback.toASCIIString());
         var jsapiRequest = request(direct, PaymentMethod.JSAPI,
                 new ChannelPayerIdentityInput(Channel.ALIPAY, PayerIdentityType.OPEN_ID, "payer-open-id", "main-app"), EXPIRY);

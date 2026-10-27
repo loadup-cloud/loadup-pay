@@ -45,7 +45,7 @@ public class PaymentExecutionService {
     private final PaymentResultService results;
     private final PaymentAcceptanceCodec codec;
     private final PaymentControlConverter updates;
-    private final PaymentResultEvents events;
+    private final PaymentEvents events;
     private final PaymentAcceptanceTransactions transactions;
     private final IdGenerator ids;
     private final Clock clock;
@@ -54,7 +54,7 @@ public class PaymentExecutionService {
     public PaymentExecutionService(PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts,
             PaymentControlGateway changes, PaymentExecutionLocks locks, PaymentInitialAttemptService initial,
             PaymentSubmissionPreparation submission, PaymentChannelGateway channels, PaymentResultService results,
-            PaymentAcceptanceCodec codec, PaymentControlConverter updates, PaymentResultEvents events,
+            PaymentAcceptanceCodec codec, PaymentControlConverter updates, PaymentEvents events,
             PaymentAcceptanceTransactions transactions, IdGenerator ids, @Qualifier("paymentClock") Clock clock,
             io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
         this.payments = payments; this.attempts = attempts; this.changes = changes; this.locks = locks;
@@ -148,7 +148,10 @@ public class PaymentExecutionService {
                     nextOrder = closing ? nextOrder.close(proof) : nextOrder.fail(proof);
                 } else if (stored == null) throw new CommonException(SNAPSHOT_INVALID);
                 var updated = updates.withPayment(accepted, nextOrder, evidence == null ? accepted.terminalEvidenceId() : evidence);
-                if (nextOrder.version() != order.version()) changes.updatePayment(tenant, updated, order.version());
+                if (nextOrder.version() != order.version()) {
+                    changes.updatePayment(tenant, updated, order.version());
+                    if (!terminal(nextOrder.state())) events.publishSnapshot(tenant, updated, now());
+                }
                 if (terminal(nextOrder.state())) {
                     events.publish(tenant, updated, true, now());
                     return Optional.empty();

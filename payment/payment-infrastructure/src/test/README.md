@@ -188,3 +188,7 @@ PaymentResultPersistenceIT 新增 1 个输入（当前 15 个），实际 Unknow
 同一个 RR 快照持有期间，并行真实 Y3 成功提交须在超时内返回，旧快照仍见原行、新快照见终态退出；不以 mock 锁证明无阻塞。
 RefundRecoveryHandlerPersistenceIT 扩充原库存输入（仍 9 个），实际联父申请及 cursor，区分子退款 recordId 与请求 subjectId，验证时间游标和终态退出。
 基础 IT Application 显式导入新 Reader；映射仍走生成 Mapper/TableDef/MapStruct。所有输入未运行，不代表 SQL、插件、锁或性能验收。
+
+## 2026-10-27 UNKNOWN 生命周期快照
+
+PaymentResultPersistenceIT 新增一个真实 MySQL 用例源码：UNKNOWN 更新与 realtime Outbox 写后抛错，付款/attempt/first_unknown_at/receipt/Outbox 全部回滚；相同回执重放与同状态新回执不重复根版本快照，随后成功增加原四目标。已有关闭/租约交错预期同步计入 CLOSING/UNKNOWN 快照，并区分 realtime 两份与三个财务目标各一份。事件组件内部名更新为 PaymentEvents。未运行，不增加通过证据。

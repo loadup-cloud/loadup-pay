@@ -6,7 +6,7 @@
 |---|---|---|
 | channel-api | ChannelPaymentFacade/ChannelNotificationFacade、两类 Provider SPI、ChannelActionCodec、不可变请求/结果与绑定契约、渠道错误码 | 已有源码，零 payment/Spring/数据库依赖 |
 | channel-core | DefaultChannelPaymentFacade、共享 ChannelStrategyRegistry、严格动作快照编解码、自动装配 | 已有源码，按 channel 路由；重复注册启动失败 |
-| channel-alipay | 支付宝协议、签名、验签、版本化凭证 | OpenAPI v2/RSA2、版本化凭证、付款码/JSAPI、退款、查单/关闭与回调验签策略源码已补；H5 待实现 |
+| channel-alipay | 支付宝协议、签名、验签、版本化凭证 | OpenAPI v2/RSA2、版本化凭证、付款码/JSAPI/直连 H5、退款、查单/关闭与回调验签策略源码已补；H5 待实现 |
 | channel-wechat | 微信独立适配边界 | 已有 APIv3 签名/验签、凭证、直连/服务商 JSAPI/H5、原号查询/关闭与普通退款 Provider、支付/退款通知源码；付款码待实现 |
 
 ## 调用与依赖
@@ -187,3 +187,11 @@ channel-core 只编译依赖 loadup-components-resilience4j-api；payment-busine
 
 新增共享预算/真实线程交错/跨渠道隔离/释放/安全优先级/首提不受恢复预算影响/拒绝阻塞配置及依赖装配门禁测试源码。
 本轮未编译、运行测试、连接渠道或部署。Core binder 是单 JVM 内存态，不是集群总配额或按秒请求速率；并发上限需结合副本数和真实渠道合同验收。
+
+## 2026-10-27 直连支付宝 H5
+
+新增 ALIPAY_H5 强类型原始跳转动作，经现有 REDIRECT DTO 返回。仅本地动作准备无 observation，不制造渠道回执；payment_action 记录 LOCAL_SIGNED 来源，UNKNOWN 也可读取原有效动作。服务商 H5 仍受长期令牌不可交付浏览器的约束，未实现。配置、官方依据、落库与恢复边界见 [H5 设计](../design/ALIPAY-H5.md)。未执行验证。
+
+## 2026-10-27 微信付款码增量
+
+WechatChannelProvider 在独立插件内按 PAYMENT_CODE 交给 V2 适配器，JSAPI/H5 保持 V3。首提与原号查证源码、HMAC/严格 XML、独立版本密钥、命名 HTTP 配置已补；付款码/未知产品禁止走 V3 未付款关闭。V2 撤销及补偿仍待完成，详见 [付款码设计](../design/WECHAT-CODEPAY.md)。未运行验证或真实渠道调用。

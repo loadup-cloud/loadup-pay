@@ -46,7 +46,7 @@ public class PaymentLimitOutcomeDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentResultEvents.LIMIT); // All local locks are released on return.
+        var snapshot = support.load(event, PaymentEvents.LIMIT); // All local locks are released on return.
         if (!limits.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
         var payment = snapshot.payment();
         var envelope = snapshot.envelope();

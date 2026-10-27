@@ -153,3 +153,7 @@ WechatRefundAdapter.recover 先按原 binding 和固定 out_refund_no 查询。�
 不存在并不生成 FAILED_WITH_NO_REFUND 或释放容量；安全性来自微信对相同商户退款号的幂等保证。重提返回 ACCEPTED/UNKNOWN，仅携带查询+提交组合摘要，仍等待原号查询 SUCCESS/CLOSED 的权威结果。已存在的 SUCCESS/CLOSED/PROCESSING/ABNORMAL、其他状态码/业务码、错误元数据/身份、验签或网络异常均不重提。queryRefund 本身保持只读，即使返回不存在也不调用退款申请。
 
 该处理覆盖本地已标记提交、请求实际尚未发送或响应丢失后的恢复；并发恢复即使同时重提，也必须始终使用同一外部幂等键与金融参数。配置变更、真实多 Pod 竞态及渠道幂等仍待实际验收。本批未运行构建、测试或真实调用。依据：[微信官方退款最佳实践](https://pay.wechatpay.cn/doc/v3/merchant/4014959631)。
+
+## 2026-10-27 V2 付款码增量
+
+微信官方当前付款码入口仍要求 V2。新增独立 WechatCodepayAdapter/V2Client/V2Codec、APIv2 密钥读取、直连/服务商固定账户首提和原号 V3 查询接线；复用统一 Facade，不改 payment 为渠道实现。安全输入、错误观察与关闭产品门禁见 [付款码设计](../../design/WECHAT-CODEPAY.md)。付款码撤销/mTLS/持久补偿仍未实现，UNKNOWN/CLOSING 不会因此释放容量。测试源码已补，均未运行；历史“付款码待补”记录由本节细化，不能据此宣称完整付款码能力。

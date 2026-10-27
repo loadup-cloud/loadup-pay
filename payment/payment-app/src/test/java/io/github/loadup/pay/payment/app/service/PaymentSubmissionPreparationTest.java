@@ -89,7 +89,7 @@ class PaymentSubmissionPreparationTest {
     final PaymentLimitClient limits = mock(PaymentLimitClient.class);
     final RiskConsultGateway risk = mock(RiskConsultGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
-    final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentEvents events = mock(PaymentEvents.class);
     final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
     final PaymentChannelInputConverter channelInputs = context.getBean(PaymentChannelInputConverter.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));

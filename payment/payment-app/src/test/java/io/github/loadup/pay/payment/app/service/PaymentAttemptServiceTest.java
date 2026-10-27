@@ -83,6 +83,7 @@ class PaymentAttemptServiceTest {
     final AtomicReference<StoredPaymentAttempt> stored = new AtomicReference<>();
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final Clock clock = Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
+    final PaymentEvents events = mock(PaymentEvents.class);
     final PaymentInitialAttemptService initial = new PaymentInitialAttemptService(
             routes,
             inputs,
@@ -92,7 +93,7 @@ class PaymentAttemptServiceTest {
             context.getBean(PaymentAttemptConverter.class),
             context.getBean(PaymentControlConverter.class),
             () -> "attempt",
-            clock);
+            clock, events);
     final PaymentAttemptService service = new PaymentAttemptService(
             () -> new PaymentActor("tenant", "acquire", Set.of("pay:payment:attempt:start")),
             locks,
@@ -153,6 +154,7 @@ class PaymentAttemptServiceTest {
         assertEquals("binding-revision", stored.get().attempt().binding().id());
         assertNull(stored.get().riskDecision());
         assertEquals(1, manager.commits);
+        verify(events).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
         verify(limits, never()).reserve(anyString(), any());
         verify(limits, never()).begin(anyString(), any());
     }
@@ -161,10 +163,10 @@ class PaymentAttemptServiceTest {
     void replayDoesNotSelectAnotherRouteOrRequestNumber() {
         var first = start("initial");
         var original = stored.get();
-        clearInvocations(routes, attempts, payments);
+        clearInvocations(routes, attempts, payments, events);
         assertEquals(first, start("initial"));
         assertSame(original, stored.get());
-        verifyNoInteractions(routes);
+        verifyNoInteractions(routes, events);
         verify(attempts, never()).insert(anyString(), any());
         verify(payments, never()).updatePayment(anyString(), any(), anyLong());
     }

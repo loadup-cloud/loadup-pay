@@ -20,7 +20,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 
 /**
- * A future callback may acknowledge only a committed accepted receipt, never a conflict.
+ * Callbacks acknowledge only committed channel receipts. Local action preparation has no receipt id.
  */
 public record PaymentResultApplication(PaymentReceiptDisposition disposition, String receiptId,
                                        PaymentExecutionDTO payment) {

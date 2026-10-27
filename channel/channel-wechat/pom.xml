@@ -10,8 +10,12 @@
     </parent>
     <artifactId>channel-wechat</artifactId>
     <name>LoadUp Pay Channel WeChat</name>
-    <description>WeChat APIv3 JSAPI and domestic refund strategy with frozen credentials, KMS signing and pinned response verification.</description>
+    <description>WeChat V2 payer-code and APIv3 payment/refund strategies with frozen credentials, KMS and response verification.</description>
     <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-commons-json</artifactId>

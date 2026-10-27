@@ -44,12 +44,13 @@ public class PaymentInitialAttemptService {
     private final PaymentControlConverter changes;
     private final IdGenerator ids;
     private final Clock clock;
+    private final PaymentEvents events;
 
     public PaymentInitialAttemptService(PaymentRouteSelector routes, PaymentInputAccess inputs, PaymentAttemptGateway attempts,
             PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentAttemptConverter converter,
-            PaymentControlConverter changes, IdGenerator ids, @Qualifier("paymentClock") Clock clock) {
+            PaymentControlConverter changes, IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentEvents events) {
         this.routes = routes; this.inputs = inputs; this.attempts = attempts; this.payments = payments;
-        this.codec = codec; this.converter = converter; this.changes = changes; this.ids = ids; this.clock = clock;
+        this.codec = codec; this.converter = converter; this.changes = changes; this.ids = ids; this.clock = clock; this.events = events;
     }
 
     public StoredPaymentAcceptance create(String tenant, StoredPaymentAcceptance accepted, String requestKey, String digest) {
@@ -70,6 +71,7 @@ public class PaymentInitialAttemptService {
         var updated = changes.withPayment(accepted, accepted.payment().prepareAttempt(attempt, null), null);
         attempts.insert(tenant, stored);
         payments.updatePayment(tenant, updated, accepted.payment().version());
+        events.publishSnapshot(tenant, updated, preparedAt);
         return updated;
     }
 }

@@ -5,6 +5,9 @@ loadup:
       alipay:
         enabled: true
         # Supply credentials/authorizations reference -> version -> absolute Path maps through trusted configuration.
+        # Direct H5 additionally requires h5.gateway and notifications.notify-urls.<tenant>.<binding-revision>.
+        # h5.return-urls.<tenant>.<binding-revision> is optional; return pages must query the original payment.
+        # H5 is unavailable when gateway is absent. Do not expose delegated app_auth_token through browser actions.
   http:
     enabled: true
     clients:

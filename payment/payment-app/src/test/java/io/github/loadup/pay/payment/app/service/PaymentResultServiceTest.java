@@ -105,7 +105,7 @@ class PaymentResultServiceTest {
     final PaymentResultGateway results = mock(PaymentResultGateway.class);
     final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
     final PaymentResultCodec codec = mock(PaymentResultCodec.class);
-    final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentEvents events = mock(PaymentEvents.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));
     final AtomicReference<StoredPaymentAttempt> attempt = new AtomicReference<>(AttemptFixtures.prepared()
@@ -124,18 +124,22 @@ class PaymentResultServiceTest {
             Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), actions);
 
     PreparedChannelPayment jsapiPayment(io.github.loadup.commons.money.Money amount) {
+        return channelPayment(amount, PaymentMethod.JSAPI);
+    }
+
+    PreparedChannelPayment channelPayment(io.github.loadup.commons.money.Money amount, PaymentMethod method) {
         var previous = attempt.get();
         var binding = new ChannelBindingRevision("binding-revision", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
                 "a".repeat(64), "credential", "v1", new AlipayAccountIdentity("app", "seller", null, null, null),
-                java.util.Set.of(PaymentMethod.JSAPI));
+                java.util.Set.of(method));
         var channelAttempt = new PaymentAttempt("attempt", "payment", 1, accepted.get().payment().amount(), binding,
-                PaymentMethod.JSAPI, "channel-request", PaymentAttemptState.SUBMITTING, 1, null);
+                method, "channel-request", PaymentAttemptState.SUBMITTING, 1, null);
         var stored = new StoredPaymentAttempt(channelAttempt, previous.limitOperationId(), previous.callerServiceId(),
                 previous.requestKey(), previous.requestDigest(), previous.paymentRequestDigest(), previous.preparedInputRef(),
                 previous.riskDecision(), previous.executionPermitHash(), previous.preparedAt(), previous.submissionStartedAt(),
                 previous.rowVersion());
         attempt.set(stored);
-        return new PreparedChannelPayment(channelAttempt.identity(), amount, PaymentMethod.JSAPI, 1, stored.preparedInputRef());
+        return new PreparedChannelPayment(channelAttempt.identity(), amount, method, 1, stored.preparedInputRef());
     }
 
     ChannelPaymentSubmission jsapiSubmission(PreparedChannelPayment original, String tradeNo) {
@@ -259,6 +263,31 @@ class PaymentResultServiceTest {
         assertEquals(AttemptFixtures.NOW, capacity.get().succeededAt());
         assertEquals(1, manager.commits);
         verify(events).publish(eq("tenant"), eq(accepted.get()), eq(false), any());
+    }
+
+    @Test
+    void localWapPreparationCommitsActionWithoutAnyFinancialReceiptOrStateMutation() {
+        var original = channelPayment(accepted.get().payment().amount(), PaymentMethod.H5);
+        var url = "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-22+20%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
+        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(url, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
+        var submission = new ChannelPaymentSubmission(original.identity(), original.amount(), null, action);
+        var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        doAnswer(call -> { active(); return null; }).when(actions).record("tenant", locked, original, submission, null);
+        var before = accepted.get();
+
+        var result = service.recordSubmission("tenant", original, submission);
+
+        assertEquals(IGNORED, result.disposition());
+        assertNull(result.receiptId());
+        assertSame(before, accepted.get());
+        assertEquals(1, manager.commits);
+        verify(actions).record("tenant", locked, original, submission, null);
+        verify(actions).present("tenant", locked);
+        verifyNoInteractions(results, changes, attempts, events, codec);
+        assertThrows(CommonException.class, () -> service.recordRecovery("tenant", recovery(original), submission));
     }
 
     @Test
@@ -466,7 +495,8 @@ class PaymentResultServiceTest {
         assertEquals(IGNORED, result.disposition());
         assertEquals(PaymentAttemptState.UNKNOWN, attempt.get().attempt().state());
         assertNull(capacity.get());
-        verifyNoInteractions(events);
+        verify(events, org.mockito.Mockito.times(1)).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
+        verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
     }
 
     @Test

@@ -872,3 +872,15 @@ PaymentExecutionLocks 保持原锁序，提前拒绝无事务/只读事务；首
 Payment/RefundRecoveryService 共用 task key、领取元数据与两阶段 current/successor 纯规则，原 typed 身份/schema/bizId 保持，付款和退款锁序、状态机及原号推进独立。
 当前代 dueAt 在推进前后都与原 executeAt 核对；心跳可延长 lease，应用校验不替代 native token fencing/ACK，不引入 Saga、泛型执行 runner 或新扣款权限。
 共享协议/领域与服务边界测试源码已补，未编译/运行，完整约束见 [恢复协议](../design/RECOVERY-PROTOCOL.md)。
+
+## 2026-10-27 本地 H5 动作与资金回执分离
+
+支付宝直连 H5 的准备结果没有 PaymentObservation。PaymentResultService 在原父/单笔锁下只存动作，不写渠道回执或改变资金状态。payment_action 增加 source，LOCAL_SIGNED 的 receipt_id 为空，摘要等于 payload_hash；CHANNEL_RECEIPT 保留原回执语义。MapStruct/领域/迁移同步，无旧格式兼容。动作在原 attempt、门禁 OPEN、PROCESSING/UNKNOWN 且未到期时可读；关闭/终态隐藏。统一契约见 [H5 设计](../design/ALIPAY-H5.md)。本批源码与测试源码未构建、运行或迁移。
+
+## 2026-10-27 微信付款码插件接线
+
+已有 PAYMENT_CODE 安全输入、Y2 单次首提与原号恢复契约复用到微信 V2 适配器，payment 不新增微信协议字段。冻结凭证可含独立 apiV2Key，payment-wechat profile 增加 wechat-v2/micropay 命名客户端；可信服务端 IP 由渠道配置提供。业务与尚未完成的撤销补偿边界见 [付款码设计](../design/WECHAT-CODEPAY.md)。未构建、运行测试或调用渠道。
+
+## 2026-10-27 付款完整生命周期事件
+
+内部 PaymentResultEvents 改为 PaymentEvents；现有终态四目标保留，受理、首次 attempt、UNKNOWN 与 CLOSING 新增同事务 realtime 快照。相同付款版本不重复发布，UNKNOWN accept 重放保留原动作展示。没有新增内部 HTTP、同步 realtime 回查或资金副作用。详见 [生命周期快照设计](../design/PAYMENT-LIFECYCLE-SNAPSHOTS.md)。生产与测试源码未构建、运行或迁移验收。

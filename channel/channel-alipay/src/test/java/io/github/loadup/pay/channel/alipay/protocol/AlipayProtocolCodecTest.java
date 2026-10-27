@@ -66,6 +66,16 @@ class AlipayProtocolCodecTest {
     }
 
     @Test
+    void wapSigningRefusesDelegatedTokensBeforeKmsRatherThanRemovingTheAuthorization() {
+        var failure = assertThrows(io.github.loadup.commons.error.CommonException.class,
+                () -> codec.sign(AlipayMethod.WAP_PAY, credentials,
+                        "{\"product_code\":\"QUICK_WAP_WAY\"}", Map.of()));
+        assertEquals(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY,
+                failure.getResultCode());
+        verifyNoInteractions(kms);
+    }
+
+    @Test
     void verifiesExactRawNestedPayloadAndRejectsInvalidEnvelopes() throws Exception {
         var pair = keyPair();
         var credentials = new AlipayCredentials("tenant", "app", "seller", new KmsKeyRef("signer", 1), pair.getPublic(), null);

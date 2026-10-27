@@ -33,7 +33,7 @@ import java.time.Clock;
 
 @AutoConfiguration(afterName = "io.github.loadup.pay.channel.core.config.ChannelAutoConfiguration")
 @ConditionalOnProperty(prefix = "loadup.pay.channel.alipay", name = "enabled", havingValue = "true")
-@EnableConfigurationProperties({AlipayProperties.class, AlipayNotificationProperties.class})
+@EnableConfigurationProperties({AlipayProperties.class, AlipayNotificationProperties.class, AlipayH5Properties.class})
 public class AlipayChannelConfiguration {
     @Bean
     AlipayNotificationCodec alipayNotificationCodec(AlipayCredentialReader credentials) {
@@ -53,8 +53,8 @@ public class AlipayChannelConfiguration {
     }
     @Bean
     AlipaySubmitAdapter alipaySubmitAdapter(AlipayProtocolClient client, AlipayPaymentAdapter queries, JsonMapper json,
-            @Qualifier("channelClock") Clock clock, AlipayNotificationProperties notifications) {
-        return new AlipaySubmitAdapter(client, queries, json, clock, notifications);
+            @Qualifier("channelClock") Clock clock, AlipayNotificationProperties notifications, AlipayH5Properties h5) {
+        return new AlipaySubmitAdapter(client, queries, json, clock, notifications, h5);
     }
     @Bean
     AlipayChannelProvider alipayChannelProvider(AlipayRefundAdapter refunds, AlipayPaymentAdapter payments, AlipaySubmitAdapter submissions) {

@@ -72,7 +72,7 @@ public class PaymentResultService {
     private final PaymentResultConverter converter;
     private final PaymentControlConverter updates;
     private final PaymentAcceptanceConverter views;
-    private final PaymentResultEvents events;
+    private final PaymentEvents events;
     private final IdGenerator ids;
     private final Clock clock;
     private final PaymentActionService actions;
@@ -80,7 +80,7 @@ public class PaymentResultService {
     public PaymentResultService(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
                                 PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentExecutionLocks locks,
                                 PaymentAcceptanceTransactions transactions, PaymentResultCodec codec, PaymentResultConverter converter,
-                                PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentResultEvents events,
+                                PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentEvents events,
                                 IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentActionService actions) {
         this.payments = payments;
         this.changes = changes;
@@ -130,9 +130,24 @@ public class PaymentResultService {
             io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
             io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (original == null || submission == null || submission.observation() == null
+        if (original == null || submission == null
                 || !original.identity().equals(submission.identity()) || !original.amount().equals(submission.amount()))
             throw new CommonException(INVALID_ARGUMENT);
+        if (submission.observation() == null) {
+            if (!(original instanceof io.github.loadup.pay.channel.api.model.PreparedChannelPayment)
+                    || !(submission.action() instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction))
+                throw new CommonException(INVALID_ARGUMENT);
+            return transactions.withTenantContext(tenant, () -> {
+                var accepted = payments.find(tenant, original.identity().paymentId())
+                        .orElseThrow(() -> new CommonException(NOT_FOUND));
+                return transactions.writeLocal(tenant, () -> {
+                    var current = locks.lock(tenant, original.identity().paymentId(), accepted.callerServiceId());
+                    actions.record(tenant, current, original, submission, null);
+                    // No observation, receipt, state transition, successful capacity or result event exists yet.
+                    return new PaymentResultApplication(IGNORED, null, actions.present(tenant, current));
+                });
+            });
+        }
         if (submission.action() == null) return record(tenant, submission.observation());
         return transactions.withTenantContext(tenant, () -> {
             var observation = submission.observation();
@@ -179,8 +194,10 @@ public class PaymentResultService {
         var order = accepted.payment().applyAttempt(updated.attempt());
         if (!updated.equals(attempt)) attempts.update(tenant, updated, attempt.rowVersion());
         var changed = updates.withPayment(accepted, order, accepted.terminalEvidenceId());
-        if (order.version() != accepted.payment().version())
+        if (order.version() != accepted.payment().version()) {
             changes.updatePayment(tenant, changed, accepted.payment().version());
+            events.publishSnapshot(tenant, changed, now());
+        }
         return receipt(tenant, changed, receiptId, observation, digest, payload,
                 updated.equals(attempt) ? IGNORED : APPLIED, null);
     }

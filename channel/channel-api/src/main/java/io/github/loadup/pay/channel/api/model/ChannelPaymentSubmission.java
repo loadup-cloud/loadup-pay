@@ -35,6 +35,7 @@ public record ChannelPaymentSubmission(ChannelPaymentIdentity identity, Money am
             if (action != null) require(observation.kind() == ChannelPaymentOutcome.Kind.ACCEPTED, INVALID_ARGUMENT);
         }
         if (action != null) require(action.channel() == identity.channel(), INVALID_ARGUMENT);
+        require((observation == null) == (action instanceof AlipayH5ChannelAction), INVALID_ARGUMENT);
         if (action instanceof AlipayJsapiChannelAction alipay) require(observation != null
                 && alipay.tradeNo().equals(observation.channelTransactionNo()), INVALID_ARGUMENT);
     }

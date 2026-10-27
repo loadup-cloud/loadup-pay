@@ -41,6 +41,7 @@ import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConver
 import io.github.loadup.pay.realtime.infrastructure.mapper.ProjectionReceiptDOMapper;
 import io.github.loadup.pay.realtime.infrastructure.mapper.TradePaymentDOMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mybatis.spring.annotation.MapperScan;
@@ -182,6 +183,41 @@ class ProjectionPersistenceIT {
         assertEquals(IDEMPOTENCY_CONFLICT.getCode(), conflict.getResultCode().getCode());
         assertEquals(before, row(fixture));
         assertCounts(fixture, 1, 2);
+    }
+
+    @Test
+    void paymentLifecycleStartsAtVersionZeroAndLateInitCannotReopenTheSucceededProjection() {
+        var fixture = new Fixture(Kind.PAYMENT);
+        var states = List.of(PaymentState.INIT, PaymentState.PROCESSING, PaymentState.UNKNOWN, PaymentState.CLOSING, PaymentState.SUCCEEDED);
+        for (int version = 0; version < states.size(); version++) {
+            var ack = lifecycle(fixture, "state-" + version, version, states.get(version));
+            assertEquals("APPLIED", ack.disposition());
+            assertEquals(version, ack.projectedVersion());
+            var data = json.readValue((String) row(fixture).get("payload"), PaymentSnapshotEventDTO.class);
+            assertEquals(states.get(version), data.state());
+            assertEquals(version, data.sourceVersion());
+            if (version == 0) { assertNull(data.channel()); assertNull(data.accessMode()); }
+            else { assertEquals(Channel.WECHAT, data.channel()); assertEquals(AccessMode.DIRECT, data.accessMode()); }
+        }
+        var latest = row(fixture);
+        assertEquals("STALE", lifecycle(fixture, "late-init", 0L, PaymentState.INIT).disposition());
+        assertEquals("DUPLICATE", lifecycle(fixture, "duplicate-final", 4L, PaymentState.SUCCEEDED).disposition());
+        assertEquals(latest, row(fixture));
+        var reopen = assertThrows(CommonException.class, () -> lifecycle(fixture, "illegal-reopen", 5L, PaymentState.UNKNOWN));
+        assertEquals(SOURCE_CONFLICT.getCode(), reopen.getResultCode().getCode());
+        assertCounts(fixture, 1L, 7L);
+        transactions.readSnapshot(fixture.tenant, () -> {
+            assertEquals(0L, jdbc.queryForObject("SELECT COUNT(*) FROM trade_order_projection WHERE tenant_id = ?",
+                    Long.class, fixture.tenant).longValue());
+            return true;
+        });
+    }
+
+    private ProjectionAckDTO lifecycle(Fixture fixture, String delivery, long version, PaymentState state) {
+        var data = new PaymentSnapshotEventDTO(fixture.aggregate, "order", "merchant", 1000L, "CNY", state,
+                state == PaymentState.INIT ? null : Channel.WECHAT, state == PaymentState.INIT ? null : AccessMode.DIRECT,
+                BusinessTime.external(AT.minusMinutes(1)), state == PaymentState.SUCCEEDED ? BusinessTime.external(AT) : null, version);
+        return actors.call(fixture, () -> service.applyPayment(envelope(fixture, delivery, version, "pay.payment.snapshot.realtime.v1", data)));
     }
 
     private ProjectionAckDTO apply(Fixture fixture, String delivery, long version, boolean changed) {

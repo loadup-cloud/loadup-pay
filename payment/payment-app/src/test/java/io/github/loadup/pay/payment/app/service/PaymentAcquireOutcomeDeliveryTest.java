@@ -43,12 +43,12 @@ class PaymentAcquireOutcomeDeliveryTest {
     final PaymentOutcomeDeliverySupport support = mock(PaymentOutcomeDeliverySupport.class);
     final PaymentAcquireClient acquire = mock(PaymentAcquireClient.class);
     final PaymentAcquireOutcomeDelivery delivery = new PaymentAcquireOutcomeDelivery(support, acquire);
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.ACQUIRE, 1, "payment", "{}"),
-            OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE).envelope().occurredAt().toInstant(), null);
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.ACQUIRE, 1, "payment", "{}"),
+            OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE).envelope().occurredAt().toInstant(), null);
 
     @BeforeEach
     void setup() {
-        when(support.load(event, PaymentResultEvents.ACQUIRE)).thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE));
+        when(support.load(event, PaymentEvents.ACQUIRE)).thenReturn(OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE));
         when(acquire.supportsTenant("tenant")).thenReturn(true);
         when(acquire.accept(eq("tenant"), any())).thenAnswer(c -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -60,7 +60,7 @@ class PaymentAcquireOutcomeDeliveryTest {
     void originalEnvelopeAndIdempotencyIdentityAreRetainedAcrossRetry() {
         delivery.deliver(event);
         delivery.deliver(event);
-        verify(acquire, times(2)).accept("tenant", OutcomeDeliveryFixtures.snapshot(true, true, PaymentResultEvents.ACQUIRE).envelope());
+        verify(acquire, times(2)).accept("tenant", OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE).envelope());
     }
 
     @Test

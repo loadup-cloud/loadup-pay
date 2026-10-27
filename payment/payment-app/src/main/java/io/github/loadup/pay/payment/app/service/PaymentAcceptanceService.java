@@ -68,6 +68,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     private final PaymentExecutionLocks locks;
     private final PaymentActionService actions;
     private final PaymentRecoveryService recovery;
+    private final PaymentEvents events;
 
     public PaymentAcceptanceService(
             PaymentActorProvider actors,
@@ -80,7 +81,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             Validator validator,
             @Qualifier("paymentClock") Clock clock,
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService,
-            PaymentExecutionLocks locks, PaymentActionService actions, PaymentRecoveryService recovery) {
+            PaymentExecutionLocks locks, PaymentActionService actions, PaymentRecoveryService recovery, PaymentEvents events) {
         this.actors = actors;
         this.store = store;
         this.inputs = inputs;
@@ -95,6 +96,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         this.locks = locks;
         this.actions = actions;
         this.recovery = recovery;
+        this.events = events;
     }
 
     @Override
@@ -158,6 +160,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                         codec.checksum(payload));
                 store.insert(actor.tenantId(), stored);
                 recovery.register(actor.tenantId(), stored);
+                events.publishSnapshot(actor.tenantId(), stored, now());
                 return converter.toDTO(stored);
             });
         });
@@ -203,7 +206,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         if (!actor.serviceId().equals(prior.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!prior.requestDigest().equals(command.requestDigest())
                 || !codec.decode(prior).equals(command)) throw new CommonException(IDEMPOTENCY_CONFLICT);
-        if (prior.payment().state() != io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING
+        var state = prior.payment().state();
+        if ((state != io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING
+                && state != io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN)
                 || prior.payment().activeAttemptId() == null) return converter.toDTO(prior);
         return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), prior.payment().id(), actor.serviceId()));
     }

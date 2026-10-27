@@ -49,12 +49,12 @@ public class PaymentRealtimeDelivery {
     public void deliver(OutboxEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
-                || !PaymentResultEvents.REALTIME.equals(event.message().type())
+                || !PaymentEvents.REALTIME.equals(event.message().type())
                 || !event.message().tenantId().equals(TenantUtil.getTenantId()))
             throw new CommonException(SNAPSHOT_INVALID);
         String tenant = event.message().tenantId();
         var row = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!row.id().equals(event.id()) || !row.tenantId().equals(tenant) || !row.type().equals(PaymentResultEvents.REALTIME)
+        if (!row.id().equals(event.id()) || !row.tenantId().equals(tenant) || !row.type().equals(PaymentEvents.REALTIME)
                 || !row.businessId().equals(event.message().businessId()) || !"PROCESSING".equals(row.status()))
             throw new CommonException(SNAPSHOT_INVALID);
         var envelope = codec.decode(event.message().payload());

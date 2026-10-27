@@ -18,6 +18,7 @@ package io.github.loadup.pay.channel.core.codec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
@@ -92,6 +93,29 @@ class DefaultChannelActionCodecTest {
         assertRejected("WECHAT_H5", payload.replace("wx.tenpay.com", "attacker.example"));
         assertThrows(CommonException.class, () -> codec.decode("WECHAT_H5", payload, "0".repeat(64)));
         assertFalse(expected.toString().contains("opaque%2Fvalue"));
+    }
+
+    @Test
+    void localWapActionPreservesSignedBytesAndRejectsDelegationOrGatewayChanges() {
+        String url = "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=a%2Bb%3D&timestamp=2026-10-27+12%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
+        var expected = new AlipayH5ChannelAction(url, action().expiresAt());
+        String payload = codec.encode(expected);
+        assertEquals("ALIPAY_H5", codec.kind(expected));
+        assertEquals(expected, codec.decode("ALIPAY_H5", payload, codec.checksum(payload)));
+        assertFalse(expected.toString().contains("a%2Bb%3D"));
+        assertRejected("WECHAT_H5", payload);
+        for (String invalid : java.util.List.of(url + "&app_auth_token=secret", url + "&%61pp_auth_token=secret",
+                url + "&sign=duplicate", url + "&method=alipay.trade.page.pay",
+                url.replace("alipay.trade.wap.pay", "alipay.trade.page.pay"),
+                url.replace("openapi.alipay.com", "openapi.alipay.com.attacker.test"),
+                url.replace("/gateway.do?", "/gateway.do/extra?"), url + "#fragment")) {
+            assertThrows(io.github.loadup.commons.error.DomainViolation.class,
+                    () -> new AlipayH5ChannelAction(invalid, action().expiresAt()));
+        }
+        assertRejected("ALIPAY_H5", payload + " {}");
+        assertRejected("ALIPAY_H5", payload.substring(0, payload.length() - 1) + ",\"unknown\":1}");
     }
 
     @Test

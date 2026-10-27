@@ -5,7 +5,7 @@
 
 ## 已补测试源码
 
-五组用例分别覆盖订单、付款、退款、订单退款汇总四类投影，共 20 个参数化测试输入。
+五组参数化用例覆盖订单、付款、退款、订单退款汇总四类投影，共 20 个输入；另有一例付款完整生命周期，共 21 个测试输入。
 
 | 用例 | 预期数据库边界 |
 |---|---|
@@ -29,3 +29,7 @@ mvnd clean verify -pl realtime/realtime-infrastructure -Pmysql-it -Dit.test=Proj
 
 当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 MySQL。R1 仍无本轮通过证据。
 这些用例不证明真实 gRPC/JWT/TLS、上游 Outbox 投递、查询负载或投影重建/检查点已经验收。
+
+## 2026-10-27 付款生命周期用例源码
+
+新增 INIT version 0（无渠道）→ PROCESSING → UNKNOWN → CLOSING → SUCCEEDED，付款可先于订单保存；迟到 INIT 返回 STALE，新 delivery 的同一终态返回 DUPLICATE，更高版本 UNKNOWN 不能重开成功终态。仍使用实际 MySQL/投影/receipt，尚未构建或执行。

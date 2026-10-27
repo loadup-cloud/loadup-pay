@@ -18,6 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.model.LockedPayment;
@@ -34,7 +35,7 @@ import java.time.LocalDateTime;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Append actions in the same Y3 transaction as their accepted receipt; reads require the original execution gates. */
+/** Persist original actions under execution locks; local preparations never fabricate channel receipts. */
 @Service
 public class PaymentActionService {
     private final PaymentActionGateway actions;
@@ -43,15 +44,17 @@ public class PaymentActionService {
     private final PaymentAcceptanceConverter views;
     private final PaymentChannelInputConverter channelViews;
     private final Clock clock;
+    private final ChannelActionCodec actionCodec;
 
     public PaymentActionService(PaymentActionGateway actions, PaymentAttemptGateway attempts, PaymentAcceptanceCodec codec,
-            PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, @Qualifier("paymentClock") Clock clock) {
+            PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, @Qualifier("paymentClock") Clock clock, ChannelActionCodec actionCodec) {
         this.actions = actions;
         this.attempts = attempts;
         this.codec = codec;
         this.views = views;
         this.channelViews = channelViews;
         this.clock = clock;
+        this.actionCodec = actionCodec;
     }
 
     public void record(String tenant, LockedPayment locked, ChannelPaymentExecution original,
@@ -60,7 +63,10 @@ public class PaymentActionService {
         if (original == null || result == null || !original.identity().equals(result.identity())
                 || !original.amount().equals(result.amount())) throw new CommonException(INVALID_ARGUMENT);
         if (result.action() == null) return;
-        if (result.observation() == null || result.observation().kind() != ChannelPaymentOutcome.Kind.ACCEPTED)
+        boolean local = result.observation() == null;
+        if (local ? receiptId != null || !(result.action() instanceof AlipayH5ChannelAction)
+                || !(original instanceof PreparedChannelPayment)
+                : receiptId == null || result.observation().kind() != ChannelPaymentOutcome.Kind.ACCEPTED)
             throw new CommonException(INVALID_ARGUMENT);
         if (!active(locked) || !original.identity().attemptId().equals(locked.payment().payment().activeAttemptId())) return;
         var attempt = attempts.find(tenant, original.identity().attemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -69,6 +75,9 @@ public class PaymentActionService {
                 || attempt.attempt().executionEpoch() != original.executionEpoch()
                 || attempt.attempt().method() != original.method() || !attempt.attempt().amount().equals(original.amount()))
             throw new CommonException(OUTCOME_UNKNOWN);
+        if (original instanceof PreparedChannelPayment prepared
+                && !java.util.Objects.equals(prepared.preparedInputRef(), attempt.preparedInputRef()))
+            throw new CommonException(OUTCOME_UNKNOWN);
         var command = codec.decode(locked.payment());
         var action = result.action();
         if (action.method() != original.method() || action.expiresAt().isAfter(command.payableUntil()))
@@ -76,12 +85,15 @@ public class PaymentActionService {
         var issued = clock.instant();
         if (!issued.isBefore(action.expiresAt().toInstant())) return;
         var proposed = new StoredPaymentAction(original.identity(), original.amount(), original.executionEpoch(), action,
-                receiptId, result.observation().sourceDigest(), LocalDateTime.ofInstant(issued, clock.getZone()));
+                local ? PaymentActionSource.LOCAL_SIGNED : PaymentActionSource.CHANNEL_RECEIPT, receiptId,
+                local ? actionCodec.checksum(actionCodec.encode(action)) : result.observation().sourceDigest(),
+                LocalDateTime.ofInstant(issued, clock.getZone()));
         var existing = actions.find(tenant, original.identity().attemptId());
         if (existing.isPresent()) {
             var prior = existing.get();
             if (!prior.identity().equals(proposed.identity()) || !prior.amount().equals(proposed.amount())
-                    || prior.executionEpoch() != proposed.executionEpoch() || !prior.action().equals(proposed.action()))
+                    || prior.executionEpoch() != proposed.executionEpoch() || prior.source() != proposed.source()
+                    || !prior.action().equals(proposed.action()))
                 throw new CommonException(OUTCOME_UNKNOWN);
             return;
         }
@@ -108,7 +120,8 @@ public class PaymentActionService {
     }
 
     private boolean active(LockedPayment locked) {
-        return locked.payment().payment().state() == PaymentState.PROCESSING
+        return (locked.payment().payment().state() == PaymentState.PROCESSING
+                || locked.payment().payment().state() == PaymentState.UNKNOWN)
                 && locked.parent().gate().state() == GateState.OPEN && locked.gate().gate().state() == GateState.OPEN;
     }
 

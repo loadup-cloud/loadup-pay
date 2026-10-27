@@ -37,7 +37,7 @@ public class PaymentRiskOutcomeDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentResultEvents.RISK);
+        var snapshot = support.load(event, PaymentEvents.RISK);
         // A local close may precede any consultation. Never invent DEFAULT_ALLOW/a consultation for that case.
         if (snapshot.attempt() == null || snapshot.attempt().riskDecision() == null) return;
         var outcome = converter.toRisk(snapshot.tenantId(), snapshot.envelope().businessEventId(),

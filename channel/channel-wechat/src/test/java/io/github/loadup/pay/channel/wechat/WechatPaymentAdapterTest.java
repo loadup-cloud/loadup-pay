@@ -103,6 +103,21 @@ class WechatPaymentAdapterTest {
     }
 
     @Test
+    void micropayOrMissingProductNeverUsesTheUnpaidCloseOrInventsAnUncollectedResult() {
+        for (String changed : List.of(body("USERPAYING").replace("JSAPI", "MICROPAY"),
+                body("NOTPAY").replace("\"trade_type\":\"JSAPI\",", ""))) {
+            when(client.call(anyString(), any(), eq(WechatMethod.PARTNER_QUERY), anyMap(), anyMap(), isNull()))
+                    .thenReturn(query(200, changed));
+            TenantUtil.runWithTenant("tenant", () -> {
+                var result = adapter.close(context, target);
+                assertEquals(ChannelPaymentOutcome.Kind.ACCEPTED, result.kind());
+                assertEquals(PaymentObservation.Source.QUERY_RESPONSE, result.source());
+            });
+        }
+        verify(client, never()).call(anyString(), any(), eq(WechatMethod.PARTNER_CLOSE), anyMap(), anyMap(), anyString());
+    }
+
+    @Test
     void closeRaceRequeriesInsteadOfTreatingErrorAsAnUnpaidProof() {
         when(client.call(anyString(), any(), eq(WechatMethod.PARTNER_QUERY), anyMap(), anyMap(), isNull()))
                 .thenReturn(query(200, body("USERPAYING")), query(200, body("SUCCESS")));
@@ -113,7 +128,7 @@ class WechatPaymentAdapterTest {
     }
     private String body(String state) {
         return "{\"sp_appid\":\"wx-provider\",\"sp_mchid\":\"1900000001\",\"sub_appid\":\"wx-sub-app\",\"sub_mchid\":\"1900000002\","
-                + "\"out_trade_no\":\"original_01\",\"trade_state\":\"" + state + "\",\"transaction_id\":\"wx-transaction\","
+                + "\"trade_type\":\"JSAPI\",\"out_trade_no\":\"original_01\",\"trade_state\":\"" + state + "\",\"transaction_id\":\"wx-transaction\","
                 + "\"success_time\":\"2026-10-24T03:00:00Z\",\"amount\":{\"total\":1250,\"payer_total\":1000,\"currency\":\"CNY\"}}";
     }
     private WechatVerifiedResponse query(int status, String body) {

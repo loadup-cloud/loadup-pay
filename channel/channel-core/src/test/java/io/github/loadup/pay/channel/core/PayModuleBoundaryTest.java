@@ -33,10 +33,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Repository source/POM gate; bytecode and runtime wiring remain separate evidence. */
 class PayModuleBoundaryTest {
-    private static final List<String> SERVICES = List.of("acquire", "payment", "customer", "product", "limitcenter", "realtime");
+    private static final List<String> SERVICES = List.of("acquire", "payment", "customer", "product", "limitcenter", "realtime", "reconciliation");
     private static final List<String> LAYERS = List.of("client", "domain", "app", "infrastructure", "adapter", "rpc", "bootstrap");
     private static final Pattern PAY_REFERENCE = Pattern.compile(
-            "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime)"
+            "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime|reconciliation)"
                     + "\\.(client|domain|app|infrastructure|adapter|rpc|bootstrap)\\b(?:\\.([A-Za-z_$][\\w$]*))?");
     private static final Pattern CHANNEL_IMPLEMENTATION = Pattern.compile("\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\b)[A-Za-z_$][\\w$]*\\.");
     private static final Pattern TECHNICAL_IMPLEMENTATION = Pattern.compile(
@@ -175,7 +175,7 @@ class PayModuleBoundaryTest {
         var root = repositoryRoot();
         var result = new ArrayList<Module>();
         for (String service : SERVICES) {
-            for (String layer : LAYERS) {
+            for (String layer : service.equals("reconciliation") ? List.of("client", "domain", "app", "infrastructure") : LAYERS) {
                 var directory = root.resolve(service).resolve(service + "-" + layer);
                 assertTrue(Files.isRegularFile(directory.resolve("pom.xml")), "Missing expected module " + directory);
                 result.add(new Module(service, layer, directory));

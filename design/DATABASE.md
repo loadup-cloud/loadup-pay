@@ -1936,3 +1936,7 @@ acquire 占用 intent_payload 与 payment_order.intent_payload 分别使用 pay.
 列结构和原 SHA-256 哈希不变；两端格式各自拥有完整本地条款、扁平 channel/method、原偏移期限字符串，标准 MapStruct 恢复运行参数。
 校验 UTF-8 256 KiB、唯一格式、完整字段/类型/业务关系、原行索引；没有旧格式读取、静默补值或自动回填。当前开发数据需重新准备，本轮没有执行任何 DDL/回填/重建/repair。
 详见 [付款快照契约](PAYMENT-INTENT-SNAPSHOTS.md)。真实迁移/重启恢复与 MySQL IT 仍待用户恢复验证，不宣称数据已转换。
+
+## 2026-10-27 后置对账存储草案
+
+reconciliation 首期以实际收款账户/账期独立核对支付宝、微信收款与退款。新增四表设计：batch、input、entry、difference，文件与规范化哈希独立封存，批次运行/结果摘要与差错原子提交；不跨交易 schema 联表或写资金事实。详见 [对账设计](RECONCILIATION.md)和 [SQL 草案](sql/reconciliation-draft.sql)。草案仅位于 design，DO、Gateway、Flyway 与真实数据库验收均未实现或执行。

@@ -17,6 +17,8 @@ package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.pay.channel.alipay.config.AlipayH5Properties;
 import io.github.loadup.pay.channel.alipay.protocol.*;
 import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
@@ -31,7 +33,7 @@ import java.util.TreeMap;
 
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Collection submission only: payer-code debit or JSAPI trade creation. H5 requires a separate page action. */
+/** Payer-code debit, JSAPI creation, or local direct-WAP preparation with independent financial evidence. */
 public final class AlipaySubmitAdapter {
     private final AlipayProtocolClient client;
     private final AlipayPaymentAdapter queries;
@@ -39,21 +41,23 @@ public final class AlipaySubmitAdapter {
     private final AlipayResponseReader responses;
     private final Clock clock;
     private final AlipayNotificationProperties notifications;
+    private final AlipayH5Properties h5;
 
-    public AlipaySubmitAdapter(AlipayProtocolClient client, AlipayPaymentAdapter queries, JsonMapper json, Clock clock, AlipayNotificationProperties notifications) {
+    public AlipaySubmitAdapter(AlipayProtocolClient client, AlipayPaymentAdapter queries, JsonMapper json, Clock clock, AlipayNotificationProperties notifications, AlipayH5Properties h5) {
         this.client = client;
         this.queries = queries;
         this.json = json;
         this.responses = new AlipayResponseReader(json);
         this.clock = clock;
         this.notifications = notifications;
+        this.h5 = h5;
     }
 
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         var payment = request.payment();
         var account = AlipayBindingGuard.require(context, payment.identity());
-        validateParameters(context, account, payment.method(), request.subject(), request.payableUntil(), request.input());
+        validateParameters(context, account, payment.method(), payment.amount().getCent(), request.subject(), request.payableUntil(), request.input());
         var expiry = request.payableUntil().withNano(0);
         var business = new TreeMap<String, Object>();
         business.put("out_trade_no", payment.identity().channelRequestNo());
@@ -61,6 +65,16 @@ public final class AlipaySubmitAdapter {
         business.put("subject", request.subject());
         business.put("total_amount", BigDecimal.valueOf(payment.amount().getCent(), 2).toPlainString());
         business.put("time_expire", AlipayProtocolTime.expiration(expiry));
+        if (payment.method() == PaymentMethod.H5) {
+            business.remove("seller_id");
+            business.put("product_code", "QUICK_WAP_WAY");
+            var options = new TreeMap<String, String>();
+            options.put("notify_url", notifications.notifyUrls().get(context.tenantId()).get(context.binding().id()).toASCIIString());
+            var returnUrl = h5.returnUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id());
+            if (returnUrl != null) options.put("return_url", returnUrl.toASCIIString());
+            var url = client.directWapUrl(context.tenantId(), context.binding(), h5.gateway(), json.writeValueAsString(business), options);
+            return new ChannelPaymentSubmission(payment.identity(), payment.amount(), null, new AlipayH5ChannelAction(url, expiry));
+        }
         return payment.method() == PaymentMethod.PAYMENT_CODE
                 ? pay(context, request, business) : create(context, request, account, expiry, business);
     }
@@ -68,18 +82,25 @@ public final class AlipaySubmitAdapter {
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         var account = AlipayBindingGuard.require(context, request.identity());
-        validateParameters(context, account, request.method(), request.subject(), request.payableUntil(), request.input());
+        validateParameters(context, account, request.method(), request.amount().getCent(), request.subject(), request.payableUntil(), request.input());
     }
 
-    private void validateParameters(ChannelExecutionContext context, AlipayAccountIdentity account, PaymentMethod method,
+    private void validateParameters(ChannelExecutionContext context, AlipayAccountIdentity account, PaymentMethod method, long amountMinor,
             String subject, OffsetDateTime payableUntil, ChannelPaymentInput input) {
-        if ((method != PaymentMethod.PAYMENT_CODE && method != PaymentMethod.JSAPI)
+        if ((method != PaymentMethod.PAYMENT_CODE && method != PaymentMethod.JSAPI && method != PaymentMethod.H5)
                 || !context.binding().capabilities().contains(method)) throw new CommonException(UNSUPPORTED_CAPABILITY);
         long lifetime = Duration.between(clock.instant(), payableUntil.withNano(0).toInstant()).getSeconds();
         if (lifetime < 60 || lifetime > 15 * 86400L) throw new CommonException(INVALID_ARGUMENT);
         if (subject.chars().anyMatch(c -> Character.isISOControl(c) || c == '/' || c == '=' || c == '&'))
             throw new CommonException(INVALID_ARGUMENT);
-        if (method == PaymentMethod.PAYMENT_CODE) {
+        if (method == PaymentMethod.H5) {
+            if (amountMinor > 10_000_000_000L) throw new CommonException(INVALID_ARGUMENT);
+            if (context.binding().accessMode() != AccessMode.DIRECT || account.operatorAppId() != null || h5.gateway() == null)
+                throw new CommonException(UNSUPPORTED_CAPABILITY);
+            if (!(input instanceof NoChannelInput) && !(input instanceof ChannelH5Input)) throw new CommonException(INVALID_ARGUMENT);
+            var notifyUrl = notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id());
+            if (notifyUrl == null || notifyUrl.toASCIIString().length() > 256) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        } else if (method == PaymentMethod.PAYMENT_CODE) {
             if (!(input instanceof ChannelPaymentCodeInput code)
                     || !code.paymentCode().matches("(?:2[5-9]|30)[0-9]{14,22}")) throw new CommonException(INVALID_ARGUMENT);
         } else {

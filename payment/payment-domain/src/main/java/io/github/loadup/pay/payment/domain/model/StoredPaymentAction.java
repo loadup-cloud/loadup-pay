@@ -27,15 +27,20 @@ import java.util.Objects;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Immutable first accepted action per original attempt; receipts and successful amounts remain independent. */
+/** Immutable first issued action per original attempt; receipts and successful amounts remain independent. */
 public record StoredPaymentAction(ChannelPaymentIdentity identity, Money amount, long executionEpoch,
-        @DiagnosticHidden ChannelPaymentAction action, String receiptId, String sourceDigest, LocalDateTime issuedAt) {
+        @DiagnosticHidden ChannelPaymentAction action, PaymentActionSource source, String receiptId, String sourceDigest, LocalDateTime issuedAt) {
     public StoredPaymentAction {
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(action);
         require(amount.getCent() > 0 && executionEpoch > 0 && action.channel() == identity.channel(), INVALID_ARGUMENT);
-        DomainChecks.id(receiptId);
+        Objects.requireNonNull(source);
+        require((source == PaymentActionSource.LOCAL_SIGNED)
+                == (action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction), INVALID_ARGUMENT);
+        if (source == PaymentActionSource.CHANNEL_RECEIPT) DomainChecks.id(receiptId);
+        else require(receiptId == null && action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction,
+                INVALID_ARGUMENT);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(issuedAt);
         issuedAt = issuedAt.truncatedTo(ChronoUnit.MICROS);

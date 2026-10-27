@@ -1688,3 +1688,7 @@ kind=COLLECTION/REFUND_REQUEST，minimumLevel=NORMAL/REVIEW/URGENT，limit=1..10
 page 带 hasMore/下一页游标、observedAt、实际关注阈值，不提供总数；NORMAL 对回拨后的未来时间仍可见，年龄下限 0。
 该查询不是权限票据；后续仍按现有任务详情读取和 FAILED 审计重试协议操作，严禁据年龄重扣、释放或手动构造终态。
 详见 [完整查证契约](RECOVERY-ESCALATION.md)，当前仅源码，未进行接口/JWT/数据库验收。
+
+## 2026-10-27 对账契约增量
+
+reconciliation-client 已定义 ReconciliationFacade 的 create/attach/start/detail/differences。调用只引用可信账户目录 code、账期与封存 artifact；不开放客户端上传“完整性/核对成功”声明、原资金状态修改或直接退款。当前仅 client/domain 源码，无运行入口。字段与来源/完整性规则见 [对账设计](RECONCILIATION.md)。

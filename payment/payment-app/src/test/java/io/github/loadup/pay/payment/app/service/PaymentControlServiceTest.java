@@ -83,6 +83,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
@@ -112,7 +113,7 @@ class PaymentControlServiceTest {
     final PaymentExecutionLocks executionLocks = mock(PaymentExecutionLocks.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
     final PaymentRecoveryService recovery = mock(PaymentRecoveryService.class);
-    final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentEvents events = mock(PaymentEvents.class);
     final AtomicReference<StoredPaymentGate> parent = new AtomicReference<>(), gate = new AtomicReference<>();
     final AtomicReference<StoredPaymentAcceptance> payment = new AtomicReference<>();
     final Map<String, PaymentControlReceipt> receipts = new HashMap<>();
@@ -284,7 +285,7 @@ class PaymentControlServiceTest {
                 "acquire",
                 executionLocks,
                 actions,
-                recovery);
+                recovery, events);
     }
 
     PaymentInputExpireCommand expiryCommand() {
@@ -475,7 +476,8 @@ class PaymentControlServiceTest {
         assertEquals("CLOSING", result.payment().state().name());
         assertNull(result.noCollectionEvidenceId());
         verify(attempts, never()).update(anyString(), any(), anyLong());
-        verifyNoInteractions(events);
+        verify(events).publishSnapshot(eq("tenant"), eq(payment.get()), any());
+        verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
     }
 
     @Test

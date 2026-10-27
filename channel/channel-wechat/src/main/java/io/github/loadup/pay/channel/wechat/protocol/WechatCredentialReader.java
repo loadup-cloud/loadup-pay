@@ -69,6 +69,22 @@ public class WechatCredentialReader {
         return value;
     }
 
+    /** APIv2 and APIv3 keys are separate products; callers own and zero this exact-version key. */
+    public byte[] apiV2Key(String tenant, ChannelBindingRevision binding) {
+        var encrypted = document(tenant, binding).apiV2Key();
+        if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        final byte[] value;
+        try { value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted); }
+        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        boolean valid = value != null && value.length == 32;
+        if (valid) for (byte part : value) if (part < 33 || part > 126) valid = false;
+        if (!valid) {
+            if (value != null) Arrays.fill(value, (byte) 0);
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
+        return value;
+    }
+
     private WechatCredentialDocument document(String tenant, ChannelBindingRevision binding) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);

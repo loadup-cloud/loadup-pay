@@ -50,6 +50,8 @@ public class AlipayProtocolCodec {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (method == null || credentials == null || businessJson == null || businessJson.getBytes(StandardCharsets.UTF_8).length > 65536)
             throw new CommonException(INVALID_ARGUMENT);
+        if (method == AlipayMethod.WAP_PAY && credentials.appAuthToken() != null)
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
         try {
             var business = json.readValue(businessJson, Map.class);
             if (business == null || business.isEmpty() || business.containsKey("seller_id")

@@ -16,6 +16,7 @@
 package io.github.loadup.pay.channel.alipay.protocol;
 
 public enum AlipayMethod {
+    WAP_PAY("alipay.trade.wap.pay", "wap-pay"),
     PAY("alipay.trade.pay", "trade-pay"),
     CREATE("alipay.trade.create", "trade-create"),
     QUERY("alipay.trade.query", "trade-query"),

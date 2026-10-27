@@ -90,6 +90,7 @@ class PaymentAcceptanceServiceTest {
     final PaymentExecutionLocks locks = mock(PaymentExecutionLocks.class);
     final PaymentActionService actions = mock(PaymentActionService.class);
     final PaymentRecoveryService recovery = mock(PaymentRecoveryService.class);
+    final PaymentEvents events = mock(PaymentEvents.class);
     final AtomicInteger sequence = new AtomicInteger();
     final PaymentExecuteCommand command = PaymentFixtures.command();
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
@@ -106,7 +107,7 @@ class PaymentAcceptanceServiceTest {
             "acquire",
             locks,
             actions,
-            recovery);
+            recovery, events);
 
     @BeforeEach
     void setup() {
@@ -149,6 +150,7 @@ class PaymentAcceptanceServiceTest {
                 stored.get().payment().initiatedAt());
         assertEquals(1, manager.commits);
         verify(recovery, times(1)).register(eq("tenant"), eq(stored.get()));
+        verify(events).publishSnapshot(eq("tenant"), eq(stored.get()), any());
         var calls = inOrder(store);
         calls.verify(store).lockParent("tenant", "order");
         calls.verify(store).insertParent(eq("tenant"), argThat(g -> g.gate().state() == GateState.OPEN));
@@ -163,7 +165,7 @@ class PaymentAcceptanceServiceTest {
     void replayAndDetailRetainTheOriginalOperationAndAcceptanceTimeWithoutGateWrites() {
         var first = accept(command);
         var original = stored.get();
-        clearInvocations(store, recovery);
+        clearInvocations(store, recovery, events);
         assertEquals(first, accept(command));
         var locked = PaymentExecutionBindings.locked(original,
                 AttemptFixtures.gate(true), AttemptFixtures.gate(false));
@@ -176,6 +178,39 @@ class PaymentAcceptanceServiceTest {
         verify(store, never()).lockParent(anyString(), anyString());
         verify(store, never()).insert(anyString(), any());
         verify(recovery, never()).register(anyString(), any());
+        verifyNoInteractions(events);
+    }
+
+    @Test
+    void unknownAcceptanceReplayUsesOriginalActionPresentationWithoutPublishingAnotherSnapshot() {
+        accept(command);
+        var original = stored.get();
+        var root = original.payment();
+        var order = new io.github.loadup.pay.payment.domain.model.PaymentOrder(root.id(), root.orderId(), root.allocationId(),
+                root.payeeMerchantId(), root.amount(), root.limitOperationId(), root.initiatedAt(),
+                io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN, "attempt", null, 2L);
+        var unknown = new StoredPaymentAcceptance(order, original.admissionId(), original.requestDigest(), original.callerServiceId(),
+                original.intentPayload(), original.payloadHash(), null);
+        stored.set(unknown);
+        var locked = PaymentExecutionBindings.locked(unknown, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        var presented = context.getBean(PaymentAcceptanceConverter.class).toDTO(unknown);
+        when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
+        when(actions.present("tenant", locked)).thenReturn(presented);
+        clearInvocations(events, recovery);
+
+        assertSame(presented, accept(command));
+        verify(actions).present("tenant", locked);
+        verifyNoInteractions(events, recovery);
+    }
+
+    @Test
+    void initialSnapshotFailureRollsBackTheAcceptanceUnitInsteadOfReturningACommittedPayment() {
+        org.mockito.Mockito.doThrow(new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
+                .when(events).publishSnapshot(eq("tenant"), any(), any());
+        assertThrows(CommonException.class, () -> accept(command));
+        assertEquals(0, manager.commits);
+        assertEquals(1, manager.rollbacks);
+        // Unit counters prove propagation only; real SQL rollback remains an independent database acceptance.
     }
 
     @Test

@@ -23,13 +23,13 @@
 | 商户日/周/月/终生限额 | 全桶预占、执行许可、确认/释放、按原规则桶退款恢复；扫描及共享策略边界继续收敛 | 测试源码已有；本轮未运行 | 未验收 | [limitcenter](limitcenter/README.md) |
 | cashier / 纯 API | 会话、摘要、金额付款/原动作恢复、托管 H5 页面、会话撤销；托管 JSAPI OAuth/桥接、通用 SDK 待补 | 后端/页面测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
 | 商户通知 | 付款/付清/关闭/退款独立通知、签名 ACK、任务窗口、查询与受控重试；目标迁移/撤销和轮换继续完善 | 测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
-| 交易查询投影 | 四类完整快照、receipt、版本幂等及商户分页查询；付款中间态生产、重建/检查点待补 | 单测及 [四类投影 IT 源码](realtime/realtime-infrastructure/src/test/README.md)；未运行 | 未验收 | [realtime](realtime/README.md) |
+| 交易查询投影 | 四类完整快照、付款各已提交生命周期版本、receipt、版本幂等及商户分页查询；重建/检查点及新鲜度待补 | 单测及 [四类投影 IT 源码](realtime/realtime-infrastructure/src/test/README.md)；未运行 | 未验收 | [realtime](realtime/README.md) |
 | 渠道统一入口 | channel-api + Facade/Strategy/Registry；payment 不直接依赖厂商插件 | [渠道边界门禁源码](channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/ChannelModuleBoundaryTest.java)；本轮未运行 | 未验收 | [channel](channel/README.md) |
-| 支付宝 | 付款码/JSAPI、查询/关闭、普通退款及签名通知；H5 与部分丢失响应恢复待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-alipay](channel/channel-alipay/README.md) |
-| 微信 | JSAPI/H5、查询/关闭、普通退款及 APIv3 支付/退款通知；付款码待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-wechat](channel/channel-wechat/README.md) |
+| 支付宝 | 付款码/JSAPI、直连 H5 动作、查询/关闭、普通退款及签名通知；服务商 H5 与部分丢失响应恢复待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-alipay](channel/channel-alipay/README.md) |
+| 微信 | JSAPI/H5、V2 付款码首提/查证、查询/关闭、普通退款及 APIv3 支付/退款通知；付款码撤销补偿待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-wechat](channel/channel-wechat/README.md) |
 | 银联 | 目标保留；具体产品/接入机构未定，尚无 Provider | 无实现验收证据 | 未验收 | channel 后续插件 |
 | 风控 | 默认放行、渠道前咨询与结果后独立反馈端口；外部系统协议后置 | 端口/默认策略测试源码已有；本轮未运行 | 未验收 | payment / 外部适配 |
-| 对账 | 文件、批次、独立核对与差错处理设计；后置服务尚未落地 | 无实现验收证据 | 未验收 | reconciliation（后置） |
+| 对账 | client/domain、批次/封存输入、纯核对与多原因差错源码；导入、存储和服务装配待补 | 领域测试源码已有；未运行 | 未验收 | [reconciliation](reconciliation/README.md) |
 | 任务与运营恢复 | 原生任务、业务游标/generation、FAILED 受控重试及只读详情；有界退避/抖动及单 JVM 渠道恢复并发源码已补；执行计时/在途量、首次 UNKNOWN 持久时间与只读存量源码已补（库存默认未启用）；分级查证列表/告警规则源码已补；真实 held/FAILED/Outbox、首提/集群配额、通知路由/工单与保留策略待 R3 | 原生持久化与付款/退款 handler IT 源码已有；未运行 | 未验收 | acquire / payment / LoadUp |
 | K8s / Headlamp | 六应用构建/发布/就绪脚本、原生 Service/DNS 与受限 Headlamp 清单；业务配置需单独注入 | 历史记录保留；本轮未执行脚本 | 当前业务版未验收 | [scripts](scripts/README.md) / deploy |
 

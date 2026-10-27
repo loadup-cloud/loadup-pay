@@ -291,8 +291,8 @@ class PaymentResultPersistenceIT {
                     .where("payment_id", fixture.command().paymentId()).exists().has("state", "FENCED");
             return true;
         });
-        assertCounts(fixture, 0L, 0L, 1L, 0L, 4L);
-        assertTargetCounts(fixture);
+        assertCounts(fixture, 0L, 0L, 1L, 0L, 5L);
+        assertTargetCounts(fixture, 2L);
         verify(remote.channels, times(1)).close(argThat(target -> submitted.identity().equals(target.identity())));
         verify(remote.channels, never()).recover(any());
     }
@@ -349,7 +349,7 @@ class PaymentResultPersistenceIT {
                 assertTrue(taskStore.finish(replacement, now(), true, taskProperties));
                 assertCursor(fixture, 1L, false);
                 assertNativeCount(fixture, 2L);
-                assertCounts(fixture, 0L, 0L, 1L, 0L, 0L);
+                assertCounts(fixture, 0L, 0L, 1L, 0L, 1L);
                 assertEquals(DelayedTaskStatus.PENDING, nativeTask(fixture, 1L).status());
 
                 // The current generation can finish while an expired generation-zero query is still in flight.
@@ -366,8 +366,8 @@ class PaymentResultPersistenceIT {
             oldWorker.get(20, TimeUnit.SECONDS);
             assertFalse(taskStore.finish(oldClaim, now(), true, taskProperties));
             assertSuccessfulState(fixture, 3L, 3L);
-            assertCounts(fixture, 1L, 1L, 2L, 0L, 4L);
-            assertTargetCounts(fixture);
+            assertCounts(fixture, 1L, 1L, 2L, 0L, 5L);
+            assertTargetCounts(fixture, 2L);
             assertCursor(fixture, 1L, true);
             assertNativeCount(fixture, 2L);
             assertEquals(DelayedTaskStatus.SUCCEEDED, nativeTask(fixture, 0L).status());
@@ -409,6 +409,36 @@ class PaymentResultPersistenceIT {
         } finally {
             cancelRemainingTasks(fixture);
         }
+    }
+
+    @Test
+    void unknownStateSnapshotAndReceiptRollBackTogetherAndReplaysDoNotDuplicateTheVersion() {
+        var fixture = seedSubmitted();
+        var original = remote.observations.get(fixture.attempt().attempt().id());
+        var unknown = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.UNKNOWN, original.amount(),
+                null, null, PaymentObservation.Source.QUERY_RESPONSE, "unknown-with-snapshot", "b".repeat(64));
+        faults.next.set(FailurePoint.AFTER_OUTBOX);
+        assertThrows(IllegalStateException.class, () -> resultService.record(fixture.tenant(), unknown));
+        assertUnsettled(fixture);
+        assertCounts(fixture, 0L, 0L, 0L, 0L, 0L);
+        assertNull(jdbc.queryForObject("SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                LocalDateTime.class, fixture.tenant(), fixture.command().paymentId()));
+
+        var first = resultService.record(fixture.tenant(), unknown);
+        assertEquals(first, resultService.record(fixture.tenant(), unknown));
+        resultService.record(fixture.tenant(), new PaymentObservation(unknown.identity(), unknown.kind(), unknown.amount(),
+                null, null, unknown.source(), "another-same-state-query", "c".repeat(64)));
+        assertCounts(fixture, 0L, 0L, 2L, 0L, 1L);
+        transactions.readSnapshot(fixture.tenant(), () -> {
+            var stored = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            assertEquals(PaymentState.UNKNOWN, stored.payment().state());
+            assertEquals(2L, stored.payment().version());
+            return true;
+        });
+        resultService.record(fixture.tenant(), original);
+        assertSuccessfulState(fixture, 3L, 3L);
+        assertCounts(fixture, 1L, 1L, 3L, 0L, 5L);
+        assertTargetCounts(fixture, 2L);
     }
 
     @Test
@@ -622,9 +652,14 @@ class PaymentResultPersistenceIT {
     }
 
     private void assertTargetCounts(Fixture fixture) {
+        assertTargetCounts(fixture, 1L);
+    }
+
+    private void assertTargetCounts(Fixture fixture, long realtimeSnapshots) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            for (String type : List.of(PaymentResultEvents.ACQUIRE, PaymentResultEvents.LIMIT, PaymentResultEvents.RISK, PaymentResultEvents.REALTIME)) {
-                assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event"
+            for (String type : List.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.RISK, PaymentEvents.REALTIME)) {
+                assertEquals(type.equals(PaymentEvents.REALTIME) ? realtimeSnapshots : 1L,
+                        jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event"
                         + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
                         Long.class, fixture.tenant(), fixture.command().paymentId(), type).longValue());
             }
@@ -763,7 +798,7 @@ class PaymentResultPersistenceIT {
         }
     }
 
-    static class FaultingEvents extends PaymentResultEvents {
+    static class FaultingEvents extends PaymentEvents {
         private final Faults faults;
 
         FaultingEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids, PaymentAttemptGateway attempts,
@@ -775,6 +810,12 @@ class PaymentResultPersistenceIT {
         @Override
         public void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, LocalDateTime occurredAt) {
             super.publish(tenant, payment, fenced, occurredAt);
+            faults.after(FailurePoint.AFTER_OUTBOX);
+        }
+
+        @Override
+        public void publishSnapshot(String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
+            super.publishSnapshot(tenant, payment, occurredAt);
             faults.after(FailurePoint.AFTER_OUTBOX);
         }
     }
@@ -844,7 +885,7 @@ class PaymentResultPersistenceIT {
         }
 
         @Bean
-        PaymentResultEvents events(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
+        PaymentEvents events(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
                 PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
             return new FaultingEvents(outbox, converter, ids, attempts, results, snapshots, faults);
         }

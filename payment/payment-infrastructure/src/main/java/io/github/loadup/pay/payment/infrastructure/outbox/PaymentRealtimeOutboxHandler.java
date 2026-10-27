@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.infrastructure.outbox;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxHandler;
 import io.github.loadup.pay.payment.app.service.PaymentRealtimeDelivery;
-import io.github.loadup.pay.payment.app.service.PaymentResultEvents;
+import io.github.loadup.pay.payment.app.service.PaymentEvents;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -31,7 +31,7 @@ public class PaymentRealtimeOutboxHandler implements OutboxHandler {
 
     @Override
     public String eventType() {
-        return PaymentResultEvents.REALTIME;
+        return PaymentEvents.REALTIME;
     }
 
     @Override

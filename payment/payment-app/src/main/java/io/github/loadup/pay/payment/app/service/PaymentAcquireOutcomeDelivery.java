@@ -34,7 +34,7 @@ public class PaymentAcquireOutcomeDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        var snapshot = support.load(event, PaymentResultEvents.ACQUIRE);
+        var snapshot = support.load(event, PaymentEvents.ACQUIRE);
         if (!acquire.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
         var envelope = snapshot.envelope();
         var ack = acquire.accept(snapshot.tenantId(), envelope);

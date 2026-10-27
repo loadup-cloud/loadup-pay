@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.infrastructure.outbox;
 
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxHandler;
-import io.github.loadup.pay.payment.app.service.PaymentResultEvents;
+import io.github.loadup.pay.payment.app.service.PaymentEvents;
 import io.github.loadup.pay.payment.app.service.PaymentRiskOutcomeDelivery;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +31,7 @@ public class PaymentRiskOutcomeOutboxHandler implements OutboxHandler {
 
     @Override
     public String eventType() {
-        return PaymentResultEvents.RISK;
+        return PaymentEvents.RISK;
     }
 
     @Override

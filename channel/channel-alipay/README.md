@@ -9,7 +9,7 @@
 - 启用前缀为 `loadup.pay.channel.alipay.enabled`（默认关闭）；同级 credentials/authorizations 是 reference → version → 绝对 Path 的受控映射。启用时应用需组合 channel-core、HttpTemplate、KmsTemplate 和 JsonMapper。
 - 时间源使用 channel-core 的 channelClock。运行/业务时区仍为系统本地；协议时间按支付宝官方 GMT+8 格式发送，成功时间按 GMT+8 解释后转换为业务时区，不把无时区文本当成服务器当地时间。依据：[官方 SDK 时间常量](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/AlipayConstants.java)。
 
-支付宝启用时注册 Provider，目前实现付款码/JSAPI submit、退款提交/查询和支付 query/close；H5 submit 仍明确返回未实现能力。付款码/JSAPI 协议和类型化唤起动作源码已补；H5、动作持久化/商户返回、自动驱动、异步回调与证书模式仍待实现。
+支付宝启用时注册 Provider，已有付款码/JSAPI submit、直连 H5 本地动作、退款提交/查询和支付 query/close 源码。动作持久化/商户返回、自动驱动、异步回调已有源码；服务商 H5 授权承载、证书模式与真实渠道验收仍待完成。直连 H5 当前契约见 [H5 设计](../../design/ALIPAY-H5.md)。
 
 协议依据：[支付宝官方 Java SDK](https://github.com/alipay/alipay-sdk-java-all/tree/master/v2)、[支付宝退款查询说明](https://aipay.alipay.com/docs/vibe-pay/ai-web-app-payment-qianyi/api-list/alipay-trade-fastpay-refund-query.html)。协议成功不等于资金成功；退款查询仍需核验退款状态和原请求身份。
 
@@ -57,7 +57,7 @@ AlipaySubmitAdapter 接收统一 ChannelPaymentRequest，不接收任意商户 w
 - JSAPI：使用 alipay.trade.create；10000 校验原请求/交易号后仅返回 ACCEPTED 和 AlipayJsapiChannelAction(tradeNo, expiresAt)，由上游映射为 INVOKE_JSAPI/AlipayJsapiActionDTO。该动作不是支付成功事实。
 - JSAPI 买家输入为已解析标识，不是一次性 OAuth code：identityType=USER_ID 使用 buyer_id；OPEN_ID 在签名应用作用域使用 buyer_open_id，在冻结 operatorAppId 作用域使用 op_app_id/op_buyer_open_id。appScope 必须匹配相应冻结应用，禁止把任意商户应用的 open_id 跨应用使用。直连/服务商的商户授权凭证继续由原版本化绑定和 KMS 解析。
 - 商户 API 需先在自身应用完成授权并取得上述渠道标识；平台不新增用户主档。标识只走原短期加密输入，不对外提供解密接口。托管 cashier 的授权流程仍待接入。
-- H5 尚未实现；不将服务商长期 app_auth_token 作为前端跳转参数，不用付款码/JSAPI 的受理冒充 H5 已完成。
+- H5 直连已补本地签名动作；无渠道受理观察，按 [H5 设计](../../design/ALIPAY-H5.md) 独立落库。服务商长期 app_auth_token 不进入前端跳转；服务商 H5 仍待确定授权承载。
 
 依据：[官方付款码模型](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/domain/AlipayTradePayModel.java)、[官方 JSAPI 创单与应用作用域字段](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/domain/AlipayTradeCreateModel.java)。
 
@@ -89,3 +89,7 @@ AlipayCredentialReader.verificationKey 从原版本描述文件读取平台 RSA 
 原 out_request_no 始终存在，原交易、退款金额、账户与凭证版本不变。退款状态缺失不代表失败或未退款，重提依靠支付宝对 out_request_no 的幂等保证。提交即使成功也只受理，查询/提交摘要组合为恢复证据；不凭 refund_fee 累计额或 fund_change 直接认领成功，不生成新退款号。恢复由原生任务调度，不在 HTTP 层自动循环。
 
 依据：[支付宝官方交易退款幂等说明](https://developer.alibaba.com/docs/doc.htm?articleId=106384&docType=1&treeId=327)。源码与测试源码已补，未运行构建、测试或真实退款；未满足上述明确条件的未知结果继续保留占用并等待后续查询/运维处置。
+
+## 2026-10-27 当前 H5 增量
+
+直连手机网站支付、本地动作独立来源及 UNKNOWN 原动作返回已补源码，配置与边界统一见 [H5 设计](../../design/ALIPAY-H5.md)。历史章节的 H5 未实现记录不代表当前源码。没有运行验证、部署、安装 SDK 或发起渠道调用。

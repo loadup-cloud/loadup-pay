@@ -37,6 +37,9 @@ public final class WechatPaymentAdapter {
         this.client = client; this.responses = new WechatResponseReader(json); this.json = json; this.clock = clock;
     }
     public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) {
+        return probe(context, target).observation();
+    }
+    private Probe probe(ChannelExecutionContext context, ChannelPaymentTarget target) {
         var account = original(context, target);
         boolean partner = account.subMerchantId() != null;
         var operation = partner ? WechatMethod.PARTNER_QUERY : WechatMethod.DIRECT_QUERY;
@@ -45,24 +48,25 @@ public final class WechatPaymentAdapter {
         var response = client.call(context.tenantId(), context.binding(), operation,
                 Map.of("out_trade_no", target.identity().channelRequestNo()), params, null);
         var data = responses.read(response, operation);
-        if (response.status() != 200) return observation(target, ChannelPaymentOutcome.Kind.UNKNOWN, null, null,
-                PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest());
+        if (response.status() != 200) return new Probe(observation(target, ChannelPaymentOutcome.Kind.UNKNOWN, null, null,
+                PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), null);
         responses.account(data, account); responses.match(data, "out_trade_no", target.identity().channelRequestNo());
         responses.amount(data, target.amount().getCent());
         var state = responses.text(data, "trade_state", 32);
+        var tradeType = responses.optionalText(data, "trade_type", 16);
         var tradeNo = responses.optionalText(data, "transaction_id", 64);
         if ("SUCCESS".equals(state) || "REFUND".equals(state)) {
             if (tradeNo == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
             final LocalDateTime succeededAt;
             try { succeededAt = OffsetDateTime.parse(responses.text(data, "success_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime(); }
             catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
-            return observation(target, ChannelPaymentOutcome.Kind.SUCCEEDED, tradeNo, succeededAt,
-                    PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest());
+            return new Probe(observation(target, ChannelPaymentOutcome.Kind.SUCCEEDED, tradeNo, succeededAt,
+                    PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), tradeType);
         }
         var kind = "NOTPAY".equals(state) || "USERPAYING".equals(state)
                 ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN;
         // CLOSED/REVOKED/PAYERROR or NOT_FOUND alone do not prove that money was never collected.
-        return observation(target, kind, tradeNo, null, PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest());
+        return new Probe(observation(target, kind, tradeNo, null, PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), tradeType);
     }
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
@@ -72,7 +76,11 @@ public final class WechatPaymentAdapter {
     }
     public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
         var account = original(context, target);
-        var before = query(context, target);
+        var original = probe(context, target);
+        var before = original.observation();
+        // Micropay reversal can refund a paid transaction; it requires a separate compensation protocol and mTLS.
+        // Neither the V3 unpaid close nor a fabricated no-collection fact is valid for this product.
+        if (!"JSAPI".equals(original.tradeType()) && !"MWEB".equals(original.tradeType())) return before;
         // A pending observation can also mean USERPAYING; only an acknowledged close establishes the stop boundary.
         if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) return before;
         boolean partner = account.subMerchantId() != null;
@@ -88,6 +96,9 @@ public final class WechatPaymentAdapter {
         var digest = DigestUtils.sha256("wechat-unpaid-close-v1|" + before.sourceDigest() + "|" + response.sourceDigest());
         return observation(target, ChannelPaymentOutcome.Kind.NO_COLLECTION, before.channelTransactionNo(), null,
                 PaymentObservation.Source.CLOSE_RESPONSE, digest);
+    }
+    private record Probe(PaymentObservation observation, String tradeType) {
+        @Override public String toString() { return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this); }
     }
     private WechatAccountIdentity original(ChannelExecutionContext context, ChannelPaymentTarget target) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);

@@ -32,6 +32,7 @@ public class PaymentActionDO extends BaseDO {
     private Long amountMinor;
     private String currency;
     private Long executionEpoch;
+    private String source;
     private String receiptId;
     private String sourceDigest;
     private LocalDateTime issuedAt;
@@ -104,6 +105,10 @@ public class PaymentActionDO extends BaseDO {
     public void setExecutionEpoch(Long value) {
         executionEpoch = value;
     }
+
+    public String getSource() { return source; }
+
+    public void setSource(String value) { source = value; }
 
     public String getReceiptId() {
         return receiptId;

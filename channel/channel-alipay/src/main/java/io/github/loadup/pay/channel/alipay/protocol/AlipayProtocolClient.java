@@ -21,6 +21,9 @@ import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.Map;
+import java.net.URI;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
 /** Named external HTTP operations; there is no internal-service HTTP fallback or automatic retry. */
@@ -31,9 +34,23 @@ public class AlipayProtocolClient {
     public AlipayProtocolClient(HttpTemplate http, AlipayCredentialReader credentials, AlipayProtocolCodec codec) {
         this.http = http; this.credentials = credentials; this.codec = codec;
     }
+    /** Page generation has no network response and must never expose delegated authorization. */
+    public String directWapUrl(String tenant, ChannelBindingRevision binding, URI gateway,
+            String businessJson, Map<String, String> options) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (binding == null || binding.accessMode() != AccessMode.DIRECT) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (!AlipayH5ChannelAction.isGateway(gateway) || gateway.getRawQuery() != null)
+            throw new CommonException(INVALID_ARGUMENT);
+        var credential = credentials.read(tenant, binding);
+        if (credential.appAuthToken() != null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        var signed = codec.sign(AlipayMethod.WAP_PAY, credential, businessJson, options);
+        return gateway.toASCIIString() + "?" + signed.formBody();
+    }
+
     public AlipayVerifiedResponse call(String tenant, ChannelBindingRevision binding, AlipayMethod method,
             String businessJson, Map<String, String> options) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (method == AlipayMethod.WAP_PAY) throw new CommonException(INVALID_ARGUMENT);
         var credential = credentials.read(tenant, binding);
         var request = codec.sign(method, credential, businessJson, options);
         try {

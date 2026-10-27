@@ -54,7 +54,7 @@ class PaymentExecutionServiceTest {
     final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
     final PaymentResultService results = mock(PaymentResultService.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
-    final PaymentResultEvents events = mock(PaymentResultEvents.class);
+    final PaymentEvents events = mock(PaymentEvents.class);
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
     final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(manager);
     final AtomicReference<StoredPaymentAcceptance> accepted = new AtomicReference<>(AttemptFixtures.accepted(true));

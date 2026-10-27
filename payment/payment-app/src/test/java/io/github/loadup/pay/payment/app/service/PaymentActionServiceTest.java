@@ -83,12 +83,71 @@ class PaymentActionServiceTest {
     private final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     private final PaymentAcceptanceConverter views = mock(PaymentAcceptanceConverter.class);
     private final PaymentChannelInputConverter channelViews = mock(PaymentChannelInputConverter.class);
+    private final io.github.loadup.pay.channel.api.codec.ChannelActionCodec actionCodec =
+            mock(io.github.loadup.pay.channel.api.codec.ChannelActionCodec.class);
     private final PaymentActionService service = new PaymentActionService(actions, attempts, codec, views, channelViews,
-            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()));
+            Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
+            actionCodec);
 
     @AfterEach
     void clearTransactionState() {
         TransactionSynchronizationManager.clear();
+    }
+
+    @Test
+    void localH5ActionIsStoredWithoutAReceiptAndHasItsOwnArtifactDigest() {
+        var fixture = fixture(PaymentMethod.H5, 1, Money.ofMinor(4000, "CNY"));
+        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
+        var submission = new ChannelPaymentSubmission(fixture.original().identity(), fixture.original().amount(), null, action);
+        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(codec.decode(fixture.acceptance())).thenReturn(fixture.command());
+        when(actionCodec.encode(action)).thenReturn("local-artifact");
+        when(actionCodec.checksum("local-artifact")).thenReturn(HASH);
+        when(actions.find(TENANT, "attempt")).thenReturn(Optional.empty());
+
+        inTransaction(() -> service.record(TENANT, fixture.locked(), fixture.original(), submission, null));
+
+        var captured = org.mockito.ArgumentCaptor.forClass(StoredPaymentAction.class);
+        verify(actions).insert(eq(TENANT), captured.capture());
+        assertEquals(io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED, captured.getValue().source());
+        org.junit.jupiter.api.Assertions.assertNull(captured.getValue().receiptId());
+        assertEquals(HASH, captured.getValue().sourceDigest());
+        assertEquals(action, captured.getValue().action());
+        var failure = assertThrows(io.github.loadup.commons.error.CommonException.class, () ->
+                inTransaction(() -> service.record(TENANT, fixture.locked(), fixture.original(), submission, "fabricated-receipt")));
+        assertEquals(INVALID_ARGUMENT, failure.getResultCode());
+    }
+
+    @Test
+    void unknownPaymentStillPresentsItsOriginalUnexpiredAction() {
+        var fixture = fixture(PaymentMethod.H5, 1, Money.ofMinor(4000, "CNY"));
+        var original = fixture.acceptance().payment();
+        var unknownOrder = new PaymentOrder(original.id(), original.orderId(), original.allocationId(), original.payeeMerchantId(),
+                original.amount(), original.limitOperationId(), original.initiatedAt(),
+                PaymentState.UNKNOWN, original.activeAttemptId(), null, original.version() + 1);
+        var unknown = acceptance(fixture.acceptance(), unknownOrder, null);
+        var locked = locked(unknown, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
+        var stored = new StoredPaymentAction(fixture.original().identity(), fixture.original().amount(), 1, action,
+                io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED, null, HASH, AttemptFixtures.NOW);
+        var base = dto(null);
+        var actionDto = new PaymentActionDTO(io.github.loadup.pay.payment.client.enums.PaymentActionType.REDIRECT, EXPIRES_AT,
+                new io.github.loadup.pay.payment.client.dto.RedirectActionDTO(action.redirectUrl()));
+        var decorated = dto(actionDto);
+        when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(stored));
+        when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
+        when(views.toDTO(unknown)).thenReturn(base);
+        when(codec.decode(unknown)).thenReturn(fixture.command());
+        when(channelViews.toAction(action)).thenReturn(actionDto);
+        when(views.withAction(base, actionDto)).thenReturn(decorated);
+
+        assertSame(decorated, inTransaction(() -> service.present(TENANT, locked)));
+    }
+
+    private static String wapUrl() {
+        return "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-22+20%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
     }
 
     @Test
@@ -224,7 +283,7 @@ class PaymentActionServiceTest {
         var command = PaymentFixtures.command();
         var binding = new ChannelBindingRevision("binding-revision", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
                 "a".repeat(64), "credential", "v1", new AlipayAccountIdentity("app", "seller", null, null, null),
-                Set.of(PaymentMethod.JSAPI, PaymentMethod.PAYMENT_CODE));
+                Set.of(PaymentMethod.JSAPI, PaymentMethod.PAYMENT_CODE, PaymentMethod.H5));
         var attempt = new PaymentAttempt("attempt", "payment", 1, Money.ofMinor(4000, "CNY"), binding, method,
                 "channel-request", PaymentAttemptState.SUBMITTING, epoch, null);
         var template = AttemptFixtures.prepared().beginSubmission(epoch, HASH, RiskDecision.notConnected(), AttemptFixtures.NOW);
@@ -257,7 +316,8 @@ class PaymentActionServiceTest {
 
     private static StoredPaymentAction storedAction(Fixture fixture, String tradeNo, OffsetDateTime expiry) {
         return new StoredPaymentAction(fixture.original().identity(), fixture.original().amount(),
-                fixture.original().executionEpoch(), new AlipayJsapiChannelAction(tradeNo, expiry), "receipt-1",
+                fixture.original().executionEpoch(), new AlipayJsapiChannelAction(tradeNo, expiry),
+                io.github.loadup.pay.payment.domain.model.PaymentActionSource.CHANNEL_RECEIPT, "receipt-1",
                 "f".repeat(64), AttemptFixtures.NOW);
     }
 

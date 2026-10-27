@@ -294,7 +294,7 @@ class FinancialPersistenceIT {
         final RiskConsultGateway risk = mock(RiskConsultGateway.class);
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
-        final PaymentResultEvents events = mock(PaymentResultEvents.class);
+        final PaymentEvents events = mock(PaymentEvents.class);
         RemotePorts() {
             when(limits.supportsTenant(anyString())).thenReturn(true);
             when(limits.reserve(anyString(), any())).thenAnswer(c -> {
@@ -337,6 +337,6 @@ class FinancialPersistenceIT {
         @Bean RiskConsultGateway risk(RemotePorts ports) { return ports.risk; }
         @Bean PaymentChannelGateway channels(RemotePorts ports) { return ports.channels; }
         @Bean PaymentInputCipher cipher(RemotePorts ports) { return ports.cipher; }
-        @Bean PaymentResultEvents events(RemotePorts ports) { return ports.events; }
+        @Bean PaymentEvents events(RemotePorts ports) { return ports.events; }
     }
 }

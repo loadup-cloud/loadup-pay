@@ -20,7 +20,7 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import java.time.OffsetDateTime;
 
 /** A payer interaction action, not financial success evidence. */
-public sealed interface ChannelPaymentAction permits AlipayJsapiChannelAction, WechatJsapiChannelAction, WechatH5ChannelAction {
+public sealed interface ChannelPaymentAction permits AlipayJsapiChannelAction, AlipayH5ChannelAction, WechatJsapiChannelAction, WechatH5ChannelAction {
     Channel channel();
     PaymentMethod method();
     OffsetDateTime expiresAt();

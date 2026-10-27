@@ -79,7 +79,7 @@ public class PaymentSubmissionPreparation {
     private final PaymentAcceptanceTransactions transactions;
     private final IdGenerator ids;
     private final Clock clock;
-    private final PaymentResultEvents events;
+    private final PaymentEvents events;
     private final io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels;
     private final io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs;
 
@@ -87,7 +87,7 @@ public class PaymentSubmissionPreparation {
                                         PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
                                         RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
                                         PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
-                                        @Qualifier("paymentClock") Clock clock, PaymentResultEvents events,
+                                        @Qualifier("paymentClock") Clock clock, PaymentEvents events,
                                         io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels,
                                         io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs) {
         this.payments = payments;

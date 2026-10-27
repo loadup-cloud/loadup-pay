@@ -24,12 +24,19 @@ public final class WechatChannelProvider implements ChannelProvider {
     private final WechatSubmitAdapter submissions;
     private final WechatPaymentAdapter payments;
     private final WechatRefundAdapter refunds;
-    public WechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments, WechatRefundAdapter refunds) {
-        this.submissions = submissions; this.payments = payments; this.refunds = refunds;
+    private final WechatCodepayAdapter codepay;
+    public WechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments, WechatRefundAdapter refunds, WechatCodepayAdapter codepay) {
+        this.submissions = submissions; this.payments = payments; this.refunds = refunds; this.codepay = codepay;
     }
     @Override public Channel channel() { return Channel.WECHAT; }
-    @Override public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) { submissions.validate(context, request); }
-    @Override public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) { return submissions.submit(context, request); }
+    @Override public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
+        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE) codepay.validate(context, request);
+        else submissions.validate(context, request);
+    }
+    @Override public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
+        return request != null && request.payment().method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE
+                ? codepay.submit(context, request) : submissions.submit(context, request);
+    }
     @Override public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.query(context, target); }
     @Override public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) { return payments.recover(context, request); }
     @Override public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.close(context, target); }

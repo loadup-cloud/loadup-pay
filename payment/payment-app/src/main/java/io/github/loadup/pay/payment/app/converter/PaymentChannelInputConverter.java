@@ -57,6 +57,7 @@ public interface PaymentChannelInputConverter {
     default PaymentActionDTO toAction(ChannelPaymentAction value) {
         if (value == null) return null;
         return switch (value) {
+            case AlipayH5ChannelAction h5 -> toAlipayH5Action(h5);
             case AlipayJsapiChannelAction alipay -> toAlipayAction(alipay);
             case WechatJsapiChannelAction wechat -> toWechatAction(wechat);
             case WechatH5ChannelAction h5 -> toH5Action(h5);
@@ -74,6 +75,12 @@ public interface PaymentChannelInputConverter {
     PaymentActionDTO toWechatAction(WechatJsapiChannelAction value);
 
     WechatJsapiActionDTO toWechatData(WechatJsapiChannelAction value);
+
+    @Mapping(target = "type", constant = "REDIRECT")
+    @Mapping(target = "data", expression = "java(toAlipayH5Data(value))")
+    PaymentActionDTO toAlipayH5Action(AlipayH5ChannelAction value);
+
+    RedirectActionDTO toAlipayH5Data(AlipayH5ChannelAction value);
 
     @Mapping(target = "type", constant = "REDIRECT")
     @Mapping(target = "data", expression = "java(toH5Data(value))")

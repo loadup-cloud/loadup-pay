@@ -78,7 +78,7 @@ public class PaymentControlService implements PaymentControlFacade {
     private final IdGenerator ids;
     private final Validator validator;
     private final String acquireService;
-    private final PaymentResultEvents events;
+    private final PaymentEvents events;
     private final Clock clock;
 
     public PaymentControlService(
@@ -93,7 +93,7 @@ public class PaymentControlService implements PaymentControlFacade {
             PaymentAcceptanceTransactions transactions,
             IdGenerator ids,
             Validator validator,
-            PaymentResultEvents events,
+            PaymentEvents events,
             @Qualifier("paymentClock") Clock clock,
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
@@ -260,6 +260,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 store.updatePayment(actor.tenantId(), updated, order.version());
                 if (updatedOrder.state() == PaymentState.CLOSED)
                     events.publish(actor.tenantId(), updated, true, now());
+                else events.publishSnapshot(actor.tenantId(), updated, now());
                 payment = Optional.of(updated);
             } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)
                 evidence = previous.terminalEvidenceId();

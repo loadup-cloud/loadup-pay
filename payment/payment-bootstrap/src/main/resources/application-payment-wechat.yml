@@ -4,6 +4,7 @@ loadup:
     channel:
       wechat:
         enabled: true
+        # PAYMENT_CODE additionally requires a frozen apiV2Key and codepay.server-ips.<tenant>.<binding-revision>.
         # credentials: reference -> version -> absolute descriptor Path
         # notifications.notify-urls: tenant -> immutable binding revision -> payment HTTPS callback URI without query
         # notifications.refund-notify-urls: tenant -> immutable binding revision -> /{endpointRef}/refund HTTPS callback URI
@@ -51,3 +52,16 @@ loadup:
           refund-query:
             method: GET
             path: /v3/refund/domestic/refunds/{out_refund_no}
+      wechat-v2:
+        base-url: ${PAYMENT_WECHAT_GATEWAY_BASE_URL:https://api.mch.weixin.qq.com}
+        connect-timeout: 3s
+        read-timeout: 20s
+        acquire-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 65536
+        max-response-bytes: 65536
+        operations:
+          micropay:
+            method: POST
+            path: /pay/micropay

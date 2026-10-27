@@ -2,9 +2,9 @@
 
 应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
 
-本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。payment
-当前已在终态事务生产完整付款快照并通过第四个独立 Outbox 目标投递；订单、退款及退款汇总接收/查询代码已补，但对应生产端和付款
-INIT/中间态事件仍待接入。所有新增源码和 DDL 尚未执行验证。
+本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。
+订单、付款、退款及退款汇总生产端均已有源码；payment 新补 INIT 0、PROCESSING、UNKNOWN、CLOSING 的已提交版本快照，终态保持原独立投递。
+当前源码与验证缺口见 [付款生命周期快照](../design/PAYMENT-LIFECYCLE-SNAPSHOTS.md) 和根能力矩阵；历史验证记录不覆盖后续修改。
 
 | 能力         | 当前源码                                                                                                               |
 |--------------|------------------------------------------------------------------------------------------------------------------------|
@@ -14,7 +14,7 @@ INIT/中间态事件仍待接入。所有新增源码和 DDL 尚未执行验证�
 | 商户查询     | /api/realtime/trades/detail、orders、payments、refunds，只接受可信 JWT 中的实际 merchant_id 和 pay:realtime:trade:read |
 | 存储         | 四类投影及语义回执五表，完整强类型源 JSON + 查询索引列 + 校验哈希，BaseDO/MapStruct/生成 Mapper                        |
 | 运行         | realtime-business Maven/运行 profile，独立 MySQL、JWT issuer/audience/JWK 配置；默认骨架仍可单独装配                   |
-| 待完成       | 订单/退款生产端、付款中间态、重建/流检查点、多商户操作员授权及真实集成验收                                             |
+| 待完成       | 重建/流检查点、查询新鲜度、多商户操作员授权及真实集成验收                                             |
 
 投影入口只允许 REALTIME_ACQUIRE_SERVICE_ID（默认 acquire）发布订单，REALTIME_PAYMENT_SERVICE_ID（默认 payment）发布付款/退款；各自权限为
 pay:realtime:projection:order|payment|refund|refund-summary。producer 标签不是身份，服务 subject/service_id 必须来自已验证
@@ -75,3 +75,7 @@ null，来源领先时保留实际金额差和 amountsConsistent。新生产/投
 新增 [ProjectionPersistenceIT 测试说明](realtime-infrastructure/src/test/README.md)，对订单、付款、退款、退款汇总四类投影复用实际入口、事务、Gateway、生成 Mapper 和 Flyway。
 覆盖并发 delivery、同版本冲突、乱序版本、receipt 插入后的原子回滚及原 ACK 重放，共 20 个参数化输入。
 测试配置由显式 mysql-it profile 启动；目前未编译或运行，不能视为 R1 的真实数据库证明，也未验证线上消息投递及重建流程。
+
+## 2026-10-27 付款非终态来源
+
+payment 已补各已提交生命周期付款版本的独立完整快照，不需要 realtime 回查交易源。新增 INIT 0/空渠道到成功、先于订单保存、迟到 INIT 不重开终态的 MySQL IT 源码；未执行。生产边界、重放与尚未完成项见 [生命周期快照设计](../design/PAYMENT-LIFECYCLE-SNAPSHOTS.md)。此前批次所写“付款中间态待补”是历史缺口记录。

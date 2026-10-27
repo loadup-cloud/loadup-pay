@@ -56,7 +56,7 @@ class PaymentLimitOutcomeDeliveryTest {
     final PaymentAcceptanceCodec intents = mock(PaymentAcceptanceCodec.class);
     final PaymentLimitOutcomeDelivery delivery = new PaymentLimitOutcomeDelivery(support, limits, intents,
             context.getBean(PaymentOutcomeDeliveryConverter.class));
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentResultEvents.LIMIT, 1, "payment", "{}"),
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.LIMIT, 1, "payment", "{}"),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     PaymentDeliverySnapshot snapshot;
 
@@ -67,8 +67,8 @@ class PaymentLimitOutcomeDeliveryTest {
     }
 
     void source(boolean succeeded) {
-        snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentResultEvents.LIMIT);
-        when(support.load(event, PaymentResultEvents.LIMIT)).thenReturn(snapshot);
+        snapshot = OutcomeDeliveryFixtures.snapshot(succeeded, true, PaymentEvents.LIMIT);
+        when(support.load(event, PaymentEvents.LIMIT)).thenReturn(snapshot);
     }
 
     @BeforeEach
