@@ -126,10 +126,22 @@ class PaymentAcceptanceTransactionsTest {
         assertEquals(1, manager.begins); assertEquals(1, manager.commits);
     }
 
+    @Test
+    void boundedSnapshotAddsATimeoutWithoutChangingTheDefaultSnapshot() {
+        assertEquals(7, transactions.readSnapshot("tenant", 7, () -> manager.timeout));
+        assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
+        assertEquals(TransactionDefinition.TIMEOUT_DEFAULT, transactions.readSnapshot("tenant", () -> manager.timeout));
+        assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 0, () -> true));
+        assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 61, () -> true));
+        transactions.writeLocal("tenant", () -> {
+            assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", 7, () -> true)); return true;
+        });
+    }
+
     static final class Manager extends AbstractPlatformTransactionManager {
-        int isolation, commits, rollbacks, begins;
+        int isolation, commits, rollbacks, begins, timeout;
         @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { isolation = definition.getIsolationLevel(); begins++; }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { isolation = definition.getIsolationLevel(); timeout = definition.getTimeout(); begins++; }
         @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
         @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
     }

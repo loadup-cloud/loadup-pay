@@ -24,6 +24,8 @@ public enum ReconciliationResultCodeEnum implements ResultCode {
     NOT_FOUND("RECONCILIATION_NOT_FOUND", "Reconciliation record not found"),
     INVALID_STATE("RECONCILIATION_INVALID_STATE", "Invalid reconciliation state"),
     INPUT_NOT_SEALED("RECONCILIATION_INPUT_NOT_SEALED", "Both reconciliation inputs must be sealed"),
+    IMPORT_IN_PROGRESS("RECONCILIATION_IMPORT_IN_PROGRESS", "A channel import is already in progress"),
+    IMPORT_SUPERSEDED("RECONCILIATION_IMPORT_SUPERSEDED", "The batch channel input has changed"),
     INPUT_INVALID("RECONCILIATION_INPUT_INVALID", "Reconciliation input is invalid"),
     SCOPE_MISMATCH("RECONCILIATION_SCOPE_MISMATCH", "Reconciliation input scope mismatch"),
     IDEMPOTENCY_CONFLICT("RECONCILIATION_IDEMPOTENCY_CONFLICT", "Reconciliation request changed"),

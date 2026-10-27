@@ -10,6 +10,10 @@ loadup:
     binder-type: core
   modules:
     payment:
+      reconciliation-service-id: ${PAYMENT_RECONCILIATION_SERVICE_ID:reconciliation}
+      reconciliation:
+        max-records: ${PAYMENT_RECONCILIATION_MAX_RECORDS:10000}
+        source-read-timeout-seconds: ${PAYMENT_RECONCILIATION_READ_TIMEOUT_SECONDS:10}
       limitcenter-service-id: ${PAYMENT_LIMITCENTER_SERVICE_ID:limitcenter}
       acquire-service-id: ${PAYMENT_ACQUIRE_SERVICE_ID:acquire}
       recovery-operations-service-id: ${PAYMENT_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}

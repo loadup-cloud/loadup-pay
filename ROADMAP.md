@@ -24,7 +24,7 @@
 - [ ] 合约/额度：多 revision/多产品共享策略、发布前渠道引用/开通校验、扫描及原桶恢复等未验收边界。
 - [ ] 通知：目标生命周期、授权迁移/撤销、密钥轮换、超过通知窗口的受控人工处置及真实签名/ACK 投递。
 - [ ] realtime：付款中间态生产源码已补；重建/检查点、乱序补齐、新鲜度及端到端独立投递验收待完成。
-- [ ] 后置对账：client/domain、封存输入/批次/纯核对核心源码已补；真实账单导入、权威导出、持久化、应用/任务、差错复核及受控查证待补，不直接改资金表。
+- [ ] 后置对账：七层应用、封存输入/批次/核对、存储/任务/接口及微信 ALL 格式解析源码已补；手工 File/Transfer 导入/封存源码已补，官方自动下载/来源证明、支付宝解析、权威导出、差错复核及受控查证待补，不直接改资金表。
 - [ ] 外部风控：按后续真实协议实现 provider，保留默认放行咨询和独立结果反馈。
 - [ ] 运行与交付：真实 JWT/TLS/gRPC、独立 schema/事务、多实例任务、Outbox/商户通知及三渠道业务链路；业务镜像、Secret 与环境发布配置未经验收。
 
@@ -588,3 +588,48 @@
 - [x] 源码：两层实际模块、Facade/DTO 契约、INIT 批次/原运行/完成幂等、双侧封存/重复/总额/规范化哈希校验、纯 merge 与多原因差错；根 reactor 和边界门禁同步。
 - [x] 测试源码与 [独立四表设计草案](design/sql/reconciliation-draft.sql)已补。未构建、运行或执行 DDL。
 - [ ] 来源范围完整性、File/Transfer 实际解析、数据库/应用/任务与权限、差错查证/复核、部署及所有真实验收仍待完成；[详细设计](design/RECONCILIATION.md)区分现有源码与后续契约。
+
+## 2026-10-27 P1：对账应用、独立存储、接口与微信 ALL 格式
+
+- [x] 源码：ReconciliationService 实现 Facade，受信 SERVICE/租户/原 caller/账户目录逐项鉴权，create 幂等、双侧封存引用、start 原运行与 DelayedTask 同库登记；start 使用写 Command。
+- [x] 源码：四表 BaseDO/生成 Mapper/TableDef 消费、Spring MapStruct 和独立 Flyway 迁移；输入只封存、批次 CAS、完整差错和结果摘要同事务提交。读取 RR/无资金回写，纯比较在事务外。
+- [x] 源码：HTTP 运营接口、提供方 Protobuf/gRPC 批次接口和入站 JWT；七层模块及独立 bootstrap/business profile，七应用构建/部署选择器、清单、Docker 允许路径与边界门禁同步。
+- [x] 源码：微信 2026-01-16 API ALL 格式解析，实际商户/子商户/日期、字节/行数上限、完整尾部七项合计、CNY 原订单/申请退款金额、状态与重复键；REVOKED/未知格式整份拒绝，来源真实性仍须外层证明。
+- [x] 测试源码：批次任务编排/失败顺序、JWT 拒绝、原账户授权/撤销、协议 optional/int64/日期/未知符号、持久化映射和完整文件/坏文件边界；分页复用 PageResult。
+- [ ] 未运行 IDEA、编译、MapStruct/Protobuf 生成、单测、MySQL、DDL、脚本、容器、部署或真实渠道验收；上述是源码进度。
+- [ ] P1 继续官方账单下载/可信 File/Transfer 接入、支付宝解析及 payment 权威范围导出；支付输入/关单证据收敛、服务商 H5、微信撤销补偿、收银台 JSAPI 仍保留，未将整个 P1 标完成。
+
+## 2026-10-27 P1：File/Transfer 手工渠道文件导入
+
+- [x] 源码：上传/提交/详情/原 FAILED 重试 HTTP + Facade，SERVICE/租户/文件 owner/批次原 caller/当前账户权限；sourceSha256 绑定原字节，来源固定 MANUAL_UPLOAD，无任意 parser/账户/LEDGER 完整性入口。
+- [x] 源码：reconciliation_import 独立意图/来源表、原生任务与永久业务引用同库提交；原请求幂等、每批次一个 INIT 导入、原账号标识/hash/profile 冻结，禁止并发替换来源。
+- [x] 源码：Transfer 原始任务与唯一 option 查证，RR 读绑定、事务外原字节/长度/hash/格式核对，本地事务统一提交封存全行、批次引用和逻辑 SEALED；无部分输入或伪造空成功。
+- [x] 源码：短读/I/O 保留 INIT、确定坏文件 REJECTED、原任务受控重试；SEALED 与 native taskStatus 独立，重复处理核对原 manifest，长期文件引用保留证据。
+- [x] 装配源码：复用 Transfer/File 应用和 S3 binder，目录 statement-account、上传/批次上限与本地 Scheduler 配置；无真实 bucket/密钥生成或外部调用。
+- [x] 测试源码：模型、实际字节和长度、任务/选项防错、并发登记、原请求重放、原子失败顺序；MySQL IT 覆盖 File/Transfer/业务登记与封存回滚、原任务重试、坏尾部和跨租户，只有外部对象字节替身。
+- [ ] 未编译/运行上述单测或 IT、DDL、容器、S3、HTTP/JWT/调度或部署。原生 Transfer 崩溃遗留 RUNNING 无租约恢复，不做无条件重排；证据保留清理仍待继续。
+- [ ] P1 继续官方账单自动下载/验签来源、支付宝解析、payment 权威范围导出，以及支付异常收敛、服务商 H5、微信撤销补偿和收银台 JSAPI；完整目标仍未完成。
+
+## 2026-10-27 P1：退款渠道受理时间证据
+
+- [x] 源码：RefundObservation 增加可空 acceptedAt；微信已验签提交/查询严格解析必需 create_time，按注入 Clock 的 zone 转本地微秒；原号恢复保留该时间，不以本地提交或 success_time 代替。
+- [x] 源码：独立 refund_acceptance_evidence/BaseDO/生成 Mapper/Spring MapStruct/Gateway；只在已匹配的 APPLIED/IGNORED 回执之后、原退款锁与同一事务记首次时间，保留原回执与完整账户/请求/金额绑定。
+- [x] 语义：不改付款、退款聚合版本或审计时间，不新增资金成功/释放判断；后续不同时间只记异常，不覆盖首次值。退款前于原收款的时间拒绝；无该字段不制造时间。
+- [x] 源码：事实摘要改 refund-facts-v2 并包含 acceptedAt，构造调用方同步，不保留旧签名或旧摘要兼容；支付宝当前明确不推测受理时间。
+- [x] 测试源码：协议日期/缺字段/跨日、摘要/微秒、资金/元数据分离、首次证据重放/冲突/权限；真实 MySQL IT 增加元数据写后故障统一回滚和聚合版本/审计不变。
+- [ ] 未编译、运行测试/IT、执行 V20261027020000__refund_acceptance_evidence.sql、数据库操作或真实渠道调用。P1 权威导出仍须完整范围/日期/未知记录处置与源端 capture、RPC 和对账接线，不把缺失受理时间当空退款集合。
+
+
+## 2026-10-27 P1：payment 权威采集快照与对账 LEDGER 接线
+
+- [x] 源码：payment 纯领域采集范围/行/完整读/INIT→SEALED或BLOCKED；渠道账单日转换到冻结系统 zone，不改全局时区；收款成功 claim 与退款渠道受理日期分别选集。
+- [x] 源码：真实只读 RR/可配置预算，关联付款/attempt/历史绑定/原回执/退款终结 claim；缺账户/未决收款/缺退款日期/时间冲突/超限或溢出明确阻断，无部分行与假零成功。
+- [x] 源码：独立采集头/行两表、Flyway/DO/Spring MapStruct/生成 Mapper 消费，INIT与原 DelayedTask 同事务；全行与终态 CAS 同事务，后续分页只读首次封存快照，不再读移动财务表。
+- [x] 源码：PaymentCaptureFacade/PaymentCaptureRpc Create/Detail/Lines/Retry，optional/int64/严格 presence/微秒时间/分页 EOF；固定 reconciliation SERVICE与权限、原 caller/租户、native状态与逻辑状态分离、原 FAILED 条件重试。
+- [x] 源码：ReconciliationLedgerFacade 与 HTTP prepare/import/retry；原批次账户目录/当前授权，服务端冻结范围发 gRPC；完整页/显式空 EOF/总额/hash/末尾原快照核验，不接操作者账务文件或自报完整性。
+- [x] 源码：provider-owned 定长前缀二进制证据档案，原字节 hash 等于源 contentHash；事务外私有 File 上传，长期引用/LEDGER manifest与全行/批次关联同库事务；原 capture 重放不做远端 IO。
+- [x] 装配源码：payment-client/rpc 正向依赖、Spring mapper/typed operations、payment channel/round_robin/deadline、单租户挂载 SERVICE token逐次读取；未签发令牌或改真实环境。
+- [x] 测试源码：领域不变量/跨时区边界、协议 optional/int64/原任务、完整 hash/原档案/上限、编排身份/原请求/native元数据/重试、分页/坏源/授权撤销、预算；真实 MySQL 源 SQL/RR并发/新事实不改旧快照/全量封存 SQL 写后回滚及退款缺日期/跨日/状态/冲突。
+- [ ] 按用户要求没有运行 IDEA、构建、Protobuf/MapStruct生成检查、单测、MySQL IT、DDL、文件/真实RPC调用、脚本或部署；上述只有源码进度，不构成 R1/R2 运行证据。
+- [ ] P1 继续官方账单自动下载/来源校验、支付宝固定格式/日期与完整导出、差错复核/可信源查证；源准备与挂入目前显式两步，自动化运营与保留策略继续。
+- [ ] 支付输入/关单异常证据、服务商 H5、微信 V2 撤销/mTLS/补偿、收银台 JSAPI 与其他原业务目标仍未完成；整个 P1 保持未完成。详见 design/PAYMENT-RECONCILIATION-CAPTURE.md。

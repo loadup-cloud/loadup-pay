@@ -1,0 +1,73 @@
+syntax = "proto3";
+package loadup.pay.payment.v1;
+option java_package = "io.github.loadup.pay.payment.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+
+// Frozen source-owned reconciliation evidence. No financial mutation or caller-provided rows.
+service PaymentCaptureRpc {
+  rpc Create(WirePaymentCaptureCreateCommand) returns (WirePaymentCaptureDTO);
+  rpc Retry(WirePaymentCaptureRetryCommand) returns (WirePaymentCaptureDTO);
+  rpc Detail(WirePaymentCaptureQuery) returns (WirePaymentCaptureDTO);
+  rpc Lines(WirePaymentCaptureLinesQuery) returns (WirePaymentCapturePage);
+}
+message WirePaymentCaptureCreateCommand {
+  optional string request_key = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string bill_date = 4;
+  optional string statement_profile = 5;
+}
+message WirePaymentCaptureQuery { optional string id = 1; }
+message WirePaymentCaptureLinesQuery {
+  optional string capture_id = 1;
+  optional int32 page = 2;
+  optional int32 size = 3;
+}
+message WirePaymentCaptureDTO {
+  optional string capture_id = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string bill_date = 4;
+  optional string statement_profile = 5;
+  optional string system_zone = 6;
+  optional string state = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp finished_at = 9;
+  optional int64 payment_count = 10;
+  optional int64 payment_amount_minor = 11;
+  optional int64 refund_count = 12;
+  optional int64 refund_amount_minor = 13;
+  optional string content_hash = 14;
+  optional string blocker = 15;
+  optional string blocker_subject_id = 16;
+  optional int64 version = 17;
+  optional string native_task_id = 18;
+  optional string native_status = 19;
+  optional int32 attempts = 20;
+  optional int32 max_attempts = 21;
+}
+message WirePaymentLedgerLineDTO {
+  optional int64 ordinal = 1;
+  optional string kind = 2;
+  optional string channel_transaction_no = 3;
+  optional string channel_refund_no = 4;
+  optional string merchant_payment_no = 5;
+  optional int64 amount_minor = 6;
+  optional string currency = 7;
+  optional string status = 8;
+  google.protobuf.Timestamp source_at = 9;
+  optional string source_id = 10;
+  optional string evidence_id = 11;
+  optional int64 source_version = 12;
+}
+message WirePaymentCapturePage {
+  repeated WirePaymentLedgerLineDTO data = 1;
+  optional int64 total_count = 2;
+  optional int32 page = 3;
+  optional int32 size = 4;
+}
+message WirePaymentCaptureRetryCommand {
+  optional string capture_id = 1;
+  optional string expected_task_id = 2;
+}

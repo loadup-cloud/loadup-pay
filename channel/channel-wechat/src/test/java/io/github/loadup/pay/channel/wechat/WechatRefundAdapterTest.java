@@ -107,6 +107,7 @@ class WechatRefundAdapterTest {
         assertEquals(ChannelRefundOutcome.Kind.SUCCEEDED, result.kind());
         assertEquals("wechat-refund-88", result.channelRefundTransactionNo());
         assertEquals("2026-10-23T18:11:12", result.succeededAt().toString());
+        assertEquals("2026-10-22T23:59", result.acceptedAt().toString());
     }
 
     @Test
@@ -305,6 +306,19 @@ class WechatRefundAdapterTest {
         verifyNoInteractions(client);
     }
 
+    @Test
+    void acceptanceMetadataComesFromVerifiedCreateTimeAndCannotReplaceSuccessTime() {
+        when(client.call(eq("tenant"), eq(direct.binding()), eq(WechatMethod.REFUND), anyMap(), anyMap(), anyString()))
+                .thenReturn(verified(WechatMethod.REFUND, 200, submitPayload("PROCESSING")));
+        var accepted = TenantUtil.callWithTenant("tenant", () -> adapter.submit(direct, refund));
+        assertEquals(ChannelRefundOutcome.Kind.ACCEPTED, accepted.kind());
+        assertEquals("2026-10-22T23:59", accepted.acceptedAt().toString());
+        org.junit.jupiter.api.Assertions.assertNull(accepted.succeededAt());
+        assertInvalidQuery(queryPayload("SUCCESS").replace(",\"create_time\":\"2026-10-22T23:59:00+08:00\"", ""));
+        assertInvalidQuery(queryPayload("SUCCESS").replace("2026-10-22T23:59:00+08:00", "2026-10-24T10:00:00+08:00"));
+        assertInvalidQuery(queryPayload("SUCCESS").replace("2026-10-22T23:59:00+08:00", "not-a-time"));
+    }
+
     private void assertInvalidQuery(String payload) {
         when(client.call(eq("tenant"), eq(direct.binding()), eq(WechatMethod.REFUND_QUERY), anyMap(), anyMap(), isNull()))
                 .thenReturn(verified(WechatMethod.REFUND_QUERY, 200, payload));
@@ -320,7 +334,8 @@ class WechatRefundAdapterTest {
     private static String submitPayload(String status) {
         return "{\"transaction_id\":\"" + TRANSACTION + "\",\"out_trade_no\":\"" + OUT_TRADE
                 + "\",\"out_refund_no\":\"" + REFUND_NO + "\",\"refund_id\":\"wechat-refund-88\","
-                + "\"amount\":{\"refund\":10000,\"total\":50000,\"currency\":\"CNY\"},\"status\":\"" + status + "\"}";
+                + "\"amount\":{\"refund\":10000,\"total\":50000,\"currency\":\"CNY\"},"
+                + "\"create_time\":\"2026-10-22T23:59:00+08:00\",\"status\":\"" + status + "\"}";
     }
 
     private static String queryPayload(String status) {

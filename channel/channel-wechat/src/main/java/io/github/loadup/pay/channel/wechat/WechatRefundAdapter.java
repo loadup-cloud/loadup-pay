@@ -64,13 +64,15 @@ public final class WechatRefundAdapter {
         var response = client.call(context.tenantId(), context.binding(), WechatMethod.REFUND, Map.of(), Map.of(), json.writeValueAsString(body));
         var data = responses.read(response, WechatMethod.REFUND);
         var kind = ChannelRefundOutcome.Kind.UNKNOWN;
+        LocalDateTime acceptedAt = null;
         if (response.status() == 200) {
             requireIdentity(data, refund, account);
+            acceptedAt = acceptedAt(data);
             var status = responses.text(data, "status", 32);
             if ("PROCESSING".equals(status) || "SUCCESS".equals(status)) kind = ChannelRefundOutcome.Kind.ACCEPTED;
         }
         // Even a synchronous SUCCESS must converge through the same canonical query timestamp and receipt path.
-        return observation(refund, response, kind, null, null, RefundObservation.Source.SUBMIT_RESPONSE);
+        return observation(refund, response, kind, null, null, RefundObservation.Source.SUBMIT_RESPONSE, acceptedAt);
     }
 
     public RefundObservation query(ChannelExecutionContext context, PreparedChannelRefund refund) {
@@ -87,7 +89,7 @@ public final class WechatRefundAdapter {
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256("wechat-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest);
+                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest, submitted.acceptedAt());
     }
 
     private WechatVerifiedResponse lookup(ChannelExecutionContext context, PreparedChannelRefund refund, WechatAccountIdentity account) {
@@ -102,8 +104,10 @@ public final class WechatRefundAdapter {
         var kind = ChannelRefundOutcome.Kind.UNKNOWN;
         String reference = null;
         LocalDateTime succeededAt = null;
+        LocalDateTime acceptedAt = null;
         if (response.status() == 200) {
             requireIdentity(data, refund, account);
+            acceptedAt = acceptedAt(data);
             switch (responses.text(data, "status", 32)) {
                 case "SUCCESS" -> {
                     reference = responses.text(data, "refund_id", 64);
@@ -122,8 +126,15 @@ public final class WechatRefundAdapter {
                 default -> { }
             }
         }
+        if (acceptedAt != null && succeededAt != null && acceptedAt.isAfter(succeededAt)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
         // Not-found, generic errors and ABNORMAL cannot release the reserved refund capacity.
-        return observation(refund, response, kind, reference, succeededAt, RefundObservation.Source.QUERY_RESPONSE);
+        return observation(refund, response, kind, reference, succeededAt, RefundObservation.Source.QUERY_RESPONSE, acceptedAt);
+    }
+
+    private LocalDateTime acceptedAt(Map<?, ?> data) {
+        try {
+            return OffsetDateTime.parse(responses.text(data, "create_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime();
+        } catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
     }
 
     private WechatAccountIdentity original(ChannelExecutionContext context, PreparedChannelRefund refund) {
@@ -148,8 +159,8 @@ public final class WechatRefundAdapter {
         }
     }
     private RefundObservation observation(PreparedChannelRefund refund, WechatVerifiedResponse response,
-            ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source) {
+            ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source, LocalDateTime acceptedAt) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                kind, refund.amount(), reference, succeededAt, source, response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest());
+                kind, refund.amount(), reference, succeededAt, source, response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest(), acceptedAt);
     }
 }

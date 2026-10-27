@@ -17,9 +17,11 @@ package io.github.loadup.pay.reconciliation.app.port;
 
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import java.time.LocalDate;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 
 /** Trusted local configuration only. Neither method may perform network or file I/O under a batch transaction. */
 public interface ReconciliationAccountDirectory {
     ReconciliationScope resolve(String tenant, String callerService, String accountCode, LocalDate billDate);
     void authorize(String tenant, String callerService, String accountCode, ReconciliationScope originalScope);
+    ReconciliationStatementAccount statementAccount(String tenant, String callerService, String accountCode, ReconciliationScope originalScope);
 }

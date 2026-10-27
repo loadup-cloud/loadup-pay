@@ -15,12 +15,13 @@
  */
 package io.github.loadup.pay.reconciliation.app.port;
 
-import io.github.loadup.pay.reconciliation.app.model.ReconciliationDifferencePage;
+import io.github.loadup.commons.domain.PageResult;
+import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
 
 /** Page and count use this service's consistent read-only snapshot; no source-service lookup or locks. */
 public interface ReconciliationDifferenceReader {
-    ReconciliationDifferencePage page(String tenant, String batchId, ReconciliationRecordKind kind,
+    PageResult<StoredReconciliationDifference> page(String tenant, String batchId, ReconciliationRecordKind kind,
             ReconciliationDifferenceReason reason, int page, int size);
 }

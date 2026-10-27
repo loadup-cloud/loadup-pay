@@ -21,6 +21,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationAccountsProperties;
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import java.util.Map;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
 
@@ -38,6 +39,10 @@ public class ConfiguredReconciliationAccountDirectory implements ReconciliationA
         // A parser/profile change does not rewrite old sealed inputs. Account identity and caller grants still apply.
         if (original == null || account.channel() != original.channel() || !account.accountScopeHash().equals(original.accountScopeHash()))
             throw new CommonException(ACTION_FORBIDDEN);
+    }
+    @Override public ReconciliationStatementAccount statementAccount(String tenant, String caller, String code, ReconciliationScope original) {
+        authorize(tenant, caller, code, original);
+        return account(tenant, caller, code).statementAccount();
     }
     private ReconciliationAccountsProperties.Account account(String tenant, String caller, String code) {
         var account = properties.tenants().getOrDefault(tenant, Map.of()).get(code);

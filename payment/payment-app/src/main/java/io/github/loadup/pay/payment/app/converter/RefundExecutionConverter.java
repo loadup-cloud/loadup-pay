@@ -57,4 +57,13 @@ public interface RefundExecutionConverter {
 
     @Mapping(target = "original", source = "observation.original")
     RefundTransactionClaim toClaim(String id, String tenantId, RefundObservation observation, String receiptId);
+    @Mapping(target = "refundId", source = "observation.refundId")
+    @Mapping(target = "original", source = "observation.original")
+    @Mapping(target = "originalChannelTransactionNo", source = "observation.originalChannelTransactionNo")
+    @Mapping(target = "channelRefundNo", source = "observation.channelRefundNo")
+    @Mapping(target = "amount", source = "observation.amount")
+    @Mapping(target = "acceptedAt", source = "observation.acceptedAt")
+    @Mapping(target = "receiptId", source = "receiptId")
+    io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence toAcceptance(RefundObservation observation, String receiptId);
+
 }

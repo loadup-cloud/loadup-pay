@@ -175,7 +175,7 @@ class PayModuleBoundaryTest {
         var root = repositoryRoot();
         var result = new ArrayList<Module>();
         for (String service : SERVICES) {
-            for (String layer : service.equals("reconciliation") ? List.of("client", "domain", "app", "infrastructure") : LAYERS) {
+            for (String layer : LAYERS) {
                 var directory = root.resolve(service).resolve(service + "-" + layer);
                 assertTrue(Files.isRegularFile(directory.resolve("pom.xml")), "Missing expected module " + directory);
                 result.add(new Module(service, layer, directory));

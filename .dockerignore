@@ -24,3 +24,7 @@
 !realtime/realtime-bootstrap/
 !realtime/realtime-bootstrap/target/
 !realtime/realtime-bootstrap/target/realtime-bootstrap-*.jar
+!reconciliation/
+!reconciliation/reconciliation-bootstrap/
+!reconciliation/reconciliation-bootstrap/target/
+!reconciliation/reconciliation-bootstrap/target/reconciliation-bootstrap-*.jar

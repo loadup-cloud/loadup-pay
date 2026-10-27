@@ -64,10 +64,12 @@ public class RefundResultService {
     private final IdGenerator ids;
     private final Clock clock;
     private final RefundProjectionEvents projections;
+    private final io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances;
 
     public RefundResultService(RefundResultGateway results, RefundExecutionLocks locks, PaymentAcceptanceTransactions transactions,
                                RefundResultCodec codec, RefundExecutionConverter converter, RefundPlanningConverter views, IdGenerator ids,
-                               @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections) {
+                               @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections,
+                               io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances) {
         this.results = results;
         this.locks = locks;
         this.transactions = transactions;
@@ -77,6 +79,7 @@ public class RefundResultService {
         this.ids = ids;
         this.clock = clock;
         this.projections = projections;
+        this.acceptances = acceptances;
     }
 
     public RefundResultApplication record(String tenant, RefundObservation observation) {
@@ -165,6 +168,8 @@ public class RefundResultService {
                 || !child.refund().channelRefundNo().equals(o.channelRefundNo())) return "REFUND_IDENTITY_MISMATCH";
         if (!child.refund().amount().equals(o.amount())) return "REFUND_AMOUNT_MISMATCH";
         if (facts.submissionStartedAt() == null) return "OBSERVATION_BEFORE_SUBMISSION";
+        if (o.acceptedAt() != null && o.acceptedAt().isBefore(child.originalSucceededAt()))
+            return "REFUND_ACCEPTANCE_TIME_MISMATCH";
         if (o.succeededAt() != null && o.succeededAt().isBefore(child.originalSucceededAt()))
             return "REFUND_SUCCESS_TIME_MISMATCH";
         return null;
@@ -190,6 +195,13 @@ public class RefundResultService {
     private RefundResultApplication receipt(String tenant, StoredRefundRequest request, String id, RefundObservation o, String digest, String payload,
                                             RefundReceiptDisposition disposition, String reason) {
         results.insertReceipt(tenant, converter.toReceipt(id, o, digest, payload, disposition, reason, now()));
+        if (disposition != CONFLICT && o.acceptedAt() != null) {
+            var child = request.allocations().stream().filter(value -> value.refund().id().equals(o.refundId())).findFirst()
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (!acceptances.remember(tenant, converter.toAcceptance(o, id), child.refund().version()))
+                results.recordAnomaly(tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id,
+                        "REFUND_ACCEPTANCE_TIME_CONFLICT", digest, payload, now()));
+        }
         return present(disposition, id, request);
     }
 

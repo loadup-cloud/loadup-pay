@@ -2,8 +2,8 @@
 
 版本：v1.4 语义基线 ｜ 实现状态更新：2026-10-27 ｜ 状态：持续实施，业务验收未完成
 
-本文规划 acquire、payment、realtime、customer、product、limitcenter 六个核心服务，另预留后置 reconciliation
-对账服务、风控咨询/确认接入接口，以及可选托管 cashier 和薄 JS SDK。范围为支付宝、微信、银联等外部渠道收单；不建设消费者用户资源，不包含内部余额、充值、提现、转账。
+本文规划 acquire、payment、realtime、customer、product、limitcenter 六个核心服务及后置 reconciliation
+对账服务，预留风控咨询/确认接入接口，以及可选托管 cashier 和薄 JS SDK。范围为支付宝、微信、银联等外部渠道收单；不建设消费者用户资源，不包含内部余额、充值、提现、转账。
 
 **本轮决策已收敛：固定订单总额，付款金额手动输入，多笔成功付款累计恰好等于订单总额才 PAID；合约停止禁止新单，原 pending
 订单继续完成；未全额付款按原合约关闭或保持
@@ -649,27 +649,24 @@ channel+接入模式+渠道商户作用域定义唯一性。索引覆盖商户�
 loadup-pay/
 ├── acquire/                 # 订单与多付款编排
 ├── payment/                 # 付款、渠道与退款
-├── realtime/                # 待实现：商户汇总/明细
-├── customer/                # 待实现：商户/子商户，非消费者
-├── product/                 # 待实现：条款与权威准入
-├── limitcenter/             # 待实现：商户累计额度
-├── reconciliation/          # 后置目标服务，当前不创建空应用
-├── cashier/                 # 可选：托管页面/薄适配
-├── cashier-sdk/             # 可选：浏览器薄 SDK
-├── pay-common/              # 基础词汇、时间及收单金额约束；复用LoadUp Money/JSON
+├── realtime/                # 商户交易投影与查询
+├── customer/                # 商户/子商户，非消费者
+├── product/                 # 条款与权威准入
+├── limitcenter/             # 商户累计额度
+├── reconciliation/          # 后置批次、文件规范化与核对，独立装配
 ├── deploy/
 └── scripts/
 ```
 
-代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器。测试用Ping
+代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器；托管 cashier 当前由 acquire 提供。
 内部应用交互统一使用 gRPC。各服务的 *-rpc 模块维护自己的 Protobuf 协议、映射和类型化方法，框架现有 gRPC binder 提供通用调用与认证支持，各应用业务 profile 接入框架binder；Java业务client不依赖gRPC，generated
-proto、身份与业务接口绑定仍待实施和验收。
+proto、身份与业务接口绑定随业务 profile 装配，当前运行验收仍待完成。
 
 金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不重新定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
 
 ## 15. K8s、配置与本地时区
 
-六核心服务独立 Deployment/Service，cashier 按需单独部署，SDK 为客户端包。继续使用 Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
+六核心服务及后置对账各自独立 Deployment/Service，cashier 按需单独部署，SDK 为客户端包。继续使用 Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
 RBAC/应用权限，当前 Headlamp 仅能修改 acquire/payment，不能把它当商户业务授权。
 
 容器与 JVM 沿用系统默认时区，不设置固定 TZ/user.timezone；数据库会话、Clock、JDBC/任务与日/周/月边界保持一致。业务
@@ -743,8 +740,8 @@ D01已确定时序和默认策略，本轮不展开外部风控的详细协议�
 
 ### 18.1 职责与隔离
 
-正式账单核对从 payment 任务中独立为未来 reconciliation
-服务：负责渠道账单文件取得、保存、解析、完整性检查、标准化、交易核对、差错记录/复核与重跑。首期交易实现仅预留关联字段与受控快照接口，不创建空服务或把对账完成作为收款成功条件。
+正式账单核对从 payment 任务中独立为 reconciliation
+服务：负责渠道账单文件取得、保存、解析、完整性检查、标准化、交易核对、差错记录/复核与重跑。当前批次、核对、存储、任务和接口源码见 [对账设计](design/RECONCILIATION.md)，文件来源与权威导出仍待接入；不把对账完成作为收款成功条件。
 
 reconciliation 使用独立 Deployment、数据库、文件存储和任务资源。交易 HTTP/RPC 不同步调用它；付款成功、渠道
 ACK、关单、退款和限额确认不等它。交易侧只提供已持久化事实的独立异步镜像/快照导出，导出按独立资源预算执行，不能把对账批量扫描压到交易请求线程或用

@@ -46,11 +46,11 @@ public class RefundResultCodecImpl implements RefundResultCodec {
 
     @Override
     public String factsDigest(RefundObservation o) {
-        var value = new StringBuilder("refund-facts-v1/");
+        var value = new StringBuilder("refund-facts-v2/");
         for (var field : java.util.List.of(o.refundId(), o.original().paymentId(), o.original().attemptId(), o.original().channel().name(),
                 o.original().bindingRevisionId(), o.original().accountScopeHash(), o.original().channelRequestNo(), o.channelRefundNo(),
                 o.originalChannelTransactionNo(), o.kind().name(), Long.toString(o.amount().getCent()), o.amount().getCurrencyValue(),
-                Objects.toString(o.channelRefundTransactionNo(), ""), Objects.toString(o.succeededAt(), "")))
+                Objects.toString(o.channelRefundTransactionNo(), ""), Objects.toString(o.succeededAt(), ""), Objects.toString(o.acceptedAt(), "")))
             value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
         return hashes.checksum(value.toString());
     }

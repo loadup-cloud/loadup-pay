@@ -1691,4 +1691,35 @@ page 带 hasMore/下一页游标、observedAt、实际关注阈值，不提供�
 
 ## 2026-10-27 对账契约增量
 
-reconciliation-client 已定义 ReconciliationFacade 的 create/attach/start/detail/differences。调用只引用可信账户目录 code、账期与封存 artifact；不开放客户端上传“完整性/核对成功”声明、原资金状态修改或直接退款。当前仅 client/domain 源码，无运行入口。字段与来源/完整性规则见 [对账设计](RECONCILIATION.md)。
+reconciliation-client 已定义 ReconciliationFacade 的 create/attach/start/detail/differences。调用只引用可信账户目录 code、账期与封存 artifact；不开放客户端上传“完整性/核对成功”声明、原资金状态修改或直接退款。当前已补应用实现、受信 SERVICE 身份适配与 HTTP/gRPC 入口源码；全部未构建或运行。
+start 使用 ReconciliationBatchStartCommand(batchId)，detail 仍复用只读 IdQuery。
+HTTP POST /api/reconciliation/batches/{create,attach,start,detail,differences}；gRPC ReconciliationRpc/{Create,Attach,Start,Detail}。
+权限 pay:reconciliation:batch:create/attach/start/read 与目录 service-ids 双重约束，租户取已验证 JWT，原 caller 冻结。
+默认账户目录为空，商户令牌不可直接使用对账运营接口。分页复用 PageDTO/PageResponse，不提供上传规范化行或提交核对成功结果的 API。
+字段与来源/完整性规则见 [对账设计](RECONCILIATION.md)。
+
+
+## 2026-10-27 手工渠道账单导入 API
+
+ReconciliationImportFacade：upload 技术流上传、submit(ReconciliationChannelImportCommand)、detail(IdQuery)、retry(ReconciliationImportRetryCommand)。
+运营 HTTP /api/reconciliation/imports/{upload,submit,detail,retry}；权限分别为 pay:reconciliation:import:upload/submit/read/retry。
+仅 SERVICE，租户与 owner 取已验证凭证；当前账户授权和原 caller 继续约束。无通用 Transfer/options HTTP 入口，无内部 HTTP 调用。
+
+submit 字段为 batchId/requestKey/fileId/sourceSha256，sourceSha256 从 upload 返回，仅标识期望原字节；side 固定 CHANNEL、sourceKind 固定 MANUAL_UPLOAD，账户/profile 来自服务器。
+upload 返回 fileId/size/sha256；导入 DTO 返回 importId/batchId/sourceKind/fileId/sourceSha256/原 taskId/taskStatus/state/artifactId/rejectionCode/version，不含 storageId 或原异常。
+state 是逻辑 INIT/SEALED/REJECTED；taskStatus 独立，SEALED+FAILED 可用原 FAILED 任务重试完成 ACK，不重新解析/换源。
+同键改批次、文件或 hash 冲突；坏文件不支持原请求换源。retry 只接受 importId/expectedTaskId，不自动重领 RUNNING，不把任务状态当付款或退款结果。
+全部新增接口、映射与测试源码未运行，真实 JWT/上传/存储/任务及数据库验收仍待进行。
+
+
+## P1 权威账务采集快照与 LEDGER 输入
+
+提供方 PaymentCaptureFacade / PaymentCaptureRpc 新增 Create/Detail/Lines/Retry；范围由当前服务固定 profile 与原请求冻结。
+Create 返回异步 INIT，SEALED 才能取得完整 PageDTO<PaymentLedgerLineDTO>；BLOCKED 的计数/金额/hash保持 null，不返回部分行。
+Retry 使用 PaymentCaptureRetryCommand(captureId,expectedTaskId)，只重试原任务，终态结果不刷新。
+线金额为整数分/CNY，退款的 channelRefundNo 表示原商户子退款请求号，sourceAt 是渠道受理日期；不改原付款金额。
+
+ReconciliationLedgerFacade 与运营 HTTP `/api/reconciliation/ledger/{prepare,import,retry}`：
+prepare(batchId,requestKey) 返回原 capture/native 状态；import(batchId,captureId) 完整校验并原子挂入 LEDGER，返回原批次 DTO；
+retry(batchId,captureId,expectedTaskId) 是独立授权写命令。没有让运营调用方指定账户 hash、账期、页集合或“完整成功”的字段。
+独立权限、原 caller/当前目录授权、EOF/hash/文件证据和时间语义见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)。上述源码未编译/运行验收。

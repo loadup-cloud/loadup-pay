@@ -53,7 +53,7 @@ class RefundResultCodecImplTest {
     RefundObservation observation(String originalTransaction, String refundTransaction, long amount, String key) {
         return new RefundObservation("refund", new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request"),
                 "refund-request", originalTransaction, ChannelRefundOutcome.Kind.SUCCEEDED, DomainChecks.cnyAmount(amount, "CNY"), refundTransaction,
-                LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789), RefundObservation.Source.CALLBACK, key, "b".repeat(64));
+                LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456789), RefundObservation.Source.CALLBACK, key, "b".repeat(64), null);
     }
 
     @Test
@@ -79,9 +79,22 @@ class RefundResultCodecImplTest {
         var original = observation("original-transaction", "refund-transaction", 1000, "event");
         assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(),
                 original.originalChannelTransactionNo(), original.kind(), original.amount(), null, original.succeededAt(),
-                original.source(), original.receiptKey(), original.sourceDigest()));
+                original.source(), original.receiptKey(), original.sourceDigest(), null));
         assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(),
                 original.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.UNKNOWN, original.amount(), original.channelRefundTransactionNo(),
-                original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest()));
+                original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest(), null));
     }
+    @Test
+    void acceptanceMetadataIsMicrosecondExactAndBoundIntoTheRetainedFactsDigest() {
+        var original = observation("original-transaction", "refund-transaction", 1000, "event");
+        var time = original.succeededAt().minusMinutes(1).withNano(987654321);
+        var accepted = new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(), original.originalChannelTransactionNo(),
+                original.kind(), original.amount(), original.channelRefundTransactionNo(), original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest(), time);
+        assertEquals(987654000, accepted.acceptedAt().getNano());
+        assertNotEquals(codec.factsDigest(original), codec.factsDigest(accepted));
+        assertEquals(accepted, json.readValue(codec.encode(accepted), RefundObservation.class));
+        assertThrows(RuntimeException.class, () -> new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(), original.originalChannelTransactionNo(),
+                original.kind(), original.amount(), original.channelRefundTransactionNo(), original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest(), original.succeededAt().plusSeconds(1)));
+    }
+
 }

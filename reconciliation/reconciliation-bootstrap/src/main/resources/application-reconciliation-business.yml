@@ -1,0 +1,89 @@
+# Build with -Preconciliation-business, then activate this runtime profile.
+# Supply the closed account catalog from external configuration; no account is authorized by default.
+spring:
+  grpc:
+    client:
+      channel:
+        payment:
+          target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
+          default:
+            load-balancing-policy: round_robin
+  servlet:
+    multipart:
+      max-file-size: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}B
+      max-request-size: ${RECONCILIATION_IMPORT_MAX_REQUEST_SIZE:17MB}
+  datasource:
+    url: ${RECONCILIATION_JDBC_URL}
+    username: ${RECONCILIATION_JDBC_USERNAME}
+    password: ${RECONCILIATION_JDBC_PASSWORD}
+loadup:
+  rpc:
+    clients:
+      payment:
+        channel: payment
+        deadline: ${RECONCILIATION_PAYMENT_RPC_DEADLINE:3s}
+  dfs:
+    enabled: true
+    binder-type: s3
+    binder:
+      s3:
+        bucket: ${RECONCILIATION_S3_BUCKET}
+        region: ${RECONCILIATION_S3_REGION:us-east-1}
+        endpoint: ${RECONCILIATION_S3_ENDPOINT:}
+        access-key: ${RECONCILIATION_S3_ACCESS_KEY:}
+        secret-key: ${RECONCILIATION_S3_SECRET_KEY:}
+        path-style-access-enabled: ${RECONCILIATION_S3_PATH_STYLE:false}
+        create-bucket: false
+        key-prefix: reconciliation
+  modules:
+    file:
+      enabled: true
+    transfer:
+      enabled: true
+      max-input-bytes: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}
+      dispatch-batch-size: ${RECONCILIATION_IMPORT_BATCH_SIZE:10}
+    reconciliation:
+      ledger-fetch-seconds: ${RECONCILIATION_LEDGER_FETCH_SECONDS:60}
+      payment:
+        tenant-id: ${RECONCILIATION_PAYMENT_TENANT_ID}
+        service-id: ${RECONCILIATION_SERVICE_ID:reconciliation}
+        audience: ${RECONCILIATION_PAYMENT_AUDIENCE:payment}
+        token-file: ${RECONCILIATION_PAYMENT_TOKEN_FILE}
+      max-records: ${RECONCILIATION_MAX_RECORDS:10000}
+      statement-max-bytes: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}
+      accounts:
+        tenants: {}
+  delayedtask:
+    enabled: true
+    batch-size: ${RECONCILIATION_TASK_BATCH_SIZE:10}
+    max-attempts: ${RECONCILIATION_TASK_MAX_ATTEMPTS:5}
+    lease: ${RECONCILIATION_TASK_LEASE:PT5M}
+    retry-delay: ${RECONCILIATION_TASK_RETRY_DELAY:PT1M}
+  scheduler:
+    binder-type: local
+    local:
+      interval: ${RECONCILIATION_SCAN_INTERVAL:PT30S}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        parameter-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      issuer-uri: ${RECONCILIATION_JWT_ISSUER_URI}
+      audience: ${RECONCILIATION_JWT_AUDIENCE}
+      jwk-set-uri: ${RECONCILIATION_JWT_JWK_SET_URI}
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: [ readinessState, db ]

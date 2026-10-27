@@ -43,7 +43,7 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 class ReconciliationServiceTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
     private final Clock clock = Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
-    private final varValidation validation = new varValidation();
+    private final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
     private final ReconciliationConverter converter = context.getBean(ReconciliationConverter.class);
     private final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
@@ -59,7 +59,7 @@ class ReconciliationServiceTest {
     private final ReconciliationScope scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "wechat-trade-v1");
     private final ReconciliationActor actor = new ReconciliationActor("tenant", "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:attach", "pay:reconciliation:batch:start", "pay:reconciliation:batch:read"));
     private final ReconciliationService service = new ReconciliationService(() -> actor, accounts, batches, inputs, differences,
-            transactions, converter, tasks, () -> "id-" + ids.incrementAndGet(), validation.factory.getValidator(), clock);
+            transactions, converter, tasks, () -> "id-" + ids.incrementAndGet(), validation.getValidator(), clock);
     private final ReconciliationBatchCreateCommand create = new ReconciliationBatchCreateCommand("request", "account", scope.billDate());
 
     @BeforeEach void setup() {
@@ -71,7 +71,7 @@ class ReconciliationServiceTest {
         doAnswer(call -> { stored.set(call.getArgument(1)); return null; }).when(batches).insert(eq("tenant"), any());
         doAnswer(call -> { stored.set(call.getArgument(1)); return null; }).when(batches).update(eq("tenant"), any(), anyLong());
     }
-    @AfterEach void close() { context.close(); validation.factory.close(); TransactionSynchronizationManager.clear(); }
+    @AfterEach void close() { context.close(); validation.close(); TransactionSynchronizationManager.clear(); }
 
     @Test void replayUsesOriginalFrozenScopeWithoutResolvingANewProfile() {
         var first = service.create(create);
@@ -84,17 +84,17 @@ class ReconciliationServiceTest {
     }
     @Test void cannotStartUntilBothOriginalInputsExistAndTaskIsRegisteredOnlyOnce() {
         service.create(create);
-        assertEquals(INPUT_NOT_SEALED, assertThrows(CommonException.class, () -> service.start(new IdQuery(stored.get().batch().id()))).getResultCode());
+        assertEquals(INPUT_NOT_SEALED, assertThrows(CommonException.class, () -> service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()))).getResultCode());
         ready();
         doAnswer(call -> { assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly()); assertEquals(ReconciliationState.RUNNING, stored.get().batch().state()); return null;
         }).when(tasks).register(eq(ReconciliationExecutionService.TYPE), anyString(), eq(AT));
-        var running = service.start(new IdQuery(stored.get().batch().id()));
-        assertEquals(running, service.start(new IdQuery(running.batchId())));
+        var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
+        assertEquals(running, service.start(new ReconciliationBatchStartCommand(running.batchId())));
         verify(tasks, times(1)).register(eq(ReconciliationExecutionService.TYPE), eq(running.runId()), eq(AT));
     }
     @Test void durableTaskLoadsImmutableInputsThenComparesOutsideTransactionAndCommitsOriginalResultOnce() {
-        service.create(create); ready(); var running = service.start(new IdQuery(stored.get().batch().id()));
+        service.create(create); ready(); var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
         var task = task(running.runId(), 1);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(task));
         var matcher = spy(new ReconciliationMatcher());
@@ -111,7 +111,7 @@ class ReconciliationServiceTest {
         verify(matcher, times(1)).compare(any(), any());
     }
     @Test void staleTaskSnapshotIsRejectedAndFailedResultPersistenceCannotMarkBatchCompleted() {
-        service.create(create); ready(); var running = service.start(new IdQuery(stored.get().batch().id()));
+        service.create(create); ready(); var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
         var task = task(running.runId(), 1);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(task(running.runId(), 2)));
         var execution = new ReconciliationExecutionService(tasks, batches, inputs, results, transactions, converter, new ReconciliationMatcher(), clock);
@@ -145,5 +145,4 @@ class ReconciliationServiceTest {
         @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
         @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
     }
-    private static final class varValidation { final jakarta.validation.ValidatorFactory factory = Validation.buildDefaultValidatorFactory(); }
 }

@@ -70,6 +70,15 @@ public class PaymentAcceptanceTransactions {
         return withTenantContext(tenant, () -> Objects.requireNonNull(snapshots.execute(status -> work.get())));
     }
 
+    /** Dedicated bounded RR read. The transaction deadline is propagated by Spring/MyBatis to JDBC statements. */
+    public <T> T readSnapshot(String tenant, int timeoutSeconds, Supplier<T> work) {
+        if (timeoutSeconds < 1 || timeoutSeconds > 60) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        var bounded = new TransactionTemplate(snapshots.getTransactionManager(), snapshots);
+        bounded.setTimeout(timeoutSeconds);
+        return withTenantContext(tenant, () -> Objects.requireNonNull(bounded.execute(status -> work.get())));
+    }
+
     /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
     public <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {

@@ -30,11 +30,12 @@ import static io.github.loadup.commons.error.DomainViolation.require;
  * Verified, account-bound adapter facts only. No HTTP binding or merchant-supplied success evidence.
  * channelRefundTransactionNo is the provider refund reference: a vendor-issued ID or a stable canonical
  * representation of the verified natural refund key when the provider has no independent refund ID.
+ * acceptedAt is optional verified provider acceptance metadata, never terminal refund or capacity-release proof.
  */
 public record RefundObservation(String refundId, ChannelPaymentIdentity original, String channelRefundNo,
                                 String originalChannelTransactionNo, ChannelRefundOutcome.Kind kind, Money amount,
                                 String channelRefundTransactionNo, LocalDateTime succeededAt, Source source,
-                                String receiptKey, String sourceDigest) {
+                                String receiptKey, String sourceDigest, LocalDateTime acceptedAt) {
     public RefundObservation {
         DomainChecks.id(refundId);
         Objects.requireNonNull(original);
@@ -51,6 +52,10 @@ public record RefundObservation(String refundId, ChannelPaymentIdentity original
             Objects.requireNonNull(succeededAt);
             succeededAt = succeededAt.truncatedTo(ChronoUnit.MICROS);
         } else require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
+        if (acceptedAt != null) {
+            acceptedAt = acceptedAt.truncatedTo(ChronoUnit.MICROS);
+            require(succeededAt == null || !acceptedAt.isAfter(succeededAt), INVALID_ARGUMENT);
+        }
     }
 
     @Override

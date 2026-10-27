@@ -3,6 +3,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-pay</artifactId><version>0.0.1-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
     <artifactId>reconciliation-client</artifactId>
+    <name>LoadUp Pay Reconciliation Client</name>
+    <description>Public reconciliation commands, queries and result contracts.</description>
     <dependencies>
         <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-commons-dto</artifactId></dependency>
         <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-commons-error</artifactId></dependency>

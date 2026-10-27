@@ -20,6 +20,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.Map;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import java.util.Set;
 import java.util.stream.Collectors;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
@@ -35,11 +36,12 @@ public record ReconciliationAccountsProperties(Map<String, Map<String, Account>>
             for (var account : tenant.getValue().entrySet()) DomainChecks.id(account.getKey());
         }
     }
-    public record Account(Channel channel, String accountScopeHash, String statementProfile, Set<String> serviceIds) {
+    public record Account(Channel channel, String accountScopeHash, String statementProfile, ReconciliationStatementAccount statementAccount, Set<String> serviceIds) {
         public Account {
             require(channel == Channel.ALIPAY || channel == Channel.WECHAT, INVALID_ARGUMENT);
             require(accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
             DomainChecks.text(statementProfile, 64);
+            java.util.Objects.requireNonNull(statementAccount);
             serviceIds = serviceIds == null ? Set.of() : Set.copyOf(serviceIds);
             serviceIds.forEach(DomainChecks::id);
         }

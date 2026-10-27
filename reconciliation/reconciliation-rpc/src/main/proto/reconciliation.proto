@@ -1,0 +1,51 @@
+syntax = "proto3";
+package loadup.pay.reconciliation.v1;
+option java_package = "io.github.loadup.pay.reconciliation.rpc.proto";
+option java_multiple_files = true;
+
+// This provider owns permanent field numbers. Enum symbols are validated strings.
+message WireReconciliationBatchCreateCommand {
+  optional string request_key = 1;
+  optional string channel_account_code = 2;
+  optional string bill_date = 3;
+}
+message WireReconciliationInputAttachCommand {
+  optional string batch_id = 1;
+  optional string side = 2;
+  optional string artifact_id = 3;
+}
+message WireReconciliationBatchStartCommand { optional string batch_id = 1; }
+message WireReconciliationBatchQuery { optional string id = 1; }
+message WireReconciliationInputDTO {
+  optional string side = 1;
+  optional string artifact_id = 2;
+  optional string artifact_sha256 = 3;
+  optional string normalized_sha256 = 4;
+  optional string source_capture_id = 5;
+  optional string parser_revision = 6;
+  optional int64 payment_count = 7;
+  optional int64 payment_amount_minor = 8;
+  optional int64 refund_count = 9;
+  optional int64 refund_amount_minor = 10;
+}
+message WireReconciliationBatchDTO {
+  optional string batch_id = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string bill_date = 4;
+  optional string statement_profile = 5;
+  optional string state = 6;
+  WireReconciliationInputDTO channel_input = 7;
+  WireReconciliationInputDTO ledger_input = 8;
+  optional string run_id = 9;
+  optional int64 matched_count = 10;
+  optional int64 difference_count = 11;
+  optional string result_hash = 12;
+  optional int64 version = 13;
+}
+service ReconciliationRpc {
+  rpc Create(WireReconciliationBatchCreateCommand) returns (WireReconciliationBatchDTO);
+  rpc Attach(WireReconciliationInputAttachCommand) returns (WireReconciliationBatchDTO);
+  rpc Start(WireReconciliationBatchStartCommand) returns (WireReconciliationBatchDTO);
+  rpc Detail(WireReconciliationBatchQuery) returns (WireReconciliationBatchDTO);
+}

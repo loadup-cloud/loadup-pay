@@ -1,6 +1,6 @@
 # LoadUp Pay
 
-面向商户及子商户的外部渠道收单平台，采用 Java 25、Spring Boot 和 LoadUp BOM，按 COLA DDD 组织六个独立应用。
+面向商户及子商户的外部渠道收单平台，采用 Java 25、Spring Boot 和 LoadUp BOM，按 COLA DDD 组织六个核心应用及独立后置对账应用。
 支持目标为付款码（商户扫码枪输入）、JSAPI、H5，以及纯 API 的 DirectPay / 创单后付款；托管收银台是可选入口。
 支持直连及服务商/子商户模型，默认 CNY。不建设消费者用户、余额、充值、提现或转账；Native 二维码和原生 APP 支付不在本次范围。
 
@@ -18,7 +18,7 @@
 | 产品/合约/新单准入 | 持久准入、冻结条款、额度策略发布与 ACK；多 revision/共享策略及发布前渠道引用校验待补 | 测试源码已有；本轮未运行 | 未验收 | [product](product/README.md) |
 | 订单与多笔付款 | Create/Checkout/DirectPay、金额占用、权威结果、关闭/延期与订单快照 | 单测及 [A2/A3 MySQL IT 源码](acquire/acquire-infrastructure/src/test/README.md)；未运行 | 未验收 | [acquire](acquire/README.md) |
 | 独立付款/attempt | 安全输入、冻结路由、Y2 首提、Y3/claim/receipt、原号查询与关闭；部分输入竞态/持久关单证据仍待补 | 单测及 [Y2/Y3/恢复 IT 源码](payment/payment-infrastructure/src/test/README.md)；未运行 | 未验收 | [payment](payment/README.md) |
-| 独立退款 | 固定 FIFO 计划/容量、串行单步执行、原号恢复、退款汇总及结果 Outbox；多付款组合仍待补证据 | 单测及 [退款 handler/回滚 IT 源码](payment/payment-infrastructure/src/test/README.md)；未运行 | 未验收 | [payment](payment/README.md) |
+| 独立退款 | 固定 FIFO 计划/容量、串行单步执行、原号恢复、退款汇总及结果 Outbox；微信受理时间独立证据源码已补；多付款组合仍待补证据 | 单测及 [退款 handler/回滚 IT 源码](payment/payment-infrastructure/src/test/README.md)；未运行 | 未验收 | [payment](payment/README.md) |
 | 整单费用/退费 | 原订单总额计费、确认、累计退款基数及独立调整，不重算分笔费用 | 测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
 | 商户日/周/月/终生限额 | 全桶预占、执行许可、确认/释放、按原规则桶退款恢复；扫描及共享策略边界继续收敛 | 测试源码已有；本轮未运行 | 未验收 | [limitcenter](limitcenter/README.md) |
 | cashier / 纯 API | 会话、摘要、金额付款/原动作恢复、托管 H5 页面、会话撤销；托管 JSAPI OAuth/桥接、通用 SDK 待补 | 后端/页面测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
@@ -29,9 +29,9 @@
 | 微信 | JSAPI/H5、V2 付款码首提/查证、查询/关闭、普通退款及 APIv3 支付/退款通知；付款码撤销补偿待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-wechat](channel/channel-wechat/README.md) |
 | 银联 | 目标保留；具体产品/接入机构未定，尚无 Provider | 无实现验收证据 | 未验收 | channel 后续插件 |
 | 风控 | 默认放行、渠道前咨询与结果后独立反馈端口；外部系统协议后置 | 端口/默认策略测试源码已有；本轮未运行 | 未验收 | payment / 外部适配 |
-| 对账 | client/domain、批次/封存输入、纯核对与多原因差错源码；导入、存储和服务装配待补 | 领域测试源码已有；未运行 | 未验收 | [reconciliation](reconciliation/README.md) |
+| 对账 | 七层应用、批次/封存输入、纯核对/多原因差错、独立存储/任务与 HTTP/gRPC 源码；微信 ALL 解析、手工 File/Transfer 绑定及 payment 权威采集快照/完整分页导入源码已补；官方下载、支付宝解析及差错复核待补 | 领域/编排/安全/映射/解析、源端快照及 File/Transfer 同库 MySQL IT 源码已有；未运行 | 未验收 | [reconciliation](reconciliation/README.md) |
 | 任务与运营恢复 | 原生任务、业务游标/generation、FAILED 受控重试及只读详情；有界退避/抖动及单 JVM 渠道恢复并发源码已补；执行计时/在途量、首次 UNKNOWN 持久时间与只读存量源码已补（库存默认未启用）；分级查证列表/告警规则源码已补；真实 held/FAILED/Outbox、首提/集群配额、通知路由/工单与保留策略待 R3 | 原生持久化与付款/退款 handler IT 源码已有；未运行 | 未验收 | acquire / payment / LoadUp |
-| K8s / Headlamp | 六应用构建/发布/就绪脚本、原生 Service/DNS 与受限 Headlamp 清单；业务配置需单独注入 | 历史记录保留；本轮未执行脚本 | 当前业务版未验收 | [scripts](scripts/README.md) / deploy |
+| K8s / Headlamp | 七应用构建/发布/就绪脚本、原生 Service/DNS 与受限 Headlamp 清单；业务配置需单独注入 | 历史记录保留；本轮未执行脚本 | 当前业务版未验收 | [scripts](scripts/README.md) / deploy |
 
 [review](design/review.md) 的 R1/R2 首批已有实现和测试源码，但 R1 的真实数据库证明尚未满足；R3–R8 继续推进。
 门禁范围与尚未覆盖的约束见 [架构门禁](design/ARCHITECTURE-GATES.md)。当前未完成工作统一见 [ROADMAP](ROADMAP.md)。
@@ -51,7 +51,7 @@
 
 ## 构建、装配与 Kubernetes
 
-六应用是 acquire、payment、customer、product、limitcenter、realtime。默认 bootstrap 提供启动/健康骨架；业务依赖由 Maven `*-business` profile 引入，运行时还需激活对应 Spring profile，并注入各服务独立数据库、JWT/服务身份、KMS/渠道等配置。
+七应用是 acquire、payment、customer、product、limitcenter、realtime、reconciliation。默认 bootstrap 提供启动/健康骨架；业务依赖由 Maven `*-business` profile 引入，运行时还需激活对应 Spring profile，并注入各服务独立数据库、JWT/服务身份、KMS/渠道等配置。
 默认 `deploy/pay.yml` 仍是本地骨架清单，不能把 Pod 就绪视为业务装配或支付闭环完成。
 
 仓库已有以下入口；此处仅说明用法，本轮未执行：

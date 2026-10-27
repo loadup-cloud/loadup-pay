@@ -1939,4 +1939,37 @@ acquire 占用 intent_payload 与 payment_order.intent_payload 分别使用 pay.
 
 ## 2026-10-27 后置对账存储草案
 
-reconciliation 首期以实际收款账户/账期独立核对支付宝、微信收款与退款。新增四表设计：batch、input、entry、difference，文件与规范化哈希独立封存，批次运行/结果摘要与差错原子提交；不跨交易 schema 联表或写资金事实。详见 [对账设计](RECONCILIATION.md)和 [SQL 草案](sql/reconciliation-draft.sql)。草案仅位于 design，DO、Gateway、Flyway 与真实数据库验收均未实现或执行。
+reconciliation 首期以实际收款账户/账期独立核对支付宝、微信收款与退款。新增四表设计：batch、input、entry、difference，文件与规范化哈希独立封存，批次运行/结果摘要与差错原子提交；不跨交易 schema 联表或写资金事实。详见 [对账设计](RECONCILIATION.md)和 [SQL 草案](sql/reconciliation-draft.sql)。已补对应 BaseDO、Spring MapStruct、生成 Mapper/TableDef 的 Gateway 消费及
+V20261027000000__reconciliation_core.sql 迁移源码；原输入行与封存头同事务、原 run 唯一、完成摘要与全部差错同事务 CAS。
+批次登记与 native DelayedTask 共用本服务 DataSource；重复同运行只能重放原结果。差错分页与完整输入读取处于只读 RR，不跨 schema 查询。
+尚未生成/编译、执行任何 DDL、真实数据库并发或回滚验收，不能将源码视为原子提交已证明。
+
+
+## 2026-10-27 对账手工导入意图
+
+新增 reconciliation_import 与 V20261027010000__reconciliation_import.sql：原 tenant/caller/requestKey 唯一、taskId 唯一，固定 scope、实际账单账户、fileId/storageId/长度/原 SHA256 和 MANUAL_UPLOAD。
+逻辑 INIT version0 → SEALED/REJECTED version1；SEALED artifactId 等于原 import id，REJECTED 只保留固定拒绝码。
+登记时与 File 的长期业务引用、原 Transfer 任务/临时引用同库事务；生成 Mapper/TableDef 与 Spring MapStruct，无持久化公开 Command JSON。
+实际 activeForBatch 查询使用 tenant/batch/state 索引；持父批次锁串行登记一个 INIT 导入。封存头/全行、批次原引用、导入结果同事务，文件读取不持锁。
+原生 Transfer 表与业务元数据同本服务 DataSource，DFS 字节存私有 S3；查询不返回 storageId/原文件内容。永久业务引用保留成功/拒绝证据，清理政策待后续。
+MySQL IT 源码已覆盖登记/封存故障回滚、并发幂等、原任务重试、坏文件无部分行和租户隔离；未执行任何构建、测试、迁移或外部存储调用。
+
+
+## 2026-10-27 refund_acceptance_evidence
+
+V20261027020000__refund_acceptance_evidence.sql 新增不可变元数据表，id 复用原 refundId，保留完整原支付/attempt/账户/渠道请求、退款号、整数分/CNY、accepted_at 与首次 receipt_id。
+生成 Mapper/TableDef、BaseDO 和 Spring MapStruct；无手写 Mapper 或动态 JSON SQL。查询与写入均需可信租户及本地事务，写入还需原退款锁、实际版本及原 APPLIED/IGNORED 回执。
+只有插入/读取接口，重复同时间不写，不同时间返回冲突交应用记录异常；不更新 refund_order 的行、版本或 audit 字段。
+证据与退款回执/金融更新/Outbox 共用同一事务，元数据写后故障全部回滚。仅 DDL/代码/测试源码，未执行数据库或构建验收。
+
+
+## 2026-10-27 payment_reconciliation_capture / line
+
+V20261027030000__payment_reconciliation_capture.sql 新增 payment 自有不可变采集头/行；只支持微信固定 ALL profile。
+头绑定 tenant/caller/requestKey/digest、账户/账单日/profile/系统 zone、RR 起止时间、独立总计/hash或覆盖阻断样本；INIT version0→SEALED/BLOCKED version1。
+行唯一键为 tenant/capture/ordinal 与 tenant/capture/自然键 hash，保留 gross CNY、实际状态、来源日期与原金融证据/版本；无软删除/覆盖更新。
+源端只读 RR 查询金融事实，最后头/全行在独立本地事务一次提交；分页只读封存表。
+新增 refund_acceptance_evidence 的 tenant/channel/account/accepted_at/id 索引，直接服务已实现日期范围查询；未擅加其他金融表索引，执行计划尚未验收。
+对账侧复用既有 input/entry 与 File 永久引用，不增加跨 schema 联表或远端事务。原二进制文件 SHA256 等于源 contentHash，规范化 hash 独立计算。
+新增真实 MySQL 源 SQL、RR 并发可见性、全量 capture SQL 写后回滚和退款日期场景测试源码，未运行、生成检查或执行 DDL。
+详见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)。

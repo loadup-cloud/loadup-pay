@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared settings for local application builds and OrbStack deployments.
 PAY_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-PAY_APPS=(customer product limitcenter payment acquire realtime)
+PAY_APPS=(customer product limitcenter payment acquire realtime reconciliation)
 KUBE_CONTEXT=${KUBE_CONTEXT:-orbstack}
 DOCKER_CONTEXT=${DOCKER_CONTEXT:-orbstack}
 IMAGE_PREFIX=${IMAGE_PREFIX:-loadup-pay}
@@ -9,7 +9,7 @@ IMAGE_PREFIX=${IMAGE_PREFIX:-loadup-pay}
 select_apps() {
   case "$1" in
     all) SELECTED_APPS=("${PAY_APPS[@]}") ;;
-    customer|product|limitcenter|payment|acquire|realtime) SELECTED_APPS=("$1") ;;
+    customer|product|limitcenter|payment|acquire|realtime|reconciliation) SELECTED_APPS=("$1") ;;
     *) echo "Unknown application: $1 (expected all or ${PAY_APPS[*]})" >&2; exit 1 ;;
   esac
 }

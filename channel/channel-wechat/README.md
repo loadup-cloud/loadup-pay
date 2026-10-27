@@ -157,3 +157,8 @@ WechatRefundAdapter.recover 先按原 binding 和固定 out_refund_no 查询。�
 ## 2026-10-27 V2 付款码增量
 
 微信官方当前付款码入口仍要求 V2。新增独立 WechatCodepayAdapter/V2Client/V2Codec、APIv2 密钥读取、直连/服务商固定账户首提和原号 V3 查询接线；复用统一 Facade，不改 payment 为渠道实现。安全输入、错误观察与关闭产品门禁见 [付款码设计](../../design/WECHAT-CODEPAY.md)。付款码撤销/mTLS/持久补偿仍未实现，UNKNOWN/CLOSING 不会因此释放容量。测试源码已补，均未运行；历史“付款码待补”记录由本节细化，不能据此宣称完整付款码能力。
+
+
+退款提交与查询的 create_time 现为必需验签响应字段，规范化为 RefundObservation.acceptedAt，原号恢复保留该值。
+该值不是成功或释放证据；ABNORMAL/UNKNOWN 等状态继续原保守处理，退款终态仍经原号查询和 success_time。
+缺失/格式错误、受理时间晚于成功时间均拒绝，微秒与本地 Clock zone 规则保持；协议测试源码已补，未运行。

@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.payment.domain.model;
+
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.validation.DomainChecks;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Objects;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+public record PaymentLedgerLine(long ordinal, PaymentLedgerKind kind, @DiagnosticHidden String channelTransactionNo,
+        @DiagnosticHidden String channelRefundNo, @DiagnosticHidden String merchantPaymentNo, Money amount,
+        PaymentLedgerStatus status, LocalDateTime sourceAt, String sourceId, String evidenceId, long sourceVersion) {
+    public PaymentLedgerLine {
+        require(ordinal > 0 && sourceVersion >= 0, INVALID_ARGUMENT); Objects.requireNonNull(kind); Objects.requireNonNull(status);
+        DomainChecks.text(channelTransactionNo, 128); DomainChecks.text(merchantPaymentNo, 64);
+        if (kind == PaymentLedgerKind.REFUND) DomainChecks.text(channelRefundNo, 64); else require(channelRefundNo == null && status == PaymentLedgerStatus.SUCCEEDED, INVALID_ARGUMENT);
+        DomainChecks.cnyAmount(amount); require(amount.getCent() > 0, INVALID_ARGUMENT); Objects.requireNonNull(sourceAt);
+        sourceAt = sourceAt.truncatedTo(ChronoUnit.MICROS); DomainChecks.id(sourceId); DomainChecks.id(evidenceId);
+    }
+    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+}

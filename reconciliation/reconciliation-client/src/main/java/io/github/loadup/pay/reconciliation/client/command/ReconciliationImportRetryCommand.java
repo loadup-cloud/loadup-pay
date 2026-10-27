@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.loadup.pay.reconciliation.app.model;
+package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import java.util.List;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.require;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
 
-public record ReconciliationDifferencePage(List<StoredReconciliationDifference> records, long total) {
-    public ReconciliationDifferencePage { records = List.copyOf(records); require(total >= records.size(), INVALID_ARGUMENT); }
+public record ReconciliationImportRetryCommand(
+        @Schema(description = "Original import id") @NotBlank @Size(max = 64) String importId,
+        @Schema(description = "Original native transfer task id") @NotBlank @Size(max = 64) String expectedTaskId) {
     @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

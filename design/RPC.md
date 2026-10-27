@@ -14,6 +14,7 @@
 | payment | [payment.proto](../payment/payment-rpc/src/main/proto/payment.proto) |
 | acquire | [acquire.proto](../acquire/acquire-rpc/src/main/proto/acquire.proto) |
 | realtime | [realtime.proto](../realtime/realtime-rpc/src/main/proto/realtime.proto) |
+| reconciliation | [reconciliation.proto](../reconciliation/reconciliation-rpc/src/main/proto/reconciliation.proto) |
 
 | 调用方 | 提供方 | 用途 |
 | --- | --- | --- |
@@ -121,3 +122,25 @@ closed 的原 order/payment、fenced、正 epoch、未受理 evidence 都须存�
 操作内部只有本地数据库事务，不调用网络；消费方在 acquire 事务外调用，再用自己的 A3 落库。
 异常不回退 HTTP、不伪装成未受理或可释放；新权限尚未在真实挂载令牌/部署环境配置。
 协议、服务绑定、consumer 与测试源码已补，未运行任何编译、测试或真实 RPC 验收。
+
+## 对账批次运营契约（2026-10-27）
+
+ReconciliationRpc 定义 Create/Attach/Start/Detail，提供方消息/批次 scope/双侧封存摘要归 reconciliation-rpc；差错分页由运营 HTTP 提供。
+身份必须为 SERVICE，sub=service_id、可信 tenant 及对应 pay:reconciliation:batch:* 权限；当前账户目录 service-ids 和原 caller 仍须匹配。
+不存在接收客户端规范化账单行、修改资金或提交“核对成功”的 RPC。实际来源导入和 payment 权威导出尚待独立契约，不能用上传任意文件替代。
+
+新 mapper 使用 Spring LoadUpMapStructConfig 和构造器注入，无静态 INSTANCE；Wire scalar 均 optional，严格日期字符串、枚举符号与 int64。
+完成前 run/summary presence、双侧封存 side、终态显式零差错和结果摘要完整性均保留。沿用框架原生入站 JWT 隔离/错误映射、50051 与 reconciliation-headless。
+独立业务镜像需 -Preconciliation-business 与同名 runtime profile、数据库/JWT/受控账户目录；本轮未编译、测试、签发令牌、调用 RPC 或部署。
+
+
+## P1 payment 权威采集接口（2026-10-27）
+
+payment-rpc 自有 payment_reconciliation.proto / PaymentCaptureRpc 的 Create/Detail/Lines/Retry，不属于渠道资金授权 capture。
+Wire optional、int64、严格 INIT/SEALED/BLOCKED 及 summary presence、微秒 Timestamp、连续分页 ordinal/EOF；PageDTO 集合通过 builder adders。
+新 mapper 与 typed operations 均由 Spring 注入，无静态 Mapper INSTANCE。入站仍用 RpcJwtInterceptor，应用要求配置的 reconciliation SERVICE 与 capture:create/read/retry 权限。
+
+reconciliation-infrastructure 消费该契约，复用 framework GrpcTransport 和原生 payment channel/deadline，挂载 SERVICE token 逐次读取；
+只有配置的 tenant 可出站，本地 claims 检查不代替 payment 签名/issuer/audience/token_use 验证。
+没有内部 HTTP 回退、金融跨库读取、跨网络本地事务或自动写重试。完整分页核对在事务外，封存输入/文件长期引用/批次关联在本库原子提交。
+具体身份/字段/固定 profile/预算见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)。未生成/编译/执行测试或进行真实 JWT/TLS/RPC 联调。

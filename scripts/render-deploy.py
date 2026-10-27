@@ -5,7 +5,7 @@ import re
 import sys
 
 scope, prefix, tag = sys.argv[1:]
-apps = {"customer", "product", "limitcenter", "payment", "acquire", "realtime"}
+apps = {"customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"}
 if scope != "all" and scope not in apps:
     raise SystemExit("Unknown application")
 if not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}", tag):

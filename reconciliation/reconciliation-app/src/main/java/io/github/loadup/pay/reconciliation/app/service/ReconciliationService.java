@@ -92,10 +92,10 @@ public class ReconciliationService implements ReconciliationFacade {
             return converter.toDTO(next);
         });
     }
-    @Override public ReconciliationBatchDTO start(IdQuery query) {
-        validate(query); var actor = actor("start");
+    @Override public ReconciliationBatchDTO start(ReconciliationBatchStartCommand command) {
+        validate(command); var actor = actor("start");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var stored = checked(actor, batches.lock(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var stored = checked(actor, batches.lock(actor.tenantId(), command.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (stored.batch().state() == ReconciliationState.RUNNING || terminal(stored.batch())) return converter.toDTO(stored.batch());
             if (stored.batch().state() != ReconciliationState.READY) throw new CommonException(INPUT_NOT_SEALED);
             var next = stored.batch().begin(ids.generate());
@@ -115,13 +115,13 @@ public class ReconciliationService implements ReconciliationFacade {
             var stored = checked(actor, batches.find(actor.tenantId(), query.batchId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!terminal(stored.batch())) throw new CommonException(INVALID_STATE);
             var page = differences.page(actor.tenantId(), query.batchId(), converter.toKind(query.kind()), converter.toReason(query.reason()), query.page(), query.size());
-            if (page.records().size() > query.size() || page.total() > stored.batch().result().differenceCount() || query.kind() == null && query.reason() == null
+            if (page.page() != query.page() || page.size() != query.size() || page.total() < page.records().size() || page.records().size() > query.size() || page.total() > stored.batch().result().differenceCount() || query.kind() == null && query.reason() == null
                     && page.total() != stored.batch().result().differenceCount()) throw new CommonException(SNAPSHOT_INVALID);
             for (var row : page.records()) if (!row.batchId().equals(stored.batch().id()) || !row.runId().equals(stored.batch().runId())
                     || query.kind() != null && row.difference().key().kind() != converter.toKind(query.kind())
                     || query.reason() != null && !row.difference().reasons().contains(converter.toReason(query.reason())))
                 throw new CommonException(SNAPSHOT_INVALID);
-            return PageDTO.of(page.records().stream().map(converter::toDTO).toList(), page.total(), query.page(), query.size());
+            return PageDTO.of(page.map(converter::toDTO));
         });
     }
     private ReconciliationBatchDTO replay(ReconciliationActor actor, StoredReconciliationBatch stored, String digest) {

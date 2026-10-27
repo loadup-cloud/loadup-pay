@@ -19,10 +19,10 @@
 `channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/ChannelModuleBoundaryTest.java` 保留渠道独立性、payment 只依赖 channel-api、插件只由 bootstrap runtime 装配等检查。
 本轮没有运行该测试，也没有把旧门禁源码存在视为当前工程已经满足约束。
 
-## 新增六服务源码/POM 门禁
+## 新增七服务源码/POM 门禁
 
 `PayModuleBoundaryTest` 放在现有 channel-core 的测试目录，复用当前测试依赖；没有新增治理服务、平台或测试模块。
-从完整 loadup-pay checkout 中读取 acquire/payment/customer/product/limitcenter/realtime 的 client/domain/app/infrastructure/adapter/rpc/bootstrap。
+从完整 loadup-pay checkout 中读取 acquire/payment/customer/product/limitcenter/realtime/reconciliation 的 client/domain/app/infrastructure/adapter/rpc/bootstrap。
 缺失预期模块会失败，不以空目录扫描默认为通过。
 
 | 范围 | 源码/POM 规则 |
@@ -30,7 +30,7 @@
 | client/domain 技术纯净 | 不点名 Spring、ORM、gRPC、Protobuf 或技术组件实现；允许 JDK、commons 及纯 channel-api/client 契约 |
 | client/domain/app 分层 | client 不引用自身 domain/实现，domain 不引用 app/实现，app 不引用 infrastructure/adapter/rpc/bootstrap |
 | 跨服务边界 | 仅依赖对方 client 或传输适配所需 rpc，不引用对方 domain/app/infrastructure/adapter/bootstrap；client/domain/app 不直接引用对方 rpc |
-| 渠道插件 | 六服务生产 Java 只命名 channel-api；POM 仅 payment-bootstrap 可用 runtime 装配 channel-core/alipay/wechat 等实现 |
+| 渠道插件 | 七服务生产 Java 只命名 channel-api；POM 仅 payment-bootstrap 可用 runtime 装配 channel-core/alipay/wechat 等实现 |
 | 存储适配器到 app | infrastructure 下 repository/codec/converter 只能引用本服务 app.port/model/converter，不引用应用服务或安全编排 |
 | POM 覆盖 | 检查直接依赖及 profile 依赖；test scope 不作为生产依赖违规，以保留真实 Gateway/编排集成测试 |
 

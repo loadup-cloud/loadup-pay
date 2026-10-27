@@ -173,6 +173,6 @@ class PaymentChannelGatewayImplTest {
     private static RefundObservation refundObservation(PreparedChannelRefund refund) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
                 refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
-                null, RefundObservation.Source.QUERY_RESPONSE, "receipt-2", "c".repeat(64));
+                null, RefundObservation.Source.QUERY_RESPONSE, "receipt-2", "c".repeat(64), null);
     }
 }

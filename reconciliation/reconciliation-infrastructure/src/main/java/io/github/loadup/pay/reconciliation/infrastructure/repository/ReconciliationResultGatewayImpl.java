@@ -18,6 +18,7 @@ package io.github.loadup.pay.reconciliation.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.reconciliation.app.model.*;
+import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationDifferenceReader;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
 import io.github.loadup.pay.reconciliation.domain.model.*;
@@ -58,7 +59,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
             if (differences.insert(row) != 1) throw new CommonException(CONCURRENT_UPDATE);
         }
     }
-    @Override public ReconciliationDifferencePage page(String tenant, String batchId, ReconciliationRecordKind kind,
+    @Override public PageResult<StoredReconciliationDifference> page(String tenant, String batchId, ReconciliationRecordKind kind,
             ReconciliationDifferenceReason reason, int page, int size) {
         ReconciliationStoreContext.readable(tenant);
         if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100)
@@ -91,7 +92,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
                 return converter.toStored(row, value);
             } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
         }).toList();
-        return new ReconciliationDifferencePage(records, total);
+        return PageResult.of(records, total, page, size);
     }
     private Map<String, ReconciliationEntryDO> referenced(String tenant, String input, List<ReconciliationDifference> values, boolean channel) {
         var keys = values.stream().map(value -> channel ? value.channel() : value.ledger()).filter(Objects::nonNull)

@@ -414,3 +414,72 @@ spec:
   selector: { app: realtime }
   ports:
     - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reconciliation
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reconciliation }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: reconciliation }
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: reconciliation
+          image: loadup-pay/reconciliation:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: grpc, containerPort: 50051 }
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reconciliation
+  namespace: loadup-pay
+spec:
+  selector: { app: reconciliation }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+
+---
+# Internal gRPC discovery for the reconciliation business profile.
+apiVersion: v1
+kind: Service
+metadata:
+  name: reconciliation-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: reconciliation }
+  ports:
+    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }

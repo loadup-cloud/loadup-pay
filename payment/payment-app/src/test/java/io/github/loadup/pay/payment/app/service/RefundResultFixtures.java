@@ -51,6 +51,6 @@ final class RefundResultFixtures {
         var child = initial().allocations().getFirst();
         return new RefundObservation("refund", child.original(), child.refund().channelRefundNo(), child.channelTransactionNo(), kind,
                 child.refund().amount(), kind == ChannelRefundOutcome.Kind.SUCCEEDED ? "refund-transaction" : null,
-                kind == ChannelRefundOutcome.Kind.SUCCEEDED ? NOW : null, source, key, "f".repeat(64));
+                kind == ChannelRefundOutcome.Kind.SUCCEEDED ? NOW : null, source, key, "f".repeat(64), null);
     }
 }

@@ -301,7 +301,7 @@ class DefaultChannelPaymentFacadeTest {
         when(alipay.canRefund(refund)).thenReturn(true);
         when(alipay.submitRefund(context, refund)).thenReturn(new RefundObservation("other-refund", refund.original(),
                 refund.channelRefundNo(), refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED,
-                refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "c".repeat(64)));
+                refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "c".repeat(64), null));
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class, () -> facade.submitRefund(context, refund)));
     }
 
@@ -337,7 +337,7 @@ class DefaultChannelPaymentFacadeTest {
         when(wechat.canRefund(refund)).thenReturn(true);
         var submitted = refundObservation(refund);
         var queried = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64));
+                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64), null);
         when(wechat.recoverRefund(context, refund)).thenReturn(queried, submitted);
         TenantUtil.runWithTenant("tenant", () -> {
             assertSame(queried, facade.recoverRefund(context, refund));
@@ -353,12 +353,12 @@ class DefaultChannelPaymentFacadeTest {
         var refund = refund(payment(Channel.ALIPAY, "ali-binding", HASH).identity());
         when(alipay.canRefund(refund)).thenReturn(true);
         var callback = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.CALLBACK, "callback", "e".repeat(64));
+                ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null, null, RefundObservation.Source.CALLBACK, "callback", "e".repeat(64), null);
         var terminalSubmit = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
                 ChannelRefundOutcome.Kind.SUCCEEDED, refund.amount(), "vendor-refund", java.time.LocalDateTime.of(2026, 10, 24, 12, 0),
-                RefundObservation.Source.SUBMIT_RESPONSE, "submit", "e".repeat(64));
+                RefundObservation.Source.SUBMIT_RESPONSE, "submit", "e".repeat(64), null);
         var wrongAmount = new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                ChannelRefundOutcome.Kind.ACCEPTED, Money.ofMinor(1, "CNY"), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64));
+                ChannelRefundOutcome.Kind.ACCEPTED, Money.ofMinor(1, "CNY"), null, null, RefundObservation.Source.QUERY_RESPONSE, "query", "e".repeat(64), null);
         when(alipay.recoverRefund(context, refund)).thenReturn(callback, terminalSubmit, wrongAmount);
         TenantUtil.runWithTenant("tenant", () -> {
             assertThrows(CommonException.class, () -> facade.recoverRefund(context, refund));
@@ -573,7 +573,7 @@ class DefaultChannelPaymentFacadeTest {
     private static RefundObservation refundObservation(PreparedChannelRefund refund) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
                 refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
-                null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "e".repeat(64));
+                null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "e".repeat(64), null);
     }
     private static ChannelRecoveryConcurrency concurrency() {
         return new ChannelRecoveryConcurrency(ResilienceRegistries.ofDefaults());

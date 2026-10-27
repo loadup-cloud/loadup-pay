@@ -69,7 +69,7 @@ class RefundChannelCallbackServiceTest {
         return new RefundObservation(target().refundId(), target().original(), target().channelRefundNo(),
                 target().originalChannelTransactionNo(), ChannelRefundOutcome.Kind.SUCCEEDED, target().amount(),
                 "vendor-refund-ref", RefundResultFixtures.NOW, RefundObservation.Source.QUERY_RESPONSE,
-                "query-key", "a".repeat(64));
+                "query-key", "a".repeat(64), null);
     }
 
     private VerifiedChannelRefundNotification verified(String notificationId, String sourceDigest, String vendorRef) {
@@ -153,7 +153,7 @@ class RefundChannelCallbackServiceTest {
         var q = query();
         when(channels.queryRefund(target())).thenReturn(new RefundObservation(q.refundId(), q.original(), q.channelRefundNo(),
                 q.originalChannelTransactionNo(), q.kind(), io.github.loadup.commons.money.Money.ofMinor(1, "CNY"),
-                q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest()));
+                q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest(), null));
 
         assertEquals(acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
         verify(results, never()).record(anyString(), any());
@@ -166,9 +166,9 @@ class RefundChannelCallbackServiceTest {
         var q = query();
         when(channels.queryRefund(target())).thenReturn(
                 new RefundObservation("other-refund", q.original(), q.channelRefundNo(), q.originalChannelTransactionNo(),
-                        q.kind(), q.amount(), q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest()),
+                        q.kind(), q.amount(), q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest(), null),
                 new RefundObservation(q.refundId(), q.original(), q.channelRefundNo(), "other-original-transaction",
-                        q.kind(), q.amount(), q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest()));
+                        q.kind(), q.amount(), q.channelRefundTransactionNo(), q.succeededAt(), q.source(), q.receiptKey(), q.sourceDigest(), null));
 
         assertEquals(acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
         assertEquals(acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
@@ -237,7 +237,7 @@ class RefundChannelCallbackServiceTest {
         setup();
         var q = new RefundObservation(target().refundId(), target().original(), target().channelRefundNo(),
                 target().originalChannelTransactionNo(), ChannelRefundOutcome.Kind.UNKNOWN, target().amount(), null, null,
-                RefundObservation.Source.QUERY_RESPONSE, "unknown-key", "a".repeat(64));
+                RefundObservation.Source.QUERY_RESPONSE, "unknown-key", "a".repeat(64), null);
         when(channels.queryRefund(target())).thenReturn(q);
 
         assertEquals(acknowledgement(true), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
@@ -253,7 +253,7 @@ class RefundChannelCallbackServiceTest {
                 verified("notification-1", "d".repeat(64), "vendor-refund-ref"));
         var unknown = new RefundObservation(target().refundId(), target().original(), target().channelRefundNo(),
                 target().originalChannelTransactionNo(), ChannelRefundOutcome.Kind.UNKNOWN, target().amount(), null, null,
-                RefundObservation.Source.QUERY_RESPONSE, "unknown-key", "a".repeat(64));
+                RefundObservation.Source.QUERY_RESPONSE, "unknown-key", "a".repeat(64), null);
         when(channels.queryRefund(target())).thenReturn(unknown, query());
         when(facts.factsDigest(any())).thenReturn("c".repeat(64), "f".repeat(64));
 

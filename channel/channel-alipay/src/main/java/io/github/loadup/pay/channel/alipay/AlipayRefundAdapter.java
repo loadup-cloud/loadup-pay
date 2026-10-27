@@ -92,7 +92,7 @@ public final class AlipayRefundAdapter {
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256("alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest);
+                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest, null);
     }
 
     private AlipayVerifiedResponse lookup(ChannelExecutionContext context, PreparedChannelRefund refund) {
@@ -160,7 +160,7 @@ public final class AlipayRefundAdapter {
             ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
                 refund.originalChannelTransactionNo(), kind, refund.amount(), reference, succeededAt, source,
-                response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest());
+                response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest(), null);
     }
 }
 
