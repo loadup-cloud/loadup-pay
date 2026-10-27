@@ -1,195 +1,187 @@
 # LoadUp Pay 架构与设计 Review
 
-审查日期：2026-10-26
+更新日期：2026-10-27。替代 2026-10-26 基于 020cd42 的审查结论；旧版可从 Git 历史查看。
 
-源码基线：`020cd42`，审查开始时已跟踪文件无工作区改动。
+审查基线：上轮 020cd42 → 本轮 702ac1c，另纳入 PaymentCaptureRpcMapper、ReconciliationLedgerService、RECONCILIATION.md 的调整；这些调整在收尾时已提交为 bc23872。关联框架读取基线为 loadup-framework/c00b8f48。审查期间代码持续推进，下文结论针对已读取源码，不覆盖之后新增改动。
 
-范围：`acquire / payment / channel / customer / product / limitcenter / realtime` 的模块依赖，以及关键交易、恢复、投递、查询实现；抽查相关测试、Flyway 迁移与设计文档。采用静态分析，没有执行 IDEA 检查、编译、测试、数据库迁移、部署或真实渠道调用。本文是全项目架构评审，不是某次提交的差异审查，也不是逐行安全审计。
+本轮按 review-agent 的缺陷优先规则复核上轮问题，重点追踪恢复协议、事务边界、付款生命周期事件、支付宝 H5/微信付款码，以及新增对账采集和导入链路；不是这一区间全部文件的逐行审计。仅静态阅读源码、差异、相关测试与文档；未运行 IDEA、编译、测试、DDL、数据库操作或外部支付调用。报告修改不包含业务修复。
 
-本文替换此前以局部代码风格为主的 review，聚焦可执行的设计优化。下文的“已确认”表示源码可直接证明；“风险”表示需要运行证据验证影响，不能等同于已发生的生产故障。
+**用户已确认：没有生产交易数据，仍处于开发阶段，不考虑兼容性和存量迁移。** 以下数据库评估采用单一目标数据库、重新建立开发库的方案，不计双写、CDC、历史数据搬迁或混合版本运行。
 
-## 1. 总体结论
+## 1. 本轮发现
 
-**建议保留六个业务服务和渠道插件的基本划分，优先完善一致性验证、恢复运行机制和模块内部封装，再扩展业务能力。** 当前主要问题不是缺少分层，而是实现正确性依赖大量调用顺序、字段交叉校验、任务代次和事务约定；这些知识仍散布在编排、编解码与仓储中。
+### [P2] 补齐对账比较任务耗尽重试后的恢复入口 — ReconciliationService.java:99
 
-代码已经远超“client/domain 契约骨架”：六个服务具备 app、infrastructure、adapter、rpc 等实现。另一方面，存在这些源码不等于业务闭环已经通过真实环境验收。两种状态必须分开记录。
+[ReconciliationService.start:99](../reconciliation/reconciliation-app/src/main/java/io/github/loadup/pay/reconciliation/app/service/ReconciliationService.java#L99) 遇到 RUNNING 批次直接返回。若比较阶段读取输入或写结果持续失败，默认 5 次后原生 DelayedTask 进入 FAILED，批次事务回滚后仍为 RUNNING；框架不再领取 FAILED，重复 start 也不会重排原任务。当前批次 Facade/HTTP/gRPC 没有比较任务 retry 入口，已有 import/retry 和 ledger/retry 分别操作文件导入及 payment 采集任务，无法恢复这个 run。故障消除后，原批次会永久表现为“运行中”，只能额外开发维护手段或另建批次绕过。
 
-### 应保留的设计
+证据链：
 
-| 设计 | 源码依据 | 评审判断 |
+- [默认任务配置](../reconciliation/reconciliation-bootstrap/src/main/resources/application-reconciliation-business.yml#L56) 限制最大尝试次数；[DelayedTaskStore](../../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskStore.java#L78) 的领取条件排除 FAILED，完成失败处理会写入 FAILED。
+- [ReconciliationFacade](../reconciliation/reconciliation-client/src/main/java/io/github/loadup/pay/reconciliation/client/facade/ReconciliationFacade.java#L29) 只有 create/attach/start/detail/differences；未找到比较任务的 retryFailed 调用。
+- [现有失败测试](../reconciliation/reconciliation-app/src/test/java/io/github/loadup/pay/reconciliation/app/service/ReconciliationServiceTest.java#L113) 明确验证结果持久化失败后批次留在 RUNNING，但未覆盖原生任务耗尽后的恢复。
+
+建议增加受权的原比较任务重试命令，核对 tenant、原 caller、当前账户权限、runId、expectedTaskId 和实际 FAILED 状态，调用原生 retryFailed；保留两份 manifest 和原 runId。详情同时暴露 nativeStatus，区分业务执行中与调度已失败。不要用重复 start 无条件创建新 run 或修改已封存输入。
+
+验收：使原比较任务耗尽重试，确认查询能看到 FAILED；修复故障后重试同一 task/run，最终只提交一份结果。补充过时 taskId、跨租户、已 RUNNING、已完成与并发重试场景。这里是源码可追踪的恢复缺口，并未声称已运行复现。
+
+本轮未确认新的 P0/P1 回归。以下架构建议与 PG 适配阻断项分别记录，不把尚未执行的迁移风险当成现有 MySQL 缺陷。
+
+## 2. 上轮 R1–R9 复核
+
+| 编号 | 本轮状态 | 源码证据与剩余工作 |
 |---|---|---|
-| 订单金额、付款事实、额度分别归属 acquire、payment、limitcenter | [PaymentInitiationOperations:110–170](../acquire/acquire-app/src/main/java/io/github/loadup/pay/acquire/app/service/PaymentInitiationOperations.java#L110)、[PaymentOrder:113–161](../payment/payment-domain/src/main/java/io/github/loadup/pay/payment/domain/model/PaymentOrder.java#L113) | 不合并成一个跨库聚合，不让投影反向决定资金状态。 |
-| 先持久化执行资格，再在事务外调用渠道，最后落结果 | [PaymentSubmissionPreparation:115–178](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentSubmissionPreparation.java#L115)、[PaymentExecutionService:66–114](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentExecutionService.java#L66) | Y2 的唯一提交权应保留；任务重新领取不等于获得再次扣款权。 |
-| 未知结果保留占用，退款拥有独立生命周期 | [LimitExecutionService:168–177](../limitcenter/limitcenter-app/src/main/java/io/github/loadup/pay/limitcenter/app/service/LimitExecutionService.java#L168)、[RefundExecutionService:71–117](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/RefundExecutionService.java#L71) | 不以 TTL、RPC 超时或任务失败推导“未收款”；退款不能重开原订单。 |
-| 终态结果按目标独立 Outbox，投影有 receipt 与版本控制 | [PaymentResultEvents:67–96](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentResultEvents.java#L67)、[TradeProjectionService:129–145](../realtime/realtime-app/src/main/java/io/github/loadup/pay/realtime/app/service/TradeProjectionService.java#L129) | 不替换为进程内异步事件；单个下游故障不应拖住其他目标。 |
-| 渠道 API 与插件实现隔离，注册表拒绝重复 Provider | [ChannelStrategyRegistry:33–51](../channel/channel-core/src/main/java/io/github/loadup/pay/channel/core/ChannelStrategyRegistry.java#L33)、[ChannelModuleBoundaryTest:40–102](../channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/ChannelModuleBoundaryTest.java#L40) | 已有真实的支付宝、微信 Adapter，值得保留这个扩展位置；暂不引入插件框架。 |
+| R1 真实数据库证明 | 已补测试源码；运行证明仍缺 | 当前有 8 个 *IT.java，包括 [AcquiringFinancialPersistenceIT](../acquire/acquire-infrastructure/src/test/java/io/github/loadup/pay/acquire/infrastructure/repository/AcquiringFinancialPersistenceIT.java)、[PaymentResultPersistenceIT](../payment/payment-infrastructure/src/test/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentResultPersistenceIT.java)、[PaymentCapturePersistenceIT](../payment/payment-infrastructure/src/test/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCapturePersistenceIT.java) 和 [ProjectionPersistenceIT](../realtime/realtime-infrastructure/src/test/java/io/github/loadup/pay/realtime/infrastructure/repository/ProjectionPersistenceIT.java)。撤销“仓库没有数据库 IT”的旧描述；不能将源码等同于通过。 |
+| R2 运营查询占写锁 | 已在源码修复 | [AcquireRecoveryOperationsService](../acquire/acquire-app/src/main/java/io/github/loadup/pay/acquire/app/service/AcquireRecoveryOperationsService.java#L83) 与 [PaymentRecoveryOperationsService](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentRecoveryOperationsService.java#L82) 使用 readSnapshot/readInspection；retry 仍经 lockForRetry。保留并发运行验收。 |
+| R3 恢复生命周期 | 部分完成 | 已有 [RecoveryPollingPolicy](../payment/payment-domain/src/main/java/io/github/loadup/pay/payment/domain/policy/RecoveryPollingPolicy.java)、渠道恢复并发限制、UNKNOWN 快照指标和分级查证。[指标契约](RECOVERY-INVENTORY.md) 明确仅统计 UNKNOWN 名义金额，不代表实际 held。任务/证据保留、人工处置闭环及容量验收仍待完成。旧的固定 30 秒生成量估算不再适用于当前策略。 |
+| R4 绑定不变量散落 | 主要收敛已落源码 | [PaymentExecutionBindings](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentExecutionBindings.java)、[PaymentExecutionContext](../payment/payment-domain/src/main/java/io/github/loadup/pay/payment/domain/model/PaymentExecutionContext.java) 与 PaymentAttemptBinding/PaymentGateBinding 集中共同关系。继续保留提交、观察、关单的不同前置条件，不再建议增加万能 Validator。 |
+| R5 read 语义混淆 | 已在源码修复 | [PaymentAcceptanceTransactions](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentAcceptanceTransactions.java#L47) 等明确区分 writeLocal、readSnapshot、withTenantContext；写 RC、读 RR、外层事务限制均有表达。不要再以“同名 read 不一致”列问题。 |
+| R6 持久快照复用 Command | 已在源码修复 | [payment 快照](../payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/model/PaymentIntentSnapshot.java) 与 [acquire 快照](../acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/model/PaymentIntentSnapshot.java) 由本服务拥有，codec/mapper 转换公开 Command；当前开发期不需要旧格式兼容器。 |
+| R7 恢复机械流程重复 | 已完成一轮合理提取 | [RecoveryTaskProtocol](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/RecoveryTaskProtocol.java)、RecoveryPosition/RecoveryTaskKey 收敛纯协议。付款/退款锁序和金融决策仍分别持有，符合原建议。 |
+| R8 文档与边界门禁 | 主要改善已落源码 | README/ARCHITECTURE 已更新，历史材料迁出当前能力说明；[PayModuleBoundaryTest](../channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/PayModuleBoundaryTest.java) 增加跨服务/分层约束。当前能力与未运行验收仍需持续同步。 |
+| R9 深分页成本 | 保留为条件性建议 | [TradeProjectionGatewayImpl](../realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/TradeProjectionGatewayImpl.java#L305) 仍 count + offset。没有数据量/执行计划证明已超预算；不要为此抢先引入搜索集群。导出和大范围遍历再考虑游标。 |
 
-### 依赖关系判断
+## 3. 架构判断与后续重点
 
-定向检查未发现领域生产源码依赖 Spring、ORM 或其他服务实现层；已核对的 RPC 契约依赖也未发现环。`infrastructure → app` 用于实现 app 所定义的 port，是依赖倒置的一种实现，**不能只凭层名判为反向依赖错误**。后续约束应是 infrastructure 仅引用所需 port/model，禁止反向调用 app 编排服务，而不是机械要求每层只能引用 domain。
+**保留现有领域边界：六个交易相关服务、独立 reconciliation，以及渠道插件。当前更需要完成故障恢复与数据库证明，不需要增加服务层级或通用 Saga 平台。**
 
-`acquire ↔ payment` 的运行时交互承载受理、查询、事件确认等不同责任，也不能据此判为 Maven 依赖环。必须继续保证各端只提交自己的本地事务。
+### 3.1 付款事实、展示快照和对账证据分开持有
 
-## 2. 优先级总览
+[PaymentEvents](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentEvents.java#L69) 将终态资金投递和完整生命周期快照分开：非终态只更新 realtime，终态继续向 acquire/limit/risk 投递；同一付款事务内冻结快照并写 Outbox。这使 realtime 可以展示 INIT/PROCESSING/UNKNOWN/CLOSING，同时避免非终态被下游误当资金结果。
 
-P1：进入真实业务验收前优先补齐；不表示已经证明资金错误。P2：下一轮设计收敛；P3：有规模证据后实施。
+[PaymentCaptureReaderImpl](../payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCaptureReaderImpl.java#L63) 直接读取 payment 权威证据，在 RR 中检查账户、未决收款、退款受理日期，再形成完整有界集合；[ReconciliationLedgerService](../reconciliation/reconciliation-app/src/main/java/io/github/loadup/pay/reconciliation/app/service/ReconciliationLedgerService.java#L94) 在事务外取完整分页并验证摘要，之后本地提交文件引用、封存输入和批次引用。应保留这一方向，不用 realtime 投影代替资金事实源。
 
-| 编号 | 优先级 | 结论 | 性质 |
-|---|---|---|---|
-| R1 | P1 | 资金与任务原子性缺少本仓库中的真实数据库集成证明 | 验证缺口 |
-| R2 | P1 | 运营详情查询复用写路径锁序，占用核心交易排他锁 | 已确认设计问题，影响待测 |
-| R3 | P1 | 恢复机制有安全约束，但长期未知状态的负载与可观测性契约不足 | 已确认机制，容量风险 |
-| R4 | P2 | 交易绑定不变量散落，模块接口暴露过多正确调用条件 | 设计改进 |
-| R5 | P2 | 同名事务 helper 的 read 语义不同，隐含事务与租户上下文契约 | 已确认设计问题 |
-| R6 | P2 | 持久化恢复快照直接使用公开 Command，存储与接口演进耦合 | 已确认耦合 |
-| R7 | P2 | 付款/退款恢复的机械流程重复，修改容易不对称 | 已确认重复 |
-| R8 | P2 | 架构约束与能力状态缺少统一、可验证的维护入口 | 已确认文档与门禁缺口 |
-| R9 | P3 | realtime 深分页采用 count + offset，大数据场景需独立查询方案 | 条件性性能风险 |
+采集时间不是全局提交水位；MATCHED 也只是两份封存输入相符。[采集契约](PAYMENT-RECONCILIATION-CAPTURE.md) 已说明迟到事实需新快照/新批次复核，以及早期未决记录可能阻断后续账期。这些是明确的保守边界，本轮不列为回归缺陷。
 
-## 3. 详细结论与优化建议
+### 3.2 完善恢复能力时同时覆盖“金融任务”和“非金融任务”
 
-### R1 · P1：补齐跨事务边界的真实数据库验证
+付款/退款已有恢复、运营查询和受控重试，但新增比较任务遗漏了耗尽后的恢复入口（见 P2）。以后增加持久任务时，应在同一用例设计中列出正常完成、重放、尝试耗尽、执行者崩溃、业务已提交但 ACK 丢失的行为。业务状态和 native 状态分别呈现，复用已有 DelayedTask API 即可。
 
-**证据。** [PaymentRecoveryServiceTest:40–47](../payment/payment-app/src/test/java/io/github/loadup/pay/payment/app/service/PaymentRecoveryServiceTest.java#L40) 使用 mock gateway、mock DelayedTask 和自定义 `UnitTransactions`；[TradeProjectionServiceTest:61–71](../realtime/realtime-app/src/test/java/io/github/loadup/pay/realtime/app/service/TradeProjectionServiceTest.java#L61) 使用 mock 投影/receipt gateway 和内存事务替身。它们能验证调用行为和事务标记，但不能证明 MySQL 锁竞争、真实回滚和多表唯一约束。
+UNKNOWN 指标不能替代所有未收敛金额统计，尤其 PROCESSING/CLOSING；是否需要额度 held、投影新鲜度、失败任务积压，应按运营目标分别定义，不能相加推导可释放资金。恢复变慢或人工升级只改变查询/处置节奏，不授予新扣款权。
 
-在本仓库 Java 源码中搜索 `Testcontainers / EnableTestContainers / SpringBootTest / MySQLContainer` 未找到匹配，也未找到 `*IT.java`。这不否认框架仓库或外部已有验证；只是当前 pay 仓库没有提供对应集成测试证据。
+### 3.3 不把主动限制当作已经实现的闭环
 
-**影响。** 当前最重要的承诺是“状态、receipt、Outbox/DelayedTask 同时提交”，而不是某个方法被调用过。测试替身即使模拟 rollback，也无法发现真实 Mapper SQL、索引、连接/事务管理器配置或隔离级别造成的问题。
+支付宝 H5 本地签名 URL 与渠道受理观察已分离；微信付款码成功响应后查询原交易取得证据。服务商 H5、丢失本地 action 后重新生成、微信撤销补偿、官方账单自动来源、Transfer 遗留 RUNNING 的受控恢复均有明确未实现说明。继续按现有契约补齐，不以同名普通 close/refund 代替特殊协议。
 
-**建议。** 保留领域单测，在现有模块中补充少量真实 MySQL 集成测试，复用现有 Testify/Testcontainers，不新建通用测试平台。优先覆盖以下行为：
+下一轮优先级：先修复比较任务恢复，再在目标数据库证明事务/幂等/租约，随后补容量与证据保留。R9 的分页优化由实际查询计划决定。无需为了代码行数减少而把不同业务状态机合并。
 
-1. 两个并发相同请求只产生一份 allocation/attempt，金额不重复预占。
-2. Y2 竞争仅一个调用者获得首次提交权；提交权落库后进程中断，恢复只查询原请求。
-3. 结果或 receipt/Outbox 写入中任一步失败，整组本地变更回滚；远端成功而本地 ACK 丢失，重放不重复业务生效。
-4. 两个 worker、租约到期、旧 generation 与新 generation 并发，不跳过当前恢复、不扩大执行权限。
-5. 投影同版本不同内容被拒绝，旧版不会覆盖新版；退款容量并发不超退。
+## 4. MySQL → PostgreSQL：开发期成本与收益
 
-**验收。** 使用实际迁移和实际 gateway，通过数据库最终记录与并发屏障断言结果；明确列出运行范围和结果。本文没有执行这些测试。
+### 4.1 决策建议
 
-### R2 · P1：运营“查询”应与交易“修改”分开取得数据
+**若项目长期打算采用 PostgreSQL，建议在当前无生产数据阶段完成统一切换；先做共享组件验证，再重建七个服务的开发库。** 不建设长期双数据库兼容层，不搬运历史测试数据，不保留旧 DDL 的运行兼容分支。Git 保留历史即可；本评审不执行重建或任何数据库写入。
 
-**证据。** [AcquireRecoveryOperationsService:80–87、137–157](../acquire/acquire-app/src/main/java/io/github/loadup/pay/acquire/app/service/AcquireRecoveryOperationsService.java#L80) 的 `detail()` 进入 `transactions.write()`，`inspect()` 锁订单、allocation 和 cursor。[PaymentRecoveryOperationsService:78–85、135–163](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentRecoveryOperationsService.java#L78) 对付款/退款执行相同模式；付款详情继续进入 [PaymentExecutionLocks:49–61](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentExecutionLocks.java#L49)，锁父门禁、付款门禁与付款。付款仓储明确使用 [PaymentControlGatewayImpl:86–95](../payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentControlGatewayImpl.java#L86) 的 `forUpdate()`。
+从当前支付核心看，没有只能靠 PG 解决的资金一致性问题。换库的直接收益主要是约束表达、后续查询能力和统一技术栈；不能承诺吞吐提升、延迟下降或数据库费用下降。若现有团队/部署平台只擅长 MySQL，又没有 PG 查询需求，继续用 MySQL 同样合理，应优先完成业务验证。
 
-**影响。** 故障期间的运营轮询会与受理、关单、结果落账竞争同一组排他锁。源码能证明锁竞争关系，但没有压测证据可以量化延迟或断言发生死锁。当前代码注释说明查询要求一致视图，因此这是一项需要调整的接口语义，而不是误加一个注解。
+### 4.2 改动范围：业务 DDL 之外还有共享依赖
 
-**建议。** 拆成无排他锁的 `readInspection` 与写路径的 `lockForRetry`。详情返回版本、generation、taskId、attempts、nextExecuteAt；真正执行 retry 时继续持锁复核这些条件。需要多表一致视图时使用短只读快照事务；并发变化可返回“状态已变化”，不能把查询到的 retryable 当执行授权。
+以下为本轮源码盘点，不是实际部署数据库表数；统计 src/main/resources/db/migration 下的 SQL，排除 design/sql 草案。
 
-**验收。** 详情读取不发出 `SELECT ... FOR UPDATE`；持续轮询时正常落账不等待详情持有的写锁；过时详情发起 retry 仍被版本/任务条件拒绝，审计与原任务重试仍同事务。
+| 服务 | 迁移脚本数 | CREATE TABLE 声明数 |
+|---|---:|---:|
+| acquire | 16 | 18 |
+| payment | 18 | 28 |
+| limitcenter | 4 | 10 |
+| customer | 1 | 2 |
+| product | 2 | 2 |
+| realtime | 1 | 5 |
+| reconciliation | 2 | 5 |
+| 合计 | **44** | **70** |
 
-### R3 · P1：将恢复从“不断执行”完善为可运营的生命周期
+41 份脚本含 DATETIME、40 份含 TINYINT、40 份含 COLLATE、14 份含 LONGTEXT、1 份含 MEDIUMTEXT、1 份含 GENERATED ALWAYS。脚本数不等于需要保留的版本数：开发库可重建时，可以按服务整理为清晰的 PG 初始基线，但必须保留累计后的约束和索引。
 
-**证据。** [PaymentRecoveryService:51–68、99–113](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentRecoveryService.java#L51) 和 [RefundRecoveryService:51–66、97–111](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/RefundRecoveryService.java#L51) 在非终态时固定延迟，并为下一 generation 注册不同任务。默认间隔 30 秒；[业务配置:14–17、48–57](../payment/payment-bootstrap/src/main/resources/application-payment-business.yml#L14) 中 `max-attempts` 是单个 native task 的失败重试上限，不限制成功处理但仍未知的后续 generation。
-
-按 30 秒理想调度估算，一笔持续未知交易每天可生成约 2,880 个 successor；实际数量取决于扫描间隔、处理耗时和故障。这是**生成量估算，不是已测存储增长率**；框架清理机制也需要单独核实。
-
-本仓库 `src/main` Java 未检出直接使用 `MeterRegistry/ObservationRegistry` 的业务埋点。[application.yml:28–52](../payment/payment-bootstrap/src/main/resources/application.yml#L28) 有通用监控配置，默认 `METRICS_ENABLED=false`；不能因此认定整个系统没有框架指标，但未见 UNKNOWN 持续时间、金额占用年龄、投影延迟等业务指标定义。
-
-**建议。**
-
-- 区分传输失败重试与“查询成功但结果未知”的业务轮询；增加按持续时间退避、抖动、渠道并发限制。
-- 为长期未知状态建立告警与人工查证入口；超出运营阈值只调整轮询/升级处置，绝不自动释放资金占用或重扣。
-- 明确终结任务的保留/归档策略，分别处理调度历史、业务幂等回执和资金证据，不能统一按 TTL 删除。
-- 定义业务指标：未知笔数及最老年龄、占用未收敛金额、FAILED 任务数、Outbox 最老未交付年龄、投影新鲜度。标签只用服务、渠道、状态等低基数维度，订单号放受控日志或追踪。
-
-**验收。** 模拟长期 UNKNOWN 时请求速率和任务生成量受策略约束；告警能够定位原业务身份；恢复与人工操作仍使用原 paymentId/attempt/requestNo；不能因为告警或清理丢失幂等和资金证据。
-
-### R4 · P2：以业务不变量收敛模块，而不是继续拆小 Service
-
-**证据。** 付款与 attempt 的 paymentId、金额、商户、callerService、requestDigest、limitOperationId 关联校验重复出现在 [PaymentExecutionService:168–175](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentExecutionService.java#L168)、[PaymentSubmissionPreparation:207–218](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentSubmissionPreparation.java#L207)、[PaymentChannelCallbackService:70–81](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentChannelCallbackService.java#L70)。各入口需要的额外条件并不完全相同。`PaymentExecutionLocks` 已收敛锁序，但调用者仍需继续理解并核对这些关系。
-
-**影响。** 增加新的执行或回调路径时，开发者必须知道哪些字段要相等、何时核验 active attempt、哪些终态允许迟到观察。只新增一个 Service 或复制一段 if，很容易得到与旧入口不同的约束集合。这里是维护风险，不是断言现有校验都可删除。
-
-**建议。** 在 payment 内部建立小接口、完整语义的付款执行上下文：一次组装已校验的 payment/attempt/gate；纯领域校验集中表达共同绑定关系，`requireSubmittable / requireObservable / requireClosable` 分别表达不同前置条件。保留数据库重建时与外部输入进入时的防御校验；不要把租户授权、协议验签和状态转换塞进一个万能 Validator。
-
-编排层只负责“读取/加锁 → 取得合法上下文与决策 → 提交 → 远端调用 → 结果应用”。不要把渠道 IO 搬进聚合，也不要把整个支付流程包成大事务。
-
-**验收。** 同一绑定规则有一个维护位置；首提、恢复、回调、关单共同经过它。逐项篡改金额、商户、attempt、摘要和 operation 的参数化测试覆盖所有入口，同时保留各入口不同的权限和终态要求。
-
-### R5 · P2：让事务与租户上下文的接口语义明确
-
-**证据。** [PaymentAcceptanceTransactions:47–69](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentAcceptanceTransactions.java#L47) 与 [OrderCreationTransactions:47–74](../acquire/acquire-app/src/main/java/io/github/loadup/pay/acquire/app/service/OrderCreationTransactions.java#L47) 的 `read()` 只是绑定租户和转换异常，**并不启动只读事务**；[RealtimeTransactions:40–66](../realtime/realtime-app/src/main/java/io/github/loadup/pay/realtime/app/service/RealtimeTransactions.java#L40) 的 `read()` 则启动 `REQUIRES_NEW + REPEATABLE_READ + readOnly`。前三者的写重试均存在最多三次 duplicate/transient 捕获模式。
-
-**影响。** 同名方法在不同模块具有不同一致性和网络调用约束。例如 PaymentExecutionService 在 `read()` 内调用渠道目前没有跨本地事务；如果维护者参照 realtime“统一”这个方法，会改变重要安全条件。方法签名没有传达这种差异。
-
-**建议。** 将无事务的操作明确命名为 `withTenantContext`，真正一致性读取命名为 `readSnapshot`，本地可重试写命名为 `writeLocal`，并记录隔离级别、是否允许嵌套与重试范围。重试闭包仅包含可重放的本地数据库操作；远端 IO 继续禁止进入。先统一语义和契约测试，再评估是否把纯技术执行机制复用到现有框架；业务错误映射留在各自模块，不新建 pay-common 或公共 BaseService。
-
-**验收。** 各接口对“是否存在真实事务、是否只读、租户何时恢复”有一致命名和测试；原渠道调用仍在事务外；重复键冲突重放与不可重试业务错误有明确区分。
-
-### R6 · P2：为持久恢复意图建立自己的表示契约
-
-**证据。** [PaymentInitiationCodecImpl:45–71](../acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/codec/PaymentInitiationCodecImpl.java#L45) 把 `PaymentExecuteCommand` 写入 acquire 的 intent payload；[PaymentAcceptanceCodecImpl:47–85](../payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/codec/PaymentAcceptanceCodecImpl.java#L47) 把同一公开 Command 写入 payment，并以其当前类型反序列化。两侧均严格校验字段与条款版本，SHA-256 验证的是载荷完整性。
-
-**影响。** 公开调用参数、服务间表示和长时间存在的恢复快照共享 Java 类型。调整公开 Command 的校验、字段或嵌套结构，会同时影响两个数据库中在途记录的读取；checksum 不能解决这种语义耦合。
-
-**建议。** 对核心恢复流程定义本地不可变的 `PaymentIntentSnapshot`，只保存恢复必要的身份、金额、原条款引用/内容与输入引用；由 mapper 映射到公开 Command。存储快照明确格式标识与校验职责，避免每个 codec 重复定义所有业务关系；业务关系交给 R4 的模块处理。
-
-本项目当前不要求向后兼容，因此**不建议先建设多版本兼容框架**。开发期可以同步重构 DTO、快照、迁移和调用方；一旦需要保留在途数据，才选择明确的数据迁移或特定版本读取方案，并验证旧记录恢复。
-
-**验收。** 对外 Command 的纯表示变化不再隐式改变持久快照；格式不支持或快照损坏时明确失败；当前在途记录的处置方式在每次变更中明确，不静默套用新参数。
-
-### R7 · P2：复用恢复流程的机械部分，保留业务状态机差异
-
-**证据。** [PaymentRecoveryService:71–116](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentRecoveryService.java#L71) 与 [RefundRecoveryService:69–114](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/RefundRecoveryService.java#L69) 重复了 native 任务身份/lease/attempts 校验、旧代跳过、锁内前置检查、锁外执行、锁内完成或注册 successor。两者主要差异是业务锁序、终态判定和实际推进动作。
-
-**影响。** 新增任务有效性字段、退避或观测时需要成对修改。单纯复制测试会确认两份实现各自符合预期，却不保证以后使用相同恢复协议。
-
-**建议。** 先只在 payment 模块内部提取任务校验与 successor 计算的纯函数/值对象，付款和退款的锁序、状态迁移、提交权限仍各自持有。等两条路径的组合接口足够小，再考虑小型组合式 runner；不要直接建设跨六服务的泛型 Saga 引擎，也不要让 runner 暴露 channel.submit。
-
-**验收。** 旧代、未来代、租约失效和重复 handler 的协议测试可共享；付款/退款特有的锁序和终态测试仍保留；统一流程不将 UNKNOWN 解释成失败或获得新提交权。
-
-### R8 · P2：统一当前能力说明，并为关键边界补门禁
-
-**证据。** [根 README:5–23](../README.md#L5) 仍称 Facade 只有接口、没有应用服务或 Controller、业务功能为契约层；[payment README:1–23](../payment/README.md#L1) 与实际 `PaymentExecutionService` 等源码已描述/实现业务切片。[ARCHITECTURE:3–21](../ARCHITECTURE.md#L3) 同样保留早期状态。ROADMAP 的早期总览与后续增量记录混合，部分已实现项仍被列为“继续实现”。
-
-[ChannelModuleBoundaryTest:34–102](../channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/ChannelModuleBoundaryTest.java#L34) 已有渠道边界门禁；在本次源码搜索中未发现覆盖六服务依赖与领域纯净度的通用架构测试。未发现违规依赖与缺少防止未来违规的门禁，是两件事。
-
-**建议。** 根 README 只保留一份当前能力矩阵：能力、源码状态、自动化验证状态、真实环境验收状态、责任模块。模块 README 维护契约，架构文档维护决策与不变量；历史实施记录不再兼任“当前事实”。逐步整理现有 ROADMAP 的重复与过期条目。
-
-补充针对本项目真实规则的窄门禁：domain 不依赖 Spring/ORM/传输实现；跨服务不引用 app/infrastructure；业务层不引用渠道插件；app 不依赖基础设施实现；infrastructure 引用 app 时限定允许的 port/model。可沿用现有源码/POM 检查方式，并在正常构建时补字节码依赖验证；无需创建新服务或新治理平台。
-
-**验收。** 每个能力能分别回答“已写代码、已通过什么测试、已在哪个环境验收”；故意加入一个非法依赖时对应门禁失败，合法的 port Adapter 实现不会误报。
-
-### R9 · P3：为大量交易查询设置明确的分页边界
-
-**证据。** [TradeProjectionGatewayImpl:305–344](../realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/TradeProjectionGatewayImpl.java#L305) 的订单/付款/退款查询先 count，再按业务时间和 ID 双排序，最后 limit/offset。双排序是正确的稳定排序基础；但大 offset 与宽时间范围 count 的工作量仍会增长。
-
-**建议。** 保留现有约定的页码 API；对大范围遍历/导出另定义基于 `(businessCreatedAt, id)` 的 cursor 接口，或先限制时间窗口、深页范围。只有真实查询计划和数据量证明必要时再加专用复合索引，避免给投影写入无条件增加索引成本。
-
-**验收。** 在代表性数据量上检查实际执行计划、深页耗时与总数查询成本；cursor 场景验证并发插入和同时间戳下不重复、不漏读，并明确快照/时间上界语义。本轮没有性能实测，不能认定现有分页已超出需求。
-
-## 4. 建议的演进目标
-
-维持现有服务拓扑，优先收敛每个服务内部的接口。以 payment 为例：
-
-```mermaid
-flowchart TD
-    A[HTTP / gRPC / DelayedTask 入口] --> B[应用编排：权限与执行步骤]
-    B --> C[本地事务：锁序与持久化]
-    C --> D[领域执行上下文：绑定校验与状态决策]
-    C --> E[Gateway：业务数据 + Receipt + Outbox]
-    B --> F[事务外远端端口]
-    F --> G[channel-api / limitcenter client]
-    E --> H[结果投递与投影]
-    I[运营只读查询] --> J[无排他锁的恢复视图]
-    K[运营 retry 命令] --> B
-```
-
-该图是建议的内部组织，不是新增部署单元。`Module` 的价值在于把一组完整规则藏在小接口后；`Adapter` 负责实现协议或存储差异。应集中维护不变量，同时保持首提、观察、关单和退款各自不同的条件。拆文件数量、接口数量或类的行数都不是优化完成指标。
-
-### 实施顺序与停止条件
-
-| 批次 | 范围 | 交付与停止条件 |
+| 层次 | 必须处理的范围 | 判断 |
 |---|---|---|
-| A：证明与隔离 | R1、R2 | 有真实数据库并发/回滚证据；运营查询不持核心写锁；retry 仍严格复核。先建立回归保护，再动状态机组织。 |
-| B：恢复可运营 | R3 | 长期 UNKNOWN 的轮询、告警、保留策略可解释且可演练；任务失败不会转化成资金失败。 |
-| C：接口收敛 | R4、R5、R6、R7 | 先在 payment 内完成一个完整切片，再推广到 acquire；共同校验和恢复协议只有一个维护点，不引入跨服务大事务。 |
-| D：持续约束 | R8 | 文档与实际能力一致，关键依赖规则有可执行门禁；后续变更同步维护。 |
-| 按需优化 | R9 | 有代表性查询计划/容量证据后实施，不作为当前核心一致性工作的前置条件。 |
+| pay 启动装配 | 七个 bootstrap 的 business profile、JDBC 驱动/URL、Flyway 数据库支持、开发与部署配置 | [payment POM](../payment/payment-bootstrap/pom.xml#L79) 与 [reconciliation POM](../reconciliation/reconciliation-bootstrap/pom.xml#L67) 明确依赖 flyway-mysql/mysql-connector-j，不能只改 URL。 |
+| pay 存储适配 | 上述 DDL、MyBatis-Flex 生成 SQL/类型映射、enum/时间/金额、锁与版本 CAS | domain/公开 DTO 原则上不因换库改变；变动集中在基础设施。 |
+| 可靠性组件 | database 序列分配、Outbox/Inbox、DelayedTask、GlobalUnique | 原子性与幂等热路径，必须先证明支持 PG。 |
+| 业务依赖闭包 | customer 引用 merchant，product 引用 contract；reconciliation 的 File/Transfer 与文件引用/任务表 | 这些共享模块的迁移和同库事务必须一起适配；不能只处理 pay 目录内 70 个表声明。 |
+| 测试与规范 | 8 个 pay IT、相关框架 IT、测试 fixture/原生 SQL、AGENTS 数据库类型约定、README | [SharedPostgreSQLContainer](../../loadup-framework/loadup-components/platform/loadup-components-testcontainers/src/main/java/io/github/loadup/components/testcontainers/database/SharedPostgreSQLContainer.java#L55) 已有实现，不必新造测试平台；其存在不等于其他组件已支持 PG。 |
 
-## 5. 范围限制与待验证事项
+框架 database POM 的 MySQL 驱动/Flyway 是 **test scope**，不是业务运行时硬依赖；应分别改测试后端与业务启动依赖。File 的 S3 字节存储可保持不变，但其本地元数据和 Transfer 存储仍需适配。评估不包含与 pay 无关的整个框架所有模块换库。
 
-- 没有发现可仅凭此次静态证据定为 P0 的资金破坏问题；这不构成生产可用性或安全性保证。
-- 已阅读的代码存在明确的幂等、fencing、receipt、版本 CAS 和事务外 IO 防护，不能把系统描述为“没有幂等/没有可靠事件”。
-- 本轮没有评估真实 MySQL 执行计划、渠道产品限制、真实 JWT/TLS 配置和多实例调度效果，也没有核验框架底层任务清理实现。
-- 银联、后置对账等已明确后置的能力，不作为本轮设计缺陷；也不建议为潜在需求先建设万能渠道协议、分布式事务引擎或独立公共业务层。
-- 本轮仅输出审查文档，并按仓库要求登记 ROADMAP；所有重构、测试补充及验收均为后续工作，未修改业务代码。
+### 4.3 最重要的语义改造
+
+**A. 修复事务内重复键后的继续执行。**
+
+以下组件使用 insert → catch DuplicateKeyException → 同一事务 select 的模式：
+
+- [DefaultGlobalUniqueTemplate.claim](../../loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/DefaultGlobalUniqueTemplate.java#L65)。
+- [OutboxInbox.consume](../../loadup-framework/loadup-components/reliability/loadup-components-outbox/src/main/java/io/github/loadup/components/outbox/OutboxInbox.java#L50)。
+- [DelayedTaskTemplate.register](../../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskTemplate.java#L71)。
+
+PG 中约束错误会使当前事务进入失败状态，Java catch 不会恢复事务；继续查询无法正常完成幂等处理。优先使用针对正确业务唯一键的 ON CONFLICT DO NOTHING，并在未插入时校验已有记录；或明确使用 savepoint/整笔事务回滚后重试。不能用无差别“忽略所有冲突”掩盖其他唯一约束错误，也不能换成会覆盖原证据的无条件 upsert。[PG 事务错误恢复](https://www.postgresql.org/docs/current/tutorial-transactions.html)、[PG INSERT](https://www.postgresql.org/docs/current/sql-insert.html)、[ROLLBACK TO SAVEPOINT](https://www.postgresql.org/docs/current/sql-rollback-to.html)。
+
+[PaymentAcceptanceTransactions.writeLocal](../payment/payment-app/src/main/java/io/github/loadup/pay/payment/app/service/PaymentAcceptanceTransactions.java#L58) 和 [DatabaseSequenceRangeAllocator.reserve](../../loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/sequence/DatabaseSequenceRangeAllocator.java#L53) 在 transaction.execute 外捕获异常，已经具备整事务回滚后重试的结构；它们与上述问题不同。仍需验证 PG 异常转换及并发行为，不应机械重写为全局 SERIALIZABLE。
+
+**B. 替换 SQL 方言，并明确“当前时间”口径。**
+
+[JdbcOutboxRepository](../../loadup-framework/loadup-components/reliability/loadup-components-outbox/src/main/java/io/github/loadup/components/outbox/JdbcOutboxRepository.java#L109) 使用 TIMESTAMPADD，指标查询使用 TIMESTAMPDIFF；需要改成 PG 时间运算。PG CURRENT_TIMESTAMP 固定为事务开始时间，租约判断应明确采用语句时间或实时钟，不能只做字符串替换；本地无时区时间列还需统一会话时区。[PG 时间函数](https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-CURRENT)。
+
+Outbox 已采用领取锁，DelayedTask 采用候选查询 + 条件 UPDATE/CAS；两者不是同一个调度实现。先保留 claim token、lease、attempt 的现有语义，验证后再考虑 PG 专用优化。
+
+**C. 重建 DDL 时保留领域含义，不机械替换类型。**
+
+| 当前表示 | 建议 PG 表示/处理 | 必须验证 |
+|---|---|---|
+| 金额分、版本、generation | BIGINT，保留 CHECK | Long 上限、SUM 映射、CAS 受影响行数；不改浮点金额。 |
+| DATETIME(6) / LocalDateTime | 本轮先保持 timestamp(6) without time zone | JVM/Clock/JDBC/DB 会话一致；微信 +08:00 账单日界、微秒与 RPC instant 往返。若改 timestamptz，需另列跨层时间模型重构。 |
+| TINYINT 0/1 | SMALLINT + CHECK，保留当前整数映射 | BaseDO.deleted、查询 eq(0) 及更新。若统一 boolean，应同时修改所有映射/规范，不能局部替换。 |
+| LONGTEXT/MEDIUMTEXT | TEXT | 长度上限由当前 codec/约束保持。 |
+| VARCHAR 主键与业务编号 | 保留原字符串 ID、原编号算法 | 租户唯一键和分段分配并发；不因 PG 有 sequence 就换业务编号体系。 |
+| ENGINE/CHARSET/KEY/列内 COMMENT | 删除 MySQL 选项，重写索引/COMMENT ON 等 | 外键、CHECK、NOT NULL、唯一键及默认值无遗漏；空库能完整初始化。 |
+| utf8mb4_bin、可空唯一键 | 明确 PG collation 与 NULL 语义 | 大小写、尾空格、非 ASCII 身份、排序/分页。不要假定默认 locale 或 C 与旧排序规则完全相同。 |
+
+**D. 带摘要的原始载荷先用 TEXT。**
+
+[PaymentAcceptanceCodecImpl](../payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/codec/PaymentAcceptanceCodecImpl.java#L63) 对原 JSON 的 UTF-8 字节计算 SHA-256，读取时验证。JSONB 会改变空白/对象键顺序等表示；若仍沿用原载荷摘要，读取会被判损坏。因此这些证据载荷保留 TEXT；确有检索需求时另建结构化字段/投影，不为了使用 PG 特性批量改 JSONB。[PG JSON 类型](https://www.postgresql.org/docs/current/datatype-json.html)。这与旧数据兼容无关，新写入记录也要满足同一摘要契约。
+
+**E. Flyway 只加载选定后端的脚本。**
+
+当前 business 配置使用 classpath:db/migration，共享组件也从此路径提供迁移，GlobalUnique 还有 mysql 子目录。采用 PG 单后端时应替换相关资源并核查依赖 JAR，不要把两种方言同时留在扫描范围，也不要对所有环境自动执行 Flyway clean/repair。先在隔离的新开发库验证完整依赖闭包，再由开发者按需清理可丢弃环境。
+
+### 4.4 收益与代价
+
+| 维度 | 对本项目的收益 | 限制/代价 |
+|---|---|---|
+| 约束表达 | customer 的 active_slot 生成列可用带状态谓词的唯一索引表达，减少辅助列 | 必须保留 INIT/ACTIVE 的准确谓词；deleted 是否加入谓词是业务规则变化，应单独决定。 |
+| 待处理集合索引 | 对 Outbox/任务的少量活跃状态可评估 partial index，减少不必要的索引内容 | 查询条件必须能匹配谓词，参数化 SQL 下需检查真实计划；不是所有索引都应改 partial。 |
+| 查询与分析 | JSONB/表达式索引可用于新建的运营检索投影，对账和统计有后续发展空间 | 当前核心数据已经结构化，这部分是潜在收益；证据 JSON 保持原字节。 |
+| 幂等 SQL | ON CONFLICT 能直接表达有条件插入，减少以异常处理正常重复请求的路径 | 必须限定冲突目标、核验原内容；不能替代业务幂等约束。 |
+| 性能/资金安全 | 两种数据库都能支撑当前本地事务 + Outbox + CAS 架构 | 换库不会自动消除重扣风险、分布式一致性或深分页成本，没有证据可给性能提升比例。 |
+| 运维 | 若团队统一 PG，可减少后续数据库栈分裂 | 需掌握 autovacuum、死元组、长快照、WAL 与备份恢复；高更新任务表尤应关注。 |
+
+customer 当前约束见 [授权 DDL](../customer/customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql#L18)。Partial index 的用途和谓词限制依据 [PG 部分索引文档](https://www.postgresql.org/docs/current/indexes-partial.html)；更新/删除产生的旧行回收与统计维护依据 [PG vacuum 文档](https://www.postgresql.org/docs/current/routine-vacuuming.html)。表中的项目收益是结合源码的评估，不是压测结果。
+
+### 4.5 工作量估算：16–28 人日
+
+这是粗粒度工程估算，假设熟悉 Java/Spring/MyBatis-Flex，目标为 pay 七服务及其必要共享依赖的 PG 单后端可运行版本；包含针对性验证，不包含业务新功能或无关框架模块改造。人日是总投入，不是自然日承诺。
+
+| 工作包 | 人日 | 交付物 |
+|---|---:|---|
+| 共享依赖最小验证 | 1–2 | 确认 PG/JDBC/Flyway 版本组合；重复键、事务失败恢复、Outbox/任务/序列最小运行证据。 |
+| 共享组件与依赖闭包适配 | 5–8 | Outbox/Inbox、DelayedTask、GlobalUnique、序列及 merchant/contract/File/Transfer 所需 DDL/映射修正。 |
+| 业务数据库基线重建 | 3–5 | 七服务 PG DDL、约束/索引、空库初始化；可以合并开发期历史迁移。 |
+| 应用与配置切换 | 1–3 | bootstrap/BOM/驱动/Flyway、数据源、生成 SQL、类型及异常映射。 |
+| 集成与并发验证 | 4–7 | 转换现有 pay IT 并补 PG 特有用例；框架事务契约、恢复及对账封存运行结果。 |
+| 开发环境、规范与文档收尾 | 2–3 | 统一测试镜像/目标版本、配置与数据库约定、开发初始化和常规备份恢复说明。 |
+| 合计 | **16–28** | 完成范围内 PG 验证，不只做到连接数据库。 |
+
+单人约 3–6 个工作周；两人可并行推进 DDL/配置与组件测试，但共享事务语义验证仍在关键路径。若仅做 DDL/驱动替换会更快，却不能称为迁移完成。精度有限：尚未实际运行 PG、核验全部生成 SQL或测量数据规模，首个工作包结束后应更新估算。
+
+费用可按“16–28 × 团队综合人日成本 + 开发/CI 数据库资源”计算；没有实例规格、流量和平台报价，不给出虚假的云费用节省数字。无需支付存量迁移、双写平台或在线切换的工程成本。
+
+### 4.6 实施顺序与完成条件
+
+1. **先建立共享组件的 PG 证明。** 固定目标版本和测试镜像；现有 PG 容器默认镜像为 15-alpine，不能将其默认值直接当成部署版本决策。验证 Inbox/GlobalUnique/DelayedTask 重复键、Outbox 租约、序列并发。此阶段失败先修框架，不继续机械批量换 DDL。
+2. **建立 PG 单一开发基线。** 同步七服务及实际引入的共享迁移、驱动、Flyway 和类型规范；新库初始化，移除这些运行路径中的 MySQL 方言依赖。保留每服务数据所有权，不趁换库合并七个服务。
+3. **按业务不变量验收。** 相同请求并发只生效一次；Y2 首提资格唯一；状态/receipt/Outbox/任务同事务回滚；旧 lease/token/generation 不取得新权限；退款不超额；投影旧版本不覆盖新版本；对账 RR、完整封存及失败比较任务重试均通过。
+4. **给出明确验证记录。** 列出数据库版本、schema、测试范围、结果及关键 SQL 计划；真实 PG 驱动的错误分类/超时和 RR 行为需要实测。PG 的 RR/Serializable 发生序列化错误时需要整事务重试，不能仅重放最后一条 SQL。[PG 事务隔离](https://www.postgresql.org/docs/current/transaction-iso.html)。
+
+停止条件是目标数据库上关键契约可证明且开发配置一致；不要求先增加分区、读写分离、JSONB 全量改造或数据库抽象平台。本轮只完成评估与报告，尚未实施上述工作。
+
+## 5. 本轮验证边界
+
+- 新增一项确认的 P2 恢复缺口；上轮问题已按当前源码更新状态，未把有意后置能力重复列为缺陷。
+- 8 个 pay 数据库 IT 的存在经源码盘点确认；本轮没有运行，无法证明当前 MySQL 或未来 PG 已通过集成验收。
+- 未做真实渠道产品验收、数据库压测、部署检查；跨服务 API/安全实现仅针对所追踪链路抽查，不构成全面安全审计。
+- 仅更新本报告与 ROADMAP；保留工作区已有业务改动，不进行业务修复、换库、构建、提交或推送。
