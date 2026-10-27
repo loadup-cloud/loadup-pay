@@ -104,8 +104,8 @@ public interface PaymentCaptureRpcMapper {
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "totalCount", source = "pageInfo.totalCount")
-    @Mapping(target = "page", source = "pageInfo.pageIndex")
-    @Mapping(target = "size", source = "pageInfo.pageSize")
+    @Mapping(target = "page", expression = "java(Math.toIntExact(value.getPageInfo().pageIndex()))")
+    @Mapping(target = "size", expression = "java(Math.toIntExact(value.getPageInfo().pageSize()))")
     WirePaymentCapturePage toWire(PageDTO<PaymentLedgerLineDTO> value);
 
     @Mapping(target = "data", source = "dataList")

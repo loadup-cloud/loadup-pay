@@ -128,12 +128,9 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
                 || !Objects.equals(capture.finishedAt().toInstant(), latest.finishedAt().toInstant())
                 || !capture.systemZone().equals(latest.systemZone()) || !matches(latest, rows)) throw new CommonException(INPUT_INVALID);
         budget(started);
-        var lines = rows.stream().map(ledger::toLine).toList();
-        var totals = ReconciliationTotals.count(lines);
         String artifactId = ids.generate();
-        var manifest = new ReconciliationManifest(ReconciliationSide.LEDGER, original.batch().scope(), artifactId, capture.contentHash(),
-                ReconciliationDataset.normalizedHash(original.batch().scope(), ReconciliationSide.LEDGER, FORMAT, lines), capture.captureId(), FORMAT, totals);
-        var data = new ReconciliationDataset(manifest, lines);
+        var data = dataset(original.batch().scope(), artifactId, capture, rows);
+        var manifest = data.manifest();
         final byte[] bytes;
         try { bytes = PaymentCaptureContentHash.archive(capture, rows, maxBytes); }
         catch (CommonException invalid) { throw new CommonException(INPUT_INVALID); }
@@ -151,6 +148,14 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
             batches.update(actor.tenantId(), converter.withBatch(current, next), current.batch().version());
             return converter.toDTO(next);
         });
+    }
+    private ReconciliationDataset dataset(ReconciliationScope scope, String artifactId, PaymentCaptureDTO capture, List<PaymentLedgerLineDTO> rows) {
+        try {
+            var lines = rows.stream().map(ledger::toLine).toList();
+            var manifest = new ReconciliationManifest(ReconciliationSide.LEDGER, scope, artifactId, capture.contentHash(),
+                    ReconciliationDataset.normalizedHash(scope, ReconciliationSide.LEDGER, FORMAT, lines), capture.captureId(), FORMAT, ReconciliationTotals.count(lines));
+            return new ReconciliationDataset(manifest, lines);
+        } catch (io.github.loadup.commons.error.DomainViolation | ArithmeticException invalidSource) { throw new CommonException(INPUT_INVALID); }
     }
     private ReconciliationBatchDTO replay(StoredReconciliationBatch batch, String captureId) {
         if (!FORMAT.equals(batch.batch().ledger().parserRevision()) || !captureId.equals(batch.batch().ledger().sourceCaptureId())) throw new CommonException(IDEMPOTENCY_CONFLICT);
