@@ -74,12 +74,12 @@ public class RefundExecutionService {
         DomainChecks.id(requestId);
         var channel = channels.getIfAvailable();
         if (channel == null) throw new CommonException(UNSUPPORTED_CAPABILITY);
-        var work = transactions.write(tenant, () -> prepare(tenant, requestId, channel));
+        var work = transactions.writeLocal(tenant, () -> prepare(tenant, requestId, channel));
         if (work.isEmpty()) return;
         var step = work.get();
         final RefundObservation observation;
         try {
-            observation = transactions.read(tenant, () -> step.firstSubmission()
+            observation = transactions.withTenantContext(tenant, () -> step.firstSubmission()
                     ? channel.submitRefund(step.prepared()) : channel.recoverRefund(step.prepared()));
         } catch (RuntimeException unavailable) {
             results.uncertain(tenant, requestId, step.prepared().refundId());

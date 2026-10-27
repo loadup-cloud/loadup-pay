@@ -57,7 +57,7 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
         var actor = actors.current();
         if (!limitService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-facts"))
             throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var requestId = results.requestId(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var locked = locks.lock(actor.tenantId(), requestId, query.id());

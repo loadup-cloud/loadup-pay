@@ -117,7 +117,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public ParentFenceDTO fenceParent(ParentPaymentFenceCommand command) {
         validate(command);
         var actor = actor("pay:payment:fence");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             validateIds(command.orderId(), command.payeeMerchantId(), command.requestKey());
             String digest = digest(
                     actor,
@@ -161,7 +161,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query) {
         validate(query);
         var actor = actor("pay:payment:fence:read");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
             var current = gates.lockParent(actor.tenantId(), query.orderId());
             if (current.isEmpty()) return converter.toParent(query.orderId(), 0, false, false, 0);
@@ -174,7 +174,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public PaymentCloseDTO close(PaymentCloseCommand command) {
         validate(command);
         var actor = actor("pay:payment:close");
-        return transactions.write(actor.tenantId(), () -> closeLocked(actor, command));
+        return transactions.writeLocal(actor.tenantId(), () -> closeLocked(actor, command));
     }
 
     private PaymentCloseDTO closeLocked(PaymentActor actor, PaymentCloseCommand command) {
@@ -192,7 +192,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 command.reasonCode());
         var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
         prior.ifPresent(value -> checked(value, actor, digest));
-        parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
+        var parent = parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
         var current = gates.lockPayment(actor.tenantId(), command.paymentId());
         if (current.isEmpty() && prior.isPresent()) throw new CommonException(SNAPSHOT_INVALID);
         StoredPaymentGate next;
@@ -212,6 +212,7 @@ public class PaymentControlService implements PaymentControlFacade {
         prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), command.requestKey());
         var payment = store.lockPayment(actor.tenantId(), command.paymentId());
         payment.ifPresent(value -> checkPayment(value, actor, command));
+        payment.ifPresent(value -> PaymentExecutionBindings.locked(value, parent, next));
         if (prior.isPresent()) {
             checked(prior.get(), actor, digest);
             requireFence(next, prior.get().requestedEpoch());
@@ -250,13 +251,7 @@ public class PaymentControlService implements PaymentControlFacade {
                 if (unsubmitted.isPresent() && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
                         && unsubmitted.get().attempt().executionEpoch() == 0) {
                     var attempt = unsubmitted.get();
-                    if (!order.id().equals(attempt.attempt().paymentId())
-                            || !order.amount().equals(attempt.attempt().amount())
-                            || !order.payeeMerchantId().equals(attempt.attempt().binding().payeeMerchantId())
-                            || !order.limitOperationId().equals(attempt.limitOperationId())
-                            || !previous.requestDigest().equals(attempt.paymentRequestDigest())
-                            || !actor.serviceId().equals(attempt.callerServiceId()))
-                        throw new CommonException(SNAPSHOT_INVALID);
+                    PaymentExecutionBindings.closableContext(PaymentExecutionBindings.locked(previous, parent, fenced), attempt);
                     evidence = ids.generate();
                     attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
                     updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
@@ -312,7 +307,7 @@ public class PaymentControlService implements PaymentControlFacade {
     public PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command) {
         validate(command);
         var actor = actor("pay:payment:input:expire");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.inputRef()); DomainChecks.id(command.paymentId()); DomainChecks.id(command.orderId());
             DomainChecks.id(command.allocationId()); DomainChecks.id(command.payeeMerchantId()); DomainChecks.text(command.inputKey(), 128);
             DomainChecks.positive(command.amountMinor()); DomainChecks.cnyAmount(command.amountMinor(), command.currency());

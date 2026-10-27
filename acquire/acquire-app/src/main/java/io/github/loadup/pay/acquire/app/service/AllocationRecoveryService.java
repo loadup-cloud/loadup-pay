@@ -76,7 +76,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         var key = validateTask(task);
         var tenant = task.tenantId();
         var located = cursors.find(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var pending = transactions.write(tenant, () -> {
+        var pending = transactions.writeLocal(tenant, () -> {
             var locked = lock(tenant, key, located.orderId());
             if (!current(locked.cursor(), key, task)) return Optional.<StoredPaymentAllocation>empty();
             if (settled(tenant, locked)) {
@@ -108,7 +108,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
             else
                 outcomes.applyInputExpiry(owner, original.orderId(), original.paymentId(), recovered.closed());
         }
-        transactions.write(tenant, () -> {
+        transactions.writeLocal(tenant, () -> {
             var locked = lock(tenant, key, located.orderId());
             if (!current(locked.cursor(), key, task)) return true;
             if (settled(tenant, locked)) queue.finish(tenant, locked.cursor());
@@ -138,7 +138,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return key;
     }
 
-    private Locked lock(String tenant, AllocationRecoveryKey key, String orderId) {
+    private AllocationView lock(String tenant, AllocationRecoveryKey key, String orderId) {
         // Consistent with A2/A3: order, allocation, then continuation cursor.
         var order = orders.lockOrder(tenant, orderId);
         var allocation = allocations.lockPayment(tenant, orderId, key.paymentId())
@@ -148,7 +148,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
                 || !allocation.allocation().paymentId().equals(key.paymentId()) || !cursor.orderId().equals(orderId)
                 || !cursor.paymentId().equals(key.paymentId()) || key.generation() > cursor.generation())
             throw new CommonException(SNAPSHOT_INVALID);
-        return new Locked(order, allocation, cursor);
+        return new AllocationView(order, allocation, cursor);
     }
 
     private boolean current(AllocationRecoveryCursor cursor, AllocationRecoveryKey key, DelayedTask task) {
@@ -157,7 +157,8 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return true;
     }
 
-    boolean isCurrentLocked(String tenant, StoredAcquireOrder order, StoredPaymentAllocation allocation,
+    /** Evaluate a consistent read snapshot or already-locked view; never acquires execution rights. */
+    boolean isCurrent(String tenant, StoredAcquireOrder order, StoredPaymentAllocation allocation,
             AllocationRecoveryCursor cursor, long generation) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
@@ -165,10 +166,10 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
                 || !allocation.allocation().paymentId().equals(cursor.paymentId()) || generation > cursor.generation())
             throw new CommonException(SNAPSHOT_INVALID);
         if (cursor.completed() || generation < cursor.generation()) return false;
-        return !settled(tenant, new Locked(order, allocation, cursor));
+        return !settled(tenant, new AllocationView(order, allocation, cursor));
     }
 
-    private boolean settled(String tenant, Locked locked) {
+    private boolean settled(String tenant, AllocationView locked) {
         var stored = locked.allocation();
         var allocation = stored.allocation();
         if (!locked.order().callerScopeHash().equals(stored.callerScopeHash())) throw new CommonException(SNAPSHOT_INVALID);
@@ -192,7 +193,7 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return true;
     }
 
-    private record Locked(StoredAcquireOrder order, StoredPaymentAllocation allocation, AllocationRecoveryCursor cursor) {
+    private record AllocationView(StoredAcquireOrder order, StoredPaymentAllocation allocation, AllocationRecoveryCursor cursor) {
         @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
     }
 }

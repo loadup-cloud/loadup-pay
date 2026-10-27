@@ -23,7 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
- * Frozen internal command, retained without any raw channel input or credential.
+ * Owner-local immutable payment intent snapshot, retained without raw channel input or credentials.
  */
 public record StoredPaymentAcceptance(
         PaymentOrder payment,

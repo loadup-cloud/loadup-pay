@@ -32,10 +32,10 @@ public record RefundRecoveryCursor(String requestId, long generation, LocalDateT
     public static RefundRecoveryCursor init(String requestId, LocalDateTime dueAt) {
         return new RefundRecoveryCursor(requestId, 0, dueAt, false);
     }
+    public RecoveryPosition position() { return new RecoveryPosition(requestId, generation, dueAt, completed); }
     public RefundRecoveryCursor schedule(LocalDateTime nextAt, long expectedGeneration) {
-        require(!completed && generation == expectedGeneration, CONFLICT);
-        require(nextAt != null && nextAt.isAfter(dueAt), INVALID_ARGUMENT);
-        return new RefundRecoveryCursor(requestId, Math.incrementExact(generation), nextAt, false);
+        var next = position().schedule(nextAt, expectedGeneration);
+        return new RefundRecoveryCursor(requestId, next.generation(), next.dueAt(), next.completed());
     }
     public RefundRecoveryCursor finish() {
         return completed ? this : new RefundRecoveryCursor(requestId, generation, dueAt, true);

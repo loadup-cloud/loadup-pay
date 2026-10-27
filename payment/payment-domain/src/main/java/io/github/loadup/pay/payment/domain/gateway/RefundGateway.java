@@ -24,13 +24,14 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The caller owns the parent gate lock and one writable payment transaction.
+ * Reads require a local consistent transaction. Mutations and explicit locks additionally require the parent gate lock.
  */
 public interface RefundGateway {
     Optional<RefundRequestReference> reference(String tenant, String id);
 
     Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String merchantRefundNo);
 
+    /** Nonlocking reconstruction, usable inside a read-only snapshot. */
     StoredRefundRequest load(String tenant, String id);
 
     StoredRefundRequest lock(String tenant, String id);

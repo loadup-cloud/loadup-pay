@@ -91,7 +91,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         var actor = actors.current();
         if (!actor.permissions().contains("pay:acquire:extend")) throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             var requested = inputTime(command.requestedDueAt());

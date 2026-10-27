@@ -16,28 +16,15 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
-import static io.github.loadup.commons.error.DomainViolation.require;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 
-/** The generation fences obsolete wake-ups; it is not a channel submission key. */
+/** Typed refund continuation identity; canonical parsing belongs to the module-local protocol. */
 public record RefundRecoveryKey(String requestId, long generation) {
-    public RefundRecoveryKey {
-        DomainChecks.id(requestId);
-        require(generation >= 0, INVALID_ARGUMENT);
-    }
-    public String bizId() { return requestId + "." + generation; }
+    public RefundRecoveryKey { new RecoveryTaskKey(requestId, generation); }
+    public RecoveryTaskKey taskKey() { return new RecoveryTaskKey(requestId, generation); }
+    public String bizId() { return taskKey().bizId(); }
     public static RefundRecoveryKey parse(String value) {
-        require(value != null && value.length() <= 128, INVALID_ARGUMENT);
-        int separator = value.lastIndexOf('.');
-        require(separator > 0 && separator < value.length() - 1, INVALID_ARGUMENT);
-        final long generation;
-        try { generation = Long.parseLong(value.substring(separator + 1)); }
-        catch (NumberFormatException invalid) { throw new DomainViolation(INVALID_ARGUMENT); }
-        var key = new RefundRecoveryKey(value.substring(0, separator), generation);
-        require(key.bizId().equals(value), INVALID_ARGUMENT);
-        return key;
+        var key = RecoveryTaskKey.parse(value);
+        return new RefundRecoveryKey(key.subjectId(), key.generation());
     }
     @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

@@ -1,0 +1,247 @@
+# Source-only Prometheus rule tests; intentionally not executed during the verification pause.
+rule_files:
+  - payment-recovery-alerts.yml
+evaluation_interval: 1m
+tests:
+  - name: review-only
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '1800x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts:
+          - exp_labels:
+              job: loadup-pay
+              instance: payment-test:8080
+              application: payment
+              severity: warning
+              kind: payment
+            exp_annotations:
+              summary: "Payment UNKNOWN inventory needs investigation (payment)"
+              description: "Use the authenticated UNKNOWN list for the configured tenant scope. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts: []
+  - name: urgent-suppresses-review
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '90000x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts:
+          - exp_labels:
+              job: loadup-pay
+              instance: payment-test:8080
+              application: payment
+              severity: critical
+              kind: payment
+            exp_annotations:
+              summary: "Long-running payment UNKNOWN inventory (payment)"
+              description: "Escalate original payment/refund investigation. Age is observational; preserve all financial evidence and occupied capacity. No automatic status changes, resubmission or manual success injection."
+      - eval_time: 3m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts: []
+  - name: custom-thresholds
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '5x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '10x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '15x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts:
+          - exp_labels:
+              job: loadup-pay
+              instance: payment-test:8080
+              application: payment
+              severity: critical
+              kind: payment
+            exp_annotations:
+              summary: "Long-running payment UNKNOWN inventory (payment)"
+              description: "Escalate original payment/refund investigation. Age is observational; preserve all financial evidence and occupied capacity. No automatic status changes, resubmission or manual success injection."
+      - eval_time: 3m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts: []
+  - name: stale-suppresses-financial-alerts
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1000x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '90000x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: loadup-pay
+              instance: payment-test:8080
+              application: payment
+              severity: warning
+            exp_annotations:
+              summary: "Payment recovery inventory has no fresh complete sample"
+              description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
+  - name: not-initialized-is-not-empty
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: loadup-pay
+              instance: payment-test:8080
+              application: payment
+              severity: warning
+            exp_annotations:
+              summary: "Payment recovery inventory has no fresh complete sample"
+              description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."
+  - name: disabled-inventory
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1000x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '90000x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts: []
+  - name: target-down-is-a-separate-alert
+    interval: 1m
+    input_series:
+      - series: 'up{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '0x10'
+      - series: 'loadup_payment_recovery_inventory_enabled{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_initialized{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1x10'
+      - series: 'loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '300x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '900x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '86400x10'
+      - series: 'loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment"}'
+        values: '1000x10'
+      - series: 'loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",instance="payment-test:8080",application="payment",kind="payment"}'
+        values: '90000x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownNeedsReview
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentUnknownUrgent
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: LoadUpPaymentRecoveryInventoryUnavailable
+        exp_alerts: []

@@ -35,6 +35,8 @@ import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.time.LocalDateTime;
+
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundResultStorageConverter {
     RefundChannelReceipt toReceipt(RefundChannelReceiptDO row);
@@ -74,13 +76,14 @@ public interface RefundResultStorageConverter {
     RefundExecutionFacts toFacts(RefundOrderDO row, StoredRefundChild child);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "state", source = "refund.state")
-    @Mapping(target = "terminalEvidenceId", source = "refund.terminalEvidenceId")
-    @Mapping(target = "rowVersion", source = "refund.version")
-    @Mapping(target = "submissionStartedAt", source = "submissionStartedAt")
-    @Mapping(target = "channelRefundTransactionNo", source = "channelRefundTransactionNo")
-    @Mapping(target = "succeededAt", source = "succeededAt")
-    RefundOrderDO toChildPatch(RefundProgressChange value);
+    @Mapping(target = "state", source = "value.refund.state")
+    @Mapping(target = "terminalEvidenceId", source = "value.refund.terminalEvidenceId")
+    @Mapping(target = "rowVersion", source = "value.refund.version")
+    @Mapping(target = "submissionStartedAt", source = "value.submissionStartedAt")
+    @Mapping(target = "channelRefundTransactionNo", source = "value.channelRefundTransactionNo")
+    @Mapping(target = "succeededAt", source = "value.succeededAt")
+    @Mapping(target = "firstUnknownAt", source = "firstUnknownAt")
+    RefundOrderDO toChildPatch(RefundProgressChange value, LocalDateTime firstUnknownAt);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "state", source = "state")

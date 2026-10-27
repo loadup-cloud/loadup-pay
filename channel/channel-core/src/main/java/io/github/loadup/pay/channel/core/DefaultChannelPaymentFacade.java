@@ -28,9 +28,11 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 /** Immutable strategy registry; routing does not contain provider-specific branches. */
 public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     private final ChannelStrategyRegistry<ChannelProvider> providers;
+    private final ChannelRecoveryConcurrency recovery;
 
-    public DefaultChannelPaymentFacade(Collection<ChannelProvider> candidates) {
+    public DefaultChannelPaymentFacade(Collection<ChannelProvider> candidates, ChannelRecoveryConcurrency recovery) {
         providers = new ChannelStrategyRegistry<>(candidates, ChannelProvider::channel);
+        this.recovery = java.util.Objects.requireNonNull(recovery);
     }
 
     @Override
@@ -62,13 +64,15 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     @Override
     public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);
-        return checked(target, route(context, target.identity()).query(context, target));
+        var provider = route(context, target.identity());
+        return checked(target, recovery.execute(target.identity().channel(), () -> provider.query(context, target)));
     }
 
     @Override
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
-        var result = route(context, request.identity()).recover(context, request);
+        var provider = route(context, request.identity());
+        var result = recovery.execute(request.identity().channel(), () -> provider.recover(context, request));
         if (result == null || !request.identity().equals(result.identity()) || !request.amount().equals(result.amount())
                 || result.observation() == null || result.observation().source() != PaymentObservation.Source.QUERY_RESPONSE)
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
@@ -81,7 +85,8 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     @Override
     public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);
-        return checked(target, route(context, target.identity()).close(context, target));
+        var provider = route(context, target.identity());
+        return checked(target, recovery.execute(target.identity().channel(), () -> provider.close(context, target)));
     }
 
     @Override
@@ -103,7 +108,7 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (refund == null) throw new CommonException(INVALID_ARGUMENT);
         var provider = route(context, refund.original());
         if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
-        return checked(refund, provider.queryRefund(context, refund));
+        return checked(refund, recovery.execute(refund.original().channel(), () -> provider.queryRefund(context, refund)));
     }
 
     @Override
@@ -111,7 +116,7 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (refund == null) throw new CommonException(INVALID_ARGUMENT);
         var provider = route(context, refund.original());
         if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
-        var result = checked(refund, provider.recoverRefund(context, refund));
+        var result = checked(refund, recovery.execute(refund.original().channel(), () -> provider.recoverRefund(context, refund)));
         if (result.source() != RefundObservation.Source.QUERY_RESPONSE && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
                 || result.source() == RefundObservation.Source.SUBMIT_RESPONSE && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
                 && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) throw new CommonException(CHANNEL_RESPONSE_INVALID);

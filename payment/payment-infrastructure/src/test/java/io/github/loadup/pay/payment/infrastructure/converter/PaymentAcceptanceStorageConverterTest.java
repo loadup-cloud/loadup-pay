@@ -27,6 +27,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PaymentAcceptanceStorageConverterTest {
     final AnnotationConfigApplicationContext context =
@@ -51,6 +52,10 @@ class PaymentAcceptanceStorageConverterTest {
         var value = new StoredPaymentAcceptance(
                 payment, "admission", "a".repeat(64), "acquire", "payload", "b".repeat(64), null);
         var row = converter.toPaymentDO("tenant", value);
+        assertNull(row.getFirstUnknownAt());
+        var firstUnknownAt = payment.initiatedAt().plusMinutes(2);
+        assertEquals(firstUnknownAt, converter.toPaymentPatch("tenant", value, firstUnknownAt).getFirstUnknownAt());
+        row.setFirstUnknownAt(firstUnknownAt);
         assertEquals("tenant", row.getTenantId());
         assertEquals(value, converter.toStored(row, converter.toPayment(row)));
     }

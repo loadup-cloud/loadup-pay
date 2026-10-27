@@ -82,11 +82,11 @@ public class RefundResultService {
     public RefundResultApplication record(String tenant, RefundObservation observation) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (observation == null) throw new CommonException(INVALID_ARGUMENT);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(tenant);
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
             String requestId = results.requestId(tenant, observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.write(tenant, () -> apply(tenant, locks.lock(tenant, requestId, observation.refundId()), observation, digest, payload));
+            return transactions.writeLocal(tenant, () -> apply(tenant, locks.lock(tenant, requestId, observation.refundId()), observation, digest, payload));
         });
     }
 
@@ -144,7 +144,7 @@ public class RefundResultService {
      * A local ambiguous transport failure is not a verified channel result or a financial receipt.
      */
     public void uncertain(String tenant, String requestId, String refundId) {
-        transactions.write(tenant, () -> {
+        transactions.writeLocal(tenant, () -> {
             var locked = locks.lock(tenant, requestId, refundId);
             var current = locked.child().child().refund();
             if (current.terminal() || current.state() == RefundState.UNKNOWN) return true;

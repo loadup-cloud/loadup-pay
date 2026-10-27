@@ -37,6 +37,7 @@ public class PaymentOrderDO extends BaseDO {
     private String successfulAttemptId;
     private String limitOperationId;
     private LocalDateTime initiatedAt;
+    private LocalDateTime firstUnknownAt;
     private LocalDateTime succeededAt;
     private String terminalEvidenceId;
     @DiagnosticHidden
@@ -150,6 +151,14 @@ public class PaymentOrderDO extends BaseDO {
 
     public LocalDateTime getSucceededAt() {
         return succeededAt;
+    }
+
+    public LocalDateTime getFirstUnknownAt() {
+        return firstUnknownAt;
+    }
+
+    public void setFirstUnknownAt(LocalDateTime value) {
+        firstUnknownAt = value;
     }
 
     public void setSucceededAt(LocalDateTime value) {

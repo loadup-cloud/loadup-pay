@@ -71,7 +71,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
             event.data().requireEnvelope(event);
         } catch (DomainViolation invalid) { throw new CommonException(INVALID_ARGUMENT); }
         if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = digest(actor, event);
             var known = receipts.find(actor.tenantId(), event.deliveryId());
             if (known.isPresent()) return replay(actor, known.get(), digest);
@@ -88,7 +88,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                     || incoming.refundReservedMinor() > original.order().amount().getCent() - incoming.refundedMinor()
                     || verified.refundSummaryVersion() == incoming.refundSummaryVersion() && !verified.equals(incoming))
                 throw new CommonException(SNAPSHOT_INVALID);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
                 if (existing.isPresent()) return replay(actor, existing.get(), digest);
                 var stored = orders.lockOrder(actor.tenantId(), verified.orderId());

@@ -44,8 +44,8 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 @Component
 public class RefundProjectionEvents {
     public static final String CHILD = "pay.payment.refund.realtime.v1";
-    public static final String SUMMARY = "pay.payment.refund-summary.realtime.v1";
-    public static final String FEE = "pay.payment.refund.fee.v1";
+    public static final String SUMMARY = io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.REALTIME_TYPE;
+    public static final String FEE = io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.FEE_TYPE;
     public static final String LIMIT = "pay.payment.refund.limit.v1";
     public static final String MERCHANT = io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE;
     private final RefundSummaryGateway summaries;

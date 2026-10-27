@@ -58,7 +58,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                 || nativeTask.attempts() != task.attempts() || nativeTask.leaseUntil() == null
                 || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt()))
             throw new CommonException(INVALID_STATE);
-        var sending = transactions.write(task.tenantId(), () -> {
+        var sending = transactions.writeLocal(task.tenantId(), () -> {
             var before = deliveries.lock(task.tenantId(), key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (before.finished() || key.sequence() < before.attemptCount()) return java.util.Optional.<MerchantNotificationDelivery>empty();
             if (key.sequence() != before.attemptCount() || !task.executeAt().equals(before.nextAttemptAt()))
@@ -83,7 +83,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
             if (Thread.currentThread().isInterrupted()) throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         final boolean acknowledged = ack;
-        transactions.write(task.tenantId(), () -> {
+        transactions.writeLocal(task.tenantId(), () -> {
             var current = deliveries.lock(task.tenantId(), key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (current.finished()) return Boolean.TRUE;
             if (!current.eventId().equals(sending.eventId()) || !current.bodyDigest().equals(sending.bodyDigest())

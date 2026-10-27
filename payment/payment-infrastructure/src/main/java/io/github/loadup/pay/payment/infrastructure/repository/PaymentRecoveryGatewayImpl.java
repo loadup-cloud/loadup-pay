@@ -43,6 +43,14 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     @Override
+    public Optional<PaymentRecoveryCursor> find(String tenant, String paymentId) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        var row = mapper.selectOneByQuery(scope(tenant, paymentId));
+        try { return Optional.ofNullable(row).map(converter::toDomain); }
+        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+    }
+
+    @Override
     public Optional<PaymentRecoveryCursor> lock(String tenant, String paymentId) {
         writable(tenant);
         var row = mapper.selectOneByQuery(scope(tenant, paymentId).forUpdate());

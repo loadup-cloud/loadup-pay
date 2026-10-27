@@ -72,7 +72,7 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
         boolean acquireAccess = acquireService.equals(actor.serviceId()) && actor.permissions().contains("pay:payment:acquire-facts");
         if (!limitAccess && !acquireAccess)
             throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var first = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (acquireAccess && !actor.serviceId().equals(first.callerServiceId()))

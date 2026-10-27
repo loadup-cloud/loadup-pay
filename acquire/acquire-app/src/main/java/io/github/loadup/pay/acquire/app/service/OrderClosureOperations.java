@@ -86,8 +86,8 @@ public class OrderClosureOperations {
     AcquireOrderDTO close(OrderPaymentScope actor, AcquireOrderCloseCommand command) {
         requireNoTransaction(actor);
         if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
-        return transactions.read(actor.tenantId(), () -> {
-            var intent = transactions.write(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
+            var intent = transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), command.id());
                 return startLocked(actor, order, command);
             });
@@ -127,7 +127,7 @@ public class OrderClosureOperations {
     /** Continue the persisted request without requiring a live merchant token or creating another C0. */
     AcquireOrderDTO resume(OrderPaymentScope actor, OrderCloseIntent intent) {
         requireNoTransaction(actor);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             var original = current(actor, intent);
             if (terminal(original.order())) return orderConverter.toDTO(original, now());
             var fenced = payment.fenceParent(actor.tenantId(), converter.toFence(intent));
@@ -146,7 +146,7 @@ public class OrderClosureOperations {
             var status = payment.parentFenceStatus(actor.tenantId(), converter.toStatusQuery(intent));
             requireParent(intent, status);
             // Fencing alone never proves that all local holds or remote collection attempts have converged.
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), intent.orderId());
                 owned(actor, order);
                 bound(order, store.findIntent(actor.tenantId(), intent.orderId())
@@ -164,7 +164,8 @@ public class OrderClosureOperations {
         });
     }
 
-    boolean isCurrentLocked(OrderPaymentScope actor, StoredAcquireOrder order, OrderCloseIntent intent, long generation) {
+    /** Checks the supplied consistent view without acquiring locks or starting another close request. */
+    boolean isCurrent(OrderPaymentScope actor, StoredAcquireOrder order, OrderCloseIntent intent, long generation) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         owned(actor, order);
         bound(order, intent);
@@ -178,7 +179,7 @@ public class OrderClosureOperations {
     }
 
     private void advance(OrderPaymentScope actor, OrderCloseIntent attempted, String nextCursor) {
-        transactions.write(actor.tenantId(), () -> {
+        transactions.writeLocal(actor.tenantId(), () -> {
             var order = orders.lockOrder(actor.tenantId(), attempted.orderId());
             owned(actor, order);
             var latest = store.findIntent(actor.tenantId(), attempted.orderId())

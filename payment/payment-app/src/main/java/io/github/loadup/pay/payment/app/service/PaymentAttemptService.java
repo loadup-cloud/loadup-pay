@@ -41,7 +41,6 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ID
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentAttemptService implements PaymentAttemptFacade {
@@ -73,7 +72,7 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!limits.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.text(command.requestKey(), 128);
             var locked = locks.lock(actor.tenantId(), command.paymentId(), actor.serviceId());
@@ -85,8 +84,7 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
                 var attempt = prior.get();
                 if (!attempt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
                 if (!attempt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
-                if (!attempt.paymentRequestDigest().equals(accepted.requestDigest()))
-                    throw new CommonException(SNAPSHOT_INVALID);
+                PaymentExecutionBindings.bound(accepted, attempt);
                 return views.toDTO(accepted);
             }
             locks.requireOpen(locked);

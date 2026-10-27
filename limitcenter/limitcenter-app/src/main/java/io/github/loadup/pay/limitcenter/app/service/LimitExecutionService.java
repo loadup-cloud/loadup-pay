@@ -100,7 +100,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitExecutionPermitDTO beginExecution(LimitBeginExecutionCommand command) {
         var actor = transactions.authorize(command, "pay:limit:execute");
-        return transactions.write(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             DomainChecks.id(command.attemptId());
             DomainChecks.text(command.requestKey(), 128);
             var stored = lockOperation(actor, command.operationId());
@@ -147,7 +147,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitExecutionVerificationDTO verifyExecution(LimitExecutionVerifyCommand command) {
         var actor = transactions.authorize(command, "pay:limit:verify");
-        return transactions.write(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.id(command.attemptId());
             var stored = lockOperation(actor, command.operationId());
@@ -168,7 +168,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
     @Override
     public LimitReservationDTO expire(LimitExpireCommand command) {
         var actor = transactions.authorize(command, "pay:limit:expire");
-        return transactions.write(actor, IDEMPOTENCY_CONFLICT, () -> {
+        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             var stored = lockOperation(actor, command.operationId());
             var value = stored.reservation();
             LocalDateTime now = now();

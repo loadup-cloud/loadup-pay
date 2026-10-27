@@ -58,7 +58,7 @@ public class CheckoutAuthenticationService {
                 || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}"))
             throw new CommonException(SESSION_UNAUTHORIZED);
         String sessionId = token.substring(0, token.indexOf('.'));
-        return transactions.read(tenantLocator, () -> {
+        return transactions.withTenantContext(tenantLocator, () -> {
             var stored = sessions.find(tenantLocator, sessionId)
                     .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());

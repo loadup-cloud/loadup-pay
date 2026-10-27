@@ -91,7 +91,7 @@ public class LimitReservationService implements LimitReservationFacade {
     @Override
     public LimitReservationDTO reserve(LimitReserveCommand command) {
         var actor = transactions.authorize(command, "pay:limit:reserve");
-        return transactions.write(actor, IDEMPOTENCY_CONFLICT, () -> reserve(actor, command));
+        return transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> reserve(actor, command));
     }
 
     private LimitReservationDTO reserve(LimitActor actor, LimitReserveCommand command) {
@@ -191,7 +191,7 @@ public class LimitReservationService implements LimitReservationFacade {
     @Override
     public LimitReservationDTO detail(LimitOperationQuery query) {
         var actor = transactions.authorize(query, "pay:limit:read");
-        return transactions.read(actor, () -> {
+        return transactions.withTenantContext(actor, () -> {
             DomainChecks.id(query.operationId());
             var stored = reservations
                     .findByOperation(actor.tenantId(), query.operationId())

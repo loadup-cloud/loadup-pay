@@ -61,7 +61,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
         if (!actor.permissions().containsAll(Set.of("pay:acquire:direct-pay:recover", "pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover")))
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.payeeMerchantId()); DomainChecks.id(command.merchantOrderNo());
             var observed = find(actor, command);
             if (observed.isEmpty()) return converter.toRecoveryDTO(command, null, OrderCreationRecoveryState.NOT_OBSERVED, null, null, null);

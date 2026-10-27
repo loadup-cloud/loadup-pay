@@ -71,11 +71,11 @@ public class RefundNotificationService implements RefundNotificationFacade {
             event.data().requireEnvelope(event);
             if (event.occurredAt().getNano() % 1000 != 0) throw new CommonException(INVALID_ARGUMENT);
         } catch (DomainViolation invalid) { throw new CommonException(INVALID_ARGUMENT); }
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
             var known = receipts.find(actor.tenantId(), event.deliveryId());
             if (known.isPresent()) return replay(actor, known.get(), digest);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
                 if (existing.isPresent()) return replay(actor, existing.get(), digest);
                 var data = event.data();

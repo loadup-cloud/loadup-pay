@@ -165,7 +165,7 @@ class PaymentAcceptanceServiceTest {
         var original = stored.get();
         clearInvocations(store, recovery);
         assertEquals(first, accept(command));
-        var locked = new io.github.loadup.pay.payment.app.model.LockedPayment(original,
+        var locked = PaymentExecutionBindings.locked(original,
                 AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
         when(actions.present("tenant", locked)).thenReturn(first);
@@ -426,7 +426,8 @@ class PaymentAcceptanceServiceTest {
 
         @Override
         protected void doBegin(Object value, TransactionDefinition definition) {
-            assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, definition.getIsolationLevel());
+            assertEquals(definition.isReadOnly() ? TransactionDefinition.ISOLATION_REPEATABLE_READ
+                    : TransactionDefinition.ISOLATION_READ_COMMITTED, definition.getIsolationLevel());
         }
 
         @Override

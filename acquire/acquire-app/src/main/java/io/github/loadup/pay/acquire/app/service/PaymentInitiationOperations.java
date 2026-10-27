@@ -103,11 +103,11 @@ public class PaymentInitiationOperations {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         validateInteraction(command);
         if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.actionKey(), 128);
             String actorScope = actor.actionScope();
-            StoredPaymentAllocation stored = transactions.write(actor.tenantId(), () -> {
+            StoredPaymentAllocation stored = transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), command.orderId());
                 actor.authorize(order, false);
                 String digest = digest(actor, actorScope, command, order);
@@ -183,7 +183,7 @@ public class PaymentInitiationOperations {
                 if (execute.preparedInputRef() == null) {
                     // Only the opaque reference is attached locally. Raw input never enters the order database.
                     var reference = prepared.inputRef();
-                    stored = transactions.write(actor.tenantId(), () -> attachInput(actor, command.orderId(), command.actionKey(), reference));
+                    stored = transactions.writeLocal(actor.tenantId(), () -> attachInput(actor, command.orderId(), command.actionKey(), reference));
                     execute = codec.decode(stored);
                 } else if (!execute.preparedInputRef().equals(prepared.inputRef()))
                     throw new CommonException(SNAPSHOT_INVALID);
@@ -203,11 +203,11 @@ public class PaymentInitiationOperations {
     PaymentIntentRecovery recover(PaymentInitiationPrincipal actor, String orderId, String actionKey, long amountMinor, PaymentChoiceDTO choice) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(orderId);
             DomainChecks.text(actionKey, 128);
             if (amountMinor <= 0 || choice == null) throw new CommonException(INVALID_ARGUMENT);
-            var known = transactions.write(actor.tenantId(), () -> {
+            var known = transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), orderId);
                 actor.authorize(order, false);
                 var prior = allocations.findAction(actor.tenantId(), orderId, actor.actionScope(), actionKey);
@@ -244,7 +244,7 @@ public class PaymentInitiationOperations {
                 validatePrepared(lookup.input());
                 var reference = lookup.input().inputRef();
                 // Preserve even an expired original input. Acceptance and execution keep enforcing its original deadline.
-                stored = transactions.write(actor.tenantId(), () -> attachInput(actor, orderId, actionKey, reference));
+                stored = transactions.writeLocal(actor.tenantId(), () -> attachInput(actor, orderId, actionKey, reference));
                 execute = codec.decode(stored);
             }
             // Released/tombstoned intents are resolved by the existing outcome receipt, never accepted again.

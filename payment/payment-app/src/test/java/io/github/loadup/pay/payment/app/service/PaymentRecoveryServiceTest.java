@@ -22,9 +22,11 @@ import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.payment.app.model.LockedPayment;
+import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -50,7 +52,7 @@ class PaymentRecoveryServiceTest {
             PaymentRecoveryCursor.init("payment", AttemptFixtures.NOW));
     final Clock clock = Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final PaymentRecoveryService recovery = new PaymentRecoveryService(cursors, tasks, locks, execution, payments,
-            transactions, clock, 30);
+            transactions, clock, new RecoveryPollingPolicy(30, 1800, 900, 0));
     final DelayedTask task = new DelayedTask("task", "tenant", PaymentRecoveryService.TYPE, "payment.0",
             AttemptFixtures.NOW, AttemptFixtures.NOW, DelayedTaskStatus.RUNNING, 1, 5,
             AttemptFixtures.NOW.plusMinutes(5), null);
@@ -62,7 +64,7 @@ class PaymentRecoveryServiceTest {
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
-            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+            return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
         when(cursors.lock("tenant", "payment")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
         doAnswer(c -> {
@@ -88,7 +90,7 @@ class PaymentRecoveryServiceTest {
         }).when(execution).progress("tenant", "payment");
     }
 
-    void handle() { TenantUtil.runWithTenant("tenant", () -> recovery.handle(task)); }
+    RecoveryHandlingOutcome handle() { return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task)); }
 
     @Test
     void registrationRequiresAndJoinsAcceptanceTransaction() {
@@ -96,7 +98,7 @@ class PaymentRecoveryServiceTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> TenantUtil.runWithTenant("tenant", () -> recovery.register("tenant", accepted.get()))).getResultCode());
 
-        TenantUtil.runWithTenant("tenant", () -> transactions.write("tenant", () -> {
+        TenantUtil.runWithTenant("tenant", () -> transactions.writeLocal("tenant", () -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             recovery.register("tenant", accepted.get());
             return true;
@@ -110,7 +112,7 @@ class PaymentRecoveryServiceTest {
 
     @Test
     void validPendingTaskRunsExecutionThenCommitsDistinctSuccessorCursor() {
-        handle();
+        assertEquals(RecoveryHandlingOutcome.CONTINUED, handle());
 
         assertEquals(1, cursor.get().generation());
         assertEquals(AttemptFixtures.NOW.plusSeconds(30), cursor.get().dueAt());
@@ -123,7 +125,7 @@ class PaymentRecoveryServiceTest {
     @Test
     void staleGenerationAndTerminalPaymentDoNotStartExecution() {
         cursor.set(cursor.get().schedule(AttemptFixtures.NOW.plusSeconds(30), 0));
-        handle();
+        assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         verifyNoInteractions(execution);
         verify(tasks, never()).register(anyString(), anyString(), any());
 
@@ -133,7 +135,7 @@ class PaymentRecoveryServiceTest {
                 original.callerServiceId(), original.intentPayload(), original.payloadHash(), "evidence"));
         cursor.set(PaymentRecoveryCursor.init("payment", AttemptFixtures.NOW));
         clearInvocations(cursors, tasks, execution);
-        handle();
+        assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         assertTrue(cursor.get().completed());
         verifyNoInteractions(execution);
         verify(cursors).update(eq("tenant"), any(), argThat(PaymentRecoveryCursor::completed));
@@ -164,4 +166,52 @@ class PaymentRecoveryServiceTest {
         verify(cursors, never()).update(anyString(), any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());
     }
+
+    @Test
+    void oldUnresolvedPaymentBacksOffWithoutFinishingOrChangingItsRequest() {
+        var late = AttemptFixtures.NOW.plusDays(1);
+        var lateClock = Clock.fixed(late.atZone(clock.getZone()).toInstant(), clock.getZone());
+        var delayed = new DelayedTask(task.id(), task.tenantId(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
+                task.status(), task.attempts(), task.maxAttempts(), late.plusMinutes(5), null);
+        when(tasks.find(PaymentRecoveryService.TYPE, task.bizId())).thenReturn(Optional.of(delayed));
+        var handler = new PaymentRecoveryService(cursors, tasks, locks, execution, payments, transactions, lateClock,
+                new RecoveryPollingPolicy(30, 1800, 900, 0));
+        var original = accepted.get();
+        TenantUtil.runWithTenant("tenant", () -> handler.handle(delayed));
+        assertSame(original, accepted.get());
+        assertFalse(cursor.get().completed());
+        assertEquals(1L, cursor.get().generation());
+        assertEquals(late.plusMinutes(30), cursor.get().dueAt());
+        verify(execution).progress("tenant", "payment");
+        verify(tasks).register(PaymentRecoveryService.TYPE, "payment.1", late.plusMinutes(30));
+    }
+
+    @Test
+    void finalExecutionReportsCompletionOnlyAfterTheCursorTransactionCommits() {
+        doAnswer(call -> {
+            var before = accepted.get();
+            var failed = before.payment().fail(new NoCollectionEvidence("proof", "payment", true));
+            accepted.set(new StoredPaymentAcceptance(failed, before.admissionId(), before.requestDigest(), before.callerServiceId(),
+                    before.intentPayload(), before.payloadHash(), "proof"));
+            return null;
+        }).when(execution).progress("tenant", "payment");
+        assertEquals(RecoveryHandlingOutcome.COMPLETED, handle());
+        assertTrue(cursor.get().completed());
+        assertEquals(2, manager.commits);
+        verify(tasks, never()).register(anyString(), anyString(), any());
+    }
+
+    @Test
+    void aSameGenerationDueTimeChangeDuringExecutionCannotCreateASuccessor() {
+        doAnswer(call -> {
+            var before = cursor.get();
+            cursor.set(new PaymentRecoveryCursor(before.paymentId(), before.generation(), before.dueAt().plusSeconds(1), false));
+            return null;
+        }).when(execution).progress("tenant", "payment");
+        assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
+        verify(tasks, never()).register(anyString(), anyString(), any());
+        verify(cursors, never()).update(anyString(), any(), any());
+        assertEquals(1, manager.commits); assertEquals(1, manager.rollbacks);
+    }
+
 }

@@ -18,7 +18,6 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
@@ -54,12 +53,12 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
 
     @Override
     public EventEnvelope<OrderRefundSummaryEventDTO> summary(String payload) {
-        return monetary(payload, RefundProjectionEvents.SUMMARY);
+        return monetary(payload, OrderRefundSummaryEventDTO.REALTIME_TYPE);
     }
 
     @Override
     public EventEnvelope<OrderRefundSummaryEventDTO> fee(String payload) {
-        return monetary(payload, RefundProjectionEvents.FEE);
+        return monetary(payload, OrderRefundSummaryEventDTO.FEE_TYPE);
     }
 
     private EventEnvelope<OrderRefundSummaryEventDTO> monetary(String payload, String type) {

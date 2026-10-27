@@ -94,9 +94,9 @@ public class PaymentOutcomeDeliverySupport {
                 io.github.loadup.pay.payment.client.enums.PaymentState.FAILED,
                 io.github.loadup.pay.payment.client.enums.PaymentState.CLOSED).contains(data.state()))
             throw new CommonException(SNAPSHOT_INVALID);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             var original = payments.find(tenant, data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            return transactions.write(tenant, () -> {
+            return transactions.writeLocal(tenant, () -> {
                 var locked = locks.lock(tenant, data.paymentId(), original.callerServiceId());
                 var current = locked.payment();
                 var accepted = intents.decode(current);
@@ -110,15 +110,8 @@ public class PaymentOutcomeDeliverySupport {
                 if (current.payment().activeAttemptId() != null) {
                     attempt = attempts.lock(tenant, current.payment().activeAttemptId())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                    var value = attempt.attempt();
-                    if (!value.paymentId().equals(current.payment().id()) || !value.amount().equals(current.payment().amount())
-                            || !value.binding().payeeMerchantId().equals(current.payment().payeeMerchantId())
-                            || !attempt.paymentRequestDigest().equals(current.requestDigest())
-                            || !attempt.callerServiceId().equals(current.callerServiceId())
-                            || !attempt.limitOperationId().equals(current.payment().limitOperationId())
-                            || value.binding().channel() != accepted.choice().channel() || value.method() != accepted.choice().method()
-                            || !Objects.equals(attempt.preparedInputRef(), accepted.preparedInputRef()))
-                        throw new CommonException(SNAPSHOT_INVALID);
+                    PaymentExecutionBindings.route(PaymentExecutionBindings.activeContext(locked, attempt).attempt(),
+                            accepted.choice().channel(), accepted.choice().method(), accepted.preparedInputRef());
                 }
                 java.time.LocalDateTime succeededAt = null;
                 if (succeeded) {

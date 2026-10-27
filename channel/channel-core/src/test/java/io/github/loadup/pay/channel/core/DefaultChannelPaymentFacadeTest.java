@@ -16,6 +16,8 @@
 package io.github.loadup.pay.channel.core;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.resilience4j.ResilienceRegistries;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
@@ -27,9 +29,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.OffsetDateTime;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -41,7 +48,7 @@ class DefaultChannelPaymentFacadeTest {
 
     private final ChannelProvider alipay = provider(Channel.ALIPAY);
     private final ChannelProvider wechat = provider(Channel.WECHAT);
-    private final DefaultChannelPaymentFacade facade = new DefaultChannelPaymentFacade(List.of(alipay, wechat));
+    private final DefaultChannelPaymentFacade facade = new DefaultChannelPaymentFacade(List.of(alipay, wechat), concurrency());
 
     @Test
     void aSelectedProviderFailureDoesNotSubmitToAnotherChannel() {
@@ -62,7 +69,7 @@ class DefaultChannelPaymentFacadeTest {
 
     @Test
     void registryOrderCannotOverrideTheRequestedChannel() {
-        var reversed = new DefaultChannelPaymentFacade(List.of(wechat, alipay));
+        var reversed = new DefaultChannelPaymentFacade(List.of(wechat, alipay), concurrency());
         var context = context(Channel.ALIPAY, "ali-binding", HASH);
         var request = request(payment(Channel.ALIPAY, "ali-binding", HASH));
         var result = submission(request.payment().identity(), AMOUNT);
@@ -133,8 +140,8 @@ class DefaultChannelPaymentFacadeTest {
 
     @Test
     void rejectsDuplicateStrategiesAndTreatsMissingProviderAsUnsupported() {
-        assertThrows(CommonException.class, () -> new DefaultChannelPaymentFacade(List.of(alipay, provider(Channel.ALIPAY))));
-        var withoutWechat = new DefaultChannelPaymentFacade(List.of(alipay));
+        assertThrows(CommonException.class, () -> new DefaultChannelPaymentFacade(List.of(alipay, provider(Channel.ALIPAY)), concurrency()));
+        var withoutWechat = new DefaultChannelPaymentFacade(List.of(alipay), concurrency());
         var wxRefund = refund(payment(Channel.WECHAT, "wx-binding", HASH).identity());
         var wxIdentity = wxRefund.original();
         assertFalse(withoutWechat.canRefund(wxRefund));
@@ -191,7 +198,7 @@ class DefaultChannelPaymentFacadeTest {
         verify(wechat).recover(wechatContext, wxRecovery);
         verifyNoMoreInteractions(alipay, wechat);
 
-        var withoutWechat = new DefaultChannelPaymentFacade(List.of(alipay));
+        var withoutWechat = new DefaultChannelPaymentFacade(List.of(alipay), concurrency());
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> withoutWechat.recover(wechatContext, wxRecovery)));
     }
@@ -360,6 +367,149 @@ class DefaultChannelPaymentFacadeTest {
         });
     }
 
+    @Test
+    void allRecoveryOperationsShareTheChannelBudgetBeforeProviderNetworkCalls() {
+        var registries = limitedRegistries();
+        var limited = new DefaultChannelPaymentFacade(List.of(alipay, wechat), new ChannelRecoveryConcurrency(registries));
+        var context = context(Channel.WECHAT, "wx-binding", HASH);
+        var identity = payment(Channel.WECHAT, "wx-binding", HASH).identity();
+        var target = new ChannelPaymentTarget(identity, AMOUNT);
+        var refund = refund(identity);
+        when(wechat.canRefund(refund)).thenReturn(true);
+        var budget = registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(Channel.WECHAT));
+        assertTrue(budget.tryAcquirePermission());
+        try {
+            TenantUtil.runWithTenant("tenant", () -> {
+                assertBusy(() -> limited.query(context, target));
+                assertBusy(() -> limited.recover(context, recovery(identity)));
+                assertBusy(() -> limited.close(context, target));
+                assertBusy(() -> limited.queryRefund(context, refund));
+                assertBusy(() -> limited.recoverRefund(context, refund));
+            });
+            TenantUtil.runWithTenant("other-tenant", () -> assertEquals(ACTION_FORBIDDEN,
+                    assertThrows(CommonException.class, () -> limited.query(context, target)).getResultCode()));
+            verify(wechat, never()).query(any(), any());
+            verify(wechat, never()).recover(any(), any());
+            verify(wechat, never()).close(any(), any());
+            verify(wechat, never()).queryRefund(any(), any());
+            verify(wechat, never()).recoverRefund(any(), any());
+        } finally {
+            budget.onComplete();
+        }
+    }
+
+    @Test
+    void firstSubmissionsAndLocalCapabilitiesCannotLoseTheirTicketToRecoverySaturation() {
+        var registries = limitedRegistries();
+        var limited = new DefaultChannelPaymentFacade(List.of(alipay, wechat), new ChannelRecoveryConcurrency(registries));
+        var context = context(Channel.WECHAT, "wx-binding", HASH);
+        var payment = payment(Channel.WECHAT, "wx-binding", HASH);
+        var request = request(payment);
+        var refund = refund(payment.identity());
+        when(wechat.canRefund(refund)).thenReturn(true);
+        when(wechat.submit(context, request)).thenReturn(submission(payment.identity(), AMOUNT));
+        when(wechat.submitRefund(context, refund)).thenReturn(refundObservation(refund));
+        var budget = registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(Channel.WECHAT));
+        assertTrue(budget.tryAcquirePermission());
+        try {
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                assertTrue(limited.canRefund(refund));
+            } finally {
+                TransactionSynchronizationManager.clear();
+            }
+            TenantUtil.runWithTenant("tenant", () -> {
+                limited.validate(context, validation(payment.identity()));
+                assertEquals(payment.identity(), limited.submit(context, request).identity());
+                assertEquals(refund.refundId(), limited.submitRefund(context, refund).refundId());
+            });
+            assertEquals(0, budget.getMetrics().getAvailableConcurrentCalls());
+            verify(wechat).submit(context, request);
+            verify(wechat).submitRefund(context, refund);
+        } finally {
+            budget.onComplete();
+        }
+    }
+
+    @Test
+    void realConcurrentQueriesRejectExcessRecoveryWithoutBlockingAnotherChannel() throws Exception {
+        var registries = limitedRegistries();
+        var limited = new DefaultChannelPaymentFacade(List.of(alipay, wechat), new ChannelRecoveryConcurrency(registries));
+        var wx = context(Channel.WECHAT, "wx-binding", HASH);
+        var ali = context(Channel.ALIPAY, "ali-binding", HASH);
+        var wxTarget = new ChannelPaymentTarget(payment(Channel.WECHAT, "wx-binding", HASH).identity(), AMOUNT);
+        var aliTarget = new ChannelPaymentTarget(payment(Channel.ALIPAY, "ali-binding", HASH).identity(), AMOUNT);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(wechat.query(wx, wxTarget)).thenAnswer(call -> {
+            entered.countDown();
+            assertTrue(release.await(20, TimeUnit.SECONDS));
+            return paymentObservation(wxTarget.identity(), AMOUNT);
+        });
+        when(alipay.query(ali, aliTarget)).thenReturn(paymentObservation(aliTarget.identity(), AMOUNT));
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = workers.submit(() -> TenantUtil.callWithTenant("tenant", () -> limited.query(wx, wxTarget)));
+            try {
+                assertTrue(entered.await(10, TimeUnit.SECONDS));
+                TenantUtil.runWithTenant("tenant", () -> {
+                    assertBusy(() -> limited.recover(wx, recovery(wxTarget.identity())));
+                    assertBusy(() -> limited.close(wx, wxTarget));
+                    assertEquals(aliTarget.identity(), limited.query(ali, aliTarget).identity());
+                });
+            } finally {
+                release.countDown();
+            }
+            assertEquals(wxTarget.identity(), first.get(20, TimeUnit.SECONDS).identity());
+            TenantUtil.runWithTenant("tenant", () -> assertEquals(wxTarget.identity(), limited.query(wx, wxTarget).identity()));
+            verify(wechat, times(2)).query(wx, wxTarget);
+            verify(wechat, never()).recover(any(), any());
+            verify(wechat, never()).close(any(), any());
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void providerFailureAndInvalidResponseCannotLeakARecoveryPermit() {
+        var registries = limitedRegistries();
+        var limited = new DefaultChannelPaymentFacade(List.of(alipay, wechat), new ChannelRecoveryConcurrency(registries));
+        var context = context(Channel.ALIPAY, "ali-binding", HASH);
+        var target = new ChannelPaymentTarget(payment(Channel.ALIPAY, "ali-binding", HASH).identity(), AMOUNT);
+        var failure = new CommonException(CHANNEL_SIGNATURE_INVALID);
+        when(alipay.query(context, target)).thenThrow(failure);
+        TenantUtil.runWithTenant("tenant", () -> assertSame(failure,
+                assertThrows(CommonException.class, () -> limited.query(context, target))));
+        var budget = registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(Channel.ALIPAY));
+        assertEquals(1, budget.getMetrics().getAvailableConcurrentCalls());
+        doReturn(paymentObservation(target.identity(), Money.ofMinor(1, "CNY"))).when(alipay).query(context, target);
+        TenantUtil.runWithTenant("tenant", () -> assertEquals(CHANNEL_RESPONSE_INVALID,
+                assertThrows(CommonException.class, () -> limited.query(context, target)).getResultCode()));
+        assertEquals(1, budget.getMetrics().getAvailableConcurrentCalls());
+        doReturn(paymentObservation(target.identity(), AMOUNT)).when(alipay).query(context, target);
+        TenantUtil.runWithTenant("tenant", () -> assertEquals(target.identity(), limited.query(context, target).identity()));
+    }
+
+    @Test
+    void blockingRecoveryBudgetsAreRejectedDuringAssembly() {
+        var registries = ResilienceRegistries.ofDefaults();
+        registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(Channel.ALIPAY),
+                BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ofSeconds(1)).build());
+        assertEquals(RECOVERY_CONFIGURATION_INVALID,
+                assertThrows(CommonException.class, () -> new ChannelRecoveryConcurrency(registries)).getResultCode());
+    }
+
+    private static void assertBusy(Runnable operation) {
+        assertEquals(RECOVERY_BUSY, assertThrows(CommonException.class, operation::run).getResultCode());
+    }
+
+    private static ResilienceRegistries limitedRegistries() {
+        var registries = ResilienceRegistries.ofDefaults();
+        for (var channel : Channel.values())
+            registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(channel),
+                    BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ZERO).build());
+        return registries;
+    }
+
     private static ChannelProvider provider(Channel channel) {
         var provider = mock(ChannelProvider.class);
         when(provider.channel()).thenReturn(channel);
@@ -425,4 +575,8 @@ class DefaultChannelPaymentFacadeTest {
                 refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
                 null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "e".repeat(64));
     }
+    private static ChannelRecoveryConcurrency concurrency() {
+        return new ChannelRecoveryConcurrency(ResilienceRegistries.ofDefaults());
+    }
+
 }

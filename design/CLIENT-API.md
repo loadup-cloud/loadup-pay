@@ -1668,3 +1668,23 @@ attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable，不返�
 任务身份/次数/时间快照变化为 PAYMENT_VERSION_CONFLICT，native 条件更新竞争为 PAYMENT_CONCURRENT_UPDATE。
 FAILED 不等于付款或退款失败；原金融终态/过期代次只审计不唤醒。没有补建、改期、取消、运行任务或直接渠道操作接口。
 源码及测试源码已补，未进行实际 HTTP/JWT/数据库/调度或资金验收。
+
+
+## Review R2：恢复详情是观察快照（2026-10-26）
+
+acquire/payment 运营 detail 的公开字段和鉴权保持原契约，读取改为短只读 REPEATABLE_READ 快照，使用非锁定 Gateway；
+不锁订单、付款门禁、退款计划、allocation 或恢复游标。generation/nativeTaskId/attempts/nextExecuteAt 与 retryable 是同一次快照的观察。
+响应送达前可能发生新提交；retry 重新持写锁核对当前业务与 native 原条件，过期前置条件仍返回 VERSION_CONFLICT/CONCURRENT_UPDATE。
+不能把曾经返回 retryable=true 当成下一次重试的提交权。原业务 read helper 不被静默改为事务，远端调用边界保持不变。
+源码与回归/真实数据库测试源码已补，未执行验证。
+
+
+## Review R3：UNKNOWN 运营查证 API
+
+PaymentUnknownRecoveryFacade.list(PaymentUnknownRecoveryQuery) 对应 POST /api/payment/operations/recovery/unknown/list，响应 no-store。
+仅配置的受信运营 SERVICE 与 pay:payment:recovery:read，租户来自已验证身份；不接受 tenantId 参数。
+kind=COLLECTION/REFUND_REQUEST，minimumLevel=NORMAL/REVIEW/URGENT，limit=1..100；afterFirstUnknownAt/afterRecordId 必须成对，使用上页返回值。
+返回原付款/子退款 recordId、父 task subjectId、订单/商户、Money、首次 UNKNOWN 时间、ageSeconds/attentionLevel、rowVersion、可空的 recoveryGeneration/recoveryCompleted。
+page 带 hasMore/下一页游标、observedAt、实际关注阈值，不提供总数；NORMAL 对回拨后的未来时间仍可见，年龄下限 0。
+该查询不是权限票据；后续仍按现有任务详情读取和 FAILED 审计重试协议操作，严禁据年龄重扣、释放或手动构造终态。
+详见 [完整查证契约](RECOVERY-ESCALATION.md)，当前仅源码，未进行接口/JWT/数据库验收。

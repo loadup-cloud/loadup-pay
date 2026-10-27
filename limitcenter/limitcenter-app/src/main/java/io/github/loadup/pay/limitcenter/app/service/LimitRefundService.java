@@ -76,7 +76,7 @@ public class LimitRefundService implements LimitRefundFacade {
         if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId()))
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor, () -> {
+        return transactions.withTenantContext(actor, () -> {
             DomainChecks.id(command.operationId()); DomainChecks.id(command.paymentId()); DomainChecks.id(command.refundId());
             DomainChecks.id(command.businessEventId()); DomainChecks.id(command.refundEvidenceId());
             if (command.refundAmountMinor() > command.cumulativePaymentRefundedMinor()) throw new CommonException(INVALID_ARGUMENT);
@@ -89,7 +89,7 @@ public class LimitRefundService implements LimitRefundFacade {
             // Query before acquiring any local database transaction or lock.
             var facts = payment.refundFacts(actor.tenantId(), command.refundId());
             bind(command, first, facts);
-            return transactions.write(actor, OUTCOME_CONFLICT, () -> {
+            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
                 var gate = reservations.lockGate(actor.tenantId(), command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var known = receipts.find(actor.tenantId(), command.refundId());

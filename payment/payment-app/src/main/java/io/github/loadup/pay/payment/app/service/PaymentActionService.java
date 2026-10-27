@@ -114,15 +114,11 @@ public class PaymentActionService {
 
     private void validate(LockedPayment locked, StoredPaymentAttempt stored) {
         var accepted = locked.payment();
+        PaymentExecutionBindings.activeContext(locked, stored);
         var attempt = stored.attempt();
-        if (!attempt.paymentId().equals(accepted.payment().id()) || !attempt.id().equals(accepted.payment().activeAttemptId())
-                || !attempt.amount().equals(accepted.payment().amount()) || attempt.executionEpoch() <= 0
+        if (attempt.executionEpoch() <= 0
                 || (attempt.state() != PaymentAttemptState.SUBMITTING && attempt.state() != PaymentAttemptState.PENDING
-                    && attempt.state() != PaymentAttemptState.UNKNOWN)
-                || !attempt.binding().payeeMerchantId().equals(accepted.payment().payeeMerchantId())
-                || !stored.callerServiceId().equals(accepted.callerServiceId())
-                || !stored.limitOperationId().equals(accepted.payment().limitOperationId())
-                || !stored.paymentRequestDigest().equals(accepted.requestDigest()))
+                    && attempt.state() != PaymentAttemptState.UNKNOWN))
             throw new CommonException(SNAPSHOT_INVALID);
     }
 

@@ -51,7 +51,7 @@ class OrderClosureRecoveryServiceTest {
         when(tasks.find(OrderClosureTasks.TYPE, "order.3")).thenReturn(Optional.of(task));
         when(orders.lockOrder("tenant", "order")).thenReturn(order);
         when(closes.findIntent("tenant", "order")).thenReturn(Optional.of(intent));
-        when(operations.isCurrentLocked(scope, order, intent, 3L)).thenAnswer(c -> {
+        when(operations.isCurrent(scope, order, intent, 3L)).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return true;
         });
@@ -73,7 +73,7 @@ class OrderClosureRecoveryServiceTest {
 
     @Test
     void oldGenerationOrTerminalOrderHasNoAnotherPass() {
-        when(operations.isCurrentLocked(scope, order, intent, 3L)).thenReturn(false);
+        when(operations.isCurrent(scope, order, intent, 3L)).thenReturn(false);
         handle();
         verify(operations, never()).resume(any(), any());
         verify(tasks, never()).register(anyString(), anyString(), any());

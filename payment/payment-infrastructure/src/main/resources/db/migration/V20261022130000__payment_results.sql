@@ -29,7 +29,7 @@ CREATE TABLE payment_channel_receipt
     UNIQUE KEY uk_payment_channel_receipt (tenant_id, attempt_id, source, receipt_key),
     KEY ix_payment_receipt (tenant_id, payment_id, received_at, id),
     CHECK (deleted = 0),
-    CHECK (source IN ('SUBMIT_RESPONSE', 'QUERY_RESPONSE', 'CALLBACK')),
+    CHECK (source IN ('SUBMIT_RESPONSE', 'QUERY_RESPONSE', 'CLOSE_RESPONSE', 'CALLBACK')),
     CHECK (disposition IN ('APPLIED', 'IGNORED', 'CONFLICT')),
     CHECK (disposition <> 'CONFLICT' OR reason_code IS NOT NULL),
     CHECK (JSON_VALID(observation_payload) AND CHAR_LENGTH(observation_payload) <= 32768)

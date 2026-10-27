@@ -1,74 +1,36 @@
-# Pay remaining work
+# Pay 未完成工作
 
-v1.4已将D01—D10收敛为可实施设计。2026-10-21完成P0/P1源码及六应用脚本、JAR/镜像构建、OrbStack启动与健康验收，见[实施说明](IMPLEMENTATION.md)
-。client/domain契约已补齐；15类37个单测源码尚未编译或执行。复用框架Money/JSON诊断；测试RPC及协议模块已删除，业务RPC按P2实际用例接入。P2首批已新增customer授权/资格的app、持久化和HTTP源码，详情见[customer说明](customer/README.md)
-；本批4类22个新单测源码未编译/执行，数据库/JWT业务验收尚待完成。product持久准入、条款编译与HTTP首批源码也已补齐，见[product说明](product/README.md)
-；新增6类33个测试方法源码尚未编译/执行。limitcenter激活/原子预占/查询及执行许可/校验/显式过期源码已补齐，两批新增10类55个测试方法源码未编译或执行，见[limitcenter说明](limitcenter/README.md)
-。product初始额度发布/Outbox/ACK/失败重放源码已补，另新增7类31个测试方法源码未编译或执行。acquire
-普通创单/查询、A0稳定意图与A1订单/快照/整单费用原子落库源码已补，新增4类23个测试方法源码未编译/执行，见[acquire说明](acquire/README.md)
-。已补原单会话签发/重放、摘要能力认证及只读托管页面，新增5类29个测试方法源码未执行。Checkout 一步创单及 A1
-首次会话原子提交源码已补，新增14个测试方法未执行。payment 受理/查询、三表持久化及执行门禁检查源码已补，4类24个新增测试方法已编译但未执行，业务
-bootstrap 编译通过，见[payment说明](payment/README.md)。payment
-父门禁/收敛查询、单笔关闭/tombstone/未收款回执已补，新增22个测试方法已编译未执行；渠道未知仍保留CLOSING。以下保留尚未完成的执行与验收工作。
+更新：2026-10-27。当前能力只在 [根 README 矩阵](README.md#当前能力矩阵) 汇总；模块 README 维护契约，本文维护后续队列，下面带日期的记录是历史实施轨迹。
+业务范围保持 [已确认决策](DESIGN-DECISIONS.md) 和完整业务目标；源码完成、自动化通过、真实环境验收分别记账。
+用户仍暂停 IDEA/构建/测试/数据库/部署验证，本轮无新增通过证据。
 
-- [ ] 实现业务proto/HTTP适配、应用编排、数据库唯一约束/原子事务、事件和任务；补齐相应单测与业务集成验收。
-- [ ] 
-  acquire：普通创单/Checkout/start之前批次已完成窄范围编译，结果刷新后续源码按用户要求暂不验证；仍需真实MySQL/JWT/HTTP验收，核对数据库第15—18节结构；商户start金额占用/服务调用与refresh权威结果落账源码已补；继续DirectPay、渠道执行/结果生产、后台扫描/事件、显式关单/未受理占用释放及有界恢复源码已补；原订单延期/幂等回执源码已补；继续自动关单、等待任务和Outbox通知。
-- [ ] customer：执行新增模块的窄范围构建与单测；真实MySQL验收幂等/回滚、租户隔离、撤销后重授和资格并发；验证签名JWT与HTTP响应。主档维护入口继续按框架商户能力接入。
-- [ ] 
-  product：执行准入编排/持久化/HTTP及条款编译器的窄范围构建、单测与真实MySQL/JWT验收；初始额度策略可靠发布/ACK/重放源码已补；继续多revision/多产品共享策略演进、实际渠道及受控引用的发布校验，完成与acquire
-  A0/A1集成验收。
-- [ ] 费用：创单已冻结独立INIT order_fee和原总额规则；付清确认已接入 A3 同事务源码；继续退款累计基数与退费调整。
-- [ ] payment：受理/查询及门禁检查已编译，完成真实MySQL/JWT/HTTP和并发验收；acquire
-  金额占用/accept调用及outcome权威结果刷新源码已补；敏感输入准备/固定引用/单 attempt 绑定及纯 API
-  接入源码已补；绑定管理/不可变身份版本/内部选路器源码已补；durable attempt/路由冻结/额度 Reserve-Begin-Verify/默认risk/Y2
-  CAS 源码已补；不可变版本化路由资源/按序选路源码已补；继续真实渠道提交/动作/结果/交易号claim、渠道关闭收敛及可信结果。
-- [ ] payment退款子域：独立refund_request/plan/refund_order、FIFO固定分配/原付款可退预占，不更新订单生命周期和支付金额。
-- [ ] limitcenter：激活/原子预占/查询源码已补，完成窄范围构建及真实MySQL并发/JWT验收；执行许可/校验/显式过期源码已补；继续实现payment
-  Y2/可信事实、安全换attempt、确认/释放与权威事实核验/终态回执源码已补；继续过期扫描、退款恢复、父级共享规则及历史记录。
-- [ ] cashier/SDK：原单会话签发/重放、摘要能力认证和终态只读页面源码已补，完成窄范围构建及真实JWT/HTTP/MySQL验收；继续手动金额/尾款校验、每笔动作幂等、PENDING续付、完整渠道交互，以及会话撤销的运行验收。
-- [ ] 支付宝/微信/银联及直连/服务商目标接入，默认CNY；按实际开通产品补齐渠道/沙箱/银联机构接口材料。
-- [ ] PaymentSucceeded/OrderFullyPaid及关闭/退款独立通知，签名/语义ACK/重试/版本幂等；realtime组合订单、付款、退款视图。
-- [ ] 默认放行风控与 Y2 前咨询源码已补；继续结果落库后异步通知及外部 provider 策略，详细协议后置。
-- [ ] 后置reconciliation：独立文件/交易快照/逐笔核对/差错复核，不参与交易提交或直接改资金表。
-- [ ] 如需多人长期使用Headlamp，接入OIDC/HTTPS；当前为本机短期token。
+## Review 队列
 
-当前范围以最新修订为准：完成 PAYMENT_CODE（商户扫码枪输入）、JSAPI、H5；移除 Native 二维码和原生 APP 支付。纯 API 的 DirectPay
-与 create→startPayment 均需完成，托管收银台为可选入口；付款码/JSAPI 安全输入准备及纯 API start/DirectPay
-受理编排源码已补；继续真实渠道提交、输入清理和后台恢复。
+- [ ] R1：实际运行并评估 acquire A2/A3、payment Y2/Y3/退款/恢复、realtime 投影 MySQL IT；源码已补不代表原子性已证明。多付款 FIFO、实际扫描及跨进程网络故障仍需独立覆盖。
+- [ ] R2：只读详情/加锁重试源码已分离；仍需真实锁竞争和过时详情重试验收。
+- [ ] R3：有界退避/抖动源码已接付款/退款；仍需运行证据、首提/集群配额、真实 held/FAILED/Outbox 快照、通知路由/工单与证据保留策略；单 JVM 渠道恢复舱壁、handler 执行指标及首次 UNKNOWN 时间/库存源码已补。
+- [ ] R4：付款/attempt 共同纯领域绑定及模式校验已接首提/恢复/Y3/回调/关单等源码；门禁与完整上下文源码也已补；所有入口组合及运行证明仍待完成。
+- [ ] R6：acquire/payment 付款意图已改 owner-local 不可变格式与显式 MapStruct，剥离公开 Command/DTO JSON；编译、实际落库/重启恢复及现有开发数据处置证明仍待完成。
+- [ ] R7：模块内规范 task key、领取元数据和双阶段 current/单调 successor 规则已共用，付款/退款锁序与状态机独立；共享协议与原生 handler IT 的运行证明仍待完成。
+- [ ] R5：五个本地 helper 与调用方统一 withTenantContext / readSnapshot / writeLocal，保持原事务/错误语义；契约测试源码已补，编译/测试及渠道事务外调用的运行证明仍待完成。
+- [ ] R8：根能力入口和首批源码/POM 门禁持续维护；门禁运行、字节码依赖证明及剩余基础设施入站适配边界仍待完成。
+- [ ] R9：有实际数据量/执行计划后再确定深分页与导出 cursor，保留当前页码 API。
 
-全部业务的持续实施清单与当前继续点见 [BUSINESS-IMPLEMENTATION.md](BUSINESS-IMPLEMENTATION.md)。费用确认、额度确认/释放、敏感输入与纯
-API 编排的新增源码尚未验证，不能视为全部业务已完成。
+## 剩余业务切片
 
-渠道绑定新增发布/暂停/永久撤销/查询、三表迁移、类型化账户与凭证版本、内部选路器和17个测试方法源码；未验证。Secret/产品开通校验、attempt
-持久冻结与执行边界仍待完成，详见 [payment说明](payment/README.md)。
+- [ ] 渠道：支付宝 H5、微信付款码；银联产品与接入机构确定后补独立 Provider。所有直连/服务商路径需真实沙箱/渠道验收。
+- [ ] 输入与动作：初次安全输入尚在途/地址变更竞态、缺失输入后的收敛、托管 JSAPI OAuth/可信渠道标识与浏览器桥接、有限密钥/平台证书/APIv3 轮换。
+- [ ] 查证恢复：丢失 prepay/关闭 ACK 的持久操作证据与恢复，保持 UNKNOWN 占用，不以任务失败伪造资金终态。
+- [ ] 合约/额度：多 revision/多产品共享策略、发布前渠道引用/开通校验、扫描及原桶恢复等未验收边界。
+- [ ] 通知：目标生命周期、授权迁移/撤销、密钥轮换、超过通知窗口的受控人工处置及真实签名/ACK 投递。
+- [ ] realtime：付款中间态生产、重建/检查点、乱序补齐和查询新鲜度；不回压交易主链路。
+- [ ] 后置对账：独立文件接收/校验/解析、批次幂等、核对、差错复核与受控查证，不直接修改资金表。
+- [ ] 外部风控：按后续真实协议实现 provider，保留默认放行咨询和独立结果反馈。
+- [ ] 运行与交付：真实 JWT/TLS/gRPC、独立 schema/事务、多实例任务、Outbox/商户通知及三渠道业务链路；业务镜像、Secret 与环境发布配置未经验收。
 
-本批新增首笔 attempt 与 Y2 单次提交权、额度 HTTP 客户端、未提交关单及14个测试方法源码；尚未运行检查/编译/测试。实际发送、自动执行/查证、quota
-终态投递和全部剩余业务继续推进。
+## 历史实施记录
 
-2026-10-22 继续业务实现：新增不可变 RoutingProfile 的 client/domain/app/infra/adapter、发布/查询及一表迁移；Y1 选路强制读取原冻结
-routingProfileRef，仅在同租户/实际收款商户、原合约渠道/方式/接入模式和方案有序白名单内选择 ACTIVE 绑定。方案不可覆盖，重放不重新启用绑定；新
-attempt 冻结当前 revision，旧 attempt 保留原身份。新增22个测试方法源码，未运行 IDEA 检查、编译、测试、DDL 或部署。product
-发布前引用/能力校验和真实渠道发送等仍待完成。
-
-2026-10-22 编辑错误修复：依据用户“先修复编辑错误”，使用 IDEA MCP 检查当前192个改动 Java 文件；修复 OrderClosureConverter 两处
-MapStruct 表达式的嵌套引号语法错误，改用 closeRequestKey 命名标量转换，保持 order-close/intentId 幂等键。修复文件 IDEA
-复查无错误。其余7个仓储文件仍有未生成 MyBatis-Flex Mapper/TableDef 导致的解析错误；未手写生成类，未运行构建、注解处理或测试，不能将此次编辑器检查当作编译通过。
-
-2026-10-22 Y3 续批：新增内部规范化结果应用、永久回执/资金差错、跨租户真实账户交易号唯一认领、同事务成功时间/退款容量与
-acquire/limit/realtime/risk 四目标
-Outbox。原本地未提交终态也接入可靠事件生产，重放不重复投递任务。新增四表迁移和25个测试方法源码；按用户暂停要求未执行任何检查/构建/测试/DDL/部署。真实渠道发送/验签/动作、自动调度/查证、四目标消费者、退款申请/执行和全部其他待办继续推进。
-
-2026-10-23 事件链续批：limit/risk 独立 Outbox handler、原队列/终态/交易号证据/容量复核及锁外调用源码已补；额度
-confirm/release HTTP 与 ACK校验、空 reservation 释放、风控原决策/稳定幂等和未咨询跳过已接入。新增39个测试方法源码、同步配置文档；未运行检查/构建/测试/迁移/部署。继续
-acquire/realtime 消费、真实渠道发送/动作/查证、退款申请计划执行及完整剩余业务。
-
-2026-10-23 acquire 事件续批：新增第三目标 handler、SERVICE HTTP/语义 ACK、原商户/operation/付款事实回查与接收方业务
-Inbox；原金额落账/费用事务体由 refresh、关单和事件复用。新增一表及37个测试方法源码；未运行任何检查/构建/测试/迁移/部署。realtime、真实渠道、退款和完整业务目标仍未完成。
-
-2026-10-23 Realtime 续批：COLA 应用/仓储/HTTP、四类源快照接收、五表/语义回执/版本 CAS、商户授权查询与稳定分页源码已补；payment
-第四目标使用完整快照并接入独立投递。缺摘要不伪造0，乱序不覆盖新版本，终态不重开。新增业务 profile
-和测试源码，未执行任何检查/构建/测试/迁移/部署；订单/退款及付款中间态生产、重建、真实渠道、退款执行与完整目标继续推进。
+整理前的旧总览见 [历史快照](design/history/ROADMAP-overview-before-review-R8.md)。历史“继续实现”不得覆盖当前能力矩阵；历史编译或启动不代表当前修改通过。
 
 ## 2026-10-23 订单快照接线进度
 
@@ -402,3 +364,199 @@ Inbox；原金额落账/费用事务体由 refresh、关单和事件复用。新
 - [x] 源码及测试源码：补强退款 reference/请求/父订单/商户/摘要绑定；两类任务、权限、原条件、跨失败周期重放、未来期限/损坏、native 竞争/审计回滚测试，迁移与文档同步。
 - [ ] 未运行 IDEA/构建/测试/错误码规范门禁/DDL/HTTP/JWT/调度或真实 DB 原子性验收；未签发令牌，没有部署或重试实际任务。
 - [ ] 任务列表/告警、旧库补登记、首轮准备在途竞态、JSAPI 交互、支付宝 H5/微信付款码/银联资料、通知生命周期/交易重建/对账及完整目标继续。
+
+
+## 2026-10-26 架构与设计 Review
+
+- [x] 完成全项目模块依赖与关键交易/恢复/投递路径静态审查，结论、源码依据、优先级和验收条件见 [架构 Review](design/review.md)。
+- [ ] 按 review 批次处理真实数据库一致性验证、运营查询锁隔离、恢复生命周期与内部接口收敛；本轮未修改业务代码。
+- [ ] 本轮未运行 IDEA 检查、构建、测试、DDL、部署或真实渠道验收；审查结论不等于运行验证通过。
+
+
+## 2026-10-26 按 design/review.md 实施 A 批（进行中）
+
+| Review | 当前进展 | 验证状态 |
+|---|---|---|
+| R1 / P1 | 新增 payment-infrastructure 真实 MySQL/Testify/Testcontainers IT 源码，覆盖恢复游标/native 登记、竞争、快照与审计重试原子性；实际迁移/Mapper/Gateway，无数据库替身 | 未编译/未执行；Y2/退款容量补充见后续条目；A2/A3、Outbox、投影及完整恢复仍待补，R1 未验收 |
+| R2 / P1 | acquire/payment 详情拆为 readInspection + 只读 RR 快照；retry 走 lockForRetry，原金融锁与原 native 条件复核保留；游标非锁定 find、退款只读重建已补 | 测试源码已补，未运行；尚无轮询负载/真实锁竞争结果 |
+| R3 / P1 | 恢复退避/抖动、并发限制、业务指标、未知升级及保留策略待下一批 | 未实施/未演练 |
+| R4–R7 / P2 | 仍待后续切片；R2 仅新增语义明确的 readSnapshot，没有静默改变原 read 或抽取通用恢复引擎 | 未完成 |
+| R8 / P2 | 仍待根能力矩阵和全项目架构门禁收敛 | 未完成 |
+| R9 / P3 | 按 review 保留条件性规划，待数据量/查询计划证据 | 未做性能实测 |
+
+- 按现有暂停验证要求，没有启动 IDEA/构建/单测/Docker/数据库/部署/真实渠道；IT 的 mysql-it profile 需显式运行。
+- 下一步继续补 R1 的关键真实业务边界测试源码；A 批的“真实数据库证明”停止条件尚未满足，不宣称 review 已全部处理。
+
+
+## 2026-10-26 Review R1：Y2 与退款容量真实数据库测试源码
+
+- [x] 源码：新增 FinancialPersistenceFixtures 与 FinancialPersistenceIT，复用实际 Flyway/生成 Mapper/Gateway/事务管理器及现有 mysql-it profile，没有数据库替身。
+- [x] 源码：实际 PaymentSubmissionPreparation 双调用在远端准备后竞争，断言单一 ticket/SUBMITTING/epoch/原请求号；ticket 丢失后的重新准备无新授权，实际 attempt 写失败回滚。
+- [x] 源码：已有成功容量前置数据下，真实父门禁/容量锁、FIFO 和 RefundGateway 的并发计划不超预占，header/plan/child/capacity 整组回滚。
+- [x] 测试范围说明：额度/风控/渠道 IO 为测试替身；未使用的结果事件组件不被调用。这不证明真实渠道、完整退款准入、成功入账生成容量或结果 Outbox 原子性。
+- [ ] 未运行 IDEA/编译/单测/Docker/MySQL/IT；R1 仍无本轮通过证据，没有执行 DDL、部署或真实金融调用。
+- [ ] 继续补 acquire A2/A3、结果 receipt/Outbox 故障回滚、渠道成功而 ACK 丢失后的完整恢复、投影并发，以及其余 R1 清单；A 批尚未验收，不提前宣称 review 已完成。
+
+
+## 2026-10-27 Review R1：Acquire A2/A3 与真实 Outbox 测试源码
+
+- [x] 源码：新增 acquire 的显式 mysql-it profile、Testify/MySQL 容器测试配置与真实 A1 证据输入，调用实际 A2/A3 编排/Codec/Gateway/native task/Outbox。
+- [x] 源码：并发相同 actionKey 只保留一份预占/allocation/游标/任务/快照；真实 Outbox publish 后异常验证 A2 整组本地回滚与不提前调用 payment.accept。
+- [x] 源码：A3 金额/结果 receipt/费用确认及调整/Outbox 故障共同回滚、原成功事实再查证、并发/重复事实单次生效、冲突证据拒绝。
+- [x] 业务修复：订单仓储重建 DIRECT_PAY 改用其原元数据与摘要，补 ORDER/DIRECT_PAY 两组真实重建测试输入；没有兼容分支或新业务迁移。
+- [ ] 尚未运行 IDEA/编译/单测/Docker/MySQL/IT；没有执行 DDL/部署/实际 gRPC/渠道/商户发送。R1 仍无本轮通过证据。
+- [ ] 继续投影版本并发、支付侧结果 receipt/Outbox 与完整恢复故障组合及其他 R1 清单；A 批未验收，其余 review 与完整业务目标仍进行中。
+
+
+## 2026-10-27 Review R1：Realtime 投影版本与 receipt 测试源码
+
+- [x] 源码：realtime-infrastructure 补显式 mysql-it profile、Testify/MySQL 容器与 Flyway 配置，默认单测不启动 IT。
+- [x] 源码：四类实际投影入口各覆盖相同 delivery 并发、同版本内容冲突、冲突首次插入竞争、乱序版本、receipt 后故障和原 ACK 重放，共 20 个参数化输入。
+- [x] 源码：实际 Gateway/Mapper/事务执行投影与 receipt 写入，测试故障仅在真实 insert 后注入；没有生产数据库结构变更。
+- [ ] 未运行 IDEA/编译/单测/Docker/MySQL/IT；R1 尚无本轮通过证据，未验证真实消息网络、上游投递、投影重建或查询负载。
+- [ ] A 批继续支付侧结果 receipt/Outbox 原子回滚与完整恢复组合故障；R3–R8 仍按 review 后续推进，A 批停止条件尚未满足。
+
+
+## 2026-10-27 Review R1：Payment Y3 与四目标 Outbox 测试源码
+
+- [x] 源码：新增 PaymentResultPersistenceIT，共 10 个测试输入，使用实际 progress/Y3/金融锁序/Gateway/Mapper/事务/Outbox；Y2 已提交作为合法持久化前置数据。
+- [x] 源码：claim、capacity、成功状态、receipt、Outbox 后分别注入异常，验证整组本地回滚；保留远端成功，恢复只查询原身份/原请求/原 epoch，不重新创建 attempt 或获取首提权限。
+- [x] 源码：相同 receipt 并发、同事实不同 receipt、冲突 receipt 的异常去重、跨租户收款流水唯一归属，以及实际权威关单回执。
+- [x] 业务修复：开发期 payment_channel_receipt source CHECK 补 CLOSE_RESPONSE；test/ci 关闭 Outbox worker，仅观察实际持久化，不触发发送。
+- [ ] 未运行 IDEA/编译/单测/Docker/MySQL/DDL/IT；没有实际渠道、回调验签或 gRPC 断链证明，R1 尚无本轮通过证据。
+- [ ] A 批继续真实付款/退款恢复 handler、租约到期与旧新 generation 并发组合；R3–R8 仍按 review 推进，完整业务目标继续。
+
+
+## 2026-10-27 Review R1：付款恢复 handler 的原生租约交错测试源码
+
+- [x] 源码：PaymentResultPersistenceIT 增加 3 个组合用例，共 13 个输入；实际 INIT 受理/原任务同事务登记，再建立已提交 Y2 前置状态，使用真实 claim/handler/finish/游标/Y3/Outbox。
+- [x] 源码：过期及已重新 claim 的旧快照拒绝；旧 worker 原查询在途期间新 worker 接管并提交唯一后继，当前 generation 完成后旧查询不能倒退状态或追加后继，旧 token ACK 失败。
+- [x] 源码：未来 generation 故障任务不得产生渠道 IO 或跳过当前任务；当前任务仍按原 identity/requestNo/epoch 查询收敛，初始创建/首提 preparation/action/submit 均不调用。
+- [x] 源码：测试专用 Clock 同时控制业务与原生租约，用屏障交错，不 sleep、不手改任务表、不变更生产轮询/租约配置；测试尾部只取消未完成任务，不删除资金证据。
+- [ ] 未运行 IDEA/编译/单测/Docker/MySQL/IT；实际 Scheduler/Dispatcher 扫描、跨进程崩溃和真实渠道网络尚未验收，R1 尚无本轮通过证据。
+- [ ] A 批继续退款实际 handler 的对应组合及其他剩余 R1 证据；R3–R8、缺失渠道产品资料与整体业务目标仍继续。
+
+
+## 2026-10-27 Review R1：退款结果与真实 handler 租约交错测试源码
+
+- [x] 源码：新增 RefundRecoveryHandlerPersistenceIT，共 8 个输入；实际付款 Y3 生成成功流水/容量后，实际 FIFO/预占/汇总/原生任务登记，再建立已首提退款的合法前置状态。
+- [x] 源码：退款 claim、request/child/capacity、汇总与各目标 Outbox、receipt 四处写后注入异常，整组本地回滚，原占用不释放；真实 handler 可按原账户/退款号/金额恢复。
+- [x] 源码：过期与已接管 claim 拒绝、旧查询在途与当前后继 generation 交错、旧 token ACK 失败、未来 generation 不得跳过当前任务，以及相同退款事实的不同 receipt 重放。
+- [x] 源码：原付款 SUCCEEDED/金额/版本不变，退款容量与订单退款汇总单次结算，实际交易/费用/额度/商户 Outbox 不重复；canRefund 本地事务内、recoverRefund 事务外，首提分支零调用。
+- [ ] 未运行 IDEA/编译/单测/Docker/MySQL/DDL/IT，未验证真实渠道退款幂等/验签、实际扫描器或跨进程崩溃；R1 仍无本轮通过证据。
+- [ ] A 批继续多付款 FIFO 串行退款等剩余边界；R3–R8、缺失渠道产品资料与完整业务目标继续，不能以测试源码完成代替 A 批验收。
+
+
+## 2026-10-27 Review R8：当前能力矩阵与首批依赖门禁源码
+
+- [x] 文档：根 README 统一源码/自动化/环境验收/责任模块矩阵，删除“仅契约层/无业务服务”等过时当前描述；保留未实现渠道、授权、恢复、投影与对账范围。
+- [x] 文档：ARCHITECTURE 的实现状态/Ping 差异表同步更新；ROADMAP 收敛未完成队列，BUSINESS-IMPLEMENTATION 改为实施日志，旧总览原文保存到 design/history。
+- [x] 源码：现有 channel-core 测试目录新增 PayModuleBoundaryTest，扫描六服务及 profile POM，覆盖纯净层、跨服务、app→实现、渠道插件和存储适配角色，包含合成正反例。
+- [x] 小范围职责修复：OrderRefundSummaryEventDTO 拥有事件类型常量，producer/codec 共用原 wire 值；codec 不再引用 app.service，仅消除协议常量依赖，不改变交易状态机。
+- [ ] 未运行 IDEA/编译/单测/门禁/Docker/DDL/部署；没有新增任何通过证据。R8 仍需实际正反例/字节码依赖证明及技术入站适配接口收敛。
+- [ ] R1/R2 真正数据库与锁竞争验收仍待运行，R3–R7、缺失渠道产品与完整业务目标继续；R8 文档/源码不替代前面批次的停止条件。
+
+
+## 2026-10-27 Review R3：付款/退款有界退避与抖动源码
+
+- [x] 源码：新增纯领域 RecoveryPollingPolicy，按原付款 initiatedAt / 退款 plannedAt 年龄指数退避、有界饱和与确定性身份/generation 抖动，不读取 Spring/ORM 或授予执行权。
+- [x] 源码：两种恢复 handler 后继登记共用策略，保持原本地游标/native task 事务、锁序、原请求号、占用和终态规则；传输失败仍由原生 retry/FAILED 处理。
+- [x] 配置：新增共享 recovery-polling 四项，默认 30 秒、1800 秒上限、900 秒年龄档位、20% 抖动；删除旧 payment/refund 固定轮询属性及环境变量，无兼容读取。
+- [x] 测试源码：年龄/饱和/不溢出、固定抖动及窗口、时钟回拨、非法配置、Spring 装配和两种长龄 handler；真实租约交错 IT 显式零抖动并接入新策略装配。
+- [ ] 未运行 IDEA/编译/单测/MySQL/IT/迁移/部署；无实际请求速率或任务生成量证明，R1/R2 停止条件仍未满足。
+- [ ] R3 尚需渠道并发、业务指标、长期未知升级及证据保留/归档；R4–R8、渠道/输入/通知/投影/风控/对账等完整业务目标继续。
+
+
+## 2026-10-27 Review R3：单 JVM 按渠道共享恢复舱壁
+
+- [x] 源码：ChannelRecoveryConcurrency 复用 LoadUp ResilienceRegistries/BulkheadRegistry，所有渠道名由 enum 生成；统一 Facade 的 query/recover/close/queryRefund/recoverRefund 共用每渠道预算，满额先于 Provider IO 拒绝。
+- [x] 源码：原路由/租户/绑定校验优先，异常及无效返回释放名额；不换账户/请求号、不降级到其他渠道、不以拒绝或超时释放占用。
+- [x] 装配：channel-core 仅依赖框架 API，payment-business bootstrap runtime 加 core binder，标准 native 配置默认每渠道 16 / 0ms；不创建自有并发框架或线程池。
+- [x] 测试源码：五类恢复入口共享预算、实际线程交错和渠道隔离、失败/无效响应后释放、首提和本地检查不丢票据、拒绝阻塞配置，以及 API/binder runtime 依赖门禁。
+- [ ] 首提 submit/submitRefund 仍须后续在 Y2/退款提交边界前完成并发准入；本切片不在已赢得持久票据后引入额外拒绝点。集群总配额/QPS/公平性仍未实现。
+- [ ] 未运行 IDEA/编译/单测/门禁/多实例/渠道/部署；无吞吐或资源占用实测，R1/R2 验收和 R3 业务指标/升级/证据保留仍待完成。
+
+
+## 2026-10-27 Review R3：恢复 handler 执行观测源码
+
+- [x] 源码：RecoveryExecutionMetrics 复用共享 MeterRegistry，仅 kind/payment-refund 与固定 outcome 的 8 个 Timer、2 个在途 Gauge，不带租户/业务/任务/账户/金额/URL/异常文本标签。
+- [x] 源码：真实 Payment/RefundRecoveryTaskHandler 在整个处理外层记录，恢复服务返回已提交续行决策；计量不进入本地重试闭包，原异常继续交给 native retry/ACK。
+- [x] 源码：无共享 registry 不创建私有 backend，不跳过业务；调用期指标 RuntimeException 不覆盖原业务异常，不依据观测改写资金终态/占用/权限。
+- [x] 测试源码：业务后计数、失败原样抛出、固定标签、并发在途归零、无 registry 继续执行业务及实际两类 adapter 接线；服务决策断言和 IT 装配已同步。
+- [ ] 未运行 IDEA/编译/单测/IT/exporter/部署；没有实际指标采集结果，不能将 Timer.count 或 inflight 冒充 UNKNOWN 库存或资金占用。
+- [ ] R3 继续真实 UNKNOWN/金额/最老年龄/FAILED/Outbox 快照指标、阈值升级与证据保留，首提/集群总配额亦未完成；完整业务目标保持。
+
+
+## 2026-10-27 Review R3：UNKNOWN 只读库存及样本新鲜度源码
+
+- [x] 源码：RecoveryInventoryReaderImpl 使用现有生成 Mapper/TableDef/QueryMethods，严格租户及实际只读 RR，分别聚合 UNKNOWN 付款/子退款数量、名义金额和最老创建时间，无写入/行锁/网络回查。
+- [x] 源码：独立 ScheduledTask 只对配置范围采样，最多 100 个不同租户；全部成功才发布缓存。首次为 NaN，空库存显式 0，失败保留整体旧样本并暴露 sample.age/refresh failure，scrape 不查询数据库。
+- [x] 配置：默认未启用，显式租户范围及 300 秒间隔；无共享 MeterRegistry 不查询/不建私有 backend。固定 kind/outcome 标签，不含租户或业务身份。
+- [x] 测试源码：完整/失败/部分/空样本、scope/只读/周期/时钟回拨/无 registry、cell 类型/溢出，以及真实付款/退款聚合输入（相关 IT 当前 14/9 个输入）。
+- [ ] 未运行 IDEA/编译/单测/MySQL/IT/exporter/调度/执行计划/负载/部署；不增加推测索引，不能宣称真实查询或 R1/R2/R3 验收通过。
+- [ ] 本值不是额度 held/渠道余额或 firstUnknownAt；这些事实、FAILED/Outbox 库存、长期未知升级、证据保留和完整业务目标继续。
+
+
+## 2026-10-27 Review R3：首次 UNKNOWN 持久时间与年龄口径
+
+- [x] 源码：付款/子退款 DO 与初始 schema 增加 first_unknown_at；UNKNOWN 必须有值，首次状态 CAS 同事务写入本地微秒时间，回滚一起撤销。
+- [x] 源码：重复查证与任务重领不重置，终态保留元数据；只读库存只统计当前 UNKNOWN，以最小 first_unknown_at 计算 .unknown.oldest.age，删除旧开发期创建年龄指标。
+- [x] 测试源码：付款/退款实际 gateway 状态写入后的故障回滚、稍后首个提交、重复未知、终态保留及退出库存；Converter/Collector 对应映射和指标名已同步。
+- [ ] 本轮未执行 IDEA/编译/测试/DDL/数据库重建/部署，不提供旧开发期数据兼容回填；R1/R2 运行证据与 R3 其他目标继续保留。
+
+
+## 2026-10-27 Review R3：分级查证列表与告警规则源码
+
+- [x] 源码：共享纯领域 RecoveryEscalationPolicy，默认 15 分钟 REVIEW、24 小时 URGENT，服务端可配置；级别不改变资金状态/占用/提交权。
+- [x] 源码：独立 Facade/HTTP 只读列表，仅配置的受信运营 SERVICE + recovery read 权限，租户取凭证；付款/子退款身份及父任务代次可定位现有 detail/retry。
+- [x] 源码：生成 Mapper/TableDef/联表投影 + MapStruct，实际 RR/readOnly、无排他锁/网络/COUNT，时间与 ID keyset 每页最多 100+1；缺失游标显式空元数据，未来时间在 NORMAL 保持可见。
+- [x] 源码：阈值与采样间隔 Gauge、独立 Prometheus 普通/紧急互斥及样本不可用规则，不叠加重复副本库存。没有更改现有 release 或开启 Alertmanager。
+- [x] 测试源码：领域/配置、鉴权/租户/分页/回拨/损坏结果、实际付款同时间游标/跨租户/并行金融写入及退款父任务联表，Prometheus 阈值/新鲜度/禁用/target-down 用例；当前付款 IT 15、退款 IT 9。
+- [ ] 所有源码未编译/运行；未执行 promtool、数据库、查询计划、真实 JWT/exporter/规则评估、部署或人员通知；R1/R2 运行证据仍未满足。
+- [ ] R3 继续实际 held/FAILED/Outbox、首提/集群准入、实际告警路由/人工工单、证据保留及长期故障演练。契约见 design/RECOVERY-ESCALATION.md。
+
+
+## 2026-10-27 Review R5：明确上下文与本地事务语义
+
+- [x] 源码：acquire/payment/product/limitcenter 的上下文-only read 改为 withTenantContext；realtime 的真实只读 read 改为 readSnapshot，五个 helper 的 write 改为 writeLocal。
+- [x] 源码：生产、单测、真实 MySQL IT 的对应调用方同步；不保留旧方法/适配重载，不增加跨模块执行器、依赖、配置或数据库格式。
+- [x] 语义：原 REQUIRES_NEW/RC 写、RR 快照、最多总计三次重复键/瞬态数据库失败尝试、业务错误/空值映射、租户恢复及拒绝外层事务保持；渠道 IO 原位置不移动。
+- [x] 测试源码：补五个 helper 的上下文/只读/隔离级别、回滚后重试、上限、业务失败不重试、嵌套拒绝和模块映射；见 design/TRANSACTION-BOUNDARIES.md。
+- [ ] 按用户要求未运行 IDEA/构建/测试/DDL/网络；未新增运行通过证据，不用 helper SPI 替身证明真实 MySQL 回滚，R1/R2/R5 完整验收保留。
+
+
+## 2026-10-27 Review R4：付款与 attempt 共同绑定源码
+
+- [x] 源码：纯领域 PaymentAttemptBinding 集中付款身份、Money、商户、额度 operation、原 caller 与 paymentDigest，区分 active/submittable/observable/closable/原 winner 请求；不授予 Y2 提交权。
+- [x] 源码：payment 内错误映射适配接入首提、恢复、Y3、回调、关单、渠道请求、动作、幂等请求重放和结果投递；冻结 route 比较也集中，保留锁序/权限/协议/证据检查。
+- [x] 语义：Y3 错误目标仍走冲突 receipt/anomaly，正确目标持久绑定损坏仍直接 SNAPSHOT_INVALID；允许已提交请求在终态/门禁后观察，不转换成新的提交权限。
+- [x] 测试源码：六类独立绑定篡改、各模式与错误映射、路由、迟到/终态、冲突顺序；扩充 Y3 app 测试确认损坏绑定无资金写入，尚未执行。
+- [ ] 本轮未运行 IDEA/编译/测试/数据库/渠道。R4 完整门禁上下文与所有入口组合验收、R1/R2/R5 运行证明继续保留；见 design/PAYMENT-BINDING.md。
+
+
+## 2026-10-27 Review R4：完整门禁执行上下文源码
+
+- [x] 源码：纯领域 PaymentGateBinding 一次核对父/付款门禁，LockedPayment 只持有已校验绑定；删除旧原始三参数构造并同步调用。
+- [x] 源码：PaymentExecutionContext 组合门禁/attempt 绑定，要求相同完整付款快照，分别表达 active/submittable/observable/closable。
+- [x] 源码：锁内 Y2/恢复/关闭/Y3/动作/投递与 outcome 查询接入；保持原锁序，增加无事务/只读事务在锁网关前拒绝及原请求 ID 复核。
+- [x] 语义：双 OPEN 只约束首次提交；关闭/终态的已提交事实可观察；Y3 错误目标仍先写冲突，不把上下文当 Y2 票据或负面资金证据。
+- [x] 测试源码：门禁十类篡改、不同快照混用、fence/终态模式、错误映射/锁序/事务拒绝，以及实际 app 的 Y2 拦截，无输入绑定/金融更新/无收款证据制造。
+- [ ] 本轮未运行 IDEA/编译/测试/数据库/渠道；R1/R2/R4/R5 的真实运行验收和 R6 冻结意图收敛仍待完成，见 design/PAYMENT-BINDING.md。
+
+
+## 2026-10-27 Review R6：付款持久意图的独立快照源码
+
+- [x] 源码：acquire/payment 各自 PaymentIntentSnapshot，独立 format 标识、完整嵌套本地条款、扁平 choice、原期限字符串；不再直接序列化/读取公开 Command 或 DTO 字段类型。
+- [x] 源码：标准 MapStruct 显式转换，固定 Jackson 存储配置；当前 Bean Validation 仅用于 encode，decode 由快照自身和落库索引验证，不查询当前合约/路由填值。
+- [x] 语义：原 long 分额、CNY、条款 hash/version/generation、输入引用和原绝对期限保留；未知/旧/其他 owner 格式直接失败，无兼容/回填/重扣或释放逻辑。
+- [x] 测试源码：API JSON 命名/注解隔离、恢复不调用当前 Command Validator、旧/损坏/不精确格式拒绝、完整映射及深层集合不可变；当前 Spring/IT 装配继续通过 converter 扫描使用新类型。
+- [ ] 本轮未运行 IDEA/编译/MapStruct/测试/数据库/部署，未重建或改写现有开发数据。R6 当前源码不支持旧裸 Command payload；详见 design/PAYMENT-INTENT-SNAPSHOTS.md。
+
+
+## 2026-10-27 Review R7：模块内恢复协议源码
+
+- [x] 源码：RecoveryTaskKey/RecoveryPosition 共用规范身份、代次与单调后继；原 typed key/cursor 保留，bizId/schema 不变。
+- [x] 源码：RecoveryTaskProtocol 对显式可信租户、任务领取元数据、RUNNING/attempts/maxAttempts、到期/有效租约及业务 current 统一错误映射；不做 IO、claim、ACK 或渠道推进。
+- [x] 源码：付款/退款两阶段都接相同规则，推进后补同代 dueAt 复核；原锁序、事务外执行、终态判定、原请求和 successor 同事务仍独立保留。
+- [x] 测试源码：两条业务类型共享协议用例、旧/未来/完成/错主体/错时间、正向代次/溢出/heartbeat/元数据；两类服务补推进后同代时间异常场景。
+- [ ] 本轮未运行 IDEA/编译/测试/数据库/多实例/渠道，不以元数据检查替代 native token fencing 或业务 Y2；完整协议与 R1/R2 真实运行证明继续保留，见 design/RECOVERY-PROTOCOL.md。

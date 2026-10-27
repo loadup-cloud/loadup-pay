@@ -119,7 +119,7 @@ class PaymentAttemptServiceTest {
         when(limits.supportsTenant("tenant")).thenReturn(true);
         when(locks.lock(eq("tenant"), anyString(), eq("acquire"))).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+            return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());
         when(codec.checksum(anyString())).thenAnswer(call -> HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

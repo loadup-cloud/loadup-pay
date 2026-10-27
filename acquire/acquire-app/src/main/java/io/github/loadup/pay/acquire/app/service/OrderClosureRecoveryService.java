@@ -47,13 +47,13 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     @Override public String taskType() { return OrderClosureTasks.TYPE; }
     @Override public void handle(DelayedTask task) {
         var key = validate(task);
-        var pending = transactions.write(task.tenantId(), () -> {
+        var pending = transactions.writeLocal(task.tenantId(), () -> {
             var order = orders.lockOrder(task.tenantId(), key.orderId());
             var intent = closes.findIntent(task.tenantId(), key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!order.order().id().equals(key.orderId()) || !intent.orderId().equals(key.orderId())
                     || task.executeAt().isBefore(intent.requestedAt())) throw new CommonException(SNAPSHOT_INVALID);
             var scope = new OrderPaymentScope(task.tenantId(), order.callerScopeHash());
-            return operations.isCurrentLocked(scope, order, intent, key.generation())
+            return operations.isCurrent(scope, order, intent, key.generation())
                     ? java.util.Optional.of(intent) : java.util.Optional.<OrderCloseIntent>empty();
         });
         if (pending.isPresent()) {

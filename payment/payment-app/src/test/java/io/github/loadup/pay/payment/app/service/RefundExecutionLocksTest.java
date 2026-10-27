@@ -39,7 +39,7 @@ class RefundExecutionLocksTest {
         when(payments.lockParent("tenant", "order")).thenReturn(java.util.Optional.of(AttemptFixtures.gate(true)));
         when(refunds.lock("tenant", "request")).thenReturn(request);
     }
-    StoredRefundRequest lock() { return transactions.write("tenant", () -> locks.request("tenant", "request")); }
+    StoredRefundRequest lock() { return transactions.writeLocal("tenant", () -> locks.request("tenant", "request")); }
 
     @Test
     void requestLockRetainsTheOriginalReferenceParentAndRequestOrder() {

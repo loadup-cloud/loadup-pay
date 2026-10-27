@@ -64,7 +64,7 @@ public class CashierService implements CashierFacade {
         validate(command); noTransaction();
         var actor = actors.current();
         if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
-        String owner = transactions.read(actor.tenantId(), () -> {
+        String owner = transactions.withTenantContext(actor.tenantId(), () -> {
             var order = orders.findOrder(actor.tenantId(), actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_START");
             return order.callerScopeHash();
@@ -80,7 +80,7 @@ public class CashierService implements CashierFacade {
     @Override public CashierPaymentDTO paymentProgress(IdQuery query) {
         validate(query); noTransaction();
         var actor = actors.current();
-        String owner = transactions.read(actor.tenantId(), () -> {
+        String owner = transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var order = orders.findOrder(actor.tenantId(), actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
@@ -96,7 +96,7 @@ public class CashierService implements CashierFacade {
         validate(command); noTransaction();
         var actor = actors.current();
         if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
-        var owner = transactions.read(actor.tenantId(), () -> {
+        var owner = transactions.withTenantContext(actor.tenantId(), () -> {
             var order = orders.findOrder(actor.tenantId(), actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
             return order.callerScopeHash();

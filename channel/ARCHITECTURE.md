@@ -76,3 +76,13 @@ bootstrap 通过 runtime 依赖装配 core 和具体插件；payment 业务模�
 
 
 退款通知在同一 Facade/Provider 中使用类型化 identifyRefund/verifyRefund，不把支付 target 与退款 target 混用。微信协议复用签名/解密后按 refund 资源校验；退款 App 服务只查原计划、验原身份、查原渠道退款并调用既有退款结果事务。原回调控制器复用采集逻辑并增加独立退款路径，不添加业务厂商路由。
+
+
+## Review R3：恢复舱壁的边界
+
+统一 Facade 对恢复、查询和关闭执行 ChannelRecoveryConcurrency，使用 LoadUp ResilienceRegistries 中的标准 Bulkhead。
+每个 Channel 一个固定命名实例，付款/退款相关恢复入口共享，不按 businessId/tenant 创建实例。原路由鉴权和绑定检查先执行，满额不能泄露或覆盖其错误。
+持有名额的范围是 Provider 操作，finally 释放；没有重试、自动降级或跨渠道 fallback 装饰。
+首提 submit/submitRefund 及本地预检不装饰，避免在已持久化的一次提交权后新增拒绝点。前移首提并发准入需另有覆盖 Y2 的设计和验证。
+Bootstrap 提供 Resilience4j core binder，channel-core 只引用 API；默认装配拒绝缺少 registry 或非零等待配置。
+当前为单 JVM 恢复并发上限；集群配额、首提准入、QPS 以及实际吞吐/公平性证明未完成。新增源码未编译或运行。

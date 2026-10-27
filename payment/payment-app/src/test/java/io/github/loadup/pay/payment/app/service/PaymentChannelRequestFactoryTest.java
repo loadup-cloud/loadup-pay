@@ -156,7 +156,7 @@ class PaymentChannelRequestFactoryTest {
         var storedAttempt = submittingAttempt();
         var prepared = prepared(storedAttempt.attempt());
         stubRecords(acceptance, storedAttempt, command);
-        when(transactions.read(eq(TENANT), any())).thenAnswer(invocation -> invocation.<Supplier<ChannelPaymentRequest>>getArgument(1).get());
+        when(transactions.withTenantContext(eq(TENANT), any())).thenAnswer(invocation -> invocation.<Supplier<ChannelPaymentRequest>>getArgument(1).get());
         when(codec.decode(acceptance)).thenReturn(command);
 
         var thrown = assertThrows(CommonException.class, () -> factory.create(TENANT, prepared));
@@ -183,7 +183,7 @@ class PaymentChannelRequestFactoryTest {
             PaymentExecuteCommand command, NoInteractionDTO plaintext, ChannelPaymentInput channelInput,
             ChannelPaymentRequest expected) {
         stubRecords(acceptance, storedAttempt, command);
-        when(transactions.read(eq(TENANT), any())).thenAnswer(invocation -> invocation.<Supplier<ChannelPaymentRequest>>getArgument(1).get());
+        when(transactions.withTenantContext(eq(TENANT), any())).thenAnswer(invocation -> invocation.<Supplier<ChannelPaymentRequest>>getArgument(1).get());
         when(inputs.openForAttempt(TENANT, expected.payment().identity().paymentId(), expected.payment().identity().attemptId()))
                 .thenReturn(plaintext);
         when(converter.toInput(plaintext)).thenReturn(channelInput);

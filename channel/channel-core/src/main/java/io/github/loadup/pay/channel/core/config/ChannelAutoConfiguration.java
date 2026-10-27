@@ -22,6 +22,8 @@ import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
 import io.github.loadup.pay.channel.core.DefaultChannelNotificationFacade;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 import io.github.loadup.pay.channel.core.DefaultChannelPaymentFacade;
+import io.github.loadup.pay.channel.core.ChannelRecoveryConcurrency;
+import io.github.loadup.components.resilience4j.ResilienceRegistries;
 import io.github.loadup.pay.channel.core.codec.DefaultChannelActionCodec;
 import tools.jackson.databind.json.JsonMapper;
 import org.springframework.beans.factory.ObjectProvider;
@@ -30,12 +32,18 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import java.time.Clock;
 
-@AutoConfiguration
+@AutoConfiguration(afterName = "io.github.loadup.components.resilience4j.core.Resilience4jCoreAutoConfiguration")
 public class ChannelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(ChannelPaymentFacade.class)
-    ChannelPaymentFacade channelPaymentFacade(ObjectProvider<ChannelProvider> providers) {
-        return new DefaultChannelPaymentFacade(providers.orderedStream().toList());
+    ChannelPaymentFacade channelPaymentFacade(ObjectProvider<ChannelProvider> providers, ChannelRecoveryConcurrency recovery) {
+        return new DefaultChannelPaymentFacade(providers.orderedStream().toList(), recovery);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ChannelRecoveryConcurrency.class)
+    ChannelRecoveryConcurrency channelRecoveryConcurrency(ResilienceRegistries registries) {
+        return new ChannelRecoveryConcurrency(registries);
     }
 
     @Bean

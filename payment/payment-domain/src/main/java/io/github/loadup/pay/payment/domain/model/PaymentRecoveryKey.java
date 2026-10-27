@@ -15,37 +15,16 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
 
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.require;
-
-/** The generation fences obsolete wake-ups; it is not a channel submission key. */
+/** Typed payment continuation identity; canonical parsing belongs to the module-local protocol. */
 public record PaymentRecoveryKey(String paymentId, long generation) {
-    public PaymentRecoveryKey {
-        DomainChecks.id(paymentId);
-        require(generation >= 0, INVALID_ARGUMENT);
-    }
-
-    public String bizId() { return paymentId + "." + generation; }
-
+    public PaymentRecoveryKey { new RecoveryTaskKey(paymentId, generation); }
+    public RecoveryTaskKey taskKey() { return new RecoveryTaskKey(paymentId, generation); }
+    public String bizId() { return taskKey().bizId(); }
     public static PaymentRecoveryKey parse(String value) {
-        require(value != null && value.length() <= 128, INVALID_ARGUMENT);
-        int separator = value.lastIndexOf('.');
-        require(separator > 0 && separator < value.length() - 1, INVALID_ARGUMENT);
-        final long generation;
-        try {
-            generation = Long.parseLong(value.substring(separator + 1));
-        } catch (NumberFormatException invalid) {
-            throw new DomainViolation(INVALID_ARGUMENT);
-        }
-        var key = new PaymentRecoveryKey(value.substring(0, separator), generation);
-        require(key.bizId().equals(value), INVALID_ARGUMENT);
-        return key;
+        var key = RecoveryTaskKey.parse(value);
+        return new PaymentRecoveryKey(key.subjectId(), key.generation());
     }
-
-    @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

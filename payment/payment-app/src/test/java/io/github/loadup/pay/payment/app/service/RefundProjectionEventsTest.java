@@ -127,7 +127,7 @@ class RefundProjectionEventsTest {
     }
 
     void plan() {
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"));
             return true;
         });
@@ -147,7 +147,7 @@ class RefundProjectionEventsTest {
 
     void changed(RefundProgressChange change) {
         current.set(change);
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             events.changed("tenant", change);
             return true;
         });
@@ -303,7 +303,7 @@ class RefundProjectionEventsTest {
     void anotherTenantOrMissingTransactionCannotPublish() {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"))).getResultCode());
-        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> transactions.write("other",
+        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> transactions.writeLocal("other",
                 () -> {
                     events.planned("tenant", RefundResultFixtures.initial(), DomainChecks.cnyAmount(10000, "CNY"));
                     return true;

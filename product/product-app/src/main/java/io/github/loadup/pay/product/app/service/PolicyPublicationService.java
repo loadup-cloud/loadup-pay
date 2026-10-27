@@ -105,7 +105,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     @Override
     public LimitPolicyPublicationDTO publish(LimitPolicyPublishCommand command) {
         var actor = authorize(command, "pay:product:publish");
-        var stored = transactions.write(actor.tenantId(), () -> {
+        var stored = transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.text(command.productScopeKey(), 128);
             DomainChecks.id(command.expectedContractId());
@@ -174,7 +174,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
             publications.update(actor.tenantId(), publishing, initial.rowVersion());
             return publishing;
         });
-        return transactions.read(actor.tenantId(), () -> present(actor.tenantId(), stored));
+        return transactions.withTenantContext(actor.tenantId(), () -> present(actor.tenantId(), stored));
     }
 
     private PolicyPublication replayOriginal(
@@ -192,7 +192,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     @Override
     public LimitPolicyPublicationDTO detail(IdQuery query) {
         var actor = authorize(query, "pay:product:publication:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var stored = publications
                     .findById(actor.tenantId(), query.id())
@@ -206,7 +206,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     public LimitPolicyPublicationDTO replay(LimitPolicyReplayCommand command) {
         var actor = authorize(command, "pay:product:publication:replay");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.publicationId());
             DomainChecks.text(command.reason(), 512);
             var stored = publications
@@ -232,7 +232,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     public void deliver(String tenant, String eventId, String publicationId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!client.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        var stored = transactions.read(
+        var stored = transactions.withTenantContext(
                 tenant,
                 () -> publications.findById(tenant, publicationId).orElseThrow(() -> new CommonException(NOT_FOUND)));
         if (!publicationId.equals(stored.id()) || !eventId.equals(stored.outboxEventId()))
@@ -242,7 +242,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
         var ack = client.activate(tenant, command); // Network I/O is outside every local transaction.
         validateAck(stored, ack);
         LocalDateTime activatedAt = BusinessTime.local(ack.activatedAt());
-        transactions.write(tenant, () -> {
+        transactions.writeLocal(tenant, () -> {
             var current = publications
                     .lockById(tenant, publicationId)
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

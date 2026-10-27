@@ -35,12 +35,11 @@ public record PaymentRecoveryCursor(String paymentId, long generation, LocalDate
         return new PaymentRecoveryCursor(paymentId, 0, dueAt, false);
     }
 
+    public RecoveryPosition position() { return new RecoveryPosition(paymentId, generation, dueAt, completed); }
     public PaymentRecoveryCursor schedule(LocalDateTime nextAt, long expectedGeneration) {
-        require(!completed && generation == expectedGeneration, CONFLICT);
-        require(nextAt != null && nextAt.isAfter(dueAt), INVALID_ARGUMENT);
-        return new PaymentRecoveryCursor(paymentId, Math.incrementExact(generation), nextAt, false);
+        var next = position().schedule(nextAt, expectedGeneration);
+        return new PaymentRecoveryCursor(paymentId, next.generation(), next.dueAt(), next.completed());
     }
-
     public PaymentRecoveryCursor finish() {
         return completed ? this : new PaymentRecoveryCursor(paymentId, generation, dueAt, true);
     }

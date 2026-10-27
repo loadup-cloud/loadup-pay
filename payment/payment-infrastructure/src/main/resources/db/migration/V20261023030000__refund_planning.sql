@@ -79,6 +79,7 @@ CREATE TABLE refund_order
     amount_minor                    BIGINT       NOT NULL,
     currency                        CHAR(3)      NOT NULL,
     state                           VARCHAR(24)  NOT NULL,
+    first_unknown_at                DATETIME(6)  NULL,
     terminal_evidence_id            VARCHAR(64)  NULL,
     next_query_at                   DATETIME(6)  NULL,
     query_sequence                  BIGINT       NOT NULL DEFAULT 0,
@@ -89,6 +90,7 @@ CREATE TABLE refund_order
     KEY ix_refund_query (tenant_id, state, next_query_at, id),
     CHECK (deleted = 0 AND amount_minor > 0 AND currency = 'CNY' AND row_version >= 0 AND query_sequence >= 0),
     CHECK (state IN ('INIT', 'PROCESSING', 'UNKNOWN', 'SUCCEEDED', 'FAILED')),
+    CHECK (state <> 'UNKNOWN' OR first_unknown_at IS NOT NULL),
     CHECK ((state = 'INIT' AND submission_started_at IS NULL) OR
            (state <> 'INIT' AND submission_started_at IS NOT NULL)),
     CHECK ((state IN ('SUCCEEDED', 'FAILED') AND terminal_evidence_id IS NOT NULL)

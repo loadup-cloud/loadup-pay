@@ -101,13 +101,13 @@ public class PaymentResultService {
     public PaymentResultApplication record(String tenant, PaymentObservation observation) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (observation == null) throw new CommonException(INVALID_ARGUMENT);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(tenant);
             String digest = codec.factsDigest(observation);
             String payload = codec.encode(observation);
             var original = payments.find(tenant, observation.identity().paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.write(tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
+            return transactions.writeLocal(tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
         });
     }
 
@@ -134,11 +134,11 @@ public class PaymentResultService {
                 || !original.identity().equals(submission.identity()) || !original.amount().equals(submission.amount()))
             throw new CommonException(INVALID_ARGUMENT);
         if (submission.action() == null) return record(tenant, submission.observation());
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             var observation = submission.observation();
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
             var accepted = payments.find(tenant, original.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.write(tenant, () -> {
+            return transactions.writeLocal(tenant, () -> {
                 var applied = apply(tenant, accepted.callerServiceId(), observation, digest, payload);
                 if (applied.disposition() == CONFLICT) return applied;
                 // Re-read under the same parent/payment locks; Y3 may already have observed a terminal winner.
@@ -162,8 +162,9 @@ public class PaymentResultService {
         String receiptId = ids.generate();
         var attempt = attempts.lock(tenant, observation.identity().attemptId())
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
-        String reason = mismatch(accepted, attempt, observation);
-        if (reason != null) return reject(tenant, accepted, receiptId, observation, digest, payload, reason);
+        var rejection = PaymentExecutionBindings.observationRejection(accepted, attempt, observation.identity(), observation.amount());
+        if (rejection != null) return reject(tenant, accepted, receiptId, observation, digest, payload, rejection.name());
+        PaymentExecutionBindings.observableContext(locked, attempt);
         if (observation.kind() == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED)
             return reject(tenant, accepted, receiptId, observation, digest, payload, "FUNDS_RETURNED_REQUIRES_COMPENSATION");
         if (observation.kind() == ChannelPaymentOutcome.Kind.SUCCEEDED)
@@ -241,22 +242,6 @@ public class PaymentResultService {
         var applied = receipt(tenant, failed, id, observation, digest, payload, APPLIED, null);
         events.publish(tenant, failed, true, now());
         return applied;
-    }
-
-    private String mismatch(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored, PaymentObservation observation) {
-        var attempt = stored.attempt();
-        if (!attempt.identity().equals(observation.identity())
-                || !Objects.equals(accepted.payment().activeAttemptId(), attempt.id())
-                || !accepted.payment().id().equals(attempt.paymentId())) return "PAYMENT_IDENTITY_MISMATCH";
-        if (!accepted.payment().payeeMerchantId().equals(attempt.binding().payeeMerchantId())
-                || !accepted.payment().amount().equals(attempt.amount())
-                || !accepted.requestDigest().equals(stored.paymentRequestDigest())
-                || !accepted.payment().limitOperationId().equals(stored.limitOperationId())
-                || !accepted.callerServiceId().equals(stored.callerServiceId()))
-            throw new CommonException(SNAPSHOT_INVALID);
-        if (!attempt.amount().equals(observation.amount())) return "PAYMENT_AMOUNT_MISMATCH";
-        if (attempt.executionEpoch() == 0) return "OBSERVATION_BEFORE_SUBMISSION";
-        return null;
     }
 
     private boolean matches(String tenant, ChannelTransactionClaim claim, PaymentObservation observation) {

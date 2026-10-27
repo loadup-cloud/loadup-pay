@@ -67,6 +67,7 @@ CREATE TABLE payment_order
     successful_attempt_id VARCHAR(64) NULL,
     limit_operation_id    VARCHAR(64) NOT NULL,
     initiated_at          DATETIME(6) NOT NULL,
+    first_unknown_at      DATETIME(6) NULL,
     succeeded_at          DATETIME(6) NULL,
     terminal_evidence_id  VARCHAR(64) NULL,
     intent_payload        LONGTEXT    NOT NULL,
@@ -79,6 +80,7 @@ CREATE TABLE payment_order
     KEY ix_payment_payee_page (tenant_id, payee_merchant_id, created_at, id),
     CHECK (amount_minor > 0 AND currency = 'CNY'),
     CHECK (state IN ('INIT', 'PROCESSING', 'UNKNOWN', 'CLOSING', 'SUCCEEDED', 'FAILED', 'CLOSED')),
+    CHECK (state <> 'UNKNOWN' OR first_unknown_at IS NOT NULL),
     CHECK ((state = 'SUCCEEDED' AND successful_attempt_id IS NOT NULL AND active_attempt_id IS NOT NULL AND
             active_attempt_id = successful_attempt_id)
         OR (state <> 'SUCCEEDED' AND successful_attempt_id IS NULL)),

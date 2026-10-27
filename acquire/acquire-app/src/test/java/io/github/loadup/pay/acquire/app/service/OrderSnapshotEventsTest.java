@@ -88,7 +88,7 @@ class OrderSnapshotEventsTest {
             assertEquals("tenant", TenantUtil.getTenantId());
             return null;
         }).when(outbox).publish(any());
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             publish();
             return true;
         });
@@ -116,7 +116,7 @@ class OrderSnapshotEventsTest {
     @Test
     void anotherPersistedVersionCannotBePublishedAsThisTransition() {
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> transactions.write("tenant", () -> {
+                () -> transactions.writeLocal("tenant", () -> {
                     events.publish("tenant", "order", 1);
                     return true;
                 })).getResultCode());
@@ -126,7 +126,7 @@ class OrderSnapshotEventsTest {
     @Test
     void outboxFailureAbortsTheLocalTransactionBoundary() {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(outbox).publish(any());
-        assertThrows(CommonException.class, () -> transactions.write("tenant", () -> {
+        assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
             publish();
             return true;
         }));
@@ -147,7 +147,7 @@ class OrderSnapshotEventsTest {
     @Test
     void anotherTenantCannotReadOrPublishTheHeader() {
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                () -> transactions.write("other", () -> {
+                () -> transactions.writeLocal("other", () -> {
                     publish();
                     return true;
                 })).getResultCode());

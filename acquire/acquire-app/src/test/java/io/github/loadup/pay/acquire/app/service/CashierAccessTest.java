@@ -34,7 +34,7 @@ class CashierAccessTest {
 
     @Test void originalSessionAndOwnerMustMatchBeforeAReservation() {
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(active));
-        new OrderCreationTransactions(new UnitTransactions()).write("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             access.authorize(actor, OWNER, order, true);
             assertThrows(CommonException.class, () -> access.authorize(actor, "x".repeat(64), order, true));
             return true;
@@ -44,7 +44,7 @@ class CashierAccessTest {
     @Test void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
         var cancelled = session(CheckoutSessionState.CANCELLED, NOW.plusMinutes(5));
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(cancelled));
-        new OrderCreationTransactions(new UnitTransactions()).write("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;
@@ -61,7 +61,7 @@ class CashierAccessTest {
     @Test void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
         var revoked = active.revoke(0L, NOW);
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(revoked));
-        new OrderCreationTransactions(new UnitTransactions()).write("tenant", () -> {
+        new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             assertThrows(CommonException.class, () -> access.authorize(actor, OWNER, order, true));
             access.authorize(actor, OWNER, order, false);
             return true;

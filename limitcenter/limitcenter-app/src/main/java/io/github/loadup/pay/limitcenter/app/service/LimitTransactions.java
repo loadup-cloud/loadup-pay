@@ -61,9 +61,10 @@ public class LimitTransactions {
         return actor;
     }
 
-    public <T> T write(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
+    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    public <T> T writeLocal(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(CONCURRENT_UPDATE);
-        return scoped(actor, conflict, () -> {
+        return withTenantContext(actor, conflict, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
@@ -76,11 +77,12 @@ public class LimitTransactions {
         });
     }
 
-    public <T> T read(LimitActor actor, Supplier<T> work) {
-        return scoped(actor, IDEMPOTENCY_CONFLICT, work);
+    /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
+    public <T> T withTenantContext(LimitActor actor, Supplier<T> work) {
+        return withTenantContext(actor, IDEMPOTENCY_CONFLICT, work);
     }
 
-    private <T> T scoped(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
+    private <T> T withTenantContext(LimitActor actor, LimitCenterResultCodeEnum conflict, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(actor.tenantId(), work::get);
         } catch (DomainViolation violation) {

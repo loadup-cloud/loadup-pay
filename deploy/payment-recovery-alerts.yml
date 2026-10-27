@@ -1,0 +1,64 @@
+# Standalone Prometheus rules. Not a Kubernetes manifest or Helm values file.
+# Load explicitly through rule_files; do not apply with kubectl.
+# No financial identities or tenant ids in alert labels/annotations.
+groups:
+  - name: loadup-payment-recovery
+    interval: 30s
+    rules:
+      - record: loadup_payment_recovery_inventory:fresh
+        expr: |
+          (loadup_payment_recovery_inventory_enabled{job="loadup-pay",application="payment"} == 1)
+          and on (job, instance)
+          (loadup_payment_recovery_inventory_initialized{job="loadup-pay",application="payment"} == 1)
+          and on (job, instance)
+          (loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",application="payment"}
+            <= on (job, instance)
+            (2 * loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",application="payment"} + 60))
+          and on (job, instance) (up{job="loadup-pay"} == 1)
+
+      - alert: LoadUpPaymentUnknownNeedsReview
+        expr: |
+          (loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",application="payment"}
+            >= on (job, instance) group_left
+            loadup_payment_recovery_inventory_unknown_review_after_seconds{job="loadup-pay",application="payment"})
+          and on (job, instance, kind)
+          (loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",application="payment"}
+            < on (job, instance) group_left
+            loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",application="payment"})
+          and on (job, instance) loadup_payment_recovery_inventory:fresh
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment UNKNOWN inventory needs investigation ({{ $labels.kind }})"
+          description: "Use the authenticated UNKNOWN list for the configured tenant scope. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
+
+      - alert: LoadUpPaymentUnknownUrgent
+        expr: |
+          (loadup_payment_recovery_inventory_unknown_oldest_age_seconds{job="loadup-pay",application="payment"}
+            >= on (job, instance) group_left
+            loadup_payment_recovery_inventory_unknown_urgent_after_seconds{job="loadup-pay",application="payment"})
+          and on (job, instance) loadup_payment_recovery_inventory:fresh
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Long-running payment UNKNOWN inventory ({{ $labels.kind }})"
+          description: "Escalate original payment/refund investigation. Age is observational; preserve all financial evidence and occupied capacity. No automatic status changes, resubmission or manual success injection."
+
+      - alert: LoadUpPaymentRecoveryInventoryUnavailable
+        expr: |
+          (loadup_payment_recovery_inventory_enabled{job="loadup-pay",application="payment"} == 1)
+          and on (job, instance)
+          ((loadup_payment_recovery_inventory_initialized{job="loadup-pay",application="payment"} == 0)
+            or on (job, instance)
+            (loadup_payment_recovery_inventory_sample_age_seconds{job="loadup-pay",application="payment"}
+              > on (job, instance)
+              (2 * loadup_payment_recovery_inventory_sample_interval_seconds{job="loadup-pay",application="payment"} + 60)))
+          and on (job, instance) (up{job="loadup-pay"} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment recovery inventory has no fresh complete sample"
+          description: "Check configured tenant scope, scheduler, read-only snapshot and refresh failures. Missing/stale inventory is not zero UNKNOWN transactions. Target-down and missing-meter alerts are separate."

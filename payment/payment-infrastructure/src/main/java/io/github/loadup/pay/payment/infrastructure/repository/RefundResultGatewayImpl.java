@@ -27,6 +27,7 @@ import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
@@ -39,9 +40,13 @@ import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.RefundResultAnomalyDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.RefundTransactionClaimDOMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.function.Supplier;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
@@ -68,11 +73,13 @@ public class RefundResultGatewayImpl implements RefundResultGateway {
     private final PaymentRefundCapacityDOMapper capacities;
     private final RefundResultStorageConverter converter;
     private final RefundStorageConverter storage;
+    private final Clock clock;
 
     public RefundResultGatewayImpl(RefundChannelReceiptDOMapper receipts, RefundResultAnomalyDOMapper anomalies,
                                    RefundTransactionClaimDOMapper claims, RefundOrderDOMapper children, RefundRequestDOMapper requests,
                                    RefundAllocationPlanDOMapper plans, PaymentRefundCapacityDOMapper capacities,
-                                   RefundResultStorageConverter converter, RefundStorageConverter storage) {
+                                   RefundResultStorageConverter converter, RefundStorageConverter storage,
+                                   @Qualifier("paymentClock") Clock clock) {
         this.receipts = receipts;
         this.anomalies = anomalies;
         this.claims = claims;
@@ -82,6 +89,7 @@ public class RefundResultGatewayImpl implements RefundResultGateway {
         this.capacities = capacities;
         this.converter = converter;
         this.storage = storage;
+        this.clock = clock;
     }
 
     @Override
@@ -168,7 +176,18 @@ public class RefundResultGatewayImpl implements RefundResultGateway {
         if (change.before().submissionStartedAt() == null)
             childQuery.and(REFUND_ORDER_DO.SUBMISSION_STARTED_AT.isNull());
         else childQuery.and(REFUND_ORDER_DO.SUBMISSION_STARTED_AT.eq(change.before().submissionStartedAt()));
-        if (children.updateByQuery(converter.toChildPatch(change), true, childQuery) != 1)
+        LocalDateTime firstUnknownAt = null;
+        if (change.refund().state() == RefundState.UNKNOWN) {
+            // Preserve the first observation across later UNKNOWN results and recovery generations.
+            var row = children.selectOneByQuery(childScope(tenant)
+                    .select(REFUND_ORDER_DO.ID, REFUND_ORDER_DO.FIRST_UNKNOWN_AT)
+                    .and(REFUND_ORDER_DO.ID.eq(before.id()))
+                    .and(REFUND_ORDER_DO.ROW_VERSION.eq(before.version())));
+            if (row == null) throw new CommonException(CONCURRENT_UPDATE);
+            firstUnknownAt = row.getFirstUnknownAt() == null
+                    ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS) : row.getFirstUnknownAt();
+        }
+        if (children.updateByQuery(converter.toChildPatch(change, firstUnknownAt), true, childQuery) != 1)
             throw new CommonException(CONCURRENT_UPDATE);
         if (requests.updateByQuery(converter.toRequestPatch(change.request()), true,
                 QueryWrapper.create().where(REFUND_REQUEST_DO.TENANT_ID.eq(tenant)).and(REFUND_REQUEST_DO.DELETED.eq(0))

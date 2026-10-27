@@ -83,13 +83,13 @@ public class RefundGatewayImpl implements RefundGateway {
 
     @Override
     public Optional<RefundRequestReference> reference(String tenant, String id) {
-        requireTransaction(tenant);
+        requireReadTransaction(tenant);
         return read(() -> Optional.ofNullable(requests.selectOneByQuery(requestScope(tenant).and(REFUND_REQUEST_DO.ID.eq(id)))).map(converter::toReference));
     }
 
     @Override
     public Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String number) {
-        requireTransaction(tenant);
+        requireReadTransaction(tenant);
         return read(() -> Optional.ofNullable(requests.selectOneByQuery(requestScope(tenant)
                 .and(REFUND_REQUEST_DO.PAYEE_MERCHANT_ID.eq(merchant)).and(REFUND_REQUEST_DO.MERCHANT_REFUND_NO.eq(number)))).map(converter::toReference));
     }
@@ -104,7 +104,7 @@ public class RefundGatewayImpl implements RefundGateway {
 
     @Override
     public StoredRefundRequest load(String tenant, String id) {
-        requireTransaction(tenant);
+        requireReadTransaction(tenant);
         return read(() -> {
             var row = requests.selectOneByQuery(requestScope(tenant).and(REFUND_REQUEST_DO.ID.eq(id)));
             if (row == null) throw new CommonException(NOT_FOUND);
@@ -192,9 +192,13 @@ public class RefundGatewayImpl implements RefundGateway {
     }
 
     private void requireTransaction(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
-            throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        requireReadTransaction(tenant);
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+    }
+
+    private void requireReadTransaction(String tenant) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 
     private <T> T read(Supplier<T> action) {

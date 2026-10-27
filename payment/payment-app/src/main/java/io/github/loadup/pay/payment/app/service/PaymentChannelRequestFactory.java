@@ -22,8 +22,6 @@ import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
-import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
-import io.github.loadup.pay.payment.domain.model.PaymentState;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -58,27 +56,17 @@ public class PaymentChannelRequestFactory {
     public ChannelPaymentRequest create(String tenant, PreparedChannelPayment prepared) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (prepared == null) throw new CommonException(INVALID_ARGUMENT);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             var accepted = payments.find(tenant, prepared.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var stored = attempts.find(tenant, prepared.identity().attemptId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var binding = PaymentExecutionBindings.submissionRequest(accepted, stored);
             var attempt = stored.attempt();
-            if (accepted.payment().state() != PaymentState.PROCESSING || attempt.state() != PaymentAttemptState.SUBMITTING
-                    || !attempt.id().equals(accepted.payment().activeAttemptId())
-                    || !attempt.identity().equals(prepared.identity()) || !attempt.amount().equals(prepared.amount())
-                    || !accepted.payment().id().equals(attempt.paymentId())
-                    || !accepted.payment().amount().equals(prepared.amount())
-                    || !accepted.payment().payeeMerchantId().equals(attempt.binding().payeeMerchantId())
+            if (!attempt.identity().equals(prepared.identity()) || !attempt.amount().equals(prepared.amount())
                     || attempt.method() != prepared.method() || attempt.executionEpoch() != prepared.executionEpoch()
-                    || !Objects.equals(stored.preparedInputRef(), prepared.preparedInputRef())
-                    || !accepted.payment().limitOperationId().equals(stored.limitOperationId())
-                    || stored.executionPermitHash() == null || stored.riskDecision() == null
-                    || stored.riskDecision().decision() == io.github.loadup.pay.payment.domain.model.RiskDecisionType.DENY
-                    || !accepted.requestDigest().equals(stored.paymentRequestDigest())
-                    || !accepted.callerServiceId().equals(stored.callerServiceId()))
+                    || !Objects.equals(stored.preparedInputRef(), prepared.preparedInputRef()))
                 throw new CommonException(INVALID_STATE);
             var original = codec.decode(accepted);
-            if (!Objects.equals(original.preparedInputRef(), prepared.preparedInputRef()))
-                throw new CommonException(SNAPSHOT_INVALID);
+            PaymentExecutionBindings.route(binding, original.choice().channel(), original.choice().method(), original.preparedInputRef());
             if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
             var input = inputs.openForAttempt(tenant, prepared.identity().paymentId(), prepared.identity().attemptId());
             return converter.toRequest(prepared, original, converter.toInput(input));

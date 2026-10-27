@@ -98,6 +98,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "rowVersion", source = "value.refund.version")
     @Mapping(target = "channelRefundTransactionNo", ignore = true)
     @Mapping(target = "submissionStartedAt", ignore = true)
+    @Mapping(target = "firstUnknownAt", ignore = true)
     @Mapping(target = "nextQueryAt", ignore = true)
     @Mapping(target = "querySequence", constant = "0L")
     @Mapping(target = "succeededAt", ignore = true)

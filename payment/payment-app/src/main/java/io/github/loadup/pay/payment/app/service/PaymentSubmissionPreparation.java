@@ -47,7 +47,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
@@ -115,7 +114,7 @@ public class PaymentSubmissionPreparation {
     public Optional<PaymentSubmissionTicket> prepare(String tenant, String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!limits.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
             var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -123,6 +122,7 @@ public class PaymentSubmissionPreparation {
             requireBinding(accepted, stored);
             if (stored.attempt().state() != PaymentAttemptState.INIT || accepted.payment().state() != PaymentState.PROCESSING)
                 return Optional.empty();
+            PaymentExecutionBindings.submittable(accepted, stored);
             var original = codec.decode(accepted);
             var decision = risk.consult(converter.toConsultation(accepted, stored));
             if (decision == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -162,14 +162,12 @@ public class PaymentSubmissionPreparation {
             }
             String permitHash = codec.checksum(permit.permit());
             try {
-                return transactions.write(tenant, () -> {
+                return transactions.writeLocal(tenant, () -> {
                     var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
                     var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     requireBinding(locked.payment(), current);
                     if (current.attempt().state() != PaymentAttemptState.INIT) return Optional.empty();
-                    locks.requireOpen(locked);
-                    if (locked.payment().payment().state() != PaymentState.PROCESSING)
-                        throw new CommonException(EXECUTION_FENCED);
+                    PaymentExecutionBindings.submittableContext(locked, current);
                     if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
                     inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
@@ -206,26 +204,19 @@ public class PaymentSubmissionPreparation {
 
     private void requireBinding(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
         var original = codec.decode(accepted);
-        var attempt = stored.attempt();
-        if (!accepted.payment().id().equals(attempt.paymentId()) || !Objects.equals(accepted.payment().activeAttemptId(), attempt.id())
-                || !accepted.payment().amount().equals(attempt.amount())
-                || !accepted.payment().payeeMerchantId().equals(attempt.binding().payeeMerchantId())
-                || !accepted.payment().limitOperationId().equals(stored.limitOperationId())
-                || !accepted.callerServiceId().equals(stored.callerServiceId())
-                || !accepted.requestDigest().equals(stored.paymentRequestDigest())
-                || original.choice().channel() != attempt.binding().channel() || original.choice().method() != attempt.method()
-                || !Objects.equals(original.preparedInputRef(), stored.preparedInputRef()))
-            throw new CommonException(SNAPSHOT_INVALID);
+        PaymentExecutionBindings.route(PaymentExecutionBindings.active(accepted, stored),
+                original.choice().channel(), original.choice().method(), original.preparedInputRef());
     }
 
     private void rejectUnsubmitted(String tenant, StoredPaymentAcceptance original, String attemptId, RiskDecision decision) {
-        transactions.write(tenant, () -> {
+        transactions.writeLocal(tenant, () -> {
             var locked = locks.lock(tenant, original.payment().id(), original.callerServiceId());
             var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(locked.payment(), current);
             if (current.attempt().state() != PaymentAttemptState.INIT) return false;
             var order = locked.payment().payment();
             if (order.state() != PaymentState.PROCESSING && order.state() != PaymentState.CLOSING) return false;
+            PaymentExecutionBindings.closableContext(locked, current);
             String evidence = ids.generate();
             var gate = locked.gate();
             if (gate.gate().state() != GateState.FENCED) {

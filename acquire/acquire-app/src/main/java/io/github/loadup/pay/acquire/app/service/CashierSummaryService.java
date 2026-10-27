@@ -67,7 +67,7 @@ public class CashierSummaryService {
         if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current(); // The HTTP provider always authenticates the opaque capability first.
         if (!actor.orderId().equals(query.id())) throw new CommonException(SESSION_UNAUTHORIZED);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             var stored = orders.findOrder(actor.tenantId(), actor.orderId())
                     .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());

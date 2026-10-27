@@ -52,7 +52,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     @Override public void handle(DelayedTask task) {
         var key = validate(task);
         if (key.generation() < 1) throw new CommonException(SNAPSHOT_INVALID);
-        transactions.write(task.tenantId(), () -> {
+        transactions.writeLocal(task.tenantId(), () -> {
             var order = orders.lockOrder(task.tenantId(), key.orderId());
             if (!order.order().id().equals(key.orderId())) throw new CommonException(SNAPSHOT_INVALID);
             long version = extensions.deadlineVersion(task.tenantId(), order.order());
@@ -66,7 +66,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
             if (order.order().state() == AcquireOrderState.CLOSING) {
                 var original = closes.findIntent(task.tenantId(), key.orderId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                operations.isCurrentLocked(scope, order, original, original.rowVersion());
+                operations.isCurrent(scope, order, original, original.rowVersion());
                 return true;
             }
             var due = order.order().checkDue(at);

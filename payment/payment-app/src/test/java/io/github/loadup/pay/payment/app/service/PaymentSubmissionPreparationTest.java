@@ -59,6 +59,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LI
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -134,7 +135,7 @@ class PaymentSubmissionPreparationTest {
         when(limits.verify(eq("tenant"), any())).thenReturn(new LimitExecutionVerificationDTO(true, "VALID"));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+            return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
         doAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
@@ -197,6 +198,23 @@ class PaymentSubmissionPreparationTest {
         assertTrue(service.prepare("tenant", "payment", "attempt").isEmpty());
         verify(attempts, never()).update(anyString(), any(), anyLong());
         verify(inputs, never()).bindToAttempt(eq("tenant"), any(), eq("attempt"), any());
+    }
+
+    @Test
+    void aFreshFencedGateViewRejectsY2WithoutBindingInputOrInventingNoCollectionEvidence() {
+        var previous = gate.get();
+        gate.set(new StoredPaymentGate(previous.id(), previous.payeeMerchantId(), previous.callerServiceId(),
+                previous.gate().fence(1L), previous.rowVersion() + 1L));
+        var failure = assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"));
+        assertEquals(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED, failure.getResultCode());
+        assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
+        assertEquals(0L, stored.get().attempt().executionEpoch());
+        assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
+        assertNull(accepted.get().terminalEvidenceId());
+        verify(inputs, never()).bindToAttempt(anyString(), any(), anyString(), any());
+        verify(attempts, never()).update(anyString(), any(), anyLong());
+        verify(changes, never()).updatePayment(anyString(), any(), anyLong());
+        verifyNoInteractions(events);
     }
 
     @Test

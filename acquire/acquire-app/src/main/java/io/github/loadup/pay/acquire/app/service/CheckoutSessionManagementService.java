@@ -62,7 +62,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     @Override public CheckoutSessionStatusDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var session = sessions.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var order = orders.findOrder(actor.tenantId(), session.session().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -74,14 +74,14 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
         validate(command);
         var actor = actor("pay:acquire:session:revoke");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.id()); DomainChecks.text(command.requestKey(), 128); DomainChecks.text(command.reason(), 500);
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("checkout-session-revoke-v1", actor.tenantId(), actor.scopeHash(),
                     command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
             var known = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
             if (known.isPresent()) return replay(actor, known.get(), digest);
             var observed = sessions.find(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
                 if (existing.isPresent()) return replay(actor, existing.get(), digest);
                 var order = orders.lockOrder(actor.tenantId(), observed.session().orderId());
@@ -103,7 +103,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     @Override public PageDTO<CheckoutSessionRevocationDTO> revocations(CheckoutSessionRevocationPageQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.sessionId());
             var session = sessions.find(actor.tenantId(), query.sessionId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var order = orders.findOrder(actor.tenantId(), session.session().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

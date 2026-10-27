@@ -23,7 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
- * The held amount and exact internal payment command are committed together.
+ * The held amount and owner-local immutable payment intent snapshot are committed together.
  */
 public record StoredPaymentAllocation(
         OrderPaymentAllocation allocation,

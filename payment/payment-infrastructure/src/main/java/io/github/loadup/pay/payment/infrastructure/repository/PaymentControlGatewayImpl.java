@@ -22,6 +22,7 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
 import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceStorageConverter;
@@ -32,9 +33,13 @@ import io.github.loadup.pay.payment.infrastructure.mapper.PaymentGateDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentParentGateDOMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -53,6 +58,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     private final PaymentAcceptanceStorageConverter converter;
     private final PaymentControlStorageConverter receiptConverter;
     private final PaymentAcceptanceCodec codec;
+    private final Clock clock;
 
     public PaymentControlGatewayImpl(
             PaymentOrderDOMapper payments,
@@ -61,7 +67,8 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
             PaymentControlReceiptDOMapper receipts,
             PaymentAcceptanceStorageConverter converter,
             PaymentControlStorageConverter receiptConverter,
-            PaymentAcceptanceCodec codec) {
+            PaymentAcceptanceCodec codec,
+            @Qualifier("paymentClock") Clock clock) {
         this.payments = payments;
         this.parents = parents;
         this.gates = gates;
@@ -69,6 +76,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
         this.converter = converter;
         this.receiptConverter = receiptConverter;
         this.codec = codec;
+        this.clock = clock;
     }
 
     private QueryWrapper paymentScope(String tenant) {
@@ -102,8 +110,19 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     public void updatePayment(String tenant, StoredPaymentAcceptance value, long expectedVersion) {
         requireTransaction();
         if (value.payment().version() <= expectedVersion) throw new CommonException(INVALID_STATE);
+        LocalDateTime firstUnknownAt = null;
+        if (value.payment().state() == PaymentState.UNKNOWN) {
+            // The caller holds the financial locks; the version predicate also rejects stale patches.
+            var row = payments.selectOneByQuery(paymentScope(tenant)
+                    .select(PAYMENT_ORDER_DO.ID, PAYMENT_ORDER_DO.FIRST_UNKNOWN_AT)
+                    .and(PAYMENT_ORDER_DO.ID.eq(value.payment().id()))
+                    .and(PAYMENT_ORDER_DO.ROW_VERSION.eq(expectedVersion)));
+            if (row == null) throw new CommonException(CONCURRENT_UPDATE);
+            firstUnknownAt = row.getFirstUnknownAt() == null
+                    ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS) : row.getFirstUnknownAt();
+        }
         int changed = payments.updateByQuery(
-                converter.toPaymentDO(tenant, value),
+                converter.toPaymentPatch(tenant, value, firstUnknownAt),
                 true,
                 paymentScope(tenant)
                         .and(PAYMENT_ORDER_DO.ID.eq(value.payment().id()))
@@ -198,6 +217,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
     }
 }

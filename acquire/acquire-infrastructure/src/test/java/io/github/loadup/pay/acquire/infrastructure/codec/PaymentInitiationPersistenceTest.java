@@ -46,6 +46,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
+import io.github.loadup.pay.acquire.infrastructure.converter.PaymentIntentSnapshotConverter;
+import io.github.loadup.pay.acquire.infrastructure.model.PaymentIntentSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -65,10 +67,11 @@ class PaymentInitiationPersistenceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final OrderCreationCodecImpl hashes = new OrderCreationCodecImpl(mapper, validation.getValidator());
-    final PaymentInitiationCodecImpl codec = new PaymentInitiationCodecImpl(mapper, validation.getValidator(), hashes);
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentInitiationStorageConverter.class.getPackageName());
     final PaymentInitiationStorageConverter converter = context.getBean(PaymentInitiationStorageConverter.class);
+    final PaymentIntentSnapshotConverter snapshots = context.getBean(PaymentIntentSnapshotConverter.class);
+    final PaymentInitiationCodecImpl codec = new PaymentInitiationCodecImpl( validation.getValidator(), hashes, snapshots);
 
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
@@ -192,7 +195,9 @@ class PaymentInitiationPersistenceTest {
                 value.admittedTerms(),
                 value.subject(),
                 value.payableUntil()));
-        assertEquals("synthetic-input", codec.decode(stored(prepared, hashes.checksum(prepared))).preparedInputRef());
+        var attached = codec.decode(stored(prepared, hashes.checksum(prepared)));
+        assertEquals("synthetic-input", attached.preparedInputRef());
+        assertFalse(snapshots.toSnapshot(attached).toString().contains("synthetic-input"));
     }
 
     @Test
@@ -226,4 +231,76 @@ class PaymentInitiationPersistenceTest {
         assertNull(patch.getCloseEpoch());
         assertNull(patch.getId());
     }
+
+    @Test
+    void storageFormatDoesNotFollowPublicDtoJsonNamesOrTheApiNamingStrategy() {
+        var value = command();
+        var apiMapper = mapper.rebuild()
+                .propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE)
+                .addMixIn(PaymentExecuteCommand.class, RenamedCommand.class)
+                .addMixIn(AdmittedOrderTermsDTO.class, RenamedAdmission.class).build();
+        var apiPayload = apiMapper.writeValueAsString(value);
+        org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
+        org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiContractId"));
+        var independent = new PaymentInitiationCodecImpl( validation.getValidator(), hashes, snapshots);
+        var payload = independent.encode(value);
+        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
+        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
+        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
+        assertFalse(payload.contains("apiPaymentId")); assertFalse(payload.contains("apiContractId"));
+        assertFalse(payload.contains("payment_id")); assertFalse(payload.contains("\"choice\""));
+        assertEquals(value, independent.decode(stored(payload, hashes.checksum(payload))));
+        assertFalse(snapshots.toSnapshot(value).toString().contains("synthetic-input"));
+    }
+
+    @Test
+    void restorationUsesFrozenStorageValidationInsteadOfCurrentPublicCommandBeanValidation() {
+        var value = command();
+        var payload = codec.encode(value);
+        var currentPublicValidation = org.mockito.Mockito.mock(jakarta.validation.Validator.class);
+        var reader = new PaymentInitiationCodecImpl( currentPublicValidation, hashes, snapshots);
+        assertEquals(value, reader.decode(stored(payload, hashes.checksum(payload))));
+        org.mockito.Mockito.verifyNoInteractions(currentPublicValidation);
+    }
+
+    @Test
+    void validChecksumsCannotMakeUnsupportedBareCrossOwnerOrLossySnapshotsReadable() {
+        var value = command();
+        var payload = codec.encode(value);
+        var variants = java.util.List.of(
+                mapper.writeValueAsString(value),
+                payload.replace(PaymentIntentSnapshot.FORMAT, "unsupported.intent.v99"),
+                payload.replace(PaymentIntentSnapshot.FORMAT, "pay.payment.intent.v1"),
+                payload.replace("\"amountMinor\":" + value.amountMinor(), "\"amountMinor\":" + value.amountMinor() + ".5"),
+                payload.replace("\"channel\":\"" + value.choice().channel().name() + "\"", "\"channel\":" + value.choice().channel().ordinal()),
+                payload.replace("\"allowExactRemainderBelowMin\":true", "\"allowExactRemainderBelowMin\":null"),
+                payload.replace("\"maxSuccessfulPayments\":null,", ""),
+                payload.replace("\"waitSeconds\":600", "\"waitSeconds\":600,\"futurePolicy\":true"),
+                payload + " {}"
+        );
+        for (var invalid : variants) {
+            assertNotEquals(payload, invalid);
+            assertThrows(CommonException.class, () -> codec.decode(stored(invalid, hashes.checksum(invalid))));
+        }
+    }
+
+    @Test
+    void snapshotCopiesEveryFrozenRuleAndKeepsNestedCollectionsImmutable() {
+        var original = command();
+        var snapshot = snapshots.toSnapshot(original);
+        assertEquals(original, snapshots.toCommand(snapshot));
+        assertEquals(original.admittedTerms().terms().fee().rate(), snapshot.admittedTerms().terms().fee().rate());
+        assertEquals(original.admittedTerms().terms().limits().policyHash(), snapshot.admittedTerms().terms().limits().policyHash());
+        assertEquals(original.payableUntil().toInstant(), java.time.OffsetDateTime.parse(snapshot.payableUntil()).toInstant());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.admittedTerms().terms().capabilities().clear());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.admittedTerms().terms().capabilities().getFirst().methods().clear());
+    }
+
+    abstract static class RenamedCommand {
+        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId") public abstract String paymentId();
+    }
+    abstract static class RenamedAdmission {
+        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId") public abstract String contractId();
+    }
+
 }

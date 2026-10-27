@@ -33,12 +33,12 @@ class OrderDeadlineTasksTest {
 
     @Test
     void initialAndExtendedDeadlinesHaveSeparateNativeBusinessKeys() {
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             tasks.register("tenant", order, 1L);
             return true;
         });
         var extended = order.extend(NOW.plusMinutes(15), order.orderDueAt(), true, 3600L, NOW);
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             tasks.register("tenant", extended, 2L);
             return true;
         });
@@ -52,7 +52,7 @@ class OrderDeadlineTasksTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> io.github.loadup.commons.util.TenantUtil.runWithTenant("tenant", () -> tasks.register("tenant", order, 1L))).getResultCode());
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> transactions.write("tenant", () -> { tasks.register("tenant", order, 0L); return true; })).getResultCode());
+                () -> transactions.writeLocal("tenant", () -> { tasks.register("tenant", order, 0L); return true; })).getResultCode());
         verifyNoInteractions(nativeTasks);
     }
 }

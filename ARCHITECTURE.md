@@ -1,6 +1,6 @@
 # 外部渠道收单系统架构设计
 
-版本：v1.4 ｜ 日期：2026-10-20 ｜ 状态：设计稿，待实施
+版本：v1.4 语义基线 ｜ 实现状态更新：2026-10-27 ｜ 状态：持续实施，业务验收未完成
 
 本文规划 acquire、payment、realtime、customer、product、limitcenter 六个核心服务，另预留后置 reconciliation
 对账服务、风控咨询/确认接入接口，以及可选托管 cashier 和薄 JS SDK。范围为支付宝、微信、银联等外部渠道收单；不建设消费者用户资源，不包含内部余额、充值、提现、转账。
@@ -11,14 +11,12 @@ PENDING。退款独立建模，不修改订单状态/总额/累计已付；费�
 CNY。**
 
 术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)
-。当前为六应用启动骨架及client/domain源码，已完成本地部署，本文业务执行闭环仍待实施。
+。六服务已有 app/infrastructure/adapter、gRPC、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)。不能将历史启动验收视为当前交易闭环通过。
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)
-及[合约配置](design/CONTRACT-SCHEMA.md)；业务语义仍以本稿D01—D10为基线，新增物理结构和接口为待实现方案。
+及[合约配置](design/CONTRACT-SCHEMA.md)；业务语义仍以本稿 D01—D10 为基线。具体物理结构、接口源码和待办以对应模块及当前能力矩阵为准。
 
-2026-10-21实施更新：六核心应用的client/domain/bootstrap已完成P0/P1源码，补齐关单证据、生命周期、顺序退款/容量、原额度桶恢复、授权撤销和完整投影快照，见[实施说明](IMPLEMENTATION.md)
-及[client补充契约](design/CLIENT-API.md#11-p1源码契约补充)
-。六应用已完成脚本、生产源码打包、镜像及OrbStack启动/健康验收；单测未编译或执行，数据库事务与真实渠道闭环仍在P2阶段。
+P0/P1 初始化和历史部署记录保留在 [IMPLEMENTATION](IMPLEMENTATION.md)。本文维护职责、所有权、事务及安全不变量，不再把历史阶段描述作为当前实现清单。
 
 ## 1. 服务划分与设计结论
 
@@ -508,7 +506,7 @@ DirectAccess 是渠道接入模式，DirectPay 是业务入口，两者不等同
 
 ## 11. 接口与协议契约
 
-下表为目标接口，不表示已经实现或生成 proto。外部商户用认证 HTTP，内部用 gRPC；渠道通知保留原生协议。
+下表表达目标业务动作；当前接口/Proto 的实现状态见根能力矩阵与各服务 rpc/client。外部商户用认证 HTTP，内部用 gRPC；渠道通知保留原生协议。
 
 | 所属                        | 接口动作                                                                              | 关键契约                                                                           |
 |-----------------------------|---------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -791,19 +789,22 @@ SubmitEvidenceForVerification，payment 再按可信渠道查询/证据验证后
 5. **退款、查询与三渠道**：独立退款表组/FIFO分配、整单计费、商户通知、realtime汇总/明细、跨渠道退款和差错查证；落实支付宝/微信/银联目标适配，默认CNY。风控默认放行接口与异步反馈后置。
 6. **后置对账与风控接入**：实现 reconciliation 文件导入/校验/独立核对/差错工作流，再按实际风控协议实现咨询/可靠确认与故障策略。渠道产品与机构按实际接入确定，容量指标仍不展开。
 
-## 20. 当前实现与目标设计差异
+## 20. 当前实现与验收边界
 
-| 项目                                  | 当前                                          | 目标未实现部分                                          |
-|---------------------------------------|-----------------------------------------------|---------------------------------------------------------|
-| acquire/payment                       | Boot 最小启动、Ping 调用和本地 K8s 连通已验收 | 订单、多付款、金额占用、真实渠道/接入模式/退款          |
-| customer/product/limitcenter/realtime | 无收单业务部署                                | 商户关系/合约准入/商户额度/独立投影                     |
-| cashier/SDK                           | 无实现                                        | 收银 URL、会话、多笔动作与汇总展示                      |
-| 风控接口 / reconciliation             | 仅本稿预留，无实现/部署                       | 外部咨询与结果确认适配、账单文件独立对账可后置          |
-| 合约与商户模块                        | 框架有可复用源码/文档                         | 远程服务适配、子商户授权及 admission/多付款策略仍需实现 |
-| K8s/Headlamp/时区                     | 两应用/Headlamp 运行，系统默认时区 已验证    | 其余业务部署、身份权限与安全入口                        |
-| 数据可靠性                            | 当前 Ping 无真实资金/数据库状态               | 本文所有业务本地事务、Outbox/Inbox、金额/商户额度查证   |
+当前能力只在 [根 README](README.md#当前能力矩阵) 维护。源码已有订单/付款/退款、额度、费用、通知、托管 H5、投影、渠道插件与原生任务恢复，不再描述为 Ping/契约阶段。
+review 首批补了只读运营详情与金融/任务/投影 MySQL IT 源码；本轮未编译或运行，没有用测试文件存在替代一致性证明。
 
-文档不将框架测试源码或设计能力标为运行通过。
+| 不变量 | 当前实现入口 | 仍需的证明/补齐 |
+|---|---|---|
+| 订单金额及回执/费用/Outbox 同事务 | acquire 的 PaymentInitiationOperations / PaymentOutcomeOperations | 实际 A2/A3 并发回滚、重放及服务链路 |
+| 原 attempt 首提权与结果权威分离 | payment 的 SubmissionPreparation / ExecutionService / ResultService | 真实 Y2/Y3、渠道验签、网络故障及原号恢复 |
+| 退款不改原付款金额 | 固定计划、RefundExecution/ResultService、容量与独立汇总 | 多付款串行组合、真实退款幂等与金融回滚 |
+| 恢复 claim 不授予额外扣款权 | DelayedTask + 业务 cursor/generation + 实际 handler | 租约/新旧代并发运行、长期 UNKNOWN 运营策略 |
+| 查询投影不参与主交易裁定 | realtime 四类快照/receipt/版本 Gateway | 真实版本竞争、重建/检查点与新鲜度 |
+| 编排与存储/协议边界可维护 | COLA 分层、channel-api、provider-owned gRPC | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
+
+银联具体产品/接入机构、支付宝 H5、微信付款码、托管 JSAPI 授权与后置对账等仍按完整目标推进。
+历史启动/Headlamp/RPC 记录不证明当前身份、数据库、渠道或业务可用性；旧测试 Ping RPC 已删除。
 
 ## 21. 已确认决策与可实施基线
 
@@ -881,3 +882,38 @@ channel-api 的 submit 现区分资金事实与唤起动作；付款码/已解�
 payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 gRPC 交 acquire 登记。acquire 统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment 通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
 
 RefundSucceeded/RefundFailed 与 RefundRequestCompleted 按各自原聚合版本标识，最终申请可部分成功；与订单/付款事件不要求全局顺序。完整契约、状态和 DDL 见 design/CLIENT-API.md 与 design/DATABASE.md。本批为源码实现，真实验证仍暂停。
+
+
+## Review R5：显式本地事务边界
+
+五个 helper 统一 withTenantContext / readSnapshot / writeLocal 语义命名，详见 [契约与适用模块](design/TRANSACTION-BOUNDARIES.md)。
+上下文入口不创建/挂起事务；只读入口保持 RR；本地写保持 RC，最多总计三次可重放数据库尝试。realtime 的原 read 是真实快照，不改为 context-only。
+同步当前所有源调用，不保留旧开发期名称；不新增跨服务事务或公共技术基类，也不移动渠道调用。仅源码与测试输入调整，未运行验收。
+
+
+## Review R4：付款与 attempt 的共同绑定
+
+payment-domain 的 PaymentAttemptBinding 集中不可变跨记录规则及操作前置条件，payment-app 仅保留局部错误映射；见 [绑定契约](design/PAYMENT-BINDING.md)。
+已提交事实的可观察性与首次执行权分开，Y3 错误目标冲突审计和损坏持久绑定继续区别处理。该对象不是锁/授权/票据，不包含渠道 IO 或 ORM。
+首提/恢复/回调/关单等源码已接入，原锁序和分层边界保持；门禁完整上下文、R6 冻结意图收敛和完整运行证明仍未完成。
+
+
+### R4 门禁与完整上下文增量
+
+PaymentGateBinding/PaymentExecutionContext 已补纯领域源码；LockedPayment 只包装校验后的门禁绑定，完整上下文拒绝不同付款值快照混接。
+锁内 Y2、恢复/关闭、Y3、动作/投递与 outcome 使用同一内部关系规则，只有首次提交要求双 OPEN，已提交结果保持可观察。提前拒绝在只读事务使用执行锁。
+这些对象不是锁/执行票据，也不持久化新格式；原租户、鉴权、锁序、证据与外部协议仍由原入口负责。运行验收与入口组合证明尚未完成。
+
+
+## Review R6：付款持久意图表示
+
+acquire/payment 的本地 PaymentIntentSnapshot 与完整嵌套条款拥有独立格式，公开 Command 只在 MapStruct 边界使用，不直接构成存储格式。
+存储 JSON 策略及恢复校验与当前接口表示/Bean Validation 分开，旧开发期格式明确拒绝；原金融身份、金额/期限/合约内容保持，不引入多版本兼容框架。
+源码及测试输入已补，未执行数据库转换或运行验收，详见 [快照契约](design/PAYMENT-INTENT-SNAPSHOTS.md)。其他意图/事件仍各自维护原格式，不据此宣称全项目持久化耦合都已消除。
+
+
+## Review R7：模块内恢复机械规则
+
+payment 的规范 task key、position/current、单调 successor 与 app 领取元数据校验已经共享；领域无技术组件依赖，协议无 IO/全局上下文读取。
+两阶段服务仍各自拥有锁序、金融状态与事务外原请求推进，native claim/token/ACK 留在 DelayedTask。没有跨服务 Saga 或通用 execution callback。
+源码/测试输入见 [局部恢复协议](design/RECOVERY-PROTOCOL.md)；编译、共享协议和实际 handler IT 未运行，不能宣称原生 fencing 或多实例验收通过。

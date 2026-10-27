@@ -68,3 +68,10 @@ RefundFacade 获取。高版本金额汇总不允许累计已退下降，币种/
 
 渠道成功时间与本地审计时间属于独立时钟，保留真实值；不因来源精度差异对时间裁剪或强加先后顺序。缺汇总仍返回
 null，来源领先时保留实际金额差和 amountsConsistent。新生产/投递和重构源码、测试均未运行；实际渠道、付款中间态来源、重建/检查点及数据库/消息链路验收未完成。
+
+
+## Review R1：投影版本与 receipt 的真实数据库测试源码
+
+新增 [ProjectionPersistenceIT 测试说明](realtime-infrastructure/src/test/README.md)，对订单、付款、退款、退款汇总四类投影复用实际入口、事务、Gateway、生成 Mapper 和 Flyway。
+覆盖并发 delivery、同版本冲突、乱序版本、receipt 插入后的原子回滚及原 ACK 重放，共 20 个参数化输入。
+测试配置由显式 mysql-it profile 启动；目前未编译或运行，不能视为 R1 的真实数据库证明，也未验证线上消息投递及重建流程。

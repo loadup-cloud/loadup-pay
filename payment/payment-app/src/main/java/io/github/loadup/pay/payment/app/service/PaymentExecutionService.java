@@ -66,7 +66,7 @@ public class PaymentExecutionService {
     public void progress(String tenant, String paymentId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         DomainChecks.id(tenant); DomainChecks.id(paymentId);
-        transactions.read(tenant, () -> {
+        transactions.withTenantContext(tenant, () -> {
             final Optional<Work> pending;
             try { pending = snapshot(tenant, paymentId, false); }
             catch (CommonException rejected) {
@@ -115,7 +115,7 @@ public class PaymentExecutionService {
     }
 
     private Optional<Work> snapshot(String tenant, String paymentId, boolean rejectUnsubmitted) {
-        return transactions.write(tenant, () -> {
+        return transactions.writeLocal(tenant, () -> {
             var found = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             var locked = locks.lock(tenant, paymentId, found.callerServiceId());
             var accepted = locked.payment();
@@ -123,7 +123,7 @@ public class PaymentExecutionService {
             if (terminal(order.state())) return Optional.empty();
             var stored = order.activeAttemptId() == null ? null : attempts.lock(tenant, order.activeAttemptId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (stored != null) requireBinding(accepted, stored);
+            if (stored != null) PaymentExecutionBindings.activeContext(locked, stored);
             boolean neverSubmitted = stored == null ? order.state() == PaymentState.INIT && order.version() == 0
                     : stored.attempt().state() == PaymentAttemptState.INIT && stored.attempt().executionEpoch() == 0;
             // A concurrent Y2 winner turns a local rejection into observation only, never a fabricated no-collection fact.
@@ -133,6 +133,7 @@ public class PaymentExecutionService {
                     || locked.gate().gate().state() == GateState.FENCED
                     || !clock.instant().isBefore(payableUntil.toInstant());
             if (closing || rejectUnsubmitted) {
+                if (stored != null) PaymentExecutionBindings.closableContext(locked, stored);
                 var gate = locked.gate();
                 if (gate.gate().state() != GateState.FENCED)
                     changes.updateGate(tenant, updates.withGate(gate, gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))), gate.rowVersion());
@@ -159,20 +160,10 @@ public class PaymentExecutionService {
                 // The original complete request digest already binds tenant, caller and frozen payment parameters.
                 var updated = initial.create(tenant, accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
                 stored = attempts.lock(tenant, updated.payment().activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                requireBinding(updated, stored);
+                PaymentExecutionBindings.activeContext(PaymentExecutionBindings.locked(updated, locked.parent(), locked.gate()), stored);
             }
             return Optional.of(new Work(stored, false, payableUntil));
         });
-    }
-
-    private void requireBinding(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
-        var attempt = stored.attempt();
-        if (!attempt.paymentId().equals(accepted.payment().id()) || !attempt.id().equals(accepted.payment().activeAttemptId())
-                || !attempt.amount().equals(accepted.payment().amount())
-                || !attempt.binding().payeeMerchantId().equals(accepted.payment().payeeMerchantId())
-                || !stored.callerServiceId().equals(accepted.callerServiceId())
-                || !stored.paymentRequestDigest().equals(accepted.requestDigest())
-                || !stored.limitOperationId().equals(accepted.payment().limitOperationId())) throw new CommonException(SNAPSHOT_INVALID);
     }
 
     private boolean initialRejection(CommonException rejected) {

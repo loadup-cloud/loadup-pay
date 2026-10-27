@@ -41,7 +41,7 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
     @Override public MerchantNotificationDTO detail(IdQuery query) {
         validate(query);
         var actor = access.reader();
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var delivery = deliveries.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (actor.merchant() && !actor.merchantId().equals(delivery.payeeMerchantId())) throw new CommonException(NOT_FOUND);
@@ -52,7 +52,7 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
         validate(query);
         var actor = access.reader();
         if (actor.merchant() && !actor.merchantId().equals(query.payeeMerchantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> PageDTO.of(deliveries.page(actor.tenantId(), converter.toFilter(query)).map(converter::toDTO)));
+        return transactions.withTenantContext(actor.tenantId(), () -> PageDTO.of(deliveries.page(actor.tenantId(), converter.toFilter(query)).map(converter::toDTO)));
     }
     private void validate(Object value) {
         if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);

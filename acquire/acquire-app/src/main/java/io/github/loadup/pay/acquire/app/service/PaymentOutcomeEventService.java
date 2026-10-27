@@ -93,7 +93,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         validate(event);
         if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = codec.digest(actor.tenantId(), actor.serviceId(), event);
             var prior = receipts.find(actor.tenantId(), event.deliveryId());
             if (prior.isPresent()) return replay(actor, prior.get(), digest);
@@ -117,7 +117,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     || !observed.payment().terminalEvidenceId().equals(data.evidenceId())
                     || data.executionFenced() && !observed.executionFenced())
                 throw new CommonException(SNAPSHOT_INVALID);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
                 if (existing.isPresent()) return replay(actor, existing.get(), digest);
                 var changed = outcomes.convergeLocked(owner, command, verified);

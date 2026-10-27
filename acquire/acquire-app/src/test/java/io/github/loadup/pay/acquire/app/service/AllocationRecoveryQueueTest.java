@@ -48,7 +48,7 @@ class AllocationRecoveryQueueTest {
             assertEquals("tenant", TenantUtil.getTenantId());
             return null;
         }).when(tasks).register(AllocationRecoveryQueue.TYPE, "payment.0", due);
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             queue.register("tenant", allocation, NOW.plusNanos(123));
             return true;
         });
@@ -62,7 +62,7 @@ class AllocationRecoveryQueueTest {
     void enqueueFailureRollsBackTheTransactionInsteadOfLeavingAnUnscheduledIntent() {
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
         doThrow(failure).when(tasks).register(anyString(), anyString(), any());
-        assertSame(failure, assertThrows(CommonException.class, () -> transactions.write("tenant", () -> {
+        assertSame(failure, assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
             queue.register("tenant", allocation, NOW);
             return true;
         })));
@@ -74,7 +74,7 @@ class AllocationRecoveryQueueTest {
     void nativeRunningTasksAreNeverRescheduledAndEachSuccessorHasANewBusinessKey() {
         var before = AllocationRecoveryCursor.init("payment", "order", NOW);
         var after = before.schedule(NOW.plusSeconds(30), 0L);
-        transactions.write("tenant", () -> {
+        transactions.writeLocal("tenant", () -> {
             queue.schedule("tenant", before, NOW.minusSeconds(1));
             return true;
         });
@@ -89,10 +89,10 @@ class AllocationRecoveryQueueTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> TenantUtil.runWithTenant("tenant", () -> queue.register("tenant", allocation, NOW))).getResultCode());
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                () -> transactions.write("other-tenant", () -> { queue.register("tenant", allocation, NOW); return true; })).getResultCode());
+                () -> transactions.writeLocal("other-tenant", () -> { queue.register("tenant", allocation, NOW); return true; })).getResultCode());
         var amended = new StoredPaymentAllocation(allocation.allocation(), OWNER, allocation.intentPayload(), allocation.payloadHash(), 1L);
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> transactions.write("tenant", () -> { queue.register("tenant", amended, NOW); return true; })).getResultCode());
+                () -> transactions.writeLocal("tenant", () -> { queue.register("tenant", amended, NOW); return true; })).getResultCode());
         verifyNoInteractions(cursors, tasks);
     }
 }

@@ -47,9 +47,10 @@ public class RealtimeTransactions {
         reads.setReadOnly(true);
     }
 
-    public <T> T write(String tenant, Supplier<T> work) {
+    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return scoped(tenant, () -> {
+        return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return writes.execute(status -> work.get());
@@ -61,12 +62,13 @@ public class RealtimeTransactions {
         });
     }
 
-    public <T> T read(String tenant, Supplier<T> work) {
+    /** One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO. */
+    public <T> T readSnapshot(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return scoped(tenant, () -> reads.execute(status -> work.get()));
+        return withTenantContext(tenant, () -> reads.execute(status -> work.get()));
     }
 
-    private <T> T scoped(String tenant, Supplier<T> work) {
+    private <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(tenant, work::get);
         } catch (DomainViolation invalid) {

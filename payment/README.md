@@ -517,7 +517,7 @@ payment-app 引入 `loadup-components-delayedtask`，payment-business bootstrap 
 
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| PAYMENT_REFUND_POLL_DELAY_SECONDS | 30 | 正常处理中下一代任务的最早等待，范围1–86400秒 |
+| PAYMENT_RECOVERY_INITIAL_DELAY_SECONDS | 30 | 付款/退款共享轮询下限；其余退避配置见 Review R3 节 |
 | PAYMENT_SCAN_INTERVAL | PT30S | local Scheduler 唤醒扫描器的 fixedDelay；首次等待沿组件默认一分钟 |
 | PAYMENT_TASK_BATCH_SIZE | 100 | 每次有界逐条领取 |
 | PAYMENT_TASK_MAX_ATTEMPTS | 5 | 同一代异常执行的重试上限，不是正常处理中总轮询上限 |
@@ -568,7 +568,7 @@ payment-business 已组合原生 DelayedTask/Scheduler local binder。受理事�
 
 PaymentExecutionService 从原固定命令创建首个 attempt，再执行渠道本地 validate、风险咨询与原额度/Y2。validate 的输入不带 executionEpoch；短期原输入在锁外 KMS 打开。唯一 ticket 可调用渠道一次，响应通过 PaymentResultService.recordSubmission 落入 Y3。后续代次只按原身份/金额 query；支付期限到达或门禁封禁时先在本地请求关闭，再锁外 close。仅从未 Y2 或已核验的无收款证明可终结并发布释放事件。
 
-任务 handler 校验可信租户、登记任务、RUNNING 状态、尝试次数与有效租约。正常等待原子登记下一代任务，异常由原生重试处理；代次是调度幂等号，不能替代渠道请求号或提交权。参数 loadup.modules.payment.payment-recovery.poll-delay-seconds 默认 30，范围 1..86400；runtime PAYMENT_POLL_DELAY_SECONDS 可覆盖，所有业务时间为系统本地时间。
+任务 handler 校验可信租户、登记任务、RUNNING 状态、尝试次数与有效租约。正常等待原子登记下一代任务，异常由原生重试处理；代次是调度幂等号，不能替代渠道请求号或提交权。轮询改用共享 loadup.modules.payment.recovery-polling 配置，按原业务存续时间退避并抖动；所有业务时间仍为系统本地时间。旧固定间隔变量不再读取，详见 Review R3 节。
 
 尚未执行编译、测试、迁移、真实数据库回滚/并发或多 Pod 恢复演练。JSAPI 创建 ACK 丢失后的动作查询重建已有源码；关闭 ACK 丢失、耗尽任务运维重放、H5/托管授权/其他渠道回调及真实回调验收继续待办；不通过盲目重复提交弥补缺口。
 
@@ -693,7 +693,7 @@ paid gross、其他占用和订单业务状态不改变，后续 progress 不虚
 租户来自验证后的 JWT，issuer/audience/签名/期限沿资源服务器处理，本轮没有签发令牌。
 
 kind 只允许 COLLECTION 与 REFUND_REQUEST，subjectId 分别是原 paymentId、原 refundRequestId；generation 是原恢复代次。
-查询按既有父门禁→单笔门禁→付款/原退款计划锁序读取，再锁恢复游标。付款绑定仍以原 persisted callerServiceId 校验，
+详情使用非锁定的只读快照；retry 按既有父门禁→单笔门禁→付款/原退款计划锁序复核，再锁恢复游标。重试时付款绑定仍以原 persisted callerServiceId 校验，
 不会把 pay-ops 作为原金融调用者；退款沿原请求/订单/商户/摘要绑定检查。终态、完成游标或旧代不会重新执行金融工作。
 
 重试命令精确绑定 expectedTaskId、expectedAttempts、expectedNextExecuteAt（微秒精度），并带稳定 requestKey 和审计 reason。
@@ -709,3 +709,166 @@ RETRIED 表示原唤醒已重排，NO_LONGER_NEEDED 表示该代或业务已结�
 迁移 `V20261026140000__payment_recovery_retry_receipt.sql`、BaseDO/生成 Mapper/MapStruct/Gateway、权限/原条件/重放/回滚及
 退款锁绑定测试源码已补。未运行 IDEA、编译、测试、数据库、HTTP/JWT 或调度器验收，也没有执行 DDL、部署或重试实际任务。
 任务列表/告警、旧库补登记、渠道与其他完整业务目标继续待办。
+
+
+## Review A 批：只读详情与真实持久化测试（2026-10-26）
+
+R2 的 detail 走短 `readSnapshot`（REQUIRES_NEW/REPEATABLE_READ/readOnly），COLLECTION 读取原付款与游标，
+REFUND_REQUEST 非锁定重建原退款计划与游标。查询不进入 PaymentExecutionLocks/RefundExecutionLocks，也不执行 FOR UPDATE。
+重试继续 `lockForRetry`，持原金融锁序重新校验状态与任务前置条件；读快照过时不扩大权限。
+`PaymentAcceptanceTransactions.read` 保持租户上下文语义，避免误把渠道调用包入只读事务。
+
+R1 新增真实 MySQL/Testify/Testcontainers `RecoveryPersistenceIT` 源码：实际 Flyway、生成 Mapper、Gateway、DelayedTask 与事务管理器，
+覆盖初始登记/后继登记回滚、双 worker 单一 successor、读快照不阻挡游标写入且保持原多表视图、native FAILED 重试与真实审计 Gateway 的共同回滚。
+测试位于 payment-infrastructure，按显式 `mysql-it` profile 运行；用例范围、命令与未覆盖项见 `payment-infrastructure/src/test/README.md`。
+这些用例不调用渠道，也不证明 Y2、A2/A3 金额或退款容量已经正确。
+
+按用户暂停验证要求，尚未运行 IDEA、编译、单测、容器或数据库；R1 尚无新的运行证据，R2 尚无轮询负载实测。
+
+
+R1 后续已补 `FinancialPersistenceIT` 的 Y2 竞争/ticket 丢失/attempt 回滚与退款计划-容量并发/回滚源码。
+实际数据库依赖不使用 mock；额度/风控/渠道端口为受控替身，测试不执行真实扣款。退款容量为已建立前置数据，
+不代表完整成功入账/退款准入流程已验证。详细入口、范围与命令见 infrastructure 测试 README；所有新 IT 尚未编译或运行。
+
+
+## Review R1：支付结果与 Outbox 测试源码
+
+[PaymentResultPersistenceIT](payment-infrastructure/src/test/README.md) 新增 10 个测试输入，复用实际 Y3 编排、金融 Gateway、事务与四目标 Outbox，覆盖 5 处写入后的回滚、原请求查询恢复、receipt 并发/冲突、跨租户流水归属及权威关单回执。
+领域已支持的 CLOSE_RESPONSE 同步纳入当前开发期 payment_channel_receipt CHECK。原 Y2 提交作为真实持久化前置数据；渠道事实为受控替身，初始创建/首提/action 分支不得调用。
+当前仅完成源码，未编译、未运行数据库或测试，不能视为 R1 验收或真实渠道/网络故障演练通过。
+
+
+### 付款恢复 handler 的数据库用例源码
+
+PaymentResultPersistenceIT 继续增加 3 个真实 claim/handler/finish 用例，总计 13 个输入。
+覆盖租约失效后的旧 claim 拒绝、原查询仍在途时新 worker 与当前 generation 收敛、未来 generation 被拒绝且当前任务仍可执行。
+采用测试可推进 Clock 与并发屏障；实际游标、native task、Y3、receipt 和 Outbox 不使用替身。
+源码断言不增加 epoch、不再获取首提 ticket、不调用 submit；目前尚未编译或运行，不代表跨进程/真实渠道演练通过。退款 handler 组合源码见下节；真实运行和调度演练仍待验收。
+
+
+### 退款结果与恢复 handler 的数据库用例源码
+
+新增 [RefundRecoveryHandlerPersistenceIT](payment-infrastructure/src/test/README.md) 的 8 个输入，使用实际付款 Y3 生成的成功容量，真实预占、退款子单/请求、汇总、结果回执、金融锁序与各目标 Outbox。
+覆盖四处写入后的回滚、租约失效/重新 claim、旧查询与后继 generation 交错、未来 generation 拒绝及同退款事实不同 receipt 重放。
+源码断言原付款金额与成功状态不变，退款容量/汇总只结算一次，恢复复用原退款号与账户，不重新创建首次提交；渠道、验签与实际发送未接入。
+目前未编译或运行，R1 仍待真实数据库证明；多付款 FIFO 串行退款、实际扫描器与跨进程故障继续按独立范围补齐。
+
+
+### Review R8：退款事件类型的契约归属
+
+退款汇总的 REALTIME_TYPE/FEE_TYPE 由 client 的 OrderRefundSummaryEventDTO 定义，事件生产者与基础设施 codec 共用同一协议值。
+codec 不再为读取事件类型引用 app.service.RefundProjectionEvents；没有变更现有 wire 值、payload、摘要或状态迁移，也没有新增兼容分支。
+该边界纳入六服务源码/POM 门禁，尚未运行验证。
+
+
+## Review R3：付款与退款的有界退避轮询
+
+PaymentRecoveryService 与 RefundRecoveryService 共同注入纯领域 RecoveryPollingPolicy，只计算正常未终结分支的后继 dueAt。
+年龄分别来自原 payment.initiatedAt / refund.plannedAt，不因 native task 重新 claim、业务 generation 增长或应用重启而从零计算。
+这是业务存续时间，不冒充首次进入 UNKNOWN 的独立时间指标。
+
+| 运行变量 | 默认 | 约束 |
+|---|---|---|
+| PAYMENT_RECOVERY_INITIAL_DELAY_SECONDS | 30 | 1..86400 秒，最终等待下限 |
+| PAYMENT_RECOVERY_MAXIMUM_DELAY_SECONDS | 1800 | 不小于 initial，至多 86400 秒 |
+| PAYMENT_RECOVERY_BACKOFF_EVERY_SECONDS | 900 | 每满一个年龄区间，名义等待翻倍；1..604800 秒 |
+| PAYMENT_RECOVERY_JITTER_PERCENT | 20 | 0..50；按租户/任务类型/原业务 ID/generation 确定偏移 |
+
+配置前缀为 loadup.modules.payment.recovery-polling。名义等待在 maximum 处饱和，抖动窗口裁剪到 initial..maximum；
+默认新业务等待 30..36 秒，长时间未终结后等待 1440..1800 秒。上限处仍保留分散，不把所有任务重新压到同一秒。
+时间从 max(now, previousDueAt) 起算，后继始终晚于原 dueAt；已有 native task 不改写，新登记的后继使用当前配置。
+
+删除旧 payment-recovery/refund-recovery.poll-delay-seconds 和 PAYMENT_POLL_DELAY_SECONDS / PAYMENT_REFUND_POLL_DELAY_SECONDS，不保留兼容读取。
+不会变更原请求号、账户、epoch、门禁、receipt、金额、占用、成功/失败判定或任务授权。正常未知结果可继续登记后继；
+传输异常仍抛给原 native 任务重试/FAILED，轮询策略不代表最终资金结果。
+
+领域/配置测试及付款、退款长龄 handler 测试源码已补。原生租约交错 IT 显式 jitter-percent=0，用固定时序证明协议边界，不能替代生产抖动策略的运行验证。
+本轮未检查、编译、测试、迁移或部署；渠道并发限制、业务指标、长期未知升级和证据保留/归档尚未实现，R3 未完成。
+操作语义和剩余范围见 [恢复运营说明](../design/RECOVERY-OPERATIONS.md)。
+
+
+### Review R3：按渠道的恢复并发
+
+payment-business runtime 新增 LoadUp Resilience4j core binder，channel-core 使用其标准 BulkheadRegistry。
+统一渠道入口对付款/退款查询、恢复和关闭共享各渠道预算；支付宝/微信/银联的 PAYMENT_ALIPAY_RECOVERY_MAX_CONCURRENT / PAYMENT_WECHAT_RECOVERY_MAX_CONCURRENT / PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT 配置默认各 16。
+配置在 application-payment-business.yml 的标准 resilience4j.bulkhead.instances，max-wait-duration=0ms；预算满额返回 CHANNEL_RECOVERY_BUSY，由原任务重试/FAILED 机制处理。
+不会增加首次扣款、释放金额或重建提交权；退款依赖异常仍可标为 UNKNOWN，预占保持。原首提 submit/submitRefund 不受此预算装饰，需后续在提交边界前单独完成并发准入。
+此预算是每进程、每渠道的恢复操作并发，不是全渠道总流量或集群配额。业务指标、升级/保留及实际多实例验证继续后续切片。
+新增 Facade 并发/释放/首提边界测试及 bootstrap/API 依赖门禁源码，尚未编译或运行。
+
+
+### Review R3：恢复 handler 执行指标
+
+实际 PaymentRecoveryTaskHandler / RefundRecoveryTaskHandler 已接入 RecoveryExecutionMetrics，使用 Spring 提供的共享 MeterRegistry。
+不存在共享 registry 时不创建私有 backend，仍正常执行业务。观测在整个 handler 外层，恢复服务返回已提交的续行决策后再记录，事务闭包内部重试不重复计数。
+
+| Micrometer 名称 | 类型 | 固定标签 | 含义 |
+|---|---|---|---|
+| loadup.payment.recovery.execution | Timer | kind=payment/refund；outcome=continued/completed/skipped/failed | handler 调用次数及墙钟执行耗时，包含 native 重试和旧代重放 |
+| loadup.payment.recovery.inflight | Gauge | kind=payment/refund | 本进程正在执行该类 handler 的数量 |
+
+continued 表示当前游标和原生后继已提交；completed 表示执行推进后完成游标；skipped 表示预检无需推进或执行后已失去当前代；failed 表示该次调用抛错（不代表交易资金失败）。
+预检发现已是终态并顺便完成游标也记 skipped，因为没有再推进渠道。handler 记录完成不表示 native ACK 一定成功，lease_lost 仍由原生 dispatcher 观测。
+
+标签不包含 tenant/order/payment/refund/attempt/requestNo、taskId、generation、账户、金额、URL 或异常文本。
+Timer.count 不是未终结交易存量；inflight 也不是长期 UNKNOWN 数量。UNKNOWN 库存/最老年龄、真实占用金额、FAILED 任务存量及 Outbox 新鲜度仍需独立快照指标。
+调用期记录指标的 RuntimeException 只记固定来源与异常类型，不覆盖原业务异常，不写数据库、不变更重试或金融事实。
+
+新增指标和两个真实 adapter 的单测源码，并同步恢复服务的已提交决策断言及 IT 装配；本轮未编译/运行，也未启用或观测真实 Prometheus。
+
+
+### Review R3：UNKNOWN 只读存量快照
+
+新增独立 RecoveryInventoryCollector ScheduledTask，按服务端配置租户范围读 RR 快照，并在完整范围成功后发布 UNKNOWN 付款/子退款数量、名义金额和首次 UNKNOWN 最老年龄。
+金额不表示实际额度 held；年龄取当前 UNKNOWN 行的 first_unknown_at。首次采样前 NaN，失败保留整个旧样本并暴露 sample.age；scrape 只读内存。
+采用生成 Mapper/TableDef/聚合接口和 Spring MapStruct，没有手工 Mapper/SQL、表迁移、行锁、网络回查或资金写入。
+默认 PAYMENT_RECOVERY_INVENTORY_ENABLED=false，范围用 PAYMENT_RECOVERY_INVENTORY_TENANTS，周期 PAYMENT_RECOVERY_INVENTORY_INTERVAL_SECONDS 默认 300 秒。
+没有共享 MeterRegistry 或未启用时不读取数据库，不创建 backend；启用时非空范围最多 100 个不同租户。
+指标、严格口径、聚合 API 依据与限制见 [存量说明](../design/RECOVERY-INVENTORY.md)。Collector/model 单测和付款/退款实际 MySQL IT 输入已补，均未运行；真实 held/FAILED/Outbox 等仍待补。
+
+
+### Review R3：首次 UNKNOWN 时间
+
+payment_order / refund_order 的 first_unknown_at 由实际金融 gateway 与首次 UNKNOWN 状态 CAS 同事务写入，后续查证、任务代次和终态均保留，不加入公开接口或冻结意图。
+库存改用该字段，指标为 loadup.payment.recovery.inventory.unknown.oldest.age；不再使用创单年龄，不兼容旧开发期指标名。
+两份初始化迁移增加列和 UNKNOWN 必有时间的 CHECK，未执行 DDL/迁移；MySQL IT 补回滚、重复、终态保留与退出库存的输入，未运行。
+
+
+### Review R3：长期 UNKNOWN 分级查证
+
+新增 POST /api/payment/operations/recovery/unknown/list 与独立 PaymentUnknownRecoveryFacade，只对已验证运营 SERVICE + pay:payment:recovery:read 开放当前凭证租户。
+每行是原付款或子退款，返回原身份、首次未知时间、观察级别、版本和父恢复 generation/completed；后续只能通过已有 detail 获取当前任务、retry 加锁审计。列表不赋予重新扣款/注入结果/释放权限。
+REVIEW/URGENT 默认 900/86400 秒，可由 PAYMENT_RECOVERY_REVIEW_AFTER_SECONDS / PAYMENT_RECOVERY_URGENT_AFTER_SECONDS 配置，达到边界即提示。
+NORMAL 包含回拨后时间晚于当前时钟的行，年龄为 0；时间/ID keyset 分页最多 100+1，无总数查询，实际 RR 只读、无 FOR UPDATE/金融写入或渠道 IO。
+新增阈值/采样周期 Gauge 与独立 Prometheus 规则/用例；不自动加载规则、不启用现有关闭的 Alertmanager，也未发送通知。
+契约、源码测试与待完成范围见 [分级查证](../design/RECOVERY-ESCALATION.md)；本轮均未编译或运行，付款/退款 IT 当前 15/9 个输入。
+
+
+### Review R4：共同付款与 attempt 绑定
+
+首提/恢复/Y3/回调/关单、原渠道请求、动作、attempt 请求重放和结果投递的共同绑定由纯领域 PaymentAttemptBinding 维护：付款 ID、原 Money、收款商户、额度 operation、原 caller/paymentDigest。
+active/submittable/observable/closable/原 winner 请求前置条件分开；迟到原请求可以继续观察，Y3 再决定是否属于当前目标，不因 gate fenced 丢弃资金事实。
+PaymentExecutionBindings 只映射本模块错误；原权限、锁序、输入/冻结 route、有效期、Y2 唯一票据、claim/receipt/容量/Outbox 仍在各自原流程。渠道请求构造补冻结 channel/method 对照。
+领域/适配逐项篡改及 Y3 冲突/损坏分类测试源码已补，均未编译/运行；完整 R4 后续和证据范围见 [绑定契约](../design/PAYMENT-BINDING.md)。
+
+
+### Review R4：门禁与完整执行上下文
+
+LockedPayment 仅持有合法 PaymentGateBinding，生产/测试删除旧三参数原始构造；父/付款门禁的内部身份关系集中校验。
+纯领域 PaymentExecutionContext 组合该门禁与 attempt，要求同一个完整付款快照；锁内 Y2/恢复/关闭/Y3/动作/投递接入各自模式。
+PaymentExecutionLocks 保持原锁序，提前拒绝无事务/只读事务；首次提交要求双 OPEN，已提交事实在 FENCED 或终态后仍可观察，值对象不能替代持久 Y2 唯一提交权或资金证据。
+新增领域/局部映射/锁适配/Y2 拦截测试源码，均未运行；完整说明与待验收范围见 [绑定契约](../design/PAYMENT-BINDING.md)。
+
+
+### Review R6：付款恢复意图快照
+
+本服务不再直接持久化公开 PaymentExecuteCommand JSON；独立 PaymentIntentSnapshot 及嵌套本地条款由 MapStruct 转换，使用 owner 格式和固定存储 JSON 规则。
+恢复不重新执行当前 Command Bean Validation 或查询当前合约填值；仍验证快照自身、哈希及原落库索引，保留金额/期限/规则版本/输入引用。
+旧裸 Command/错误 owner/未知格式明确失败，没有双读、回填或兼容分支。未执行编译/测试/数据库或开发数据重建，完整范围与测试源码见 [快照契约](../design/PAYMENT-INTENT-SNAPSHOTS.md)。
+
+
+### Review R7：局部恢复协议
+
+Payment/RefundRecoveryService 共用 task key、领取元数据与两阶段 current/successor 纯规则，原 typed 身份/schema/bizId 保持，付款和退款锁序、状态机及原号推进独立。
+当前代 dueAt 在推进前后都与原 executeAt 核对；心跳可延长 lease，应用校验不替代 native token fencing/ACK，不引入 Saga、泛型执行 runner 或新扣款权限。
+共享协议/领域与服务边界测试源码已补，未编译/运行，完整约束见 [恢复协议](../design/RECOVERY-PROTOCOL.md)。

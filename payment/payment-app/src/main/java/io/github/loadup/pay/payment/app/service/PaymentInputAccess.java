@@ -103,7 +103,7 @@ public class PaymentInputAccess {
      */
     public PaymentInteractionDTO openForAttempt(String tenant, String paymentId, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
             var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -126,7 +126,7 @@ public class PaymentInputAccess {
     /** Opens only the original still-unbound input for local parameter inspection before Y2. */
     public PaymentInteractionDTO openForPreparation(String tenant, StoredPaymentAcceptance original, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(tenant, () -> {
+        return transactions.withTenantContext(tenant, () -> {
             var accepted = payments.find(tenant, original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())

@@ -1,0 +1,20 @@
+spring:
+  main:
+    web-application-type: none
+loadup:
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  delayedtask:
+    enabled: true
+  outbox:
+    worker-enabled: false
+  security:
+    resource-server:
+      enabled: false
+  kms:
+    enabled: false

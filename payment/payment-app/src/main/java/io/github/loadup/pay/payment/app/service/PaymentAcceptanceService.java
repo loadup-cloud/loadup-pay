@@ -102,9 +102,9 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         validate(command);
         var actor = actor("pay:payment:accept");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             validateBinding(command);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var prior = store.find(actor.tenantId(), command.paymentId());
                 if (prior.isPresent()) return replay(actor, command, prior.get());
                 // Gate creation races roll back the entire transaction before a fresh retry.
@@ -167,7 +167,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     public PaymentExecutionDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:payment:read");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), query.id(), actor.serviceId()));
         });
@@ -177,7 +177,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     public PaymentOutcomeDTO outcome(IdQuery query) {
         validate(query);
         var actor = actor("pay:payment:read");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var initial = store.find(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -189,22 +189,13 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             // All payment writers hold these gates before changing a payment or its terminal proof.
             var current = store.find(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var command = codec.decode(current);
+            if (!query.id().equals(current.payment().id()) || !initial.payment().orderId().equals(current.payment().orderId()))
+                throw new CommonException(SNAPSHOT_INVALID);
+            codec.decode(current);
             if (!actor.serviceId().equals(current.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-            checkOutcomeGate(actor, command, parent, null);
-            checkOutcomeGate(actor, command, gate, query.id());
-            return converter.toOutcome(actions.present(actor.tenantId(), new io.github.loadup.pay.payment.app.model.LockedPayment(
+            return converter.toOutcome(actions.present(actor.tenantId(), PaymentExecutionBindings.locked(
                     current, parent, gate)), gate.gate().state() == GateState.FENCED);
         });
-    }
-
-    private void checkOutcomeGate(
-            PaymentActor actor, PaymentExecuteCommand command, StoredPaymentGate gate, String paymentId) {
-        if (!gate.gate().orderId().equals(command.orderId())
-                || !java.util.Objects.equals(gate.gate().paymentId(), paymentId)
-                || !gate.payeeMerchantId().equals(command.payeeMerchantId())
-                || !gate.callerServiceId().equals(actor.serviceId())
-                || gate.gate().state() == GateState.INIT) throw new CommonException(SNAPSHOT_INVALID);
     }
 
     private PaymentExecutionDTO replay(

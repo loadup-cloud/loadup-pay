@@ -16,22 +16,20 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.delayedtask.*;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
+import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
@@ -46,15 +44,14 @@ public class PaymentRecoveryService {
     private final PaymentExecutionService execution;
     private final PaymentAcceptanceTransactions transactions;
     private final Clock clock;
-    private final long pollDelaySeconds;
+    private final RecoveryPollingPolicy polling;
 
     public PaymentRecoveryService(PaymentRecoveryGateway cursors, DelayedTaskTemplate tasks, PaymentExecutionLocks locks,
             PaymentExecutionService execution, io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway payments,
             PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.payment-recovery.poll-delay-seconds:30}") long pollDelaySeconds) {
-        DomainViolation.require(pollDelaySeconds >= 1 && pollDelaySeconds <= 86400, DomainViolation.Reason.INVALID_ARGUMENT);
+            RecoveryPollingPolicy polling) {
         this.cursors = cursors; this.tasks = tasks; this.locks = locks; this.execution = execution;
-        this.payments = payments; this.transactions = transactions; this.clock = clock; this.pollDelaySeconds = pollDelaySeconds;
+        this.payments = payments; this.transactions = transactions; this.clock = clock; this.polling = java.util.Objects.requireNonNull(polling);
     }
 
     /** The original acceptance and its first wake-up commit atomically. */
@@ -68,58 +65,46 @@ public class PaymentRecoveryService {
         tasks.register(TYPE, new PaymentRecoveryKey(cursor.paymentId(), cursor.generation()).bizId(), cursor.dueAt());
     }
 
-    public void handle(DelayedTask task) {
+    public RecoveryHandlingOutcome handle(DelayedTask task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (task == null || task.tenantId() == null || !TYPE.equals(task.taskType()) || !task.tenantId().equals(TenantUtil.getTenantId()))
-            throw new CommonException(SNAPSHOT_INVALID);
-        DomainChecks.id(task.tenantId());
-        final PaymentRecoveryKey key;
-        try { key = PaymentRecoveryKey.parse(task.bizId()); }
-        catch (DomainViolation invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        var identity = RecoveryTaskProtocol.receive(TYPE, task, TenantUtil.getTenantId());
+        var key = new PaymentRecoveryKey(identity.subjectId(), identity.generation());
         var registered = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var now = LocalDateTime.now(clock);
-        if (!task.id().equals(registered.id()) || !task.tenantId().equals(registered.tenantId())
-                || !TYPE.equals(registered.taskType()) || !task.bizId().equals(registered.bizId())
-                || !task.executeAt().equals(registered.executeAt()) || registered.status() != DelayedTaskStatus.RUNNING
-                || registered.attempts() != task.attempts() || registered.leaseUntil() == null
-                || !now.isBefore(registered.leaseUntil()) || now.isBefore(registered.nextExecuteAt()))
-            throw new CommonException(INVALID_STATE);
-        boolean active = transactions.write(task.tenantId(), () -> {
+        RecoveryTaskProtocol.requireClaim(TYPE, task, registered, LocalDateTime.now(clock));
+        boolean active = transactions.writeLocal(task.tenantId(), () -> {
             var request = lockPayment(task.tenantId(), key.paymentId());
             var cursor = cursor(task.tenantId(), key);
-            if (cursor.completed() || key.generation() < cursor.generation()) return false;
-            if (!cursor.dueAt().equals(task.executeAt())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!RecoveryTaskProtocol.current(identity, cursor.position(), task.executeAt())) return false;
             if (terminal(request)) {
                 cursors.update(task.tenantId(), cursor, cursor.finish());
                 return false;
             }
             return true;
         });
-        if (!active) return;
+        if (!active) return RecoveryHandlingOutcome.SKIPPED;
         // The durable Y2 winner owns first submit; recovery of a started attempt only queries or closes its original request.
         execution.progress(task.tenantId(), key.paymentId());
-        transactions.write(task.tenantId(), () -> {
+        return transactions.writeLocal(task.tenantId(), () -> {
             var request = lockPayment(task.tenantId(), key.paymentId());
             var before = cursor(task.tenantId(), key);
-            if (before.completed() || key.generation() < before.generation()) return true;
+            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) return RecoveryHandlingOutcome.SKIPPED;
             if (terminal(request)) {
                 cursors.update(task.tenantId(), before, before.finish());
+                return RecoveryHandlingOutcome.COMPLETED;
             } else {
-                var at = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
-                var nextAt = (at.isBefore(before.dueAt()) ? before.dueAt() : at).plusSeconds(pollDelaySeconds);
+                var nextAt = polling.nextAt(task.tenantId(), TYPE, key.paymentId(), before.generation(),
+                        request.payment().initiatedAt(), before.dueAt(), LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(task.tenantId(), before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
                 tasks.register(TYPE, new PaymentRecoveryKey(next.paymentId(), next.generation()).bizId(), next.dueAt());
+                return RecoveryHandlingOutcome.CONTINUED;
             }
-            return true;
         });
     }
 
     private PaymentRecoveryCursor cursor(String tenant, PaymentRecoveryKey key) {
         var value = cursors.lock(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!value.paymentId().equals(key.paymentId()) || key.generation() > value.generation())
-            throw new CommonException(SNAPSHOT_INVALID);
         return value;
     }
 

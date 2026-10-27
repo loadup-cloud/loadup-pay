@@ -49,7 +49,7 @@ public class RefundSummaryFactsService implements RefundSummaryFactsFacade {
         var actor = actors.current();
         if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-summary:read"))
             throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var parent = payments.lockParent(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.serviceId().equals(parent.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);

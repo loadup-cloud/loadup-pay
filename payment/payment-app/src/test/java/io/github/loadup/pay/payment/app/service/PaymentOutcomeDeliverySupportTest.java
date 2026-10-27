@@ -96,7 +96,7 @@ class PaymentOutcomeDeliverySupportTest {
         when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(source.get().payment()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            return new LockedPayment(source.get().payment(), AttemptFixtures.gate(true), gate.get());
+            return PaymentExecutionBindings.locked(source.get().payment(), AttemptFixtures.gate(true), gate.get());
         });
         when(attempts.lock("tenant", "attempt")).thenAnswer(c -> Optional.ofNullable(source.get().attempt()));
         when(intents.decode(any())).thenReturn(AttemptFixtures.command());

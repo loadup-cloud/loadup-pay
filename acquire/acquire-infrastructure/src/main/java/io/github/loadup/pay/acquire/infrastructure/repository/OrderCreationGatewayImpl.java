@@ -129,11 +129,25 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             if (intentRow == null || snapshot == null || !"COMPLETED".equals(intentRow.getState()))
                 throw new CommonException(SNAPSHOT_INVALID);
             var intent = converter.toIntent(intentRow);
-            var checkout = "CHECKOUT".equals(intent.entryMode()) ? codec.decodeCheckout(intent) : null;
-            var command = checkout == null ? codec.decodeIntent(intent) : business.toOrderCreate(checkout);
-            String digest = checkout == null
-                    ? codec.requestDigest(tenant, intent.callerScopeHash(), command)
-                    : codec.checkoutDigest(tenant, intent.callerScopeHash(), checkout);
+            final io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand command;
+            final String digest;
+            switch (intent.entryMode()) {
+                case "ORDER" -> {
+                    command = codec.decodeIntent(intent);
+                    digest = codec.requestDigest(tenant, intent.callerScopeHash(), command);
+                }
+                case "CHECKOUT" -> {
+                    var checkout = codec.decodeCheckout(intent);
+                    command = business.toOrderCreate(checkout);
+                    digest = codec.checkoutDigest(tenant, intent.callerScopeHash(), checkout);
+                }
+                case "DIRECT_PAY" -> {
+                    var direct = codec.decodeDirectPay(intent);
+                    command = business.toOrderCreate(direct);
+                    digest = codec.directPayDigest(tenant, intent.callerScopeHash(), direct);
+                }
+                default -> throw new CommonException(SNAPSHOT_INVALID);
+            }
             var admission = codec.decodeAdmission(snapshot.getConfiguration(), snapshot.getPayloadHash());
             if (!digest.equals(intent.requestDigest())
                     || !id.equals(admission.orderId())

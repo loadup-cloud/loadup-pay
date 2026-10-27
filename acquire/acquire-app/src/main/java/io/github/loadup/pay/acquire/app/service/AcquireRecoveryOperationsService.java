@@ -82,9 +82,8 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         var actor = actor("pay:acquire:recovery:read");
         validate(query);
         key(query.kind(), query.subjectId(), query.generation());
-        // One consistent bounded inspection; it only locks and reads, never schedules or changes business rows.
-        return transactions.write(actor.tenantId(), () -> converter.toDTO(
-                inspect(actor.tenantId(), query.kind(), query.subjectId(), query.generation())));
+        return transactions.readSnapshot(actor.tenantId(), () -> converter.toDTO(
+                readInspection(actor.tenantId(), query.kind(), query.subjectId(), query.generation())));
     }
 
     @Override
@@ -101,13 +100,13 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("acquire-recovery-retry-v1", actor.tenantId(), scope,
                 command.kind().name(), command.subjectId(), command.generation(), command.expectedTaskId(), command.expectedAttempts(),
                 expectedAt.toString(), command.requestKey(), command.reason())));
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             var known = receipts.find(actor.tenantId(), scope, command.requestKey());
             if (known.isPresent()) return replay(actor, known.get(), scope, digest);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
                 if (existing.isPresent()) return replay(actor, existing.get(), scope, digest);
-                var inspection = inspect(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
+                var inspection = lockForRetry(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
                 // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order key reuse.
                 existing = receipts.find(actor.tenantId(), scope, command.requestKey());
                 if (existing.isPresent()) return replay(actor, existing.get(), scope, digest);
@@ -134,12 +133,40 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         });
     }
 
-    private AcquireRecoveryInspection inspect(String tenant, AcquireRecoveryKind kind, String subject, long generation) {
-        String orderId = subject;
-        if (kind == AcquireRecoveryKind.PAYMENT_ALLOCATION)
-            orderId = cursors.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND)).orderId();
+    private AcquireRecoveryInspection readInspection(String tenant, AcquireRecoveryKind kind, String subject, long generation) {
+        var located = kind == AcquireRecoveryKind.PAYMENT_ALLOCATION
+                ? cursors.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND)) : null;
+        String orderId = located == null ? subject : located.orderId();
+        var order = orders.findOrder(tenant, orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
+        if (!order.order().id().equals(orderId)) throw new CommonException(SNAPSHOT_INVALID);
+        var task = findTask(tenant, kind, subject, generation);
+        boolean current = switch (kind) {
+            case PAYMENT_ALLOCATION -> allocationCurrent(tenant, order,
+                    allocations.findPayment(tenant, orderId, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                    located, subject, generation, task);
+            case ORDER_DEADLINE -> deadlineCurrent(tenant, order, generation, task);
+            case ORDER_CLOSURE -> closureCurrent(tenant, order, generation, task);
+        };
+        return inspection(kind, subject, generation, orderId, task, current);
+    }
+
+    private AcquireRecoveryInspection lockForRetry(String tenant, AcquireRecoveryKind kind, String subject, long generation) {
+        String orderId = kind == AcquireRecoveryKind.PAYMENT_ALLOCATION
+                ? cursors.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND)).orderId() : subject;
         var order = orders.lockOrder(tenant, orderId);
         if (!order.order().id().equals(orderId)) throw new CommonException(SNAPSHOT_INVALID);
+        var task = findTask(tenant, kind, subject, generation);
+        boolean current = switch (kind) {
+            case PAYMENT_ALLOCATION -> allocationCurrent(tenant, order,
+                    allocations.lockPayment(tenant, orderId, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                    cursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), subject, generation, task);
+            case ORDER_DEADLINE -> deadlineCurrent(tenant, order, generation, task);
+            case ORDER_CLOSURE -> closureCurrent(tenant, order, generation, task);
+        };
+        return inspection(kind, subject, generation, orderId, task, current);
+    }
+
+    private DelayedTask findTask(String tenant, AcquireRecoveryKind kind, String subject, long generation) {
         String type = switch (kind) {
             case PAYMENT_ALLOCATION -> AllocationRecoveryQueue.TYPE;
             case ORDER_DEADLINE -> OrderDeadlineTasks.TYPE;
@@ -150,30 +177,33 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         var task = tasks.find(type, bizId).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!tenant.equals(task.tenantId()) || !type.equals(task.taskType()) || !bizId.equals(task.bizId()) || task.status() == null)
             throw new CommonException(SNAPSHOT_INVALID);
-        boolean current;
-        switch (kind) {
-            case PAYMENT_ALLOCATION -> {
-                var allocation = allocations.lockPayment(tenant, orderId, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                var cursor = cursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!cursor.paymentId().equals(subject)) throw new CommonException(SNAPSHOT_INVALID);
-                current = paymentRecovery.isCurrentLocked(tenant, order, allocation, cursor, generation);
-                if (generation == cursor.generation() && !cursor.dueAt().equals(task.executeAt()))
-                    throw new CommonException(SNAPSHOT_INVALID);
-            }
-            case ORDER_DEADLINE -> {
-                long version = extensions.deadlineVersion(tenant, order.order());
-                if (generation > version || generation == version && !order.order().orderDueAt().equals(task.executeAt()))
-                    throw new CommonException(SNAPSHOT_INVALID);
-                current = generation == version && (order.order().state() == AcquireOrderState.INIT
-                        || order.order().state() == AcquireOrderState.PENDING);
-            }
-            case ORDER_CLOSURE -> {
-                var intent = closes.findIntent(tenant, orderId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                current = closure.isCurrentLocked(new OrderPaymentScope(tenant, order.callerScopeHash()), order, intent, generation);
-                if (task.executeAt().isBefore(intent.requestedAt())) throw new CommonException(SNAPSHOT_INVALID);
-            }
-            default -> throw new CommonException(INVALID_ARGUMENT);
-        }
+        return task;
+    }
+
+    private boolean allocationCurrent(String tenant, StoredAcquireOrder order, StoredPaymentAllocation allocation,
+            AllocationRecoveryCursor cursor, String subject, long generation, DelayedTask task) {
+        if (!cursor.paymentId().equals(subject)) throw new CommonException(SNAPSHOT_INVALID);
+        boolean current = paymentRecovery.isCurrent(tenant, order, allocation, cursor, generation);
+        if (generation == cursor.generation() && !cursor.dueAt().equals(task.executeAt())) throw new CommonException(SNAPSHOT_INVALID);
+        return current;
+    }
+
+    private boolean deadlineCurrent(String tenant, StoredAcquireOrder order, long generation, DelayedTask task) {
+        long version = extensions.deadlineVersion(tenant, order.order());
+        if (generation > version || generation == version && !order.order().orderDueAt().equals(task.executeAt()))
+            throw new CommonException(SNAPSHOT_INVALID);
+        return generation == version && (order.order().state() == AcquireOrderState.INIT || order.order().state() == AcquireOrderState.PENDING);
+    }
+
+    private boolean closureCurrent(String tenant, StoredAcquireOrder order, long generation, DelayedTask task) {
+        var intent = closes.findIntent(tenant, order.order().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        boolean current = closure.isCurrent(new OrderPaymentScope(tenant, order.callerScopeHash()), order, intent, generation);
+        if (task.executeAt().isBefore(intent.requestedAt())) throw new CommonException(SNAPSHOT_INVALID);
+        return current;
+    }
+
+    private AcquireRecoveryInspection inspection(AcquireRecoveryKind kind, String subject, long generation, String orderId,
+            DelayedTask task, boolean current) {
         return new AcquireRecoveryInspection(kind, subject, generation, orderId, task, current,
                 current && task.status() == DelayedTaskStatus.FAILED && !LocalDateTime.now(clock).isBefore(task.executeAt()));
     }

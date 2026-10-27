@@ -38,6 +38,7 @@ public class RefundOrderDO extends BaseDO {
     private Long amountMinor;
     private String currency;
     private String state;
+    private LocalDateTime firstUnknownAt;
     private String terminalEvidenceId;
     private LocalDateTime nextQueryAt;
     private Long querySequence;
@@ -166,6 +167,14 @@ public class RefundOrderDO extends BaseDO {
 
     public String getTerminalEvidenceId() {
         return terminalEvidenceId;
+    }
+
+    public LocalDateTime getFirstUnknownAt() {
+        return firstUnknownAt;
+    }
+
+    public void setFirstUnknownAt(LocalDateTime value) {
+        firstUnknownAt = value;
     }
 
     public void setTerminalEvidenceId(String value) {

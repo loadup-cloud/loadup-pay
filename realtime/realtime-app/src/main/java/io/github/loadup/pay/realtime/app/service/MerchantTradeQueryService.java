@@ -67,7 +67,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public TradeDetailDTO detail(TradeDetailQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.readSnapshot(actor.tenantId(), () -> {
             var order = queries.findOrder(actor.tenantId(), actor.merchantId(), query.orderId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             var summary = queries.findRefundSummary(actor.tenantId(), actor.merchantId(), query.orderId()).orElse(null);
@@ -80,7 +80,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradeOrderDTO> page(TradeOrderPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.readSnapshot(actor.tenantId(), () -> {
             var page = queries.orders(actor.tenantId(), new TradePageFilter(actor.merchantId(), null, query.merchantOrderNo(), null,
                     name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
             var summaries = queries.refundSummaries(actor.tenantId(), actor.merchantId(),
@@ -94,7 +94,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradePaymentDTO> payments(TradePaymentPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.readSnapshot(actor.tenantId(), () -> {
             var page = queries.payments(actor.tenantId(), new TradePageFilter(actor.merchantId(), query.orderId(), null, null,
                     name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
             return PageDTO.of(page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
@@ -105,7 +105,7 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     public PageDTO<TradeRefundDTO> refunds(TradeRefundPageQuery query) {
         validate(query);
         var actor = actor(query.payeeMerchantId());
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.readSnapshot(actor.tenantId(), () -> {
             var page = queries.refunds(actor.tenantId(), new TradePageFilter(actor.merchantId(), query.orderId(), null, query.refundRequestId(),
                     name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
             return PageDTO.of(page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());

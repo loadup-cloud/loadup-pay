@@ -128,7 +128,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
 
     private ProjectionAckDTO consume(RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), event, hash);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             var prior = receipts.find(actor.tenantId(), event.producer(), event.deliveryId());
             if (prior.isPresent()) {
                 var receipt = prior.get();

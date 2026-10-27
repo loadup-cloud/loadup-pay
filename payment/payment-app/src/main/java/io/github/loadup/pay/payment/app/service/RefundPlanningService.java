@@ -111,7 +111,7 @@ public class RefundPlanningService implements RefundFacade {
         var actor = actor("pay:payment:refund:create");
         if (!actor.merchantId().equals(command.payeeMerchantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!command.explicitAllocations().isEmpty()) throw new CommonException(INVALID_ARGUMENT);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.text(command.merchantRefundNo(), 64);
@@ -197,7 +197,7 @@ public class RefundPlanningService implements RefundFacade {
     public RefundRequestDTO detail(IdQuery query) {
         if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actor("pay:payment:refund:read");
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var reference = refunds.reference(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.merchantId().equals(reference.payeeMerchantId())) throw new CommonException(NOT_FOUND);

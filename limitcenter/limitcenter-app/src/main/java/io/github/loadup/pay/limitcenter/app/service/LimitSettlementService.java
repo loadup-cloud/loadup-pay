@@ -94,7 +94,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
     @Override
     public LimitReservationDTO confirm(LimitConfirmCommand command) {
         var actor = actor(command, "pay:limit:confirm");
-        return transactions.read(actor, () -> {
+        return transactions.withTenantContext(actor, () -> {
             ids(command.operationId(), command.paymentId(), command.businessEventId(), command.successEvidenceId());
             var first = reservations.findByOperation(actor.tenantId(), command.operationId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -109,7 +109,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
             String digest = digest("CONFIRM", actor, command.operationId(), command.paymentId(),
                     Long.toString(command.paymentVersion()), command.successEvidenceId(), Long.toString(command.amountMinor()),
                     command.currency(), BusinessTime.local(command.succeededAt()).toString());
-            return transactions.write(actor, OUTCOME_CONFLICT, () -> {
+            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
                 var gate = reservations.lockGate(actor.tenantId(), command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var current = reservations.findByOperation(actor.tenantId(), command.operationId())
@@ -147,7 +147,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
     @Override
     public LimitReleaseDTO release(LimitReleaseCommand command) {
         var actor = actor(command, "pay:limit:release");
-        return transactions.read(actor, () -> {
+        return transactions.withTenantContext(actor, () -> {
             ids(command.operationId(), command.paymentId(), command.businessEventId(), command.noCollectionEvidenceId());
             DomainChecks.text(command.reasonCode(), 64);
             var existing = reservations.findByOperation(actor.tenantId(), command.operationId());
@@ -160,7 +160,7 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 throw new CommonException(OUTCOME_CONFLICT);
             String digest = digest("RELEASE", actor, command.operationId(), command.paymentId(),
                     Long.toString(command.paymentVersion()), command.noCollectionEvidenceId(), command.reasonCode());
-            return transactions.write(actor, OUTCOME_CONFLICT, () -> {
+            return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
                 var gate = reservations.lockOrCreateGate(actor.tenantId(), command.operationId(), command.paymentId());
                 if (!gate.paymentId().equals(command.paymentId())) throw new CommonException(OUTCOME_CONFLICT);
                 var current = reservations.findByOperation(actor.tenantId(), command.operationId());

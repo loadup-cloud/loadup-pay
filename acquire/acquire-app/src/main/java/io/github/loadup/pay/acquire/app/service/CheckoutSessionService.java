@@ -57,7 +57,7 @@ public class CheckoutSessionService implements CheckoutSessionFacade {
         var actor = actors.current();
         if (!actor.permissions().contains("pay:acquire:session")) throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.write(actor.tenantId(), () -> {
+        return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.requestKey(), 128);
             var order = orders.lockOrder(actor.tenantId(), command.orderId());

@@ -20,6 +20,8 @@ import java.util.Optional;
 
 /** Joins the original parent/request transaction; no independent execution claim. */
 public interface RefundRecoveryGateway {
+    /** Nonlocking read, usable within a consistent read snapshot. */
+    Optional<RefundRecoveryCursor> find(String tenant, String requestId);
     Optional<RefundRecoveryCursor> lock(String tenant, String requestId);
     void insert(String tenant, RefundRecoveryCursor value);
     void update(String tenant, RefundRecoveryCursor before, RefundRecoveryCursor after);

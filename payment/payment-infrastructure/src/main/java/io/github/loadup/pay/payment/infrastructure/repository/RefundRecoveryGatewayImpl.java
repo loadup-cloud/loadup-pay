@@ -43,6 +43,14 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     }
 
     @Override
+    public Optional<RefundRecoveryCursor> find(String tenant, String requestId) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        var row = mapper.selectOneByQuery(scope(tenant, requestId));
+        try { return Optional.ofNullable(row).map(converter::toDomain); }
+        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+    }
+
+    @Override
     public Optional<RefundRecoveryCursor> lock(String tenant, String requestId) {
         writable(tenant);
         var row = mapper.selectOneByQuery(scope(tenant, requestId).forUpdate());

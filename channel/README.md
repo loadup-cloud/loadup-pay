@@ -153,3 +153,37 @@ ChannelNotificationOperations.identify(context,input) 现在取得可信原绑�
 recoverRefund 与 queryRefund 分开：回调和纯查询继续使用 queryRefund；原生退款恢复任务使用 recoverRefund。统一 Facade 仍按原 channel/revision/账户作用域路由并核验原退款身份/金额；恢复只接受 QUERY_RESPONSE，或非终态 ACCEPTED/UNKNOWN 的 SUBMIT_RESPONSE，不能把重提受理当退款成功。payment 的 INIT 首次赢家仍仅调用一次 submitRefund，其后原状态/固定计划交渠道策略恢复，没有厂商分支。
 
 微信只有验签的 HTTP404 RESOURCE_NOT_EXISTS 才按原请求号/原交易/原金额重提一次；支付宝只有验签 code10000、原三项自然键齐备匹配且 refund_status 缺失，附带金额核验后才原号重提。各自依靠官方原退款号幂等保证，不把缺失/不存在当未退款证明。错误、异常状态或已有终态不触发重提；查询异常/验签失败不提交。重提结果用查询与提交摘要组成恢复证据，资金占用保留到原查询金融终态。详见各插件说明。源码/测试源码已补，未运行构建或真实退款。
+
+
+## Review R8：六服务架构门禁源码
+
+现有 ChannelModuleBoundaryTest 之外新增 PayModuleBoundaryTest，覆盖六服务源码/直接及 profile POM 依赖：client/domain 纯净、app 不依赖实现、跨服务只依赖公开契约/适配所需 rpc、渠道插件仅 runtime 装配，以及数据适配器的 app 依赖角色。
+包括合成违规/合法用例，尚未编译或运行；不构成架构已通过证明。范围、局限和待补字节码/入站适配边界见 [门禁说明](../design/ARCHITECTURE-GATES.md)。
+
+
+## Review R3：共享渠道恢复并发预算
+
+channel-core 新增 ChannelRecoveryConcurrency，复用 LoadUp ResilienceRegistries/BulkheadRegistry，不创建自有线程池、信号量平台或渠道专属分支。
+DefaultChannelPaymentFacade 在原 tenant/binding/能力校验后，对 query、recover、close、queryRefund、recoverRefund 使用每渠道共享预算。
+单个 Provider 内部可能执行多步查证或原号幂等退款恢复，整个操作占一个预算；不是逐 HTTP 请求限流。
+
+| native Bulkhead 实例 | payment-business 默认并发 | 环境变量 |
+|---|---|---|
+| pay-channel-recovery-alipay | 16 | PAYMENT_ALIPAY_RECOVERY_MAX_CONCURRENT |
+| pay-channel-recovery-wechat | 16 | PAYMENT_WECHAT_RECOVERY_MAX_CONCURRENT |
+| pay-channel-recovery-unionpay | 16 | PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT |
+
+配置沿用标准 resilience4j.bulkhead.instances.*.max-concurrent-calls，max-wait-duration 固定 0ms，启动拒绝非零等待配置。
+实例名只由 Channel enum 生成，不包含租户/订单/账户/请求号。未实现 Provider 仍由原策略注册表拒绝，不因配置预算而变成支持。
+
+满额立即抛固定 CHANNEL_RECOVERY_BUSY，进入调用方既有依赖重试；不调用 Provider、不换渠道、不创建新的金融请求，也不释放占用。
+异常与返回值校验失败均不会泄漏名额；其他渠道预算独立。
+首个 submit/submitRefund 不在本预算内：它们由已持久化的一次首提权触发，不能在 Y2 之后被新增预算拒绝而丢失原票据。
+validate/canRefund 仍是本地能力预检，不消费网络恢复预算；canRefund 仍可在退款锁内执行。
+首次提交并发控制需要在其持久提交边界前取得权限，作为后续切片实现，不能直接套 Retry 或这个恢复限流器。
+
+channel-core 只编译依赖 loadup-components-resilience4j-api；payment-business 的 bootstrap runtime 装配 binder-core，配置后自动取得原生 registry 和 Micrometer 绑定。
+默认 Facade 必须有 registry，不以缺少组件静默旁路。独立使用 channel-core 时也需提供该 registry/binder；只装 API 不代表具备运行装配。
+
+新增共享预算/真实线程交错/跨渠道隔离/释放/安全优先级/首提不受恢复预算影响/拒绝阻塞配置及依赖装配门禁测试源码。
+本轮未编译、运行测试、连接渠道或部署。Core binder 是单 JVM 内存态，不是集群总配额或按秒请求速率；并发上限需结合副本数和真实渠道合同验收。

@@ -20,16 +20,10 @@ import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
-import io.github.loadup.pay.payment.domain.model.GateState;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.util.Objects;
-
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
@@ -47,30 +41,21 @@ public class PaymentExecutionLocks {
     }
 
     public LockedPayment lock(String tenant, String paymentId, String originalService) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
         var initial = gates.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!initial.callerServiceId().equals(originalService)) throw new CommonException(ACTION_FORBIDDEN);
         var parent = gates.lockParent(tenant, initial.payment().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var gate = gates.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var current = payments.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         codec.decode(current);
-        requireBinding(parent, current, null);
-        requireBinding(gate, current, paymentId);
-        if (!current.callerServiceId().equals(originalService) || !initial.payment().orderId().equals(current.payment().orderId()))
+        if (!paymentId.equals(initial.payment().id()) || !paymentId.equals(current.payment().id())
+                || !current.callerServiceId().equals(originalService) || !initial.payment().orderId().equals(current.payment().orderId()))
             throw new CommonException(SNAPSHOT_INVALID);
-        return new LockedPayment(current, parent, gate);
+        return PaymentExecutionBindings.locked(current, parent, gate);
     }
 
     public void requireOpen(LockedPayment locked) {
-        if (locked.parent().gate().state() != GateState.OPEN || locked.gate().gate().state() != GateState.OPEN)
-            throw new CommonException(EXECUTION_FENCED);
-    }
-
-    private void requireBinding(StoredPaymentGate gate, StoredPaymentAcceptance accepted, String paymentId) {
-        if (!gate.gate().orderId().equals(accepted.payment().orderId())
-                || !Objects.equals(gate.gate().paymentId(), paymentId)
-                || !gate.payeeMerchantId().equals(accepted.payment().payeeMerchantId())
-                || !gate.callerServiceId().equals(accepted.callerServiceId()) || gate.gate().state() == GateState.INIT)
-            throw new CommonException(SNAPSHOT_INVALID);
+        PaymentExecutionBindings.openGates(locked);
     }
 }

@@ -244,7 +244,7 @@ class MerchantNotificationEventsTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> events.order(TENANT, currentFacts.get())).getResultCode());
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                () -> transactions.write("other-tenant", () -> {
+                () -> transactions.writeLocal("other-tenant", () -> {
                     events.order(TENANT, currentFacts.get());
                     return true;
                 })).getResultCode());
@@ -268,8 +268,8 @@ class MerchantNotificationEventsTest {
         enableNotifications(TARGET, "signing-v1");
         var source = refundEvent("RefundOrder", "SUCCEEDED", 1000, 1000, 0);
         var original = storedOrder.get();
-        var registered = transactions.write(TENANT, () -> events.refund(TENANT, source));
-        var replay = transactions.write(TENANT, () -> events.refund(TENANT, source));
+        var registered = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
+        var replay = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
 
         assertEquals(registered, replay);
         assertEquals("ENQUEUED", registered.disposition());
@@ -292,7 +292,7 @@ class MerchantNotificationEventsTest {
     void completedPartialRefundRequestKeepsFixedTotalAndDistinctEventType() {
         enableNotifications(TARGET, "signing-v1");
         var source = refundEvent("RefundRequest", "PARTIAL_SUCCEEDED", 1500, 1000, 500);
-        transactions.write(TENANT, () -> events.refund(TENANT, source));
+        transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
         var body = json(onlyDelivery().body());
         var data = (Map<?, ?>) body.get("data");
         assertEquals("RefundRequestCompleted", body.get("eventType"));
@@ -305,7 +305,7 @@ class MerchantNotificationEventsTest {
     @Test
     void disabledRefundPolicyReturnsStableDispositionWithoutATask() {
         var source = refundEvent("RefundOrder", "FAILED", 1000, 0, 1000);
-        var registration = transactions.write(TENANT, () -> events.refund(TENANT, source));
+        var registration = transactions.writeLocal(TENANT, () -> events.refund(TENANT, source));
         assertEquals("DISABLED", registration.disposition());
         assertEquals(64, registration.merchantEventId().length());
         verifyNoInteractions(deliveries, tasks, ids);
@@ -340,7 +340,7 @@ class MerchantNotificationEventsTest {
     }
 
     private void write(Runnable action) {
-        transactions.write(TENANT, () -> {
+        transactions.writeLocal(TENANT, () -> {
             action.run();
             return true;
         });

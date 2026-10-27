@@ -286,11 +286,11 @@ class PaymentActionServiceTest {
 
     private static LockedPayment locked(PaymentOrder payment, StoredPaymentGate parent, StoredPaymentGate gate) {
         var source = AttemptFixtures.accepted(true);
-        return new LockedPayment(acceptance(source, payment, null), parent, gate);
+        return PaymentExecutionBindings.locked(acceptance(source, payment, null), parent, gate);
     }
 
     private static LockedPayment locked(StoredPaymentAcceptance acceptance, StoredPaymentGate parent, StoredPaymentGate gate) {
-        return new LockedPayment(acceptance, parent, gate);
+        return PaymentExecutionBindings.locked(acceptance, parent, gate);
     }
 
     private static StoredPaymentAcceptance acceptance(StoredPaymentAcceptance source, PaymentOrder payment, String evidenceId) {

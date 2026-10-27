@@ -86,7 +86,7 @@ public class PaymentInputService implements PaymentInputFacade {
         if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:prepare"))
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             validate(command);
             var prior = store.findByPayment(actor.tenantId(), command.paymentId());
             if (prior.isPresent()) return replay(actor, command, prior.get());
@@ -98,7 +98,7 @@ public class PaymentInputService implements PaymentInputFacade {
             var encrypted = cipher.encrypt(actor.tenantId(), actor.serviceId(), reference, command);
             var input = converter.toInput(command, reference, actor.serviceId(), keyId, digest, encrypted,
                     preparedAt, preparedAt.plus(cipher.lifetime()));
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var winner = store.findByPayment(actor.tenantId(), command.paymentId());
                 if (winner.isPresent()) return replay(actor, command, winner.get());
                 if (input.expired(now())) throw new CommonException(INPUT_EXPIRED);
@@ -124,7 +124,7 @@ public class PaymentInputService implements PaymentInputFacade {
         if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:read"))
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.paymentId()); DomainChecks.id(query.orderId()); DomainChecks.id(query.allocationId());
             DomainChecks.id(query.payeeMerchantId()); DomainChecks.text(query.inputKey(), 128);
             DomainChecks.positive(query.amountMinor()); DomainChecks.cnyAmount(query.amountMinor(), query.currency());

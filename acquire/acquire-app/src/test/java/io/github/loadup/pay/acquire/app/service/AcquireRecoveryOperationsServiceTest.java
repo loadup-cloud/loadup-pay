@@ -73,6 +73,12 @@ class AcquireRecoveryOperationsServiceTest {
         var changed = original.order().reservePayment(new PaymentIntent("allocation", "payment", "merchant/" + OWNER, "action",
                 "e".repeat(64), allocation.allocation().amount()), NOW.minusMinutes(1));
         order.set(withOrder(original, changed.order()));
+        when(orders.findOrder("tenant", "order")).thenAnswer(c -> {
+            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+            assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            return Optional.of(order.get());
+        });
+        when(allocations.findPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation));
         when(orders.lockOrder("tenant", "order")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals("tenant", TenantUtil.getTenantId());
@@ -81,7 +87,7 @@ class AcquireRecoveryOperationsServiceTest {
         when(cursors.find("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
         when(cursors.lock("tenant", "payment")).thenAnswer(c -> Optional.of(cursor.get()));
         when(allocations.lockPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation));
-        when(paymentRecovery.isCurrentLocked(eq("tenant"), any(), eq(allocation), any(), eq(0L))).thenAnswer(c -> {
+        when(paymentRecovery.isCurrent(eq("tenant"), any(), eq(allocation), any(), eq(0L))).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return true;
         });
@@ -119,6 +125,9 @@ class AcquireRecoveryOperationsServiceTest {
     @Test
     void detailProvidesExactPreconditionsWithoutErrorsPayloadsOrScheduling() {
         var result = service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L));
+        verify(orders, never()).lockOrder(anyString(), anyString());
+        verify(allocations, never()).lockPayment(anyString(), anyString(), anyString());
+        verify(cursors, never()).lock(anyString(), anyString());
         assertEquals("native-task", result.nativeTaskId());
         assertEquals("FAILED", result.nativeStatus());
         assertEquals(5, result.attempts());
@@ -148,6 +157,18 @@ class AcquireRecoveryOperationsServiceTest {
         assertEquals(first, replay);
         verifyNoInteractions(orders, allocations, cursors, paymentRecovery, tasks);
         assertEquals(1, manager.commits);
+    }
+
+    @Test
+    void staleReadInspectionCannotAuthorizeAChangedNativeTask() {
+        var view = service.detail(new AcquireRecoveryTaskQuery(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L));
+        assertTrue(view.retryable());
+        put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW.plusSeconds(1), DelayedTaskStatus.FAILED);
+        assertSame(VERSION_CONFLICT, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode());
+        verify(orders).lockOrder("tenant", "order");
+        verify(allocations).lockPayment("tenant", "order", "payment");
+        verify(cursors).lock("tenant", "payment");
+        verify(tasks, never()).retryFailed(anyString(), anyString());
     }
 
     @Test
@@ -186,7 +207,7 @@ class AcquireRecoveryOperationsServiceTest {
 
     @Test
     void obsoleteOrFinanciallySettledWorkOnlyRecordsAnImmutableNoLongerNeededDecision() {
-        when(paymentRecovery.isCurrentLocked(eq("tenant"), any(), any(), any(), anyLong())).thenReturn(false);
+        when(paymentRecovery.isCurrent(eq("tenant"), any(), any(), any(), anyLong())).thenReturn(false);
         var result = service.retry(command());
         assertEquals("NO_LONGER_NEEDED", result.result());
         verify(tasks, never()).retryFailed(anyString(), anyString());
@@ -224,7 +245,7 @@ class AcquireRecoveryOperationsServiceTest {
         var intent = new OrderCloseIntent("close", "order", "merchant", OWNER, "original-close", "d".repeat(64), "MERCHANT_CLOSED", 1L,
                 NOW.minusSeconds(30), "", 0L);
         when(closes.findIntent("tenant", "order")).thenReturn(Optional.of(intent));
-        when(closure.isCurrentLocked(new OrderPaymentScope("tenant", OWNER), order.get(), intent, 0L)).thenReturn(true);
+        when(closure.isCurrent(new OrderPaymentScope("tenant", OWNER), order.get(), intent, 0L)).thenReturn(true);
         put(OrderClosureTasks.TYPE, "order.0", NOW, NOW, DelayedTaskStatus.FAILED);
         var result = service.retry(command(AcquireRecoveryKind.ORDER_CLOSURE, "order", 0L, "native-task", 5, NOW, "close-retry", "Resume close"));
         assertEquals("RETRIED", result.result());

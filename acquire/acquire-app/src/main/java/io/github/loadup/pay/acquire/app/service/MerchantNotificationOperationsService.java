@@ -64,11 +64,11 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-operator-v1", actor.tenantId(), actor.principalType(), actor.principalId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-wake-v1", actor.tenantId(), scope,
                 command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.id()); DomainChecks.text(command.requestKey(), 128); DomainChecks.text(command.reason(), 500);
             var known = receipts.find(actor.tenantId(), scope, command.requestKey());
             if (known.isPresent()) return replay(known.get(), actor, scope, digest);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
                 if (existing.isPresent()) return replay(existing.get(), actor, scope, digest);
                 var delivery = deliveries.lock(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -84,7 +84,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     @Override public PageDTO<MerchantNotificationWakeDTO> wakes(MerchantNotificationWakePageQuery query) {
         var actor = access.operator();
         validate(query);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.deliveryId());
             deliveries.find(actor.tenantId(), query.deliveryId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return PageDTO.of(receipts.page(actor.tenantId(), query.deliveryId(), query.page(), query.size()).map(converter::toDTO));

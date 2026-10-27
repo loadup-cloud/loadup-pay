@@ -44,9 +44,10 @@ public class PublicationTransactions {
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    public <T> T write(String tenant, Supplier<T> work) {
+    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return read(tenant, () -> {
+        return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
@@ -58,7 +59,8 @@ public class PublicationTransactions {
         });
     }
 
-    public <T> T read(String tenant, Supplier<T> work) {
+    /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
+    public <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(tenant, work::get);
         } catch (DomainViolation invalid) {

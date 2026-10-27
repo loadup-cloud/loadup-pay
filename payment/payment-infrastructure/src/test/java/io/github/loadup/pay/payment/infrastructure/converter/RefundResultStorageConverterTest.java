@@ -66,7 +66,7 @@ class RefundResultStorageConverterTest {
         var started = child.beginSubmission();
         var change = new RefundProgressChange(new RefundExecutionFacts(stored, null, null, null), started, request, request.apply(started),
                 capacity, capacity, now, null, null);
-        var row = converter.toChildPatch(change);
+        var row = converter.toChildPatch(change, null);
         assertEquals("PROCESSING", row.getState());
         assertEquals(1, row.getRowVersion().longValue());
         assertEquals(now, row.getSubmissionStartedAt());
@@ -75,6 +75,8 @@ class RefundResultStorageConverterTest {
         assertNull(row.getOriginalChannelTransactionNo());
         assertNull(row.getChannelRefundTransactionNo());
         assertNull(row.getSucceededAt());
+        assertNull(row.getFirstUnknownAt());
+        assertEquals(now, converter.toChildPatch(change, now).getFirstUnknownAt());
         var header = converter.toRequestPatch(change.request());
         assertEquals(0, header.getSucceededMinor().longValue());
         assertEquals(0, header.getFailedMinor().longValue());

@@ -59,7 +59,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
         try {
-            accepted = transactions.read(endpoint.tenantId(), () -> {
+            accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
                 var hint = notifications.identify(endpoint.channel(), endpoint.bindingRevisionId(), input);
                 var stored = attempts.findChannelRequest(endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -69,11 +69,7 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
                         || stored.submissionStartedAt() == null) throw new CommonException(SNAPSHOT_INVALID);
                 var payment = payments.find(endpoint.tenantId(), attempt.paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 commands.decode(payment);
-                if (!payment.payment().amount().equals(attempt.amount())
-                        || !payment.payment().payeeMerchantId().equals(attempt.binding().payeeMerchantId())
-                        || !payment.payment().limitOperationId().equals(stored.limitOperationId())
-                        || !payment.callerServiceId().equals(stored.callerServiceId())
-                        || !payment.requestDigest().equals(stored.paymentRequestDigest())) throw new CommonException(SNAPSHOT_INVALID);
+                PaymentExecutionBindings.observable(payment, stored);
                 var target = new ChannelPaymentTarget(attempt.identity(), attempt.amount());
                 var verified = notifications.verify(target, input);
                 // Nothing from the unverified hint reaches a channel query or a financial mutation.

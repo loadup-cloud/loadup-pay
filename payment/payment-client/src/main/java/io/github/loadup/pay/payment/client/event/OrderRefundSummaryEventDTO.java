@@ -36,6 +36,9 @@ public record OrderRefundSummaryEventDTO(
         @Schema(description = "Cumulative verified successful refund amount in minor units") long refundedMinor,
         @Schema(description = "Amount held by all unfinished refund children in minor units") long refundReservedMinor,
         @Schema(description = "Independent source monetary summary version") long refundSummaryVersion) {
+    public static final String REALTIME_TYPE = "pay.payment.refund-summary.realtime.v1";
+    public static final String FEE_TYPE = "pay.payment.refund.fee.v1";
+
     public OrderRefundSummaryEventDTO {
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
@@ -45,7 +48,7 @@ public record OrderRefundSummaryEventDTO(
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {
-        require(equals(envelope.data()) && Set.of("pay.payment.refund-summary.realtime.v1", "pay.payment.refund.fee.v1")
+        require(equals(envelope.data()) && Set.of(REALTIME_TYPE, FEE_TYPE)
                 .contains(envelope.eventType()), CONFLICT);
         envelope.requireSource(envelope.eventType(), "payment", orderId, refundSummaryVersion);
     }

@@ -633,3 +633,32 @@ RETRIED 只代表唤醒已登记，不代表资金成功、失败、未收款或
 新增 `V20261026130000__acquire_recovery_retry_receipt.sql`、生成 Mapper 约定下的 DO/Gateway/MapStruct 和业务/领域测试源码。
 没有新增内部 RPC 或直接执行渠道的入口。未运行 IDEA、编译、测试、数据库/HTTP/JWT/调度器验收；迁移尚未执行。
 本入口目前只覆盖 acquire 三类任务，payment/refund 自身的 FAILED 运维处理仍需继续；任务列表/告警与旧库补登记另行推进。
+
+
+## Review R2：运营详情与重试隔离（2026-10-26）
+
+运营 recovery detail 改为短 `readSnapshot`：REQUIRES_NEW、REPEATABLE_READ、readOnly，订单/allocation/游标均采用普通查询，
+不获取交易排他锁。三类任务共用原期限、代次、绑定与回执判定；`businessCurrent/retryable` 仅描述该快照，不获得执行权限。
+并发提交后的详情可能过时，retry 必须重新走 `lockForRetry`，按订单→allocation→游标锁序核验当前金融条件和原 native 快照，
+原 taskId/attempts/nextExecuteAt 已变化仍拒绝，审计与重试仍同事务。
+
+新 `readSnapshot` 不替换原 `OrderCreationTransactions.read`；后者仍仅绑定租户上下文，不会把既有 RPC 包进事务。
+完整命名收敛属于 review R5 的后续批次。已补只读/隔离级别/上下文恢复、详情无 lock 调用及过时详情被写路径拒绝的测试源码；未运行。
+
+
+## Review R1：A2/A3 与真实 Outbox 的测试源码
+
+新增 `AcquiringFinancialPersistenceIT`：实际订单/合同快照/费用/预占/结果回执/恢复游标 Gateway，实际 DelayedTask、Outbox、
+MapStruct 与本地事务；通过真实付款发起/进度编排并发调用。故障在真实 Outbox publish 之后注入，检查 A2 整组回滚及 A3 金额、
+回执、费用确认/调整、快照共同回滚；远端成功测试事实保留，可原号再查证收敛。并发相同 actionKey 与成功事实检查只生效一次。
+
+仓储重建补齐 DIRECT_PAY 原元数据/摘要分支，避免把其 payload 交给仅接受 ORDER 的解码器；ORDER/DIRECT_PAY 均有实际仓储重建测试输入。
+`mysql-it` profile 为显式 opt-in，详细范围及命令见 `acquire-infrastructure/src/test/README.md`。没有新增业务迁移或 RPC。
+所有新源码未编译、未运行容器/数据库，不等价于 R1 已验收或真实跨服务/资金链路已通过。
+
+
+### Review R6：付款恢复意图快照
+
+本服务不再直接持久化公开 PaymentExecuteCommand JSON；独立 PaymentIntentSnapshot 及嵌套本地条款由 MapStruct 转换，使用 owner 格式和固定存储 JSON 规则。
+恢复不重新执行当前 Command Bean Validation 或查询当前合约填值；仍验证快照自身、哈希及原落库索引，保留金额/期限/规则版本/输入引用。
+旧裸 Command/错误 owner/未知格式明确失败，没有双读、回填或兼容分支。未执行编译/测试/数据库或开发数据重建，完整范围与测试源码见 [快照契约](../design/PAYMENT-INTENT-SNAPSHOTS.md)。

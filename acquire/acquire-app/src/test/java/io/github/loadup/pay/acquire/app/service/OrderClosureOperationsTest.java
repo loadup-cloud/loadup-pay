@@ -149,8 +149,8 @@ class OrderClosureOperationsTest {
         var result = operations.close(scope, command);
         assertEquals(io.github.loadup.pay.acquire.client.enums.AcquireOrderState.CLOSED, result.state());
         assertEquals(AcquireOrderState.CLOSED, order.get().order().state());
-        TenantUtil.runWithTenant("tenant", () -> transactions.write("tenant", () -> {
-            assertFalse(operations.isCurrentLocked(scope, order.get(), intent.get(), intent.get().rowVersion()));
+        TenantUtil.runWithTenant("tenant", () -> transactions.writeLocal("tenant", () -> {
+            assertFalse(operations.isCurrent(scope, order.get(), intent.get(), intent.get().rowVersion()));
             return true;
         }));
     }
@@ -158,13 +158,13 @@ class OrderClosureOperationsTest {
     @Test
     void generationAndOwnershipAreCheckedWithoutIssuingAnotherCloseIntent() {
         operations.close(scope, command);
-        transactions.write("tenant", () -> {
-            assertFalse(operations.isCurrentLocked(scope, order.get(), intent.get(), 0L));
-            assertTrue(operations.isCurrentLocked(scope, order.get(), intent.get(), 1L));
+        transactions.writeLocal("tenant", () -> {
+            assertFalse(operations.isCurrent(scope, order.get(), intent.get(), 0L));
+            assertTrue(operations.isCurrent(scope, order.get(), intent.get(), 1L));
             assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                    () -> operations.isCurrentLocked(scope, order.get(), intent.get(), 2L)).getResultCode());
+                    () -> operations.isCurrent(scope, order.get(), intent.get(), 2L)).getResultCode());
             assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                    () -> operations.isCurrentLocked(new OrderPaymentScope("tenant", "b".repeat(64)), order.get(), intent.get(), 1L)).getResultCode());
+                    () -> operations.isCurrent(new OrderPaymentScope("tenant", "b".repeat(64)), order.get(), intent.get(), 1L)).getResultCode());
             return true;
         });
         assertThrows(CommonException.class, () -> operations.close(scope,

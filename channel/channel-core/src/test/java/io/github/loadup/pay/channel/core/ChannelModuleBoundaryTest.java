@@ -102,6 +102,17 @@ class ChannelModuleBoundaryTest {
         }
     }
 
+    @Test
+    void recoveryConcurrencyUsesTheFrameworkApiWithItsBinderOwnedByBootstrap() throws Exception {
+        var root = repositoryRoot();
+        var core = dependencies(root.resolve("channel/channel-core"));
+        assertTrue(core.stream().anyMatch(dependency -> dependency.local()
+                && dependency.artifact().equals("loadup-components-resilience4j-api")));
+        assertFalse(core.stream().anyMatch(dependency -> dependency.artifact().equals("loadup-components-resilience4j-binder-core")));
+        assertTrue(dependencies(root.resolve("payment/payment-bootstrap")).stream().anyMatch(dependency -> dependency.local()
+                && dependency.artifact().equals("loadup-components-resilience4j-binder-core") && dependency.scope().equals("runtime")));
+    }
+
     private static Path repositoryRoot() {
         var current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {

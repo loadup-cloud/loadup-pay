@@ -1834,3 +1834,105 @@ result 只允许 RETRIED/NO_LONGER_NEEDED。reason 从诊断隐藏，表不保�
 
 迁移源码 `V20261026140000__payment_recovery_retry_receipt.sql` 与全量草案已同步，未执行 DDL；实际 MySQL 条件更新、并发和回滚
 证明仍待运行。本轮没有修改 delayedtask 框架或跨服务共享持久化模型。
+
+
+## Review R1/R2：只读快照与数据库证明范围（2026-10-26）
+
+运营 detail 在短 REQUIRES_NEW/REPEATABLE_READ/readOnly 事务内普通读取原业务与 native task，不依赖 FOR UPDATE 获得一致视图。
+PaymentRecoveryGateway/RefundRecoveryGateway 增加 find，原 lock/update/insert 保持写事务约束；RefundGateway 的 reference/load
+允许只读事务，lock/容量/计划写入仍拒绝只读事务。retry 的原金融锁序和审计/原任务共同提交未移除。
+
+RecoveryPersistenceIT 使用实际迁移/Mapper/Gateway/native template，源码断言初始与 successor 回滚、竞争推进、读快照期间写入
+和审计重试原子性。运行尚未发生；此范围不等价于 R1 的资金聚合、Y2 首提、退款容量与投影并发验收，不能将其列为通过。
+未新增业务 DDL，没有执行数据库操作。
+
+
+## Review R1：Y2 和退款计划/容量并发的测试范围（2026-10-26）
+
+FinancialPersistenceIT 源码使用实际门禁/付款/attempt/绑定 Gateway 与 PaymentSubmissionPreparation，
+两个已完成远端准备的调用竞争原 Y2，检查单一提交 ticket 及持久化 epoch/版本/原渠道请求号；重新准备已 SUBMITTING 的
+原 attempt 不获得新 ticket。另覆盖实际 attempt 更新失败回滚。远端额度、风控与渠道不在本地数据库测试中发起真实调用。
+
+退款部分使用已成功容量作为前置数据，锁原父门禁与容量，执行原 FIFO 策略及实际 RefundGateway.insertPlan；
+数据库断言并发请求不能超预占，并检查请求头、固定计划、子单、容量 CAS 的故障共同回滚。前置容量写入不用于证明
+PaymentResultService 成功入账或完整退款规划准入；结果 receipt/Outbox 和 A2/A3 等真实业务证明仍待补。
+本批没有新增业务迁移，也未运行任何数据库/容器测试。
+
+
+## Review R1：Acquire A2/A3 与原生任务、Outbox
+
+新增 acquire 真实数据库集成测试源码，A2 经原订单锁和实际 reserve Gateway，把金额/次数预占、allocation、恢复游标/任务与订单快照
+放在真实本地事务；A3 经原 OutcomeOperations 把订单金额、allocation 终态、结果 receipt、费用确认/调整与订单 Outbox 快照共同提交。
+故障注入先执行真实 OrderSnapshotEvents.publish，再抛出测试异常，最终数据库记录用于判断共同回滚，而非事务标记或 mock 回滚计数。
+并发与重放检查相同意图/事实仅生效一次；已落回执后不同证据拒绝。
+
+原始订单重建改为明确区分 ORDER/CHECKOUT/DIRECT_PAY 的本地表示和摘要校验；DIRECT_PAY 不再走仅接受 ORDER 的 codec。
+测试采用实际迁移，无替代 schema 或业务 DDL 变更。只模拟 payment 服务的权威响应，不测试真实 gRPC/渠道/商户投递。
+运行仍暂停，所有结果保持“测试源码已补、未编译/未执行”；R1 和 A 批尚未验收。
+
+
+## Review R1：Realtime 投影与 receipt 原子性
+
+`ProjectionPersistenceIT` 新增真实 MySQL 测试源码，分别调用四类实际投影入口，覆盖唯一键竞争、同版本内容冲突、较旧版本不得覆盖、原 delivery ACK 重放及 projection/receipt 一起回滚。
+故障在实际 receipt Mapper 插入后注入；不增加业务表、索引或兼容逻辑。
+目前没有运行编译、容器、DDL 或 IT，仍不能认定这些数据库边界已通过验收；代表性查询计划与分页容量按 R9 保留待证据驱动实施。
+
+
+## Review R1：Payment Y3 金融证据与 Outbox
+
+新增 PaymentResultPersistenceIT 测试源码，分别在实际 claim、capacity、成功状态、receipt、四目标 Outbox 写入后注入异常，断言本地状态与资金证据共同回滚；恢复使用同一原 attempt/requestNo/epoch 查询渠道事实。
+同时覆盖不同收款事实复用 receipt 的异常隔离、同金融事实的不同回执去重、相同收款账户流水跨租户不可重复认领。
+权威关单路径已有 CLOSE_RESPONSE 领域来源，当前开发期建表 CHECK 同步允许该值；退款回执来源契约未改变。不保留旧 schema 兼容分支，未连接数据库或执行 DDL。
+测试源码不等于实际 MySQL 证明：目前未编译或运行，实际网络、渠道和恢复租约组合仍待验收。
+
+
+## Review R1：付款恢复租约与 generation 交错
+
+PaymentResultPersistenceIT 新增真实 DelayedTaskStore.claim/finish 与实际付款 handler 的 3 个组合用例源码。
+通过可推进本地时区 Clock 与并发屏障模拟旧查询在途、租约到期、同任务重新 claim、后继 generation 完成后旧查询返回；断言旧 token ACK 失败、当前游标不倒退、不重复登记后继且金融事实只入账一次。
+另覆盖已过期/重新 claim 的旧快照拒绝和未来 generation 故障任务不能跳过当前任务。
+这些变更仅为测试装配与源码，没有数据库结构变更、任务表手改或生产部署配置修改，尚无编译/MySQL/IT 运行证据。
+退款 handler、实际 Dispatcher/Scheduler 扫描与跨进程网络故障按独立范围继续补齐及验收。
+
+
+## Review R1：退款结果与恢复租约的组合源码
+
+RefundRecoveryHandlerPersistenceIT 新增 8 个测试输入，以实际付款成功 Y3 创建的 claim/capacity 为前提，实际 insertPlan/projections.planned/recovery.register 登记预占、汇总与原生任务，再建立合法原退款首提持久状态。
+故障在真实退款 claim、request/child/capacity、汇总及各目标 Outbox、receipt 写入之后分别注入，断言回滚后原占用保留，原任务可恢复同一退款号。
+实际 handler 与 claim/finish 覆盖租约到期、接管、旧查询在途期间当前 generation 收敛、旧 token 无法 ACK、未来 generation 拒绝而当前任务不被跳过。
+原付款状态/金额/版本保持不变，退款容量和订单退款汇总只结算一次；交易投影、费用、额度与商户通知 Outbox 不重复生成。
+仅完成测试源码与装配，没有新增 schema、执行 DDL、接真实渠道或运行 MySQL/IT；R1 验收和全业务目标仍未达成。
+
+
+## Review R3：UNKNOWN 库存只读聚合源码
+
+RecoveryInventoryReaderImpl 在当前租户的实际 readOnly / REPEATABLE_READ 事务中，以生成 Mapper/TableDef 和 QueryMethods 查询 UNKNOWN 行数、原金额 SUM 及最小 first_unknown_at。
+只读 reader 不更新原生回执/状态/金额/预占；first_unknown_at 来自实际金融 gateway 首次 UNKNOWN 状态 CAS 的持久元数据，不表示 limitcenter 实际 held，不跨服务查询，不新增表或推测性索引。
+Collector 对配置范围分别读取各租户 RR 快照，仅全部完整后发布缓存，失败保留旧样本；默认未启用。实际查询计划、范围规模、Undo/负载和 mapper 聚合映射尚未运行验证。
+详见 [库存口径与配置](RECOVERY-INVENTORY.md)。
+
+
+## Review R3：首次 UNKNOWN 持久时间
+
+payment_order / refund_order 增加 first_unknown_at DATETIME(6) NULL，并 CHECK(state <> 'UNKNOWN' OR first_unknown_at IS NOT NULL)。
+初始非 UNKNOWN 记录为空；进入 UNKNOWN 的状态更新和首次时间由同一版本 CAS 提交，失败一起回滚；后续和终态保留。
+时间来自既有 paymentClock 的系统本地时区，截断微秒，不改变原资金意图/公开协议/摘要/额度语义。该列不是新增金融结果裁定来源。
+开发期直接同步 V20261022020000__payment_acceptance.sql 和 V20261023030000__refund_planning.sql；不提供旧记录回填/兼容默认，已有开发库按新结构重建。
+仅 schema 与测试源码变更，没有执行任何数据库操作或生成 TableDef；运行、迁移和并发证明仍待用户验收。
+
+
+## Review R3：UNKNOWN 运营列表查询
+
+UnknownRecoveryReaderImpl 通过生成 Mapper/TableDef 联表查询：payment_order 左联 payment_recovery_cursor；refund_order 左联 refund_request 和 refund_recovery_cursor。
+各表显式租户/未删除条件，当前状态 UNKNOWN，按 first_unknown_at 与原记录 id keyset 排序，最多 limit+1，无 COUNT/offset/FOR UPDATE；NORMAL 不加年龄谓词以覆盖时钟回拨，其他级别按本地关注阈值截止过滤。
+非表投影经 Spring MapStruct 转只读 entry；缺失退款父数据明确失败，缺失游标显式 null，不能默认为可重建或可再次提交。
+只在真实 readOnly/REPEATABLE_READ 快照内执行，拒绝无事务/写事务及上下文租户不符；没有新增表/索引或数据库操作，实际联表 SQL、租户插件、查询计划和负载均待用户验证。
+付款 IT 补同租户同时间原 ID 分页/另一租户排除、读快照内实际金融提交不被阻塞与新快照看到终结；退款 IT 补父申请/游标绑定与终态退出，均未运行。
+
+
+## Review R6：付款意图 payload 格式替换
+
+acquire 占用 intent_payload 与 payment_order.intent_payload 分别使用 pay.acquire.payment-intent.v1 / pay.payment.intent.v1 本地 record 格式，不再保存裸 PaymentExecuteCommand JSON。
+列结构和原 SHA-256 哈希不变；两端格式各自拥有完整本地条款、扁平 channel/method、原偏移期限字符串，标准 MapStruct 恢复运行参数。
+校验 UTF-8 256 KiB、唯一格式、完整字段/类型/业务关系、原行索引；没有旧格式读取、静默补值或自动回填。当前开发数据需重新准备，本轮没有执行任何 DDL/回填/重建/repair。
+详见 [付款快照契约](PAYMENT-INTENT-SNAPSHOTS.md)。真实迁移/重启恢复与 MySQL IT 仍待用户恢复验证，不宣称数据已转换。

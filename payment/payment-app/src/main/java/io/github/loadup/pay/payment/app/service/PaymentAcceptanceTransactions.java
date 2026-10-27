@@ -37,16 +37,22 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 @Component
 public class PaymentAcceptanceTransactions {
     private final TransactionTemplate transaction;
+    private final TransactionTemplate snapshots;
 
     public PaymentAcceptanceTransactions(PlatformTransactionManager manager) {
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        snapshots = new TransactionTemplate(manager);
+        snapshots.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        snapshots.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        snapshots.setReadOnly(true);
     }
 
-    public <T> T write(String tenant, Supplier<T> work) {
+    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return read(tenant, () -> {
+        return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
@@ -58,7 +64,14 @@ public class PaymentAcceptanceTransactions {
         });
     }
 
-    public <T> T read(String tenant, Supplier<T> work) {
+    /** A short consistent local database snapshot. No row locks, mutations, remote IO or outer transaction. */
+    public <T> T readSnapshot(String tenant, Supplier<T> work) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        return withTenantContext(tenant, () -> Objects.requireNonNull(snapshots.execute(status -> work.get())));
+    }
+
+    /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
+    public <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(tenant, work::get);
         } catch (DomainViolation invalid) {

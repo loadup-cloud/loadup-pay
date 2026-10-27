@@ -20,6 +20,8 @@ import java.util.Optional;
 
 /** Joins the original parent/payment transaction; no independent execution claim. */
 public interface PaymentRecoveryGateway {
+    /** Nonlocking read, usable within a consistent read snapshot. */
+    Optional<PaymentRecoveryCursor> find(String tenant, String paymentId);
     Optional<PaymentRecoveryCursor> lock(String tenant, String paymentId);
     void insert(String tenant, PaymentRecoveryCursor value);
     void update(String tenant, PaymentRecoveryCursor before, PaymentRecoveryCursor after);

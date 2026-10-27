@@ -83,14 +83,14 @@ public class ChannelBindingService implements ChannelBindingFacade {
     public ChannelBindingChangeDTO publish(ChannelBindingPublishCommand command) {
         validate(command);
         var actor = actor("pay:payment:binding:publish");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.id(command.bindingCode());
             DomainChecks.text(command.requestKey(), 128);
             // The typed identity validates channel and mode; executable capabilities belong to registered providers.
             var candidate = converter.toBinding(command, "candidate", codec.accountScopeHash(command.channel(), converter.toIdentity(command.identity())));
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), "PUBLISH", command);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var prior = store.lock(actor.tenantId(), command.payeeMerchantId(), command.bindingCode());
                 if (prior.isPresent()) {
                     var receipt = store.receipt(actor.tenantId(), prior.get().id(), command.requestKey());
@@ -136,12 +136,12 @@ public class ChannelBindingService implements ChannelBindingFacade {
 
     private ChannelBindingChangeDTO changeState(PaymentActor actor, String payee, String bindingCode, String key,
                                                 long expectedVersion, String kind, Object command) {
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(payee);
             DomainChecks.id(bindingCode);
             DomainChecks.text(key, 128);
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), kind, command);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var head = store.lock(actor.tenantId(), payee, bindingCode).orElseThrow(() -> new CommonException(NOT_FOUND));
                 var prior = store.receipt(actor.tenantId(), head.id(), key);
                 if (prior.isPresent()) return replay(actor, head, prior.get(), kind, digest);
@@ -162,7 +162,7 @@ public class ChannelBindingService implements ChannelBindingFacade {
     public ChannelBindingDTO detail(ChannelBindingDetailQuery query) {
         validate(query);
         var actor = actor("pay:payment:binding:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.id(query.bindingCode());
             var head = store.find(actor.tenantId(), query.payeeMerchantId(), query.bindingCode())

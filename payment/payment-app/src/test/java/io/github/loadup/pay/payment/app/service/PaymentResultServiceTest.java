@@ -177,7 +177,7 @@ class PaymentResultServiceTest {
         when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             active();
-            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+            return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         });
         when(attempts.lock("tenant", "attempt")).thenAnswer(c -> {
             active();
@@ -265,7 +265,7 @@ class PaymentResultServiceTest {
     void acceptedJsapiSubmissionRecordsActionAfterReceiptAndReturnsActionPresentation() {
         var original = jsapiPayment(accepted.get().payment().amount());
         var submission = jsapiSubmission(original, "trade-1");
-        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
                 io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
                 new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
@@ -296,7 +296,7 @@ class PaymentResultServiceTest {
         var prepared = jsapiPayment(accepted.get().payment().amount());
         var original = recovery(prepared);
         var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
-        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
                 io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
                 new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
@@ -347,7 +347,7 @@ class PaymentResultServiceTest {
     void actionRecordingFailurePropagatesAndRollsBackTheUnitTransaction() {
         var original = jsapiPayment(accepted.get().payment().amount());
         var submission = jsapiSubmission(original, "trade-1");
-        var locked = new LockedPayment(accepted.get(), AttemptFixtures.gate(true), gate.get());
+        var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
         doAnswer(call -> {
             active();
@@ -425,14 +425,29 @@ class PaymentResultServiceTest {
     }
 
     @Test
-    void mismatchedStableRequestNumberCannotConfirmTheExpectedPayment() {
+    void wrongObservationTargetIsAuditableBeforeCorruptBindingWhileTheCorrectTargetFailsWithoutFinancialWrites() {
         var o = success();
         var i = o.identity();
         var identity = new ChannelPaymentIdentity(i.paymentId(), i.attemptId(), i.channel(), i.bindingRevisionId(), i.accountScopeHash(), "other-request");
         var wrong = new PaymentObservation(identity, o.kind(), o.amount(), o.channelTransactionNo(), o.succeededAt(), o.source(), o.receiptKey(), o.sourceDigest());
+        var previous = attempt.get();
+        attempt.set(new StoredPaymentAttempt(previous.attempt(), previous.limitOperationId(), "corrupt-caller", previous.requestKey(),
+                previous.requestDigest(), previous.paymentRequestDigest(), previous.preparedInputRef(), previous.riskDecision(),
+                previous.executionPermitHash(), previous.preparedAt(), previous.submissionStartedAt(), previous.rowVersion()));
         assertEquals(CONFLICT, service.record("tenant", wrong).disposition());
         assertEquals("PAYMENT_IDENTITY_MISMATCH", anomalies.getFirst().reasonCode());
         assertNull(claim.get());
+        assertEquals(1, receipts.size());
+        var correctTarget = new PaymentObservation(o.identity(), o.kind(), o.amount(), o.channelTransactionNo(), o.succeededAt(),
+                o.source(), "correct-target-corrupt-binding", o.sourceDigest());
+        var rejected = assertThrows(CommonException.class, () -> service.record("tenant", correctTarget));
+        assertEquals(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID, rejected.getResultCode());
+        assertEquals(1, receipts.size()); assertEquals(1, anomalies.size());
+        assertNull(capacity.get());
+        verify(attempts, never()).update(anyString(), any(), anyLong());
+        verify(changes, never()).updatePayment(anyString(), any(), anyLong());
+        verify(results, never()).insertClaim(any());
+        verifyNoInteractions(events);
     }
 
     @Test

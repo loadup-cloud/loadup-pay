@@ -100,7 +100,7 @@ public class PaymentOutcomeOperations {
     PaymentProgressDTO refresh(OrderPaymentScope actor, PaymentProgressRefreshCommand query) {
         requireNoTransaction();
         if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
             DomainChecks.id(query.paymentId());
             var order = orders.findOrder(actor.tenantId(), query.orderId())
@@ -129,7 +129,7 @@ public class PaymentOutcomeOperations {
 
     PaymentProgressDTO applyInputExpiry(OrderPaymentScope actor, String orderId, String paymentId, PaymentCloseDTO response) {
         requireNoTransaction();
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             var order = orders.findOrder(actor.tenantId(), orderId).orElseThrow(() -> new CommonException(NOT_FOUND));
             owned(actor, order);
             var allocation = allocations.findPayment(actor.tenantId(), orderId, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -142,7 +142,7 @@ public class PaymentOutcomeOperations {
 
     void applyClose(OrderPaymentScope actor, PaymentCloseCommand close, PaymentCloseDTO response) {
         requireNoTransaction();
-        transactions.read(actor.tenantId(), () -> {
+        transactions.withTenantContext(actor.tenantId(), () -> {
             if (response == null || !validator.validate(response).isEmpty()
                     || !response.paymentId().equals(close.paymentId())
                     || !response.orderId().equals(close.orderId())
@@ -185,7 +185,7 @@ public class PaymentOutcomeOperations {
     }
 
     private StoredAcquireOrder converge(OrderPaymentScope actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {
-        return transactions.write(actor.tenantId(), () -> convergeLocked(actor, command, outcome));
+        return transactions.writeLocal(actor.tenantId(), () -> convergeLocked(actor, command, outcome));
     }
 
     StoredAcquireOrder convergeLocked(OrderPaymentScope actor, PaymentExecuteCommand command, VerifiedPaymentOutcome outcome) {

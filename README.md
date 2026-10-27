@@ -1,158 +1,99 @@
 # LoadUp Pay
 
-LoadUp 收单支付平台：面向商户及子商户的外部渠道收单、付款与退款。
+面向商户及子商户的外部渠道收单平台，采用 Java 25、Spring Boot 和 LoadUp BOM，按 COLA DDD 组织六个独立应用。
+支持目标为付款码（商户扫码枪输入）、JSAPI、H5，以及纯 API 的 DirectPay / 创单后付款；托管收银台是可选入口。
+支持直连及服务商/子商户模型，默认 CNY。不建设消费者用户、余额、充值、提现或转账；Native 二维码和原生 APP 支付不在本次范围。
 
-当前为六应用初始化与契约层：Java 25、Spring Boot 4.1.1，通过 LoadUp BOM 管理依赖。独立于框架集成测试启动器。启动装配暂不依赖数据库、Redis
-或注册中心。
+当前已有应用编排、数据库适配、HTTP/gRPC 接口、渠道插件和异步任务源码，已超出初始化/契约阶段。
+最新修改仍按用户要求暂停验证：本轮没有运行 IDEA、构建、测试、数据库迁移、部署或真实金融调用。
 
-- acquire、payment、customer、product、limitcenter、realtime：独立Bootstrap，HTTP 8080与Actuator基础健康入口。
-- 每个服务已拆为client/domain/bootstrap；业务Facade仍是接口，尚未提供下单、支付、退款的应用服务或Controller。
+## 当前能力矩阵
 
-默认镜像提供应用骨架；业务装配通过各应用的 `*-business` 构建与运行 profile 启用。应用间交互统一使用 gRPC，真实协议与接入见 [RPC 规范](design/RPC.md)。商户/运营 API、收银台及渠道通知保留 HTTP。
+状态更新：2026-10-27。“源码已有”表示存在相应实现，不表示全部业务边界已完成；“未验收”指当前业务版本，没有用历史启动/编译记录替代。
+自动化列只描述源码覆盖与本轮运行状态；各模块的具体契约、未覆盖范围和历史记录见对应说明。
 
-P0/P1源码结果与优先级见 [第一阶段实施说明](IMPLEMENTATION.md)。Money复用`loadup-commons-dto`的
-`io.github.loadup.commons.money.Money`；CNY/非负约束由收单领域校验，金额仍为整数分。业务数据对象的toString统一调用
-`ToStringAsJson.reflectionToString`，敏感字段使用`DiagnosticHidden`。各服务 `*-rpc` 模块分别维护本服务 Protobuf 契约、消息映射与方法定义；现有框架 gRPC binder 提供通用调用/认证支持；Java 业务 client/domain 保持与传输无关。
+| 能力 | 当前源码及缺口 | 自动化验证状态 | 当前业务环境验收 | 责任模块 |
+|---|---|---|---|---|
+| 商户/子商户资格与授权 | 资格、关系和逐项授权；主档复用框架商户能力 | 测试源码已有；本轮未运行 | 未验收 | [customer](customer/README.md) |
+| 产品/合约/新单准入 | 持久准入、冻结条款、额度策略发布与 ACK；多 revision/共享策略及发布前渠道引用校验待补 | 测试源码已有；本轮未运行 | 未验收 | [product](product/README.md) |
+| 订单与多笔付款 | Create/Checkout/DirectPay、金额占用、权威结果、关闭/延期与订单快照 | 单测及 [A2/A3 MySQL IT 源码](acquire/acquire-infrastructure/src/test/README.md)；未运行 | 未验收 | [acquire](acquire/README.md) |
+| 独立付款/attempt | 安全输入、冻结路由、Y2 首提、Y3/claim/receipt、原号查询与关闭；部分输入竞态/持久关单证据仍待补 | 单测及 [Y2/Y3/恢复 IT 源码](payment/payment-infrastructure/src/test/README.md)；未运行 | 未验收 | [payment](payment/README.md) |
+| 独立退款 | 固定 FIFO 计划/容量、串行单步执行、原号恢复、退款汇总及结果 Outbox；多付款组合仍待补证据 | 单测及 [退款 handler/回滚 IT 源码](payment/payment-infrastructure/src/test/README.md)；未运行 | 未验收 | [payment](payment/README.md) |
+| 整单费用/退费 | 原订单总额计费、确认、累计退款基数及独立调整，不重算分笔费用 | 测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
+| 商户日/周/月/终生限额 | 全桶预占、执行许可、确认/释放、按原规则桶退款恢复；扫描及共享策略边界继续收敛 | 测试源码已有；本轮未运行 | 未验收 | [limitcenter](limitcenter/README.md) |
+| cashier / 纯 API | 会话、摘要、金额付款/原动作恢复、托管 H5 页面、会话撤销；托管 JSAPI OAuth/桥接、通用 SDK 待补 | 后端/页面测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
+| 商户通知 | 付款/付清/关闭/退款独立通知、签名 ACK、任务窗口、查询与受控重试；目标迁移/撤销和轮换继续完善 | 测试源码已有；本轮未运行 | 未验收 | [acquire](acquire/README.md) |
+| 交易查询投影 | 四类完整快照、receipt、版本幂等及商户分页查询；付款中间态生产、重建/检查点待补 | 单测及 [四类投影 IT 源码](realtime/realtime-infrastructure/src/test/README.md)；未运行 | 未验收 | [realtime](realtime/README.md) |
+| 渠道统一入口 | channel-api + Facade/Strategy/Registry；payment 不直接依赖厂商插件 | [渠道边界门禁源码](channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/ChannelModuleBoundaryTest.java)；本轮未运行 | 未验收 | [channel](channel/README.md) |
+| 支付宝 | 付款码/JSAPI、查询/关闭、普通退款及签名通知；H5 与部分丢失响应恢复待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-alipay](channel/channel-alipay/README.md) |
+| 微信 | JSAPI/H5、查询/关闭、普通退款及 APIv3 支付/退款通知；付款码待补 | 协议/适配测试源码已有；本轮未运行 | 未验收 | [channel-wechat](channel/channel-wechat/README.md) |
+| 银联 | 目标保留；具体产品/接入机构未定，尚无 Provider | 无实现验收证据 | 未验收 | channel 后续插件 |
+| 风控 | 默认放行、渠道前咨询与结果后独立反馈端口；外部系统协议后置 | 端口/默认策略测试源码已有；本轮未运行 | 未验收 | payment / 外部适配 |
+| 对账 | 文件、批次、独立核对与差错处理设计；后置服务尚未落地 | 无实现验收证据 | 未验收 | reconciliation（后置） |
+| 任务与运营恢复 | 原生任务、业务游标/generation、FAILED 受控重试及只读详情；有界退避/抖动及单 JVM 渠道恢复并发源码已补；执行计时/在途量、首次 UNKNOWN 持久时间与只读存量源码已补（库存默认未启用）；分级查证列表/告警规则源码已补；真实 held/FAILED/Outbox、首提/集群配额、通知路由/工单与保留策略待 R3 | 原生持久化与付款/退款 handler IT 源码已有；未运行 | 未验收 | acquire / payment / LoadUp |
+| K8s / Headlamp | 六应用构建/发布/就绪脚本、原生 Service/DNS 与受限 Headlamp 清单；业务配置需单独注入 | 历史记录保留；本轮未执行脚本 | 当前业务版未验收 | [scripts](scripts/README.md) / deploy |
 
-P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原桶恢复、授权撤销和完整投影事件，保留15类37个单测源码。六应用已完成JAR/镜像构建及本地Kubernetes启动验收；本轮未编译或执行单元测试，业务功能仍为契约层。
+[review](design/review.md) 的 R1/R2 首批已有实现和测试源码，但 R1 的真实数据库证明尚未满足；R3–R8 继续推进。
+门禁范围与尚未覆盖的约束见 [架构门禁](design/ARCHITECTURE-GATES.md)。当前未完成工作统一见 [ROADMAP](ROADMAP.md)。
 
-## 架构设计
+## 设计与关键约束
 
-详细设计入口：[COLA DDD与关键流程](DETAILED-DESIGN.md)、[数据库与DDL草案](design/DATABASE.md)、[Client API与通知协议](design/CLIENT-API.md)、[合约参数](design/CONTRACT-SCHEMA.md)
-。均为待实现的设计，不改变当前部署。
+入口：[架构](ARCHITECTURE.md)、[详细设计](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)、[合约 schema](design/CONTRACT-SCHEMA.md)、[已确认决策](DESIGN-DECISIONS.md)、[术语](GLOSSARY.md)。
 
-后续业务实现以 [架构设计v1.4](ARCHITECTURE.md)、[已确认决策](DESIGN-DECISIONS.md) 和 [领域术语](GLOSSARY.md)
-为准。Checkout固定总额、手动多笔付款，累计恰好付清才PAID；原pending交易在合约停止后继续完成，终态不重开。退款独立表/流程，不改订单状态与已付金额；费用按订单总额统一计算，默认顺序FIFO退款。商户日/周/月/终生限额规则可配置；风控默认放行并预留提交前咨询/结果后异步通知；reconciliation后置。目标支付宝/微信/银联、默认CNY，无消费者用户/余额/充值/提现/转账。业务闭环仍待后续实施。
+- 订单固定总额，多笔成功金额恰好付清才 PAID；金额与次数须原子占用。PAID/CLOSED 不重开。
+- 合约停止/到期禁止新订单，原有效 pending 订单按冻结条款继续完成。
+- 退款独立，不改原订单状态、应收总额或累计已付；费用按订单总额统一计费。
+- 每类事实归自己的服务；数据库锁内不做跨服务 IO。UNKNOWN、任务失败、超时或 NOT_FOUND 均不能代替未收款证据。
+- Y2 提交权不可重建；恢复沿用原付款/attempt/账户/渠道请求号，退款沿用原退款号。Outbox 按目标独立投递。
+- 本地边界采用 withTenantContext / readSnapshot / writeLocal，分别表达上下文、只读 RR 和可重试 RC 写；见 [事务契约](design/TRANSACTION-BOUNDARIES.md)，源码调整未运行验收。
+- payment 的共同 [付款/attempt 绑定](design/PAYMENT-BINDING.md) 与提交/观察/关闭前置条件分开表达；绑定值不能代替原 Y2 票据、门禁或资金证据。当前为源码切片，未运行验收。
+- 复用 LoadUp Money、ToStringAsJson/DiagnosticHidden、数据库、Outbox、DelayedTask、HTTP、KMS 和 gRPC 能力；不另建 pay-common/pay-rpc 或注册中心。
 
-## 构建及本地 Kubernetes 部署
+## 构建、装配与 Kubernetes
 
-六应用目录均提供`build.sh`和`deploy.sh`，也可在根目录使用统一脚本。Java 25自动使用项目mise运行时；默认显式操作`orbstack`
-Docker/Kubernetes context，不改变全局context。
+六应用是 acquire、payment、customer、product、limitcenter、realtime。默认 bootstrap 提供启动/健康骨架；业务依赖由 Maven `*-business` profile 引入，运行时还需激活对应 Spring profile，并注入各服务独立数据库、JWT/服务身份、KMS/渠道等配置。
+默认 `deploy/pay.yml` 仍是本地骨架清单，不能把 Pod 就绪视为业务装配或支付闭环完成。
+
+仓库已有以下入口；此处仅说明用法，本轮未执行：
 
 ```bash
-# 全量打包、构建镜像、部署与就绪验收
-./scripts/deploy.sh all
+# 选择单应用及业务依赖构建
+./payment/build.sh -Ppayment-business
 
-# 单应用：仅构建，或构建并部署
-./payment/build.sh
+# 单应用发布（依脚本和环境配置执行）
 ./payment/deploy.sh
 
-# 独立就绪验收
-./scripts/verify.sh
+# 仅检查 Deployment/EndpointSlice 技术就绪
+./scripts/verify.sh payment
 ```
 
-构建使用`mvnd clean package -pl <bootstrap列表> -am`
-，默认跳过测试编译/执行。全量只执行一次Maven，再构建六个镜像；发布使用独立时间戳标签，原始清单不被改写。单应用只应用自己的Deployment、HTTP Service、gRPC Headless Service和namespace。脚本用法、变量和镜像复用见[脚本说明](scripts/README.md)。
+脚本使用 `mvnd clean`、显式 OrbStack context、本地镜像和固定 `loadup-pay` namespace，默认跳过测试。
+其他集群的镜像仓库、Namespace、Secret、TLS 和业务 profile 由部署层提供；完整变量、构建与发布步骤见 [脚本说明](scripts/README.md)。
 
-镜像使用本地 OrbStack 共享镜像存储，imagePullPolicy 为 Never；其他集群需推送镜像并修改拉取策略。不要直接重新应用清单中的bootstrap示例标签覆盖脚本生成的发布标签。
+应用间协议为各服务拥有的 Protobuf gRPC，商户/运营、收银台及渠道通知保留 HTTP。
+K8s 原生 Service → EndpointSlice → DNS 完成发现，gRPC 使用 `<service>-headless:50051`；没有 Nacos/Eureka。
+地址、身份与调用契约见 [RPC 规范](design/RPC.md)。
 
-启动JAR位于`<service>/<service>-bootstrap/target/`
-，Docker脚本自动定位实际版本。用户本地同时启动需分别设置SERVER_PORT；各进程与业务 Clock 使用系统默认时区。IDE重新加载根pom后使用对应
-`*-bootstrap`模块运行。
+## Headlamp 与时间
 
-## 验收
-
-`verify.sh` 检查六个 Deployment 就绪及对应 Service 的 ready EndpointSlice。各应用保留Actuator
-liveness/readiness与Kubernetes探针；此阶段仅验收启动与技术健康，不包含RPC调用或业务接口验收。
-
-服务注册采用 Kubernetes 原生模型：Deployment labels → Service selector → EndpointSlice → DNS，无 Nacos/Eureka 客户端。可用
-`kubectl -n loadup-pay get pods,svc,endpointslices` 查看。
-
-业务 gRPC 统一遵循 [Kubernetes RPC 配置与发布规范](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)：服务 `<service>` 的 gRPC Service 固定为 `<service>-headless`，端口统一 50051，调用方在 `application.yml` 固定配置 `dns:///<service>-headless:50051`，Java 通过 Spring 配置读取 channel 名。沿用当前业务服务名，例如 `payment` → `payment-headless`，不额外追加 `-service`。
-
-各环境将调用双方部署在同一 Namespace，RPC 地址无需修改即可提升同一镜像。六应用固定 gRPC 50051 与 `<app>-headless`，出站 channel 配置 `round_robin` 和3秒 deadline。9个内部客户端和25个提供方操作已迁移为显式 Protobuf gRPC，内部 HTTP 入口与 `*_BASE_URL` 配置已删除；JWT 身份、租户约束、令牌轮换及本地错误码映射保留。
-
-业务监听随 `*-business` 装配启用，默认骨架镜像仍仅有 HTTP 健康入口。当前 `deploy/pay.yml` 和发布/验收脚本仍固定 `loadup-pay`、本地镜像策略；`verify.sh` 只检查技术就绪，不证明 RPC/业务链路通过。多环境交付前由部署层统一渲染 Namespace、镜像仓库、Secret 与 TLS；不能仅使用 `kubectl -n` 覆盖清单中的 Namespace。本批通过 IDEA MCP 执行六业务应用及依赖的 `clean test-compile`，未执行测试或部署。
-
-参考：[Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)。
-
-## 历史验收（2026-10-20，重命名前）
-
-- Java 25 下 `mvnd clean package -DskipTests` 成功，未执行单元测试或框架全量构建。
-- 两个容器镜像构建成功，部署至本机 OrbStack 的旧 `loadup-wallet` namespace。
-- 两个 Deployment rollout 成功，Service 均有 ready EndpointSlice。
-- 当时测试用RPC连通性验收成功；该测试RPC及专用健康检查现已删除。
-
-以上为重命名前的验收记录。重新构建并部署新版本后，使用当前 `scripts/verify.sh` 验收 `loadup-pay` namespace。
-
-## Headlamp Web UI
-
-部署清单固定使用 Headlamp v0.46.0，清单为 `deploy/headlamp.yml`。下列账号与权限指向新命名资源，需应用新版清单后使用。
+仓库保留 `deploy/headlamp.yml` 和下列本机入口；本轮未应用清单或生成 token：
 
 ```bash
 ./scripts/headlamp.sh install
 ./scripts/headlamp.sh open
-# 另一终端生成短期登录 token，复制到登录页：
 ./scripts/headlamp.sh token
-# macOS 也可以直接复制到剪贴板：
-./scripts/headlamp.sh token | pbcopy
 ```
 
-访问 http://127.0.0.1:14466 ，选择 Token 登录，再选择 `loadup-pay` namespace。
+默认通过本机 `http://127.0.0.1:14466` 访问；`headlamp/pay-operator` 受限于平台工作负载的查询和部署缩放，不授予 Secret 或集群管理员权限。
+部署副本数为 0 表示下线，恢复副本数表示上线；重新应用清单会按其中副本数恢复。
 
-- Services：查看 acquire/payment 的服务地址和端口。
-- Pods：查看实例状态、事件和日志。
-- Deployments：选择 acquire 或 payment，调整副本数为 0 下线，恢复为 1 上线；可修改镜像发布版本。
-- 手工缩放后不要直接重新 apply pay.yml，清单中的 replicas: 1 会恢复应用上线。
+应用、业务 Clock 和 JDBC 无偏移时间使用系统本地时区；不强制 UTC，不注入固定 TZ/user.timezone 或 JDBC SET time_zone。
+数据库会话与应用环境保持相同本地时间语义；JWT epoch 与 Protobuf Timestamp 保持绝对时间。
 
-登录账户 `headlamp/pay-operator` 仅可查询收单平台工作负载、服务、日志、事件、EndpointSlice，并修改六个核心服务的 Deployment
-及副本数；可列出 namespace，不授予集群管理员、Secret 或其他 namespace 工作负载权限。其余管理页面可能提示无权限。权限清单已更新，尚未应用到集群。
+## 证据与历史
 
-Token 请求有效期为 8 小时，以 API Server 签发期限为准；不写入文件或 Git。Web UI 仅通过绑定 127.0.0.1 的 port-forward
-暴露，关闭转发后访问入口失效；再次执行 open 可恢复。
+当前源码、自动化运行和真实环境验收分开记录；新增 IT 使用显式 mysql-it profile，默认单测不会执行它们。
+用户暂停验证期间，不运行构建/测试/DDL/部署，也不把测试文件存在当作测试通过。
 
-参考：[Headlamp 官方登录及安装说明](https://headlamp.dev/docs/latest/installation/)。
-
-重命名前的 Headlamp 于 2026-10-20 在 OrbStack 部署验收：Deployment 1/1 就绪，本机入口 HTTP 200；RBAC 检查确认服务查询和
-acquire 缩放允许、Secret 查询拒绝。当时 acquire/payment 均为 1/1 就绪，未执行实际下线操作。新 `pay-operator` 账号尚未进行集群验收。
-
-## 系统默认时区
-
-应用与 BusinessTime 使用系统默认时区，默认业务 Clock 为 `Clock.systemDefaultZone()`。K8s 不注入 TZ/user.timezone，Headlamp 不挂载时区文件，JDBC 不执行固定 `SET time_zone`。数据库会话与应用本地时间语义由环境保持一致，JWT epoch 和 Protobuf Timestamp 保持绝对时间语义。额度规则记录并校验实际系统 zone；产品合约不再配置 `limit.timezone`。
-
-公共代码已迁入框架现有 commons/gRPC binder，支付工程的 pay-common/pay-rpc 已移除；Wire ↔ DTO 使用各服务的 MapStruct mapper。详见[RPC 与公共能力规范](design/RPC.md)。
-
-customer 已补齐首批授权/资格业务源码，包含 COLA 应用层、MyBatis-Flex 持久化、Flyway 与认证 HTTP
-入口。业务装配和验收状态见 [customer说明](customer/README.md)；默认构建和现有部署仍为基础启动骨架。
-
-product 已补齐持久订单准入、条款编译和认证HTTP入口源码，运行及验收边界见[product说明](product/README.md)
-。初始限额可靠发布/Outbox/ACK与失败重放源码已补；acquire创单与渠道执行继续按ROADMAP推进，新增业务尚未运行验收。
-
-limitcenter 已补齐规则激活、全部额度桶原子预占与幂等查询的业务源码，见[limitcenter说明](limitcenter/README.md)
-。执行许可/校验与显式未执行预占过期源码已补；支付结果确认/释放、退款恢复及自动扫描继续后续实现，两批均未构建或部署。
-
-acquire 已补齐普通创单/查询、稳定创建意图、订单与条款/费用持久化源码；业务 profile
-和验收范围见[acquire说明](acquire/README.md)。付款执行、收银台及自动关单仍待后续实施。
-
-acquire 原单会话签发/幂等重放、订单范围能力认证和只读 `/checkout`
-页面已有源码；实际付款入口仍待接入。新增公开地址及会话密钥配置见[acquire说明](acquire/README.md)。
-
-acquire 已补 Checkout 一步创单源码：订单、条款、费用与首次会话在 A1
-同事务提交，重试返回原链接；前期按当前模型直接迭代，详见[结构说明](design/DATABASE.md#12-checkout-一步创单结构)
-。本批仅静态检查，未构建、执行测试、迁移或部署。
-
-payment 已补付款受理/查询、服务身份授权及父/单笔门禁检查的 COLA 业务源码；受理只落 INIT，不代表向渠道扣款。payment-business
-bootstrap 与新增测试源码已通过窄范围 mvnd 编译，测试未执行，详见[payment说明](payment/README.md)。
-
-payment 已补父订单封禁、收敛查询和单笔关闭：未创建或从未尝试的 INIT 可持久产生未收款证据；处理中/未知只进
-CLOSING。控制回执固定请求与证据，终态不重开。IDEA 检查及窄范围业务/测试源码编译记录见[payment说明](payment/README.md)
-，渠道关闭和金额释放仍待接入。
-
-acquire 已补商户 `/api/acquire/payments/start` 的固定金额占用及 payment 服务受理调用，并新增 `/refresh`
-权威结果收敛源码：成功累计已付、具备未收款证据且单笔执行封禁后才释放。回执防止重复落账，详见[acquire说明](acquire/README.md)
-。尚无实际渠道执行；最新结果收敛修改按用户要求暂停验证，未部署。
-
-acquire 已新增 `/api/acquire/orders/close` 显式关单源码：先持久禁止新付款，再推进父封禁/逐笔关闭/结果落账，满足远端收敛及本地占用清零后才
-CLOSED；未知保留
-CLOSING，原请求可继续推进。从未受理的付款以独立可信事实释放，不伪造付款版本。详见[acquire说明](acquire/README.md)
-，本批按要求暂未验证或部署。
-
-acquire 已新增 `/api/acquire/orders/extend`
-延期源码：按原冻结合约和首次截止计算累计上限，订单锁内更新截止/版本及幂等回执，不延长已有收银台会话。详见[acquire说明](acquire/README.md)
-；本批暂未验证、迁移或部署。
-
-当前付款范围为付款码（商户扫码枪输入）、JSAPI、H5，支持商户纯 API 调用；托管收银台为可选接入。Native 二维码和原生 APP
-支付不在本次范围，最新边界见[架构说明](ARCHITECTURE.md)。付款码/JSAPI 安全输入准备、纯 API start 与 DirectPay
-受理编排源码已补；真实渠道执行仍待接通，新增源码未验证。
-
-渠道协议与支付编排分离：[channel 模块](channel/README.md) 提供统一 Facade、策略注册路由、支付宝/微信独立适配模块；payment 通过渠道端口桥接调用。支付宝退款 Provider 源码已补，收款/动作及微信 Provider 尚待完成。
+历史初始化、编译及 OrbStack/Headlamp 启动记录见 [IMPLEMENTATION](IMPLEMENTATION.md)。业务实施日志见 [BUSINESS-IMPLEMENTATION](BUSINESS-IMPLEMENTATION.md)。
+整理前的根说明完整保存在 [历史快照](design/history/README-before-review-R8.md)，其中“当前/待实现”等词仅属于当时记录；旧 Ping RPC 已删除，旧启动记录不证明当前 gRPC、金融事务或真实渠道通过。

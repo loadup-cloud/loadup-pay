@@ -73,7 +73,7 @@ class PaymentExecutionServiceTest {
         when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(accepted.get()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            return new LockedPayment(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+            return PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         });
         when(attempts.lock("tenant", "attempt")).thenAnswer(c -> Optional.of(stored.get()));
         when(codec.decode(any())).thenReturn(AttemptFixtures.command());

@@ -25,6 +25,9 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.InheritConfiguration;
+
+import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceStorageConverter {
@@ -56,11 +59,33 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "initiatedAt", source = "value.payment.initiatedAt")
     @Mapping(target = "rowVersion", source = "value.payment.version")
     @Mapping(target = "succeededAt", ignore = true)
+    @Mapping(target = "firstUnknownAt", ignore = true)
     @Mapping(target = "terminalEvidenceId", source = "value.terminalEvidenceId")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")
     PaymentOrderDO toPaymentDO(String tenant, StoredPaymentAcceptance value);
+
+    @Mapping(target = "tenantId", source = "tenant")
+    @Mapping(target = "id", source = "value.payment.id")
+    @Mapping(target = "orderId", source = "value.payment.orderId")
+    @Mapping(target = "allocationId", source = "value.payment.allocationId")
+    @Mapping(target = "payeeMerchantId", source = "value.payment.payeeMerchantId")
+    @Mapping(target = "amountMinor", source = "value.payment.amount.cent")
+    @Mapping(target = "currency", source = "value.payment.amount.currencyValue")
+    @Mapping(target = "state", source = "value.payment.state")
+    @Mapping(target = "activeAttemptId", source = "value.payment.activeAttemptId")
+    @Mapping(target = "successfulAttemptId", source = "value.payment.successfulAttemptId")
+    @Mapping(target = "limitOperationId", source = "value.payment.limitOperationId")
+    @Mapping(target = "initiatedAt", source = "value.payment.initiatedAt")
+    @Mapping(target = "rowVersion", source = "value.payment.version")
+    @Mapping(target = "succeededAt", ignore = true)
+    @Mapping(target = "terminalEvidenceId", source = "value.terminalEvidenceId")
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "firstUnknownAt", source = "firstUnknownAt")
+    PaymentOrderDO toPaymentPatch(String tenant, StoredPaymentAcceptance value, LocalDateTime firstUnknownAt);
 
     @Mapping(target = "orderId", source = "orderId")
     @Mapping(target = "paymentId", ignore = true)

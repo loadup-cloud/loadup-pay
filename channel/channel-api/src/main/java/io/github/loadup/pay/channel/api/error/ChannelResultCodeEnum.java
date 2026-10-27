@@ -26,6 +26,8 @@ public enum ChannelResultCodeEnum implements ResultCode {
     DUPLICATE_PROVIDER("CHANNEL_DUPLICATE_PROVIDER", "More than one provider is registered for a channel"),
     UNSUPPORTED_CAPABILITY("CHANNEL_UNSUPPORTED_CAPABILITY", "Channel capability is not implemented or enabled"),
     DEPENDENCY_UNAVAILABLE("CHANNEL_DEPENDENCY_UNAVAILABLE", "Channel dependency is unavailable"),
+    RECOVERY_BUSY("CHANNEL_RECOVERY_BUSY", "Channel recovery concurrency limit reached"),
+    RECOVERY_CONFIGURATION_INVALID("CHANNEL_RECOVERY_CONFIGURATION_INVALID", "Channel recovery requires nonblocking concurrency limits"),
     CHANNEL_CREDENTIAL_UNAVAILABLE("CHANNEL_CREDENTIAL_UNAVAILABLE", "Frozen channel credential resource is unavailable"),
     CHANNEL_SIGNATURE_INVALID("CHANNEL_SIGNATURE_INVALID", "Channel response signature is invalid"),
     ACTION_SNAPSHOT_INVALID("CHANNEL_ACTION_SNAPSHOT_INVALID", "Channel action snapshot is invalid"),

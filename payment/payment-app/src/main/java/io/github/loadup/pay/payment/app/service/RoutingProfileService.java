@@ -88,12 +88,12 @@ public class RoutingProfileService implements RoutingProfileFacade {
     public RoutingProfileDTO publish(RoutingProfilePublishCommand command) {
         validate(command);
         var actor = actor("pay:payment:routing:publish");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.text(command.requestKey(), 128);
             var spec = converter.toSpec(command.spec());
             String hash = codec.checksum(codec.encode(spec));
             String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), command.requestKey(), hash);
-            return transactions.write(actor.tenantId(), () -> {
+            return transactions.writeLocal(actor.tenantId(), () -> {
                 var prior = profiles.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
                 if (prior.isPresent()) {
                     var original = prior.get();
@@ -151,7 +151,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
     public RoutingProfileDTO detail(RoutingProfileDetailQuery query) {
         validate(query);
         var actor = actor("pay:payment:routing:read");
-        return transactions.read(actor.tenantId(), () -> {
+        return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.payeeMerchantId());
             DomainChecks.text(query.profileRef(), 128);
             var profile = profiles.find(actor.tenantId(), query.profileRef())

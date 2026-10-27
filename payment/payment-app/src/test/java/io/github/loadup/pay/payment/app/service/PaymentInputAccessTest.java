@@ -110,7 +110,7 @@ class PaymentInputAccessTest {
             return interaction;
         });
 
-        transactions.write(TENANT, () -> {
+        transactions.writeLocal(TENANT, () -> {
             access.bindToAttempt(TENANT, accepted, ATTEMPT, NOW);
             return Boolean.TRUE;
         });
@@ -158,14 +158,14 @@ class PaymentInputAccessTest {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(input(PaymentInputState.INIT, null, NOW.plusMinutes(2)));
         });
-        transactions.write(TENANT, () -> {
+        transactions.writeLocal(TENANT, () -> {
             access.requireNewAcceptance(TENANT, "acquire", command, NOW);
             return Boolean.TRUE;
         });
         verify(inputs).lock(TENANT, INPUT_REF);
 
         when(inputs.lock(TENANT, INPUT_REF)).thenReturn(Optional.of(input(PaymentInputState.INIT, null, NOW)));
-        var failure = assertThrows(CommonException.class, () -> transactions.write(TENANT, () -> {
+        var failure = assertThrows(CommonException.class, () -> transactions.writeLocal(TENANT, () -> {
             access.requireNewAcceptance(TENANT, "acquire", command, NOW);
             return Boolean.TRUE;
         }));
