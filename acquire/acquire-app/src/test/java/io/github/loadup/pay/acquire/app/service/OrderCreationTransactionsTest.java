@@ -22,7 +22,13 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderCreationTransactionsTest {
     final Manager manager = new Manager();
@@ -61,7 +67,9 @@ class OrderCreationTransactionsTest {
         var failure = new IllegalStateException("Synthetic snapshot failure");
         TenantUtil.callWithTenant("outer", () -> {
             assertSame(failure, assertThrows(IllegalStateException.class,
-                    () -> transactions.readSnapshot("inner", () -> { throw failure; })));
+                    () -> transactions.readSnapshot("inner", () -> {
+                        throw failure;
+                    })));
             assertEquals("outer", TenantUtil.getTenantId());
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return true;
@@ -87,8 +95,10 @@ class OrderCreationTransactionsTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return true;
         });
-        assertEquals(3, calls.get()); assertEquals(3, manager.begins);
-        assertEquals(2, manager.rollbacks); assertEquals(1, manager.commits);
+        assertEquals(3, calls.get());
+        assertEquals(3, manager.begins);
+        assertEquals(2, manager.rollbacks);
+        assertEquals(1, manager.commits);
     }
 
     @Test
@@ -99,13 +109,18 @@ class OrderCreationTransactionsTest {
             throw new org.springframework.dao.ConcurrencyFailureException("Synthetic local contention");
         }));
         assertEquals(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE, exhausted.getResultCode());
-        assertEquals(3, calls.get()); assertEquals(3, manager.rollbacks); assertEquals(0, manager.commits);
+        assertEquals(3, calls.get());
+        assertEquals(3, manager.rollbacks);
+        assertEquals(0, manager.commits);
         var original = new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT);
         assertSame(original, assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
-            calls.incrementAndGet(); throw original;
+            calls.incrementAndGet();
+            throw original;
         })));
-        assertEquals(4, calls.get()); assertEquals(4, manager.rollbacks);
-        assertNull(TenantUtil.getTenantId()); assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+        assertEquals(4, calls.get());
+        assertEquals(4, manager.rollbacks);
+        assertNull(TenantUtil.getTenantId());
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
     }
 
     @Test
@@ -123,14 +138,32 @@ class OrderCreationTransactionsTest {
                     () -> transactions.readSnapshot("tenant", () -> true)).getResultCode());
             return true;
         });
-        assertEquals(1, manager.begins); assertEquals(1, manager.commits);
+        assertEquals(1, manager.begins);
+        assertEquals(1, manager.commits);
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {
         int isolation, commits, rollbacks, begins;
-        @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { isolation = definition.getIsolationLevel(); begins++; }
-        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
-        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+            isolation = definition.getIsolationLevel();
+            begins++;
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            commits++;
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            rollbacks++;
+        }
     }
 }

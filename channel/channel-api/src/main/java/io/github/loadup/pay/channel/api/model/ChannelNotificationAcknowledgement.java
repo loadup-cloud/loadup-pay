@@ -18,7 +18,9 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/** Provider-owned fixed response; never reflects untrusted wire content. */
+/**
+ * Provider-owned fixed response; never reflects untrusted wire content.
+ */
 public record ChannelNotificationAcknowledgement(int httpStatus, String contentType, String body) {
     public ChannelNotificationAcknowledgement {
         io.github.loadup.commons.error.DomainViolation.require(httpStatus >= 200 && httpStatus <= 599,
@@ -28,5 +30,9 @@ public record ChannelNotificationAcknowledgement(int httpStatus, String contentT
         io.github.loadup.commons.error.DomainViolation.require(contentType.chars().noneMatch(Character::isISOControl),
                 io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

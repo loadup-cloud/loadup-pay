@@ -15,10 +15,13 @@
  */
 package io.github.loadup.pay.payment.rpc;
 
+import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcClientProperties;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
-
+import io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc;
+import io.github.loadup.pay.payment.rpc.proto.WireIdQuery;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentExecutionDTO;
 import io.grpc.BindableService;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -29,24 +32,28 @@ import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.payment.rpc.proto.PaymentRpcGrpc;
-import io.github.loadup.pay.payment.rpc.proto.WireIdQuery;
-import io.github.loadup.pay.payment.rpc.proto.WirePaymentExecutionDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.grpc.client.GrpcChannelFactory;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class GrpcTransportTest {
     @Test
     void nativeUnaryCallsReuseChannelAndAttachEachRotatedCredentialWithADeadline() throws Exception {
         var credentials = new ArrayList<String>();
         BindableService service = new PaymentRpcGrpc.PaymentRpcImplBase() {
-            @Override public void detail(WireIdQuery request, StreamObserver<WirePaymentExecutionDTO> observer) {
+            @Override
+            public void detail(WireIdQuery request, StreamObserver<WirePaymentExecutionDTO> observer) {
                 assertNotNull(io.grpc.Context.current().getDeadline());
                 if (request.getId().equals("unavailable")) {
                     observer.onError(Status.UNAVAILABLE.asRuntimeException());
@@ -57,8 +64,9 @@ class GrpcTransportTest {
             }
         };
         var interceptor = new ServerInterceptor() {
-            @Override public <Q, R> ServerCall.Listener<Q> interceptCall(ServerCall<Q, R> call, Metadata headers,
-                    ServerCallHandler<Q, R> next) {
+            @Override
+            public <Q, R> ServerCall.Listener<Q> interceptCall(ServerCall<Q, R> call, Metadata headers,
+                                                               ServerCallHandler<Q, R> next) {
                 credentials.add(headers.get(RpcServerSupport.AUTHORIZATION));
                 return next.startCall(call, headers);
             }

@@ -2,17 +2,30 @@
 
 ## 2026-10-23：公共能力收敛与默认时区
 
-pay-common/pay-rpc 已从支付工程移除：JDK-only 的 DomainViolation 进入框架 commons-error，BusinessTime/EventEnvelope/ContractReference/共享枚举与显式 CNY 守卫进入 commons-dto，通用调用与 JWT/校验支持进入现有 gRPC binder。各服务继续维护自己的 RPC 契约。Wire↔DTO 普通字段改为 MapStruct 生成，protobuf presence/oneof/Timestamp/集合语义保留。
+pay-common/pay-rpc 已从支付工程移除：JDK-only 的 DomainViolation 进入框架
+commons-error，BusinessTime/EventEnvelope/ContractReference/共享枚举与显式 CNY 守卫进入 commons-dto，通用调用与
+JWT/校验支持进入现有 gRPC binder。各服务继续维护自己的 RPC 契约。Wire↔DTO 普通字段改为 MapStruct 生成，protobuf
+presence/oneof/Timestamp/集合语义保留。
 
-系统时区取默认值，移除 JVM/TZ/JDBC/K8s/Headlamp 强制时区和合约 limit.timezone；额度运行规则记录实际 zone，建表脚本取消固定地区约束。本节覆盖下文历史批次中 pay-common/pay-rpc 与固定上海时区的状态。通过 IDEA MCP 完成受影响框架模块及六业务应用依赖的 clean test-compile，未运行测试、数据库变更或部署。详见[当前 RPC 规范](design/RPC.md)。
+系统时区取默认值，移除 JVM/TZ/JDBC/K8s/Headlamp 强制时区和合约 limit.timezone；额度运行规则记录实际
+zone，建表脚本取消固定地区约束。本节覆盖下文历史批次中 pay-common/pay-rpc 与固定上海时区的状态。通过 IDEA MCP
+完成受影响框架模块及六业务应用依赖的 clean test-compile，未运行测试、数据库变更或部署。详见[当前 RPC 规范](design/RPC.md)。
 
 ## 2026-10-23：内部传输统一 gRPC
 
-本节覆盖下文各历史批次中的内部 HTTP/Ping/无协议模块状态。新增6个提供方自维护的 `*-rpc` 模块：分别维护 Protobuf service、消息映射与方法定义，共25个 unary 方法；通用调用、JWT与错误处理支持归框架现有 gRPC binder。9个内部 HTTP 客户端迁移为 gRPC，移除对应内部 servlet 入口与业务 profile 的全部 `loadup.http`/`*_BASE_URL` 配置。商户、运营、收银台和外部渠道 HTTP 不变。
+本节覆盖下文各历史批次中的内部 HTTP/Ping/无协议模块状态。新增6个提供方自维护的 `*-rpc` 模块：分别维护 Protobuf
+service、消息映射与方法定义，共25个 unary 方法；通用调用、JWT与错误处理支持归框架现有 gRPC binder。9个内部 HTTP 客户端迁移为
+gRPC，移除对应内部 servlet 入口与业务 profile 的全部 `loadup.http`/`*_BASE_URL` 配置。商户、运营、收银台和外部渠道 HTTP 不变。
 
-channel 由 Spring 配置类读取，固定同 Namespace Headless DNS、50051、round_robin、3秒 deadline；SERVICE token 逐次重读，商户委托令牌保持原 audience 约束。服务器复用资源服务器的签名/issuer/audience/token_use 校验与权限转换，在每个 gRPC 回调中隔离并恢复 SecurityContext。业务异常仅通过固定错误码 trailer 返回，调用方继续显式白名单映射；未知异常不输出载荷或凭证。
+channel 由 Spring 配置类读取，固定同 Namespace Headless DNS、50051、round_robin、3秒 deadline；SERVICE token 逐次重读，商户委托令牌保持原
+audience 约束。服务器复用资源服务器的签名/issuer/audience/token_use 校验与权限转换，在每个 gRPC 回调中隔离并恢复
+SecurityContext。业务异常仅通过固定错误码 trailer 返回，调用方继续显式白名单映射；未知异常不输出载荷或凭证。
 
-构建 profile 仍区分默认骨架与业务装配；业务镜像、Secret、TLS 和部署参数须匹配。协议切换不保留 HTTP 兼容；跨服务循环依赖须先启动整套提供方，不能用新旧协议镜像混跑。回归测试源码已同步为 gRPC，并新增 Protobuf presence/oneof/Timestamp、认证隔离与原生 unary 调用测试。本批通过 IDEA MCP 终端执行六个业务 bootstrap 及其依赖的 `mvnd clean test-compile -am`（启用六个 business profile），结果 BUILD SUCCESS，协议生成及业务/测试源码编译通过；未执行 JUnit、DDL或集群发布。IDE 工程需重新加载 Maven 识别新模块。详见 [RPC 规范](design/RPC.md)。
+构建 profile 仍区分默认骨架与业务装配；业务镜像、Secret、TLS 和部署参数须匹配。协议切换不保留 HTTP
+兼容；跨服务循环依赖须先启动整套提供方，不能用新旧协议镜像混跑。回归测试源码已同步为 gRPC，并新增 Protobuf
+presence/oneof/Timestamp、认证隔离与原生 unary 调用测试。本批通过 IDEA MCP 终端执行六个业务 bootstrap 及其依赖的
+`mvnd clean test-compile -am`（启用六个 business profile），结果 BUILD SUCCESS，协议生成及业务/测试源码编译通过；未执行
+JUnit、DDL或集群发布。IDE 工程需重新加载 Maven 识别新模块。详见 [RPC 规范](design/RPC.md)。
 
 日期：2026-10-21 ｜ 基线：[详细设计](DETAILED-DESIGN.md) ｜ 状态：P0/P1源码及六应用构建、镜像、Kubernetes启动验收完成；单测与业务执行待验收
 
@@ -526,20 +539,21 @@ gross 金额。
 
 本批新增及同步测试源码未运行；未执行检查、构建、测试、DDL、镜像或部署。业务完整目标仍未完成，后续为真实渠道与自动驱动、费用/额度恢复、商户通知、重建和对账。
 
-
 ## DirectPay 首笔绑定与整体恢复（2026-10-26）
 
-DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
-raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT
+同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和
+PaymentRecoveryDTO，
 不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
 
-新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:
+recover。
 未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
 已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
 
 DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
 未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
-
 
 ## Acquire A2 native 恢复接线（2026-10-26）
 
@@ -548,7 +562,6 @@ DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发�
 AllocationRecoveryService 直接实现 native Handler，复用原输入/原命令恢复与 A3 结果收敛；没有新增定时器、RPC 或厂商执行分支。
 `application-acquire-business.yml` 提供轮询间隔环境变量。恢复权限来自已提交原意图，禁止创建操作，不检查原浏览器会话活性。
 源码与测试源码已写入，未运行任何检查/构建/测试/DDL/部署/外部调用；FAILED 恢复与父订单到期任务仍在整体目标范围内。
-
 
 ## Native 订单生命周期任务接线（2026-10-26）
 
@@ -559,15 +572,14 @@ A1 使用初始 deadlineVersion=1，延期使用原回执新版本；关闭任�
 DirectPay 延期补齐原意图解码，不增加兼容重载、数据表或 RPC。轮询配置为 ACQUIRE_ORDER_CLOSE_POLL_DELAY_SECONDS。
 源码/测试源码与文档已写入，未运行任何验证或部署，未变更数据库；native FAILED 恢复与外部协议验收仍待推进。
 
-
 ## Acquire task retry operations（2026-10-26）
 
 新增 acquire client 的 RecoveryKind/查询/重试命令/DTO/Facade，app 使用独立 MapStruct 与原业务锁/证据检查，
-运营 Controller 显式 no-store。身份复用 JwtAcquireServiceActorProvider，限制 configured pay-ops SERVICE 和独立 recovery 权限。
+运营 Controller 显式 no-store。身份复用 JwtAcquireServiceActorProvider，限制 configured pay-ops SERVICE 和独立 recovery
+权限。
 新增不可变审计领域/Gateway、BaseDO/生成 Mapper/MapStruct 存储适配与独立 Flyway，原子复用 DelayedTaskTemplate.retryFailed。
 没有框架修改、通用任务代理、内部 HTTP/RPC 或资金执行入口。应用配置新增 ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID。
 源码和测试源码已写入；没有运行任何验证或执行迁移/部署，其他服务的 FAILED 运维能力仍未声称完成。
-
 
 ## Payment original-task operational retries（2026-10-26）
 

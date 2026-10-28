@@ -10,7 +10,8 @@
     </parent>
     <artifactId>channel-api</artifactId>
     <name>LoadUp Pay Channel API</name>
-    <description>Provider-neutral payment and refund facades, strategy SPI and immutable channel contracts.</description>
+    <description>Provider-neutral payment and refund facades, strategy SPI and immutable channel contracts.
+    </description>
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

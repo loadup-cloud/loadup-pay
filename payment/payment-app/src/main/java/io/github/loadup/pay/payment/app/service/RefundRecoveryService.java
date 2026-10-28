@@ -17,14 +17,15 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
-import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -32,9 +33,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Continuation generations complement native task claims; neither is channel evidence. */
+/**
+ * Continuation generations complement native task claims; neither is channel evidence.
+ */
 @Service
 public class RefundRecoveryService {
     public static final String TYPE = "pay.payment.refund.progress";
@@ -47,17 +52,25 @@ public class RefundRecoveryService {
     private final RecoveryPollingPolicy polling;
 
     public RefundRecoveryService(RefundRecoveryGateway cursors, DelayedTaskTemplate tasks, RefundExecutionLocks locks,
-            RefundExecutionService execution, PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock,
-            RecoveryPollingPolicy polling) {
-        this.cursors = cursors; this.tasks = tasks; this.locks = locks; this.execution = execution;
-        this.transactions = transactions; this.clock = clock; this.polling = java.util.Objects.requireNonNull(polling);
+                                 RefundExecutionService execution, PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock,
+                                 RecoveryPollingPolicy polling) {
+        this.cursors = cursors;
+        this.tasks = tasks;
+        this.locks = locks;
+        this.execution = execution;
+        this.transactions = transactions;
+        this.clock = clock;
+        this.polling = java.util.Objects.requireNonNull(polling);
     }
 
-    /** Caller holds the original parent/request transaction when inserting the fixed refund plan. */
+    /**
+     * Caller holds the original parent/request transaction when inserting the fixed refund plan.
+     */
     public void register(String tenant, StoredRefundRequest stored) {
         writable(tenant);
         if (stored.request().version() != 0 || stored.request().children().stream().anyMatch(c -> c.state()
-                != io.github.loadup.pay.payment.domain.model.RefundState.INIT)) throw new CommonException(INVALID_STATE);
+                != io.github.loadup.pay.payment.domain.model.RefundState.INIT))
+            throw new CommonException(INVALID_STATE);
         var cursor = RefundRecoveryCursor.init(stored.request().id(), stored.plannedAt());
         cursors.insert(tenant, cursor);
         tasks.register(TYPE, new RefundRecoveryKey(cursor.requestId(), cursor.generation()).bizId(), cursor.dueAt());
@@ -85,7 +98,8 @@ public class RefundRecoveryService {
         return transactions.writeLocal(task.tenantId(), () -> {
             var request = locks.request(task.tenantId(), key.requestId());
             var before = cursor(task.tenantId(), key);
-            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) return RecoveryHandlingOutcome.SKIPPED;
+            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt()))
+                return RecoveryHandlingOutcome.SKIPPED;
             if (terminal(request)) {
                 cursors.update(task.tenantId(), before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;

@@ -29,5 +29,8 @@ public record PaymentRecoveryDTO(
         @Schema(description = "Null while unresolved; false only after a trusted never-accepted receipt converged")
         @JsonInclude(JsonInclude.Include.ALWAYS) Boolean accepted,
         @Schema(description = "Converged original payment and order; present only when resolved") @Valid PaymentProgressDTO progress) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

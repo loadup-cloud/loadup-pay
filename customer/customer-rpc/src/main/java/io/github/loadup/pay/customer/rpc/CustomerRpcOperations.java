@@ -18,9 +18,10 @@ package io.github.loadup.pay.customer.rpc;
 import io.github.loadup.components.rpc.grpc.RpcOperation;
 
 public final class CustomerRpcOperations {
-    private CustomerRpcOperations() {}
-
     public static final RpcOperation<io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand, io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO, io.github.loadup.pay.customer.rpc.proto.WireMerchantActionAuthorizeCommand, io.github.loadup.pay.customer.rpc.proto.WireMerchantEligibilityDTO> CUSTOMER_AUTHORIZE =
             new RpcOperation<>("customer", io.github.loadup.pay.customer.rpc.proto.CustomerRpcGrpc.getAuthorizeMethod(),
                     CustomerRpcMapper.INSTANCE::toWireMerchantActionAuthorizeCommand, CustomerRpcMapper.INSTANCE::fromWireMerchantEligibilityDTO);
+
+    private CustomerRpcOperations() {
+    }
 }

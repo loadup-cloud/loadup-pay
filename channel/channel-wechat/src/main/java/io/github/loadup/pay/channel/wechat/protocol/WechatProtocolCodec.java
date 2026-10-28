@@ -26,6 +26,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -41,18 +42,28 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** APIv3 canonical signing and pinned response verification; never creates a financial outcome. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+
+/**
+ * APIv3 canonical signing and pinned response verification; never creates a financial outcome.
+ */
 public class WechatProtocolCodec {
     private final JsonMapper json;
     private final KmsTemplate kms;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
+
     public WechatProtocolCodec(JsonMapper json, KmsTemplate kms, Clock clock) {
         this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
-        this.kms = kms; this.clock = clock;
+        this.kms = kms;
+        this.clock = clock;
     }
 
     public Map<String, String> sign(WechatMethod operation, WechatCredentials credentials, HttpMethod method, URI uri, byte[] body) {
@@ -67,12 +78,14 @@ public class WechatProtocolCodec {
                 || credentials.platformKeyId() == null
                 || !credentials.platformKeyId().matches("(?:PUB_KEY_ID_[A-Za-z0-9]{1,116}|[0-9A-F]{8,64})"))
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
-        byte[] nonceBytes = new byte[16]; random.nextBytes(nonceBytes);
+        byte[] nonceBytes = new byte[16];
+        random.nextBytes(nonceBytes);
         String nonce = HexFormat.of().formatHex(nonceBytes), timestamp = Long.toString(clock.instant().getEpochSecond());
         String target = uri.getRawPath() + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
         var message = new ByteArrayOutputStream(body.length + target.length() + 256);
         message.writeBytes((method.name() + "\n" + target + "\n" + timestamp + "\n" + nonce + "\n").getBytes(StandardCharsets.UTF_8));
-        message.writeBytes(body); message.write('\n');
+        message.writeBytes(body);
+        message.write('\n');
         var key = credentials.signingKey();
         if (key == null || key.version() <= 0) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         final String signature;
@@ -84,29 +97,39 @@ public class WechatProtocolCodec {
             byte[] bytes = Base64.getDecoder().decode(signed.base64());
             if (bytes.length < 256 || bytes.length > 512) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             signature = signed.base64();
-        } catch (CommonException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         String authorization = "WECHATPAY2-SHA256-RSA2048 mchid=\"" + credentials.merchantId() + "\",nonce_str=\"" + nonce
                 + "\",timestamp=\"" + timestamp + "\",serial_no=\"" + credentials.merchantSerial() + "\",signature=\"" + signature + "\"";
         return Map.of("Authorization", authorization, "Wechatpay-Serial", credentials.platformKeyId());
     }
 
     public WechatVerifiedResponse verify(WechatMethod operation, WechatCredentials credentials, ResponseEntity<byte[]> response) {
-        if (operation == null || credentials == null || response == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (operation == null || credentials == null || response == null)
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         byte[] body = response.getBody() == null ? new byte[0] : response.getBody();
         int status = response.getStatusCode().value();
-        if (body.length > 1048576 || body.length == 0 && status != 204) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (body.length > 1048576 || body.length == 0 && status != 204)
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         verifySignature(credentials, response.getHeaders(), body);
         try {
             String payload = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(body)).toString();
-            if (body.length != 0 && json.readValue(payload, Map.class) == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (body.length != 0 && json.readValue(payload, Map.class) == null)
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
             return new WechatVerifiedResponse(operation, status, payload,
                     DigestUtils.sha256("wechat-response-v1|" + operation.name() + "|" + status + "|" + payload));
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
-    /** Shared signature verification for original HTTP response or notification bytes. */
+    /**
+     * Shared signature verification for original HTTP response or notification bytes.
+     */
     public void verifySignature(WechatCredentials credentials, HttpHeaders headers, byte[] body) {
         if (credentials == null || headers == null || body == null || body.length > 1048576)
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);
@@ -124,10 +147,15 @@ public class WechatProtocolCodec {
             var verifier = Signature.getInstance("SHA256withRSA");
             verifier.initVerify(rsa);
             verifier.update((timestamp + "\n" + nonce + "\n").getBytes(StandardCharsets.UTF_8));
-            verifier.update(body); verifier.update((byte) '\n');
-            if (!verifier.verify(Base64.getDecoder().decode(encoded))) throw new CommonException(CHANNEL_SIGNATURE_INVALID);
-        } catch (CommonException invalid) { throw invalid; }
-        catch (Exception invalid) { throw new CommonException(CHANNEL_SIGNATURE_INVALID); }
+            verifier.update(body);
+            verifier.update((byte) '\n');
+            if (!verifier.verify(Base64.getDecoder().decode(encoded)))
+                throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        } catch (CommonException invalid) {
+            throw invalid;
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        }
     }
 
     private String header(HttpHeaders headers, String name, int maximum) {

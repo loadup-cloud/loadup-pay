@@ -16,30 +16,65 @@
 package io.github.loadup.pay.channel.core;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.resilience4j.ResilienceRegistries;
-import io.github.resilience4j.bulkhead.BulkheadConfig;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.components.resilience4j.ResilienceRegistries;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.OffsetDateTime;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.RECOVERY_BUSY;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.RECOVERY_CONFIGURATION_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class DefaultChannelPaymentFacadeTest {
     private static final Money AMOUNT = Money.ofMinor(1250, "CNY");
@@ -49,6 +84,88 @@ class DefaultChannelPaymentFacadeTest {
     private final ChannelProvider alipay = provider(Channel.ALIPAY);
     private final ChannelProvider wechat = provider(Channel.WECHAT);
     private final DefaultChannelPaymentFacade facade = new DefaultChannelPaymentFacade(List.of(alipay, wechat), concurrency());
+
+    private static void assertBusy(Runnable operation) {
+        assertEquals(RECOVERY_BUSY, assertThrows(CommonException.class, operation::run).getResultCode());
+    }
+
+    private static ResilienceRegistries limitedRegistries() {
+        var registries = ResilienceRegistries.ofDefaults();
+        for (var channel : Channel.values())
+            registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(channel),
+                    BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ZERO).build());
+        return registries;
+    }
+
+    private static ChannelProvider provider(Channel channel) {
+        var provider = mock(ChannelProvider.class);
+        when(provider.channel()).thenReturn(channel);
+        return provider;
+    }
+
+    private static ChannelExecutionContext context(Channel channel, String bindingId, String hash) {
+        ChannelAccountIdentity account = channel == Channel.ALIPAY
+                ? new AlipayAccountIdentity("app", "seller", null, null, null)
+                : new WechatAccountIdentity("app", "merchant", null, null);
+        var binding = new ChannelBindingRevision(bindingId, "merchant", channel, AccessMode.DIRECT, hash,
+                "credential", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
+        return new ChannelExecutionContext("tenant", binding);
+    }
+
+    private static PreparedChannelPayment payment(Channel channel, String bindingId, String hash) {
+        var identity = new ChannelPaymentIdentity("payment-1", "attempt-1", channel, bindingId, hash, "request-1");
+        return new PreparedChannelPayment(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, "prepared-input");
+    }
+
+    private static PaymentObservation paymentObservation(ChannelPaymentIdentity identity, Money amount) {
+        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, null, null,
+                PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "d".repeat(64));
+    }
+
+    private static ChannelPaymentSubmission submission(ChannelPaymentIdentity identity, Money amount) {
+        return new ChannelPaymentSubmission(identity, amount, paymentObservation(identity, amount), null);
+    }
+
+    private static PaymentObservation actionObservation(ChannelPaymentIdentity identity, Money amount, String tradeNo) {
+        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, tradeNo, null,
+                PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "f".repeat(64));
+    }
+
+    private static ChannelPaymentRequest request(PreparedChannelPayment payment) {
+        return new ChannelPaymentRequest(payment, "subject", PAYABLE_UNTIL, new ChannelPaymentCodeInput("123456"));
+    }
+
+    private static ChannelPaymentValidation validation(ChannelPaymentIdentity identity) {
+        return new ChannelPaymentValidation(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, "subject", PAYABLE_UNTIL,
+                new ChannelPaymentCodeInput("123456"));
+    }
+
+    private static ChannelPaymentRecovery recovery(ChannelPaymentIdentity identity) {
+        return new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 2, PAYABLE_UNTIL);
+    }
+
+    private static ChannelPaymentSubmission recovered(ChannelPaymentIdentity identity, Money amount,
+                                                      PaymentObservation.Source source, ChannelPaymentAction action) {
+        String tradeNo = action instanceof AlipayJsapiChannelAction alipay ? alipay.tradeNo() : null;
+        var observation = new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, tradeNo, null,
+                source, "recovery-receipt", "f".repeat(64));
+        return new ChannelPaymentSubmission(identity, amount, observation, action);
+    }
+
+    private static PreparedChannelRefund refund(ChannelPaymentIdentity original) {
+        return new PreparedChannelRefund(original, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"),
+                AMOUNT, "channel-payment-1");
+    }
+
+    private static RefundObservation refundObservation(PreparedChannelRefund refund) {
+        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
+                refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
+                null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "e".repeat(64), null);
+    }
+
+    private static ChannelRecoveryConcurrency concurrency() {
+        return new ChannelRecoveryConcurrency(ResilienceRegistries.ofDefaults());
+    }
 
     @Test
     void aSelectedProviderFailureDoesNotSubmitToAnotherChannel() {
@@ -496,87 +613,6 @@ class DefaultChannelPaymentFacadeTest {
                 BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ofSeconds(1)).build());
         assertEquals(RECOVERY_CONFIGURATION_INVALID,
                 assertThrows(CommonException.class, () -> new ChannelRecoveryConcurrency(registries)).getResultCode());
-    }
-
-    private static void assertBusy(Runnable operation) {
-        assertEquals(RECOVERY_BUSY, assertThrows(CommonException.class, operation::run).getResultCode());
-    }
-
-    private static ResilienceRegistries limitedRegistries() {
-        var registries = ResilienceRegistries.ofDefaults();
-        for (var channel : Channel.values())
-            registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(channel),
-                    BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ZERO).build());
-        return registries;
-    }
-
-    private static ChannelProvider provider(Channel channel) {
-        var provider = mock(ChannelProvider.class);
-        when(provider.channel()).thenReturn(channel);
-        return provider;
-    }
-
-    private static ChannelExecutionContext context(Channel channel, String bindingId, String hash) {
-        ChannelAccountIdentity account = channel == Channel.ALIPAY
-                ? new AlipayAccountIdentity("app", "seller", null, null, null)
-                : new WechatAccountIdentity("app", "merchant", null, null);
-        var binding = new ChannelBindingRevision(bindingId, "merchant", channel, AccessMode.DIRECT, hash,
-                "credential", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
-        return new ChannelExecutionContext("tenant", binding);
-    }
-
-    private static PreparedChannelPayment payment(Channel channel, String bindingId, String hash) {
-        var identity = new ChannelPaymentIdentity("payment-1", "attempt-1", channel, bindingId, hash, "request-1");
-        return new PreparedChannelPayment(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, "prepared-input");
-    }
-
-    private static PaymentObservation paymentObservation(ChannelPaymentIdentity identity, Money amount) {
-        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, null, null,
-                PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "d".repeat(64));
-    }
-
-    private static ChannelPaymentSubmission submission(ChannelPaymentIdentity identity, Money amount) {
-        return new ChannelPaymentSubmission(identity, amount, paymentObservation(identity, amount), null);
-    }
-
-    private static PaymentObservation actionObservation(ChannelPaymentIdentity identity, Money amount, String tradeNo) {
-        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, tradeNo, null,
-                PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "f".repeat(64));
-    }
-
-    private static ChannelPaymentRequest request(PreparedChannelPayment payment) {
-        return new ChannelPaymentRequest(payment, "subject", PAYABLE_UNTIL, new ChannelPaymentCodeInput("123456"));
-    }
-
-    private static ChannelPaymentValidation validation(ChannelPaymentIdentity identity) {
-        return new ChannelPaymentValidation(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, "subject", PAYABLE_UNTIL,
-                new ChannelPaymentCodeInput("123456"));
-    }
-
-    private static ChannelPaymentRecovery recovery(ChannelPaymentIdentity identity) {
-        return new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 2, PAYABLE_UNTIL);
-    }
-
-    private static ChannelPaymentSubmission recovered(ChannelPaymentIdentity identity, Money amount,
-            PaymentObservation.Source source, ChannelPaymentAction action) {
-        String tradeNo = action instanceof AlipayJsapiChannelAction alipay ? alipay.tradeNo() : null;
-        var observation = new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, amount, tradeNo, null,
-                source, "recovery-receipt", "f".repeat(64));
-        return new ChannelPaymentSubmission(identity, amount, observation, action);
-    }
-
-    private static PreparedChannelRefund refund(ChannelPaymentIdentity original) {
-        return new PreparedChannelRefund(original, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"),
-                AMOUNT, "channel-payment-1");
-    }
-
-    private static RefundObservation refundObservation(PreparedChannelRefund refund) {
-        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
-                refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
-                null, RefundObservation.Source.SUBMIT_RESPONSE, "receipt", "e".repeat(64), null);
-    }
-    private static ChannelRecoveryConcurrency concurrency() {
-        return new ChannelRecoveryConcurrency(ResilienceRegistries.ofDefaults());
     }
 
 }

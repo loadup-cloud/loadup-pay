@@ -22,34 +22,57 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JwtReconciliationActorProviderTest {
     private final JwtReconciliationActorProvider provider = new JwtReconciliationActorProvider();
-    @AfterEach void clear() { SecurityContextHolder.clearContext(); }
-    @Test void onlyVerifiedServiceClaimsSupplyTenantCallerAndAuthorities() {
+
+    @AfterEach
+    void clear() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void onlyVerifiedServiceClaimsSupplyTenantCallerAndAuthorities() {
         install("tenant", "SERVICE", "ops", "ops");
         var actor = provider.current();
-        assertEquals("tenant", actor.tenantId()); assertEquals("ops", actor.serviceId());
+        assertEquals("tenant", actor.tenantId());
+        assertEquals("ops", actor.serviceId());
         assertEquals(java.util.Set.of("pay:reconciliation:batch:read"), actor.permissions());
     }
-    @Test void missingUnauthenticatedAndNonJwtCredentialsAreRejected() {
+
+    @Test
+    void missingUnauthenticatedAndNonJwtCredentialsAreRejected() {
         denied();
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.unauthenticated("ops", "bearer"));
         denied();
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("ops", "bearer", List.of()));
         denied();
     }
-    @Test void merchantsAndSelfReportedOrWhitespaceServiceIdentitiesCannotAcquireOperationsScope() {
-        install("tenant", "MERCHANT", "ops", "ops"); denied();
-        install("tenant", "SERVICE", "other", "ops"); denied();
-        install("tenant", "SERVICE", " ops ", " ops "); denied();
-        install(" tenant ", "SERVICE", "ops", "ops"); denied();
-        install(null, "SERVICE", "ops", "ops"); denied();
+
+    @Test
+    void merchantsAndSelfReportedOrWhitespaceServiceIdentitiesCannotAcquireOperationsScope() {
+        install("tenant", "MERCHANT", "ops", "ops");
+        denied();
+        install("tenant", "SERVICE", "other", "ops");
+        denied();
+        install("tenant", "SERVICE", " ops ", " ops ");
+        denied();
+        install(" tenant ", "SERVICE", "ops", "ops");
+        denied();
+        install(null, "SERVICE", "ops", "ops");
+        denied();
     }
-    private void denied() { assertEquals(ACTION_FORBIDDEN, assertThrows(CommonException.class, provider::current).getResultCode()); }
+
+    private void denied() {
+        assertEquals(ACTION_FORBIDDEN, assertThrows(CommonException.class, provider::current).getResultCode());
+    }
+
     private void install(String tenant, String type, String subject, String service) {
         var builder = Jwt.withTokenValue("synthetic").header("alg", "RS256").subject(subject)
                 .claim("principal_type", type).claim("service_id", service);

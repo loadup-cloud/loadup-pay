@@ -17,21 +17,50 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatVerifiedResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.json.JsonMapper;
-import java.net.URI;
-import java.time.*;
-import java.util.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatPaymentAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-24T03:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -51,7 +80,8 @@ class WechatPaymentAdapterTest {
                     .thenReturn(query(200, body(state)));
             TenantUtil.runWithTenant("tenant", () -> {
                 var result = adapter.query(context, target);
-                assertEquals(ChannelPaymentOutcome.Kind.SUCCEEDED, result.kind()); assertEquals(AMOUNT, result.amount());
+                assertEquals(ChannelPaymentOutcome.Kind.SUCCEEDED, result.kind());
+                assertEquals(AMOUNT, result.amount());
                 assertEquals("wx-transaction", result.channelTransactionNo());
                 assertEquals(LocalDateTime.of(2026, 10, 24, 11, 0), result.succeededAt());
             });
@@ -79,7 +109,8 @@ class WechatPaymentAdapterTest {
             assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, adapter.query(context, target).kind());
             var result = adapter.recover(context, new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.JSAPI, 1,
                     OffsetDateTime.now(CLOCK).plusHours(1)));
-            assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, result.observation().kind()); assertNull(result.action());
+            assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, result.observation().kind());
+            assertNull(result.action());
         });
         verify(client, times(2)).call(anyString(), any(), eq(WechatMethod.PARTNER_QUERY), anyMap(), anyMap(), isNull());
         verifyNoMoreInteractions(client);
@@ -126,11 +157,13 @@ class WechatPaymentAdapterTest {
         TenantUtil.runWithTenant("tenant", () -> assertEquals(ChannelPaymentOutcome.Kind.SUCCEEDED, adapter.close(context, target).kind()));
         verify(client, times(2)).call(anyString(), any(), eq(WechatMethod.PARTNER_QUERY), anyMap(), anyMap(), isNull());
     }
+
     private String body(String state) {
         return "{\"sp_appid\":\"wx-provider\",\"sp_mchid\":\"1900000001\",\"sub_appid\":\"wx-sub-app\",\"sub_mchid\":\"1900000002\","
                 + "\"trade_type\":\"JSAPI\",\"out_trade_no\":\"original_01\",\"trade_state\":\"" + state + "\",\"transaction_id\":\"wx-transaction\","
                 + "\"success_time\":\"2026-10-24T03:00:00Z\",\"amount\":{\"total\":1250,\"payer_total\":1000,\"currency\":\"CNY\"}}";
     }
+
     private WechatVerifiedResponse query(int status, String body) {
         return new WechatVerifiedResponse(WechatMethod.PARTNER_QUERY, status, body, DigestUtils.sha256(body));
     }

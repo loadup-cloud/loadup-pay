@@ -19,13 +19,17 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Separates verified channel observations from client actions; a locally signed action may have no observation. */
+/**
+ * Separates verified channel observations from client actions; a locally signed action may have no observation.
+ */
 public record ChannelPaymentSubmission(ChannelPaymentIdentity identity, Money amount, PaymentObservation observation,
-        @DiagnosticHidden ChannelPaymentAction action) {
+                                       @DiagnosticHidden ChannelPaymentAction action) {
     public ChannelPaymentSubmission {
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
@@ -41,6 +45,8 @@ public record ChannelPaymentSubmission(ChannelPaymentIdentity identity, Money am
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

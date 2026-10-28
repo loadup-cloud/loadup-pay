@@ -19,10 +19,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.kms.*;
+import io.github.loadup.components.kms.KmsKeyRef;
+import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
@@ -39,7 +40,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 public class AlipayCredentialReader {
     private final AlipayProperties properties;
@@ -47,7 +51,8 @@ public class AlipayCredentialReader {
     private final KmsTemplate kms;
 
     public AlipayCredentialReader(AlipayProperties properties, JsonMapper json, KmsTemplate kms) {
-        this.properties = properties; this.kms = kms;
+        this.properties = properties;
+        this.kms = kms;
         this.json = json.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
     }
@@ -56,7 +61,8 @@ public class AlipayCredentialReader {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!properties.enabled() || binding == null || binding.channel() != Channel.ALIPAY
-                || !(binding.identity() instanceof AlipayAccountIdentity identity)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+                || !(binding.identity() instanceof AlipayAccountIdentity identity))
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
         try {
             var document = read(properties.credentials(), binding.credentialReference(), binding.credentialVersion(), AlipayCredentialDocument.class);
             if (!tenant.equals(document.tenantId()) || !binding.credentialReference().equals(document.reference())
@@ -79,11 +85,14 @@ public class AlipayCredentialReader {
                 byte[] plaintext = kms.decrypt(new KmsKeyRef(delegated.token().keyName(), delegated.token().version()), delegated.token());
                 if (plaintext == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
                 try {
-                    if (plaintext.length == 0 || plaintext.length > 4096) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                    if (plaintext.length == 0 || plaintext.length > 4096)
+                        throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
                     authorization = new String(plaintext, StandardCharsets.UTF_8);
                     if (!authorization.chars().allMatch(c -> c >= 33 && c <= 126))
                         throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
-                } finally { Arrays.fill(plaintext, (byte) 0); }
+                } finally {
+                    Arrays.fill(plaintext, (byte) 0);
+                }
             }
             return new AlipayCredentials(tenant, identity.appId(), identity.sellerId(), signer, publicKey, authorization);
         } catch (RuntimeException failure) {
@@ -91,12 +100,15 @@ public class AlipayCredentialReader {
         }
     }
 
-    /** Verification needs only the frozen descriptor's platform key, never a signing or merchant authorization decrypt. */
+    /**
+     * Verification needs only the frozen descriptor's platform key, never a signing or merchant authorization decrypt.
+     */
     public PublicKey verificationKey(String tenant, ChannelBindingRevision binding) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!properties.enabled() || binding == null || binding.channel() != Channel.ALIPAY
-                || !(binding.identity() instanceof AlipayAccountIdentity identity)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+                || !(binding.identity() instanceof AlipayAccountIdentity identity))
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
         try {
             var document = read(properties.credentials(), binding.credentialReference(), binding.credentialVersion(), AlipayCredentialDocument.class);
             if (!tenant.equals(document.tenantId()) || !binding.credentialReference().equals(document.reference())
@@ -105,7 +117,9 @@ public class AlipayCredentialReader {
                     || binding.accessMode() == AccessMode.DIRECT && !identity.sellerId().equals(document.sellerId()))
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             return publicKey(document.platformPublicKey());
-        } catch (RuntimeException invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
 
     private <T> T read(Map<String, Map<String, Path>> catalog, String reference, String version, Class<T> type) {
@@ -115,9 +129,12 @@ public class AlipayCredentialReader {
         // Paths come exclusively from trusted configuration, never from concatenated resource references.
         try (var input = Files.newInputStream(path)) {
             byte[] payload = input.readNBytes(65537);
-            if (payload.length == 0 || payload.length > 65536) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            if (payload.length == 0 || payload.length > 65536)
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             return json.readValue(payload, type);
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
 
     private PublicKey publicKey(String value) {
@@ -131,6 +148,8 @@ public class AlipayCredentialReader {
             if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048 || rsa.getModulus().bitLength() > 4096)
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             return key;
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
 }

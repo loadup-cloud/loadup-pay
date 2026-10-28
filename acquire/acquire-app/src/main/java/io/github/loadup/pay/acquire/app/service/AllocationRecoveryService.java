@@ -28,7 +28,11 @@ import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
+import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryKey;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -37,9 +41,13 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Resumes committed A2 intents; native task ownership never grants a new payment or financial evidence. */
+/**
+ * Resumes committed A2 intents; native task ownership never grants a new payment or financial evidence.
+ */
 @Service
 public class AllocationRecoveryService implements DelayedTaskHandler {
     private final AllocationRecoveryGateway cursors;
@@ -53,9 +61,9 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     private final Clock clock;
 
     public AllocationRecoveryService(AllocationRecoveryGateway cursors, AllocationRecoveryQueue queue,
-            DelayedTaskTemplate tasks, OrderCreationGateway orders, PaymentOutcomeGateway allocations,
-            PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
-            OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
+                                     DelayedTaskTemplate tasks, OrderCreationGateway orders, PaymentOutcomeGateway allocations,
+                                     PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
+                                     OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
         this.cursors = cursors;
         this.queue = queue;
         this.tasks = tasks;
@@ -68,7 +76,9 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     }
 
     @Override
-    public String taskType() { return AllocationRecoveryQueue.TYPE; }
+    public String taskType() {
+        return AllocationRecoveryQueue.TYPE;
+    }
 
     @Override
     public void handle(DelayedTask task) {
@@ -93,7 +103,8 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         // Durable original ownership authorizes continuation, never a new A2 or renewed checkout capability.
         var principal = new PaymentInitiationPrincipal(tenant, stored.callerScopeHash(), original.actorScope(), (order, creating) -> {
             if (creating || !order.order().id().equals(original.orderId())
-                    || !order.callerScopeHash().equals(stored.callerScopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+                    || !order.callerScopeHash().equals(stored.callerScopeHash()))
+                throw new CommonException(ACTION_FORBIDDEN);
         });
         var command = outcomes.bound(owner, orders.findOrder(tenant, original.orderId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), stored);
@@ -157,9 +168,11 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return true;
     }
 
-    /** Evaluate a consistent read snapshot or already-locked view; never acquires execution rights. */
+    /**
+     * Evaluate a consistent read snapshot or already-locked view; never acquires execution rights.
+     */
     boolean isCurrent(String tenant, StoredAcquireOrder order, StoredPaymentAllocation allocation,
-            AllocationRecoveryCursor cursor, long generation) {
+                      AllocationRecoveryCursor cursor, long generation) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!order.order().id().equals(cursor.orderId()) || !allocation.allocation().orderId().equals(cursor.orderId())
@@ -172,12 +185,14 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     private boolean settled(String tenant, AllocationView locked) {
         var stored = locked.allocation();
         var allocation = stored.allocation();
-        if (!locked.order().callerScopeHash().equals(stored.callerScopeHash())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!locked.order().callerScopeHash().equals(stored.callerScopeHash()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var command = outcomes.bound(new OrderPaymentScope(tenant, stored.callerScopeHash()), locked.order(), stored);
         if (!command.paymentId().equals(allocation.paymentId()) || !command.allocationId().equals(allocation.id())
                 || command.amountMinor() != allocation.amount().getCent()
                 || !command.currency().equals(allocation.amount().getCurrencyValue())
-                || !command.requestDigest().equals(allocation.requestDigest())) throw new CommonException(SNAPSHOT_INVALID);
+                || !command.requestDigest().equals(allocation.requestDigest()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var receipt = allocations.findReceipt(tenant, allocation.id());
         if (allocation.state() == AllocationState.HELD) {
             if (receipt.isPresent() || locked.order().order().paymentReservedMinor() < allocation.amount().getCent()
@@ -193,7 +208,11 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return true;
     }
 
-    private record AllocationView(StoredAcquireOrder order, StoredPaymentAllocation allocation, AllocationRecoveryCursor cursor) {
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    private record AllocationView(StoredAcquireOrder order, StoredPaymentAllocation allocation,
+                                  AllocationRecoveryCursor cursor) {
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
 }

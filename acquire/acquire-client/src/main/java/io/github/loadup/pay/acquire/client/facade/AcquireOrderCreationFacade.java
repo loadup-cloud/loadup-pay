@@ -27,7 +27,9 @@ public interface AcquireOrderCreationFacade {
 
     AcquireOrderDTO createDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
 
-    /** Resume an existing DIRECT_PAY A0 intent; absence must never allocate another order identity. */
+    /**
+     * Resume an existing DIRECT_PAY A0 intent; absence must never allocate another order identity.
+     */
     AcquireOrderDTO resumeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
 
     AcquireOrderDTO detail(IdQuery query);

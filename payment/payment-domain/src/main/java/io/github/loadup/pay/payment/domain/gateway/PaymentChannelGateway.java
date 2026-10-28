@@ -15,12 +15,12 @@
  */
 package io.github.loadup.pay.payment.domain.gateway;
 
-import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 
@@ -28,14 +28,18 @@ import io.github.loadup.pay.channel.api.model.RefundObservation;
  * Verified channel integration, invoked outside local payment transactions. Capability lookup is local only.
  */
 public interface PaymentChannelGateway {
-    /** Pre-Y2 validation only; never submits a channel request. */
+    /**
+     * Pre-Y2 validation only; never submits a channel request.
+     */
     void validate(ChannelPaymentValidation request);
 
     ChannelPaymentSubmission submit(PreparedChannelPayment payment);
 
     PaymentObservation query(ChannelPaymentTarget target);
 
-    /** Read-only channel recovery; an original attempt snapshot never grants another submission. */
+    /**
+     * Read-only channel recovery; an original attempt snapshot never grants another submission.
+     */
     ChannelPaymentSubmission recover(ChannelPaymentRecovery request);
 
     PaymentObservation close(ChannelPaymentTarget target);
@@ -49,6 +53,8 @@ public interface PaymentChannelGateway {
 
     RefundObservation queryRefund(PreparedChannelRefund refund);
 
-    /** Recovery only: may repeat the same provider-idempotent original refund, never creates another refund identity. */
+    /**
+     * Recovery only: may repeat the same provider-idempotent original refund, never creates another refund identity.
+     */
     RefundObservation recoverRefund(PreparedChannelRefund refund);
 }

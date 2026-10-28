@@ -16,8 +16,8 @@
 package io.github.loadup.pay.product.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.util.TenantUtil;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
@@ -44,7 +44,9 @@ public class PublicationTransactions {
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    /**
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return withTenantContext(tenant, () -> {
@@ -59,7 +61,9 @@ public class PublicationTransactions {
         });
     }
 
-    /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
+    /**
+     * Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active.
+     */
     public <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(tenant, work::get);

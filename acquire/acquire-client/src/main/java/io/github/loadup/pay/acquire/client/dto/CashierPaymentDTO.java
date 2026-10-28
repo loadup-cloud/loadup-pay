@@ -15,14 +15,16 @@
  */
 package io.github.loadup.pay.acquire.client.dto;
 
-import io.github.loadup.commons.json.ToStringAsJson;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 
-/** Session-safe projection; accepted=false and absent state/version require a trusted non-acceptance receipt. */
+/**
+ * Session-safe projection; accepted=false and absent state/version require a trusted non-acceptance receipt.
+ */
 public record CashierPaymentDTO(
         @Schema(description = "Original order id") String orderId,
         @Schema(description = "Original payment id") String paymentId,
@@ -32,5 +34,8 @@ public record CashierPaymentDTO(
         @Schema(description = "Verified launch action, if ready") @Valid PaymentActionDTO action,
         @Schema(description = "Payment source version, absent for proven non-acceptance") Long version,
         @Schema(description = "Current safe order summary") @Valid CashierOrderDTO order) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

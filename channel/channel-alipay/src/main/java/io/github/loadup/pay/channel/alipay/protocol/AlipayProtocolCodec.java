@@ -29,12 +29,25 @@ import java.nio.charset.StandardCharsets;
 import java.security.Signature;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
-/** OpenAPI v2 public-key mode, UTF-8 and RSA2. Does not turn protocol success into financial success. */
+/**
+ * OpenAPI v2 public-key mode, UTF-8 and RSA2. Does not turn protocol success into financial success.
+ */
 public class AlipayProtocolCodec {
     private final JsonMapper json;
     private final KmsTemplate kms;
@@ -43,7 +56,13 @@ public class AlipayProtocolCodec {
     public AlipayProtocolCodec(JsonMapper json, KmsTemplate kms, Clock clock) {
         this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
-        this.kms = kms; this.clock = clock;
+        this.kms = kms;
+        this.clock = clock;
+    }
+
+    static String canonical(Map<String, String> parameters) {
+        return parameters.entrySet().stream().filter(e -> !"sign".equals(e.getKey()) && e.getValue() != null && !e.getValue().isEmpty())
+                .sorted(Map.Entry.comparingByKey()).map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("&"));
     }
 
     public AlipaySignedRequest sign(AlipayMethod method, AlipayCredentials credentials, String businessJson, Map<String, String> additional) {
@@ -55,7 +74,8 @@ public class AlipayProtocolCodec {
         try {
             var business = json.readValue(businessJson, Map.class);
             if (business == null || business.isEmpty() || business.containsKey("seller_id")
-                    && !credentials.sellerId().equals(business.get("seller_id"))) throw new CommonException(INVALID_ARGUMENT);
+                    && !credentials.sellerId().equals(business.get("seller_id")))
+                throw new CommonException(INVALID_ARGUMENT);
             var parameters = new TreeMap<String, String>();
             parameters.put("app_id", credentials.appId());
             parameters.put("method", method.api());
@@ -82,13 +102,11 @@ public class AlipayProtocolCodec {
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             parameters.put("sign", signed.base64());
             return new AlipaySignedRequest(method, parameters);
-        } catch (CommonException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
-    }
-
-    static String canonical(Map<String, String> parameters) {
-        return parameters.entrySet().stream().filter(e -> !"sign".equals(e.getKey()) && e.getValue() != null && !e.getValue().isEmpty())
-                .sorted(Map.Entry.comparingByKey()).map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("&"));
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 
     public AlipayVerifiedResponse verify(AlipayMethod method, AlipayCredentials credentials, byte[] response) {
@@ -100,7 +118,8 @@ public class AlipayProtocolCodec {
         try (var parser = json.createParser(response)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) throw new CommonException(CHANNEL_RESPONSE_INVALID);
             while (parser.nextToken() != JsonToken.END_OBJECT) {
-                if (parser.currentToken() != JsonToken.PROPERTY_NAME) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                if (parser.currentToken() != JsonToken.PROPERTY_NAME)
+                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
                 String name = parser.currentName();
                 if (!seen.add(name)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
                 var token = parser.nextToken();
@@ -109,28 +128,37 @@ public class AlipayProtocolCodec {
                     long start = parser.currentTokenLocation().getByteOffset();
                     parser.skipChildren();
                     long end = parser.currentLocation().getByteOffset();
-                    if (start < 0 || end <= start || end > response.length) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    if (start < 0 || end <= start || end > response.length)
+                        throw new CommonException(CHANNEL_RESPONSE_INVALID);
                     payload = Arrays.copyOfRange(response, Math.toIntExact(start), Math.toIntExact(end));
                 } else if ("sign".equals(name)) {
                     if (token != JsonToken.VALUE_STRING) throw new CommonException(CHANNEL_RESPONSE_INVALID);
                     signature = parser.getString();
                 } else if ("alipay_cert_sn".equals(name)) {
-                    if (token != JsonToken.VALUE_STRING || parser.getString().length() > 128) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    if (token != JsonToken.VALUE_STRING || parser.getString().length() > 128)
+                        throw new CommonException(CHANNEL_RESPONSE_INVALID);
                 } else throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
             if (parser.nextToken() != null || payload == null || signature == null || signature.isEmpty() || signature.length() > 1024)
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
-        } catch (CommonException invalid) { throw invalid; }
-        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+        } catch (CommonException invalid) {
+            throw invalid;
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
             if (!(credentials.platformPublicKey() instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048)
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             var verifier = Signature.getInstance("SHA256withRSA");
             verifier.initVerify(rsa);
             verifier.update(payload);
-            if (!verifier.verify(Base64.getDecoder().decode(signature))) throw new CommonException(CHANNEL_SIGNATURE_INVALID);
-        } catch (CommonException invalid) { throw invalid; }
-        catch (Exception invalid) { throw new CommonException(CHANNEL_SIGNATURE_INVALID); }
+            if (!verifier.verify(Base64.getDecoder().decode(signature)))
+                throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        } catch (CommonException invalid) {
+            throw invalid;
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        }
         String raw = new String(payload, StandardCharsets.UTF_8);
         return new AlipayVerifiedResponse(method, raw, DigestUtils.sha256(raw));
     }

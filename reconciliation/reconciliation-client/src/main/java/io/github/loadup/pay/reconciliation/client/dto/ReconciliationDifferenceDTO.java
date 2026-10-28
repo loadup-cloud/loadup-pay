@@ -15,12 +15,12 @@
  */
 package io.github.loadup.pay.reconciliation.client.dto;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
 import io.github.loadup.commons.json.DiagnosticHidden;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.Set;
 
 public record ReconciliationDifferenceDTO(
@@ -32,6 +32,12 @@ public record ReconciliationDifferenceDTO(
         @Schema(description = "All observed difference reasons") Set<ReconciliationDifferenceReason> reasons,
         @Schema(description = "Channel-side evidence; absent only for ledger-only records") ReconciliationLineDTO channel,
         @Schema(description = "Local authoritative evidence; absent only for channel-only records") ReconciliationLineDTO ledger) {
-    public ReconciliationDifferenceDTO { reasons = Set.copyOf(reasons); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public ReconciliationDifferenceDTO {
+        reasons = Set.copyOf(reasons);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

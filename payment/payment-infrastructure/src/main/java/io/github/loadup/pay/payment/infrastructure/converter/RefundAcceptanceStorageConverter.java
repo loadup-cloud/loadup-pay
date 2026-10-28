@@ -25,6 +25,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundAcceptanceStorageConverter {
     ChannelPaymentIdentity toIdentity(RefundAcceptanceDO row);
+
     @Mapping(target = "refundId", source = "row.id")
     @Mapping(target = "original", source = "row")
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")

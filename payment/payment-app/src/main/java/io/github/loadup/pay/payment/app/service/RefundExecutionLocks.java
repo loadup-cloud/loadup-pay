@@ -58,7 +58,8 @@ public class RefundExecutionLocks {
         if (!current.request().id().equals(requestId) || !current.request().id().equals(reference.id())
                 || !current.request().orderId().equals(reference.orderId())
                 || !current.request().payeeMerchantId().equals(reference.payeeMerchantId())
-                || !current.requestDigest().equals(reference.requestDigest())) throw new CommonException(SNAPSHOT_INVALID);
+                || !current.requestDigest().equals(reference.requestDigest()))
+            throw new CommonException(SNAPSHOT_INVALID);
         return current;
     }
 

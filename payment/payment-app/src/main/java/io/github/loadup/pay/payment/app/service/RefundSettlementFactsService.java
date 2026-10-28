@@ -28,8 +28,14 @@ import io.github.loadup.pay.payment.domain.model.RefundState;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.util.Objects;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class RefundSettlementFactsService implements RefundSettlementFactsFacade {
@@ -43,11 +49,16 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
     private final String limitService;
 
     public RefundSettlementFactsService(PaymentActorProvider actors, PaymentAcceptanceTransactions transactions,
-            RefundExecutionLocks locks, RefundResultGateway results, PaymentAcceptanceGateway payments,
-            RefundSettlementConverter converter, Validator validator,
-            @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService) {
-        this.actors = actors; this.transactions = transactions; this.locks = locks; this.results = results;
-        this.payments = payments; this.converter = converter; this.validator = validator;
+                                        RefundExecutionLocks locks, RefundResultGateway results, PaymentAcceptanceGateway payments,
+                                        RefundSettlementConverter converter, Validator validator,
+                                        @Value("${loadup.modules.payment.limitcenter-service-id:limitcenter}") String limitService) {
+        this.actors = actors;
+        this.transactions = transactions;
+        this.locks = locks;
+        this.results = results;
+        this.payments = payments;
+        this.converter = converter;
+        this.validator = validator;
         this.limitService = DomainChecks.id(limitService);
     }
 

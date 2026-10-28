@@ -16,10 +16,14 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence;
+
 import java.util.Optional;
 
 public interface RefundAcceptanceGateway {
-    /** Parent/request/capacity/child locks already held. False preserves the first timestamp and signals a metadata conflict. */
+    /**
+     * Parent/request/capacity/child locks already held. False preserves the first timestamp and signals a metadata conflict.
+     */
     boolean remember(String tenant, RefundAcceptanceEvidence value, long expectedChildVersion);
+
     Optional<RefundAcceptanceEvidence> find(String tenant, String refundId);
 }

@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public enum PaymentLedgerKind { PAYMENT, REFUND }
+public enum PaymentLedgerKind {PAYMENT, REFUND}

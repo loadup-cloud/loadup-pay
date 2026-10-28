@@ -16,14 +16,17 @@
 package io.github.loadup.pay.reconciliation.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.reconciliation.domain.model.*;
-import io.github.loadup.pay.reconciliation.client.dto.*;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationImportDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationSourceFileDTO;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationImportConverter {
     ReconciliationSourceFileDTO toDTO(ReconciliationFileSnapshot value);
+
     @Mapping(target = "importId", source = "value.id")
     @Mapping(target = "fileId", source = "value.file.fileId")
     @Mapping(target = "sourceSha256", source = "value.file.sha256")

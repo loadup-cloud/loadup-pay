@@ -16,20 +16,19 @@
 package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayBindingGuard;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolTime;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayResponseReader;
-import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
-import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -37,9 +36,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
-/** Verified collection queries and unpaid-only close; never treats a closed/refunded trade as uncollected. */
+/**
+ * Verified collection queries and unpaid-only close; never treats a closed/refunded trade as uncollected.
+ */
 public final class AlipayPaymentAdapter {
     private final AlipayProtocolClient client;
     private final JsonMapper json;

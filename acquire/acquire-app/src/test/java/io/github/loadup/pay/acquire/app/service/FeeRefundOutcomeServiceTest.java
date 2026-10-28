@@ -46,10 +46,33 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.admission;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class FeeRefundOutcomeServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(FeeRefundConverter.class.getPackageName());
@@ -103,7 +126,9 @@ class FeeRefundOutcomeServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); }
+    void close() {
+        context.close();
+    }
 
     @Test
     void earlyRefundBasisAndReceiptCommitTogetherAndReplayNeedsNoRemoteAvailability() {

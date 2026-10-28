@@ -25,11 +25,19 @@ import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayWapProtocolClientTest {
     private final HttpTemplate http = mock(HttpTemplate.class);
@@ -39,7 +47,17 @@ class AlipayWapProtocolClientTest {
     private final URI gateway = URI.create("https://openapi.alipay.com/gateway.do");
     private final String business = "{\"product_code\":\"QUICK_WAP_WAY\"}";
 
-    @AfterEach void clear() { TransactionSynchronizationManager.clear(); }
+    private static ChannelBindingRevision binding(AccessMode mode) {
+        return new ChannelBindingRevision("binding", "merchant", Channel.ALIPAY, mode, "a".repeat(64), "credential", "v1",
+                new AlipayAccountIdentity("app", "seller", null,
+                        mode == AccessMode.DIRECT ? null : "authorization", mode == AccessMode.DIRECT ? null : "v1"),
+                Set.of(PaymentMethod.H5));
+    }
+
+    @AfterEach
+    void clear() {
+        TransactionSynchronizationManager.clear();
+    }
 
     @Test
     void pagePreparationSignsTheOriginalBodyWithoutCallingHttpOrVerifyingAnInventedResponse() {
@@ -75,12 +93,5 @@ class AlipayWapProtocolClientTest {
         when(credentials.read("tenant", binding)).thenReturn(new AlipayCredentials("tenant", "app", "seller", null, null, "secret"));
         assertThrows(CommonException.class, () -> client.directWapUrl("tenant", binding, gateway, business, Map.of()));
         verifyNoInteractions(codec, http);
-    }
-
-    private static ChannelBindingRevision binding(AccessMode mode) {
-        return new ChannelBindingRevision("binding", "merchant", Channel.ALIPAY, mode, "a".repeat(64), "credential", "v1",
-                new AlipayAccountIdentity("app", "seller", null,
-                        mode == AccessMode.DIRECT ? null : "authorization", mode == AccessMode.DIRECT ? null : "v1"),
-                Set.of(PaymentMethod.H5));
     }
 }

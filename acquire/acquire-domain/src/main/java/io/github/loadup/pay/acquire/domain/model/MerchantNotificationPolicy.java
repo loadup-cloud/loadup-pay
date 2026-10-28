@@ -17,24 +17,30 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Frozen contract policy. Backoff arithmetic saturates and rounds upward, never overflowing. */
+/**
+ * Frozen contract policy. Backoff arithmetic saturates and rounds upward, never overflowing.
+ */
 public record MerchantNotificationPolicy(String targetRef, String signingIdentityRef, int timeoutMillis,
-        long retryInitialSeconds, BigDecimal retryMultiplier, long retryMaximumSeconds,
-        int retryMaxAttempts, long retryWindowSeconds) {
+                                         long retryInitialSeconds, BigDecimal retryMultiplier, long retryMaximumSeconds,
+                                         int retryMaxAttempts, long retryWindowSeconds) {
     public MerchantNotificationPolicy {
-        DomainChecks.text(targetRef, 128); DomainChecks.text(signingIdentityRef, 128);
+        DomainChecks.text(targetRef, 128);
+        DomainChecks.text(signingIdentityRef, 128);
         require(timeoutMillis > 0 && retryInitialSeconds > 0 && retryMaximumSeconds >= retryInitialSeconds
                 && retryMaxAttempts > 0 && retryWindowSeconds > 0 && retryMultiplier != null
                 && retryMultiplier.compareTo(BigDecimal.ONE) >= 0, INVALID_ARGUMENT);
         retryMultiplier = retryMultiplier.stripTrailingZeros();
         require((long) retryMultiplier.precision() - retryMultiplier.scale() <= 20 && retryMultiplier.scale() <= 18, INVALID_ARGUMENT);
     }
+
     public long delaySeconds(int attempt) {
         require(attempt > 0, INVALID_ARGUMENT);
         var cap = BigDecimal.valueOf(retryMaximumSeconds);
@@ -49,5 +55,9 @@ public record MerchantNotificationPolicy(String targetRef, String signingIdentit
         }
         return delay.setScale(0, RoundingMode.CEILING).min(cap).longValueExact();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

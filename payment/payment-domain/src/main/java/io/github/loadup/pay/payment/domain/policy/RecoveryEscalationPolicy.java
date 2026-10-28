@@ -16,26 +16,31 @@
 package io.github.loadup.pay.payment.domain.policy;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Operational attention only; no outcome, capacity release, resubmission or task mutation. */
+/**
+ * Operational attention only; no outcome, capacity release, resubmission or task mutation.
+ */
 public record RecoveryEscalationPolicy(long reviewAfterSeconds, long urgentAfterSeconds) {
     public RecoveryEscalationPolicy {
         require(reviewAfterSeconds >= 1 && urgentAfterSeconds > reviewAfterSeconds && urgentAfterSeconds <= 31536000L, INVALID_ARGUMENT);
     }
-    public enum Level { NORMAL, REVIEW, URGENT }
 
     public long ageSeconds(LocalDateTime firstUnknownAt, LocalDateTime now) {
         return Math.max(0L, Duration.between(Objects.requireNonNull(firstUnknownAt), Objects.requireNonNull(now)).getSeconds());
     }
+
     public Level level(LocalDateTime firstUnknownAt, LocalDateTime now) {
         long age = ageSeconds(firstUnknownAt, now);
         return age >= urgentAfterSeconds ? Level.URGENT : age >= reviewAfterSeconds ? Level.REVIEW : Level.NORMAL;
     }
+
     public LocalDateTime cutoff(Level minimumLevel, LocalDateTime now) {
         Objects.requireNonNull(now);
         // NORMAL has no age predicate: a local clock regression must not hide existing UNKNOWN rows.
@@ -45,5 +50,11 @@ public record RecoveryEscalationPolicy(long reviewAfterSeconds, long urgentAfter
             case URGENT -> now.minusSeconds(urgentAfterSeconds);
         };
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum Level {NORMAL, REVIEW, URGENT}
 }

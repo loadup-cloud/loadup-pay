@@ -18,6 +18,9 @@ package io.github.loadup.pay.acquire.infrastructure.client;
 import com.google.protobuf.Message;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcOperation;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
 import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
@@ -31,19 +34,17 @@ import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
-import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcOperation;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
-import java.time.Clock;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Clock;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -56,9 +57,9 @@ import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_CLOS
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_DETAIL;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FACTS;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_FENCE_PARENT;
-import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_PREPARE;
-import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_LOOKUP;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_EXPIRE;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_LOOKUP;
+import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_PREPARE;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_OUTCOME;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_PARENT_FENCE_STATUS;
 import static io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_REFUND_SUMMARY;
@@ -96,7 +97,7 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
 
     @Override
     public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(String tenant,
-            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
+                                                                                     io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
         return exchange(tenant, PAYMENT_INPUT_EXPIRE, command);
     }
 
@@ -162,6 +163,7 @@ public class PaymentAcceptanceGrpcClient implements PaymentAcceptanceClient, Pay
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }
+
     private String credential(String tenant) {
         return tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
     }

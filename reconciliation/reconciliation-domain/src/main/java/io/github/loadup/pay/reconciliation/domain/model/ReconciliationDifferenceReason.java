@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-public enum ReconciliationDifferenceReason { CHANNEL_ONLY, LEDGER_ONLY, AMOUNT_MISMATCH, REQUEST_MISMATCH, STATE_MISMATCH }
+public enum ReconciliationDifferenceReason {CHANNEL_ONLY, LEDGER_ONLY, AMOUNT_MISMATCH, REQUEST_MISMATCH, STATE_MISMATCH}

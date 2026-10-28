@@ -16,13 +16,23 @@
 package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/** One local read snapshot; pages do not constitute a cross-request export snapshot. */
+/**
+ * One local read snapshot; pages do not constitute a cross-request export snapshot.
+ */
 public record PaymentUnknownRecoveryPageDTO(List<PaymentUnknownRecoveryDTO> items, boolean hasMore,
-        OffsetDateTime nextFirstUnknownAt, String nextRecordId, OffsetDateTime observedAt,
-        long reviewAfterSeconds, long urgentAfterSeconds) {
-    public PaymentUnknownRecoveryPageDTO { items = List.copyOf(items); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                            OffsetDateTime nextFirstUnknownAt, String nextRecordId,
+                                            OffsetDateTime observedAt,
+                                            long reviewAfterSeconds, long urgentAfterSeconds) {
+    public PaymentUnknownRecoveryPageDTO {
+        items = List.copyOf(items);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

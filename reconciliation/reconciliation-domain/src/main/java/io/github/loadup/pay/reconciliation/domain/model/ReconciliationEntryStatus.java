@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-public enum ReconciliationEntryStatus { PROCESSING, SUCCEEDED, FAILED, UNKNOWN }
+public enum ReconciliationEntryStatus {PROCESSING, SUCCEEDED, FAILED, UNKNOWN}

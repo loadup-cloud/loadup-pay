@@ -22,22 +22,31 @@ import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.pay.payment.domain.model.RecoveryPosition;
 import io.github.loadup.pay.payment.domain.model.RecoveryTaskKey;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Pure metadata checks only. Native lookup/claim/heartbeat/ACK and all financial work remain with their owners. */
+/**
+ * Pure metadata checks only. Native lookup/claim/heartbeat/ACK and all financial work remain with their owners.
+ */
 public final class RecoveryTaskProtocol {
-    private RecoveryTaskProtocol() {}
+    private RecoveryTaskProtocol() {
+    }
+
     public static RecoveryTaskKey receive(String expectedType, DelayedTask task, String trustedTenant) {
         if (task == null || expectedType == null || task.tenantId() == null || !expectedType.equals(task.taskType())
                 || !task.tenantId().equals(trustedTenant)) throw new CommonException(SNAPSHOT_INVALID);
         try {
             DomainChecks.id(task.tenantId());
             return RecoveryTaskKey.parse(task.bizId());
-        } catch (DomainViolation | NullPointerException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (DomainViolation | NullPointerException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
+
     public static void requireClaim(String expectedType, DelayedTask task, DelayedTask registered, LocalDateTime now) {
         if (task == null || registered == null || now == null || expectedType == null || task.id() == null || task.tenantId() == null || task.bizId() == null
                 || task.executeAt() == null || task.status() != DelayedTaskStatus.RUNNING || task.attempts() < 1 || task.maxAttempts() < 1
@@ -49,8 +58,12 @@ public final class RecoveryTaskProtocol {
                 || !now.isBefore(registered.leaseUntil()) || now.isBefore(registered.nextExecuteAt()))
             throw new CommonException(INVALID_STATE);
     }
+
     public static boolean current(RecoveryTaskKey key, RecoveryPosition position, LocalDateTime originalExecuteAt) {
-        try { return Objects.requireNonNull(position).current(key, originalExecuteAt); }
-        catch (DomainViolation | NullPointerException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Objects.requireNonNull(position).current(key, originalExecuteAt);
+        } catch (DomainViolation | NullPointerException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

@@ -18,12 +18,16 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 
-/** Typed account semantics shared by bindings and providers, independent of payment orchestration. */
+/**
+ * Typed account semantics shared by bindings and providers, independent of payment orchestration.
+ */
 public sealed interface ChannelAccountIdentity permits AlipayAccountIdentity, WechatAccountIdentity {
     Channel channel();
 
     AccessMode accessMode();
 
-    /** The actual collecting account, independent of app aliases and credential versions. */
+    /**
+     * The actual collecting account, independent of app aliases and credential versions.
+     */
     String collectingAccountId();
 }

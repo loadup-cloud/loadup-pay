@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.acquire.domain.model;
 
-public enum MerchantNotificationState { INIT, PENDING, ACKED, EXHAUSTED }
+public enum MerchantNotificationState {INIT, PENDING, ACKED, EXHAUSTED}

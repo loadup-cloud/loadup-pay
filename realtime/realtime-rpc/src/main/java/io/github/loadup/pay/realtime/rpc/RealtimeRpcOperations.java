@@ -18,21 +18,19 @@ package io.github.loadup.pay.realtime.rpc;
 import io.github.loadup.components.rpc.grpc.RpcOperation;
 
 public final class RealtimeRpcOperations {
-    private RealtimeRpcOperations() {}
-
     public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO>, io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO, io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfOrderSnapshotEventDTO, io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> REALTIME_ORDER =
             new RpcOperation<>("realtime", io.github.loadup.pay.realtime.rpc.proto.RealtimeRpcGrpc.getOrderMethod(),
                     RealtimeRpcMapper.INSTANCE::toWirePayEventEnvelopeOfOrderSnapshotEventDTO, RealtimeRpcMapper.INSTANCE::fromWireProjectionAckDTO);
-
     public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO>, io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO, io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfPaymentSnapshotEventDTO, io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> REALTIME_PAYMENT =
             new RpcOperation<>("realtime", io.github.loadup.pay.realtime.rpc.proto.RealtimeRpcGrpc.getPaymentMethod(),
                     RealtimeRpcMapper.INSTANCE::toWirePayEventEnvelopeOfPaymentSnapshotEventDTO, RealtimeRpcMapper.INSTANCE::fromWireProjectionAckDTO);
-
     public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO>, io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO, io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfRefundSnapshotEventDTO, io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> REALTIME_REFUND =
             new RpcOperation<>("realtime", io.github.loadup.pay.realtime.rpc.proto.RealtimeRpcGrpc.getRefundMethod(),
                     RealtimeRpcMapper.INSTANCE::toWirePayEventEnvelopeOfRefundSnapshotEventDTO, RealtimeRpcMapper.INSTANCE::fromWireProjectionAckDTO);
-
     public static final RpcOperation<io.github.loadup.commons.event.EventEnvelope<io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO>, io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO, io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO, io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> REALTIME_REFUND_SUMMARY =
             new RpcOperation<>("realtime", io.github.loadup.pay.realtime.rpc.proto.RealtimeRpcGrpc.getRefundSummaryMethod(),
                     RealtimeRpcMapper.INSTANCE::toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO, RealtimeRpcMapper.INSTANCE::fromWireProjectionAckDTO);
+
+    private RealtimeRpcOperations() {
+    }
 }

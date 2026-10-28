@@ -23,7 +23,8 @@ import org.springframework.core.env.MapPropertySource;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RecoveryPollingConfigurationTest {
     @Test

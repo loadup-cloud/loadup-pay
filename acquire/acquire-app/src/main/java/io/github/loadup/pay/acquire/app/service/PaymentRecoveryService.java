@@ -18,15 +18,19 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.converter.PaymentRecoveryConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
-import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentRecoveryDTO;
 import io.github.loadup.pay.acquire.client.facade.PaymentRecoveryFacade;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentRecoveryService implements PaymentRecoveryFacade {
@@ -37,11 +41,16 @@ public class PaymentRecoveryService implements PaymentRecoveryFacade {
     private final Validator validator;
 
     public PaymentRecoveryService(AcquireActorProvider actors, PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
-            PaymentRecoveryConverter converter, Validator validator) {
-        this.actors = actors; this.initiation = initiation; this.outcomes = outcomes; this.converter = converter; this.validator = validator;
+                                  PaymentRecoveryConverter converter, Validator validator) {
+        this.actors = actors;
+        this.initiation = initiation;
+        this.outcomes = outcomes;
+        this.converter = converter;
+        this.validator = validator;
     }
 
-    @Override public PaymentRecoveryDTO recover(PaymentRecoverCommand command) {
+    @Override
+    public PaymentRecoveryDTO recover(PaymentRecoverCommand command) {
         if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         var actor = actors.current();
         if (!actor.permissions().contains("pay:acquire:payment:recover")) throw new CommonException(ACTION_FORBIDDEN);

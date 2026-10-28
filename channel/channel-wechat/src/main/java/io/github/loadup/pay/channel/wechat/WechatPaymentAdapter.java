@@ -17,28 +17,48 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.wechat.protocol.WechatBindingGuard;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatResponseReader;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Query/close proofs always use the original order number and original merchant identity. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+
+/**
+ * Query/close proofs always use the original order number and original merchant identity.
+ */
 public final class WechatPaymentAdapter {
     private final WechatProtocolClient client;
     private final WechatResponseReader responses;
     private final JsonMapper json;
     private final Clock clock;
+
     public WechatPaymentAdapter(WechatProtocolClient client, JsonMapper json, Clock clock) {
-        this.client = client; this.responses = new WechatResponseReader(json); this.json = json; this.clock = clock;
+        this.client = client;
+        this.responses = new WechatResponseReader(json);
+        this.json = json;
+        this.clock = clock;
     }
+
     public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) {
         return probe(context, target).observation();
     }
+
     private Probe probe(ChannelExecutionContext context, ChannelPaymentTarget target) {
         var account = original(context, target);
         boolean partner = account.subMerchantId() != null;
@@ -48,9 +68,11 @@ public final class WechatPaymentAdapter {
         var response = client.call(context.tenantId(), context.binding(), operation,
                 Map.of("out_trade_no", target.identity().channelRequestNo()), params, null);
         var data = responses.read(response, operation);
-        if (response.status() != 200) return new Probe(observation(target, ChannelPaymentOutcome.Kind.UNKNOWN, null, null,
-                PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), null);
-        responses.account(data, account); responses.match(data, "out_trade_no", target.identity().channelRequestNo());
+        if (response.status() != 200)
+            return new Probe(observation(target, ChannelPaymentOutcome.Kind.UNKNOWN, null, null,
+                    PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), null);
+        responses.account(data, account);
+        responses.match(data, "out_trade_no", target.identity().channelRequestNo());
         responses.amount(data, target.amount().getCent());
         var state = responses.text(data, "trade_state", 32);
         var tradeType = responses.optionalText(data, "trade_type", 16);
@@ -58,8 +80,11 @@ public final class WechatPaymentAdapter {
         if ("SUCCESS".equals(state) || "REFUND".equals(state)) {
             if (tradeNo == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
             final LocalDateTime succeededAt;
-            try { succeededAt = OffsetDateTime.parse(responses.text(data, "success_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime(); }
-            catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+            try {
+                succeededAt = OffsetDateTime.parse(responses.text(data, "success_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime();
+            } catch (RuntimeException invalid) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             return new Probe(observation(target, ChannelPaymentOutcome.Kind.SUCCEEDED, tradeNo, succeededAt,
                     PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), tradeType);
         }
@@ -68,12 +93,14 @@ public final class WechatPaymentAdapter {
         // CLOSED/REVOKED/PAYERROR or NOT_FOUND alone do not prove that money was never collected.
         return new Probe(observation(target, kind, tradeNo, null, PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), tradeType);
     }
+
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         var observed = query(context, new ChannelPaymentTarget(request.identity(), request.amount()));
         // Query does not return prepay_id; never create another prepay order during query recovery.
         return new ChannelPaymentSubmission(request.identity(), request.amount(), observed, null);
     }
+
     public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
         var account = original(context, target);
         var original = probe(context, target);
@@ -97,18 +124,25 @@ public final class WechatPaymentAdapter {
         return observation(target, ChannelPaymentOutcome.Kind.NO_COLLECTION, before.channelTransactionNo(), null,
                 PaymentObservation.Source.CLOSE_RESPONSE, digest);
     }
-    private record Probe(PaymentObservation observation, String tradeType) {
-        @Override public String toString() { return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this); }
-    }
+
     private WechatAccountIdentity original(ChannelExecutionContext context, ChannelPaymentTarget target) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);
         var account = WechatBindingGuard.require(context, target.identity());
-        if (!target.identity().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}")) throw new CommonException(INVALID_ARGUMENT);
+        if (!target.identity().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}"))
+            throw new CommonException(INVALID_ARGUMENT);
         return account;
     }
+
     private PaymentObservation observation(ChannelPaymentTarget target, ChannelPaymentOutcome.Kind kind, String tradeNo,
-            LocalDateTime succeededAt, PaymentObservation.Source source, String digest) {
+                                           LocalDateTime succeededAt, PaymentObservation.Source source, String digest) {
         return new PaymentObservation(target.identity(), kind, target.amount(), tradeNo, succeededAt, source,
                 source.name().toLowerCase(java.util.Locale.ROOT) + ":" + digest, digest);
+    }
+
+    private record Probe(PaymentObservation observation, String tradeType) {
+        @Override
+        public String toString() {
+            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+        }
     }
 }

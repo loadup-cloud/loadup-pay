@@ -20,9 +20,9 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionDO;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.BeanMapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface CheckoutStorageConverter {

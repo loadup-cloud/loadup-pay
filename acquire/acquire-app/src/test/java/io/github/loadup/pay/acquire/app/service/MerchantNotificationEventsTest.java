@@ -17,8 +17,8 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.util.DigestUtils;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
@@ -31,13 +31,19 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
-import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
@@ -45,12 +51,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
@@ -96,6 +96,27 @@ class MerchantNotificationEventsTest {
     private final Map<String, MerchantNotificationDelivery> existing = new HashMap<>();
     private final MerchantNotificationEvents events = new MerchantNotificationEvents(orders, admissions, factsReader,
             context.getBean(MerchantNotificationConverter.class), deliveries, tasks, ids);
+
+    private static OrderAdmissionDTO withNotifications(String targetRef, String signingIdentityRef) {
+        var original = CheckoutFixtures.admission();
+        AcquiringTermsDTO terms = original.terms();
+        var notification = new NotificationTermsDTO(true, targetRef, signingIdentityRef, 1000, 1,
+                BigDecimal.valueOf(2), 60, 5, 3600);
+        var enabledTerms = new AcquiringTermsDTO(terms.schemaVersion(), terms.order(), terms.payment(), terms.fee(),
+                terms.refund(), notification, terms.limits(), terms.capabilities(), terms.routingProfileRef(), terms.returnTargetCode());
+        return new OrderAdmissionDTO(original.admissionId(), original.orderId(), original.payeeMerchantId(),
+                original.decision(), original.reasonCode(), original.requestDigest(), original.contractId(),
+                original.revision(), original.generation(), original.snapshotHash(), original.compiledTermsHash(),
+                original.admittedAt(), original.materializeBefore(), enabledTerms);
+    }
+
+    private static String key(String eventId, String targetRef) {
+        return eventId + ':' + targetRef;
+    }
+
+    private static Map<?, ?> json(String value) {
+        return JsonMapper.builder().build().readValue(value, Map.class);
+    }
 
     @BeforeEach
     void setup() {
@@ -326,19 +347,6 @@ class MerchantNotificationEventsTest {
         admission.set(withNotifications(targetRef, signingIdentityRef));
     }
 
-    private static OrderAdmissionDTO withNotifications(String targetRef, String signingIdentityRef) {
-        var original = CheckoutFixtures.admission();
-        AcquiringTermsDTO terms = original.terms();
-        var notification = new NotificationTermsDTO(true, targetRef, signingIdentityRef, 1000, 1,
-                BigDecimal.valueOf(2), 60, 5, 3600);
-        var enabledTerms = new AcquiringTermsDTO(terms.schemaVersion(), terms.order(), terms.payment(), terms.fee(),
-                terms.refund(), notification, terms.limits(), terms.capabilities(), terms.routingProfileRef(), terms.returnTargetCode());
-        return new OrderAdmissionDTO(original.admissionId(), original.orderId(), original.payeeMerchantId(),
-                original.decision(), original.reasonCode(), original.requestDigest(), original.contractId(),
-                original.revision(), original.generation(), original.snapshotHash(), original.compiledTermsHash(),
-                original.admittedAt(), original.materializeBefore(), enabledTerms);
-    }
-
     private void write(Runnable action) {
         transactions.writeLocal(TENANT, () -> {
             action.run();
@@ -354,13 +362,5 @@ class MerchantNotificationEventsTest {
     private MerchantNotificationDelivery onlyDelivery() {
         assertEquals(1, existing.size());
         return existing.values().iterator().next();
-    }
-
-    private static String key(String eventId, String targetRef) {
-        return eventId + ':' + targetRef;
-    }
-
-    private static Map<?, ?> json(String value) {
-        return JsonMapper.builder().build().readValue(value, Map.class);
     }
 }

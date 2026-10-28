@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.acquire.app.port;
 
-import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 
 public interface AcquireRealtimeClient {

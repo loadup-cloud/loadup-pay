@@ -20,17 +20,43 @@ import io.github.loadup.modules.transfer.client.spi.TransferContext;
 import io.github.loadup.modules.transfer.client.spi.TransferHandler;
 import io.github.loadup.pay.reconciliation.app.service.ReconciliationImportExecutionService;
 import org.springframework.stereotype.Component;
+
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/** Native Transfer owns source streams, task claims, acknowledgements and temporary-file cleanup. */
+/**
+ * Native Transfer owns source streams, task claims, acknowledgements and temporary-file cleanup.
+ */
 @Component
 public class ReconciliationImportTaskHandler implements TransferHandler {
     private final ReconciliationImportExecutionService service;
-    public ReconciliationImportTaskHandler(ReconciliationImportExecutionService service) { this.service = service; }
-    @Override public String key() { return ReconciliationImportExecutionService.HANDLER_KEY; }
-    @Override public TransferKind kind() { return TransferKind.IMPORT; }
-    @Override public String outputFilename() { return "reconciliation-import.txt"; }
-    @Override public String outputContentType() { return "text/plain"; }
-    @Override public void process(TransferContext context, InputStream input, OutputStream output) { service.handle(context, input); }
+
+    public ReconciliationImportTaskHandler(ReconciliationImportExecutionService service) {
+        this.service = service;
+    }
+
+    @Override
+    public String key() {
+        return ReconciliationImportExecutionService.HANDLER_KEY;
+    }
+
+    @Override
+    public TransferKind kind() {
+        return TransferKind.IMPORT;
+    }
+
+    @Override
+    public String outputFilename() {
+        return "reconciliation-import.txt";
+    }
+
+    @Override
+    public String outputContentType() {
+        return "text/plain";
+    }
+
+    @Override
+    public void process(TransferContext context, InputStream input, OutputStream output) {
+        service.handle(context, input);
+    }
 }

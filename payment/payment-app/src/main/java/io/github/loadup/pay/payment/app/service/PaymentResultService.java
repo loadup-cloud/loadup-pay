@@ -16,8 +16,10 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
@@ -28,12 +30,10 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
-import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
@@ -112,14 +112,14 @@ public class PaymentResultService {
     }
 
     public PaymentResultApplication recordSubmission(String tenant,
-            io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+                                                     io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
+                                                     io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         return recordWithAction(tenant, original, submission);
     }
 
     public PaymentResultApplication recordRecovery(String tenant,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+                                                   io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
+                                                   io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         if (submission == null || submission.observation() == null
                 || submission.observation().source() != PaymentObservation.Source.QUERY_RESPONSE)
             throw new CommonException(INVALID_ARGUMENT);
@@ -127,8 +127,8 @@ public class PaymentResultService {
     }
 
     private PaymentResultApplication recordWithAction(String tenant,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+                                                      io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
+                                                      io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (original == null || submission == null
                 || !original.identity().equals(submission.identity()) || !original.amount().equals(submission.amount()))
@@ -178,7 +178,8 @@ public class PaymentResultService {
         var attempt = attempts.lock(tenant, observation.identity().attemptId())
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
         var rejection = PaymentExecutionBindings.observationRejection(accepted, attempt, observation.identity(), observation.amount());
-        if (rejection != null) return reject(tenant, accepted, receiptId, observation, digest, payload, rejection.name());
+        if (rejection != null)
+            return reject(tenant, accepted, receiptId, observation, digest, payload, rejection.name());
         PaymentExecutionBindings.observableContext(locked, attempt);
         if (observation.kind() == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED)
             return reject(tenant, accepted, receiptId, observation, digest, payload, "FUNDS_RETURNED_REQUIRES_COMPENSATION");

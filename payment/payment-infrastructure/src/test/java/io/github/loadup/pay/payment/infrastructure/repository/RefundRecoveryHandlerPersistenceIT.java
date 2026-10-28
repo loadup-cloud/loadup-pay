@@ -19,25 +19,73 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTaskConverter;
+import io.github.loadup.components.delayedtask.DelayedTaskProperties;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskStore;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.delayedtask.dataobject.DelayedTaskDO;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.payment.app.converter.*;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
+import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
+import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentCaptureReader;
+import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
+import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
+import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
+import io.github.loadup.pay.payment.app.service.PaymentAcceptanceTransactions;
+import io.github.loadup.pay.payment.app.service.PaymentResultService;
+import io.github.loadup.pay.payment.app.service.RefundExecutionLocks;
+import io.github.loadup.pay.payment.app.service.RefundExecutionService;
+import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
+import io.github.loadup.pay.payment.app.service.RefundRecoveryService;
+import io.github.loadup.pay.payment.app.service.RefundResultService;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.app.service.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
+import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
+import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundRequestState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.payment.infrastructure.codec.RefundResultCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.*;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundAllocationPlanDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundChannelReceiptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundResultAnomalyDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundTransactionClaimDOMapper;
 import io.github.loadup.pay.payment.infrastructure.task.RefundRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -55,8 +103,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Duration;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -68,11 +116,26 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
-/** Actual collection success, refund persistence, projections and native recovery; no database substitutes. */
+/**
+ * Actual collection success, refund persistence, projections and native recovery; no database substitutes.
+ */
 @SpringBootTest(classes = {PaymentResultPersistenceIT.Application.class, RefundRecoveryHandlerPersistenceIT.Configuration.class},
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {"loadup.delayedtask.max-attempts=3", "loadup.delayedtask.lease=PT5S", "loadup.delayedtask.batch-size=1",
@@ -115,20 +178,42 @@ class RefundRecoveryHandlerPersistenceIT {
 
     @Autowired
     RefundRecoveryHandlerPersistenceIT(PaymentAcceptanceTransactions transactions, PaymentAcceptanceGateway payments,
-            PaymentAttemptGateway attempts, ChannelBindingManagementGateway bindings, PaymentAcceptanceCodec codec,
-            ChannelBindingCodec bindingCodec, PaymentResultService collectionResults, PaymentResultGateway collections,
-            RefundGateway refunds, RefundResultGateway results, RefundExecutionLocks locks, RefundExecutionService execution,
-            RefundResultService resultService, RefundProjectionEvents projections, RefundRecoveryService recovery,
-            RefundRecoveryGateway cursors, RefundRecoveryTaskHandler handler, DelayedTaskTemplate tasks, DelayedTaskStore taskStore,
-            DelayedTaskProperties taskProperties, DelayedTaskConverter taskConverter, PaymentResultPersistenceIT.ControlledClock clock,
-            PaymentResultPersistenceIT.RemoteChannel remote, RefundChannelControl channel, RefundFaults faults,
-            JsonMapper json, JdbcTemplate jdbc, TestScenario scenario, RecoveryInventoryReader inventory, UnknownRecoveryReader unknowns, FaultingRefundAcceptances acceptances, PaymentCaptureReader captureReader) {
-        this.transactions = transactions; this.payments = payments; this.attempts = attempts; this.bindings = bindings;
-        this.codec = codec; this.bindingCodec = bindingCodec; this.collectionResults = collectionResults; this.collections = collections;
-        this.refunds = refunds; this.results = results; this.locks = locks; this.execution = execution; this.resultService = resultService;
-        this.projections = projections; this.recovery = recovery; this.cursors = cursors; this.handler = handler; this.tasks = tasks;
-        this.taskStore = taskStore; this.taskProperties = taskProperties; this.taskConverter = taskConverter; this.clock = clock;
-        this.remote = remote; this.channel = channel; this.faults = faults; this.json = json; this.jdbc = jdbc; this.scenario = scenario;
+                                       PaymentAttemptGateway attempts, ChannelBindingManagementGateway bindings, PaymentAcceptanceCodec codec,
+                                       ChannelBindingCodec bindingCodec, PaymentResultService collectionResults, PaymentResultGateway collections,
+                                       RefundGateway refunds, RefundResultGateway results, RefundExecutionLocks locks, RefundExecutionService execution,
+                                       RefundResultService resultService, RefundProjectionEvents projections, RefundRecoveryService recovery,
+                                       RefundRecoveryGateway cursors, RefundRecoveryTaskHandler handler, DelayedTaskTemplate tasks, DelayedTaskStore taskStore,
+                                       DelayedTaskProperties taskProperties, DelayedTaskConverter taskConverter, PaymentResultPersistenceIT.ControlledClock clock,
+                                       PaymentResultPersistenceIT.RemoteChannel remote, RefundChannelControl channel, RefundFaults faults,
+                                       JsonMapper json, JdbcTemplate jdbc, TestScenario scenario, RecoveryInventoryReader inventory, UnknownRecoveryReader unknowns, FaultingRefundAcceptances acceptances, PaymentCaptureReader captureReader) {
+        this.transactions = transactions;
+        this.payments = payments;
+        this.attempts = attempts;
+        this.bindings = bindings;
+        this.codec = codec;
+        this.bindingCodec = bindingCodec;
+        this.collectionResults = collectionResults;
+        this.collections = collections;
+        this.refunds = refunds;
+        this.results = results;
+        this.locks = locks;
+        this.execution = execution;
+        this.resultService = resultService;
+        this.projections = projections;
+        this.recovery = recovery;
+        this.cursors = cursors;
+        this.handler = handler;
+        this.tasks = tasks;
+        this.taskStore = taskStore;
+        this.taskProperties = taskProperties;
+        this.taskConverter = taskConverter;
+        this.clock = clock;
+        this.remote = remote;
+        this.channel = channel;
+        this.faults = faults;
+        this.json = json;
+        this.jdbc = jdbc;
+        this.scenario = scenario;
         this.inventory = inventory;
         this.acceptances = acceptances;
         this.captureReader = captureReader;
@@ -382,7 +467,9 @@ class RefundRecoveryHandlerPersistenceIT {
             assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM refund_result_anomaly WHERE tenant_id = ? AND reason_code = ?", Long.class,
                     fixture.tenant(), "REFUND_ACCEPTANCE_TIME_CONFLICT").longValue());
             assertEquals(before, jdbc.queryForMap("SELECT state,row_version,updated_at FROM refund_order WHERE tenant_id = ? AND id = ?", fixture.tenant(), fixture.refundId()));
-        } finally { cancelRemainingTasks(fixture); }
+        } finally {
+            cancelRemainingTasks(fixture);
+        }
     }
 
     @Test
@@ -403,7 +490,10 @@ class RefundRecoveryHandlerPersistenceIT {
                 assertEquals(RefundState.SUCCEEDED, refunds.load(fixture.tenant(), fixture.requestId()).request().children().getFirst().state());
                 return true;
             });
-        } finally { acceptances.failAfterWrite.set(null); cancelRemainingTasks(fixture); }
+        } finally {
+            acceptances.failAfterWrite.set(null);
+            cancelRemainingTasks(fixture);
+        }
     }
 
     @Test
@@ -413,9 +503,12 @@ class RefundRecoveryHandlerPersistenceIT {
             clock.advance(Duration.ofDays(2));
             var read = sourceCapture(fixture, AT);
             assertEquals(io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker.REFUND_ACCEPTANCE_MISSING, read.blocker());
-            assertEquals(fixture.refundId(), read.blockerSubjectId()); assertTrue(read.lines().isEmpty());
+            assertEquals(fixture.refundId(), read.blockerSubjectId());
+            assertTrue(read.lines().isEmpty());
             assertSubmitted(fixture);
-        } finally { cancelRemainingTasks(fixture); }
+        } finally {
+            cancelRemainingTasks(fixture);
+        }
     }
 
     @Test
@@ -423,15 +516,23 @@ class RefundRecoveryHandlerPersistenceIT {
         var fixture = seedSubmittedRefund();
         try {
             clock.advance(Duration.ofDays(2));
-            var acceptedAt = AT.plusDays(1); var original = channel.observations.get(fixture.refundId());
+            var acceptedAt = AT.plusDays(1);
+            var original = channel.observations.get(fixture.refundId());
             resultService.record(fixture.tenant(), acceptance(original, ChannelRefundOutcome.Kind.ACCEPTED, "accepted-next-day", acceptedAt));
-            var oldDay = sourceCapture(fixture, AT); var refundDay = sourceCapture(fixture, acceptedAt);
-            assertNull(oldDay.blocker()); assertEquals(1L, oldDay.paymentCount()); assertEquals(0L, oldDay.refundCount());
-            assertNull(refundDay.blocker()); assertEquals(0L, refundDay.paymentCount()); assertEquals(1L, refundDay.refundCount());
+            var oldDay = sourceCapture(fixture, AT);
+            var refundDay = sourceCapture(fixture, acceptedAt);
+            assertNull(oldDay.blocker());
+            assertEquals(1L, oldDay.paymentCount());
+            assertEquals(0L, oldDay.refundCount());
+            assertNull(refundDay.blocker());
+            assertEquals(0L, refundDay.paymentCount());
+            assertEquals(1L, refundDay.refundCount());
             var row = refundDay.lines().getFirst();
             assertEquals(io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus.PROCESSING, row.status());
-            assertEquals(acceptedAt, row.sourceAt()); assertEquals(fixture.prepared().channelRefundNo(), row.channelRefundNo());
-            assertEquals(original.originalChannelTransactionNo(), row.channelTransactionNo()); assertEquals(REFUND_MINOR, row.amount().getCent());
+            assertEquals(acceptedAt, row.sourceAt());
+            assertEquals(fixture.prepared().channelRefundNo(), row.channelRefundNo());
+            assertEquals(original.originalChannelTransactionNo(), row.channelTransactionNo());
+            assertEquals(REFUND_MINOR, row.amount().getCent());
             assertSubmitted(fixture);
             var success = new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(), original.originalChannelTransactionNo(),
                     ChannelRefundOutcome.Kind.SUCCEEDED, original.amount(), original.channelRefundTransactionNo(), acceptedAt.plusMinutes(1),
@@ -442,8 +543,11 @@ class RefundRecoveryHandlerPersistenceIT {
             resultService.record(fixture.tenant(), new RefundObservation(success.refundId(), success.original(), success.channelRefundNo(), success.originalChannelTransactionNo(),
                     success.kind(), success.amount(), success.channelRefundTransactionNo(), success.succeededAt(), success.source(), "conflicting-acceptance-date", "d".repeat(64), acceptedAt.plusSeconds(1)));
             var conflict = sourceCapture(fixture, acceptedAt);
-            assertEquals(io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.blocker()); assertTrue(conflict.lines().isEmpty());
-        } finally { cancelRemainingTasks(fixture); }
+            assertEquals(io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.blocker());
+            assertTrue(conflict.lines().isEmpty());
+        } finally {
+            cancelRemainingTasks(fixture);
+        }
     }
 
     private io.github.loadup.pay.payment.domain.model.PaymentCaptureRead sourceCapture(RefundFixture fixture, LocalDateTime sourceAt) {
@@ -628,23 +732,37 @@ class RefundRecoveryHandlerPersistenceIT {
 
     private void cancelRemainingTasks(RefundFixture fixture) {
         transactions.writeLocal(fixture.tenant(), () -> {
-            for (long generation = 0; generation <= 2; generation++) tasks.cancel(RefundRecoveryService.TYPE, key(fixture, generation));
+            for (long generation = 0; generation <= 2; generation++)
+                tasks.cancel(RefundRecoveryService.TYPE, key(fixture, generation));
             return true;
         });
     }
 
-    private String key(RefundFixture fixture, long generation) { return new RefundRecoveryKey(fixture.requestId(), generation).bizId(); }
-    private LocalDateTime now() { return LocalDateTime.now(clock); }
-
-    private record RefundFixture(FinancialPersistenceFixtures.Fixture payment, String requestId, String refundId, PreparedChannelRefund prepared) {
-        String tenant() { return payment.tenant(); }
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    private String key(RefundFixture fixture, long generation) {
+        return new RefundRecoveryKey(fixture.requestId(), generation).bizId();
     }
 
-    enum FailurePoint { AFTER_CLAIM, AFTER_STATE, AFTER_OUTBOX, AFTER_RECEIPT }
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+
+    enum FailurePoint {AFTER_CLAIM, AFTER_STATE, AFTER_OUTBOX, AFTER_RECEIPT}
+
+    private record RefundFixture(FinancialPersistenceFixtures.Fixture payment, String requestId, String refundId,
+                                 PreparedChannelRefund prepared) {
+        String tenant() {
+            return payment.tenant();
+        }
+
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
+    }
 
     static final class RefundFaults {
         final AtomicReference<FailurePoint> next = new AtomicReference<>();
+
         void after(FailurePoint point) {
             if (next.compareAndSet(point, null)) throw new IllegalStateException("Injected after refund " + point);
         }
@@ -654,22 +772,27 @@ class RefundRecoveryHandlerPersistenceIT {
         private final RefundFaults faults;
 
         FaultingRefundResults(RefundChannelReceiptDOMapper receipts, RefundResultAnomalyDOMapper anomalies, RefundTransactionClaimDOMapper claims,
-                RefundOrderDOMapper children, RefundRequestDOMapper requests, RefundAllocationPlanDOMapper plans,
-                PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter, RefundStorageConverter storage,
-                Clock clock, RefundFaults faults) {
+                              RefundOrderDOMapper children, RefundRequestDOMapper requests, RefundAllocationPlanDOMapper plans,
+                              PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter, RefundStorageConverter storage,
+                              Clock clock, RefundFaults faults) {
             super(receipts, anomalies, claims, children, requests, plans, capacities, converter, storage, clock);
             this.faults = faults;
         }
 
-        @Override public void insertClaim(RefundTransactionClaim claim) {
+        @Override
+        public void insertClaim(RefundTransactionClaim claim) {
             super.insertClaim(claim);
             faults.after(FailurePoint.AFTER_CLAIM);
         }
-        @Override public void update(String tenant, RefundProgressChange change) {
+
+        @Override
+        public void update(String tenant, RefundProgressChange change) {
             super.update(tenant, change);
             faults.after(FailurePoint.AFTER_STATE);
         }
-        @Override public void insertReceipt(String tenant, RefundChannelReceipt receipt) {
+
+        @Override
+        public void insertReceipt(String tenant, RefundChannelReceipt receipt) {
             super.insertReceipt(tenant, receipt);
             faults.after(FailurePoint.AFTER_RECEIPT);
         }
@@ -679,12 +802,13 @@ class RefundRecoveryHandlerPersistenceIT {
         private final RefundFaults faults;
 
         FaultingRefundProjections(RefundSummaryGateway summaries, RefundSnapshotReader reader, RefundProjectionConverter converter,
-                OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial, RefundFaults faults) {
+                                  OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial, RefundFaults faults) {
             super(summaries, reader, converter, outbox, ids, payments, financial);
             this.faults = faults;
         }
 
-        @Override public void changed(String tenant, RefundProgressChange change) {
+        @Override
+        public void changed(String tenant, RefundProgressChange change) {
             super.changed(tenant, change);
             faults.after(FailurePoint.AFTER_OUTBOX);
         }
@@ -692,15 +816,19 @@ class RefundRecoveryHandlerPersistenceIT {
 
     static final class FaultingRefundAcceptances extends RefundAcceptanceGatewayImpl {
         final AtomicReference<String> failAfterWrite = new AtomicReference<>();
+
         FaultingRefundAcceptances(io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper mapper,
-                RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
-                io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
+                                  RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
+                                  io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
             super(mapper, children, receipts, converter, storage);
         }
-        @Override public boolean remember(String tenant, io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence value, long expected) {
+
+        @Override
+        public boolean remember(String tenant, io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence value, long expected) {
             boolean result = super.remember(tenant, value, expected);
             String target = failAfterWrite.get();
-            if (value.refundId().equals(target) && failAfterWrite.compareAndSet(target, null)) throw new IllegalStateException("Injected after actual acceptance evidence insert");
+            if (value.refundId().equals(target) && failAfterWrite.compareAndSet(target, null))
+                throw new IllegalStateException("Injected after actual acceptance evidence insert");
             return result;
         }
     }
@@ -732,26 +860,34 @@ class RefundRecoveryHandlerPersistenceIT {
             RefundResultCodecImpl.class, RefundExecutionLocks.class, RefundExecutionService.class, RefundResultService.class,
             RefundRecoveryService.class, RefundRecoveryTaskHandler.class})
     static class Configuration {
-        @Bean FaultingRefundAcceptances refundAcceptances(io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper mapper,
-                RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
-                io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
+        @Bean
+        FaultingRefundAcceptances refundAcceptances(io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper mapper,
+                                                    RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
+                                                    io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
             return new FaultingRefundAcceptances(mapper, children, receipts, converter, storage);
         }
 
-        @Bean RefundFaults refundFaults() { return new RefundFaults(); }
-        @Bean RefundChannelControl refundChannelControl(PaymentResultPersistenceIT.RemoteChannel remote) { return new RefundChannelControl(remote); }
+        @Bean
+        RefundFaults refundFaults() {
+            return new RefundFaults();
+        }
+
+        @Bean
+        RefundChannelControl refundChannelControl(PaymentResultPersistenceIT.RemoteChannel remote) {
+            return new RefundChannelControl(remote);
+        }
 
         @Bean
         RefundResultGateway refundResults(RefundChannelReceiptDOMapper receipts, RefundResultAnomalyDOMapper anomalies,
-                RefundTransactionClaimDOMapper claims, RefundOrderDOMapper children, RefundRequestDOMapper requests,
-                RefundAllocationPlanDOMapper plans, PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter,
-                RefundStorageConverter storage, @Qualifier("paymentClock") Clock clock, RefundFaults faults) {
+                                          RefundTransactionClaimDOMapper claims, RefundOrderDOMapper children, RefundRequestDOMapper requests,
+                                          RefundAllocationPlanDOMapper plans, PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter,
+                                          RefundStorageConverter storage, @Qualifier("paymentClock") Clock clock, RefundFaults faults) {
             return new FaultingRefundResults(receipts, anomalies, claims, children, requests, plans, capacities, converter, storage, clock, faults);
         }
 
         @Bean
         RefundProjectionEvents refundProjections(RefundSummaryGateway summaries, RefundSnapshotReader reader, RefundProjectionConverter converter,
-                OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial, RefundFaults faults) {
+                                                 OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial, RefundFaults faults) {
             return new FaultingRefundProjections(summaries, reader, converter, outbox, ids, payments, financial, faults);
         }
     }

@@ -17,12 +17,19 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatVerifiedResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -34,9 +41,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatRefundAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-23T10:11:12Z"), ZoneId.of("Asia/Shanghai"));
@@ -52,6 +75,37 @@ class WechatRefundAdapterTest {
     private final WechatRefundAdapter adapter = new WechatRefundAdapter(client, json, CLOCK, new io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties(Map.of(), Map.of()));
     private final ChannelExecutionContext direct = context("tenant", "revision-1", HASH, new WechatAccountIdentity("app", "merchant", null, null));
     private final PreparedChannelRefund refund = refund(REFUND_NO, identity("revision-1", HASH), TRANSACTION);
+
+    private static String submitPayload(String status) {
+        return "{\"transaction_id\":\"" + TRANSACTION + "\",\"out_trade_no\":\"" + OUT_TRADE
+                + "\",\"out_refund_no\":\"" + REFUND_NO + "\",\"refund_id\":\"wechat-refund-88\","
+                + "\"amount\":{\"refund\":10000,\"total\":50000,\"currency\":\"CNY\"},"
+                + "\"create_time\":\"2026-10-22T23:59:00+08:00\",\"status\":\"" + status + "\"}";
+    }
+
+    private static String queryPayload(String status) {
+        if (!"SUCCESS".equals(status)) return submitPayload(status);
+        return submitPayload(status).replace("\"status\":\"" + status + "\"", "\"status\":\"" + status
+                + "\",\"success_time\":\"2026-10-23T10:11:12+00:00\"");
+    }
+
+    private static WechatVerifiedResponse verified(WechatMethod method, int status, String payload) {
+        return new WechatVerifiedResponse(method, status, payload, "a".repeat(64));
+    }
+
+    private static ChannelExecutionContext context(String tenant, String revision, String hash, WechatAccountIdentity account) {
+        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.WECHAT, account.accessMode(), hash,
+                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
+        return new ChannelExecutionContext(tenant, binding);
+    }
+
+    private static ChannelPaymentIdentity identity(String revision, String hash) {
+        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT, revision, hash, OUT_TRADE);
+    }
+
+    private static PreparedChannelRefund refund(String refundNo, ChannelPaymentIdentity identity, String transaction) {
+        return new PreparedChannelRefund(identity, "refund-id-1", refundNo, REFUND_AMOUNT, ORIGINAL_AMOUNT, transaction);
+    }
 
     @Test
     void submitsDirectRefundWithOriginalTransactionAndExactAmountFields() throws Exception {
@@ -329,36 +383,5 @@ class WechatRefundAdapterTest {
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), anyMap(), anyMap(), captor.capture());
         return captor.getValue();
-    }
-
-    private static String submitPayload(String status) {
-        return "{\"transaction_id\":\"" + TRANSACTION + "\",\"out_trade_no\":\"" + OUT_TRADE
-                + "\",\"out_refund_no\":\"" + REFUND_NO + "\",\"refund_id\":\"wechat-refund-88\","
-                + "\"amount\":{\"refund\":10000,\"total\":50000,\"currency\":\"CNY\"},"
-                + "\"create_time\":\"2026-10-22T23:59:00+08:00\",\"status\":\"" + status + "\"}";
-    }
-
-    private static String queryPayload(String status) {
-        if (!"SUCCESS".equals(status)) return submitPayload(status);
-        return submitPayload(status).replace("\"status\":\"" + status + "\"", "\"status\":\"" + status
-                + "\",\"success_time\":\"2026-10-23T10:11:12+00:00\"");
-    }
-
-    private static WechatVerifiedResponse verified(WechatMethod method, int status, String payload) {
-        return new WechatVerifiedResponse(method, status, payload, "a".repeat(64));
-    }
-
-    private static ChannelExecutionContext context(String tenant, String revision, String hash, WechatAccountIdentity account) {
-        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.WECHAT, account.accessMode(), hash,
-                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
-        return new ChannelExecutionContext(tenant, binding);
-    }
-
-    private static ChannelPaymentIdentity identity(String revision, String hash) {
-        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT, revision, hash, OUT_TRADE);
-    }
-
-    private static PreparedChannelRefund refund(String refundNo, ChannelPaymentIdentity identity, String transaction) {
-        return new PreparedChannelRefund(identity, "refund-id-1", refundNo, REFUND_AMOUNT, ORIGINAL_AMOUNT, transaction);
     }
 }

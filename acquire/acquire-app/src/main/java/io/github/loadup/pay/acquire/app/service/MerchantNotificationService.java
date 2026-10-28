@@ -17,19 +17,29 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.app.port.MerchantNotificationTransport;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Native leases wake durable attempt generations; delivery is at least once and never changes the event body. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Native leases wake durable attempt generations; delivery is at least once and never changes the event body.
+ */
 @Service
 public class MerchantNotificationService implements DelayedTaskHandler {
     public static final String TYPE = "pay.acquire.merchant-notification";
@@ -38,18 +48,32 @@ public class MerchantNotificationService implements DelayedTaskHandler {
     private final DelayedTaskTemplate tasks;
     private final OrderCreationTransactions transactions;
     private final Clock clock;
+
     public MerchantNotificationService(MerchantNotificationGateway deliveries, MerchantNotificationTransport transport,
-            DelayedTaskTemplate tasks, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
-        this.deliveries = deliveries; this.transport = transport; this.tasks = tasks; this.transactions = transactions; this.clock = clock;
+                                       DelayedTaskTemplate tasks, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
+        this.deliveries = deliveries;
+        this.transport = transport;
+        this.tasks = tasks;
+        this.transactions = transactions;
+        this.clock = clock;
     }
-    @Override public String taskType() { return TYPE; }
-    @Override public void handle(DelayedTask task) {
+
+    @Override
+    public String taskType() {
+        return TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (task == null || task.tenantId() == null || !TYPE.equals(task.taskType()) || !task.tenantId().equals(TenantUtil.getTenantId()))
             throw new CommonException(SNAPSHOT_INVALID);
         final MerchantNotificationKey key;
-        try { key = MerchantNotificationKey.parse(task.bizId()); }
-        catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            key = MerchantNotificationKey.parse(task.bizId());
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var nativeTask = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = now();
         if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())
@@ -60,7 +84,8 @@ public class MerchantNotificationService implements DelayedTaskHandler {
             throw new CommonException(INVALID_STATE);
         var sending = transactions.writeLocal(task.tenantId(), () -> {
             var before = deliveries.lock(task.tenantId(), key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (before.finished() || key.sequence() < before.attemptCount()) return java.util.Optional.<MerchantNotificationDelivery>empty();
+            if (before.finished() || key.sequence() < before.attemptCount())
+                return java.util.Optional.<MerchantNotificationDelivery>empty();
             if (key.sequence() != before.attemptCount() || !task.executeAt().equals(before.nextAttemptAt()))
                 throw new CommonException(SNAPSHOT_INVALID);
             var startedAt = now();
@@ -69,8 +94,9 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                 return java.util.Optional.<MerchantNotificationDelivery>empty();
             }
             String route = null;
-            try { route = transport.fingerprint(task.tenantId(), before); }
-            catch (RuntimeException unavailable) { /* Missing local configuration consumes no network call. */ }
+            try {
+                route = transport.fingerprint(task.tenantId(), before);
+            } catch (RuntimeException unavailable) { /* Missing local configuration consumes no network call. */ }
             var next = before.begin(startedAt, route);
             deliveries.update(task.tenantId(), before, next);
             tasks.register(TYPE, new MerchantNotificationKey(next.id(), next.attemptCount()).bizId(), next.nextAttemptAt());
@@ -78,8 +104,9 @@ public class MerchantNotificationService implements DelayedTaskHandler {
         }).orElse(null);
         if (sending == null) return;
         boolean ack = false;
-        try { ack = transport.send(task.tenantId(), sending); }
-        catch (RuntimeException unavailable) {
+        try {
+            ack = transport.send(task.tenantId(), sending);
+        } catch (RuntimeException unavailable) {
             if (Thread.currentThread().isInterrupted()) throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         final boolean acknowledged = ack;
@@ -93,5 +120,8 @@ public class MerchantNotificationService implements DelayedTaskHandler {
             return Boolean.TRUE;
         });
     }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()); }
+
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
 }

@@ -23,7 +23,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 
-/** Provider wire time uses GMT+8; business clocks and runtime time zones remain locally configured. */
+/**
+ * Provider wire time uses GMT+8; business clocks and runtime time zones remain locally configured.
+ */
 public final class AlipayProtocolTime {
     private static final ZoneOffset WIRE_ZONE = ZoneOffset.ofHours(8);
     private static final DateTimeFormatter FORMAT =

@@ -16,7 +16,12 @@
 package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+
 import java.util.Set;
 
-/** Hosted interactions explicitly enabled by deployment; the frozen contract remains an independent upper bound. */
-public interface CashierCapabilities { Set<PaymentChoiceDTO> choices(); }
+/**
+ * Hosted interactions explicitly enabled by deployment; the frozen contract remains an independent upper bound.
+ */
+public interface CashierCapabilities {
+    Set<PaymentChoiceDTO> choices();
+}

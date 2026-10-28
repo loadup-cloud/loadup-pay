@@ -16,20 +16,34 @@
 package io.github.loadup.pay.channel.wechat.protocol;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.http.HttpTemplate;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatV2ClientTest {
     private final HttpTemplate http = mock(HttpTemplate.class);
@@ -39,7 +53,11 @@ class WechatV2ClientTest {
     private final ChannelBindingRevision binding = new ChannelBindingRevision("binding", "merchant", Channel.WECHAT, AccessMode.DIRECT,
             "a".repeat(64), "credential", "v1", new WechatAccountIdentity("wx-app", "1900000001", null, null), Set.of(PaymentMethod.PAYMENT_CODE));
     private final Map<String, String> request = Map.of("appid", "wx-app", "mch_id", "1900000001", "sign_type", "HMAC-SHA256");
-    @AfterEach void clear() { TransactionSynchronizationManager.clear(); }
+
+    @AfterEach
+    void clear() {
+        TransactionSynchronizationManager.clear();
+    }
 
     @Test
     void verifiedResponseUsesExactV2KeyAndErasesDecryptedBytesAfterTheOneHttpCall() {

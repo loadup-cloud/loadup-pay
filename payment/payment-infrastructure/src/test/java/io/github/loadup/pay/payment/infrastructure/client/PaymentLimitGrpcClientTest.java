@@ -17,19 +17,26 @@ package io.github.loadup.pay.payment.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
-import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
-import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
-import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
-import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
-import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
-import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
+import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -40,19 +47,13 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentCaptor;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_CONFIRM;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RELEASE;
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_RESTORE_REFUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -79,6 +80,12 @@ class PaymentLimitGrpcClientTest {
     Path directory;
     PaymentLimitGrpcClient client;
     Path tokenFile;
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     Map<String, Object> claims() {
         return new HashMap<>(Map.of("tenant_id", "tenant", "principal_type", "SERVICE", "sub", "payment", "service_id", "payment",
@@ -189,10 +196,5 @@ class PaymentLimitGrpcClientTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(rpc);
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

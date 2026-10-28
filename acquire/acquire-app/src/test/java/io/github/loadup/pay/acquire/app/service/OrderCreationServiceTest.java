@@ -16,7 +16,11 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
 import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
@@ -34,10 +38,6 @@ import io.github.loadup.pay.acquire.domain.model.FeeState;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;

@@ -16,12 +16,12 @@
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import com.mybatisflex.core.query.QueryWrapper;
+import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
-import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.mapper.MerchantNotificationDeliveryDOMapper;
 import org.springframework.stereotype.Repository;
@@ -41,7 +41,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     private final MerchantNotificationStorageConverter converter;
 
     public MerchantNotificationGatewayImpl(MerchantNotificationDeliveryDOMapper mapper,
-            MerchantNotificationStorageConverter converter) {
+                                           MerchantNotificationStorageConverter converter) {
         this.mapper = mapper;
         this.converter = converter;
     }
@@ -65,8 +65,10 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         if (filter.orderId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.ORDER_ID.eq(filter.orderId()));
         if (filter.eventId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.EVENT_ID.eq(filter.eventId()));
         if (filter.state() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.STATE.eq(filter.state().name()));
-        if (filter.occurredFrom() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.ge(filter.occurredFrom()));
-        if (filter.occurredTo() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.lt(filter.occurredTo()));
+        if (filter.occurredFrom() != null)
+            query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.ge(filter.occurredFrom()));
+        if (filter.occurredTo() != null)
+            query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.lt(filter.occurredTo()));
         long total = mapper.selectCountByQuery(query);
         query.orderBy(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.desc(), MERCHANT_NOTIFICATION_DELIVERY_DO.ID.desc())
                 .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
@@ -139,8 +141,11 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     }
 
     private long increment(long version) {
-        try { return Math.incrementExact(version); }
-        catch (ArithmeticException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Math.incrementExact(version);
+        } catch (ArithmeticException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void tenant(String tenant) {

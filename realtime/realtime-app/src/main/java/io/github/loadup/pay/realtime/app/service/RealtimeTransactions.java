@@ -16,8 +16,8 @@
 package io.github.loadup.pay.realtime.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.util.TenantUtil;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
@@ -47,7 +47,9 @@ public class RealtimeTransactions {
         reads.setReadOnly(true);
     }
 
-    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    /**
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return withTenantContext(tenant, () -> {
@@ -62,7 +64,9 @@ public class RealtimeTransactions {
         });
     }
 
-    /** One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO. */
+    /**
+     * One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO.
+     */
     public <T> T readSnapshot(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return withTenantContext(tenant, () -> reads.execute(status -> work.get()));

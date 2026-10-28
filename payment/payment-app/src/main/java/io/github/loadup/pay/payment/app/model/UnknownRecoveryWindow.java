@@ -17,11 +17,14 @@ package io.github.loadup.pay.payment.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-public record UnknownRecoveryWindow(LocalDateTime cutoff, LocalDateTime afterFirstUnknownAt, String afterRecordId, int limit) {
+public record UnknownRecoveryWindow(LocalDateTime cutoff, LocalDateTime afterFirstUnknownAt, String afterRecordId,
+                                    int limit) {
     public UnknownRecoveryWindow {
         require(limit >= 1 && limit <= 100 && (afterFirstUnknownAt == null) == (afterRecordId == null), INVALID_ARGUMENT);
         require(cutoff == null || cutoff.getNano() % 1000 == 0, INVALID_ARGUMENT);
@@ -31,5 +34,9 @@ public record UnknownRecoveryWindow(LocalDateTime cutoff, LocalDateTime afterFir
                     && afterFirstUnknownAt.getYear() <= 9998, INVALID_ARGUMENT);
         }
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

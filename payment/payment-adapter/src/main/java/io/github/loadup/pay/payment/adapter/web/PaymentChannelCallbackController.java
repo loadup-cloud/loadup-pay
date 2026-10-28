@@ -15,17 +15,21 @@
  */
 package io.github.loadup.pay.payment.adapter.web;
 
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.payment.client.facade.PaymentChannelCallbackFacade;
 import io.github.loadup.pay.payment.client.facade.RefundChannelCallbackFacade;
-import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.io.IOException;
 
 @RestController
@@ -34,8 +38,10 @@ import java.io.IOException;
 public class PaymentChannelCallbackController {
     private final PaymentChannelCallbackFacade callbacks;
     private final RefundChannelCallbackFacade refundCallbacks;
+
     public PaymentChannelCallbackController(PaymentChannelCallbackFacade callbacks, RefundChannelCallbackFacade refundCallbacks) {
-        this.callbacks = callbacks; this.refundCallbacks = refundCallbacks;
+        this.callbacks = callbacks;
+        this.refundCallbacks = refundCallbacks;
     }
 
     @PostMapping(value = "/{endpointRef}", consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.APPLICATION_JSON_VALUE})
@@ -51,7 +57,7 @@ public class PaymentChannelCallbackController {
     }
 
     private ResponseEntity<String> receive(String endpointRef, HttpServletRequest request,
-            java.util.function.BiFunction<String, ChannelNotificationInput, ChannelNotificationAcknowledgement> receiver) throws IOException {
+                                           java.util.function.BiFunction<String, ChannelNotificationInput, ChannelNotificationAcknowledgement> receiver) throws IOException {
         byte[] body = request.getInputStream().readNBytes(ChannelNotificationInput.MAX_BODY_BYTES + 1);
         if (body.length > ChannelNotificationInput.MAX_BODY_BYTES) return ResponseEntity.status(413).build();
         if (body.length == 0 || request.getQueryString() != null) return ResponseEntity.badRequest().build();
@@ -59,7 +65,8 @@ public class PaymentChannelCallbackController {
             var headers = new java.util.HashMap<String, java.util.List<String>>();
             var names = request.getHeaderNames();
             while (names != null && names.hasMoreElements()) {
-                if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES) return ResponseEntity.badRequest().build();
+                if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES)
+                    return ResponseEntity.badRequest().build();
                 String name = names.nextElement();
                 var values = request.getHeaders(name);
                 if (values == null || !values.hasMoreElements()) return ResponseEntity.badRequest().build();

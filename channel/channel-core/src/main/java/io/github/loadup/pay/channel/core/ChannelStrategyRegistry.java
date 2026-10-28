@@ -24,9 +24,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DUPLICATE_PROVIDER;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
-/** Immutable strategy lookup shared by the payment and notification facades. */
+/**
+ * Immutable strategy lookup shared by the payment and notification facades.
+ */
 final class ChannelStrategyRegistry<S> {
     private final Map<Channel, S> strategies;
 

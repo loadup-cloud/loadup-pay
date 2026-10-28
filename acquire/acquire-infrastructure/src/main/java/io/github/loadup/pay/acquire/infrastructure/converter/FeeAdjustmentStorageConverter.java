@@ -16,9 +16,12 @@
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.FeeAdjustment;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.FeeAdjustmentDO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
@@ -37,5 +40,5 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")
     FeeAdjustmentDO toDO(String tenant, FeeAdjustment value, String sourceEventId, long cumulativeRefundedMinor,
-            String ruleSnapshot, LocalDateTime appliedAt);
+                         String ruleSnapshot, LocalDateTime appliedAt);
 }

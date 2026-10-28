@@ -17,11 +17,13 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+
 import java.util.Objects;
 
-/** Internal recovery result; a missing local intent must never be interpreted as financial evidence. */
+/**
+ * Internal recovery result; a missing local intent must never be interpreted as financial evidence.
+ */
 public record PaymentIntentRecovery(State state, String paymentId, PaymentCloseDTO closed) {
-    public enum State { NOT_OBSERVED, INPUT_REQUIRED, RESOLVED }
     public PaymentIntentRecovery {
         Objects.requireNonNull(state);
         io.github.loadup.commons.error.DomainViolation.require((state == State.RESOLVED) == (paymentId != null),
@@ -29,5 +31,11 @@ public record PaymentIntentRecovery(State state, String paymentId, PaymentCloseD
         io.github.loadup.commons.error.DomainViolation.require(closed == null || state == State.RESOLVED && paymentId.equals(closed.paymentId()),
                 io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+
+    public enum State {NOT_OBSERVED, INPUT_REQUIRED, RESOLVED}
 }

@@ -22,14 +22,14 @@ import io.github.loadup.commons.validation.DomainChecks;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** A native order task key; deadline versions and closure generations belong to their respective task types. */
+/**
+ * A native order task key; deadline versions and closure generations belong to their respective task types.
+ */
 public record OrderTaskKey(String orderId, long generation) {
     public OrderTaskKey {
         DomainChecks.id(orderId);
         require(generation >= 0, INVALID_ARGUMENT);
     }
-
-    public String bizId() { return orderId + "." + generation; }
 
     public static OrderTaskKey parse(String value) {
         require(value != null && value.length() <= 128, INVALID_ARGUMENT);
@@ -46,6 +46,12 @@ public record OrderTaskKey(String orderId, long generation) {
         return key;
     }
 
+    public String bizId() {
+        return orderId + "." + generation;
+    }
+
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

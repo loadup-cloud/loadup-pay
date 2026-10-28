@@ -15,10 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain;
 
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-
-import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundPlanItem;

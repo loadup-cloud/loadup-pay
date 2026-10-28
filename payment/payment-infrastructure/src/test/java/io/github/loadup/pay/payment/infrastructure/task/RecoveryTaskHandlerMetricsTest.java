@@ -31,13 +31,27 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RecoveryTaskHandlerMetricsTest {
+    private static RecoveryExecutionMetrics metrics(MeterRegistry registry) {
+        return new RecoveryExecutionMetrics(new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class));
+    }
+
+    private static DelayedTask task(String type) {
+        var at = LocalDateTime.of(2026, 10, 27, 12, 0);
+        return new DelayedTask("task", "tenant", type, "original.0", at, at, DelayedTaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
+    }
+
     @Test
     void paymentAdapterMeasuresTheOriginalTaskAndPreservesTheServiceDecision() {
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var service = mock(PaymentRecoveryService.class);
             var task = task(PaymentRecoveryService.TYPE);
@@ -47,12 +61,13 @@ class RecoveryTaskHandlerMetricsTest {
             handler.handle(task);
             verify(service, times(1)).handle(task);
             assertEquals(1L, registry.get(RecoveryExecutionMetrics.EXECUTION).tags("kind", "payment", "outcome", "continued").timer().count());
-        }catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     @Test
     void refundAdapterPropagatesTheSameFailureForNativeRetry() {
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var service = mock(RefundRecoveryService.class);
             var task = task(RefundRecoveryService.TYPE);
@@ -64,15 +79,7 @@ class RecoveryTaskHandlerMetricsTest {
             verify(service, times(1)).handle(task);
             assertEquals(1L, registry.get(RecoveryExecutionMetrics.EXECUTION).tags("kind", "refund", "outcome", "failed").timer().count());
             assertEquals(0.0, registry.get(RecoveryExecutionMetrics.INFLIGHT).tag("kind", "refund").gauge().value());
-        }catch (Exception e) {}
-    }
-
-    private static RecoveryExecutionMetrics metrics(MeterRegistry registry) {
-        return new RecoveryExecutionMetrics(new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class));
-    }
-
-    private static DelayedTask task(String type) {
-        var at = LocalDateTime.of(2026, 10, 27, 12, 0);
-        return new DelayedTask("task", "tenant", type, "original.0", at, at, DelayedTaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
+        } catch (Exception e) {
+        }
     }
 }

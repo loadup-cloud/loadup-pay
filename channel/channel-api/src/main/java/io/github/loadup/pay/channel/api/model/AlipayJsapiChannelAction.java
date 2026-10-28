@@ -20,6 +20,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
 
@@ -33,10 +34,18 @@ public record AlipayJsapiChannelAction(@DiagnosticHidden String tradeNo, OffsetD
     }
 
     @Override
-    public Channel channel() { return Channel.ALIPAY; }
+    public Channel channel() {
+        return Channel.ALIPAY;
+    }
+
     @Override
-    public PaymentMethod method() { return PaymentMethod.JSAPI; }
+    public PaymentMethod method() {
+        return PaymentMethod.JSAPI;
+    }
+
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

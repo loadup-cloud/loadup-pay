@@ -24,14 +24,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/acquire/payments/direct-pay")
 @Tag(name = "Merchant DirectPay recovery")
 public class DirectPaymentRecoveryController {
     private final DirectPaymentRecoveryFacade facade;
-    public DirectPaymentRecoveryController(DirectPaymentRecoveryFacade facade) { this.facade = facade; }
+
+    public DirectPaymentRecoveryController(DirectPaymentRecoveryFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/recover")
     @Operation(summary = "Recover an existing DirectPay creation and its original first action without sensitive payer input")
     public ResponseEntity<SuccessResponse<DirectPayRecoveryDTO>> recover(@Valid @RequestBody DirectPayRecoverCommand command) {

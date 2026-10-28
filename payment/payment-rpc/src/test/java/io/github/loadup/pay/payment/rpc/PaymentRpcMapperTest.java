@@ -16,18 +16,23 @@
 package io.github.loadup.pay.payment.rpc;
 
 
+import io.github.loadup.pay.channel.api.model.H5SceneType;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentInteractionDTO;
-import io.github.loadup.pay.channel.api.model.H5SceneType;
 import org.junit.jupiter.api.Test;
+
 import java.time.OffsetDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaymentRpcMapperTest {
     @Test

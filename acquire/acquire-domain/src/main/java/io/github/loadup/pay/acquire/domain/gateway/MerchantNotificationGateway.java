@@ -15,16 +15,22 @@
  */
 package io.github.loadup.pay.acquire.domain.gateway;
 
+import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
-import io.github.loadup.commons.domain.PageResult;
+
 import java.util.Optional;
 
 public interface MerchantNotificationGateway {
     Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId);
+
     PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter);
+
     Optional<MerchantNotificationDelivery> findEvent(String tenant, String eventId, String targetRef);
+
     Optional<MerchantNotificationDelivery> lock(String tenant, String deliveryId);
+
     void insert(String tenant, MerchantNotificationDelivery delivery);
+
     void update(String tenant, MerchantNotificationDelivery before, MerchantNotificationDelivery after);
 }

@@ -69,7 +69,7 @@ class OrderCreationCodecImplTest {
     }
 
     io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct(String action, long first,
-            io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
+                                                                               io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
         return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null,
                 action, first, choice, kind);
     }

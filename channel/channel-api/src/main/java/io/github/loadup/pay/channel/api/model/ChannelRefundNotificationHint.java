@@ -18,11 +18,17 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/** Locator only; verification against an original planned refund still precedes any channel query. */
+/**
+ * Locator only; verification against an original planned refund still precedes any channel query.
+ */
 public record ChannelRefundNotificationHint(String channelRequestNo, String channelRefundNo) {
     public ChannelRefundNotificationHint {
         DomainChecks.text(channelRequestNo, 64);
         DomainChecks.text(channelRefundNo, 64);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

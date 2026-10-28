@@ -18,18 +18,24 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import java.util.List;
-import java.util.Map;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings. */
-public record ChannelNotificationInput(String contentType, @DiagnosticHidden Map<String, List<String>> headers, @DiagnosticHidden byte[] body) {
+/**
+ * Bounded untrusted wire bytes; parsers must reject duplicate fields and malformed encodings.
+ */
+public record ChannelNotificationInput(String contentType, @DiagnosticHidden Map<String, List<String>> headers,
+                                       @DiagnosticHidden byte[] body) {
     public static final int MAX_BODY_BYTES = 65536;
     public static final int MAX_HEADER_NAMES = 64;
     public static final int MAX_HEADER_VALUES = 8;
+
     public ChannelNotificationInput {
         DomainChecks.text(contentType, 256);
         require(body != null && body.length > 0 && body.length <= MAX_BODY_BYTES, INVALID_ARGUMENT);
@@ -49,6 +55,14 @@ public record ChannelNotificationInput(String contentType, @DiagnosticHidden Map
         headers = Map.copyOf(normalized);
         body = body.clone();
     }
-    @Override public byte[] body() { return body.clone(); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public byte[] body() {
+        return body.clone();
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -19,16 +19,20 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Set;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Locally signed direct WAP request; never channel acceptance or collection evidence. */
+/**
+ * Locally signed direct WAP request; never channel acceptance or collection evidence.
+ */
 public record AlipayH5ChannelAction(@DiagnosticHidden String redirectUrl, OffsetDateTime expiresAt)
         implements ChannelPaymentAction {
     private static final Set<String> REQUIRED = Set.of("app_id", "method", "format", "charset", "sign_type",
@@ -63,10 +67,23 @@ public record AlipayH5ChannelAction(@DiagnosticHidden String redirectUrl, Offset
             return parameters.keySet().containsAll(REQUIRED) && "alipay.trade.wap.pay".equals(parameters.get("method"))
                     && "RSA2".equals(parameters.get("sign_type")) && "utf-8".equals(parameters.get("charset"))
                     && "json".equals(parameters.get("format")) && "1.0".equals(parameters.get("version"));
-        } catch (IllegalArgumentException invalid) { return false; }
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
     }
 
-    @Override public Channel channel() { return Channel.ALIPAY; }
-    @Override public PaymentMethod method() { return PaymentMethod.H5; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public Channel channel() {
+        return Channel.ALIPAY;
+    }
+
+    @Override
+    public PaymentMethod method() {
+        return PaymentMethod.H5;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

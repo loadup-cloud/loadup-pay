@@ -16,13 +16,13 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.commons.time.BusinessTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -54,8 +54,8 @@ public interface CheckoutConverter {
     @Mapping(target = "allowExactRemainderBelowMin", source = "policy.allowExactRemainderBelowMin")
     @Mapping(target = "remainingPaymentCount", expression = "java(policy.maxSuccessfulPayments() == null ? null : Integer.valueOf((int) Math.max(0L, policy.maxSuccessfulPayments().longValue() - occupiedCount)))")
     CashierOrderDTO toSummary(AcquireOrderDTO order, String subject, LocalDateTime sessionExpiresAt,
-            java.util.Set<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO> choices,
-            io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy policy, long occupiedCount);
+                              java.util.Set<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO> choices,
+                              io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy policy, long occupiedCount);
 
     default OffsetDateTime external(LocalDateTime value) {
         return value == null ? null : BusinessTime.external(value);

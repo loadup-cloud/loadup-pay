@@ -17,7 +17,9 @@ package io.github.loadup.pay.reconciliation.domain.gateway;
 
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationResult;
 
-/** Caller holds the original batch lock and commits differences plus batch completion on the same DataSource. */
+/**
+ * Caller holds the original batch lock and commits differences plus batch completion on the same DataSource.
+ */
 public interface ReconciliationResultGateway {
     void insert(String tenant, String batchId, String runId, ReconciliationResult result);
 }

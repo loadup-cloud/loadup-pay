@@ -19,27 +19,44 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.app.converter.MerchantNotificationQueryConverter;
 import io.github.loadup.pay.acquire.app.model.MerchantNotificationWakeDecision;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.security.MerchantNotificationAccess;
+import io.github.loadup.pay.acquire.app.security.MerchantNotificationActor;
 import io.github.loadup.pay.acquire.client.command.MerchantNotificationWakeCommand;
 import io.github.loadup.pay.acquire.client.dto.MerchantNotificationWakeDTO;
 import io.github.loadup.pay.acquire.client.facade.MerchantNotificationOperationsFacade;
 import io.github.loadup.pay.acquire.client.query.MerchantNotificationWakePageQuery;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationWakeGateway;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Audited native-task recovery within the original delivery policy; contains no HTTP sending path. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+
+/**
+ * Audited native-task recovery within the original delivery policy; contains no HTTP sending path.
+ */
 @Service
 public class MerchantNotificationOperationsService implements MerchantNotificationOperationsFacade {
     private final MerchantNotificationAccess access;
@@ -51,13 +68,23 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+
     public MerchantNotificationOperationsService(MerchantNotificationAccess access, MerchantNotificationGateway deliveries,
-            MerchantNotificationWakeGateway receipts, DelayedTaskTemplate tasks, MerchantNotificationQueryConverter converter,
-            OrderCreationTransactions transactions, IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
-        this.access = access; this.deliveries = deliveries; this.receipts = receipts; this.tasks = tasks; this.converter = converter;
-        this.transactions = transactions; this.ids = ids; this.validator = validator; this.clock = clock;
+                                                 MerchantNotificationWakeGateway receipts, DelayedTaskTemplate tasks, MerchantNotificationQueryConverter converter,
+                                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
+        this.access = access;
+        this.deliveries = deliveries;
+        this.receipts = receipts;
+        this.tasks = tasks;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.validator = validator;
+        this.clock = clock;
     }
-    @Override public MerchantNotificationWakeDTO wake(MerchantNotificationWakeCommand command) {
+
+    @Override
+    public MerchantNotificationWakeDTO wake(MerchantNotificationWakeCommand command) {
         var actor = access.operator();
         validate(command);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
@@ -65,7 +92,9 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-wake-v1", actor.tenantId(), scope,
                 command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            DomainChecks.id(command.id()); DomainChecks.text(command.requestKey(), 128); DomainChecks.text(command.reason(), 500);
+            DomainChecks.id(command.id());
+            DomainChecks.text(command.requestKey(), 128);
+            DomainChecks.text(command.reason(), 500);
             var known = receipts.find(actor.tenantId(), scope, command.requestKey());
             if (known.isPresent()) return replay(known.get(), actor, scope, digest);
             return transactions.writeLocal(actor.tenantId(), () -> {
@@ -81,7 +110,9 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             });
         });
     }
-    @Override public PageDTO<MerchantNotificationWakeDTO> wakes(MerchantNotificationWakePageQuery query) {
+
+    @Override
+    public PageDTO<MerchantNotificationWakeDTO> wakes(MerchantNotificationWakePageQuery query) {
         var actor = access.operator();
         validate(query);
         return transactions.withTenantContext(actor.tenantId(), () -> {
@@ -90,17 +121,22 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             return PageDTO.of(receipts.page(actor.tenantId(), query.deliveryId(), query.page(), query.size()).map(converter::toDTO));
         });
     }
+
     private MerchantNotificationWakeDecision resume(String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
         try {
             return schedule(tenant, delivery, at);
         } catch (CommonException failure) {
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) throw new CommonException(CONCURRENT_UPDATE);
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.CONFLICT) throw new CommonException(SNAPSHOT_INVALID);
+            if (failure.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE)
+                throw new CommonException(CONCURRENT_UPDATE);
+            if (failure.getResultCode() == DelayedTaskResultCodeEnum.CONFLICT)
+                throw new CommonException(SNAPSHOT_INVALID);
             throw failure;
         }
     }
+
     private MerchantNotificationWakeDecision schedule(String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
-        if (delivery.state() == MerchantNotificationState.ACKED) return new MerchantNotificationWakeDecision("ACKED", null);
+        if (delivery.state() == MerchantNotificationState.ACKED)
+            return new MerchantNotificationWakeDecision("ACKED", null);
         if (delivery.expired(at)) return new MerchantNotificationWakeDecision("EXPIRED", null);
         if (delivery.finished() || delivery.attemptCount() >= delivery.policy().retryMaxAttempts())
             return new MerchantNotificationWakeDecision("EXHAUSTED", null);
@@ -110,7 +146,8 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         boolean missing = task == null;
         if (missing) task = tasks.register(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
         if (task == null || task.status() == null || !tenant.equals(task.tenantId()) || !MerchantNotificationService.TYPE.equals(task.taskType())
-                || !key.equals(task.bizId()) || !delivery.nextAttemptAt().equals(task.executeAt())) throw new CommonException(SNAPSHOT_INVALID);
+                || !key.equals(task.bizId()) || !delivery.nextAttemptAt().equals(task.executeAt()))
+            throw new CommonException(SNAPSHOT_INVALID);
         String result;
         switch (task.status()) {
             case PENDING -> result = missing ? "REGISTERED" : "PENDING";
@@ -128,14 +165,19 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         }
         return new MerchantNotificationWakeDecision(result, task.id());
     }
+
     private MerchantNotificationWakeDTO replay(MerchantNotificationWakeReceipt receipt, MerchantNotificationActor actor, String scope, String digest) {
         if (!scope.equals(receipt.callerScopeHash()) || !actor.principalType().equals(receipt.principalType())
                 || !actor.principalId().equals(receipt.principalId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
         return converter.toDTO(receipt);
     }
+
     private void validate(Object value) {
         if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
     }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()); }
+
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
 }

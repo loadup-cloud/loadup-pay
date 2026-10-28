@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
 
-import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 

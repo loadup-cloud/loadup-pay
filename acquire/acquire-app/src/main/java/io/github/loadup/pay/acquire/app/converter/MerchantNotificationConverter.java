@@ -16,7 +16,9 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.acquire.app.model.*;
+import io.github.loadup.pay.acquire.app.model.MerchantNotificationData;
+import io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData;
+import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import org.mapstruct.Mapper;

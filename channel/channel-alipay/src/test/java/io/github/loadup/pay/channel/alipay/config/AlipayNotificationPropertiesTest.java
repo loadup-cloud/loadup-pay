@@ -21,10 +21,17 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AlipayNotificationPropertiesTest {
     private static final URI CALLBACK = URI.create("https://callbacks.example/payments/alipay/notify");
+
+    private static void assertInvalid(String value) {
+        assertThrows(RuntimeException.class, () -> new AlipayNotificationProperties(
+                Map.of("tenant", Map.of("binding-revision", URI.create(value)))));
+    }
 
     @Test
     void acceptsHttpsPathAndDefensivelyCopiesTheNestedTenantAndBindingMaps() {
@@ -62,10 +69,5 @@ class AlipayNotificationPropertiesTest {
                 Map.of("../tenant", Map.of("binding", CALLBACK))));
         assertThrows(RuntimeException.class, () -> new AlipayNotificationProperties(
                 Map.of("tenant", Map.of("../binding", CALLBACK))));
-    }
-
-    private static void assertInvalid(String value) {
-        assertThrows(RuntimeException.class, () -> new AlipayNotificationProperties(
-                Map.of("tenant", Map.of("binding-revision", URI.create(value)))));
     }
 }

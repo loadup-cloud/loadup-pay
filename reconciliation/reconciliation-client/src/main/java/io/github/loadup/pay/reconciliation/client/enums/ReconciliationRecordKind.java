@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.client.enums;
 
-public enum ReconciliationRecordKind { PAYMENT, REFUND }
+public enum ReconciliationRecordKind {PAYMENT, REFUND}

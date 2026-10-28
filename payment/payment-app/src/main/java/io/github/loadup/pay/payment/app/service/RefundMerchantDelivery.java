@@ -25,10 +25,17 @@ import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.util.List;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Independent Outbox target; acknowledgement means durable registration in acquire. */
+import java.util.List;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Independent Outbox target; acknowledgement means durable registration in acquire.
+ */
 @Component
 public class RefundMerchantDelivery {
     private final OutboxTemplate outbox;
@@ -36,14 +43,17 @@ public class RefundMerchantDelivery {
     private final PaymentAcquireClient acquire;
 
     public RefundMerchantDelivery(OutboxTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentAcquireClient acquire) {
-        this.outbox = outbox; this.codec = codec; this.acquire = acquire;
+        this.outbox = outbox;
+        this.codec = codec;
+        this.acquire = acquire;
     }
 
     public void deliver(OutboxEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
                 || !RefundProjectionEvents.MERCHANT.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var message = event.message();
         var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId())

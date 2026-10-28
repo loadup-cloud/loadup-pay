@@ -22,8 +22,8 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement
 import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
 import io.github.loadup.pay.payment.app.converter.PaymentCallbackObservationConverter;
@@ -47,21 +47,18 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
 import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -95,19 +92,25 @@ class PaymentChannelCallbackServiceTest {
             payments, notifications, channels, results, commands, observations,
             context.getBean(PaymentCallbackObservationConverter.class), transactions);
 
-    private ChannelPaymentIdentity identity() { return stored.get().attempt().identity(); }
+    private ChannelPaymentIdentity identity() {
+        return stored.get().attempt().identity();
+    }
+
     private ChannelPaymentTarget target() {
         return new ChannelPaymentTarget(identity(), stored.get().attempt().amount());
     }
+
     private PaymentObservation query() {
         return new PaymentObservation(identity(), ChannelPaymentOutcome.Kind.SUCCEEDED,
                 stored.get().attempt().amount(), "channel-transaction", AttemptFixtures.NOW,
                 PaymentObservation.Source.QUERY_RESPONSE, "query-receipt", "a".repeat(64));
     }
+
     private VerifiedChannelNotification verified(String sourceDigest) {
         return new VerifiedChannelNotification(identity(), stored.get().attempt().amount(), "notification-1",
                 "channel-transaction", "CALLBACK_STATUS_SAYS_FAILED", sourceDigest);
     }
+
     private ChannelNotificationAcknowledgement acknowledgement(boolean success) {
         return new ChannelNotificationAcknowledgement(success ? 200 : 500, "text/plain", success ? "accepted" : "retry");
     }
@@ -151,7 +154,9 @@ class PaymentChannelCallbackServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); }
+    void close() {
+        context.close();
+    }
 
     @Test
     void verifiesBeforeQueryAndRecordsQueryFactsBeforeReturningNativeProviderAck() {

@@ -18,9 +18,12 @@ package io.github.loadup.pay.acquire.client.dto;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
-/** Immutable operation receipt, not the latest delivery state or proof of merchant receipt. */
+/**
+ * Immutable operation receipt, not the latest delivery state or proof of merchant receipt.
+ */
 public record MerchantNotificationWakeDTO(
         @Schema(description = "Audit receipt id") String id,
         @Schema(description = "Original delivery id") String deliveryId,
@@ -33,5 +36,8 @@ public record MerchantNotificationWakeDTO(
         @Schema(description = "Business attempts observed by this operation") int attemptCount,
         @Schema(description = "Delivery row version observed by this operation") long deliveryVersion,
         @Schema(description = "Audit acceptance time") OffsetDateTime acceptedAt) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

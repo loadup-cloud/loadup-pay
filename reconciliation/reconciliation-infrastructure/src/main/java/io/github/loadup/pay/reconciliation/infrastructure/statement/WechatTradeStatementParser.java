@@ -18,11 +18,24 @@ package io.github.loadup.pay.reconciliation.infrastructure.statement;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationEntryStatus;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.io.*;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
@@ -32,10 +45,17 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
-import java.util.*;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
+import java.util.ArrayList;
+import java.util.HexFormat;
 
-/** Strict API ALL-format parser. Content completeness never proves channel provenance or authorizes ledger imports. */
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+
+/**
+ * Strict API ALL-format parser. Content completeness never proves channel provenance or authorizes ledger imports.
+ */
 @Component
 public class WechatTradeStatementParser {
     public static final String PROFILE = "wechat-trade-all-20260116";
@@ -44,14 +64,20 @@ public class WechatTradeStatementParser {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withResolverStyle(ResolverStyle.STRICT);
     private final int maxRecords;
     private final int maxBytes;
+
     public WechatTradeStatementParser(@Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords,
-            @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
-        if (maxRecords < 1 || maxRecords > 1000000 || maxBytes < 1024 || maxBytes > 67108864) throw new CommonException(INVALID_ARGUMENT);
-        this.maxRecords = maxRecords; this.maxBytes = maxBytes;
+                                      @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
+        if (maxRecords < 1 || maxRecords > 1000000 || maxBytes < 1024 || maxBytes > 67108864)
+            throw new CommonException(INVALID_ARGUMENT);
+        this.maxRecords = maxRecords;
+        this.maxBytes = maxBytes;
     }
-    /** The caller owns the stream and must independently establish the source file's identity and provenance. */
+
+    /**
+     * The caller owns the stream and must independently establish the source file's identity and provenance.
+     */
     public ReconciliationDataset parse(InputStream source, ReconciliationScope scope, ReconciliationStatementAccount account,
-            String artifactId, String sourceCaptureId) {
+                                       String artifactId, String sourceCaptureId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (source == null || scope == null || scope.channel() != Channel.WECHAT || !PROFILE.equals(scope.statementProfile()) || account == null || !account.merchantId().matches("[0-9]{8,10}")
                 || account.subMerchantId() != null && !account.subMerchantId().matches("[0-9]{8,10}"))
@@ -75,16 +101,24 @@ public class WechatTradeStatementParser {
                     throw new CommonException(INPUT_INVALID);
                 long orderNet = money(fields[12], false), refundNet = money(fields[16], false), refundCoupon = money(fields[17], false);
                 long fee = money(fields[22], true), orderGross = money(fields[24], false), refundGross = money(fields[25], false);
-                ReconciliationRecordKind kind; ReconciliationEntryStatus status; long amount; String refundNo;
+                ReconciliationRecordKind kind;
+                ReconciliationEntryStatus status;
+                long amount;
+                String refundNo;
                 if ("SUCCESS".equals(fields[9])) {
                     if (orderGross <= 0 || refundGross != 0 || refundNet != 0 || refundCoupon != 0 || fee < 0
                             || !"0".equals(fields[14]) || !"0".equals(fields[15]) || !fields[18].isEmpty() || !fields[19].isEmpty())
                         throw new CommonException(INPUT_INVALID);
-                    kind = ReconciliationRecordKind.PAYMENT; status = ReconciliationEntryStatus.SUCCEEDED; amount = orderGross; refundNo = null;
+                    kind = ReconciliationRecordKind.PAYMENT;
+                    status = ReconciliationEntryStatus.SUCCEEDED;
+                    amount = orderGross;
+                    refundNo = null;
                 } else if ("REFUND".equals(fields[9])) {
                     if (refundGross <= 0 || orderGross != 0 || orderNet != 0 || fee > 0 || "0".equals(fields[14]) || "0".equals(fields[15]))
                         throw new CommonException(INPUT_INVALID);
-                    kind = ReconciliationRecordKind.REFUND; amount = refundGross; refundNo = id(fields[15], 64);
+                    kind = ReconciliationRecordKind.REFUND;
+                    amount = refundGross;
+                    refundNo = id(fields[15], 64);
                     id(fields[14], 128);
                     status = switch (fields[19]) {
                         case "SUCCESS" -> ReconciliationEntryStatus.SUCCEEDED;
@@ -97,12 +131,16 @@ public class WechatTradeStatementParser {
                     // Revocation has a distinct compensation identity; never drop it or manufacture a child-refund number.
                     throw new CommonException(INPUT_INVALID);
                 }
-                if (orderNet > orderGross || refundNet > refundGross || refundCoupon > refundGross) throw new CommonException(INPUT_INVALID);
+                if (orderNet > orderGross || refundNet > refundGross || refundCoupon > refundGross)
+                    throw new CommonException(INPUT_INVALID);
                 lines.add(new ReconciliationLine(new ReconciliationKey(kind, id(fields[5], 128), refundNo), id(fields[6], 64),
                         Money.ofMinor(amount, "CNY"), status, lines.size() + 1L));
-                netPayment = Math.addExact(netPayment, orderNet); netRefund = Math.addExact(netRefund, refundNet);
-                couponRefund = Math.addExact(couponRefund, refundCoupon); fees = Math.addExact(fees, fee);
-                grossPayment = Math.addExact(grossPayment, orderGross); grossRefund = Math.addExact(grossRefund, refundGross);
+                netPayment = Math.addExact(netPayment, orderNet);
+                netRefund = Math.addExact(netRefund, refundNet);
+                couponRefund = Math.addExact(couponRefund, refundCoupon);
+                fees = Math.addExact(fees, fee);
+                grossPayment = Math.addExact(grossPayment, orderGross);
+                grossRefund = Math.addExact(grossRefund, refundGross);
             }
             if (line == null) throw new CommonException(INPUT_INVALID);
             var totals = fields(reader.readLine(), 7);
@@ -116,10 +154,15 @@ public class WechatTradeStatementParser {
                     ReconciliationDataset.normalizedHash(scope, ReconciliationSide.CHANNEL, PROFILE, lines), sourceCaptureId, PROFILE,
                     ReconciliationTotals.count(lines));
             return new ReconciliationDataset(manifest, lines);
-        } catch (CommonException failure) { throw failure; }
-        catch (NoSuchAlgorithmException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE, failure); }
-        catch (IOException | RuntimeException failure) { throw new CommonException(INPUT_INVALID); }
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (NoSuchAlgorithmException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE, failure);
+        } catch (IOException | RuntimeException failure) {
+            throw new CommonException(INPUT_INVALID);
+        }
     }
+
     private String[] fields(String line, int count) {
         if (line == null || line.length() > 65536) throw new CommonException(INPUT_INVALID);
         var values = line.split(",", -1);
@@ -130,13 +173,16 @@ public class WechatTradeStatementParser {
         }
         return values;
     }
+
     private long money(String value, boolean signed) {
         if (!(signed ? value.matches("-?(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}") : value.matches("(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}")))
             throw new CommonException(INPUT_INVALID);
         return new BigDecimal(value).movePointRight(2).longValueExact();
     }
+
     private String id(String value, int max) {
-        if (value == null || value.length() > max || !value.matches("[A-Za-z0-9_-]+")) throw new CommonException(INPUT_INVALID);
+        if (value == null || value.length() > max || !value.matches("[A-Za-z0-9_-]+"))
+            throw new CommonException(INPUT_INVALID);
         return value;
     }
 }

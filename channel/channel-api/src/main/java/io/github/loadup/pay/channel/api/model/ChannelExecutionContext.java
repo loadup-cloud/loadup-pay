@@ -18,9 +18,12 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
 
-/** Trusted, tenant-scoped immutable binding resolved by the calling application's adapter. */
+/**
+ * Trusted, tenant-scoped immutable binding resolved by the calling application's adapter.
+ */
 public record ChannelExecutionContext(String tenantId, @DiagnosticHidden ChannelBindingRevision binding) {
     public ChannelExecutionContext {
         DomainChecks.id(tenantId);

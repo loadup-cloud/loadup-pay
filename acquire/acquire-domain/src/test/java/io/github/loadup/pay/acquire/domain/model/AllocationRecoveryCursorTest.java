@@ -17,9 +17,14 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AllocationRecoveryCursorTest {
     @Test

@@ -19,8 +19,8 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-import java.util.Objects;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
@@ -59,7 +59,9 @@ public record StoredCheckoutSession(
                 INVALID_ARGUMENT);
     }
 
-    /** Security revocation is permanent and independent of the session's business terminal state. */
+    /**
+     * Security revocation is permanent and independent of the session's business terminal state.
+     */
     public StoredCheckoutSession revoke(long expectedVersion, LocalDateTime at) {
         require(expectedVersion == rowVersion, io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT);
         Objects.requireNonNull(at);

@@ -14,8 +14,8 @@ message WireReconciliationInputAttachCommand {
   optional string side = 2;
   optional string artifact_id = 3;
 }
-message WireReconciliationBatchStartCommand { optional string batch_id = 1; }
-message WireReconciliationBatchQuery { optional string id = 1; }
+message WireReconciliationBatchStartCommand {optional string batch_id = 1;}
+message WireReconciliationBatchQuery {optional string id = 1;}
 message WireReconciliationInputDTO {
   optional string side = 1;
   optional string artifact_id = 2;

@@ -16,16 +16,16 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.event.EventEnvelope;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -43,7 +43,7 @@ public class OrderSnapshotEvents {
     private final MerchantNotificationEvents notifications;
 
     public OrderSnapshotEvents(OrderSnapshotReader headers, OrderSnapshotConverter converter, OutboxTemplate outbox, IdGenerator ids,
-            MerchantNotificationEvents notifications) {
+                               MerchantNotificationEvents notifications) {
         this.headers = headers;
         this.converter = converter;
         this.outbox = outbox;

@@ -17,9 +17,20 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatCodepayProperties;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.wechat.protocol.WechatBindingGuard;
+import io.github.loadup.pay.channel.wechat.protocol.WechatV2Client;
+import io.github.loadup.pay.channel.wechat.protocol.WechatV2Method;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -29,9 +40,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Original V2 micropay debit; recovery queries the original request without reusing the payer code. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * Original V2 micropay debit; recovery queries the original request without reusing the payer code.
+ */
 public final class WechatCodepayAdapter {
     private static final DateTimeFormatter EXPIRY = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
     private static final ZoneId PROTOCOL_ZONE = ZoneId.of("Asia/Shanghai");
@@ -39,9 +56,14 @@ public final class WechatCodepayAdapter {
     private final WechatPaymentAdapter queries;
     private final WechatCodepayProperties properties;
     private final Clock clock;
+
     public WechatCodepayAdapter(WechatV2Client client, WechatPaymentAdapter queries, WechatCodepayProperties properties, Clock clock) {
-        this.client = client; this.queries = queries; this.properties = properties; this.clock = clock;
+        this.client = client;
+        this.queries = queries;
+        this.properties = properties;
+        this.clock = clock;
     }
+
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         WechatBindingGuard.require(context, request.identity());
@@ -56,6 +78,7 @@ public final class WechatCodepayAdapter {
             throw new CommonException(INVALID_ARGUMENT);
         if (serverIp(context) == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
     }
+
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         var original = request.payment();
@@ -63,27 +86,36 @@ public final class WechatCodepayAdapter {
                 request.subject(), request.payableUntil(), request.input()));
         var account = (WechatAccountIdentity) context.binding().identity();
         var fields = new TreeMap<String, String>();
-        fields.put("appid", account.appId()); fields.put("mch_id", account.merchantId());
+        fields.put("appid", account.appId());
+        fields.put("mch_id", account.merchantId());
         if (account.subMerchantId() != null) fields.put("sub_mch_id", account.subMerchantId());
         if (account.subAppId() != null) fields.put("sub_appid", account.subAppId());
         fields.put("out_trade_no", original.identity().channelRequestNo());
-        fields.put("body", request.subject()); fields.put("total_fee", Long.toString(original.amount().getCent()));
-        fields.put("fee_type", "CNY"); fields.put("spbill_create_ip", serverIp(context));
+        fields.put("body", request.subject());
+        fields.put("total_fee", Long.toString(original.amount().getCent()));
+        fields.put("fee_type", "CNY");
+        fields.put("spbill_create_ip", serverIp(context));
         fields.put("time_expire", request.payableUntil().withNano(0).atZoneSameInstant(PROTOCOL_ZONE).format(EXPIRY));
         fields.put("auth_code", ((ChannelPaymentCodeInput) request.input()).paymentCode());
         fields.put("nonce_str", UUID.randomUUID().toString().replace("-", ""));
         fields.put("sign_type", "HMAC-SHA256");
         var verified = client.call(context.tenantId(), context.binding(), WechatV2Method.MICROPAY, fields);
-        if (verified == null || verified.method() != WechatV2Method.MICROPAY) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (verified == null || verified.method() != WechatV2Method.MICROPAY)
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         var response = verified.fields();
-        match(response, "return_code", "SUCCESS"); match(response, "appid", account.appId()); match(response, "mch_id", account.merchantId());
+        match(response, "return_code", "SUCCESS");
+        match(response, "appid", account.appId());
+        match(response, "mch_id", account.merchantId());
         if (!Objects.equals(account.subMerchantId(), response.get("sub_mch_id"))
-                || !Objects.equals(account.subAppId(), response.get("sub_appid"))) throw new CommonException(CHANNEL_RESPONSE_INVALID);
-        if (response.containsKey("out_trade_no")) match(response, "out_trade_no", original.identity().channelRequestNo());
+                || !Objects.equals(account.subAppId(), response.get("sub_appid")))
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (response.containsKey("out_trade_no"))
+            match(response, "out_trade_no", original.identity().channelRequestNo());
         if (response.containsKey("total_fee")) match(response, "total_fee", Long.toString(original.amount().getCent()));
         if (response.containsKey("fee_type")) match(response, "fee_type", "CNY");
         if ("SUCCESS".equals(response.get("result_code"))) {
-            match(response, "trade_type", "MICROPAY"); match(response, "out_trade_no", original.identity().channelRequestNo());
+            match(response, "trade_type", "MICROPAY");
+            match(response, "out_trade_no", original.identity().channelRequestNo());
             match(response, "total_fee", Long.toString(original.amount().getCent()));
             var tradeNo = response.get("transaction_id");
             if (tradeNo == null || !tradeNo.matches("[0-9]{1,64}")) throw new CommonException(CHANNEL_RESPONSE_INVALID);
@@ -99,9 +131,11 @@ public final class WechatCodepayAdapter {
                 PaymentObservation.Source.SUBMIT_RESPONSE, "wechat-v2-micropay:" + verified.sourceDigest(), verified.sourceDigest());
         return new ChannelPaymentSubmission(original.identity(), original.amount(), observed, null);
     }
+
     private String serverIp(ChannelExecutionContext context) {
         return properties.serverIps().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id());
     }
+
     private void match(Map<String, String> fields, String name, String value) {
         if (!value.equals(fields.get(name))) throw new CommonException(CHANNEL_RESPONSE_INVALID);
     }

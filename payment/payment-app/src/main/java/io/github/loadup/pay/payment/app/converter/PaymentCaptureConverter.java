@@ -16,8 +16,10 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
+import io.github.loadup.pay.payment.domain.model.PaymentCapture;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

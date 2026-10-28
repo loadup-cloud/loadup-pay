@@ -23,23 +23,70 @@ import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
-import io.github.loadup.pay.limitcenter.domain.gateway.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitRefundGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.MerchantLimitGateway;
+import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
+import io.github.loadup.pay.limitcenter.domain.model.GateState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucket;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketSet;
+import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
+import io.github.loadup.pay.limitcenter.domain.model.LimitPolicyHead;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservation;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRule;
+import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
+import io.github.loadup.pay.limitcenter.domain.model.LimitWindowType;
+import io.github.loadup.pay.limitcenter.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
+import java.time.Clock;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_NOT_READY;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.OUTCOME_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class LimitRefundServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(LimitRefundConverter.class.getPackageName());
@@ -62,7 +109,7 @@ class LimitRefundServiceTest {
     final AtomicReference<ActivatedLimitPolicy> policy = new AtomicReference<>(new ActivatedLimitPolicy("policy", 1, "a".repeat(64), "merchant",
             RefundAmountRestorePolicy.ORIGINAL_BUCKETS, RefundCountRestorePolicy.FULL_PAYMENT_REFUNDED_ONCE, rules, initiated.minusDays(1)));
     final LimitReservation confirmed = LimitReservation.init("reservation", "operation", "payment", "order", "merchant",
-            DomainChecks.cnyAmount(10000, "CNY"), "policy", 1, initiated, initiated.plusMinutes(2))
+                    DomainChecks.cnyAmount(10000, "CNY"), "policy", 1, initiated, initiated.plusMinutes(2))
             .reserve().beginExecution("attempt", initiated.plusSeconds(1)).confirm("payment", DomainChecks.cnyAmount(10000, "CNY"), 3);
     final AtomicReference<StoredLimitReservation> stored = new AtomicReference<>(new StoredLimitReservation(confirmed, "a".repeat(64), "b".repeat(64), "payment"));
     final AtomicReference<List<LimitReservationItem>> items = new AtomicReference<>();
@@ -112,15 +159,23 @@ class LimitRefundServiceTest {
             buckets.set(c.getArgument(2));
             return null;
         }).when(reservations).updateBuckets(eq("tenant"), any(), any());
-        doAnswer(c -> { items.set(c.getArgument(2)); return null; }).when(settlements).updateItems(eq("tenant"), any(), any());
+        doAnswer(c -> {
+            items.set(c.getArgument(2));
+            return null;
+        }).when(settlements).updateItems(eq("tenant"), any(), any());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            var receipt = c.<LimitRefundReceipt>getArgument(1); accepted.put(receipt.refundId(), receipt); return null;
+            var receipt = c.<LimitRefundReceipt>getArgument(1);
+            accepted.put(receipt.refundId(), receipt);
+            return null;
         }).when(receipts).insert(eq("tenant"), any());
     }
 
     @AfterEach
-    void close() { context.close(); validation.close(); }
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void restoresEachOriginalBucketAndReportsOneLogicalAmountRatherThanSummingWindows() {
@@ -167,7 +222,7 @@ class LimitRefundServiceTest {
     @Test
     void aRefundBeforeConfirmIsRetriableAndCannotBeAcknowledged() {
         var pending = LimitReservation.init("reservation", "operation", "payment", "order", "merchant",
-                DomainChecks.cnyAmount(10000, "CNY"), "policy", 1, initiated, initiated.plusMinutes(2)).reserve()
+                        DomainChecks.cnyAmount(10000, "CNY"), "policy", 1, initiated, initiated.plusMinutes(2)).reserve()
                 .beginExecution("attempt", initiated.plusSeconds(1));
         stored.set(new StoredLimitReservation(pending, "a".repeat(64), "b".repeat(64), "payment"));
         assertSame(DEPENDENCY_NOT_READY, assertThrows(CommonException.class, () -> service.restoreRefund(command("refund1", 1000))).getResultCode());

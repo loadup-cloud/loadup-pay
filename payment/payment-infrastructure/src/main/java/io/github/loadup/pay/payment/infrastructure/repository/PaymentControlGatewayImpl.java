@@ -32,14 +32,14 @@ import io.github.loadup.pay.payment.infrastructure.mapper.PaymentControlReceiptD
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentGateDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentParentGateDOMapper;
-import org.springframework.stereotype.Repository;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.util.Optional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -218,6 +218,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
 
     private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
     }
 }

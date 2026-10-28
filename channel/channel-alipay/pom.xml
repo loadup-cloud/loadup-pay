@@ -10,7 +10,8 @@
     </parent>
     <artifactId>channel-alipay</artifactId>
     <name>LoadUp Pay Channel Alipay</name>
-    <description>Alipay RSA2 payer-code and JSAPI submission, original-account queries, unpaid close and refunds.</description>
+    <description>Alipay RSA2 payer-code and JSAPI submission, original-account queries, unpaid close and refunds.
+    </description>
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

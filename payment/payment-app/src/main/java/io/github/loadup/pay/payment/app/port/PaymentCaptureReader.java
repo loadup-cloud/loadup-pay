@@ -15,7 +15,12 @@
  */
 package io.github.loadup.pay.payment.app.port;
 
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureRead;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureScope;
 
-/** All source queries are on payment's own DataSource and the caller's actual read-only RR transaction. */
-public interface PaymentCaptureReader { PaymentCaptureRead read(String tenant, PaymentCaptureScope scope); }
+/**
+ * All source queries are on payment's own DataSource and the caller's actual read-only RR transaction.
+ */
+public interface PaymentCaptureReader {
+    PaymentCaptureRead read(String tenant, PaymentCaptureScope scope);
+}

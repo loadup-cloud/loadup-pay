@@ -16,9 +16,14 @@
 package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.OffsetDateTime;
 
 public record MerchantNotificationBody<T>(String eventId, String eventType, int schemaVersion, String producer,
-        String aggregateType, String aggregateId, long aggregateVersion, OffsetDateTime occurredAt, T data) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                          String aggregateType, String aggregateId, long aggregateVersion,
+                                          OffsetDateTime occurredAt, T data) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

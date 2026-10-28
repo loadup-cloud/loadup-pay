@@ -18,10 +18,13 @@ package io.github.loadup.pay.reconciliation.infrastructure.config;
 import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
 import io.github.loadup.pay.payment.rpc.PaymentCaptureRpcOperations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
 @Import(GrpcSupportConfiguration.class)
 @EnableConfigurationProperties(ReconciliationPaymentProperties.class)
 @ComponentScan(basePackageClasses = PaymentCaptureRpcOperations.class)
-public class ReconciliationPaymentConfiguration {}
+public class ReconciliationPaymentConfiguration {
+}

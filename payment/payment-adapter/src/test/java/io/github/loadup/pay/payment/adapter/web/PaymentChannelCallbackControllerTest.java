@@ -22,8 +22,8 @@ import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
@@ -224,18 +224,28 @@ class PaymentChannelCallbackControllerTest {
     private static final class BodyInputStream extends ServletInputStream {
         private final ByteArrayInputStream input;
 
-        private BodyInputStream(byte[] body) { input = new ByteArrayInputStream(body); }
+        private BodyInputStream(byte[] body) {
+            input = new ByteArrayInputStream(body);
+        }
 
         @Override
-        public int read() { return input.read(); }
+        public int read() {
+            return input.read();
+        }
 
         @Override
-        public boolean isFinished() { return input.available() == 0; }
+        public boolean isFinished() {
+            return input.available() == 0;
+        }
 
         @Override
-        public boolean isReady() { return true; }
+        public boolean isReady() {
+            return true;
+        }
 
         @Override
-        public void setReadListener(ReadListener listener) { throw new UnsupportedOperationException(); }
+        public void setReadListener(ReadListener listener) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

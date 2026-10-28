@@ -18,18 +18,27 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Native at-least-once close continuation; the persisted original C0 supplies scope, reason and financial identities. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Native at-least-once close continuation; the persisted original C0 supplies scope, reason and financial identities.
+ */
 @Service
 public class OrderClosureRecoveryService implements DelayedTaskHandler {
     private final DelayedTaskTemplate tasks;
@@ -40,12 +49,22 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     private final Clock clock;
 
     public OrderClosureRecoveryService(DelayedTaskTemplate tasks, OrderCreationGateway orders, OrderClosureGateway closes,
-            OrderClosureOperations operations, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
-        this.tasks = tasks; this.orders = orders; this.closes = closes; this.operations = operations;
-        this.transactions = transactions; this.clock = clock;
+                                       OrderClosureOperations operations, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
+        this.tasks = tasks;
+        this.orders = orders;
+        this.closes = closes;
+        this.operations = operations;
+        this.transactions = transactions;
+        this.clock = clock;
     }
-    @Override public String taskType() { return OrderClosureTasks.TYPE; }
-    @Override public void handle(DelayedTask task) {
+
+    @Override
+    public String taskType() {
+        return OrderClosureTasks.TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
         var key = validate(task);
         var pending = transactions.writeLocal(task.tenantId(), () -> {
             var order = orders.lockOrder(task.tenantId(), key.orderId());
@@ -67,8 +86,11 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
         if (task == null || task.tenantId() == null || !taskType().equals(task.taskType())
                 || !task.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
         final OrderTaskKey key;
-        try { key = OrderTaskKey.parse(task.bizId()); }
-        catch (DomainViolation invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            key = OrderTaskKey.parse(task.bizId());
+        } catch (DomainViolation invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var nativeTask = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = LocalDateTime.now(clock);
         if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())

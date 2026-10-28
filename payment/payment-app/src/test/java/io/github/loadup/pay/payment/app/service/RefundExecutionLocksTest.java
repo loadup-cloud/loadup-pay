@@ -16,13 +16,23 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundRequestReference;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class RefundExecutionLocksTest {
     final RefundGateway refunds = mock(RefundGateway.class);
@@ -39,7 +49,10 @@ class RefundExecutionLocksTest {
         when(payments.lockParent("tenant", "order")).thenReturn(java.util.Optional.of(AttemptFixtures.gate(true)));
         when(refunds.lock("tenant", "request")).thenReturn(request);
     }
-    StoredRefundRequest lock() { return transactions.writeLocal("tenant", () -> locks.request("tenant", "request")); }
+
+    StoredRefundRequest lock() {
+        return transactions.writeLocal("tenant", () -> locks.request("tenant", "request"));
+    }
 
     @Test
     void requestLockRetainsTheOriginalReferenceParentAndRequestOrder() {

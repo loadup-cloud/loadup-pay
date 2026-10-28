@@ -33,15 +33,22 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Arrays;
-import java.nio.charset.StandardCharsets;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import java.util.List;
 
-/** No mutations, native dispatch or channel calls; retry still requires the separate locked audit path. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * No mutations, native dispatch or channel calls; retry still requires the separate locked audit path.
+ */
 @Service
 public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFacade {
     private final PaymentActorProvider actors;
@@ -54,11 +61,16 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
     private final String operationsService;
 
     public PaymentUnknownRecoveryService(PaymentActorProvider actors, UnknownRecoveryReader reader,
-            UnknownRecoveryOperationsConverter converter, RecoveryEscalationPolicy policy,
-            PaymentAcceptanceTransactions transactions, Validator validator, @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.recovery-operations-service-id:pay-ops}") String operationsService) {
-        this.actors = actors; this.reader = reader; this.converter = converter; this.policy = policy;
-        this.transactions = transactions; this.validator = validator; this.clock = clock;
+                                         UnknownRecoveryOperationsConverter converter, RecoveryEscalationPolicy policy,
+                                         PaymentAcceptanceTransactions transactions, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                         @Value("${loadup.modules.payment.recovery-operations-service-id:pay-ops}") String operationsService) {
+        this.actors = actors;
+        this.reader = reader;
+        this.converter = converter;
+        this.policy = policy;
+        this.transactions = transactions;
+        this.validator = validator;
+        this.clock = clock;
         this.operationsService = DomainChecks.id(operationsService);
     }
 
@@ -74,7 +86,9 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
         try {
             var after = query.afterFirstUnknownAt() == null ? null : BusinessTime.local(query.afterFirstUnknownAt());
             window = new UnknownRecoveryWindow(policy.cutoff(converter.toLevel(query.minimumLevel()), now), after, query.afterRecordId(), query.limit());
-        } catch (DomainViolation | java.time.DateTimeException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        } catch (DomainViolation | java.time.DateTimeException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return transactions.readSnapshot(actor.tenantId(), () -> {
             var rows = reader.list(actor.tenantId(), query.kind(), window);
             requireWindow(rows, query, window);
@@ -96,9 +110,10 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
             if (row == null || row.kind() != query.kind() || window.cutoff() != null && row.firstUnknownAt().isAfter(window.cutoff())
                     || previousAt != null && (row.firstUnknownAt().isBefore(previousAt)
                     || row.firstUnknownAt().equals(previousAt) && Arrays.compareUnsigned(row.recordId().getBytes(StandardCharsets.UTF_8),
-                            previousId.getBytes(StandardCharsets.UTF_8)) <= 0))
+                    previousId.getBytes(StandardCharsets.UTF_8)) <= 0))
                 throw new CommonException(SNAPSHOT_INVALID);
-            previousAt = row.firstUnknownAt(); previousId = row.recordId();
+            previousAt = row.firstUnknownAt();
+            previousId = row.recordId();
         }
     }
 }

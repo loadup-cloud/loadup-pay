@@ -17,12 +17,12 @@ package io.github.loadup.pay.channel.core.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
-import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
-import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
-import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,8 +52,10 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
     public String encode(ChannelPaymentAction action) {
         var payload = switch (action) {
             case AlipayH5ChannelAction h5 -> json.writerFor(AlipayH5ChannelAction.class).writeValueAsString(h5);
-            case AlipayJsapiChannelAction alipay -> json.writerFor(AlipayJsapiChannelAction.class).writeValueAsString(alipay);
-            case WechatJsapiChannelAction wechat -> json.writerFor(WechatJsapiChannelAction.class).writeValueAsString(wechat);
+            case AlipayJsapiChannelAction alipay ->
+                    json.writerFor(AlipayJsapiChannelAction.class).writeValueAsString(alipay);
+            case WechatJsapiChannelAction wechat ->
+                    json.writerFor(WechatJsapiChannelAction.class).writeValueAsString(wechat);
             case WechatH5ChannelAction h5 -> json.writerFor(WechatH5ChannelAction.class).writeValueAsString(h5);
         };
         if (payload.length() > 8192) throw new CommonException(ACTION_SNAPSHOT_INVALID);
@@ -61,7 +63,9 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
     }
 
     @Override
-    public String checksum(String payload) { return DigestUtils.sha256(payload); }
+    public String checksum(String payload) {
+        return DigestUtils.sha256(payload);
+    }
 
     @Override
     public ChannelPaymentAction decode(String kind, String payload, String payloadHash) {

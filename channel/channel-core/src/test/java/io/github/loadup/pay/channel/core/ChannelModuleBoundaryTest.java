@@ -28,14 +28,63 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Source architecture gate: only the executable assembly may depend on channel implementations. */
+/**
+ * Source architecture gate: only the executable assembly may depend on channel implementations.
+ */
 class ChannelModuleBoundaryTest {
     private static final Pattern CHANNEL_IMPLEMENTATION_REFERENCE = Pattern.compile(
             "\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\.)[A-Za-z_$][\\w$]*\\.");
     private static final Pattern BUSINESS_REFERENCE = Pattern.compile(
             "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime)\\.");
+
+    private static Path repositoryRoot() {
+        var current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) return current;
+            current = current.getParent();
+        }
+        throw new AssertionError("Run this source architecture test inside the loadup-pay checkout");
+    }
+
+    private static List<Path> modules(Path parent) throws Exception {
+        try (var children = Files.list(parent)) {
+            return children.filter(path -> Files.isRegularFile(path.resolve("pom.xml"))).toList();
+        }
+    }
+
+    private static List<Path> productionSources(Path module) throws Exception {
+        var sourceRoot = module.resolve("src/main/java");
+        if (!Files.isDirectory(sourceRoot)) return List.of();
+        try (var sources = Files.walk(sourceRoot)) {
+            return sources.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+                    .toList();
+        }
+    }
+
+    private static List<Dependency> dependencies(Path module) throws Exception {
+        var factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+        var document = factory.newDocumentBuilder().parse(module.resolve("pom.xml").toFile());
+        var xpath = XPathFactory.newInstance().newXPath();
+        var nodes = (org.w3c.dom.NodeList) xpath.evaluate(
+                "/project/dependencies/dependency | /project/profiles/profile/dependencies/dependency",
+                document, XPathConstants.NODESET);
+        var result = new ArrayList<Dependency>();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            var element = (Element) nodes.item(i);
+            result.add(new Dependency(xpath.evaluate("groupId", element).trim(),
+                    xpath.evaluate("artifactId", element).trim(), xpath.evaluate("scope", element).trim()));
+        }
+        return List.copyOf(result);
+    }
 
     @Test
     void paymentProductionSourcesCannotBypassTheChannelApi() throws Exception {
@@ -111,51 +160,6 @@ class ChannelModuleBoundaryTest {
         assertFalse(core.stream().anyMatch(dependency -> dependency.artifact().equals("loadup-components-resilience4j-binder-core")));
         assertTrue(dependencies(root.resolve("payment/payment-bootstrap")).stream().anyMatch(dependency -> dependency.local()
                 && dependency.artifact().equals("loadup-components-resilience4j-binder-core") && dependency.scope().equals("runtime")));
-    }
-
-    private static Path repositoryRoot() {
-        var current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) return current;
-            current = current.getParent();
-        }
-        throw new AssertionError("Run this source architecture test inside the loadup-pay checkout");
-    }
-
-    private static List<Path> modules(Path parent) throws Exception {
-        try (var children = Files.list(parent)) {
-            return children.filter(path -> Files.isRegularFile(path.resolve("pom.xml"))).toList();
-        }
-    }
-
-    private static List<Path> productionSources(Path module) throws Exception {
-        var sourceRoot = module.resolve("src/main/java");
-        if (!Files.isDirectory(sourceRoot)) return List.of();
-        try (var sources = Files.walk(sourceRoot)) {
-            return sources.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .toList();
-        }
-    }
-
-    private static List<Dependency> dependencies(Path module) throws Exception {
-        var factory = DocumentBuilderFactory.newInstance();
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-        var document = factory.newDocumentBuilder().parse(module.resolve("pom.xml").toFile());
-        var xpath = XPathFactory.newInstance().newXPath();
-        var nodes = (org.w3c.dom.NodeList) xpath.evaluate(
-                "/project/dependencies/dependency | /project/profiles/profile/dependencies/dependency",
-                document, XPathConstants.NODESET);
-        var result = new ArrayList<Dependency>();
-        for (int i = 0; i < nodes.getLength(); i++) {
-            var element = (Element) nodes.item(i);
-            result.add(new Dependency(xpath.evaluate("groupId", element).trim(),
-                    xpath.evaluate("artifactId", element).trim(), xpath.evaluate("scope", element).trim()));
-        }
-        return List.copyOf(result);
     }
 
     private record Dependency(String group, String artifact, String scope) {

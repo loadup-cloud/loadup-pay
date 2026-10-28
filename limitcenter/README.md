@@ -1,6 +1,8 @@
 # LimitCenter 商户额度
 
-应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL` 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
+要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
+IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
 
 本批补齐 COLA 的 app、infrastructure、adapter，以及“规则激活 → 全部桶预占 → 执行许可/校验 → 未执行预占过期”的持久化源码。复用
 LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。业务 gRPC 与付款执行生命周期继续按
@@ -182,16 +184,33 @@ payment，限定入站写者。令牌每次读取文件并预检租户/sub/servi
 
 ## 2026-10-23 成功退款恢复与权威事实（新增源码）
 
-`LimitCenterRpc/RestoreRefund` 实现 `LimitRefundFacade.restoreRefund`，只接受配置的 payment SERVICE 和 `pay:limit:refund:restore`。原 `LimitRefundRestoreCommand` 绑定 operation/payment/refund/version/businessEvent、单笔成功退款金额、原消息付款累计成功退款、币种和成功证据。业务 Facade 继续分切片装配，MerchantLimitFacade 聚合继承该切片。
+`LimitCenterRpc/RestoreRefund` 实现 `LimitRefundFacade.restoreRefund`，只接受配置的 payment SERVICE 和
+`pay:limit:refund:restore`。原 `LimitRefundRestoreCommand` 绑定
+operation/payment/refund/version/businessEvent、单笔成功退款金额、原消息付款累计成功退款、币种和成功证据。业务 Facade
+继续分切片装配，MerchantLimitFacade 聚合继承该切片。
 
-首次调用在本地事务外调用 `PaymentRpc/RefundFacts(IdQuery(refundId))`，验证真实成功子退款与原付款、operation/商户/订单/币种/金额/版本/证据/首次受理时间。查询专供 limitcenter SERVICE 和 `pay:payment:refund-facts`，按 payment 的 parent→request→capacity→child 锁顺序复核原付款永久 claim、成功退款永久 claim 与渠道成功记录，返回该付款最新累计已退及 capacity 版本。旧消息的累计可小于最新权威累计，使用已验证的最新累计推进高水位。
+首次调用在本地事务外调用 `PaymentRpc/RefundFacts(IdQuery(refundId))`
+，验证真实成功子退款与原付款、operation/商户/订单/币种/金额/版本/证据/首次受理时间。查询专供 limitcenter SERVICE 和
+`pay:payment:refund-facts`，按 payment 的 parent→request→capacity→child 锁顺序复核原付款永久 claim、成功退款永久 claim
+与渠道成功记录，返回该付款最新累计已退及 capacity 版本。旧消息的累计可小于最新权威累计，使用已验证的最新累计推进高水位。
 
-本地按 operation gate→原策略 head/revision→原 buckets 加锁；必须先完成付款 Confirm，且存在匹配原成功版本/证据/attempt 的确认回执。原预占尚为 RESERVED/EXECUTING 时返回 DEPENDENCY_NOT_READY，保持出站重试，不提前写退款回执。原已确认但缺确认回执属于损坏。当前合约是否活跃、当前 revision 如何改恢复规则，均不覆盖原 reservation 冻结解释。
+本地按 operation gate→原策略 head/revision→原 buckets 加锁；必须先完成付款 Confirm，且存在匹配原成功版本/证据/attempt
+的确认回执。原预占尚为 RESERVED/EXECUTING 时返回 DEPENDENCY_NOT_READY，保持出站重试，不提前写退款回执。原已确认但缺确认回执属于损坏。当前合约是否活跃、当前
+revision 如何改恢复规则，均不覆盖原 reservation 冻结解释。
 
-根据原 initiatedAt、原规则的 DAY/WEEK/MONTH/LIFETIME 键读取原 items，只减原 buckets 的 used，保留 held 和窗口身份，不创建退款发生日/月的新桶，不改订单可付款额。金额按累计成功退款高水位计算各 item 的正差额；FULL_PAYMENT_REFUNDED_ONCE 只有累计达到原付款全额才恢复该付款的笔数，每 item 最多一次。乱序/重复不再次恢复，NO_RESTORE 明确保存 NO_ACTION。
+根据原 initiatedAt、原规则的 DAY/WEEK/MONTH/LIFETIME 键读取原 items，只减原 buckets 的 used，保留 held
+和窗口身份，不创建退款发生日/月的新桶，不改订单可付款额。金额按累计成功退款高水位计算各 item
+的正差额；FULL_PAYMENT_REFUNDED_ONCE 只有累计达到原付款全额才恢复该付款的笔数，每 item 最多一次。乱序/重复不再次恢复，NO_RESTORE
+明确保存 NO_ACTION。
 
-bucket CAS、item restored 高水位和 `limit_refund_receipt` 同事务保存；失败整体回滚。tenant/refundId 唯一，完整命令按 UTF-8 长度分帧 SHA-256 绑定；同退款改参拒绝，原参数直接返回首次结果，不再次依赖 payment 可用性。回执保存原累计、权威累计/版本、首次恢复金额/笔数、来源服务、acceptedAt。返回的 restoredAmountMinor 是逻辑付款本次恢复额，不把相同金额的日/月/终生规则恢复量相加。
+bucket CAS、item restored 高水位和 `limit_refund_receipt` 同事务保存；失败整体回滚。tenant/refundId 唯一，完整命令按 UTF-8
+长度分帧 SHA-256 绑定；同退款改参拒绝，原参数直接返回首次结果，不再次依赖 payment
+可用性。回执保存原累计、权威累计/版本、首次恢复金额/笔数、来源服务、acceptedAt。返回的 restoredAmountMinor
+是逻辑付款本次恢复额，不把相同金额的日/月/终生规则恢复量相加。
 
-V20261023080000__limit_refund_receipt.sql、BaseDO、Spring MapStruct、生成 Mapper/TableDef 和 QueryWrapper 已补；不手写 Mapper/业务 SQL。复用 `LIMITCENTER_PAYMENT_TOKEN_FILE` 增加上述事实查询权限，payment 的 `PAYMENT_LIMITCENTER_TOKEN_FILE` 增加退款恢复权限；channel/deadline/JWT 沿用业务 profile。没有签发凭证或执行迁移。
+V20261023080000__limit_refund_receipt.sql、BaseDO、Spring MapStruct、生成 Mapper/TableDef 和 QueryWrapper 已补；不手写
+Mapper/业务 SQL。复用 `LIMITCENTER_PAYMENT_TOKEN_FILE` 增加上述事实查询权限，payment 的 `PAYMENT_LIMITCENTER_TOKEN_FILE`
+增加退款恢复权限；channel/deadline/JWT 沿用业务 profile。没有签发凭证或执行迁移。
 
-已补原月/终生桶、held 不变、全额仅一次笔数、重复/乱序、原规则、Confirm 前重试、NO_ACTION、身份/权威金额拒绝、回执失败传播以及 RPC/客户端测试源码。内存事务夹具只能检查调用边界，不能证明真实数据库回滚；未运行检查、构建、测试、DDL 或部署。
+已补原月/终生桶、held 不变、全额仅一次笔数、重复/乱序、原规则、Confirm 前重试、NO_ACTION、身份/权威金额拒绝、回执失败传播以及
+RPC/客户端测试源码。内存事务夹具只能检查调用边界，不能证明真实数据库回滚；未运行检查、构建、测试、DDL 或部署。

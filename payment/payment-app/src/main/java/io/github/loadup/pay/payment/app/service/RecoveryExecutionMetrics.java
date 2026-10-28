@@ -30,7 +30,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-/** Invocation measurements only; no database reads, tenant labels, financial decisions or private registries. */
+/**
+ * Invocation measurements only; no database reads, tenant labels, financial decisions or private registries.
+ */
 @Component
 public class RecoveryExecutionMetrics {
     public static final String EXECUTION = "loadup.payment.recovery.execution";
@@ -86,12 +88,18 @@ public class RecoveryExecutionMetrics {
     public enum Kind {
         PAYMENT("payment"), REFUND("refund");
         private final String label;
-        Kind(String label) { this.label = label; }
+
+        Kind(String label) {
+            this.label = label;
+        }
     }
 
     private enum Outcome {
         COMPLETED("completed"), CONTINUED("continued"), SKIPPED("skipped"), FAILED("failed");
         private final String label;
-        Outcome(String label) { this.label = label; }
+
+        Outcome(String label) {
+            this.label = label;
+        }
     }
 }

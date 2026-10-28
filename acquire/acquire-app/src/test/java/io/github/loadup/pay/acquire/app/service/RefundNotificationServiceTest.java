@@ -23,24 +23,54 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.acquire.app.converter.RefundNotificationConverter;
 import io.github.loadup.pay.acquire.app.model.MerchantNotificationRegistration;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
+import io.github.loadup.pay.acquire.domain.gateway.RefundNotificationReceiptGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundNotificationServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundNotificationConverter.class.getPackageName());
@@ -57,7 +87,8 @@ class RefundNotificationServiceTest {
             context.getBean(RefundNotificationConverter.class), new OrderCreationTransactions(manager), () -> "receipt-" + ids.incrementAndGet(),
             clock(NOW), "payment");
 
-    @BeforeEach void setup() {
+    @BeforeEach
+    void setup() {
         when(orders.lockOrder("tenant", "order")).thenReturn(stored);
         when(payments.lockPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation(AllocationState.CONSUMED)));
         when(receipts.find(eq("tenant"), anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(1))));
@@ -73,22 +104,29 @@ class RefundNotificationServiceTest {
             return null;
         }).when(receipts).insert(eq("tenant"), any());
     }
-    @AfterEach void close() { context.close(); }
+
+    @AfterEach
+    void close() {
+        context.close();
+    }
 
     StoredPaymentAllocation allocation(AllocationState state) {
         return new StoredPaymentAllocation(new OrderPaymentAllocation("allocation", "order", "payment", "merchant:merchant", "action",
                 "a".repeat(64), DomainChecks.cnyAmount(2000, "CNY"), state, 5), "b".repeat(64), "{}", "c".repeat(64), 0);
     }
+
     EventEnvelope<RefundMerchantEventDTO> child() {
         return event(new RefundMerchantEventDTO("RefundOrder", "refund", "request", "payment", "order", "merchant", "R001",
                 1000, "CNY", "SUCCEEDED", 1000, 0, 3, BusinessTime.external(NOW.minusSeconds(1))));
     }
+
     EventEnvelope<RefundMerchantEventDTO> event(RefundMerchantEventDTO data) {
         return new EventEnvelope<>("delivery", "business", "payment", RefundMerchantEventDTO.TYPE, 1, data.aggregateId(), data.sourceVersion(),
                 BusinessTime.external(NOW), data);
     }
 
-    @Test void registrationAndReceiptShareOneTransactionAndReplayNeedsNoSourceAvailability() {
+    @Test
+    void registrationAndReceiptShareOneTransactionAndReplayNeedsNoSourceAvailability() {
         var first = service.accept(child());
         assertEquals("ENQUEUED", first.disposition());
         assertEquals("business", first.businessEventId());
@@ -102,7 +140,8 @@ class RefundNotificationServiceTest {
         assertEquals(1, manager.commits);
     }
 
-    @Test void changedSourceOnTheSameDeliveryConflictsWithoutAnotherRegistration() {
+    @Test
+    void changedSourceOnTheSameDeliveryConflictsWithoutAnotherRegistration() {
         var original = child();
         service.accept(original);
         var changed = new EventEnvelope<>(original.deliveryId(), original.businessEventId(), original.producer(), original.eventType(),
@@ -111,7 +150,8 @@ class RefundNotificationServiceTest {
         verify(notifications, times(1)).refund(eq("tenant"), any());
     }
 
-    @Test void latePaymentProjectionRetriesWithoutCreatingAReceiptOrNotification() {
+    @Test
+    void latePaymentProjectionRetriesWithoutCreatingAReceiptOrNotification() {
         when(payments.lockPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation(AllocationState.HELD)));
         assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> service.accept(child())).getResultCode());
         verifyNoInteractions(notifications);
@@ -119,20 +159,23 @@ class RefundNotificationServiceTest {
         assertEquals(1, manager.rollbacks);
     }
 
-    @Test void partialRequestCompletionDoesNotRequireAChildPaymentId() {
+    @Test
+    void partialRequestCompletionDoesNotRequireAChildPaymentId() {
         var event = event(new RefundMerchantEventDTO("RefundRequest", null, "request", null, "order", "merchant", "R001",
                 1500, "CNY", "PARTIAL_SUCCEEDED", 1000, 500, 5, null));
         assertEquals("request", service.accept(event).aggregateId());
         verifyNoInteractions(payments);
     }
 
-    @Test void originalDisabledPolicyIsDurablyAcknowledged() {
+    @Test
+    void originalDisabledPolicyIsDurablyAcknowledged() {
         when(notifications.refund(eq("tenant"), any())).thenReturn(new MerchantNotificationRegistration("f".repeat(64), "DISABLED"));
         assertEquals("DISABLED", service.accept(child()).disposition());
         assertEquals("DISABLED", accepted.get("delivery").disposition());
     }
 
-    @Test void foreignMerchantCannotRegisterAnEventForTheOriginalOrder() {
+    @Test
+    void foreignMerchantCannotRegisterAnEventForTheOriginalOrder() {
         var data = child().data();
         var foreign = event(new RefundMerchantEventDTO(data.aggregateType(), data.refundId(), data.refundRequestId(), data.paymentId(), data.orderId(),
                 "other-merchant", data.merchantRefundNo(), data.amountMinor(), data.currency(), data.state(), data.succeededMinor(), data.failedMinor(),
@@ -142,7 +185,8 @@ class RefundNotificationServiceTest {
         assertTrue(accepted.isEmpty());
     }
 
-    @Test void configuredServiceAndDedicatedPermissionAreBothRequired() {
+    @Test
+    void configuredServiceAndDedicatedPermissionAreBothRequired() {
         actor.set(new AcquireServiceActor("tenant", "other", Set.of("pay:acquire:refund:notification")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.accept(child())).getResultCode());
         actor.set(new AcquireServiceActor("tenant", "payment", Set.of("pay:acquire:fee:refund")));
@@ -150,7 +194,8 @@ class RefundNotificationServiceTest {
         verifyNoInteractions(orders, receipts, payments, notifications);
     }
 
-    @Test void registrationAndReceiptFailuresReturnNoAck() {
+    @Test
+    void registrationAndReceiptFailuresReturnNoAck() {
         when(notifications.refund(eq("tenant"), any())).thenThrow(new CommonException(CONCURRENT_UPDATE));
         assertThrows(CommonException.class, () -> service.accept(child()));
         assertTrue(accepted.isEmpty());

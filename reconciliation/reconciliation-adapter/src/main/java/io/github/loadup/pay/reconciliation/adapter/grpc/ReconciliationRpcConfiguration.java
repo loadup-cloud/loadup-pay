@@ -20,28 +20,43 @@ import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.reconciliation.client.facade.ReconciliationFacade;
 import io.github.loadup.pay.reconciliation.rpc.ReconciliationRpcMapper;
-import io.github.loadup.pay.reconciliation.rpc.proto.*;
+import io.github.loadup.pay.reconciliation.rpc.proto.ReconciliationRpcGrpc;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCreateCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchQuery;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import io.grpc.stub.StreamObserver;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
 @Import(GrpcSupportConfiguration.class)
 public class ReconciliationRpcConfiguration {
-    @Bean BindableService reconciliationRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            ReconciliationFacade facade, ReconciliationRpcMapper mapper) {
+    @Bean
+    BindableService reconciliationRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
+                                      ReconciliationFacade facade, ReconciliationRpcMapper mapper) {
         var service = new ReconciliationRpcGrpc.ReconciliationRpcImplBase() {
-            @Override public void create(WireReconciliationBatchCreateCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
+            @Override
+            public void create(WireReconciliationBatchCreateCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::create, mapper::toWire);
             }
-            @Override public void attach(WireReconciliationInputAttachCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
+
+            @Override
+            public void attach(WireReconciliationInputAttachCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::attach, mapper::toWire);
             }
-            @Override public void start(WireReconciliationBatchStartCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
+
+            @Override
+            public void start(WireReconciliationBatchStartCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::start, mapper::toWire);
             }
-            @Override public void detail(WireReconciliationBatchQuery request, StreamObserver<WireReconciliationBatchDTO> observer) {
+
+            @Override
+            public void detail(WireReconciliationBatchQuery request, StreamObserver<WireReconciliationBatchDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::detail, mapper::toWire);
             }
         };

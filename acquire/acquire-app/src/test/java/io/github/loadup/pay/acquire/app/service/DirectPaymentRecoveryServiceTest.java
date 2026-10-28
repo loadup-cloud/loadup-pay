@@ -18,27 +18,54 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.acquire.app.converter.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.client.dto.*;
-import io.github.loadup.pay.acquire.client.enums.*;
-import io.github.loadup.pay.acquire.client.facade.*;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentRecoveryDTO;
+import io.github.loadup.pay.acquire.client.enums.OrderCreationRecoveryState;
+import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
+import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
+import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
+import io.github.loadup.pay.acquire.client.facade.PaymentRecoveryFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ADMISSION_EXPIRED;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONTRACT_NOT_ADMITTING;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class DirectPaymentRecoveryServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DirectPaymentConverter.class.getPackageName());
@@ -59,25 +86,35 @@ class DirectPaymentRecoveryServiceTest {
     final DirectPaymentRecoveryService service = new DirectPaymentRecoveryService(actor::get, store, codec, orders, payments,
             context.getBean(DirectPaymentConverter.class), new OrderCreationTransactions(new UnitTransactions()), validation.getValidator());
 
-    @BeforeEach void setup() {
+    @BeforeEach
+    void setup() {
         when(store.findIntent("tenant", "merchant", "M001")).thenAnswer(call -> Optional.ofNullable(intent.get()));
         when(codec.directPayDigest("tenant", OWNER, command)).thenReturn("a".repeat(64));
         when(codec.decodeDirectPay(any())).thenReturn(command);
         when(orders.resumeDirectPay(command)).thenReturn(order);
         when(payments.recover(any())).thenReturn(new PaymentRecoveryDTO("order", "action", PaymentRecoveryState.NOT_OBSERVED, null, null, null));
     }
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void aMissingOriginalIntentDoesNotCreateAnOrderOrPayment() {
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void aMissingOriginalIntentDoesNotCreateAnOrderOrPayment() {
         intent.set(null);
         var result = service.recover(command);
         assertEquals(OrderCreationRecoveryState.NOT_OBSERVED, result.creationState());
-        assertNull(result.orderId()); assertNull(result.order()); assertNull(result.payment());
+        assertNull(result.orderId());
+        assertNull(result.order());
+        assertNull(result.payment());
         verifyNoInteractions(orders, payments, codec);
         verify(store, never()).insertIntent(anyString(), any());
     }
 
-    @Test void anExistingA0ResumesOnlyItsReservedOrderAndReportsMissingA2WithoutStartingIt() {
+    @Test
+    void anExistingA0ResumesOnlyItsReservedOrderAndReportsMissingA2WithoutStartingIt() {
         var result = service.recover(command);
         assertEquals(OrderCreationRecoveryState.COMPLETED, result.creationState());
         assertEquals("order", result.orderId());
@@ -89,18 +126,21 @@ class DirectPaymentRecoveryServiceTest {
         verify(payments).recover(new PaymentRecoverCommand("order", "action", 4000L, command.choice()));
     }
 
-    @Test void stableCreationRejectionAndExpiryHaveNoPaymentResult() {
+    @Test
+    void stableCreationRejectionAndExpiryHaveNoPaymentResult() {
         intent.set(init.finish("REJECTED", "admission", null, CONTRACT_NOT_ADMITTING.getCode()));
         var rejected = service.recover(command);
         assertEquals(OrderCreationRecoveryState.REJECTED, rejected.creationState());
         assertEquals(CONTRACT_NOT_ADMITTING.getCode(), rejected.resultCode());
-        assertNull(rejected.order()); assertNull(rejected.payment());
+        assertNull(rejected.order());
+        assertNull(rejected.payment());
         intent.set(init.finish("EXPIRED", "admission", NOW, ADMISSION_EXPIRED.getCode()));
         assertEquals(OrderCreationRecoveryState.EXPIRED, service.recover(command).creationState());
         verifyNoInteractions(orders, payments);
     }
 
-    @Test void aRejectionCommittedDuringResumeIsReturnedAsItsOriginalCreationOutcome() {
+    @Test
+    void aRejectionCommittedDuringResumeIsReturnedAsItsOriginalCreationOutcome() {
         when(orders.resumeDirectPay(command)).thenAnswer(call -> {
             intent.set(init.finish("REJECTED", "admission", null, CONTRACT_NOT_ADMITTING.getCode()));
             throw new CommonException(CONTRACT_NOT_ADMITTING);
@@ -109,7 +149,8 @@ class DirectPaymentRecoveryServiceTest {
         verifyNoInteractions(payments);
     }
 
-    @Test void ownerEntryAndChangedMetadataAreRejectedBeforeResuming() {
+    @Test
+    void ownerEntryAndChangedMetadataAreRejectedBeforeResuming() {
         actor.set(new AcquireActor("tenant", "b".repeat(64), null, actor.get().permissions()));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
         actor.set(new AcquireActor("tenant", OWNER, null, actor.get().permissions()));
@@ -123,7 +164,8 @@ class DirectPaymentRecoveryServiceTest {
         verifyNoInteractions(orders, payments);
     }
 
-    @Test void missingRecoveryPermissionAndUnknownFailureNeverFabricateSuccess() {
+    @Test
+    void missingRecoveryPermissionAndUnknownFailureNeverFabricateSuccess() {
         actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
         actor.set(new AcquireActor("tenant", OWNER, null,

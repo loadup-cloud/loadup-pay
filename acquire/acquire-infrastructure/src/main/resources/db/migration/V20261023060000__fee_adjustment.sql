@@ -1,21 +1,25 @@
-CREATE TABLE fee_adjustment (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    order_id VARCHAR(64) NOT NULL,
-    fee_id VARCHAR(64) NOT NULL,
-    trigger_key VARCHAR(128) NOT NULL,
-    source_event_id VARCHAR(64) NOT NULL,
-    source_version BIGINT NOT NULL,
-    adjustment_minor BIGINT NOT NULL,
-    currency CHAR(3) NOT NULL,
-    cumulative_refunded_minor BIGINT NOT NULL,
-    rule_snapshot LONGTEXT NOT NULL,
-    applied_at DATETIME(6) NOT NULL,
+CREATE TABLE fee_adjustment
+(
+    id                        VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id                 VARCHAR(64)  NOT NULL,
+    created_at                DATETIME(6)  NOT NULL,
+    updated_at                DATETIME(6)  NOT NULL,
+    deleted                   TINYINT      NOT NULL DEFAULT 0,
+    order_id                  VARCHAR(64)  NOT NULL,
+    fee_id                    VARCHAR(64)  NOT NULL,
+    trigger_key               VARCHAR(128) NOT NULL,
+    source_event_id           VARCHAR(64)  NOT NULL,
+    source_version            BIGINT       NOT NULL,
+    adjustment_minor          BIGINT       NOT NULL,
+    currency                  CHAR(3)      NOT NULL,
+    cumulative_refunded_minor BIGINT       NOT NULL,
+    rule_snapshot             LONGTEXT     NOT NULL,
+    applied_at                DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_fee_adjust_trigger (tenant_id, fee_id, trigger_key),
     KEY ix_fee_adjust_order (tenant_id, order_id, created_at, id),
-    CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND cumulative_refunded_minor > 0),
+    CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND
+           cumulative_refunded_minor > 0),
     CHECK (JSON_VALID(rule_snapshot) AND OCTET_LENGTH(rule_snapshot) <= 32768)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;

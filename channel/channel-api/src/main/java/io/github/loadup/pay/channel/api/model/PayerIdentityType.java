@@ -15,7 +15,9 @@
  */
 package io.github.loadup.pay.channel.api.model;
 
-/** A resolved channel identifier, never an OAuth authorization code or merchant authorization token. */
+/**
+ * A resolved channel identifier, never an OAuth authorization code or merchant authorization token.
+ */
 public enum PayerIdentityType {
     USER_ID,
     OPEN_ID

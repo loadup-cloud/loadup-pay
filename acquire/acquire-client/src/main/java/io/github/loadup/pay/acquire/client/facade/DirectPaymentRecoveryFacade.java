@@ -18,7 +18,9 @@ package io.github.loadup.pay.acquire.client.facade;
 import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO;
 
-/** Resume only a persisted original DirectPay intent; never creates a replacement order or payment. */
+/**
+ * Resume only a persisted original DirectPay intent; never creates a replacement order or payment.
+ */
 public interface DirectPaymentRecoveryFacade {
     DirectPayRecoveryDTO recover(DirectPayRecoverCommand command);
 }

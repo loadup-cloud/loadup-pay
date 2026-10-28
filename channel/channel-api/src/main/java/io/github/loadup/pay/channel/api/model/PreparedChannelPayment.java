@@ -18,8 +18,8 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 

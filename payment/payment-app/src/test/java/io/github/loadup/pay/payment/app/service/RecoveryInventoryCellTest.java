@@ -18,9 +18,13 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.PAYMENT;
+import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.REFUND;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RecoveryInventoryCellTest {
     @Test

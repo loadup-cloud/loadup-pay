@@ -17,10 +17,15 @@ package io.github.loadup.pay.acquire.infrastructure.config;
 
 import io.github.loadup.commons.payment.Channel;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.util.Set;
 
-/** Hosted H5 channels must be explicitly enabled after their payment providers are deployed. */
+/**
+ * Hosted H5 channels must be explicitly enabled after their payment providers are deployed.
+ */
 @ConfigurationProperties("loadup.modules.acquire.cashier")
 public record CashierProperties(Set<Channel> h5Channels) {
-    public CashierProperties { h5Channels = h5Channels == null ? Set.of() : Set.copyOf(h5Channels); }
+    public CashierProperties {
+        h5Channels = h5Channels == null ? Set.of() : Set.copyOf(h5Channels);
+    }
 }

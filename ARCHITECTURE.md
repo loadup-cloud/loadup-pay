@@ -11,7 +11,9 @@ PENDING。退款独立建模，不修改订单状态/总额/累计已付；费�
 CNY。**
 
 术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)
-。六服务已有 app/infrastructure/adapter、gRPC、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)。不能将历史启动验收视为当前交易闭环通过。
+。六服务已有
+app/infrastructure/adapter、gRPC、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)
+。不能将历史启动验收视为当前交易闭环通过。
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)
 及[合约配置](design/CONTRACT-SCHEMA.md)；业务语义仍以本稿 D01—D10 为基线。具体物理结构、接口源码和待办以对应模块及当前能力矩阵为准。
@@ -335,18 +337,18 @@ product 在线。
 
 ### 8.3 配置项与固定语义
 
-| 类别          | 已确定语义 / 可配置字段                                                                                   | 执行者                                |
-|---------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------|
-| 目标渠道/币种 | ALIPAY、WECHAT、UNIONPAY；defaultCurrency=CNY，显式带currency；未开通币种拒绝而非隐式换汇                 | acquire规范化，payment核对能力        |
-| 主体与接入    | 实际收款商户独立merchantId/合约；父商户代操作逐项授权；DIRECT/SERVICE_PROVIDER均支持                      | customer、product、payment            |
-| 订单付款      | 总额固定、手动输入、多笔成功之和恰好等于总额才PAID；minPaymentAmount/maxSuccessfulPayments/尾款例外可配置 | acquire金额/次数原子占用              |
-| 未付清处理    | unpaidOrderAction=CLOSE/KEEP_PENDING；orderDueAt/等待周期可配置                                           | acquire任务和续付门禁                 |
-| 存量履约      | 已准入INIT/PENDING继续完成，不因合约停止拒绝；终态不重开                                                  | acquire以原条款履约                   |
-| 总额计费      | feeBase固定ORDER_AMOUNT；费率/舍入/保底/封顶可配置；一订单一费用记录                                      | acquire/order_fee                     |
-| 独立退款      | refundAllocationPolicy默认FIFO，可配已实现的LIFO/EXPLICIT；partialRefundAllowed/refundFeePolicy           | payment退款子域                       |
+| 类别          | 已确定语义 / 可配置字段                                                                                   | 执行者                               |
+|---------------|-----------------------------------------------------------------------------------------------------------|--------------------------------------|
+| 目标渠道/币种 | ALIPAY、WECHAT、UNIONPAY；defaultCurrency=CNY，显式带currency；未开通币种拒绝而非隐式换汇                 | acquire规范化，payment核对能力       |
+| 主体与接入    | 实际收款商户独立merchantId/合约；父商户代操作逐项授权；DIRECT/SERVICE_PROVIDER均支持                      | customer、product、payment           |
+| 订单付款      | 总额固定、手动输入、多笔成功之和恰好等于总额才PAID；minPaymentAmount/maxSuccessfulPayments/尾款例外可配置 | acquire金额/次数原子占用             |
+| 未付清处理    | unpaidOrderAction=CLOSE/KEEP_PENDING；orderDueAt/等待周期可配置                                           | acquire任务和续付门禁                |
+| 存量履约      | 已准入INIT/PENDING继续完成，不因合约停止拒绝；终态不重开                                                  | acquire以原条款履约                  |
+| 总额计费      | feeBase固定ORDER_AMOUNT；费率/舍入/保底/封顶可配置；一订单一费用记录                                      | acquire/order_fee                    |
+| 独立退款      | refundAllocationPolicy默认FIFO，可配已实现的LIFO/EXPLICIT；partialRefundAllowed/refundFeePolicy           | payment退款子域                      |
 | 商户通知      | 至少PaymentSucceeded、OrderFullyPaid；关闭/退款事件独立，签名/目标/ACK/退避配置                           | acquire统一投递，payment提供退款事实 |
-| 商户限额      | DAY/WEEK/MONTH/LIFETIME、阈值/是否启用、父级汇总、受支持的统计和恢复规则可配置                            | limitcenter                           |
-| 风控预留      | 默认放行，提交渠道前咨询，支付结果后异步反馈；厂商/细节后置                                               | payment适配                           |
+| 商户限额      | DAY/WEEK/MONTH/LIFETIME、阈值/是否启用、父级汇总、受支持的统计和恢复规则可配置                            | limitcenter                          |
+| 风控预留      | 默认放行，提交渠道前咨询，支付结果后异步反馈；厂商/细节后置                                               | payment适配                          |
 
 配置的是明确受支持的规则，不执行任意脚本，不让商户把ORDER_AMOUNT改回逐付款收费或把终态重新开放。条款继承/覆盖权限沿用框架，平台/渠道硬约束优先。缺失必须策略时阻止不完整合约发布/签约，不用不明默认行为代替业务定义。
 
@@ -366,7 +368,7 @@ DIRECT/SERVICE_PROVIDER 模式累计，不能换渠道商户号绕过同一平�
 可按合约对受授权的父商户同时施加汇总限额：同一付款必须满足实际收款商户规则以及配置的父级规则。父子关系由 customer
 的可信事实确定，不让请求方任意省略；父/子有独立桶，同一规则/主体去重后仅计一次。父级汇总不表示资金先收给父级。
 
-| 窗口     | 系统默认时区 区间                    | 说明                         |
+| 窗口     | 系统默认时区 区间                     | 说明                         |
 |----------|---------------------------------------|------------------------------|
 | DAY      | 当日 00:00 至次日 00:00               | 自然日，不是滚动 24 小时     |
 | WEEK     | 合约指定周起始日 00:00 至下周同日起点 | 周起点配置固定，不是滚动七天 |
@@ -387,7 +389,7 @@ threshold。
 |--------------------|--------------------------------------------|--------------------------------------------------------------------|
 | countingBasis      | INITIATED_AT                               | 每笔首次受理时确定桶，重试不挪桶；仅选择已实现口径                 |
 | countMetric        | PAYMENT_COUNT                              | 成功付款数，金额与笔数分别计数                                     |
-| timezone / 周起点  | 系统默认时区 / 周一00:00                  | 周起点可按规则配置；规则变更须处理在途桶，不回溯清零               |
+| timezone / 周起点  | 系统默认时区 / 周一00:00                   | 周起点可按规则配置；规则变更须处理在途桶，不回溯清零               |
 | windows            | DAY/WEEK/MONTH/LIFETIME                    | 各阈值和启用状态可配置，MONTH为自然月                              |
 | parentAggregation  | 默认关闭，按合约显式启用                   | 启用后子级与父级全部规则同时原子满足                               |
 | limitRestorePolicy | 默认NO_RESTORE，合约可启用成功退款后的恢复 | 恢复原付款对应桶，不增加订单可付金额；笔数恢复单独配置，默认不恢复 |
@@ -506,7 +508,8 @@ DirectAccess 是渠道接入模式，DirectPay 是业务入口，两者不等同
 
 ## 11. 接口与协议契约
 
-下表表达目标业务动作；当前接口/Proto 的实现状态见根能力矩阵与各服务 rpc/client。外部商户用认证 HTTP，内部用 gRPC；渠道通知保留原生协议。
+下表表达目标业务动作；当前接口/Proto 的实现状态见根能力矩阵与各服务 rpc/client。外部商户用认证 HTTP，内部用
+gRPC；渠道通知保留原生协议。
 
 | 所属                        | 接口动作                                                                              | 关键契约                                                                           |
 |-----------------------------|---------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -570,16 +573,16 @@ acquire、limitcenter、realtime 以及未来风控确认/reconciliation 分别�
 事件带 eventId/type、schemaVersion、producer、tenantId、aggregateType/id/version、occurredAt、traceId 和受控
 payload；deliveryId 属于各目标投递记录。至少一次投递，消费者以 `(consumerName,eventId)` 去重，不承诺全局顺序或跨服务恰好一次。
 
-| 事件                                            | 生产者 → 消费者                                                          | 核心要求                                                                                  |
-|-------------------------------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| AcquireOrderChanged                             | acquire → realtime                                                       | 完整订单金额/状态汇总及 version，不覆盖独立付款明细                                       |
-| PaymentChanged                                  | payment → acquire、realtime                                              | 每笔付款完整事实及 version，acquire 只累计该笔一次                                        |
+| 事件                                            | 生产者 → 消费者                                                            | 核心要求                                                                                  |
+|-------------------------------------------------|----------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| AcquireOrderChanged                             | acquire → realtime                                                         | 完整订单金额/状态汇总及 version，不覆盖独立付款明细                                       |
+| PaymentChanged                                  | payment → acquire、realtime                                                | 每笔付款完整事实及 version，acquire 只累计该笔一次                                        |
 | RefundChanged / RefundRequestChanged            | payment → realtime/acquire通知登记，按策略给limitcenter/独立费用调整消费者 | 独立原paymentId与退款聚合版本；只影响退款/额度恢复/独立费用调整，不迁移订单状态或支付金额 |
-| LimitOperationOutcome                           | payment → limitcenter                                                    | 原付款/reservation、确认/释放/恢复证据，独立于查询投影                                    |
-| LimitRuleVersionPublished                       | product → limitcenter                                                    | 激活可确认；未就绪不放行新执行                                                            |
-| PaymentSucceeded / OrderFullyPaid / OrderClosed | acquire → 商户通知任务                                                   | 前两种为首期至少通知类型，关闭独立；付款成功不等于整个订单履约完成                        |
-| RiskOutcomeReady（预留）                        | payment → 风控适配                                                       | 独立结果确认任务，关联 consultationId/操作/来源版本，不阻塞其他目标                       |
-| PaymentChanged / RefundChanged（后置订阅）      | payment → reconciliation                                                 | 独立核对视图，重放与账单位点不回压主交易                                                  |
+| LimitOperationOutcome                           | payment → limitcenter                                                      | 原付款/reservation、确认/释放/恢复证据，独立于查询投影                                    |
+| LimitRuleVersionPublished                       | product → limitcenter                                                      | 激活可确认；未就绪不放行新执行                                                            |
+| PaymentSucceeded / OrderFullyPaid / OrderClosed | acquire → 商户通知任务                                                     | 前两种为首期至少通知类型，关闭独立；付款成功不等于整个订单履约完成                        |
+| RiskOutcomeReady（预留）                        | payment → 风控适配                                                         | 独立结果确认任务，关联 consultationId/操作/来源版本，不阻塞其他目标                       |
+| PaymentChanged / RefundChanged（后置订阅）      | payment → reconciliation                                                   | 独立核对视图，重放与账单位点不回压主交易                                                  |
 
 支付/退款通知分别有来源版本；不能跨不同 paymentId
 比较数字版本并丢弃较“小”的那笔。订单付款结果聚合以每笔持久贡献标记/金额迁移为准，不按事件金额随到随加。限额退款恢复先确认原消耗后执行，独立聚合不可依赖消息全局顺序。
@@ -659,14 +662,16 @@ loadup-pay/
 ```
 
 代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器；托管 cashier 当前由 acquire 提供。
-内部应用交互统一使用 gRPC。各服务的 *-rpc 模块维护自己的 Protobuf 协议、映射和类型化方法，框架现有 gRPC binder 提供通用调用与认证支持，各应用业务 profile 接入框架binder；Java业务client不依赖gRPC，generated
+内部应用交互统一使用 gRPC。各服务的 *-rpc 模块维护自己的 Protobuf 协议、映射和类型化方法，框架现有 gRPC binder
+提供通用调用与认证支持，各应用业务 profile 接入框架binder；Java业务client不依赖gRPC，generated
 proto、身份与业务接口绑定随业务 profile 装配，当前运行验收仍待完成。
 
 金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不重新定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
 
 ## 15. K8s、配置与本地时区
 
-六核心服务及后置对账各自独立 Deployment/Service，cashier 按需单独部署，SDK 为客户端包。继续使用 Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
+六核心服务及后置对账各自独立 Deployment/Service，cashier 按需单独部署，SDK 为客户端包。继续使用
+Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
 RBAC/应用权限，当前 Headlamp 仅能修改 acquire/payment，不能把它当商户业务授权。
 
 容器与 JVM 沿用系统默认时区，不设置固定 TZ/user.timezone；数据库会话、Clock、JDBC/任务与日/周/月边界保持一致。业务
@@ -713,7 +718,7 @@ orderId/paymentId/allocationId/refundId/limitOperationId/traceId，凭证和付�
 | 风控确认失败/乱序                                | 已付款事实照常提交并反馈订单/额度，独立重投确认，不重复扣款或倒改结果                           |
 | 对账服务停机/慢任务                              | 创单、支付、退款、限额和渠道 ACK 不同步依赖对账服务                                             |
 | 文件重复/更正/缺失或本地位点滞后                 | 批次幂等/历史可追溯，不将缺数据标为对平，不因重跑重复触发资金操作                               |
-| 时区                                             | 应用/数据库/任务与日周月边界按 系统默认时区 验证                                               |
+| 时区                                             | 应用/数据库/任务与日周月边界按 系统默认时区 验证                                                |
 
 先做领域状态/金额不变量，再做 MySQL 并发、事件/故障恢复及渠道沙箱和回调联调。本轮不构建、不跑测试、不改部署；容量/SLO/RTO/RPO
 不在本次细化范围。
@@ -741,7 +746,8 @@ D01已确定时序和默认策略，本轮不展开外部风控的详细协议�
 ### 18.1 职责与隔离
 
 正式账单核对从 payment 任务中独立为 reconciliation
-服务：负责渠道账单文件取得、保存、解析、完整性检查、标准化、交易核对、差错记录/复核与重跑。当前批次、核对、存储、任务和接口源码见 [对账设计](design/RECONCILIATION.md)，文件来源与权威导出仍待接入；不把对账完成作为收款成功条件。
+服务：负责渠道账单文件取得、保存、解析、完整性检查、标准化、交易核对、差错记录/复核与重跑。当前批次、核对、存储、任务和接口源码见 [对账设计](design/RECONCILIATION.md)
+，文件来源与权威导出仍待接入；不把对账完成作为收款成功条件。
 
 reconciliation 使用独立 Deployment、数据库、文件存储和任务资源。交易 HTTP/RPC 不同步调用它；付款成功、渠道
 ACK、关单、退款和限额确认不等它。交易侧只提供已持久化事实的独立异步镜像/快照导出，导出按独立资源预算执行，不能把对账批量扫描压到交易请求线程或用
@@ -788,17 +794,18 @@ SubmitEvidenceForVerification，payment 再按可信渠道查询/证据验证后
 
 ## 20. 当前实现与验收边界
 
-当前能力只在 [根 README](README.md#当前能力矩阵) 维护。源码已有订单/付款/退款、额度、费用、通知、托管 H5、投影、渠道插件与原生任务恢复，不再描述为 Ping/契约阶段。
+当前能力只在 [根 README](README.md#当前能力矩阵) 维护。源码已有订单/付款/退款、额度、费用、通知、托管 H5、投影、渠道插件与原生任务恢复，不再描述为
+Ping/契约阶段。
 review 首批补了只读运营详情与金融/任务/投影 MySQL IT 源码；本轮未编译或运行，没有用测试文件存在替代一致性证明。
 
-| 不变量 | 当前实现入口 | 仍需的证明/补齐 |
-|---|---|---|
-| 订单金额及回执/费用/Outbox 同事务 | acquire 的 PaymentInitiationOperations / PaymentOutcomeOperations | 实际 A2/A3 并发回滚、重放及服务链路 |
-| 原 attempt 首提权与结果权威分离 | payment 的 SubmissionPreparation / ExecutionService / ResultService | 真实 Y2/Y3、渠道验签、网络故障及原号恢复 |
-| 退款不改原付款金额 | 固定计划、RefundExecution/ResultService、容量与独立汇总 | 多付款串行组合、真实退款幂等与金融回滚 |
-| 恢复 claim 不授予额外扣款权 | DelayedTask + 业务 cursor/generation + 实际 handler | 租约/新旧代并发运行、长期 UNKNOWN 运营策略 |
-| 查询投影不参与主交易裁定 | realtime 四类快照/receipt/版本 Gateway | 真实版本竞争、重建/检查点与新鲜度 |
-| 编排与存储/协议边界可维护 | COLA 分层、channel-api、provider-owned gRPC | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
+| 不变量                            | 当前实现入口                                                        | 仍需的证明/补齐                                                              |
+|-----------------------------------|---------------------------------------------------------------------|------------------------------------------------------------------------------|
+| 订单金额及回执/费用/Outbox 同事务 | acquire 的 PaymentInitiationOperations / PaymentOutcomeOperations   | 实际 A2/A3 并发回滚、重放及服务链路                                          |
+| 原 attempt 首提权与结果权威分离   | payment 的 SubmissionPreparation / ExecutionService / ResultService | 真实 Y2/Y3、渠道验签、网络故障及原号恢复                                     |
+| 退款不改原付款金额                | 固定计划、RefundExecution/ResultService、容量与独立汇总             | 多付款串行组合、真实退款幂等与金融回滚                                       |
+| 恢复 claim 不授予额外扣款权       | DelayedTask + 业务 cursor/generation + 实际 handler                 | 租约/新旧代并发运行、长期 UNKNOWN 运营策略                                   |
+| 查询投影不参与主交易裁定          | realtime 四类快照/receipt/版本 Gateway                              | 真实版本竞争、重建/检查点与新鲜度                                            |
+| 编排与存储/协议边界可维护         | COLA 分层、channel-api、provider-owned gRPC                         | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
 
 银联具体产品/接入机构、支付宝 H5、微信付款码、托管 JSAPI 授权与后置对账等仍按完整目标推进。
 历史启动/Headlamp/RPC 记录不证明当前身份、数据库、渠道或业务可用性；旧测试 Ping RPC 已删除。
@@ -862,38 +869,49 @@ DirectPay、付款码输入准备及真实渠道执行仍需实现，契约恢�
 
 ## 渠道模块边界更新（2026-10-23）
 
-渠道技术能力独立为 channel 聚合：channel-api 定义统一 Facade、Provider 策略和不可变协议契约；channel-core 收集 Provider 构建按 Channel 索引的注册表；channel-alipay/channel-wechat 分别维护各渠道协议、签名和凭证。payment 保留交易编排与本地持久化，仅由基础设施桥接调用渠道 Facade。
+渠道技术能力独立为 channel 聚合：channel-api 定义统一 Facade、Provider 策略和不可变协议契约；channel-core 收集 Provider 构建按
+Channel 索引的注册表；channel-alipay/channel-wechat 分别维护各渠道协议、签名和凭证。payment 保留交易编排与本地持久化，仅由基础设施桥接调用渠道
+Facade。
 
-上游选择渠道/支付方式，经合约与商户绑定校验后冻结；后续查询/关闭/退款始终复用原 revision 和收款账户，禁止路由回退。插件随 payment 进程组合，不新增部署单元。新渠道无需修改核心分支，按 SPI 注册；当前已条件注册支付宝退款 Provider；统一路由与退款协议适配为源码实现，收款/动作和微信 Provider 仍待完成。详见 [渠道设计](channel/README.md)。
+上游选择渠道/支付方式，经合约与商户绑定校验后冻结；后续查询/关闭/退款始终复用原 revision 和收款账户，禁止路由回退。插件随
+payment 进程组合，不新增部署单元。新渠道无需修改核心分支，按 SPI 注册；当前已条件注册支付宝退款
+Provider；统一路由与退款协议适配为源码实现，收款/动作和微信 Provider 仍待完成。详见 [渠道设计](channel/README.md)。
 
-channel-api 的 submit 现区分资金事实与唤起动作；付款码/已解析渠道买家标识只在 payment 原绑定密文打开后进入插件。原订单 subject/payableUntil 由 acquire 冻结，渠道不能自行延长。支付宝付款码和 JSAPI 提交源码已补，动作快照、Y3 同事务记录与授权返回已有源码；自动首次提交/原号查单/门禁关闭与 Y2 前预检已有源码；H5 未完成。
-
+channel-api 的 submit 现区分资金事实与唤起动作；付款码/已解析渠道买家标识只在 payment 原绑定密文打开后进入插件。原订单
+subject/payableUntil 由 acquire 冻结，渠道不能自行延长。支付宝付款码和 JSAPI 提交源码已补，动作快照、Y3
+同事务记录与授权返回已有源码；自动首次提交/原号查单/门禁关闭与 Y2 前预检已有源码；H5 未完成。
 
 ### 渠道回调的信任边界（2026-10-24）
 
-公开通知入口由可信 endpoint 配置选择原 tenant/binding revision，原始 body 只能提供不可信定位提示；独立 ChannelNotificationFacade/Provider 完成协议认证和原账户/金额核验。payment 随后在事务外查原交易，再通过 Y3 持久化 CALLBACK 回执与金融事实，提交后才发送固定协议 ACK。通知字段不是商户可写成功证据，不绕过原执行 gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道与真实验收仍待完成，细节见 [渠道模块](channel/README.md)。
-
+公开通知入口由可信 endpoint 配置选择原 tenant/binding revision，原始 body 只能提供不可信定位提示；独立
+ChannelNotificationFacade/Provider 完成协议认证和原账户/金额核验。payment 随后在事务外查原交易，再通过 Y3 持久化 CALLBACK
+回执与金融事实，提交后才发送固定协议 ACK。通知字段不是商户可写成功证据，不绕过原执行
+gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道与真实验收仍待完成，细节见 [渠道模块](channel/README.md)。
 
 ## 退款商户通知统一投递（2026-10-24）
 
-payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 gRPC 交 acquire 登记。acquire 统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment 通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
+payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 gRPC 交 acquire 登记。acquire
+统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment
+通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
 
-RefundSucceeded/RefundFailed 与 RefundRequestCompleted 按各自原聚合版本标识，最终申请可部分成功；与订单/付款事件不要求全局顺序。完整契约、状态和 DDL 见 design/CLIENT-API.md 与 design/DATABASE.md。本批为源码实现，真实验证仍暂停。
-
+RefundSucceeded/RefundFailed 与 RefundRequestCompleted 按各自原聚合版本标识，最终申请可部分成功；与订单/付款事件不要求全局顺序。完整契约、状态和
+DDL 见 design/CLIENT-API.md 与 design/DATABASE.md。本批为源码实现，真实验证仍暂停。
 
 ## Review R5：显式本地事务边界
 
-五个 helper 统一 withTenantContext / readSnapshot / writeLocal 语义命名，详见 [契约与适用模块](design/TRANSACTION-BOUNDARIES.md)。
-上下文入口不创建/挂起事务；只读入口保持 RR；本地写保持 RC，最多总计三次可重放数据库尝试。realtime 的原 read 是真实快照，不改为 context-only。
+五个 helper 统一 withTenantContext / readSnapshot / writeLocal
+语义命名，详见 [契约与适用模块](design/TRANSACTION-BOUNDARIES.md)。
+上下文入口不创建/挂起事务；只读入口保持 RR；本地写保持 RC，最多总计三次可重放数据库尝试。realtime 的原 read 是真实快照，不改为
+context-only。
 同步当前所有源调用，不保留旧开发期名称；不新增跨服务事务或公共技术基类，也不移动渠道调用。仅源码与测试输入调整，未运行验收。
-
 
 ## Review R4：付款与 attempt 的共同绑定
 
-payment-domain 的 PaymentAttemptBinding 集中不可变跨记录规则及操作前置条件，payment-app 仅保留局部错误映射；见 [绑定契约](design/PAYMENT-BINDING.md)。
-已提交事实的可观察性与首次执行权分开，Y3 错误目标冲突审计和损坏持久绑定继续区别处理。该对象不是锁/授权/票据，不包含渠道 IO 或 ORM。
+payment-domain 的 PaymentAttemptBinding 集中不可变跨记录规则及操作前置条件，payment-app
+仅保留局部错误映射；见 [绑定契约](design/PAYMENT-BINDING.md)。
+已提交事实的可观察性与首次执行权分开，Y3 错误目标冲突审计和损坏持久绑定继续区别处理。该对象不是锁/授权/票据，不包含渠道 IO
+或 ORM。
 首提/恢复/回调/关单等源码已接入，原锁序和分层边界保持；门禁完整上下文、R6 冻结意图收敛和完整运行证明仍未完成。
-
 
 ### R4 门禁与完整上下文增量
 
@@ -901,16 +919,18 @@ PaymentGateBinding/PaymentExecutionContext 已补纯领域源码；LockedPayment
 锁内 Y2、恢复/关闭、Y3、动作/投递与 outcome 使用同一内部关系规则，只有首次提交要求双 OPEN，已提交结果保持可观察。提前拒绝在只读事务使用执行锁。
 这些对象不是锁/执行票据，也不持久化新格式；原租户、鉴权、锁序、证据与外部协议仍由原入口负责。运行验收与入口组合证明尚未完成。
 
-
 ## Review R6：付款持久意图表示
 
 acquire/payment 的本地 PaymentIntentSnapshot 与完整嵌套条款拥有独立格式，公开 Command 只在 MapStruct 边界使用，不直接构成存储格式。
 存储 JSON 策略及恢复校验与当前接口表示/Bean Validation 分开，旧开发期格式明确拒绝；原金融身份、金额/期限/合约内容保持，不引入多版本兼容框架。
-源码及测试输入已补，未执行数据库转换或运行验收，详见 [快照契约](design/PAYMENT-INTENT-SNAPSHOTS.md)。其他意图/事件仍各自维护原格式，不据此宣称全项目持久化耦合都已消除。
-
+源码及测试输入已补，未执行数据库转换或运行验收，详见 [快照契约](design/PAYMENT-INTENT-SNAPSHOTS.md)
+。其他意图/事件仍各自维护原格式，不据此宣称全项目持久化耦合都已消除。
 
 ## Review R7：模块内恢复机械规则
 
-payment 的规范 task key、position/current、单调 successor 与 app 领取元数据校验已经共享；领域无技术组件依赖，协议无 IO/全局上下文读取。
-两阶段服务仍各自拥有锁序、金融状态与事务外原请求推进，native claim/token/ACK 留在 DelayedTask。没有跨服务 Saga 或通用 execution callback。
-源码/测试输入见 [局部恢复协议](design/RECOVERY-PROTOCOL.md)；编译、共享协议和实际 handler IT 未运行，不能宣称原生 fencing 或多实例验收通过。
+payment 的规范 task key、position/current、单调 successor 与 app 领取元数据校验已经共享；领域无技术组件依赖，协议无
+IO/全局上下文读取。
+两阶段服务仍各自拥有锁序、金融状态与事务外原请求推进，native claim/token/ACK 留在 DelayedTask。没有跨服务 Saga 或通用
+execution callback。
+源码/测试输入见 [局部恢复协议](design/RECOVERY-PROTOCOL.md)；编译、共享协议和实际 handler IT 未运行，不能宣称原生 fencing
+或多实例验收通过。

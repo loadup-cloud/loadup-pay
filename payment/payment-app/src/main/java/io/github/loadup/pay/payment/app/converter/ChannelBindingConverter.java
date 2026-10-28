@@ -16,19 +16,19 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.pay.payment.client.dto.AlipayAccountIdentityDTO;
 import io.github.loadup.pay.payment.client.dto.ChannelAccountIdentityDTO;
 import io.github.loadup.pay.payment.client.dto.ChannelBindingChangeDTO;
 import io.github.loadup.pay.payment.client.dto.ChannelBindingDTO;
 import io.github.loadup.pay.payment.client.dto.WechatAccountIdentityDTO;
-import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
-import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
-import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
-import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

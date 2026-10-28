@@ -18,10 +18,10 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -84,6 +84,7 @@ class RefundResultCodecImplTest {
                 original.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.UNKNOWN, original.amount(), original.channelRefundTransactionNo(),
                 original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest(), null));
     }
+
     @Test
     void acceptanceMetadataIsMicrosecondExactAndBoundIntoTheRetainedFactsDigest() {
         var original = observation("original-transaction", "refund-transaction", 1000, "event");

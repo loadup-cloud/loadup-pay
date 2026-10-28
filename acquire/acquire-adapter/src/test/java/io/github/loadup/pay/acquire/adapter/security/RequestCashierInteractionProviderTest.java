@@ -25,12 +25,21 @@ import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RequestCashierInteractionProviderTest {
-    @Test void onlyServerRemoteAddressIsUsedAndJsapiCannotAcceptABrowserSuppliedIdentity() {
+    @Test
+    void onlyServerRemoteAddressIsUsedAndJsapiCannotAcceptABrowserSuppliedIdentity() {
         var request = mock(HttpServletRequest.class);
         var converter = mock(CashierPaymentConverter.class);
         when(request.getRemoteAddr()).thenReturn("203.0.113.10");

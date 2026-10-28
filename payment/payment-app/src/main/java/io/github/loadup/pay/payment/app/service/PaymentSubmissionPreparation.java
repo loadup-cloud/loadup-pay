@@ -16,9 +16,9 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
@@ -54,11 +54,11 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_PERMIT_INVALID;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 /**
@@ -168,14 +168,16 @@ public class PaymentSubmissionPreparation {
                     requireBinding(locked.payment(), current);
                     if (current.attempt().state() != PaymentAttemptState.INIT) return Optional.empty();
                     PaymentExecutionBindings.submittableContext(locked, current);
-                    if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
+                    if (!clock.instant().isBefore(original.payableUntil().toInstant()))
+                        throw new CommonException(PAYMENT_EXPIRED);
                     inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
                     attempts.update(tenant, started, current.rowVersion());
                     return Optional.of(new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
                 });
             } catch (CommonException rejected) {
-                if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED) rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED)
+                    rejectUnsubmitted(tenant, accepted, attemptId, decision);
                 throw rejected;
             }
         });

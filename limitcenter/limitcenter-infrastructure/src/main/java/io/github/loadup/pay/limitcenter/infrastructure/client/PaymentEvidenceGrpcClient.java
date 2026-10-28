@@ -18,12 +18,18 @@ package io.github.loadup.pay.limitcenter.infrastructure.client;
 import com.google.protobuf.Message;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcOperation;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcOperation;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -33,11 +39,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
 
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -87,6 +88,7 @@ public class PaymentEvidenceGrpcClient implements PaymentEvidenceClient {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }
+
     private String credential(String tenant) {
         // Preflight routing claims only. The receiving resource server verifies signature, issuer and audience.
         try (var input = Files.newInputStream(properties.tokenFile())) {

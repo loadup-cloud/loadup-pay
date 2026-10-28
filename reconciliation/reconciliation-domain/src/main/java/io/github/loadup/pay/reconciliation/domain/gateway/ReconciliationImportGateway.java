@@ -16,14 +16,22 @@
 package io.github.loadup.pay.reconciliation.domain.gateway;
 
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
+
 import java.util.Optional;
 
-/** Local metadata only. Batch is locked before import mutation or active-import lookup. */
+/**
+ * Local metadata only. Batch is locked before import mutation or active-import lookup.
+ */
 public interface ReconciliationImportGateway {
     Optional<ReconciliationImportRequest> findRequest(String tenant, String caller, String requestKey);
+
     Optional<ReconciliationImportRequest> find(String tenant, String id);
+
     Optional<ReconciliationImportRequest> lock(String tenant, String id);
+
     Optional<ReconciliationImportRequest> activeForBatch(String tenant, String batchId);
+
     void insert(String tenant, ReconciliationImportRequest value);
+
     void update(String tenant, ReconciliationImportRequest value, long expectedVersion);
 }

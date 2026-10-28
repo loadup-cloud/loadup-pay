@@ -17,13 +17,11 @@ package io.github.loadup.pay.payment.rpc;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.rpc.grpc.GrpcScalarMapper;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.BeforeMapping;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.ReportingPolicy;
 import org.mapstruct.factory.Mappers;
@@ -66,13 +64,18 @@ public interface PaymentRpcMapper {
     default io.github.loadup.pay.payment.rpc.proto.WirePaymentInteractionDTO toWirePaymentInteractionDTO(io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO value) {
         if (value == null) throw new IllegalArgumentException("RPC value is required");
         var result = io.github.loadup.pay.payment.rpc.proto.WirePaymentInteractionDTO.newBuilder();
-        if (value instanceof io.github.loadup.pay.payment.client.dto.NoInteractionDTO variant) result.setOption0(toWireNoInteractionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO variant) result.setOption1(toWirePaymentCodeInteractionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO variant) result.setOption2(toWireChannelIdentityInteractionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO variant) result.setOption3(toWireH5SceneInteractionDTO(variant));
+        if (value instanceof io.github.loadup.pay.payment.client.dto.NoInteractionDTO variant)
+            result.setOption0(toWireNoInteractionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO variant)
+            result.setOption1(toWirePaymentCodeInteractionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO variant)
+            result.setOption2(toWireChannelIdentityInteractionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO variant)
+            result.setOption3(toWireH5SceneInteractionDTO(variant));
         else throw new IllegalArgumentException("Unknown RPC variant");
         return result.build();
     }
+
     default io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO fromWirePaymentInteractionDTO(io.github.loadup.pay.payment.rpc.proto.WirePaymentInteractionDTO value) {
         return switch (value.getVariantCase()) {
             case OPTION0 -> fromWireNoInteractionDTO(value.getOption0());
@@ -82,6 +85,7 @@ public interface PaymentRpcMapper {
             default -> throw new IllegalArgumentException("RPC variant is required");
         };
     }
+
     @BeanMapping(ignoreByDefault = true)
     io.github.loadup.pay.payment.rpc.proto.WireNoInteractionDTO toWireNoInteractionDTO(io.github.loadup.pay.payment.client.dto.NoInteractionDTO value);
 
@@ -190,7 +194,8 @@ public interface PaymentRpcMapper {
     default void requireInputLookupFields(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupQuery value) {
         if (value == null || !value.hasPaymentId() || !value.hasOrderId() || !value.hasAllocationId()
                 || !value.hasPayeeMerchantId() || !value.hasAmountMinor() || !value.hasCurrency()
-                || !value.hasInputKey() || !value.hasChoice()) throw new IllegalArgumentException("RPC input lookup fields are required");
+                || !value.hasInputKey() || !value.hasChoice())
+            throw new IllegalArgumentException("RPC input lookup fields are required");
     }
 
     @BeanMapping(ignoreByDefault = true)
@@ -205,7 +210,8 @@ public interface PaymentRpcMapper {
     default void requireInputLookupResult(io.github.loadup.pay.payment.rpc.proto.WirePaymentInputLookupDTO value) {
         if (value == null || !value.hasFound() || value.getFound() != value.hasInput()
                 || value.hasInput() && (!value.getInput().hasInputRef() || !value.getInput().hasInputDigest()
-                || !value.getInput().hasExpiresAt())) throw new IllegalArgumentException("RPC input lookup result is invalid");
+                || !value.getInput().hasExpiresAt()))
+            throw new IllegalArgumentException("RPC input lookup result is invalid");
     }
 
     @BeanMapping(ignoreByDefault = true)
@@ -253,14 +259,20 @@ public interface PaymentRpcMapper {
     default io.github.loadup.pay.payment.rpc.proto.WirePaymentActionDataDTO toWirePaymentActionDataDTO(io.github.loadup.pay.payment.client.dto.PaymentActionDataDTO value) {
         if (value == null) throw new IllegalArgumentException("RPC value is required");
         var result = io.github.loadup.pay.payment.rpc.proto.WirePaymentActionDataDTO.newBuilder();
-        if (value instanceof io.github.loadup.pay.payment.client.dto.NoActionDTO variant) result.setOption0(toWireNoActionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.WaitActionDTO variant) result.setOption1(toWireWaitActionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.RedirectActionDTO variant) result.setOption2(toWireRedirectActionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.WechatJsapiActionDTO variant) result.setOption3(toWireWechatJsapiActionDTO(variant));
-        else if (value instanceof io.github.loadup.pay.payment.client.dto.AlipayJsapiActionDTO variant) result.setOption4(toWireAlipayJsapiActionDTO(variant));
+        if (value instanceof io.github.loadup.pay.payment.client.dto.NoActionDTO variant)
+            result.setOption0(toWireNoActionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.WaitActionDTO variant)
+            result.setOption1(toWireWaitActionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.RedirectActionDTO variant)
+            result.setOption2(toWireRedirectActionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.WechatJsapiActionDTO variant)
+            result.setOption3(toWireWechatJsapiActionDTO(variant));
+        else if (value instanceof io.github.loadup.pay.payment.client.dto.AlipayJsapiActionDTO variant)
+            result.setOption4(toWireAlipayJsapiActionDTO(variant));
         else throw new IllegalArgumentException("Unknown RPC variant");
         return result.build();
     }
+
     default io.github.loadup.pay.payment.client.dto.PaymentActionDataDTO fromWirePaymentActionDataDTO(io.github.loadup.pay.payment.rpc.proto.WirePaymentActionDataDTO value) {
         return switch (value.getVariantCase()) {
             case OPTION0 -> fromWireNoActionDTO(value.getOption0());
@@ -271,6 +283,7 @@ public interface PaymentRpcMapper {
             default -> throw new IllegalArgumentException("RPC variant is required");
         };
     }
+
     @BeanMapping(ignoreByDefault = true)
     io.github.loadup.pay.payment.rpc.proto.WireNoActionDTO toWireNoActionDTO(io.github.loadup.pay.payment.client.dto.NoActionDTO value);
 

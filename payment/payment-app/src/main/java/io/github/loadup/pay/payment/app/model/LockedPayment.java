@@ -19,13 +19,31 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.domain.model.PaymentGateBinding;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+
 import java.util.Objects;
 
-/** Transaction-owned validated view; never retain this as a submission permit. */
+/**
+ * Transaction-owned validated view; never retain this as a submission permit.
+ */
 public record LockedPayment(PaymentGateBinding binding) {
-    public LockedPayment { Objects.requireNonNull(binding); }
-    public StoredPaymentAcceptance payment() { return binding.accepted(); }
-    public StoredPaymentGate parent() { return binding.parent(); }
-    public StoredPaymentGate gate() { return binding.gate(); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public LockedPayment {
+        Objects.requireNonNull(binding);
+    }
+
+    public StoredPaymentAcceptance payment() {
+        return binding.accepted();
+    }
+
+    public StoredPaymentGate parent() {
+        return binding.parent();
+    }
+
+    public StoredPaymentGate gate() {
+        return binding.gate();
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

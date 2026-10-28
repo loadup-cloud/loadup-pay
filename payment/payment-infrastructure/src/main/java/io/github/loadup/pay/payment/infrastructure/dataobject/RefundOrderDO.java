@@ -169,16 +169,16 @@ public class RefundOrderDO extends BaseDO {
         return terminalEvidenceId;
     }
 
+    public void setTerminalEvidenceId(String value) {
+        terminalEvidenceId = value;
+    }
+
     public LocalDateTime getFirstUnknownAt() {
         return firstUnknownAt;
     }
 
     public void setFirstUnknownAt(LocalDateTime value) {
         firstUnknownAt = value;
-    }
-
-    public void setTerminalEvidenceId(String value) {
-        terminalEvidenceId = value;
     }
 
     public LocalDateTime getNextQueryAt() {

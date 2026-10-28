@@ -16,16 +16,27 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.payment.infrastructure.model.PaymentIntentSnapshot;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.OffsetDateTime;
 
-/** Explicit Java mapping, independent of public DTO JSON names and validation annotations. */
+/**
+ * Explicit Java mapping, independent of public DTO JSON names and validation annotations.
+ */
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentIntentSnapshotConverter {
     @Mapping(target = "format", constant = PaymentIntentSnapshot.FORMAT)
@@ -42,24 +53,46 @@ public interface PaymentIntentSnapshotConverter {
     PaymentChoiceDTO toChoice(PaymentIntentSnapshot value);
 
     PaymentIntentSnapshot.Admission toSnapshot(AdmittedOrderTermsDTO value);
+
     AdmittedOrderTermsDTO toDTO(PaymentIntentSnapshot.Admission value);
+
     PaymentIntentSnapshot.Terms toSnapshot(AcquiringTermsDTO value);
+
     AcquiringTermsDTO toDTO(PaymentIntentSnapshot.Terms value);
+
     PaymentIntentSnapshot.OrderPolicy toSnapshot(OrderTermsDTO value);
+
     OrderTermsDTO toDTO(PaymentIntentSnapshot.OrderPolicy value);
+
     PaymentIntentSnapshot.PaymentPolicy toSnapshot(PaymentTermsDTO value);
+
     PaymentTermsDTO toDTO(PaymentIntentSnapshot.PaymentPolicy value);
+
     PaymentIntentSnapshot.FeePolicy toSnapshot(FeeTermsDTO value);
+
     FeeTermsDTO toDTO(PaymentIntentSnapshot.FeePolicy value);
+
     PaymentIntentSnapshot.RefundPolicy toSnapshot(RefundTermsDTO value);
+
     RefundTermsDTO toDTO(PaymentIntentSnapshot.RefundPolicy value);
+
     PaymentIntentSnapshot.NotificationPolicy toSnapshot(NotificationTermsDTO value);
+
     NotificationTermsDTO toDTO(PaymentIntentSnapshot.NotificationPolicy value);
+
     PaymentIntentSnapshot.LimitPolicy toSnapshot(LimitPolicyRefDTO value);
+
     LimitPolicyRefDTO toDTO(PaymentIntentSnapshot.LimitPolicy value);
+
     PaymentIntentSnapshot.Capability toSnapshot(ChannelCapabilityDTO value);
+
     ChannelCapabilityDTO toDTO(PaymentIntentSnapshot.Capability value);
 
-    default String deadline(OffsetDateTime value) { return value == null ? null : value.toString(); }
-    default OffsetDateTime deadline(String value) { return value == null ? null : OffsetDateTime.parse(value); }
+    default String deadline(OffsetDateTime value) {
+        return value == null ? null : value.toString();
+    }
+
+    default OffsetDateTime deadline(String value) {
+        return value == null ? null : OffsetDateTime.parse(value);
+    }
 }

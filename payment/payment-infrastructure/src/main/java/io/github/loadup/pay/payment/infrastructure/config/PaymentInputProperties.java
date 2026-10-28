@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.infrastructure.config;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.kms.KmsKeyRef;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 

@@ -1,23 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {MAX_MINOR, parseAmount, formatAmount, parsePayload, order, validateAmount, actionKey, newOperation, restoreOperation,
-    attachPayment, persist, forget, startBody, payment, finalPayment, redirect, recovery} from "../../main/resources/cashier/checkout-core.mjs";
+import {
+    actionKey,
+    attachPayment,
+    finalPayment,
+    forget,
+    formatAmount,
+    MAX_MINOR,
+    newOperation,
+    order,
+    parseAmount,
+    parsePayload,
+    payment,
+    persist,
+    recovery,
+    redirect,
+    restoreOperation,
+    startBody,
+    validateAmount
+} from "../../main/resources/cashier/checkout-core.mjs";
 
 const selected = {channel: "WECHAT", method: "H5"};
+
 function summary(overrides = {}) {
-    return {orderId: "order", subject: "<script>text only</script>", currency: "CNY", state: "PENDING", amountMinor: 10000n,
+    return {
+        orderId: "order", subject: "<script>text only</script>", currency: "CNY", state: "PENDING", amountMinor: 10000n,
         paidAmountMinor: 2000n, paymentReservedMinor: 0n, availableToPayMinor: 8000n,
         minimumPaymentMinor: 100n, maximumPaymentMinor: 10000n, allowExactRemainderBelowMin: true,
-        remainingPaymentCount: 3n, choices: [selected], ...overrides};
+        remainingPaymentCount: 3n, choices: [selected], ...overrides
+    };
 }
-function operation(amount = 3000n) { return newOperation("order", amount, selected, "fixed-action"); }
+
+function operation(amount = 3000n) {
+    return newOperation("order", amount, selected, "fixed-action");
+}
+
 function memory() {
     const data = new Map();
-    return {getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key)};
+    return {
+        getItem: key => data.get(key) ?? null,
+        setItem: (key, value) => data.set(key, value),
+        removeItem: key => data.delete(key)
+    };
 }
 
 test("action keys use a cryptographic source and never fall back to an untrusted random generator", () => {
-    const source = {getRandomValues(bytes) { for (let i = 0; i < bytes.length; i++) bytes[i] = i; return bytes; }};
+    const source = {
+        getRandomValues(bytes) {
+            for (let i = 0; i < bytes.length; i++) bytes[i] = i;
+            return bytes;
+        }
+    };
     assert.equal(actionKey(source), "pay_000102030405060708090a0b0c0d0e0f");
     assert.throws(() => actionKey(null));
 });
@@ -63,7 +96,12 @@ test("order scope, gross totals, reservations and terminal balances must remain 
     assert.throws(() => order(summary({availableToPayMinor: 8001n}), "order"));
     assert.throws(() => order(summary({state: "PAID"}), "order"));
     assert.throws(() => order(summary({currency: "USD"}), "order"));
-    assert.equal(order(summary({state: "PAID", paidAmountMinor: 10000n, availableToPayMinor: 0n, choices: []}), "order").state, "PAID");
+    assert.equal(order(summary({
+        state: "PAID",
+        paidAmountMinor: 10000n,
+        availableToPayMinor: 0n,
+        choices: []
+    }), "order").state, "PAID");
 });
 
 test("recovery preserves original action, amount and payment id while excluding capabilities and redirect payloads", () => {
@@ -88,18 +126,37 @@ test("start body carries the exact int64 numeric literal and a stable action key
 });
 
 test("metadata storage must actually retain writes and confirm removals", () => {
-    const rejected = {setItem() {}, getItem() {return null;}};
+    const rejected = {
+        setItem() {
+        }, getItem() {
+            return null;
+        }
+    };
     assert.throws(() => persist(rejected, "context", operation()));
-    const stuck = {removeItem() {}, getItem() {return "still-present";}};
+    const stuck = {
+        removeItem() {
+        }, getItem() {
+            return "still-present";
+        }
+    };
     assert.throws(() => forget(stuck, "context"));
     const storage = memory();
-    persist(storage, "context", operation()); forget(storage, "context");
+    persist(storage, "context", operation());
+    forget(storage, "context");
     assert.equal(storage.getItem("context"), null);
 });
 
 test("acceptedness and identity must be explicit before any operation may finish", () => {
     const pending = attachPayment(operation(), "payment");
-    const base = {orderId: "order", paymentId: "payment", accepted: true, state: "PROCESSING", version: 2n, action: null, order: summary()};
+    const base = {
+        orderId: "order",
+        paymentId: "payment",
+        accepted: true,
+        state: "PROCESSING",
+        version: 2n,
+        action: null,
+        order: summary()
+    };
     assert.equal(finalPayment(payment(base, pending, true)), false);
     assert.throws(() => payment({...base, paymentId: "other"}, pending, true));
     assert.throws(() => payment({...base, accepted: undefined, state: null, version: null}, pending, true));
@@ -112,7 +169,11 @@ test("acceptedness and identity must be explicit before any operation may finish
 });
 
 test("launch requires the original unexpired HTTPS redirect and preserves raw encoding", () => {
-    const action = {type: "REDIRECT", expiresAt: "2026-10-24T12:00:00+08:00", data: {type: "REDIRECT", redirectUrl: "https://pay.example.test/launch?q=%2F&a=1"}};
+    const action = {
+        type: "REDIRECT",
+        expiresAt: "2026-10-24T12:00:00+08:00",
+        data: {type: "REDIRECT", redirectUrl: "https://pay.example.test/launch?q=%2F&a=1"}
+    };
     const before = Date.parse("2026-10-24T11:59:59+08:00"), deadline = Date.parse(action.expiresAt);
     assert.equal(redirect(action, before), action.data.redirectUrl);
     assert.equal(redirect(action, deadline), null);
@@ -131,11 +192,22 @@ test("lost-response recovery binds the exact action and never turns lookup absen
     assert.throws(() => recovery({...base, orderId: "other-order"}, original));
     assert.throws(() => recovery({...base, state: "FAILED"}, original));
     assert.throws(() => recovery({...base, payment: {}}, original));
-    const nested = {orderId: "order", paymentId: "payment", accepted: true, state: "PROCESSING", version: 1n, action: null, order: summary()};
+    const nested = {
+        orderId: "order",
+        paymentId: "payment",
+        accepted: true,
+        state: "PROCESSING",
+        version: 1n,
+        action: null,
+        order: summary()
+    };
     const resolved = {...base, state: "RESOLVED", payment: nested};
     assert.equal(finalPayment(recovery(resolved, original).payment), false);
     assert.equal(recovery(resolved, original).payment.paymentId, "payment");
-    assert.throws(() => recovery({...resolved, payment: {...nested, paymentId: "other"}}, attachPayment(original, "payment")));
+    assert.throws(() => recovery({
+        ...resolved,
+        payment: {...nested, paymentId: "other"}
+    }, attachPayment(original, "payment")));
     const absent = {...nested, accepted: false, state: null, version: null};
     assert.equal(finalPayment(recovery({...resolved, payment: absent}, original).payment), true);
     assert.throws(() => recovery({...resolved, payment: {...absent, accepted: undefined}}, original));

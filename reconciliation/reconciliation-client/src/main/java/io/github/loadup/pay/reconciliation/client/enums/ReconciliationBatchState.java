@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.client.enums;
 
-public enum ReconciliationBatchState { INIT, READY, RUNNING, MATCHED, DIFFERENCES }
+public enum ReconciliationBatchState {INIT, READY, RUNNING, MATCHED, DIFFERENCES}

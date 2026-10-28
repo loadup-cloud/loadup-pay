@@ -21,11 +21,12 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,9 +36,27 @@ import java.time.Clock;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentRecoveryServiceTest {
     final PaymentRecoveryGateway cursors = mock(PaymentRecoveryGateway.class);
@@ -90,7 +109,9 @@ class PaymentRecoveryServiceTest {
         }).when(execution).progress("tenant", "payment");
     }
 
-    RecoveryHandlingOutcome handle() { return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task)); }
+    RecoveryHandlingOutcome handle() {
+        return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task));
+    }
 
     @Test
     void registrationRequiresAndJoinsAcceptanceTransaction() {
@@ -211,7 +232,8 @@ class PaymentRecoveryServiceTest {
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
         verify(tasks, never()).register(anyString(), anyString(), any());
         verify(cursors, never()).update(anyString(), any(), any());
-        assertEquals(1, manager.commits); assertEquals(1, manager.rollbacks);
+        assertEquals(1, manager.commits);
+        assertEquals(1, manager.rollbacks);
     }
 
 }

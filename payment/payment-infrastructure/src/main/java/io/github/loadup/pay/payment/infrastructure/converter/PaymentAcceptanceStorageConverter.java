@@ -25,7 +25,6 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.InheritConfiguration;
 
 import java.time.LocalDateTime;
 

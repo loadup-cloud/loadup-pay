@@ -27,12 +27,17 @@ public class PaymentRecoveryTaskHandler implements DelayedTaskHandler {
     private final RecoveryExecutionMetrics metrics;
 
     public PaymentRecoveryTaskHandler(PaymentRecoveryService recovery, RecoveryExecutionMetrics metrics) {
-        this.recovery = recovery; this.metrics = metrics;
+        this.recovery = recovery;
+        this.metrics = metrics;
     }
 
     @Override
-    public String taskType() { return PaymentRecoveryService.TYPE; }
+    public String taskType() {
+        return PaymentRecoveryService.TYPE;
+    }
 
     @Override
-    public void handle(DelayedTask task) { metrics.observe(RecoveryExecutionMetrics.Kind.PAYMENT, () -> recovery.handle(task)); }
+    public void handle(DelayedTask task) {
+        metrics.observe(RecoveryExecutionMetrics.Kind.PAYMENT, () -> recovery.handle(task));
+    }
 }

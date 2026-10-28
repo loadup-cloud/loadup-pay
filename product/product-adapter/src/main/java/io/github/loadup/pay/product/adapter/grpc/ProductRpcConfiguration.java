@@ -16,9 +16,9 @@
 package io.github.loadup.pay.product.adapter.grpc;
 
 import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
-import io.github.loadup.pay.product.rpc.ProductRpcMapper;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.product.rpc.ProductRpcMapper;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import org.springframework.context.annotation.Bean;
@@ -30,13 +30,14 @@ import org.springframework.context.annotation.Import;
 public class ProductRpcConfiguration {
     @Bean
     BindableService productRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            io.github.loadup.pay.product.client.facade.OrderAdmissionFacade facade0) {
+                               io.github.loadup.pay.product.client.facade.OrderAdmissionFacade facade0) {
         var service = new io.github.loadup.pay.product.rpc.proto.ProductRpcGrpc.ProductRpcImplBase() {
             @Override
             public void authorize(io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionAuthorizeCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionDTO> observer) {
                 support.invoke(request, observer, ProductRpcMapper.INSTANCE::fromWireOrderAdmissionAuthorizeCommand,
                         facade0::authorize, ProductRpcMapper.INSTANCE::toWireOrderAdmissionDTO);
             }
+
             @Override
             public void detail(io.github.loadup.pay.product.rpc.proto.WireIdQuery request, io.grpc.stub.StreamObserver<io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionDTO> observer) {
                 support.invoke(request, observer, ProductRpcMapper.INSTANCE::fromWireIdQuery,

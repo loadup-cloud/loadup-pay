@@ -21,13 +21,18 @@ import io.github.loadup.pay.reconciliation.app.security.ReconciliationActorProvi
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+
 import java.util.stream.Collectors;
+
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
 
-/** Consumes the resource server's verified authentication; never parses an unverified bearer token. */
+/**
+ * Consumes the resource server's verified authentication; never parses an unverified bearer token.
+ */
 @Component
 public class JwtReconciliationActorProvider implements ReconciliationActorProvider {
-    @Override public ReconciliationActor current() {
+    @Override
+    public ReconciliationActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt))
             throw new CommonException(ACTION_FORBIDDEN);
@@ -38,6 +43,8 @@ public class JwtReconciliationActorProvider implements ReconciliationActorProvid
                 throw new CommonException(ACTION_FORBIDDEN);
             var permissions = auth.getAuthorities().stream().map(authority -> authority.getAuthority()).collect(Collectors.toUnmodifiableSet());
             return new ReconciliationActor(tenant, service, permissions);
-        } catch (RuntimeException invalid) { throw new CommonException(ACTION_FORBIDDEN); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

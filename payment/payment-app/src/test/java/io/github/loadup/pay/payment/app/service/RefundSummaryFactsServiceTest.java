@@ -36,9 +36,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundSummaryFactsServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundProjectionConverter.class.getPackageName());
@@ -62,7 +70,10 @@ class RefundSummaryFactsServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); validation.close(); }
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void originalAcquireReadsBoundedAuthoritativeMoneyUnderTheParentLock() {

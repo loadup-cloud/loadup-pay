@@ -16,9 +16,12 @@
 package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
+
 import java.util.List;
 
 public interface RecoveryInventoryReader {
-    /** Trusted tenant, actual read-only snapshot. Always returns one cell for each kind, including empty inventory. */
+    /**
+     * Trusted tenant, actual read-only snapshot. Always returns one cell for each kind, including empty inventory.
+     */
     List<RecoveryInventoryCell> read(String tenant);
 }

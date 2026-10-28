@@ -16,18 +16,27 @@
 package io.github.loadup.pay.payment.client.query;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
+import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
 
-/** Tenant is exclusively resolved from the verified operations SERVICE. */
+/**
+ * Tenant is exclusively resolved from the verified operations SERVICE.
+ */
 public record PaymentUnknownRecoveryQuery(
         @NotNull PaymentRecoveryKind kind,
         @Schema(description = "Minimum operational attention band, inclusive") @NotNull PaymentRecoveryAttentionLevel minimumLevel,
         @Schema(description = "Previous page cursor time; supplied together with afterRecordId") OffsetDateTime afterFirstUnknownAt,
         @Size(max = 64) String afterRecordId,
         @NotNull @Min(1) @Max(100) Integer limit) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,16 +17,24 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Pure continuation protocol shared inside payment; no native lease, financial state or dispatch permission. */
+/**
+ * Pure continuation protocol shared inside payment; no native lease, financial state or dispatch permission.
+ */
 public record RecoveryPosition(String subjectId, long generation, LocalDateTime dueAt, boolean completed) {
     public RecoveryPosition {
-        DomainChecks.id(subjectId); Objects.requireNonNull(dueAt); require(generation >= 0, INVALID_ARGUMENT);
+        DomainChecks.id(subjectId);
+        Objects.requireNonNull(dueAt);
+        require(generation >= 0, INVALID_ARGUMENT);
     }
+
     public boolean current(RecoveryTaskKey key, LocalDateTime originalExecuteAt) {
         Objects.requireNonNull(key);
         require(subjectId.equals(key.subjectId()) && key.generation() <= generation, CONFLICT);
@@ -34,10 +42,15 @@ public record RecoveryPosition(String subjectId, long generation, LocalDateTime 
         require(dueAt.equals(originalExecuteAt), CONFLICT);
         return true;
     }
+
     public RecoveryPosition schedule(LocalDateTime nextAt, long expectedGeneration) {
         require(!completed && generation == expectedGeneration, CONFLICT);
         require(nextAt != null && nextAt.isAfter(dueAt), INVALID_ARGUMENT);
         return new RecoveryPosition(subjectId, Math.incrementExact(generation), nextAt, false);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

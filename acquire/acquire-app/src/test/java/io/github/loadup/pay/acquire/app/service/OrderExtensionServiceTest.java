@@ -16,31 +16,64 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.acquire.app.converter.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.OrderExtensionConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.*;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderExtendCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicLong;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.terms;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class OrderExtensionServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AcquireOrderConverter.class.getPackageName());
@@ -97,7 +130,12 @@ class OrderExtensionServiceTest {
             return null;
         }).when(deadlines).register(eq("tenant"), any(), anyLong());
     }
-    @AfterEach void close() { context.close(); validation.close(); }
+
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void directPayUsesItsOriginalCreationMetadataAndSchedulesOnlyTheAppliedDeadline() {

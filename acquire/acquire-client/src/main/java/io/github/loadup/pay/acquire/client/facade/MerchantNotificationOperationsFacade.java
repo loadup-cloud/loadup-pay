@@ -22,5 +22,6 @@ import io.github.loadup.pay.acquire.client.query.MerchantNotificationWakePageQue
 
 public interface MerchantNotificationOperationsFacade {
     MerchantNotificationWakeDTO wake(MerchantNotificationWakeCommand command);
+
     PageDTO<MerchantNotificationWakeDTO> wakes(MerchantNotificationWakePageQuery query);
 }

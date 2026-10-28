@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.product.domain;
 
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.product.domain.model.AdmissionIntent;
 import org.junit.jupiter.api.Test;
 

@@ -17,14 +17,29 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Typed payment continuation identity; canonical parsing belongs to the module-local protocol. */
+/**
+ * Typed payment continuation identity; canonical parsing belongs to the module-local protocol.
+ */
 public record PaymentRecoveryKey(String paymentId, long generation) {
-    public PaymentRecoveryKey { new RecoveryTaskKey(paymentId, generation); }
-    public RecoveryTaskKey taskKey() { return new RecoveryTaskKey(paymentId, generation); }
-    public String bizId() { return taskKey().bizId(); }
+    public PaymentRecoveryKey {
+        new RecoveryTaskKey(paymentId, generation);
+    }
+
     public static PaymentRecoveryKey parse(String value) {
         var key = RecoveryTaskKey.parse(value);
         return new PaymentRecoveryKey(key.subjectId(), key.generation());
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public RecoveryTaskKey taskKey() {
+        return new RecoveryTaskKey(paymentId, generation);
+    }
+
+    public String bizId() {
+        return taskKey().bizId();
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

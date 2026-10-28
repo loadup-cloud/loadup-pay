@@ -16,21 +16,21 @@
 package io.github.loadup.pay.product.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.customer.client.enums.MerchantAction;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.product.app.port.CustomerEligibilityLookup;
 import io.github.loadup.pay.product.app.security.ProductActorProvider;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import static io.github.loadup.pay.customer.rpc.CustomerRpcOperations.CUSTOMER_AUTHORIZE;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.customer.rpc.CustomerRpcOperations.CUSTOMER_AUTHORIZE;
 
 @Component
 public class CustomerEligibilityGrpcLookup implements CustomerEligibilityLookup {

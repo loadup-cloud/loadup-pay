@@ -358,174 +358,200 @@ CREATE TABLE refund_order
 -- Merchant notifications are registered and dispatched by acquire; payment owns the refund Outbox source.
 
 
-CREATE TABLE refund_recovery_cursor (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
+CREATE TABLE refund_recovery_cursor
+(
+    id         VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id  VARCHAR(64) NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    generation BIGINT NOT NULL,
-    due_at DATETIME(6) NOT NULL,
-    completed TINYINT NOT NULL DEFAULT 0,
+    deleted    TINYINT     NOT NULL DEFAULT 0,
+    generation BIGINT      NOT NULL,
+    due_at     DATETIME(6) NOT NULL,
+    completed  TINYINT     NOT NULL DEFAULT 0,
     KEY ix_refund_recovery_cursor_tenant (tenant_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-CREATE TABLE payment_action (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    payment_id VARCHAR(64) NOT NULL,
-    channel VARCHAR(32) NOT NULL,
+CREATE TABLE payment_action
+(
+    id                  VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id           VARCHAR(64) NOT NULL,
+    created_at          DATETIME(6) NOT NULL,
+    updated_at          DATETIME(6) NOT NULL,
+    deleted             TINYINT     NOT NULL DEFAULT 0,
+    payment_id          VARCHAR(64) NOT NULL,
+    channel             VARCHAR(32) NOT NULL,
     binding_revision_id VARCHAR(64) NOT NULL,
-    account_scope_hash VARCHAR(64) NOT NULL,
-    channel_request_no VARCHAR(64) NOT NULL,
-    amount_minor BIGINT NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    execution_epoch BIGINT NOT NULL,
-    receipt_id VARCHAR(64) NOT NULL,
-    source_digest VARCHAR(64) NOT NULL,
-    issued_at DATETIME(6) NOT NULL,
-    expires_at DATETIME(6) NOT NULL,
-    action_kind VARCHAR(32) NOT NULL,
-    action_payload LONGTEXT NOT NULL,
-    payload_hash VARCHAR(64) NOT NULL,
+    account_scope_hash  VARCHAR(64) NOT NULL,
+    channel_request_no  VARCHAR(64) NOT NULL,
+    amount_minor        BIGINT      NOT NULL,
+    currency            VARCHAR(3)  NOT NULL,
+    execution_epoch     BIGINT      NOT NULL,
+    receipt_id          VARCHAR(64) NOT NULL,
+    source_digest       VARCHAR(64) NOT NULL,
+    issued_at           DATETIME(6) NOT NULL,
+    expires_at          DATETIME(6) NOT NULL,
+    action_kind         VARCHAR(32) NOT NULL,
+    action_payload      LONGTEXT    NOT NULL,
+    payload_hash        VARCHAR(64) NOT NULL,
     KEY ix_payment_action_owner (tenant_id, payment_id),
     UNIQUE KEY uk_payment_action_receipt (tenant_id, receipt_id),
     CHECK (deleted = 0 AND amount_minor > 0 AND execution_epoch > 0 AND currency = 'CNY')
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
 
-CREATE TABLE payment_recovery_cursor (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
+CREATE TABLE payment_recovery_cursor
+(
+    id         VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id  VARCHAR(64) NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    generation BIGINT NOT NULL,
-    due_at DATETIME(6) NOT NULL,
-    completed TINYINT NOT NULL DEFAULT 0,
+    deleted    TINYINT     NOT NULL DEFAULT 0,
+    generation BIGINT      NOT NULL,
+    due_at     DATETIME(6) NOT NULL,
+    completed  TINYINT     NOT NULL DEFAULT 0,
     KEY ix_payment_recovery_cursor_tenant (tenant_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-CREATE TABLE payment_recovery_retry_receipt (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    request_key VARCHAR(128) NOT NULL,
-    caller_scope_hash CHAR(64) NOT NULL,
-    caller_service_id VARCHAR(64) NOT NULL,
-    request_digest CHAR(64) NOT NULL,
-    kind VARCHAR(32) NOT NULL,
-    subject_id VARCHAR(64) NOT NULL,
-    generation BIGINT NOT NULL,
-    order_id VARCHAR(64) NOT NULL,
-    native_task_id VARCHAR(64) NOT NULL,
-    expected_attempts INT NOT NULL,
-    expected_next_execute_at DATETIME(6) NOT NULL,
-    reason VARCHAR(500) NOT NULL,
-    result VARCHAR(32) NOT NULL,
-    accepted_at DATETIME(6) NOT NULL,
+CREATE TABLE payment_recovery_retry_receipt
+(
+    id                       VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id                VARCHAR(64)  NOT NULL,
+    created_at               DATETIME(6)  NOT NULL,
+    updated_at               DATETIME(6)  NOT NULL,
+    deleted                  TINYINT      NOT NULL DEFAULT 0,
+    request_key              VARCHAR(128) NOT NULL,
+    caller_scope_hash        CHAR(64)     NOT NULL,
+    caller_service_id        VARCHAR(64)  NOT NULL,
+    request_digest           CHAR(64)     NOT NULL,
+    kind                     VARCHAR(32)  NOT NULL,
+    subject_id               VARCHAR(64)  NOT NULL,
+    generation               BIGINT       NOT NULL,
+    order_id                 VARCHAR(64)  NOT NULL,
+    native_task_id           VARCHAR(64)  NOT NULL,
+    expected_attempts        INT          NOT NULL,
+    expected_next_execute_at DATETIME(6)  NOT NULL,
+    reason                   VARCHAR(500) NOT NULL,
+    result                   VARCHAR(32)  NOT NULL,
+    accepted_at              DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_payment_recovery_retry (tenant_id, caller_scope_hash, request_key),
     KEY ix_payment_recovery_retry_order (tenant_id, order_id, accepted_at),
     CHECK (deleted = 0 AND generation >= 0 AND expected_attempts > 0),
     CHECK (kind IN ('COLLECTION', 'REFUND_REQUEST')),
     CHECK (result IN ('RETRIED', 'NO_LONGER_NEEDED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
 -- First verified provider refund acceptance time, independent of financial aggregate versions.
-CREATE TABLE refund_acceptance_evidence (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    payment_id VARCHAR(64) NOT NULL,
-    attempt_id VARCHAR(64) NOT NULL,
-    channel VARCHAR(32) NOT NULL,
-    binding_revision_id VARCHAR(64) NOT NULL,
-    account_scope_hash VARCHAR(64) NOT NULL,
-    channel_request_no VARCHAR(64) NOT NULL,
+CREATE TABLE refund_acceptance_evidence
+(
+    id                              VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id                       VARCHAR(64)  NOT NULL,
+    created_at                      DATETIME(6)  NOT NULL,
+    updated_at                      DATETIME(6)  NOT NULL,
+    deleted                         TINYINT      NOT NULL DEFAULT 0,
+    payment_id                      VARCHAR(64)  NOT NULL,
+    attempt_id                      VARCHAR(64)  NOT NULL,
+    channel                         VARCHAR(32)  NOT NULL,
+    binding_revision_id             VARCHAR(64)  NOT NULL,
+    account_scope_hash              VARCHAR(64)  NOT NULL,
+    channel_request_no              VARCHAR(64)  NOT NULL,
     original_channel_transaction_no VARCHAR(128) NOT NULL,
-    channel_refund_no VARCHAR(64) NOT NULL,
-    amount_minor BIGINT NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    accepted_at DATETIME(6) NOT NULL,
-    receipt_id VARCHAR(64) NOT NULL,
+    channel_refund_no               VARCHAR(64)  NOT NULL,
+    amount_minor                    BIGINT       NOT NULL,
+    currency                        VARCHAR(3)   NOT NULL,
+    accepted_at                     DATETIME(6)  NOT NULL,
+    receipt_id                      VARCHAR(64)  NOT NULL,
     CHECK (deleted = 0 AND amount_minor > 0 AND currency = 'CNY')
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
 -- Immutable source-owned reconciliation captures. Readiness never comes from a caller's completeness assertion.
-CREATE TABLE payment_reconciliation_capture (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    caller_service_id VARCHAR(64) NOT NULL,
-    request_key VARCHAR(128) NOT NULL,
-    request_digest VARCHAR(64) NOT NULL,
-    channel VARCHAR(32) NOT NULL,
-    account_scope_hash VARCHAR(64) NOT NULL,
-    bill_date DATE NOT NULL,
-    statement_profile VARCHAR(64) NOT NULL,
-    system_zone VARCHAR(64) NOT NULL,
-    state VARCHAR(16) NOT NULL,
-    started_at DATETIME(6) NULL,
-    finished_at DATETIME(6) NULL,
-    payment_count BIGINT NULL,
-    payment_amount_minor BIGINT NULL,
-    refund_count BIGINT NULL,
-    refund_amount_minor BIGINT NULL,
-    content_hash VARCHAR(64) NULL,
-    blocker VARCHAR(64) NULL,
-    blocker_subject_id VARCHAR(64) NULL,
-    row_version BIGINT NOT NULL,
+CREATE TABLE payment_reconciliation_capture
+(
+    id                   VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id            VARCHAR(64)  NOT NULL,
+    created_at           DATETIME(6)  NOT NULL,
+    updated_at           DATETIME(6)  NOT NULL,
+    deleted              TINYINT      NOT NULL DEFAULT 0,
+    caller_service_id    VARCHAR(64)  NOT NULL,
+    request_key          VARCHAR(128) NOT NULL,
+    request_digest       VARCHAR(64)  NOT NULL,
+    channel              VARCHAR(32)  NOT NULL,
+    account_scope_hash   VARCHAR(64)  NOT NULL,
+    bill_date            DATE         NOT NULL,
+    statement_profile    VARCHAR(64)  NOT NULL,
+    system_zone          VARCHAR(64)  NOT NULL,
+    state                VARCHAR(16)  NOT NULL,
+    started_at           DATETIME(6)  NULL,
+    finished_at          DATETIME(6)  NULL,
+    payment_count        BIGINT       NULL,
+    payment_amount_minor BIGINT       NULL,
+    refund_count         BIGINT       NULL,
+    refund_amount_minor  BIGINT       NULL,
+    content_hash         VARCHAR(64)  NULL,
+    blocker              VARCHAR(64)  NULL,
+    blocker_subject_id   VARCHAR(64)  NULL,
+    row_version          BIGINT       NOT NULL,
     UNIQUE KEY uk_payment_capture_request (tenant_id, caller_service_id, request_key),
-    CHECK (deleted = 0 AND channel = 'WECHAT' AND statement_profile = 'wechat-trade-all-20260116' AND row_version = CASE WHEN state = 'INIT' THEN 0 ELSE 1 END),
+    CHECK (deleted = 0 AND channel = 'WECHAT' AND statement_profile = 'wechat-trade-all-20260116' AND
+           row_version = CASE WHEN state = 'INIT' THEN 0 ELSE 1 END),
     CHECK ((state = 'INIT' AND started_at IS NULL AND finished_at IS NULL)
-        OR (state IN ('SEALED', 'BLOCKED') AND started_at IS NOT NULL AND finished_at IS NOT NULL AND finished_at >= started_at)),
-    CHECK ((state = 'SEALED' AND payment_count IS NOT NULL AND payment_amount_minor IS NOT NULL AND refund_count IS NOT NULL
-            AND refund_amount_minor IS NOT NULL AND content_hash IS NOT NULL AND payment_count >= 0 AND refund_count >= 0
-            AND payment_amount_minor >= payment_count AND refund_amount_minor >= refund_count
-            AND ((payment_count = 0 AND payment_amount_minor = 0) OR (payment_count > 0 AND payment_amount_minor > 0))
-            AND ((refund_count = 0 AND refund_amount_minor = 0) OR (refund_count > 0 AND refund_amount_minor > 0)))
-        OR (state IN ('INIT', 'BLOCKED') AND payment_count IS NULL AND payment_amount_minor IS NULL AND refund_count IS NULL AND refund_amount_minor IS NULL AND content_hash IS NULL)),
+        OR (state IN ('SEALED', 'BLOCKED') AND started_at IS NOT NULL AND finished_at IS NOT NULL AND
+            finished_at >= started_at)),
+    CHECK ((state = 'SEALED' AND payment_count IS NOT NULL AND payment_amount_minor IS NOT NULL AND
+            refund_count IS NOT NULL
+        AND refund_amount_minor IS NOT NULL AND content_hash IS NOT NULL AND payment_count >= 0 AND refund_count >= 0
+        AND payment_amount_minor >= payment_count AND refund_amount_minor >= refund_count
+        AND ((payment_count = 0 AND payment_amount_minor = 0) OR (payment_count > 0 AND payment_amount_minor > 0))
+        AND ((refund_count = 0 AND refund_amount_minor = 0) OR (refund_count > 0 AND refund_amount_minor > 0)))
+        OR (state IN ('INIT', 'BLOCKED') AND payment_count IS NULL AND payment_amount_minor IS NULL AND
+            refund_count IS NULL AND refund_amount_minor IS NULL AND content_hash IS NULL)),
     CHECK ((state = 'BLOCKED' AND blocker IS NOT NULL AND blocker_subject_id IS NOT NULL)
         OR (state IN ('INIT', 'SEALED') AND blocker IS NULL AND blocker_subject_id IS NULL))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-CREATE TABLE payment_reconciliation_line (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    capture_id VARCHAR(64) NOT NULL,
-    ordinal BIGINT NOT NULL,
-    key_hash VARCHAR(64) NOT NULL,
-    kind VARCHAR(16) NOT NULL,
+CREATE TABLE payment_reconciliation_line
+(
+    id                     VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id              VARCHAR(64)  NOT NULL,
+    created_at             DATETIME(6)  NOT NULL,
+    updated_at             DATETIME(6)  NOT NULL,
+    deleted                TINYINT      NOT NULL DEFAULT 0,
+    capture_id             VARCHAR(64)  NOT NULL,
+    ordinal                BIGINT       NOT NULL,
+    key_hash               VARCHAR(64)  NOT NULL,
+    kind                   VARCHAR(16)  NOT NULL,
     channel_transaction_no VARCHAR(128) NOT NULL,
-    channel_refund_no VARCHAR(64) NULL,
-    merchant_payment_no VARCHAR(64) NOT NULL,
-    amount_minor BIGINT NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    status VARCHAR(16) NOT NULL,
-    source_at DATETIME(6) NOT NULL,
-    source_id VARCHAR(64) NOT NULL,
-    evidence_id VARCHAR(64) NOT NULL,
-    source_version BIGINT NOT NULL,
+    channel_refund_no      VARCHAR(64)  NULL,
+    merchant_payment_no    VARCHAR(64)  NOT NULL,
+    amount_minor           BIGINT       NOT NULL,
+    currency               VARCHAR(3)   NOT NULL,
+    status                 VARCHAR(16)  NOT NULL,
+    source_at              DATETIME(6)  NOT NULL,
+    source_id              VARCHAR(64)  NOT NULL,
+    evidence_id            VARCHAR(64)  NOT NULL,
+    source_version         BIGINT       NOT NULL,
     UNIQUE KEY uk_payment_capture_ordinal (tenant_id, capture_id, ordinal),
     UNIQUE KEY uk_payment_capture_key (tenant_id, capture_id, key_hash),
     CHECK (deleted = 0 AND ordinal > 0 AND amount_minor > 0 AND currency = 'CNY' AND source_version >= 0),
     CHECK ((kind = 'PAYMENT' AND channel_refund_no IS NULL AND status = 'SUCCEEDED')
-        OR (kind = 'REFUND' AND channel_refund_no IS NOT NULL AND status IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+        OR (kind = 'REFUND' AND channel_refund_no IS NOT NULL AND
+            status IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN')))
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
 -- This owned evidence index directly supports the implemented channel/account/date range query.
 CREATE INDEX ix_refund_acceptance_window ON refund_acceptance_evidence (tenant_id, channel, account_scope_hash, accepted_at, id);

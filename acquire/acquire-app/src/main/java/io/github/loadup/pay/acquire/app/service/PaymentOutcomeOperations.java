@@ -16,6 +16,8 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.PaymentInitiationConverter;
@@ -33,10 +35,8 @@ import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
@@ -151,7 +151,8 @@ public class PaymentOutcomeOperations {
             var order = orders.findOrder(actor.tenantId(), close.orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             owned(actor, order);
-            if (!close.payeeMerchantId().equals(order.order().payeeMerchantId())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!close.payeeMerchantId().equals(order.order().payeeMerchantId()))
+                throw new CommonException(SNAPSHOT_INVALID);
             var allocation = allocations.findPayment(actor.tenantId(), close.orderId(), close.paymentId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var command = bound(actor, order, allocation);

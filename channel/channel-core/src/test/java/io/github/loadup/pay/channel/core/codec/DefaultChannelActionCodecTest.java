@@ -17,13 +17,13 @@ package io.github.loadup.pay.channel.core.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
-import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
-import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.H5SceneType;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 

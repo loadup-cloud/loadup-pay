@@ -16,6 +16,9 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.PaymentEventConverter;
 import io.github.loadup.pay.acquire.app.port.PaymentEventCodec;
@@ -28,9 +31,6 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.springframework.beans.factory.annotation.Qualifier;

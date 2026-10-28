@@ -56,12 +56,19 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
     private final PaymentInitialAttemptService initial;
 
     public PaymentAttemptService(PaymentActorProvider actors, PaymentExecutionLocks locks, PaymentAttemptGateway attempts,
-            PaymentAcceptanceCodec codec, PaymentLimitClient limits, PaymentAcceptanceConverter views,
-            PaymentAcceptanceTransactions transactions, Validator validator,
-            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService, PaymentInitialAttemptService initial) {
-        this.actors = actors; this.locks = locks; this.attempts = attempts; this.codec = codec; this.limits = limits;
-        this.views = views; this.transactions = transactions; this.validator = validator;
-        this.acquireService = DomainChecks.id(acquireService); this.initial = initial;
+                                 PaymentAcceptanceCodec codec, PaymentLimitClient limits, PaymentAcceptanceConverter views,
+                                 PaymentAcceptanceTransactions transactions, Validator validator,
+                                 @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService, PaymentInitialAttemptService initial) {
+        this.actors = actors;
+        this.locks = locks;
+        this.attempts = attempts;
+        this.codec = codec;
+        this.limits = limits;
+        this.views = views;
+        this.transactions = transactions;
+        this.validator = validator;
+        this.acquireService = DomainChecks.id(acquireService);
+        this.initial = initial;
     }
 
     @Override

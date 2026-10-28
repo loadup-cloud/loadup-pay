@@ -19,8 +19,14 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsCiphertext;
 
-/** The merchant's delegated authorization is a separate versioned resource. */
-public record AlipayAuthorizationDocument(String tenantId, String reference, String version, String appId, String sellerId,
-        @DiagnosticHidden KmsCiphertext token) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+/**
+ * The merchant's delegated authorization is a separate versioned resource.
+ */
+public record AlipayAuthorizationDocument(String tenantId, String reference, String version, String appId,
+                                          String sellerId,
+                                          @DiagnosticHidden KmsCiphertext token) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -22,48 +22,107 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("refund_notification_receipt")
 public class RefundNotificationReceiptDO extends BaseDO {
     private String deliveryId;
-    public String getDeliveryId() { return deliveryId; }
-    public void setDeliveryId(String value) { deliveryId = value; }
-
     private String businessEventId;
-    public String getBusinessEventId() { return businessEventId; }
-    public void setBusinessEventId(String value) { businessEventId = value; }
-
     private String aggregateId;
-    public String getAggregateId() { return aggregateId; }
-    public void setAggregateId(String value) { aggregateId = value; }
-
     private Long sourceVersion;
-    public Long getSourceVersion() { return sourceVersion; }
-    public void setSourceVersion(Long value) { sourceVersion = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String payeeMerchantId;
-    public String getPayeeMerchantId() { return payeeMerchantId; }
-    public void setPayeeMerchantId(String value) { payeeMerchantId = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-
     private String merchantEventId;
-    public String getMerchantEventId() { return merchantEventId; }
-    public void setMerchantEventId(String value) { merchantEventId = value; }
-
     private String disposition;
-    public String getDisposition() { return disposition; }
-    public void setDisposition(String value) { disposition = value; }
-
     private java.time.LocalDateTime acceptedAt;
-    public java.time.LocalDateTime getAcceptedAt() { return acceptedAt; }
-    public void setAcceptedAt(java.time.LocalDateTime value) { acceptedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getDeliveryId() {
+        return deliveryId;
+    }
+
+    public void setDeliveryId(String value) {
+        deliveryId = value;
+    }
+
+    public String getBusinessEventId() {
+        return businessEventId;
+    }
+
+    public void setBusinessEventId(String value) {
+        businessEventId = value;
+    }
+
+    public String getAggregateId() {
+        return aggregateId;
+    }
+
+    public void setAggregateId(String value) {
+        aggregateId = value;
+    }
+
+    public Long getSourceVersion() {
+        return sourceVersion;
+    }
+
+    public void setSourceVersion(Long value) {
+        sourceVersion = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String value) {
+        payeeMerchantId = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public String getMerchantEventId() {
+        return merchantEventId;
+    }
+
+    public void setMerchantEventId(String value) {
+        merchantEventId = value;
+    }
+
+    public String getDisposition() {
+        return disposition;
+    }
+
+    public void setDisposition(String value) {
+        disposition = value;
+    }
+
+    public java.time.LocalDateTime getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public void setAcceptedAt(java.time.LocalDateTime value) {
+        acceptedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

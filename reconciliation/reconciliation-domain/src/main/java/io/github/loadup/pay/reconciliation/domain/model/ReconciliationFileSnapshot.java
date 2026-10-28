@@ -18,13 +18,19 @@ package io.github.loadup.pay.reconciliation.domain.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record ReconciliationFileSnapshot(String fileId, @DiagnosticHidden String storageId, long size, String sha256) {
     public ReconciliationFileSnapshot {
-        DomainChecks.id(fileId); DomainChecks.text(storageId, 1024);
+        DomainChecks.id(fileId);
+        DomainChecks.text(storageId, 1024);
         require(size > 0 && sha256 != null && sha256.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

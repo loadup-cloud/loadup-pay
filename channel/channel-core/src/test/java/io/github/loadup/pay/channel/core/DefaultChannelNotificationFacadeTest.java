@@ -21,7 +21,17 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
 import org.junit.jupiter.api.Test;
 
@@ -30,8 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class DefaultChannelNotificationFacadeTest {
     private static final Money AMOUNT = Money.ofMinor(125_000, "CNY");
@@ -43,6 +58,29 @@ class DefaultChannelNotificationFacadeTest {
     private final DefaultChannelNotificationFacade facade = new DefaultChannelNotificationFacade(List.of(alipay, wechat));
     private final ChannelNotificationInput input = new ChannelNotificationInput("application/x-www-form-urlencoded",
             Map.of(), "notify=untrusted".getBytes(StandardCharsets.US_ASCII));
+
+    private static ChannelNotificationProvider provider(Channel channel) {
+        var provider = mock(ChannelNotificationProvider.class);
+        when(provider.channel()).thenReturn(channel);
+        return provider;
+    }
+
+    private static ChannelExecutionContext context(Channel channel, String revision, String hash) {
+        ChannelAccountIdentity identity = channel == Channel.ALIPAY
+                ? new AlipayAccountIdentity("app", "seller", null, null, null)
+                : new WechatAccountIdentity("app", "merchant", null, null);
+        var binding = new ChannelBindingRevision(revision, "merchant", channel, AccessMode.DIRECT, hash,
+                "credential", "1", identity, Set.of(PaymentMethod.PAYMENT_CODE));
+        return new ChannelExecutionContext("tenant", binding);
+    }
+
+    private static ChannelPaymentTarget target(Channel channel, String revision, String hash, String requestNo, Money amount) {
+        return new ChannelPaymentTarget(new ChannelPaymentIdentity("payment-1", "attempt-1", channel, revision, hash, requestNo), amount);
+    }
+
+    private static VerifiedChannelNotification verified(ChannelPaymentIdentity identity, Money amount) {
+        return new VerifiedChannelNotification(identity, amount, "notification-18", "trade-18", "TRADE_SUCCESS", "f".repeat(64));
+    }
 
     @Test
     void routesIdentifyVerifyAndAcknowledgementToTheSelectedStrategy() {
@@ -110,28 +148,5 @@ class DefaultChannelNotificationFacadeTest {
         when(alipay.verify(context, target, input)).thenReturn(verified(target.identity(), Money.ofMinor(125_001, "CNY")));
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> facade.verify(context, target, input)));
-    }
-
-    private static ChannelNotificationProvider provider(Channel channel) {
-        var provider = mock(ChannelNotificationProvider.class);
-        when(provider.channel()).thenReturn(channel);
-        return provider;
-    }
-
-    private static ChannelExecutionContext context(Channel channel, String revision, String hash) {
-        ChannelAccountIdentity identity = channel == Channel.ALIPAY
-                ? new AlipayAccountIdentity("app", "seller", null, null, null)
-                : new WechatAccountIdentity("app", "merchant", null, null);
-        var binding = new ChannelBindingRevision(revision, "merchant", channel, AccessMode.DIRECT, hash,
-                "credential", "1", identity, Set.of(PaymentMethod.PAYMENT_CODE));
-        return new ChannelExecutionContext("tenant", binding);
-    }
-
-    private static ChannelPaymentTarget target(Channel channel, String revision, String hash, String requestNo, Money amount) {
-        return new ChannelPaymentTarget(new ChannelPaymentIdentity("payment-1", "attempt-1", channel, revision, hash, requestNo), amount);
-    }
-
-    private static VerifiedChannelNotification verified(ChannelPaymentIdentity identity, Money amount) {
-        return new VerifiedChannelNotification(identity, amount, "notification-18", "trade-18", "TRADE_SUCCESS", "f".repeat(64));
     }
 }

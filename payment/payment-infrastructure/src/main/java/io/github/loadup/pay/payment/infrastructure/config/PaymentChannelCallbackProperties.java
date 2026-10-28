@@ -40,5 +40,7 @@ public record PaymentChannelCallbackProperties(Map<String, ChannelCallbackEndpoi
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

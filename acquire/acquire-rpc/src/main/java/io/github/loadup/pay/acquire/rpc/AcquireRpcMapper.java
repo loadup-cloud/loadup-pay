@@ -17,13 +17,11 @@ package io.github.loadup.pay.acquire.rpc;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.rpc.grpc.GrpcScalarMapper;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.BeforeMapping;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.ReportingPolicy;
 import org.mapstruct.factory.Mappers;

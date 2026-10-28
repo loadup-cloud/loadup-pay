@@ -16,14 +16,31 @@
 package io.github.loadup.pay.acquire.domain;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CheckoutSessionRevocationTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 24, 12, 0);
+
+    private static StoredCheckoutSession stored(CheckoutSessionState state) {
+        return new StoredCheckoutSession(new CheckoutSession("session", "order", state, AT.plusMinutes(5)), "merchant",
+                "issue", "a".repeat(64), "b".repeat(64), "c".repeat(64), "key", "v1", "https://pay.example",
+                new CheckoutSessionScope(1, "d".repeat(64), "return", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
+                null, 0L);
+    }
 
     @Test
     void revocationPreservesEveryCredentialAndBusinessStateIncludingTerminalSessions() {
@@ -65,12 +82,5 @@ class CheckoutSessionRevocationTest {
                 "a".repeat(64), "b".repeat(64), "reason", true, 0L, 2L, AT, AT));
         assertThrows(DomainViolation.class, () -> new CheckoutSessionRevocationReceipt("receipt", "session", "order", "request",
                 "a".repeat(64), "b".repeat(64), "reason", false, 0L, 1L, AT, AT));
-    }
-
-    private static StoredCheckoutSession stored(CheckoutSessionState state) {
-        return new StoredCheckoutSession(new CheckoutSession("session", "order", state, AT.plusMinutes(5)), "merchant",
-                "issue", "a".repeat(64), "b".repeat(64), "c".repeat(64), "key", "v1", "https://pay.example",
-                new CheckoutSessionScope(1, "d".repeat(64), "return", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
-                null, 0L);
     }
 }

@@ -17,20 +17,37 @@ package io.github.loadup.pay.reconciliation.domain;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSourceKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDate;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ReconciliationImportRequestTest {
     private final ReconciliationScope scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "parser");
     private final ReconciliationImportRequest initial = ReconciliationImportRequest.init("import", "batch", "ops", "request", "b".repeat(64), scope,
             new ReconciliationStatementAccount("1234567890", null), new ReconciliationFileSnapshot("file", "storage", 100, "c".repeat(64)), "task");
-    @Test void manualSourceCannotBeSealedByDifferentIdentityHashScopeOrSide() {
+
+    @Test
+    void manualSourceCannotBeSealedByDifferentIdentityHashScopeOrSide() {
         var valid = manifest("import", "import", "c".repeat(64), ReconciliationSide.CHANNEL);
         var sealed = initial.seal(valid);
-        assertEquals(ReconciliationSourceKind.MANUAL_UPLOAD, sealed.sourceKind()); assertEquals(1L, sealed.version());
+        assertEquals(ReconciliationSourceKind.MANUAL_UPLOAD, sealed.sourceKind());
+        assertEquals(1L, sealed.version());
         assertSame(sealed, sealed.seal(valid));
         assertThrows(DomainViolation.class, () -> initial.seal(manifest("other", "import", "c".repeat(64), ReconciliationSide.CHANNEL)));
         assertThrows(DomainViolation.class, () -> initial.seal(manifest("import", "other", "c".repeat(64), ReconciliationSide.CHANNEL)));
@@ -38,9 +55,12 @@ class ReconciliationImportRequestTest {
         assertThrows(DomainViolation.class, () -> initial.seal(manifest("import", "import", "c".repeat(64), ReconciliationSide.LEDGER)));
         assertThrows(DomainViolation.class, () -> sealed.reject("INPUT_INVALID"));
     }
-    @Test void rejectedOriginalIsImmutableAndNeverBecomesAnEmptySuccessfulArtifact() {
+
+    @Test
+    void rejectedOriginalIsImmutableAndNeverBecomesAnEmptySuccessfulArtifact() {
         var rejected = initial.reject("INPUT_INVALID");
-        assertNull(rejected.artifactId()); assertEquals(ReconciliationImportState.REJECTED, rejected.state());
+        assertNull(rejected.artifactId());
+        assertEquals(ReconciliationImportState.REJECTED, rejected.state());
         assertSame(rejected, rejected.reject("INPUT_INVALID"));
         assertThrows(DomainViolation.class, () -> rejected.reject("ANOTHER_REASON"));
         assertThrows(DomainViolation.class, () -> rejected.seal(manifest("import", "import", "c".repeat(64), ReconciliationSide.CHANNEL)));
@@ -48,6 +68,7 @@ class ReconciliationImportRequestTest {
                 initial.requestKey(), initial.requestDigest(), scope, initial.statementAccount(), initial.file(), initial.sourceKind(), initial.taskId(),
                 ReconciliationImportState.INIT, null, null, 1L));
     }
+
     private ReconciliationManifest manifest(String artifact, String capture, String sha, ReconciliationSide side) {
         return new ReconciliationManifest(side, scope, artifact, sha, ReconciliationDataset.normalizedHash(scope, side, "parser", List.of()), capture,
                 "parser", ReconciliationTotals.count(List.of()));

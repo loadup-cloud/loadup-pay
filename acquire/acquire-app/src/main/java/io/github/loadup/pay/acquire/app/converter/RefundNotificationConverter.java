@@ -23,6 +23,7 @@ import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
@@ -37,7 +38,7 @@ public interface RefundNotificationConverter {
     @Mapping(target = "merchantEventId", source = "registration.merchantEventId")
     @Mapping(target = "disposition", source = "registration.disposition")
     RefundNotificationReceipt toReceipt(String id, EventEnvelope<RefundMerchantEventDTO> event,
-            MerchantNotificationRegistration registration, String requestDigest, String callerServiceId, LocalDateTime acceptedAt);
+                                        MerchantNotificationRegistration registration, String requestDigest, String callerServiceId, LocalDateTime acceptedAt);
 
     RefundNotificationAckDTO toAck(RefundNotificationReceipt value);
 }

@@ -16,14 +16,30 @@
 package io.github.loadup.pay.channel.api.facade;
 
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelRefundNotification;
 
-/** Notification protocol only; neither identification nor verification applies payment state. */
+/**
+ * Notification protocol only; neither identification nor verification applies payment state.
+ */
 public interface ChannelNotificationOperations {
-    /** Resolve a locator using a trusted original binding; encrypted protocols must authenticate before decryption. */
+    /**
+     * Resolve a locator using a trusted original binding; encrypted protocols must authenticate before decryption.
+     */
     ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input);
+
     VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target, ChannelNotificationInput input);
+
     ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input);
+
     VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input);
+
     ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted);
 }

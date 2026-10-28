@@ -16,6 +16,9 @@
 package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.payment.app.model.ChannelCallbackEndpoint;
+
 import java.util.Optional;
 
-public interface ChannelCallbackEndpointResolver { Optional<ChannelCallbackEndpoint> resolve(String endpointRef); }
+public interface ChannelCallbackEndpointResolver {
+    Optional<ChannelCallbackEndpoint> resolve(String endpointRef);
+}

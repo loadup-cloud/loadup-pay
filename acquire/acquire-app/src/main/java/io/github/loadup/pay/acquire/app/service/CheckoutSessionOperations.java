@@ -16,6 +16,7 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
@@ -31,7 +32,6 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.commons.validation.DomainChecks;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;

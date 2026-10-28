@@ -34,25 +34,89 @@ public class ReconciliationEntryDO extends BaseDO {
     private Long amountMinor;
     private String currency;
     private String state;
-    public String getInputId() { return inputId; }
-    public void setInputId(String value) { inputId = value; }
-    public Long getRecordNumber() { return recordNumber; }
-    public void setRecordNumber(Long value) { recordNumber = value; }
-    public String getMatchKeyHash() { return matchKeyHash; }
-    public void setMatchKeyHash(String value) { matchKeyHash = value; }
-    public String getKind() { return kind; }
-    public void setKind(String value) { kind = value; }
-    public String getChannelTransactionNo() { return channelTransactionNo; }
-    public void setChannelTransactionNo(String value) { channelTransactionNo = value; }
-    public String getChannelRefundNo() { return channelRefundNo; }
-    public void setChannelRefundNo(String value) { channelRefundNo = value; }
-    public String getMerchantPaymentNo() { return merchantPaymentNo; }
-    public void setMerchantPaymentNo(String value) { merchantPaymentNo = value; }
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public String getInputId() {
+        return inputId;
+    }
+
+    public void setInputId(String value) {
+        inputId = value;
+    }
+
+    public Long getRecordNumber() {
+        return recordNumber;
+    }
+
+    public void setRecordNumber(Long value) {
+        recordNumber = value;
+    }
+
+    public String getMatchKeyHash() {
+        return matchKeyHash;
+    }
+
+    public void setMatchKeyHash(String value) {
+        matchKeyHash = value;
+    }
+
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String value) {
+        kind = value;
+    }
+
+    public String getChannelTransactionNo() {
+        return channelTransactionNo;
+    }
+
+    public void setChannelTransactionNo(String value) {
+        channelTransactionNo = value;
+    }
+
+    public String getChannelRefundNo() {
+        return channelRefundNo;
+    }
+
+    public void setChannelRefundNo(String value) {
+        channelRefundNo = value;
+    }
+
+    public String getMerchantPaymentNo() {
+        return merchantPaymentNo;
+    }
+
+    public void setMerchantPaymentNo(String value) {
+        merchantPaymentNo = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

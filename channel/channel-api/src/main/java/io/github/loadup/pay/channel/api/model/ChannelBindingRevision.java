@@ -19,8 +19,8 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 
 import java.util.Objects;
 import java.util.Set;

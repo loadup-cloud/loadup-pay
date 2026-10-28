@@ -16,6 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -25,24 +27,21 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
-import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
-import io.github.loadup.pay.payment.domain.model.PaymentInput;
-import io.github.loadup.pay.payment.domain.model.PaymentInputState;
-import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
-import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentChildrenStatus;
 import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentInput;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
@@ -523,7 +522,7 @@ class PaymentControlServiceTest {
         assertSame(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, () -> TenantUtil.callWithTenant(
-                                "tenant", () -> acceptance().accept(PaymentFixtures.command())))
+                        "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
         verify(gates, never()).insert(anyString(), any());
     }
@@ -537,7 +536,7 @@ class PaymentControlServiceTest {
         assertSame(
                 EXECUTION_FENCED,
                 assertThrows(CommonException.class, () -> TenantUtil.callWithTenant(
-                                "tenant", () -> acceptance().accept(PaymentFixtures.command())))
+                        "tenant", () -> acceptance().accept(PaymentFixtures.command())))
                         .getResultCode());
         verify(gates, never()).insertPaymentGate(anyString(), any());
     }

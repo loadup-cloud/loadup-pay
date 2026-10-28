@@ -18,6 +18,7 @@ package io.github.loadup.pay.channel.wechat.config;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,5 +29,9 @@ public record WechatProperties(boolean enabled, @DiagnosticHidden Map<String, Ma
         credentials = credentials == null ? Map.of() : credentials.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

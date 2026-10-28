@@ -23,8 +23,14 @@ import io.github.loadup.pay.acquire.app.converter.CheckoutSessionManagementConve
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionRevokeCommand;
 import io.github.loadup.pay.acquire.client.query.CheckoutSessionRevocationPageQuery;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -32,14 +38,42 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.session;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class CheckoutSessionManagementServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -54,6 +88,10 @@ class CheckoutSessionManagementServiceTest {
     final CheckoutSessionManagementService service = new CheckoutSessionManagementService(actor::get, orders, sessions, receipts,
             context.getBean(CheckoutSessionManagementConverter.class), new OrderCreationTransactions(new UnitTransactions()),
             () -> "receipt", validation.getValidator(), clock(NOW));
+
+    private static CheckoutSessionRevokeCommand command(String key, long version, String reason) {
+        return new CheckoutSessionRevokeCommand("session", key, version, reason);
+    }
 
     @BeforeEach
     void setup() {
@@ -81,7 +119,10 @@ class CheckoutSessionManagementServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); validation.close(); }
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void firstRevocationLocksOrderThenSessionAndWritesMarkerAndReceiptInOneTransaction() {
@@ -189,7 +230,9 @@ class CheckoutSessionManagementServiceTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.revoke(command("revoke", 0L, "reason"))).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 
     @Test
@@ -198,9 +241,5 @@ class CheckoutSessionManagementServiceTest {
         doThrow(failure).when(receipts).insert(eq("tenant"), any());
         assertSame(failure, assertThrows(CommonException.class, () -> service.revoke(command("revoke", 0L, "reason"))));
         assertNull(recorded.get());
-    }
-
-    private static CheckoutSessionRevokeCommand command(String key, long version, String reason) {
-        return new CheckoutSessionRevokeCommand("session", key, version, reason);
     }
 }

@@ -15,13 +15,14 @@
  */
 package io.github.loadup.pay.reconciliation.client.query;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
 import io.github.loadup.commons.dto.PageQuery;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationDifferenceReason;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record ReconciliationDifferenceQuery(
         @Schema(description = "Owning batch id") @NotBlank @Size(max = 64) String batchId,
@@ -31,7 +32,12 @@ public record ReconciliationDifferenceQuery(
         @Schema(description = "Page size, default 20", minimum = "1", maximum = "100") Integer size) {
     public ReconciliationDifferenceQuery {
         var normalized = PageQuery.normalized(page, size, ReconciliationResultCodeEnum.INVALID_PAGE);
-        page = normalized.page(); size = normalized.size();
+        page = normalized.page();
+        size = normalized.size();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -22,9 +22,10 @@ import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.mapper.RefundRecoveryCursorDOMapper;
-import java.util.Optional;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
@@ -46,8 +47,11 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     public Optional<RefundRecoveryCursor> find(String tenant, String requestId) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         var row = mapper.selectOneByQuery(scope(tenant, requestId));
-        try { return Optional.ofNullable(row).map(converter::toDomain); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

@@ -17,10 +17,10 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
-import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;
@@ -57,6 +57,7 @@ public interface RefundExecutionConverter {
 
     @Mapping(target = "original", source = "observation.original")
     RefundTransactionClaim toClaim(String id, String tenantId, RefundObservation observation, String receiptId);
+
     @Mapping(target = "refundId", source = "observation.refundId")
     @Mapping(target = "original", source = "observation.original")
     @Mapping(target = "originalChannelTransactionNo", source = "observation.originalChannelTransactionNo")

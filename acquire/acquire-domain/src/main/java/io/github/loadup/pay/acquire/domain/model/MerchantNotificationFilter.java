@@ -18,12 +18,15 @@ package io.github.loadup.pay.acquire.domain.model;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-public record MerchantNotificationFilter(String payeeMerchantId, String orderId, String eventId, MerchantNotificationState state,
-        LocalDateTime occurredFrom, LocalDateTime occurredTo, int page, int size) {
+public record MerchantNotificationFilter(String payeeMerchantId, String orderId, String eventId,
+                                         MerchantNotificationState state,
+                                         LocalDateTime occurredFrom, LocalDateTime occurredTo, int page, int size) {
     public MerchantNotificationFilter {
         DomainChecks.id(payeeMerchantId);
         if (orderId != null) DomainChecks.id(orderId);
@@ -35,5 +38,9 @@ public record MerchantNotificationFilter(String payeeMerchantId, String orderId,
                 INVALID_ARGUMENT);
         require(occurredFrom == null || occurredTo == null || occurredFrom.isBefore(occurredTo), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

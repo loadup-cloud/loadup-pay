@@ -24,6 +24,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface AcquireRecoveryRetryStorageConverter {
     AcquireRecoveryRetryReceipt toDomain(AcquireRecoveryRetryReceiptDO row);
+
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

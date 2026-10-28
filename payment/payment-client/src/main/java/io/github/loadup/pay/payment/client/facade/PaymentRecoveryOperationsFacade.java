@@ -20,8 +20,11 @@ import io.github.loadup.pay.payment.client.dto.PaymentRecoveryRetryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryTaskDTO;
 import io.github.loadup.pay.payment.client.query.PaymentRecoveryTaskQuery;
 
-/** Audited payment task operations; never changes original financial or business attempt identities. */
+/**
+ * Audited payment task operations; never changes original financial or business attempt identities.
+ */
 public interface PaymentRecoveryOperationsFacade {
     PaymentRecoveryTaskDTO detail(PaymentRecoveryTaskQuery query);
+
     PaymentRecoveryRetryDTO retry(PaymentRecoveryRetryCommand command);
 }

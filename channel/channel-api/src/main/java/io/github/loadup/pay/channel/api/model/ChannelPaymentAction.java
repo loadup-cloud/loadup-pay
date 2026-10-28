@@ -17,12 +17,17 @@ package io.github.loadup.pay.channel.api.model;
 
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+
 import java.time.OffsetDateTime;
 
-/** A payer interaction action, not financial success evidence. */
+/**
+ * A payer interaction action, not financial success evidence.
+ */
 public sealed interface ChannelPaymentAction permits AlipayJsapiChannelAction, AlipayH5ChannelAction, WechatJsapiChannelAction, WechatH5ChannelAction {
     Channel channel();
+
     PaymentMethod method();
+
     OffsetDateTime expiresAt();
 }
 

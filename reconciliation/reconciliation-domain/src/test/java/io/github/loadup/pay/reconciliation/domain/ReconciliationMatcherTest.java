@@ -18,16 +18,44 @@ package io.github.loadup.pay.reconciliation.domain;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationBatch;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationEntryStatus;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReconciliationMatcherTest {
     private static final ReconciliationScope SCOPE = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "wechat-trade-v1");
     private final ReconciliationMatcher matcher = new ReconciliationMatcher();
+
+    private static ReconciliationLine line(ReconciliationRecordKind kind, String transaction, String refund, String request, long amount,
+                                           ReconciliationEntryStatus state, long ordinal) {
+        return new ReconciliationLine(new ReconciliationKey(kind, transaction, refund), request, Money.ofMinor(amount, "CNY"), state, ordinal);
+    }
+
+    private static ReconciliationDataset dataset(ReconciliationSide side, ReconciliationScope scope, List<ReconciliationLine> lines) {
+        var manifest = new ReconciliationManifest(side, scope, side.name() + "-artifact", (side == ReconciliationSide.CHANNEL ? "c" : "d").repeat(64),
+                ReconciliationDataset.normalizedHash(scope, side, "parser-v1", lines), side.name() + "-capture", "parser-v1", ReconciliationTotals.count(lines));
+        return new ReconciliationDataset(manifest, lines);
+    }
 
     @Test
     void comparesGrossPaymentAndMultiplePartialRefundsIndependentlyAndDeterministically() {
@@ -37,7 +65,8 @@ class ReconciliationMatcherTest {
         var channel = dataset(ReconciliationSide.CHANNEL, SCOPE, List.of(refund2, pay, refund1));
         var ledger = dataset(ReconciliationSide.LEDGER, SCOPE, List.of(refund1, refund2, pay));
         var result = matcher.compare(channel, ledger);
-        assertEquals(3L, result.matchedCount()); assertTrue(result.differences().isEmpty());
+        assertEquals(3L, result.matchedCount());
+        assertTrue(result.differences().isEmpty());
         assertEquals(new ReconciliationTotals(1L, 1000L, 2L, 500L), result.channel().totals());
         assertEquals(result.summary(), matcher.compare(channel, ledger).summary());
         var tampered = line(ReconciliationRecordKind.PAYMENT, "different-transaction", null, "original-pay", 1000,
@@ -57,7 +86,8 @@ class ReconciliationMatcherTest {
         var difference = result.differences().getFirst();
         assertEquals(Set.of(ReconciliationDifferenceReason.REQUEST_MISMATCH, ReconciliationDifferenceReason.AMOUNT_MISMATCH,
                 ReconciliationDifferenceReason.STATE_MISMATCH), difference.reasons());
-        assertSame(fromChannel, difference.channel()); assertSame(fromLedger, difference.ledger());
+        assertSame(fromChannel, difference.channel());
+        assertSame(fromLedger, difference.ledger());
     }
 
     @Test
@@ -97,30 +127,24 @@ class ReconciliationMatcherTest {
         var init = ReconciliationBatch.init("batch", SCOPE);
         assertEquals(ReconciliationState.INIT, init.state());
         assertThrows(DomainViolation.class, () -> init.begin("run"));
-        var first = init.attach(channel.manifest()); assertSame(first, first.attach(channel.manifest()));
+        var first = init.attach(channel.manifest());
+        assertSame(first, first.attach(channel.manifest()));
         var ready = first.attach(ledger.manifest());
-        assertEquals(ReconciliationState.READY, ready.state()); assertEquals(2L, ready.version());
-        var running = ready.begin("run"); assertSame(running, running.begin("run"));
+        assertEquals(ReconciliationState.READY, ready.state());
+        assertEquals(2L, ready.version());
+        var running = ready.begin("run");
+        assertSame(running, running.begin("run"));
         assertThrows(DomainViolation.class, () -> running.begin("different-run"));
         var result = matcher.compare(channel, ledger);
         assertThrows(DomainViolation.class, () -> running.complete("different-run", result));
         var completed = running.complete("run", result);
-        assertEquals(ReconciliationState.MATCHED, completed.state()); assertEquals(4L, completed.version());
+        assertEquals(ReconciliationState.MATCHED, completed.state());
+        assertEquals(4L, completed.version());
         assertSame(completed, completed.complete("run", result));
         assertThrows(DomainViolation.class, () -> completed.begin("new-run"));
         assertThrows(DomainViolation.class, () -> completed.attach(channel.manifest()));
         var changed = new ReconciliationManifest(ReconciliationSide.CHANNEL, SCOPE, "new-artifact", "f".repeat(64), channel.manifest().normalizedSha256(), "new-capture", "parser-v1", channel.manifest().totals());
         assertThrows(DomainViolation.class, () -> first.attach(changed));
         assertThrows(DomainViolation.class, () -> running.complete("run", matcher.compare(new ReconciliationDataset(changed, List.of()), ledger)));
-    }
-
-    private static ReconciliationLine line(ReconciliationRecordKind kind, String transaction, String refund, String request, long amount,
-            ReconciliationEntryStatus state, long ordinal) {
-        return new ReconciliationLine(new ReconciliationKey(kind, transaction, refund), request, Money.ofMinor(amount, "CNY"), state, ordinal);
-    }
-    private static ReconciliationDataset dataset(ReconciliationSide side, ReconciliationScope scope, List<ReconciliationLine> lines) {
-        var manifest = new ReconciliationManifest(side, scope, side.name() + "-artifact", (side == ReconciliationSide.CHANNEL ? "c" : "d").repeat(64),
-                ReconciliationDataset.normalizedHash(scope, side, "parser-v1", lines), side.name() + "-capture", "parser-v1", ReconciliationTotals.count(lines));
-        return new ReconciliationDataset(manifest, lines);
     }
 }

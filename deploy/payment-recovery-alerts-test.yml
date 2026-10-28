@@ -37,10 +37,10 @@ tests:
               description: "Use the authenticated UNKNOWN list for the configured tenant scope. Inspect the current original task before any audited retry. Never infer a financial failure or release from this alert."
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownUrgent
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 3m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
-        exp_alerts: []
+        exp_alerts: [ ]
   - name: urgent-suppresses-review
     interval: 1m
     input_series:
@@ -63,7 +63,7 @@ tests:
     alert_rule_test:
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownUrgent
         exp_alerts:
@@ -78,7 +78,7 @@ tests:
               description: "Escalate original payment/refund investigation. Age is observational; preserve all financial evidence and occupied capacity. No automatic status changes, resubmission or manual success injection."
       - eval_time: 3m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
-        exp_alerts: []
+        exp_alerts: [ ]
   - name: custom-thresholds
     interval: 1m
     input_series:
@@ -101,7 +101,7 @@ tests:
     alert_rule_test:
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 3m
         alertname: LoadUpPaymentUnknownUrgent
         exp_alerts:
@@ -116,7 +116,7 @@ tests:
               description: "Escalate original payment/refund investigation. Age is observational; preserve all financial evidence and occupied capacity. No automatic status changes, resubmission or manual success injection."
       - eval_time: 3m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
-        exp_alerts: []
+        exp_alerts: [ ]
   - name: stale-suppresses-financial-alerts
     interval: 1m
     input_series:
@@ -139,10 +139,10 @@ tests:
     alert_rule_test:
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownUrgent
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
         exp_alerts:
@@ -172,10 +172,10 @@ tests:
     alert_rule_test:
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownUrgent
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
         exp_alerts:
@@ -209,13 +209,13 @@ tests:
     alert_rule_test:
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownUrgent
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
-        exp_alerts: []
+        exp_alerts: [ ]
   - name: target-down-is-a-separate-alert
     interval: 1m
     input_series:
@@ -238,10 +238,10 @@ tests:
     alert_rule_test:
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownNeedsReview
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentUnknownUrgent
-        exp_alerts: []
+        exp_alerts: [ ]
       - eval_time: 6m
         alertname: LoadUpPaymentRecoveryInventoryUnavailable
-        exp_alerts: []
+        exp_alerts: [ ]

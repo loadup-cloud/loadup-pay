@@ -18,31 +18,51 @@ package io.github.loadup.pay.channel.wechat;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties;
+import io.github.loadup.pay.channel.wechat.protocol.WechatBindingGuard;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatResponseReader;
+import io.github.loadup.pay.channel.wechat.protocol.WechatVerifiedResponse;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Original-account domestic refund adapter. Only an authoritative refund query produces terminal facts. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * Original-account domestic refund adapter. Only an authoritative refund query produces terminal facts.
+ */
 public final class WechatRefundAdapter {
     private final WechatProtocolClient client;
     private final WechatResponseReader responses;
     private final JsonMapper json;
     private final Clock clock;
     private final WechatNotificationProperties notifications;
+
     public WechatRefundAdapter(WechatProtocolClient client, JsonMapper json, Clock clock, WechatNotificationProperties notifications) {
-        this.client = client; this.responses = new WechatResponseReader(json); this.json = json; this.clock = clock;
+        this.client = client;
+        this.responses = new WechatResponseReader(json);
+        this.json = json;
+        this.clock = clock;
         this.notifications = notifications;
     }
 
-    /** Pure metadata only; the caller may hold refund locks while checking capabilities. */
+    /**
+     * Pure metadata only; the caller may hold refund locks while checking capabilities.
+     */
     public boolean canRefund(PreparedChannelRefund refund) {
         return refund != null && refund.original().channel() == Channel.WECHAT
                 && refund.original().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}")
@@ -84,7 +104,8 @@ public final class WechatRefundAdapter {
         var account = original(context, refund);
         var queried = lookup(context, refund, account);
         var data = responses.read(queried, WechatMethod.REFUND_QUERY);
-        if (queried.status() != 404 || !"RESOURCE_NOT_EXISTS".equals(data.get("code"))) return interpret(refund, account, queried);
+        if (queried.status() != 404 || !"RESOURCE_NOT_EXISTS".equals(data.get("code")))
+            return interpret(refund, account, queried);
         // RESOURCE_NOT_EXISTS is not a no-refund proof. The provider's original-number idempotency makes this repeat safe.
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256("wechat-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
@@ -114,7 +135,9 @@ public final class WechatRefundAdapter {
                     try {
                         succeededAt = OffsetDateTime.parse(responses.text(data, "success_time", 64))
                                 .atZoneSameInstant(clock.getZone()).toLocalDateTime();
-                    } catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+                    } catch (RuntimeException invalid) {
+                        throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    }
                     kind = ChannelRefundOutcome.Kind.SUCCEEDED;
                 }
                 case "CLOSED" -> {
@@ -123,10 +146,12 @@ public final class WechatRefundAdapter {
                 }
                 case "PROCESSING" -> kind = ChannelRefundOutcome.Kind.ACCEPTED;
                 // ABNORMAL holds funds in the provider's intermediate account and can later become SUCCESS.
-                default -> { }
+                default -> {
+                }
             }
         }
-        if (acceptedAt != null && succeededAt != null && acceptedAt.isAfter(succeededAt)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (acceptedAt != null && succeededAt != null && acceptedAt.isAfter(succeededAt))
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         // Not-found, generic errors and ABNORMAL cannot release the reserved refund capacity.
         return observation(refund, response, kind, reference, succeededAt, RefundObservation.Source.QUERY_RESPONSE, acceptedAt);
     }
@@ -134,7 +159,9 @@ public final class WechatRefundAdapter {
     private LocalDateTime acceptedAt(Map<?, ?> data) {
         try {
             return OffsetDateTime.parse(responses.text(data, "create_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime();
-        } catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     private WechatAccountIdentity original(ChannelExecutionContext context, PreparedChannelRefund refund) {
@@ -143,6 +170,7 @@ public final class WechatRefundAdapter {
         if (!canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
         return account;
     }
+
     private void requireIdentity(Map<?, ?> data, PreparedChannelRefund refund, WechatAccountIdentity account) {
         responses.match(data, "transaction_id", refund.originalChannelTransactionNo());
         responses.match(data, "out_trade_no", refund.original().channelRequestNo());
@@ -158,8 +186,9 @@ public final class WechatRefundAdapter {
             responses.match(data, "sub_mchid", account.subMerchantId());
         }
     }
+
     private RefundObservation observation(PreparedChannelRefund refund, WechatVerifiedResponse response,
-            ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source, LocalDateTime acceptedAt) {
+                                          ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source, LocalDateTime acceptedAt) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
                 kind, refund.amount(), reference, succeededAt, source, response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest(), acceptedAt);
     }

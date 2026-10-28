@@ -16,17 +16,18 @@
 package io.github.loadup.pay.acquire.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.pay.acquire.app.port.AcquireRealtimeClient;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.acquire.infrastructure.config.AcquireRealtimeProperties;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Clock;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;

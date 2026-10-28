@@ -17,20 +17,33 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.app.converter.PaymentCallbackObservationConverter;
 import io.github.loadup.pay.payment.app.port.ChannelCallbackEndpointResolver;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import io.github.loadup.pay.payment.client.facade.PaymentChannelCallbackFacade;
-import io.github.loadup.pay.payment.domain.gateway.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelNotificationGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.nio.charset.StandardCharsets;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** A signed notification triggers an original-account query; only committed Y3 facts permit the provider ACK. */
+import java.nio.charset.StandardCharsets;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * A signed notification triggers an original-account query; only committed Y3 facts permit the provider ACK.
+ */
 @Service
 public class PaymentChannelCallbackService implements PaymentChannelCallbackFacade {
     private static final System.Logger LOG = System.getLogger(PaymentChannelCallbackService.class.getName());
@@ -46,15 +59,23 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
     private final PaymentAcceptanceTransactions transactions;
 
     public PaymentChannelCallbackService(ChannelCallbackEndpointResolver endpoints, PaymentAttemptGateway attempts,
-            PaymentAcceptanceGateway payments, PaymentChannelNotificationGateway notifications, PaymentChannelGateway channels,
-            PaymentResultService results, PaymentAcceptanceCodec commands, PaymentResultCodec observations,
-            PaymentCallbackObservationConverter converter, PaymentAcceptanceTransactions transactions) {
-        this.endpoints = endpoints; this.attempts = attempts; this.payments = payments; this.notifications = notifications;
-        this.channels = channels; this.results = results; this.commands = commands; this.observations = observations;
-        this.converter = converter; this.transactions = transactions;
+                                         PaymentAcceptanceGateway payments, PaymentChannelNotificationGateway notifications, PaymentChannelGateway channels,
+                                         PaymentResultService results, PaymentAcceptanceCodec commands, PaymentResultCodec observations,
+                                         PaymentCallbackObservationConverter converter, PaymentAcceptanceTransactions transactions) {
+        this.endpoints = endpoints;
+        this.attempts = attempts;
+        this.payments = payments;
+        this.notifications = notifications;
+        this.channels = channels;
+        this.results = results;
+        this.commands = commands;
+        this.observations = observations;
+        this.converter = converter;
+        this.transactions = transactions;
     }
 
-    @Override public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
+    @Override
+    public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
@@ -78,7 +99,8 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
                 var query = channels.query(target);
                 if (query.source() != PaymentObservation.Source.QUERY_RESPONSE || !target.identity().equals(query.identity())
                         || !target.amount().equals(query.amount()) || query.channelTransactionNo() != null
-                        && !verified.channelTransactionNo().equals(query.channelTransactionNo())) throw new CommonException(OUTCOME_UNKNOWN);
+                        && !verified.channelTransactionNo().equals(query.channelTransactionNo()))
+                    throw new CommonException(OUTCOME_UNKNOWN);
                 String notificationId = verified.notificationId();
                 String facts = observations.factsDigest(query);
                 String key = "notification:" + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length

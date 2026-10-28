@@ -20,8 +20,11 @@ import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryRetryDTO;
 import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryTaskDTO;
 import io.github.loadup.pay.acquire.client.query.AcquireRecoveryTaskQuery;
 
-/** Audited acquiring task operations; never changes original financial or business attempt identities. */
+/**
+ * Audited acquiring task operations; never changes original financial or business attempt identities.
+ */
 public interface AcquireRecoveryOperationsFacade {
     AcquireRecoveryTaskDTO detail(AcquireRecoveryTaskQuery query);
+
     AcquireRecoveryRetryDTO retry(AcquireRecoveryRetryCommand command);
 }

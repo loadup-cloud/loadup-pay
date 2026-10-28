@@ -17,11 +17,16 @@ package io.github.loadup.pay.reconciliation.domain.gateway;
 
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+
 import java.util.Optional;
 
-/** Reads only this service's sealed normalized storage; no file, source-service or channel I/O under batch locks. */
+/**
+ * Reads only this service's sealed normalized storage; no file, source-service or channel I/O under batch locks.
+ */
 public interface ReconciliationInputGateway {
     Optional<ReconciliationManifest> sealedManifest(String tenant, String artifactId);
+
     ReconciliationDataset loadSealed(String tenant, String artifactId);
+
     void insertSealed(String tenant, String fileId, ReconciliationDataset dataset);
 }

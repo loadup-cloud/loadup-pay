@@ -16,21 +16,22 @@
 package io.github.loadup.pay.product.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.product.app.port.PolicyActivationClient;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
+import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_ACTIVATE;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_ACTIVATE;
 
 @Component
 public class LimitPolicyActivationGrpcClient implements PolicyActivationClient {

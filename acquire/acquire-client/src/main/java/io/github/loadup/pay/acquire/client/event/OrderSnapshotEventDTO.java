@@ -15,11 +15,11 @@
  */
 package io.github.loadup.pay.acquire.client.event;
 
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;

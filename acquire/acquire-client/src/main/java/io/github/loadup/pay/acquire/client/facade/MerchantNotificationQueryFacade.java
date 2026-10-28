@@ -22,5 +22,6 @@ import io.github.loadup.pay.acquire.client.query.MerchantNotificationPageQuery;
 
 public interface MerchantNotificationQueryFacade {
     MerchantNotificationDTO detail(IdQuery query);
+
     PageDTO<MerchantNotificationDTO> page(MerchantNotificationPageQuery query);
 }

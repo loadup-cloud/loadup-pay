@@ -22,11 +22,26 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
-import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPayerIdentityInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.NoChannelInput;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -38,9 +53,24 @@ import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipaySubmitAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC);
@@ -59,6 +89,42 @@ class AlipaySubmitAdapterTest {
             notifications, new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(null, Map.of()));
     private final ChannelExecutionContext direct = context("revision-1", HASH, AccessMode.DIRECT,
             new AlipayAccountIdentity("main-app", "fixed-seller", null, null, null));
+
+    private static String wapUrl() {
+        return "https://openapi.alipay.com/gateway.do?app_id=main-app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-23+18%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
+    }
+
+    private static String successQuery(String tradeNo, String amount) {
+        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"" + amount
+                + "\",\"trade_no\":\"" + tradeNo + "\",\"trade_status\":\"TRADE_SUCCESS\","
+                + "\"send_pay_date\":\"2026-10-23 18:30:00\"}";
+    }
+
+    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
+        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
+    }
+
+    private static ChannelPaymentRequest request(ChannelExecutionContext context, PaymentMethod method,
+                                                 ChannelPaymentInput input, OffsetDateTime payableUntil) {
+        var identity = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY,
+                context.binding().id(), context.binding().accountScopeHash(), ORDER_NO);
+        var payment = new PreparedChannelPayment(identity, AMOUNT, method, 1, "input-ref");
+        return new ChannelPaymentRequest(payment, SUBJECT, payableUntil, input);
+    }
+
+    private static ChannelPaymentValidation validation(ChannelPaymentRequest request) {
+        var payment = request.payment();
+        return new ChannelPaymentValidation(payment.identity(), payment.amount(), payment.method(), request.subject(),
+                request.payableUntil(), request.input());
+    }
+
+    private static ChannelExecutionContext context(String revision, String hash, AccessMode mode, AlipayAccountIdentity account) {
+        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
+                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE, PaymentMethod.JSAPI, PaymentMethod.H5));
+        return new ChannelExecutionContext("tenant", binding);
+    }
 
     @Test
     void directH5PreparesOnlyAnOriginalSignedRedirectWithoutAChannelObservation() {
@@ -107,12 +173,6 @@ class AlipaySubmitAdapterTest {
                 () -> configured.validate(delegated, validation(request))));
         assertEquals(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY, failure.getResultCode());
         verifyNoInteractions(client);
-    }
-
-    private static String wapUrl() {
-        return "https://openapi.alipay.com/gateway.do?app_id=main-app&method=alipay.trade.wap.pay"
-                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-23+18%3A00%3A00"
-                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
     }
 
     @Test
@@ -357,35 +417,5 @@ class AlipaySubmitAdapterTest {
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
-    }
-
-    private static String successQuery(String tradeNo, String amount) {
-        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"" + amount
-                + "\",\"trade_no\":\"" + tradeNo + "\",\"trade_status\":\"TRADE_SUCCESS\","
-                + "\"send_pay_date\":\"2026-10-23 18:30:00\"}";
-    }
-
-    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
-        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
-    }
-
-    private static ChannelPaymentRequest request(ChannelExecutionContext context, PaymentMethod method,
-            ChannelPaymentInput input, OffsetDateTime payableUntil) {
-        var identity = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY,
-                context.binding().id(), context.binding().accountScopeHash(), ORDER_NO);
-        var payment = new PreparedChannelPayment(identity, AMOUNT, method, 1, "input-ref");
-        return new ChannelPaymentRequest(payment, SUBJECT, payableUntil, input);
-    }
-
-    private static ChannelPaymentValidation validation(ChannelPaymentRequest request) {
-        var payment = request.payment();
-        return new ChannelPaymentValidation(payment.identity(), payment.amount(), payment.method(), request.subject(),
-                request.payableUntil(), request.input());
-    }
-
-    private static ChannelExecutionContext context(String revision, String hash, AccessMode mode, AlipayAccountIdentity account) {
-        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
-                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE, PaymentMethod.JSAPI, PaymentMethod.H5));
-        return new ChannelExecutionContext("tenant", binding);
     }
 }

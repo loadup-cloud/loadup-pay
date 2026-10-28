@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-public enum PaymentLedgerStatus { PROCESSING, SUCCEEDED, FAILED, UNKNOWN }
+public enum PaymentLedgerStatus {PROCESSING, SUCCEEDED, FAILED, UNKNOWN}

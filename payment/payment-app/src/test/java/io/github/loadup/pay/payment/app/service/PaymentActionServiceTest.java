@@ -25,7 +25,6 @@ import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
@@ -68,8 +67,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,6 +87,110 @@ class PaymentActionServiceTest {
     private final PaymentActionService service = new PaymentActionService(actions, attempts, codec, views, channelViews,
             Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
             actionCodec);
+
+    private static String wapUrl() {
+        return "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
+                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-22+20%3A00%3A00"
+                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
+    }
+
+    private static Fixture fixture(PaymentMethod method, long epoch, Money amount) {
+        var command = PaymentFixtures.command();
+        var binding = new ChannelBindingRevision("binding-revision", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
+                "a".repeat(64), "credential", "v1", new AlipayAccountIdentity("app", "seller", null, null, null),
+                Set.of(PaymentMethod.JSAPI, PaymentMethod.PAYMENT_CODE, PaymentMethod.H5));
+        var attempt = new PaymentAttempt("attempt", "payment", 1, Money.ofMinor(4000, "CNY"), binding, method,
+                "channel-request", PaymentAttemptState.SUBMITTING, epoch, null);
+        var template = AttemptFixtures.prepared().beginSubmission(epoch, HASH, RiskDecision.notConnected(), AttemptFixtures.NOW);
+        var storedAttempt = new StoredPaymentAttempt(attempt, template.limitOperationId(), template.callerServiceId(),
+                template.requestKey(), template.requestDigest(), template.paymentRequestDigest(), template.preparedInputRef(),
+                template.riskDecision(), template.executionPermitHash(), template.preparedAt(), template.submissionStartedAt(),
+                template.rowVersion());
+        var acceptance = AttemptFixtures.accepted(true);
+        var locked = locked(acceptance.payment(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        var original = prepared(new Fixture(acceptance, storedAttempt, locked, null, command, null), amount, method, 1);
+        var action = new AlipayJsapiChannelAction("trade-1", EXPIRES_AT);
+        return new Fixture(acceptance, storedAttempt, locked, original, command, action);
+    }
+
+    private static PreparedChannelPayment prepared(Fixture fixture, Money amount, PaymentMethod method, long epoch) {
+        return new PreparedChannelPayment(fixture.storedAttempt().attempt().identity(), amount, method, epoch,
+                fixture.storedAttempt().preparedInputRef());
+    }
+
+    private static ChannelPaymentSubmission submission(Fixture fixture, String tradeNo, OffsetDateTime expiry) {
+        return submission(fixture, tradeNo, expiry, fixture.original().amount());
+    }
+
+    private static ChannelPaymentSubmission submission(Fixture fixture, String tradeNo, OffsetDateTime expiry, Money amount) {
+        var action = new AlipayJsapiChannelAction(tradeNo, expiry);
+        var observation = new PaymentObservation(fixture.original().identity(), ChannelPaymentOutcome.Kind.ACCEPTED,
+                amount, tradeNo, null, PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "f".repeat(64));
+        return new ChannelPaymentSubmission(fixture.original().identity(), amount, observation, action);
+    }
+
+    private static StoredPaymentAction storedAction(Fixture fixture, String tradeNo, OffsetDateTime expiry) {
+        return new StoredPaymentAction(fixture.original().identity(), fixture.original().amount(),
+                fixture.original().executionEpoch(), new AlipayJsapiChannelAction(tradeNo, expiry),
+                io.github.loadup.pay.payment.domain.model.PaymentActionSource.CHANNEL_RECEIPT, "receipt-1",
+                "f".repeat(64), AttemptFixtures.NOW);
+    }
+
+    private static Fixture withAttemptCaller(Fixture fixture, String caller) {
+        var old = fixture.storedAttempt();
+        var attempt = copyAttempt(old, old.attempt(), caller, old.paymentRequestDigest());
+        return new Fixture(fixture.acceptance(), attempt, fixture.locked(), fixture.original(), fixture.command(), fixture.action());
+    }
+
+    private static Fixture withActiveAttempt(Fixture fixture, String activeAttemptId) {
+        var old = fixture.acceptance();
+        var prior = old.payment();
+        var payment = new PaymentOrder(prior.id(), prior.orderId(), prior.allocationId(), prior.payeeMerchantId(), prior.amount(),
+                prior.limitOperationId(), prior.initiatedAt(), prior.state(), activeAttemptId, null, prior.version());
+        var acceptance = acceptance(old, payment, null);
+        return new Fixture(acceptance, fixture.storedAttempt(), locked(payment, AttemptFixtures.gate(true), AttemptFixtures.gate(false)),
+                fixture.original(), fixture.command(), fixture.action());
+    }
+
+    private static StoredPaymentAttempt copyAttempt(StoredPaymentAttempt source, PaymentAttempt attempt, String caller,
+                                                    String paymentRequestDigest) {
+        return new StoredPaymentAttempt(attempt, source.limitOperationId(), caller, source.requestKey(), source.requestDigest(),
+                paymentRequestDigest, source.preparedInputRef(), source.riskDecision(), source.executionPermitHash(),
+                source.preparedAt(), source.submissionStartedAt(), source.rowVersion());
+    }
+
+    private static LockedPayment locked(PaymentOrder payment, StoredPaymentGate parent, StoredPaymentGate gate) {
+        var source = AttemptFixtures.accepted(true);
+        return PaymentExecutionBindings.locked(acceptance(source, payment, null), parent, gate);
+    }
+
+    private static LockedPayment locked(StoredPaymentAcceptance acceptance, StoredPaymentGate parent, StoredPaymentGate gate) {
+        return PaymentExecutionBindings.locked(acceptance, parent, gate);
+    }
+
+    private static StoredPaymentAcceptance acceptance(StoredPaymentAcceptance source, PaymentOrder payment, String evidenceId) {
+        return new StoredPaymentAcceptance(payment, source.admissionId(), source.requestDigest(), source.callerServiceId(),
+                source.intentPayload(), source.payloadHash(), evidenceId);
+    }
+
+    private static StoredPaymentAcceptance terminalAcceptance(StoredPaymentAcceptance source) {
+        var prior = source.payment();
+        var closed = new PaymentOrder(prior.id(), prior.orderId(), prior.allocationId(), prior.payeeMerchantId(), prior.amount(),
+                prior.limitOperationId(), prior.initiatedAt(), PaymentState.CLOSED, prior.activeAttemptId(), null,
+                prior.version() + 1);
+        return acceptance(source, closed, "terminal-proof");
+    }
+
+    private static StoredPaymentGate fenced(StoredPaymentGate source) {
+        return new StoredPaymentGate(source.id(), source.payeeMerchantId(), source.callerServiceId(),
+                source.gate().fence(1), source.rowVersion());
+    }
+
+    private static PaymentExecutionDTO dto(PaymentActionDTO action) {
+        return new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
+                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt", action, null, 1,
+                BusinessTime.external(AttemptFixtures.NOW));
+    }
 
     @AfterEach
     void clearTransactionState() {
@@ -142,12 +245,6 @@ class PaymentActionServiceTest {
         when(views.withAction(base, actionDto)).thenReturn(decorated);
 
         assertSame(decorated, inTransaction(() -> service.present(TENANT, locked)));
-    }
-
-    private static String wapUrl() {
-        return "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
-                + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-22+20%3A00%3A00"
-                + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
     }
 
     @Test
@@ -279,104 +376,6 @@ class PaymentActionServiceTest {
         verify(actions).find(TENANT, "new-attempt");
     }
 
-    private static Fixture fixture(PaymentMethod method, long epoch, Money amount) {
-        var command = PaymentFixtures.command();
-        var binding = new ChannelBindingRevision("binding-revision", "merchant", Channel.ALIPAY, AccessMode.DIRECT,
-                "a".repeat(64), "credential", "v1", new AlipayAccountIdentity("app", "seller", null, null, null),
-                Set.of(PaymentMethod.JSAPI, PaymentMethod.PAYMENT_CODE, PaymentMethod.H5));
-        var attempt = new PaymentAttempt("attempt", "payment", 1, Money.ofMinor(4000, "CNY"), binding, method,
-                "channel-request", PaymentAttemptState.SUBMITTING, epoch, null);
-        var template = AttemptFixtures.prepared().beginSubmission(epoch, HASH, RiskDecision.notConnected(), AttemptFixtures.NOW);
-        var storedAttempt = new StoredPaymentAttempt(attempt, template.limitOperationId(), template.callerServiceId(),
-                template.requestKey(), template.requestDigest(), template.paymentRequestDigest(), template.preparedInputRef(),
-                template.riskDecision(), template.executionPermitHash(), template.preparedAt(), template.submissionStartedAt(),
-                template.rowVersion());
-        var acceptance = AttemptFixtures.accepted(true);
-        var locked = locked(acceptance.payment(), AttemptFixtures.gate(true), AttemptFixtures.gate(false));
-        var original = prepared(new Fixture(acceptance, storedAttempt, locked, null, command, null), amount, method, 1);
-        var action = new AlipayJsapiChannelAction("trade-1", EXPIRES_AT);
-        return new Fixture(acceptance, storedAttempt, locked, original, command, action);
-    }
-
-    private static PreparedChannelPayment prepared(Fixture fixture, Money amount, PaymentMethod method, long epoch) {
-        return new PreparedChannelPayment(fixture.storedAttempt().attempt().identity(), amount, method, epoch,
-                fixture.storedAttempt().preparedInputRef());
-    }
-
-    private static ChannelPaymentSubmission submission(Fixture fixture, String tradeNo, OffsetDateTime expiry) {
-        return submission(fixture, tradeNo, expiry, fixture.original().amount());
-    }
-
-    private static ChannelPaymentSubmission submission(Fixture fixture, String tradeNo, OffsetDateTime expiry, Money amount) {
-        var action = new AlipayJsapiChannelAction(tradeNo, expiry);
-        var observation = new PaymentObservation(fixture.original().identity(), ChannelPaymentOutcome.Kind.ACCEPTED,
-                amount, tradeNo, null, PaymentObservation.Source.SUBMIT_RESPONSE, "receipt", "f".repeat(64));
-        return new ChannelPaymentSubmission(fixture.original().identity(), amount, observation, action);
-    }
-
-    private static StoredPaymentAction storedAction(Fixture fixture, String tradeNo, OffsetDateTime expiry) {
-        return new StoredPaymentAction(fixture.original().identity(), fixture.original().amount(),
-                fixture.original().executionEpoch(), new AlipayJsapiChannelAction(tradeNo, expiry),
-                io.github.loadup.pay.payment.domain.model.PaymentActionSource.CHANNEL_RECEIPT, "receipt-1",
-                "f".repeat(64), AttemptFixtures.NOW);
-    }
-
-    private static Fixture withAttemptCaller(Fixture fixture, String caller) {
-        var old = fixture.storedAttempt();
-        var attempt = copyAttempt(old, old.attempt(), caller, old.paymentRequestDigest());
-        return new Fixture(fixture.acceptance(), attempt, fixture.locked(), fixture.original(), fixture.command(), fixture.action());
-    }
-
-    private static Fixture withActiveAttempt(Fixture fixture, String activeAttemptId) {
-        var old = fixture.acceptance();
-        var prior = old.payment();
-        var payment = new PaymentOrder(prior.id(), prior.orderId(), prior.allocationId(), prior.payeeMerchantId(), prior.amount(),
-                prior.limitOperationId(), prior.initiatedAt(), prior.state(), activeAttemptId, null, prior.version());
-        var acceptance = acceptance(old, payment, null);
-        return new Fixture(acceptance, fixture.storedAttempt(), locked(payment, AttemptFixtures.gate(true), AttemptFixtures.gate(false)),
-                fixture.original(), fixture.command(), fixture.action());
-    }
-
-    private static StoredPaymentAttempt copyAttempt(StoredPaymentAttempt source, PaymentAttempt attempt, String caller,
-            String paymentRequestDigest) {
-        return new StoredPaymentAttempt(attempt, source.limitOperationId(), caller, source.requestKey(), source.requestDigest(),
-                paymentRequestDigest, source.preparedInputRef(), source.riskDecision(), source.executionPermitHash(),
-                source.preparedAt(), source.submissionStartedAt(), source.rowVersion());
-    }
-
-    private static LockedPayment locked(PaymentOrder payment, StoredPaymentGate parent, StoredPaymentGate gate) {
-        var source = AttemptFixtures.accepted(true);
-        return PaymentExecutionBindings.locked(acceptance(source, payment, null), parent, gate);
-    }
-
-    private static LockedPayment locked(StoredPaymentAcceptance acceptance, StoredPaymentGate parent, StoredPaymentGate gate) {
-        return PaymentExecutionBindings.locked(acceptance, parent, gate);
-    }
-
-    private static StoredPaymentAcceptance acceptance(StoredPaymentAcceptance source, PaymentOrder payment, String evidenceId) {
-        return new StoredPaymentAcceptance(payment, source.admissionId(), source.requestDigest(), source.callerServiceId(),
-                source.intentPayload(), source.payloadHash(), evidenceId);
-    }
-
-    private static StoredPaymentAcceptance terminalAcceptance(StoredPaymentAcceptance source) {
-        var prior = source.payment();
-        var closed = new PaymentOrder(prior.id(), prior.orderId(), prior.allocationId(), prior.payeeMerchantId(), prior.amount(),
-                prior.limitOperationId(), prior.initiatedAt(), PaymentState.CLOSED, prior.activeAttemptId(), null,
-                prior.version() + 1);
-        return acceptance(source, closed, "terminal-proof");
-    }
-
-    private static StoredPaymentGate fenced(StoredPaymentGate source) {
-        return new StoredPaymentGate(source.id(), source.payeeMerchantId(), source.callerServiceId(),
-                source.gate().fence(1), source.rowVersion());
-    }
-
-    private static PaymentExecutionDTO dto(PaymentActionDTO action) {
-        return new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
-                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt", action, null, 1,
-                BusinessTime.external(AttemptFixtures.NOW));
-    }
-
     private void inTransaction(Runnable work) {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
@@ -396,5 +395,7 @@ class PaymentActionServiceTest {
     }
 
     private record Fixture(StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt, LockedPayment locked,
-            PreparedChannelPayment original, PaymentExecuteCommand command, ChannelPaymentAction action) {}
+                           PreparedChannelPayment original, PaymentExecuteCommand command,
+                           ChannelPaymentAction action) {
+    }
 }

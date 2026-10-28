@@ -19,10 +19,12 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
 
 public record ChannelPayerIdentityInput(Channel channel, PayerIdentityType identityType,
-        @DiagnosticHidden String identifier, String appScope) implements ChannelPaymentInput {
+                                        @DiagnosticHidden String identifier,
+                                        String appScope) implements ChannelPaymentInput {
     public ChannelPayerIdentityInput {
         Objects.requireNonNull(channel);
         Objects.requireNonNull(identityType);
@@ -31,6 +33,8 @@ public record ChannelPayerIdentityInput(Channel channel, PayerIdentityType ident
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

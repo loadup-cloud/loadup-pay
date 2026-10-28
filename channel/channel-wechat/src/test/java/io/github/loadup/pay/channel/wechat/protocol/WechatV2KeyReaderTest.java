@@ -16,31 +16,44 @@
 package io.github.loadup.pay.channel.wechat.protocol;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.kms.*;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.components.kms.KmsCiphertext;
+import io.github.loadup.components.kms.KmsKeyRef;
+import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatV2KeyReaderTest {
-    @TempDir Path directory;
     private final KmsTemplate kms = mock(KmsTemplate.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private final KmsCiphertext v2 = new KmsCiphertext("wechat-v2", 7, "vault:v7:AQ==");
     private final KmsCiphertext v3 = new KmsCiphertext("wechat-v3", 2, "vault:v2:Ag==");
     private final ChannelBindingRevision binding = new ChannelBindingRevision("binding", "merchant", Channel.WECHAT, AccessMode.DIRECT,
             "a".repeat(64), "credential", "v1", new WechatAccountIdentity("wx-app", "1900000001", null, null), Set.of(PaymentMethod.PAYMENT_CODE));
+    @TempDir
+    Path directory;
 
     @Test
     void onlyTheFrozenV2CiphertextIsDecryptedAndCallerReceivesOwnedBytes() throws Exception {
@@ -59,7 +72,8 @@ class WechatV2KeyReaderTest {
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> absent.apiV2Key("tenant", binding)));
         verifyNoInteractions(kms);
         var configured = reader(v2);
-        byte[] malformed = new byte[32]; malformed[0] = 1;
+        byte[] malformed = new byte[32];
+        malformed[0] = 1;
         when(kms.decrypt(new KmsKeyRef("wechat-v2", 7), v2)).thenReturn(malformed);
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> configured.apiV2Key("tenant", binding)));
         assertArrayEquals(new byte[32], malformed);

@@ -16,9 +16,9 @@
 package io.github.loadup.pay.acquire.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.commons.time.BusinessTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

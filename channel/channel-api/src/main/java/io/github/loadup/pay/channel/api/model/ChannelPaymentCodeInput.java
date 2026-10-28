@@ -25,6 +25,8 @@ public record ChannelPaymentCodeInput(@DiagnosticHidden String paymentCode) impl
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

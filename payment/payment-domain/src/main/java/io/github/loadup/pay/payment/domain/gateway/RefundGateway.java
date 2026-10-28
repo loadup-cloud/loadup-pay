@@ -31,7 +31,9 @@ public interface RefundGateway {
 
     Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String merchantRefundNo);
 
-    /** Nonlocking reconstruction, usable inside a read-only snapshot. */
+    /**
+     * Nonlocking reconstruction, usable inside a read-only snapshot.
+     */
     StoredRefundRequest load(String tenant, String id);
 
     StoredRefundRequest lock(String tenant, String id);

@@ -16,12 +16,32 @@
 package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.channel.alipay.config.AlipayH5Properties;
-import io.github.loadup.pay.channel.alipay.protocol.*;
-import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayBindingGuard;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolTime;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayResponseReader;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.ChannelPayerIdentityInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.NoChannelInput;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
@@ -31,9 +51,14 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
-/** Payer-code debit, JSAPI creation, or local direct-WAP preparation with independent financial evidence. */
+/**
+ * Payer-code debit, JSAPI creation, or local direct-WAP preparation with independent financial evidence.
+ */
 public final class AlipaySubmitAdapter {
     private final AlipayProtocolClient client;
     private final AlipayPaymentAdapter queries;
@@ -86,9 +111,10 @@ public final class AlipaySubmitAdapter {
     }
 
     private void validateParameters(ChannelExecutionContext context, AlipayAccountIdentity account, PaymentMethod method, long amountMinor,
-            String subject, OffsetDateTime payableUntil, ChannelPaymentInput input) {
+                                    String subject, OffsetDateTime payableUntil, ChannelPaymentInput input) {
         if ((method != PaymentMethod.PAYMENT_CODE && method != PaymentMethod.JSAPI && method != PaymentMethod.H5)
-                || !context.binding().capabilities().contains(method)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+                || !context.binding().capabilities().contains(method))
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
         long lifetime = Duration.between(clock.instant(), payableUntil.withNano(0).toInstant()).getSeconds();
         if (lifetime < 60 || lifetime > 15 * 86400L) throw new CommonException(INVALID_ARGUMENT);
         if (subject.chars().anyMatch(c -> Character.isISOControl(c) || c == '/' || c == '=' || c == '&'))
@@ -97,12 +123,15 @@ public final class AlipaySubmitAdapter {
             if (amountMinor > 10_000_000_000L) throw new CommonException(INVALID_ARGUMENT);
             if (context.binding().accessMode() != AccessMode.DIRECT || account.operatorAppId() != null || h5.gateway() == null)
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
-            if (!(input instanceof NoChannelInput) && !(input instanceof ChannelH5Input)) throw new CommonException(INVALID_ARGUMENT);
+            if (!(input instanceof NoChannelInput) && !(input instanceof ChannelH5Input))
+                throw new CommonException(INVALID_ARGUMENT);
             var notifyUrl = notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id());
-            if (notifyUrl == null || notifyUrl.toASCIIString().length() > 256) throw new CommonException(UNSUPPORTED_CAPABILITY);
+            if (notifyUrl == null || notifyUrl.toASCIIString().length() > 256)
+                throw new CommonException(UNSUPPORTED_CAPABILITY);
         } else if (method == PaymentMethod.PAYMENT_CODE) {
             if (!(input instanceof ChannelPaymentCodeInput code)
-                    || !code.paymentCode().matches("(?:2[5-9]|30)[0-9]{14,22}")) throw new CommonException(INVALID_ARGUMENT);
+                    || !code.paymentCode().matches("(?:2[5-9]|30)[0-9]{14,22}"))
+                throw new CommonException(INVALID_ARGUMENT);
         } else {
             if (!(input instanceof ChannelPayerIdentityInput payer)) throw new CommonException(INVALID_ARGUMENT);
             String scope = account.operatorAppId() == null ? account.appId() : account.operatorAppId();
@@ -115,7 +144,8 @@ public final class AlipaySubmitAdapter {
 
     private ChannelPaymentSubmission pay(ChannelExecutionContext context, ChannelPaymentRequest request, Map<String, Object> business) {
         if (!(request.input() instanceof ChannelPaymentCodeInput code)
-                || !code.paymentCode().matches("(?:2[5-9]|30)[0-9]{14,22}")) throw new CommonException(INVALID_ARGUMENT);
+                || !code.paymentCode().matches("(?:2[5-9]|30)[0-9]{14,22}"))
+            throw new CommonException(INVALID_ARGUMENT);
         business.put("scene", "bar_code");
         business.put("auth_code", code.paymentCode());
         business.put("trans_currency", "CNY");
@@ -143,7 +173,7 @@ public final class AlipaySubmitAdapter {
     }
 
     private ChannelPaymentSubmission create(ChannelExecutionContext context, ChannelPaymentRequest request,
-            AlipayAccountIdentity account, OffsetDateTime expiry, Map<String, Object> business) {
+                                            AlipayAccountIdentity account, OffsetDateTime expiry, Map<String, Object> business) {
         if (!(request.input() instanceof ChannelPayerIdentityInput payer)) throw new CommonException(INVALID_ARGUMENT);
         String scope = account.operatorAppId() == null ? account.appId() : account.operatorAppId();
         if (!scope.equals(payer.appScope()) || payer.channel() != context.binding().channel())
@@ -181,7 +211,7 @@ public final class AlipaySubmitAdapter {
     }
 
     private PaymentObservation observation(ChannelPaymentRequest request, AlipayVerifiedResponse response,
-            ChannelPaymentOutcome.Kind kind, String tradeNo) {
+                                           ChannelPaymentOutcome.Kind kind, String tradeNo) {
         return new PaymentObservation(request.payment().identity(), kind, request.payment().amount(), tradeNo, null,
                 PaymentObservation.Source.SUBMIT_RESPONSE, response.method().operation() + ":" + response.sourceDigest(),
                 response.sourceDigest());

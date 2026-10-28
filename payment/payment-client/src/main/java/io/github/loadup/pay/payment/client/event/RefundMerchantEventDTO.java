@@ -20,12 +20,18 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 import java.util.Set;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** A source-committed terminal projection; never a command to change order or refund amounts. */
+/**
+ * A source-committed terminal projection; never a command to change order or refund amounts.
+ */
 public record RefundMerchantEventDTO(
         @Schema(description = "RefundOrder or RefundRequest") String aggregateType,
         @Schema(description = "Child refund id, absent for a completed request") String refundId,
@@ -42,14 +48,19 @@ public record RefundMerchantEventDTO(
         @Schema(description = "Source aggregate version") long sourceVersion,
         @Schema(description = "Verified child success time; absent for failed children and request completion") OffsetDateTime succeededAt) {
     public static final String TYPE = "pay.payment.refund.merchant.v1";
+
     public RefundMerchantEventDTO {
-        DomainChecks.id(refundRequestId); DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId);
-        DomainChecks.text(merchantRefundNo, 64); DomainChecks.cnyAmount(amountMinor, currency);
+        DomainChecks.id(refundRequestId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.text(merchantRefundNo, 64);
+        DomainChecks.cnyAmount(amountMinor, currency);
         require(amountMinor > 0 && sourceVersion > 0 && succeededMinor >= 0 && failedMinor >= 0
                 && succeededMinor <= amountMinor && failedMinor == amountMinor - succeededMinor, INVALID_ARGUMENT);
         require(aggregateType != null && state != null, INVALID_ARGUMENT);
         if ("RefundOrder".equals(aggregateType)) {
-            DomainChecks.id(refundId); DomainChecks.id(paymentId);
+            DomainChecks.id(refundId);
+            DomainChecks.id(paymentId);
             require(Set.of("SUCCEEDED", "FAILED").contains(state), INVALID_STATE);
             require(("SUCCEEDED".equals(state)) == (succeededAt != null), INVALID_STATE);
         } else {
@@ -61,13 +72,22 @@ public record RefundMerchantEventDTO(
         require(!"PARTIAL_SUCCEEDED".equals(state) || succeededMinor > 0 && failedMinor > 0, CONFLICT);
         if (succeededAt != null) succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
-    public String aggregateId() { return refundId == null ? refundRequestId : refundId; }
+
+    public String aggregateId() {
+        return refundId == null ? refundRequestId : refundId;
+    }
+
     public String merchantEventType() {
         return "RefundRequest".equals(aggregateType) ? "RefundRequestCompleted" : "SUCCEEDED".equals(state) ? "RefundSucceeded" : "RefundFailed";
     }
+
     public void requireEnvelope(EventEnvelope<?> event) {
         require(event != null && equals(event.data()), CONFLICT);
         event.requireSource(TYPE, "payment", aggregateId(), sourceVersion);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

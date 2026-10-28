@@ -16,20 +16,44 @@
 package io.github.loadup.pay.payment.infrastructure.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** Aggregate query projection, not a persisted table or a financial authority. */
+/**
+ * Aggregate query projection, not a persisted table or a financial authority.
+ */
 public class RecoveryInventoryAggregate {
     private Long rowCount;
     private BigDecimal amountMinor;
     private LocalDateTime oldestAt;
 
-    public Long getRowCount() { return rowCount; }
-    public void setRowCount(Long value) { rowCount = value; }
-    public BigDecimal getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(BigDecimal value) { amountMinor = value; }
-    public LocalDateTime getOldestAt() { return oldestAt; }
-    public void setOldestAt(LocalDateTime value) { oldestAt = value; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public Long getRowCount() {
+        return rowCount;
+    }
+
+    public void setRowCount(Long value) {
+        rowCount = value;
+    }
+
+    public BigDecimal getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(BigDecimal value) {
+        amountMinor = value;
+    }
+
+    public LocalDateTime getOldestAt() {
+        return oldestAt;
+    }
+
+    public void setOldestAt(LocalDateTime value) {
+        oldestAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

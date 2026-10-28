@@ -16,9 +16,12 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+
 import java.util.Optional;
 
-/** Reads only an already started refund under its original immutable binding and both channel numbers. */
+/**
+ * Reads only an already started refund under its original immutable binding and both channel numbers.
+ */
 public interface RefundCallbackTargetGateway {
     Optional<PreparedChannelRefund> find(String tenant, String bindingRevisionId, String channelRequestNo, String channelRefundNo);
 }

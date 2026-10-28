@@ -19,14 +19,19 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Query-only recovery context: no payment code, buyer input, credential or submission ticket. */
+/**
+ * Query-only recovery context: no payment code, buyer input, credential or submission ticket.
+ */
 public record ChannelPaymentRecovery(ChannelPaymentIdentity identity, Money amount, PaymentMethod method,
-        long executionEpoch, OffsetDateTime payableUntil) implements ChannelPaymentExecution {
+                                     long executionEpoch,
+                                     OffsetDateTime payableUntil) implements ChannelPaymentExecution {
     public ChannelPaymentRecovery {
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
@@ -35,5 +40,9 @@ public record ChannelPaymentRecovery(ChannelPaymentIdentity identity, Money amou
         Objects.requireNonNull(payableUntil);
         payableUntil = payableUntil.atZoneSameInstant(io.github.loadup.commons.time.BusinessTime.zone()).toOffsetDateTime();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

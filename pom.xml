@@ -30,10 +30,26 @@
     </properties>
     <dependencyManagement>
         <dependencies>
-            <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>reconciliation-app</artifactId><version>${project.version}</version></dependency>
-            <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>reconciliation-infrastructure</artifactId><version>${project.version}</version></dependency>
-            <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>reconciliation-client</artifactId><version>${project.version}</version></dependency>
-            <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>reconciliation-domain</artifactId><version>${project.version}</version></dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>reconciliation-app</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>reconciliation-infrastructure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>reconciliation-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>reconciliation-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>channel-api</artifactId>

@@ -19,10 +19,12 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.require;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record RefundSettlementFactsDTO(
         @Schema(description = "Verified refund and latest successful refund cumulative for its payment") RefundOutcomeEventDTO refund,
@@ -40,5 +42,9 @@ public record RefundSettlementFactsDTO(
         require(paymentAmountMinor > 0 && paymentVersion > 0 && paymentRefundVersion > 0
                 && refund.amountMinor() <= paymentAmountMinor && refund.cumulativePaymentRefundedMinor() <= paymentAmountMinor, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

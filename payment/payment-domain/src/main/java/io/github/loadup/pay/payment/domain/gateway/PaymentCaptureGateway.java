@@ -16,14 +16,22 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.commons.domain.PageResult;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentCapture;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureRead;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
+
 import java.util.Optional;
 
 public interface PaymentCaptureGateway {
     Optional<PaymentCapture> findRequest(String tenant, String caller, String requestKey);
+
     Optional<PaymentCapture> find(String tenant, String id);
+
     Optional<PaymentCapture> lock(String tenant, String id);
+
     void insert(String tenant, PaymentCapture value);
+
     void complete(String tenant, PaymentCapture original, PaymentCapture complete, PaymentCaptureRead read);
+
     PageResult<PaymentLedgerLine> page(String tenant, PaymentCapture capture, int page, int size);
 }

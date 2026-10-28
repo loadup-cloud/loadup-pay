@@ -19,8 +19,8 @@ import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentActionStorageConverter;
@@ -47,7 +47,7 @@ public class PaymentActionGatewayImpl implements PaymentActionGateway {
     private final ChannelActionCodec codec;
 
     public PaymentActionGatewayImpl(PaymentActionDOMapper mapper, PaymentActionStorageConverter converter,
-            ChannelActionCodec codec) {
+                                    ChannelActionCodec codec) {
         this.mapper = mapper;
         this.converter = converter;
         this.codec = codec;

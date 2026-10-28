@@ -16,16 +16,20 @@
 package io.github.loadup.pay.reconciliation.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
-import static io.github.loadup.commons.error.DomainViolation.require;
+
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.Set;
 
-/** Both sides remain immutable evidence. A difference authorizes neither a refund nor a source-state rewrite. */
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * Both sides remain immutable evidence. A difference authorizes neither a refund nor a source-state rewrite.
+ */
 public record ReconciliationDifference(ReconciliationKey key, ReconciliationLine channel, ReconciliationLine ledger,
-        Set<ReconciliationDifferenceReason> reasons) {
+                                       Set<ReconciliationDifferenceReason> reasons) {
     public ReconciliationDifference {
         Objects.requireNonNull(key);
         require(channel != null || ledger != null, INVALID_ARGUMENT);
@@ -33,16 +37,22 @@ public record ReconciliationDifference(ReconciliationKey key, ReconciliationLine
         reasons = Set.copyOf(reasons);
         require(!reasons.isEmpty() && reasons.equals(reasons(channel, ledger)), CONFLICT);
     }
+
     static Set<ReconciliationDifferenceReason> reasons(ReconciliationLine channel, ReconciliationLine ledger) {
         var result = EnumSet.noneOf(ReconciliationDifferenceReason.class);
         if (channel == null) result.add(ReconciliationDifferenceReason.LEDGER_ONLY);
         else if (ledger == null) result.add(ReconciliationDifferenceReason.CHANNEL_ONLY);
         else {
             if (!channel.amount().equals(ledger.amount())) result.add(ReconciliationDifferenceReason.AMOUNT_MISMATCH);
-            if (!channel.merchantPaymentNo().equals(ledger.merchantPaymentNo())) result.add(ReconciliationDifferenceReason.REQUEST_MISMATCH);
+            if (!channel.merchantPaymentNo().equals(ledger.merchantPaymentNo()))
+                result.add(ReconciliationDifferenceReason.REQUEST_MISMATCH);
             if (channel.status() != ledger.status()) result.add(ReconciliationDifferenceReason.STATE_MISMATCH);
         }
         return Set.copyOf(result);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

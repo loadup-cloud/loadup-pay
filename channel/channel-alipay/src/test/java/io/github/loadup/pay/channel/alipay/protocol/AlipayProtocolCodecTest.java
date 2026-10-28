@@ -33,9 +33,16 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayProtocolCodecTest {
     private final KmsTemplate kms = mock(KmsTemplate.class);
@@ -43,6 +50,24 @@ class AlipayProtocolCodecTest {
             Clock.fixed(Instant.parse("2026-10-23T10:11:12Z"), ZoneOffset.UTC));
     private final AlipayCredentials credentials = new AlipayCredentials("tenant", "app", "seller",
             new KmsKeyRef("signer", 7), null, "secret-auth-token");
+
+    private static KmsSignature signature(String name, int version, KmsSignatureAlgorithm algorithm) {
+        return new KmsSignature(name, version, algorithm, new byte[]{1});
+    }
+
+    private static KeyPair keyPair() throws Exception {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        return generator.generateKeyPair();
+    }
+
+    private static String response(AlipayMethod method, String payload, KeyPair pair) throws Exception {
+        var signer = Signature.getInstance("SHA256withRSA");
+        signer.initSign(pair.getPrivate());
+        signer.update(payload.getBytes(StandardCharsets.UTF_8));
+        return "{\"" + method.responseNode() + "\":" + payload + ",\"sign\":\""
+                + Base64.getEncoder().encodeToString(signer.sign()) + "\"}";
+    }
 
     @Test
     void signsSortedOriginalCanonicalValuesThenFormEncodesAndHidesAuthorization() throws Exception {
@@ -117,25 +142,10 @@ class AlipayProtocolCodecTest {
         assertThrows(RuntimeException.class, () -> codec.sign(AlipayMethod.PAY, credentials, "{\"x\":1}", Map.of()));
 
         org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertThrows(RuntimeException.class, () -> codec.sign(AlipayMethod.PAY, credentials, "{\"x\":1}", Map.of())); }
-        finally { org.springframework.transaction.support.TransactionSynchronizationManager.clear(); }
-    }
-
-    private static KmsSignature signature(String name, int version, KmsSignatureAlgorithm algorithm) {
-        return new KmsSignature(name, version, algorithm, new byte[] {1});
-    }
-
-    private static KeyPair keyPair() throws Exception {
-        var generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        return generator.generateKeyPair();
-    }
-
-    private static String response(AlipayMethod method, String payload, KeyPair pair) throws Exception {
-        var signer = Signature.getInstance("SHA256withRSA");
-        signer.initSign(pair.getPrivate());
-        signer.update(payload.getBytes(StandardCharsets.UTF_8));
-        return "{\"" + method.responseNode() + "\":" + payload + ",\"sign\":\""
-                + Base64.getEncoder().encodeToString(signer.sign()) + "\"}";
+        try {
+            assertThrows(RuntimeException.class, () -> codec.sign(AlipayMethod.PAY, credentials, "{\"x\":1}", Map.of()));
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clear();
+        }
     }
 }

@@ -21,10 +21,23 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.PaymentOutcomeReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
@@ -36,10 +49,32 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.terms;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AllocationRecoveryServiceTest {
     final AllocationRecoveryGateway cursors = mock(AllocationRecoveryGateway.class);
@@ -64,6 +99,11 @@ class AllocationRecoveryServiceTest {
             new AdmittedOrderTermsDTO("admission", "order", "merchant", 10000L, "CNY", "contract", 1, 1L,
                     "snapshot", "b".repeat(64), terms()), "Original subject", BusinessTime.external(NOW.minusSeconds(1)));
     final DelayedTask task = nativeTask(NOW.plusMinutes(5));
+
+    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
+        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(),
+                original.admittedAt(), original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
+    }
 
     DelayedTask nativeTask(java.time.LocalDateTime leaseUntil) {
         return new DelayedTask("task", "tenant", AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW,
@@ -118,7 +158,9 @@ class AllocationRecoveryServiceTest {
         });
     }
 
-    void handle() { TenantUtil.runWithTenant("tenant", () -> service.handle(task)); }
+    void handle() {
+        TenantUtil.runWithTenant("tenant", () -> service.handle(task));
+    }
 
     @Test
     void committedIntentContinuesPastTheOrderDeadlineWithoutRenewingSessionOrCreatingPayment() {
@@ -261,7 +303,9 @@ class AllocationRecoveryServiceTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(orders, allocations, cursors, initiation, outcomes);
     }
 
@@ -280,10 +324,5 @@ class AllocationRecoveryServiceTest {
         order.set(withOrder(order.get(), change.order()));
         allocation.set(new StoredPaymentAllocation(change.allocation(), OWNER, before.intentPayload(), before.payloadHash(), 1L));
         receipt.set(new PaymentOutcomeReceipt("receipt", "allocation", outcome, NOW));
-    }
-
-    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
-        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(),
-                original.admittedAt(), original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
     }
 }

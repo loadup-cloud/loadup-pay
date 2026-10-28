@@ -17,19 +17,25 @@ package io.github.loadup.pay.channel.wechat.config;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.net.URI;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Trusted server callback URLs by tenant and immutable binding revision; never supplied by a merchant request. */
+/**
+ * Trusted server callback URLs by tenant and immutable binding revision; never supplied by a merchant request.
+ */
 @ConfigurationProperties("loadup.pay.channel.wechat.notifications")
-public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyUrls, Map<String, Map<String, URI>> refundNotifyUrls) {
+public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyUrls,
+                                           Map<String, Map<String, URI>> refundNotifyUrls) {
     public WechatNotificationProperties {
         notifyUrls = immutable(notifyUrls);
         refundNotifyUrls = immutable(refundNotifyUrls);
     }
+
     private static Map<String, Map<String, URI>> immutable(Map<String, Map<String, URI>> values) {
         var urls = values == null ? Map.<String, Map<String, URI>>of() : values.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
@@ -39,12 +45,16 @@ public record WechatNotificationProperties(Map<String, Map<String, URI>> notifyU
                 io.github.loadup.commons.validation.DomainChecks.id(binding.getKey());
                 var uri = binding.getValue();
                 require(uri != null && "https".equals(uri.getScheme()) && uri.getHost() != null
-                        && uri.getRawUserInfo() == null && uri.getRawFragment() == null && uri.getRawQuery() == null
-                        && uri.getRawPath() != null && !uri.getRawPath().isBlank() && uri.toASCIIString().length() <= 2048,
+                                && uri.getRawUserInfo() == null && uri.getRawFragment() == null && uri.getRawQuery() == null
+                                && uri.getRawPath() != null && !uri.getRawPath().isBlank() && uri.toASCIIString().length() <= 2048,
                         INVALID_ARGUMENT);
             }
         }
         return urls;
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

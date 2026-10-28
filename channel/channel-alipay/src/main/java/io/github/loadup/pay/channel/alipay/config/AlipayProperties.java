@@ -18,21 +18,27 @@ package io.github.loadup.pay.channel.alipay.config;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @ConfigurationProperties("loadup.pay.channel.alipay")
 public record AlipayProperties(boolean enabled,
-        @DiagnosticHidden Map<String, Map<String, Path>> credentials,
-        @DiagnosticHidden Map<String, Map<String, Path>> authorizations) {
+                               @DiagnosticHidden Map<String, Map<String, Path>> credentials,
+                               @DiagnosticHidden Map<String, Map<String, Path>> authorizations) {
     public AlipayProperties {
         credentials = copy(credentials);
         authorizations = copy(authorizations);
     }
+
     private static Map<String, Map<String, Path>> copy(Map<String, Map<String, Path>> source) {
         return source == null ? Map.of() : source.entrySet().stream()
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

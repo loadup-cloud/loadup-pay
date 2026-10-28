@@ -23,19 +23,27 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** The existing order header owns deadlineVersion; native tasks only wake its due check. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+
+/**
+ * The existing order header owns deadlineVersion; native tasks only wake its due check.
+ */
 @Component
 public class OrderDeadlineTasks {
     public static final String TYPE = "pay.acquire.order.deadline";
     private final DelayedTaskTemplate tasks;
-    public OrderDeadlineTasks(DelayedTaskTemplate tasks) { this.tasks = tasks; }
+
+    public OrderDeadlineTasks(DelayedTaskTemplate tasks) {
+        this.tasks = tasks;
+    }
 
     public void register(String tenant, AcquireOrder order, long deadlineVersion) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
         if (deadlineVersion < 1 || order.state() != AcquireOrderState.INIT && order.state() != AcquireOrderState.PENDING)
             throw new CommonException(INVALID_STATE);
         tasks.register(TYPE, new OrderTaskKey(order.id(), deadlineVersion).bizId(), order.orderDueAt());

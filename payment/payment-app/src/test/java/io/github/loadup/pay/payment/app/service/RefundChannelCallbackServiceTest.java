@@ -17,7 +17,14 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelRefundNotification;
 import io.github.loadup.pay.payment.app.converter.RefundCallbackObservationConverter;
 import io.github.loadup.pay.payment.app.model.ChannelCallbackEndpoint;
 import io.github.loadup.pay.payment.app.model.RefundResultApplication;
@@ -36,9 +43,21 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RefundChannelCallbackServiceTest {
     private static final String ENDPOINT_REF = "refund-endpoint";
@@ -109,7 +128,9 @@ class RefundChannelCallbackServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); }
+    void close() {
+        context.close();
+    }
 
     @Test
     void verifiesPreparedRefundThenQueriesAndRecordsCallbackFactsBeforeAck() {
@@ -257,7 +278,10 @@ class RefundChannelCallbackServiceTest {
         when(channels.queryRefund(target())).thenReturn(unknown, query());
         when(facts.factsDigest(any())).thenReturn("c".repeat(64), "f".repeat(64));
 
-        TenantUtil.runWithTenant(TENANT, () -> { service.receive(ENDPOINT_REF, input); service.receive(ENDPOINT_REF, input); });
+        TenantUtil.runWithTenant(TENANT, () -> {
+            service.receive(ENDPOINT_REF, input);
+            service.receive(ENDPOINT_REF, input);
+        });
 
         var captured = org.mockito.ArgumentCaptor.forClass(RefundObservation.class);
         verify(results, times(2)).record(eq(TENANT), captured.capture());

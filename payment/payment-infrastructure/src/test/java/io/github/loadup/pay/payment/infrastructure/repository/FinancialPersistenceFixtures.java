@@ -17,24 +17,49 @@ package io.github.loadup.pay.payment.infrastructure.repository;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
+import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-/** Synthetic inputs and legitimate domain transitions; persistence is always handled by real generated Mappers/Gateways. */
+/**
+ * Synthetic inputs and legitimate domain transitions; persistence is always handled by real generated Mappers/Gateways.
+ */
 final class FinancialPersistenceFixtures {
     static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
-    static String id(String prefix) { return prefix + "-" + UUID.randomUUID(); }
+
+    static String id(String prefix) {
+        return prefix + "-" + UUID.randomUUID();
+    }
 
     static Fixture prepared(PaymentAcceptanceCodec codec, ChannelBindingCodec bindings) {
         String tenant = id("tenant"), payment = id("payment"), order = id("order"), merchant = id("merchant");
@@ -77,8 +102,12 @@ final class FinancialPersistenceFixtures {
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))), "routing-v1", "return-v1");
     }
 
-    record Fixture(String tenant, PaymentExecuteCommand command, StoredPaymentAcceptance payment, StoredPaymentAttempt attempt,
-            ChannelMerchantBinding head, StoredChannelBindingRevision revision) {
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    record Fixture(String tenant, PaymentExecuteCommand command, StoredPaymentAcceptance payment,
+                   StoredPaymentAttempt attempt,
+                   ChannelMerchantBinding head, StoredChannelBindingRevision revision) {
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
 }

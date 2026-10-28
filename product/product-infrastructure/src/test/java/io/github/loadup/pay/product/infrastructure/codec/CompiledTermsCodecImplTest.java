@@ -15,16 +15,16 @@
  */
 package io.github.loadup.pay.product.infrastructure.codec;
 
+import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
 import io.github.loadup.modules.contract.domain.model.ConfigurationLayer;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.contract.ContractReference;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.app.model.CompiledAcquiringTerms;
 import io.github.loadup.pay.product.app.model.EncodedAcquiringTerms;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;

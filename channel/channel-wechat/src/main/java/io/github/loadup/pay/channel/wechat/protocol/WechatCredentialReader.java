@@ -20,7 +20,6 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.components.kms.KmsTemplate;
-import java.util.Arrays;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatProperties;
@@ -28,40 +27,58 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Only trusted catalog paths may supply a frozen descriptor; no path is constructed from request input. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * Only trusted catalog paths may supply a frozen descriptor; no path is constructed from request input.
+ */
 public class WechatCredentialReader {
     private final WechatProperties properties;
     private final JsonMapper json;
     private final KmsTemplate kms;
+
     public WechatCredentialReader(WechatProperties properties, JsonMapper json, KmsTemplate kms) {
-        this.properties = properties; this.kms = kms;
+        this.properties = properties;
+        this.kms = kms;
         this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     }
+
     public WechatCredentials read(String tenant, ChannelBindingRevision binding) {
         var document = document(tenant, binding);
         try {
             return new WechatCredentials(tenant, document.appId(), document.merchantId(), document.merchantSerial(),
                     new KmsKeyRef(document.signingKeyName(), document.signingKeyVersion()), document.platformKeyId(), publicKey(document.platformPublicKey()));
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
 
-    /** Caller owns and must zero the returned APIv3 key. No fallback to a current key version. */
+    /**
+     * Caller owns and must zero the returned APIv3 key. No fallback to a current key version.
+     */
     public byte[] apiV3Key(String tenant, ChannelBindingRevision binding) {
         var encrypted = document(tenant, binding).apiV3Key();
         if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         final byte[] value;
-        try { value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted); }
-        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        try {
+            value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted);
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         if (value == null || value.length != 32) {
             if (value != null) Arrays.fill(value, (byte) 0);
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
@@ -69,13 +86,18 @@ public class WechatCredentialReader {
         return value;
     }
 
-    /** APIv2 and APIv3 keys are separate products; callers own and zero this exact-version key. */
+    /**
+     * APIv2 and APIv3 keys are separate products; callers own and zero this exact-version key.
+     */
     public byte[] apiV2Key(String tenant, ChannelBindingRevision binding) {
         var encrypted = document(tenant, binding).apiV2Key();
         if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         final byte[] value;
-        try { value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted); }
-        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        try {
+            value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted);
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         boolean valid = value != null && value.length == 32;
         if (valid) for (byte part : value) if (part < 33 || part > 126) valid = false;
         if (!valid) {
@@ -89,7 +111,8 @@ public class WechatCredentialReader {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!properties.enabled() || binding == null || binding.channel() != Channel.WECHAT
-                || !(binding.identity() instanceof WechatAccountIdentity account)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+                || !(binding.identity() instanceof WechatAccountIdentity account))
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
         var path = properties.credentials().getOrDefault(binding.credentialReference(), Map.of()).get(binding.credentialVersion());
         if (path == null || !path.isAbsolute()) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         try (var input = Files.newInputStream(path)) {
@@ -103,8 +126,11 @@ public class WechatCredentialReader {
                     || document.platformKeyId() == null || !document.platformKeyId().matches("(?:PUB_KEY_ID_[A-Za-z0-9]{1,116}|[0-9A-F]{8,64})"))
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             return document;
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
+
     private PublicKey publicKey(String value) throws Exception {
         if (value == null || value.length() > 8192) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         var encoded = value.strip();

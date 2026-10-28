@@ -17,7 +17,9 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.converter.RefundCallbackObservationConverter;
 import io.github.loadup.pay.payment.app.port.ChannelCallbackEndpointResolver;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
@@ -28,10 +30,17 @@ import io.github.loadup.pay.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.nio.charset.StandardCharsets;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Refund notifications trigger original-request queries; only committed refund facts permit ACK. */
+import java.nio.charset.StandardCharsets;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Refund notifications trigger original-request queries; only committed refund facts permit ACK.
+ */
 @Service
 public class RefundChannelCallbackService implements RefundChannelCallbackFacade {
     private final ChannelCallbackEndpointResolver endpoints;
@@ -42,13 +51,22 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
     private final RefundResultCodec facts;
     private final RefundCallbackObservationConverter converter;
     private final PaymentAcceptanceTransactions transactions;
+
     public RefundChannelCallbackService(ChannelCallbackEndpointResolver endpoints, RefundCallbackTargetGateway targets,
-            PaymentChannelNotificationGateway notifications, PaymentChannelGateway channels, RefundResultService results,
-            RefundResultCodec facts, RefundCallbackObservationConverter converter, PaymentAcceptanceTransactions transactions) {
-        this.endpoints = endpoints; this.targets = targets; this.notifications = notifications; this.channels = channels;
-        this.results = results; this.facts = facts; this.converter = converter; this.transactions = transactions;
+                                        PaymentChannelNotificationGateway notifications, PaymentChannelGateway channels, RefundResultService results,
+                                        RefundResultCodec facts, RefundCallbackObservationConverter converter, PaymentAcceptanceTransactions transactions) {
+        this.endpoints = endpoints;
+        this.targets = targets;
+        this.notifications = notifications;
+        this.channels = channels;
+        this.results = results;
+        this.facts = facts;
+        this.converter = converter;
+        this.transactions = transactions;
     }
-    @Override public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
+
+    @Override
+    public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
@@ -74,7 +92,9 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
                 String source = DigestUtils.sha256("refund-notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
                 return results.record(endpoint.tenantId(), converter.toObservation(query, key, source)).disposition() != RefundReceiptDisposition.CONFLICT;
             });
-        } catch (RuntimeException rejected) { accepted = false; }
+        } catch (RuntimeException rejected) {
+            accepted = false;
+        }
         return notifications.acknowledgement(endpoint.channel(), accepted);
     }
 }

@@ -18,7 +18,9 @@ package io.github.loadup.pay.payment.client.facade;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 
-/** Internal authority query; only the original acquiring SERVICE may read an order's monetary facts. */
+/**
+ * Internal authority query; only the original acquiring SERVICE may read an order's monetary facts.
+ */
 public interface RefundSummaryFactsFacade {
     OrderRefundSummaryEventDTO refundSummary(IdQuery query);
 }

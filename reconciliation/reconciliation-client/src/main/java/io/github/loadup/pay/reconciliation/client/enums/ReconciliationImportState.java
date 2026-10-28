@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.client.enums;
 
-public enum ReconciliationImportState { INIT, SEALED, REJECTED }
+public enum ReconciliationImportState {INIT, SEALED, REJECTED}

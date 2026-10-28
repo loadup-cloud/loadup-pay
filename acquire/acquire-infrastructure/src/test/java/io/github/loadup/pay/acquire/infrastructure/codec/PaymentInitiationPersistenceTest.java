@@ -17,6 +17,10 @@ package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
@@ -25,10 +29,8 @@ import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.acquire.infrastructure.converter.PaymentIntentSnapshotConverter;
+import io.github.loadup.pay.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
@@ -46,8 +48,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
-import io.github.loadup.pay.acquire.infrastructure.converter.PaymentIntentSnapshotConverter;
-import io.github.loadup.pay.acquire.infrastructure.model.PaymentIntentSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -71,7 +71,7 @@ class PaymentInitiationPersistenceTest {
             new AnnotationConfigApplicationContext(PaymentInitiationStorageConverter.class.getPackageName());
     final PaymentInitiationStorageConverter converter = context.getBean(PaymentInitiationStorageConverter.class);
     final PaymentIntentSnapshotConverter snapshots = context.getBean(PaymentIntentSnapshotConverter.class);
-    final PaymentInitiationCodecImpl codec = new PaymentInitiationCodecImpl( validation.getValidator(), hashes, snapshots);
+    final PaymentInitiationCodecImpl codec = new PaymentInitiationCodecImpl(validation.getValidator(), hashes, snapshots);
 
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
@@ -242,13 +242,15 @@ class PaymentInitiationPersistenceTest {
         var apiPayload = apiMapper.writeValueAsString(value);
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiContractId"));
-        var independent = new PaymentInitiationCodecImpl( validation.getValidator(), hashes, snapshots);
+        var independent = new PaymentInitiationCodecImpl(validation.getValidator(), hashes, snapshots);
         var payload = independent.encode(value);
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
-        assertFalse(payload.contains("apiPaymentId")); assertFalse(payload.contains("apiContractId"));
-        assertFalse(payload.contains("payment_id")); assertFalse(payload.contains("\"choice\""));
+        assertFalse(payload.contains("apiPaymentId"));
+        assertFalse(payload.contains("apiContractId"));
+        assertFalse(payload.contains("payment_id"));
+        assertFalse(payload.contains("\"choice\""));
         assertEquals(value, independent.decode(stored(payload, hashes.checksum(payload))));
         assertFalse(snapshots.toSnapshot(value).toString().contains("synthetic-input"));
     }
@@ -258,7 +260,7 @@ class PaymentInitiationPersistenceTest {
         var value = command();
         var payload = codec.encode(value);
         var currentPublicValidation = org.mockito.Mockito.mock(jakarta.validation.Validator.class);
-        var reader = new PaymentInitiationCodecImpl( currentPublicValidation, hashes, snapshots);
+        var reader = new PaymentInitiationCodecImpl(currentPublicValidation, hashes, snapshots);
         assertEquals(value, reader.decode(stored(payload, hashes.checksum(payload))));
         org.mockito.Mockito.verifyNoInteractions(currentPublicValidation);
     }
@@ -297,10 +299,13 @@ class PaymentInitiationPersistenceTest {
     }
 
     abstract static class RenamedCommand {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId") public abstract String paymentId();
+        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId")
+        public abstract String paymentId();
     }
+
     abstract static class RenamedAdmission {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId") public abstract String contractId();
+        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId")
+        public abstract String contractId();
     }
 
 }

@@ -23,13 +23,29 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionContext;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentGateBinding;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
 import java.time.LocalDateTime;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PaymentExecutionContextTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
@@ -45,32 +61,47 @@ class PaymentExecutionContextTest {
     final StoredPaymentGate parent = gate(true);
     final StoredPaymentGate child = gate(false);
 
-    enum Changed { PARENT_ORDER, PARENT_TARGET, PARENT_MERCHANT, PARENT_CALLER, PARENT_INIT,
-                   PAYMENT_ORDER, PAYMENT_TARGET, PAYMENT_MERCHANT, PAYMENT_CALLER, PAYMENT_INIT }
-
-    @ParameterizedTest @EnumSource(Changed.class)
+    @ParameterizedTest
+    @EnumSource(Changed.class)
     void eachGateBindingMismatchIsRejectedBeforeAnExecutionContextCanExist(Changed changed) {
         boolean parentSide = switch (changed) {
             case PARENT_ORDER, PARENT_TARGET, PARENT_MERCHANT, PARENT_CALLER, PARENT_INIT -> true;
             default -> false;
         };
         var original = parentSide ? parent : child;
-        var order = switch (changed) { case PARENT_ORDER, PAYMENT_ORDER -> "other-order"; default -> original.gate().orderId(); };
-        var target = switch (changed) { case PARENT_TARGET -> "payment"; case PAYMENT_TARGET -> "other-payment"; default -> original.gate().paymentId(); };
-        var merchant = switch (changed) { case PARENT_MERCHANT, PAYMENT_MERCHANT -> "other-merchant"; default -> original.payeeMerchantId(); };
-        var caller = switch (changed) { case PARENT_CALLER, PAYMENT_CALLER -> "other-caller"; default -> original.callerServiceId(); };
-        var state = switch (changed) { case PARENT_INIT, PAYMENT_INIT -> GateState.INIT; default -> original.gate().state(); };
+        var order = switch (changed) {
+            case PARENT_ORDER, PAYMENT_ORDER -> "other-order";
+            default -> original.gate().orderId();
+        };
+        var target = switch (changed) {
+            case PARENT_TARGET -> "payment";
+            case PAYMENT_TARGET -> "other-payment";
+            default -> original.gate().paymentId();
+        };
+        var merchant = switch (changed) {
+            case PARENT_MERCHANT, PAYMENT_MERCHANT -> "other-merchant";
+            default -> original.payeeMerchantId();
+        };
+        var caller = switch (changed) {
+            case PARENT_CALLER, PAYMENT_CALLER -> "other-caller";
+            default -> original.callerServiceId();
+        };
+        var state = switch (changed) {
+            case PARENT_INIT, PAYMENT_INIT -> GateState.INIT;
+            default -> original.gate().state();
+        };
         var bad = new StoredPaymentGate(original.id(), merchant, caller, new PaymentExecutionGate(order, target, state, 0L), original.rowVersion());
         assertThrows(DomainViolation.class, () -> new PaymentGateBinding(accepted, parentSide ? bad : parent, parentSide ? child : bad));
     }
 
-    @Test void onlyBothOpenGatesAndTheUnsubmittedActiveAttemptAllowTheFirstBoundary() {
+    @Test
+    void onlyBothOpenGatesAndTheUnsubmittedActiveAttemptAllowTheFirstBoundary() {
         var binding = new PaymentGateBinding(accepted, parent, child);
         var context = new PaymentExecutionContext(binding, new PaymentAttemptBinding(accepted, prepared));
         assertSame(context, context.requireActive().requireSubmittable().requireClosable());
         assertThrows(DomainViolation.class, context::requireObservable);
-        for (var gates : new PaymentGateBinding[] { new PaymentGateBinding(accepted, fenced(parent), child),
-                new PaymentGateBinding(accepted, parent, fenced(child)), new PaymentGateBinding(accepted, fenced(parent), fenced(child)) }) {
+        for (var gates : new PaymentGateBinding[]{new PaymentGateBinding(accepted, fenced(parent), child),
+                new PaymentGateBinding(accepted, parent, fenced(child)), new PaymentGateBinding(accepted, fenced(parent), fenced(child))}) {
             var blocked = new PaymentExecutionContext(gates, new PaymentAttemptBinding(accepted, prepared));
             assertThrows(DomainViolation.class, blocked::requireSubmittable);
             assertSame(blocked, blocked.requireClosable());
@@ -79,7 +110,8 @@ class PaymentExecutionContextTest {
         assertNull(prepared.executionPermitHash());
     }
 
-    @Test void fencedAndTerminalOriginalFactsStayObservableWithoutBecomingSubmittableOrLocallyClosable() {
+    @Test
+    void fencedAndTerminalOriginalFactsStayObservableWithoutBecomingSubmittableOrLocallyClosable() {
         var fenced = new PaymentGateBinding(accepted, fenced(parent), fenced(child));
         var original = new PaymentExecutionContext(fenced, new PaymentAttemptBinding(accepted, submitted));
         assertSame(original, original.requireObservable().requireClosable());
@@ -97,7 +129,8 @@ class PaymentExecutionContextTest {
         assertFalse(output.contains("e".repeat(64)));
     }
 
-    @Test void matchingIdsCannotCombineDifferentPaymentSnapshots() {
+    @Test
+    void matchingIdsCannotCombineDifferentPaymentSnapshots() {
         var differentVersion = new PaymentOrder(payment.id(), payment.orderId(), payment.allocationId(), payment.payeeMerchantId(), payment.amount(),
                 payment.limitOperationId(), payment.initiatedAt(), payment.state(), payment.activeAttemptId(), payment.successfulAttemptId(), payment.version() + 1L);
         var later = acceptance(differentVersion, null);
@@ -108,10 +141,17 @@ class PaymentExecutionContextTest {
     private StoredPaymentGate gate(boolean parent) {
         return new StoredPaymentGate(parent ? "parent" : "gate", "merchant", "acquire", PaymentExecutionGate.init("order", parent ? null : "payment").open(), 0L);
     }
+
     private StoredPaymentGate fenced(StoredPaymentGate value) {
         return new StoredPaymentGate(value.id(), value.payeeMerchantId(), value.callerServiceId(), value.gate().fence(1L), value.rowVersion() + 1L);
     }
+
     private StoredPaymentAcceptance acceptance(PaymentOrder value, String evidence) {
         return new StoredPaymentAcceptance(value, "admission", "d".repeat(64), "acquire", "private-frozen-payload", "c".repeat(64), evidence);
+    }
+
+    enum Changed {
+        PARENT_ORDER, PARENT_TARGET, PARENT_MERCHANT, PARENT_CALLER, PARENT_INIT,
+        PAYMENT_ORDER, PAYMENT_TARGET, PAYMENT_MERCHANT, PAYMENT_CALLER, PAYMENT_INIT
     }
 }

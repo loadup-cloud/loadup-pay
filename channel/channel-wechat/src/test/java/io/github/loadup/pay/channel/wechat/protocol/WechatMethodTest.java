@@ -17,12 +17,13 @@ package io.github.loadup.pay.channel.wechat.protocol;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WechatMethodTest {
     @Test
     void refundQueryMatchesOnlyOneLegalDecodedRefundSegment() {
-        assertTrue(WechatMethod.REFUND_QUERY.matches("/v3/refund/domestic/refunds/refund%7Cpart%2A%40_-") );
+        assertTrue(WechatMethod.REFUND_QUERY.matches("/v3/refund/domestic/refunds/refund%7Cpart%2A%40_-"));
         assertTrue(WechatMethod.REFUND_QUERY.matches("/v3/refund/domestic/refunds/refund%2Apart"));
         assertFalse(WechatMethod.REFUND_QUERY.matches("/v3/refund/domestic/refunds/refund/part"));
         assertFalse(WechatMethod.REFUND_QUERY.matches("/v3/refund/domestic/refunds/%252F"));

@@ -20,14 +20,30 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class AllocationRecoveryQueueTest {
     final AllocationRecoveryGateway cursors = mock(AllocationRecoveryGateway.class);
@@ -89,10 +105,16 @@ class AllocationRecoveryQueueTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> TenantUtil.runWithTenant("tenant", () -> queue.register("tenant", allocation, NOW))).getResultCode());
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                () -> transactions.writeLocal("other-tenant", () -> { queue.register("tenant", allocation, NOW); return true; })).getResultCode());
+                () -> transactions.writeLocal("other-tenant", () -> {
+                    queue.register("tenant", allocation, NOW);
+                    return true;
+                })).getResultCode());
         var amended = new StoredPaymentAllocation(allocation.allocation(), OWNER, allocation.intentPayload(), allocation.payloadHash(), 1L);
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> { queue.register("tenant", amended, NOW); return true; })).getResultCode());
+                () -> transactions.writeLocal("tenant", () -> {
+                    queue.register("tenant", amended, NOW);
+                    return true;
+                })).getResultCode());
         verifyNoInteractions(cursors, tasks);
     }
 }

@@ -20,11 +20,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
+
 import java.util.Map;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RecoveryEscalationConfigurationTest {
-    @Test void defaultAndExplicitThresholdsAreTheActualPolicyBean() {
+    @Test
+    void defaultAndExplicitThresholdsAreTheActualPolicyBean() {
         try (var context = new AnnotationConfigApplicationContext(RecoveryEscalationConfiguration.class)) {
             assertEquals(new RecoveryEscalationPolicy(900, 86400), context.getBean(RecoveryEscalationPolicy.class));
         }
@@ -32,11 +36,14 @@ class RecoveryEscalationConfigurationTest {
             context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("escalation", Map.<String, Object>of(
                     "loadup.modules.payment.recovery-escalation.review-after-seconds", 600,
                     "loadup.modules.payment.recovery-escalation.urgent-after-seconds", 3600)));
-            context.register(RecoveryEscalationConfiguration.class); context.refresh();
+            context.register(RecoveryEscalationConfiguration.class);
+            context.refresh();
             assertEquals(new RecoveryEscalationPolicy(600, 3600), context.getBean(RecoveryEscalationPolicy.class));
         }
     }
-    @Test void reversedThresholdsFailAssemblyRatherThanReportingMisleadingLevels() {
+
+    @Test
+    void reversedThresholdsFailAssemblyRatherThanReportingMisleadingLevels() {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("escalation", Map.<String, Object>of(
                     "loadup.modules.payment.recovery-escalation.review-after-seconds", 900,

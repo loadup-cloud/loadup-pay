@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.client.enums;
 
-public enum PaymentCaptureState { INIT, SEALED, BLOCKED }
+public enum PaymentCaptureState {INIT, SEALED, BLOCKED}

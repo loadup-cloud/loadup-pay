@@ -30,8 +30,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.util.List;
 
-import static com.mybatisflex.core.query.QueryMethods.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static com.mybatisflex.core.query.QueryMethods.count;
+import static com.mybatisflex.core.query.QueryMethods.min;
+import static com.mybatisflex.core.query.QueryMethods.sum;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ORDER_DO;
 import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
 
@@ -42,14 +46,16 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
     private final RecoveryInventoryConverter converter;
 
     public RecoveryInventoryReaderImpl(PaymentOrderDOMapper payments, RefundOrderDOMapper refunds, RecoveryInventoryConverter converter) {
-        this.payments = payments; this.refunds = refunds; this.converter = converter;
+        this.payments = payments;
+        this.refunds = refunds;
+        this.converter = converter;
     }
 
     @Override
     public List<RecoveryInventoryCell> read(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
-                        .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()))
+                .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()))
             throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         var collection = payments.selectListByQueryAs(QueryWrapper.create().select(count(PAYMENT_ORDER_DO.ID).as("rowCount"),
@@ -65,7 +71,8 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
 
     private RecoveryInventoryCell cell(RecoveryInventoryCell.Kind kind, List<RecoveryInventoryAggregate> rows) {
         try {
-            if (rows == null || rows.size() != 1 || rows.getFirst().getRowCount() == null) throw new CommonException(SNAPSHOT_INVALID);
+            if (rows == null || rows.size() != 1 || rows.getFirst().getRowCount() == null)
+                throw new CommonException(SNAPSHOT_INVALID);
             return converter.toCell(kind, rows.getFirst());
         } catch (CommonException failure) {
             throw failure;

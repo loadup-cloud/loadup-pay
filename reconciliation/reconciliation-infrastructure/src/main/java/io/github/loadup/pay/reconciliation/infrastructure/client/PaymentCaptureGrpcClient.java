@@ -19,9 +19,12 @@ import com.google.protobuf.Message;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
-import io.github.loadup.components.rpc.grpc.*;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcOperation;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.rpc.PaymentCaptureRpcOperations;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentCaptures;
@@ -30,8 +33,16 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_NOT_SEALED;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
 
 @Component
 public class PaymentCaptureGrpcClient implements ReconciliationPaymentCaptures {
@@ -39,20 +50,42 @@ public class PaymentCaptureGrpcClient implements ReconciliationPaymentCaptures {
     private final PaymentCaptureRpcOperations operations;
     private final ReconciliationPaymentProperties properties;
     private final ReconciliationServiceTokenReader tokens;
+
     public PaymentCaptureGrpcClient(GrpcTransport transport, PaymentCaptureRpcOperations operations, ReconciliationPaymentProperties properties,
-            JsonMapper mapper, @Qualifier("reconciliationClock") Clock clock) {
-        this.transport = transport; this.operations = operations; this.properties = properties; this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
+                                    JsonMapper mapper, @Qualifier("reconciliationClock") Clock clock) {
+        this.transport = transport;
+        this.operations = operations;
+        this.properties = properties;
+        this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
     }
-    @Override public PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command) { return call(tenant, operations.create(), command); }
-    @Override public PaymentCaptureDTO retry(String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) { return call(tenant, operations.retry(), command); }
-    @Override public PaymentCaptureDTO detail(String tenant, String captureId) { return call(tenant, operations.detail(), new IdQuery(captureId)); }
-    @Override public PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query) { return call(tenant, operations.lines(), query); }
+
+    @Override
+    public PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command) {
+        return call(tenant, operations.create(), command);
+    }
+
+    @Override
+    public PaymentCaptureDTO retry(String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) {
+        return call(tenant, operations.retry(), command);
+    }
+
+    @Override
+    public PaymentCaptureDTO detail(String tenant, String captureId) {
+        return call(tenant, operations.detail(), new IdQuery(captureId));
+    }
+
+    @Override
+    public PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query) {
+        return call(tenant, operations.lines(), query);
+    }
+
     private <Q, R, P extends Message, S extends Message> R call(String tenant, RpcOperation<Q, R, P, S> operation, Q request) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (!properties.tenantId().equals(tenant)) throw new CommonException(ACTION_FORBIDDEN);
         try {
             var result = transport.call(operation, request, tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()));
-            if (result == null) throw new CommonException(DEPENDENCY_UNAVAILABLE); return result;
+            if (result == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            return result;
         } catch (RuntimeException failure) {
             throw new CommonException(switch (RpcServerSupport.resultCode(failure)) {
                 case "PAYMENT_IDEMPOTENCY_CONFLICT" -> IDEMPOTENCY_CONFLICT;

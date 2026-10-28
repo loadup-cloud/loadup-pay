@@ -15,8 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
+import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.pay.payment.app.service.PaymentAcceptanceTransactions;
@@ -48,9 +51,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import static org.junit.jupiter.api.Assertions.*;
 
-/** Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial submission. */
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial submission.
+ */
 @SpringBootTest(classes = RecoveryPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
 class RecoveryPersistenceIT {
@@ -65,9 +73,30 @@ class RecoveryPersistenceIT {
 
     @Autowired
     RecoveryPersistenceIT(PaymentRecoveryGateway cursors, PaymentRecoveryRetryGateway receipts, DelayedTaskTemplate tasks,
-            DelayedTaskDispatcher dispatcher, PaymentAcceptanceTransactions transactions, TestScenario scenario) {
-        this.cursors = cursors; this.receipts = receipts; this.tasks = tasks; this.dispatcher = dispatcher;
-        this.transactions = transactions; this.scenario = scenario;
+                          DelayedTaskDispatcher dispatcher, PaymentAcceptanceTransactions transactions, TestScenario scenario) {
+        this.cursors = cursors;
+        this.receipts = receipts;
+        this.tasks = tasks;
+        this.dispatcher = dispatcher;
+        this.transactions = transactions;
+        this.scenario = scenario;
+    }
+
+    private static String id(String prefix) {
+        return prefix + "-" + UUID.randomUUID();
+    }
+
+    private static String key(String subject, long generation) {
+        return new PaymentRecoveryKey(subject, generation).bizId();
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            assertTrue(latch.await(5, TimeUnit.SECONDS), "Concurrent database step did not arrive");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(interrupted);
+        }
     }
 
     @Test
@@ -112,7 +141,8 @@ class RecoveryPersistenceIT {
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             java.util.concurrent.Callable<Boolean> advance = () -> {
-                ready.countDown(); await(start);
+                ready.countDown();
+                await(start);
                 return transactions.writeLocal(tenant, () -> {
                     var before = cursors.lock(tenant, payment).orElseThrow();
                     if (before.generation() != 0L) return false;
@@ -124,10 +154,13 @@ class RecoveryPersistenceIT {
             };
             var first = workers.submit(advance);
             var second = workers.submit(advance);
-            await(ready); start.countDown();
+            await(ready);
+            start.countDown();
             assertEquals(1L, Stream.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))
                     .filter(Boolean::booleanValue).count());
-        } finally { start.countDown(); }
+        } finally {
+            start.countDown();
+        }
         transactions.readSnapshot(tenant, () -> {
             assertEquals(1L, cursors.find(tenant, payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
@@ -147,7 +180,8 @@ class RecoveryPersistenceIT {
                 assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                 assertEquals(0L, cursors.find(tenant, payment).orElseThrow().generation());
                 assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isPresent());
-                observed.countDown(); await(written);
+                observed.countDown();
+                await(written);
                 assertEquals(0L, cursors.find(tenant, payment).orElseThrow().generation());
                 assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isEmpty());
                 return true;
@@ -162,13 +196,19 @@ class RecoveryPersistenceIT {
                         tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
                         return true;
                     });
-                } finally { written.countDown(); }
+                } finally {
+                    written.countDown();
+                }
             });
             try {
                 assertTrue(writer.get(5, TimeUnit.SECONDS));
                 assertTrue(reader.get(5, TimeUnit.SECONDS));
-            } finally { written.countDown(); }
-        } finally { written.countDown(); }
+            } finally {
+                written.countDown();
+            }
+        } finally {
+            written.countDown();
+        }
         transactions.readSnapshot(tenant, () -> {
             assertEquals(1L, cursors.find(tenant, payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
@@ -217,12 +257,6 @@ class RecoveryPersistenceIT {
             return true;
         });
     }
-    private static String id(String prefix) { return prefix + "-" + UUID.randomUUID(); }
-    private static String key(String subject, long generation) { return new PaymentRecoveryKey(subject, generation).bizId(); }
-    private static void await(CountDownLatch latch) {
-        try { assertTrue(latch.await(5, TimeUnit.SECONDS), "Concurrent database step did not arrive"); }
-        catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new AssertionError(interrupted); }
-    }
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
@@ -231,12 +265,22 @@ class RecoveryPersistenceIT {
     @Import({PaymentRecoveryGatewayImpl.class, PaymentRecoveryRetryGatewayImpl.class, PaymentAcceptanceTransactions.class})
     static class Application {
         @Bean("delayedTaskClock")
-        Clock delayedTaskClock() { return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()); }
+        Clock delayedTaskClock() {
+            return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        }
+
         @Bean
         DelayedTaskHandler syntheticFailure() {
             return new DelayedTaskHandler() {
-                @Override public String taskType() { return AUDIT_TYPE; }
-                @Override public void handle(DelayedTask task) { throw new IllegalStateException("Injected native failure"); }
+                @Override
+                public String taskType() {
+                    return AUDIT_TYPE;
+                }
+
+                @Override
+                public void handle(DelayedTask task) {
+                    throw new IllegalStateException("Injected native failure");
+                }
             };
         }
     }

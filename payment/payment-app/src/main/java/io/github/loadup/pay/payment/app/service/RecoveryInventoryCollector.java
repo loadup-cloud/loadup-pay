@@ -48,7 +48,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Independent opt-in inventory sampler. A metrics scrape never performs database or financial work. */
+/**
+ * Independent opt-in inventory sampler. A metrics scrape never performs database or financial work.
+ */
 @Service
 public class RecoveryInventoryCollector implements ScheduledTask {
     public static final String PREFIX = "loadup.payment.recovery.inventory";
@@ -67,11 +69,14 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     private Instant lastAttempt;
 
     public RecoveryInventoryCollector(RecoveryInventoryReader reader, PaymentAcceptanceTransactions transactions,
-            @Qualifier("paymentClock") Clock clock, ObjectProvider<MeterRegistry> registries, RecoveryEscalationPolicy escalation,
-            @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
-            @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
-            @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
-        this.reader = reader; this.transactions = transactions; this.clock = clock; this.enabled = enabled;
+                                      @Qualifier("paymentClock") Clock clock, ObjectProvider<MeterRegistry> registries, RecoveryEscalationPolicy escalation,
+                                      @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
+                                      @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
+                                      @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
+        this.reader = reader;
+        this.transactions = transactions;
+        this.clock = clock;
+        this.enabled = enabled;
         this.escalation = escalation;
         if (intervalSeconds < 1 || intervalSeconds > 86400) throw new CommonException(INVALID_ARGUMENT);
         this.intervalSeconds = intervalSeconds;
@@ -81,7 +86,8 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         var registry = registries.getIfAvailable();
         hasRegistry = registry != null;
         if (registry == null) {
-            success = null; failure = null;
+            success = null;
+            failure = null;
         } else {
             success = registry.counter(PREFIX + ".refresh", "outcome", "success");
             failure = registry.counter(PREFIX + ".refresh", "outcome", "failure");
@@ -103,14 +109,26 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         }
     }
 
-    @Override public String name() { return "pay.payment.recovery.inventory"; }
+    private static void requireComplete(List<RecoveryInventoryCell> cells) {
+        if (cells == null || cells.size() != RecoveryInventoryCell.Kind.values().length)
+            throw new CommonException(SNAPSHOT_INVALID);
+        var kinds = EnumSet.noneOf(RecoveryInventoryCell.Kind.class);
+        for (var cell : cells)
+            if (cell == null || !kinds.add(cell.kind())) throw new CommonException(SNAPSHOT_INVALID);
+    }
+
+    @Override
+    public String name() {
+        return "pay.payment.recovery.inventory";
+    }
 
     @Override
     public void execute() {
         if (!enabled || !hasRegistry || !collecting.compareAndSet(false, true)) return;
         try {
             var now = clock.instant();
-            if (lastAttempt != null && !now.isBefore(lastAttempt) && now.isBefore(lastAttempt.plusSeconds(intervalSeconds))) return;
+            if (lastAttempt != null && !now.isBefore(lastAttempt) && now.isBefore(lastAttempt.plusSeconds(intervalSeconds)))
+                return;
             lastAttempt = now;
             var combined = new EnumMap<RecoveryInventoryCell.Kind, RecoveryInventoryCell>(RecoveryInventoryCell.Kind.class);
             for (var kind : RecoveryInventoryCell.Kind.values()) combined.put(kind, RecoveryInventoryCell.empty(kind));
@@ -130,13 +148,6 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         } finally {
             collecting.set(false);
         }
-    }
-
-    private static void requireComplete(List<RecoveryInventoryCell> cells) {
-        if (cells == null || cells.size() != RecoveryInventoryCell.Kind.values().length) throw new CommonException(SNAPSHOT_INVALID);
-        var kinds = EnumSet.noneOf(RecoveryInventoryCell.Kind.class);
-        for (var cell : cells)
-            if (cell == null || !kinds.add(cell.kind())) throw new CommonException(SNAPSHOT_INVALID);
     }
 
     private void increment(Counter counter) {
@@ -171,6 +182,9 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     }
 
     private record Snapshot(Map<RecoveryInventoryCell.Kind, RecoveryInventoryCell> cells, Instant sampledAt) {
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
 }

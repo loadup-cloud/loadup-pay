@@ -20,13 +20,22 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelRefundNotification;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -37,23 +46,37 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Authenticated payment notification decoder. Decryption never applies financial state. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+
+/**
+ * Authenticated payment notification decoder. Decryption never applies financial state.
+ */
 public final class WechatNotificationCodec {
     private final WechatCredentialReader credentials;
     private final WechatProtocolCodec signatures;
     private final WechatResponseReader responses;
     private final JsonMapper json;
+
     public WechatNotificationCodec(WechatCredentialReader credentials, WechatProtocolCodec signatures, JsonMapper json) {
-        this.credentials = credentials; this.signatures = signatures; this.responses = new WechatResponseReader(json);
+        this.credentials = credentials;
+        this.signatures = signatures;
+        this.responses = new WechatResponseReader(json);
         this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     }
+
     public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
         var decoded = decode(context, input, false);
         return new ChannelNotificationHint(responses.text(decoded.data(), "out_trade_no", 32));
     }
+
     public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target, ChannelNotificationInput input) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);
         WechatBindingGuard.require(context, target.identity());
@@ -64,10 +87,12 @@ public final class WechatNotificationCodec {
         return new VerifiedChannelNotification(target.identity(), target.amount(), decoded.notificationId(),
                 responses.text(payment, "transaction_id", 64), "SUCCESS", decoded.digest());
     }
+
     public ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input) {
         var decoded = decode(context, input, true);
         return new ChannelRefundNotificationHint(responses.text(decoded.data(), "out_trade_no", 32), responses.text(decoded.data(), "out_refund_no", 64));
     }
+
     public VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input) {
         if (target == null) throw new CommonException(INVALID_ARGUMENT);
         WechatBindingGuard.require(context, target.original());
@@ -83,16 +108,21 @@ public final class WechatNotificationCodec {
         return new VerifiedChannelRefundNotification(target, decoded.notificationId(), responses.text(data, "refund_id", 64),
                 responses.text(data, "refund_status", 32), decoded.digest());
     }
+
     private Decoded decode(ChannelExecutionContext context, ChannelNotificationInput input, boolean refund) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (context == null || input == null) throw new CommonException(INVALID_ARGUMENT);
         if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!(context.binding().identity() instanceof WechatAccountIdentity account)) throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        if (!(context.binding().identity() instanceof WechatAccountIdentity account))
+            throw new CommonException(CHANNEL_BINDING_MISMATCH);
         try {
             var type = MediaType.parseMediaType(input.contentType());
             if (!"application".equalsIgnoreCase(type.getType()) || !"json".equalsIgnoreCase(type.getSubtype())
-                    || type.getCharset() != null && !StandardCharsets.UTF_8.equals(type.getCharset())) throw new CommonException(INVALID_ARGUMENT);
-        } catch (RuntimeException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+                    || type.getCharset() != null && !StandardCharsets.UTF_8.equals(type.getCharset()))
+                throw new CommonException(INVALID_ARGUMENT);
+        } catch (RuntimeException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var headers = new HttpHeaders();
         input.headers().forEach(headers::addAll);
         var signatureType = input.headers().get("wechatpay-signature-type");
@@ -109,15 +139,20 @@ public final class WechatNotificationCodec {
         } else responses.match(envelope, "event_type", "TRANSACTION.SUCCESS");
         responses.match(envelope, "resource_type", "encrypt-resource");
         String notificationId = responses.text(envelope, "id", 128);
-        try { OffsetDateTime.parse(responses.text(envelope, "create_time", 64)); }
-        catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
-        if (!(envelope.get("resource") instanceof Map<?, ?> resource)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        try {
+            OffsetDateTime.parse(responses.text(envelope, "create_time", 64));
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
+        if (!(envelope.get("resource") instanceof Map<?, ?> resource))
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         responses.match(resource, "algorithm", "AEAD_AES_256_GCM");
         responses.match(resource, "original_type", refund ? "refund" : "transaction");
         String associated = "";
         if (resource.get("associated_data") != null) {
             if (!(resource.get("associated_data") instanceof String text) || text.length() > 16
-                    || text.chars().anyMatch(Character::isISOControl)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    || text.chars().anyMatch(Character::isISOControl))
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
             associated = text;
         }
         String nonce = responses.text(resource, "nonce", 16);
@@ -132,7 +167,8 @@ public final class WechatNotificationCodec {
             cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new GCMParameterSpec(128, nonce.getBytes(StandardCharsets.UTF_8)));
             cipher.updateAAD(associated.getBytes(StandardCharsets.UTF_8));
             plaintext = cipher.doFinal(ciphertext);
-            if (plaintext.length == 0 || plaintext.length > ChannelNotificationInput.MAX_BODY_BYTES) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (plaintext.length == 0 || plaintext.length > ChannelNotificationInput.MAX_BODY_BYTES)
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
             var payment = parse(plaintext);
             if (refund) {
                 if (account.subMerchantId() == null) responses.match(payment, "mchid", account.merchantId());
@@ -151,34 +187,50 @@ public final class WechatNotificationCodec {
                 responses.match(payment, "trade_state", "SUCCESS");
             }
             responses.text(payment, "transaction_id", 64);
-            if (!responses.text(payment, "out_trade_no", 32).matches("[A-Za-z0-9_-]{1,32}")) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (!responses.text(payment, "out_trade_no", 32).matches("[A-Za-z0-9_-]{1,32}"))
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
             if (!refund || "REFUND.SUCCESS".equals(event)) {
-                try { OffsetDateTime.parse(responses.text(payment, "success_time", 64)); }
-                catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+                try {
+                    OffsetDateTime.parse(responses.text(payment, "success_time", 64));
+                } catch (RuntimeException invalid) {
+                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                }
             }
             return new Decoded(payment, notificationId, DigestUtils.sha256((refund ? "wechat-refund-notification-v1|" : "wechat-notification-v1|") + utf8(body)));
-        } catch (CommonException invalid) { throw invalid; }
-        catch (Exception invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
-        finally {
+        } catch (CommonException invalid) {
+            throw invalid;
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        } finally {
             if (key != null) Arrays.fill(key, (byte) 0);
             if (ciphertext != null) Arrays.fill(ciphertext, (byte) 0);
             if (plaintext != null) Arrays.fill(plaintext, (byte) 0);
         }
     }
+
     private Map<?, ?> parse(byte[] bytes) {
         try {
             var value = json.readValue(utf8(bytes), Map.class);
             if (value == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
             return value;
-        } catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
+
     private String utf8(byte[] bytes) {
         try {
             return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
-        } catch (Exception invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+        } catch (Exception invalid) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
+
     private record Decoded(@DiagnosticHidden Map<?, ?> data, String notificationId, String digest) {
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
 }

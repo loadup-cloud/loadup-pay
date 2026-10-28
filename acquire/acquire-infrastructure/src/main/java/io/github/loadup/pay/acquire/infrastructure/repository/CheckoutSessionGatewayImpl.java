@@ -31,8 +31,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.CHECKOUT_SESSION_DO;
@@ -108,7 +108,8 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
         if (before == null || after == null || before.revokedAt() != null || after.revokedAt() == null
-                || !before.revoke(before.rowVersion(), after.revokedAt()).equals(after)) throw new CommonException(SNAPSHOT_INVALID);
+                || !before.revoke(before.rowVersion(), after.revokedAt()).equals(after))
+            throw new CommonException(SNAPSHOT_INVALID);
         int changed = mapper.updateByQuery(converter.toRevocationPatch(after), true, scope(tenant)
                 .and(CHECKOUT_SESSION_DO.ID.eq(before.session().id())).and(CHECKOUT_SESSION_DO.ROW_VERSION.eq(before.rowVersion()))
                 .and(CHECKOUT_SESSION_DO.REVOKED_AT.isNull()));

@@ -19,9 +19,12 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
-/** The first immutable retry decision; never payment or closure completion evidence. */
+/**
+ * The first immutable retry decision; never payment or closure completion evidence.
+ */
 public record AcquireRecoveryRetryDTO(
         @Schema(description = "Immutable operation receipt id") String id,
         @Schema(description = "Original operation key") String requestKey,
@@ -33,5 +36,8 @@ public record AcquireRecoveryRetryDTO(
         @Schema(description = "RETRIED or NO_LONGER_NEEDED; neither is a financial outcome") String result,
         @Schema(description = "Audited operational reason") @DiagnosticHidden String reason,
         @Schema(description = "First accepted operation time") OffsetDateTime acceptedAt) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

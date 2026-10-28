@@ -16,9 +16,11 @@
 package io.github.loadup.pay.acquire.adapter.web;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.*;
+import io.github.loadup.commons.result.PageResponse;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionRevokeCommand;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionRevocationDTO;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
 import io.github.loadup.pay.acquire.client.facade.CheckoutSessionManagementFacade;
 import io.github.loadup.pay.acquire.client.query.CheckoutSessionRevocationPageQuery;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,24 +28,33 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/acquire/session")
 @Tag(name = "Merchant checkout session management")
 public class CheckoutSessionManagementController {
     private final CheckoutSessionManagementFacade facade;
-    public CheckoutSessionManagementController(CheckoutSessionManagementFacade facade) { this.facade = facade; }
+
+    public CheckoutSessionManagementController(CheckoutSessionManagementFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/detail")
     @Operation(summary = "Read issuer-owned session metadata without credentials")
     public ResponseEntity<SuccessResponse<CheckoutSessionStatusDTO>> detail(@Valid @RequestBody IdQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.detail(query)));
     }
+
     @PostMapping("/revoke")
     @Operation(summary = "Permanently revoke one checkout capability; committed payments continue to converge")
     public ResponseEntity<SuccessResponse<CheckoutSessionRevocationDTO>> revoke(@Valid @RequestBody CheckoutSessionRevokeCommand command) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.revoke(command)));
     }
+
     @PostMapping("/revocations")
     @Operation(summary = "Page immutable revocation decisions for an issuer-owned session")
     public ResponseEntity<PageResponse<CheckoutSessionRevocationDTO>> revocations(@Valid @RequestBody CheckoutSessionRevocationPageQuery query) {

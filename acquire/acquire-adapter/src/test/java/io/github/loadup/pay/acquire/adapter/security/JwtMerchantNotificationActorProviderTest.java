@@ -16,16 +16,23 @@
 package io.github.loadup.pay.acquire.adapter.security;
 
 import io.github.loadup.commons.error.CommonException;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
+
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtMerchantNotificationActorProviderTest {
     final JwtMerchantNotificationActorProvider provider = new JwtMerchantNotificationActorProvider();
+
     void authenticate(String type, String subject, String merchant, String service) {
         var jwt = Jwt.withTokenValue("synthetic-token").header("alg", "RS256").subject(subject).claim("tenant_id", "tenant")
                 .claim("principal_type", type);
@@ -34,8 +41,14 @@ class JwtMerchantNotificationActorProviderTest {
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", jwt.build(),
                 List.of(new SimpleGrantedAuthority("pay:acquire:notification:read"))));
     }
-    @AfterEach void close() { SecurityContextHolder.clearContext(); }
-    @Test void merchantScopeComesOnlyFromTheVerifiedJwtAndNeverExposesTheToken() {
+
+    @AfterEach
+    void close() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void merchantScopeComesOnlyFromTheVerifiedJwtAndNeverExposesTheToken() {
         authenticate("MERCHANT_APP", "app-a", "merchant-a", null);
         var actor = provider.current();
         assertEquals("merchant-a", actor.merchantId());
@@ -43,7 +56,9 @@ class JwtMerchantNotificationActorProviderTest {
         assertTrue(actor.permissions().contains("pay:acquire:notification:read"));
         assertFalse(actor.toString().contains("synthetic-token"));
     }
-    @Test void operatorAndServiceHaveNoMerchantImpersonationScope() {
+
+    @Test
+    void operatorAndServiceHaveNoMerchantImpersonationScope() {
         authenticate("OPERATOR", "operator-a", null, null);
         assertFalse(provider.current().merchant());
         authenticate("SERVICE", "pay-ops", null, "pay-ops");
@@ -51,7 +66,9 @@ class JwtMerchantNotificationActorProviderTest {
         authenticate("OPERATOR", "operator-a", "merchant-a", null);
         assertThrows(CommonException.class, provider::current);
     }
-    @Test void absentOrAmbiguousClaimsCannotCreateANotificationActor() {
+
+    @Test
+    void absentOrAmbiguousClaimsCannotCreateANotificationActor() {
         assertThrows(CommonException.class, provider::current);
         authenticate("MERCHANT", "other", "merchant", null);
         assertThrows(CommonException.class, provider::current);

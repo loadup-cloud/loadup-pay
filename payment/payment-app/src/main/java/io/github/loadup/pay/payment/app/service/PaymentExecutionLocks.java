@@ -42,7 +42,8 @@ public class PaymentExecutionLocks {
 
     public LockedPayment lock(String tenant, String paymentId, String originalService) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
         var initial = gates.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!initial.callerServiceId().equals(originalService)) throw new CommonException(ACTION_FORBIDDEN);
         var parent = gates.lockParent(tenant, initial.payment().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

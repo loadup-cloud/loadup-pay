@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.acquire.client.facade;
 
-import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 
 /**

@@ -29,9 +29,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Repository source/POM gate; bytecode and runtime wiring remain separate evidence. */
+/**
+ * Repository source/POM gate; bytecode and runtime wiring remain separate evidence.
+ */
 class PayModuleBoundaryTest {
     private static final List<String> SERVICES = List.of("acquire", "payment", "customer", "product", "limitcenter", "realtime", "reconciliation");
     private static final List<String> LAYERS = List.of("client", "domain", "app", "infrastructure", "adapter", "rpc", "bootstrap");
@@ -43,68 +47,12 @@ class PayModuleBoundaryTest {
             "\\b(?:org\\.springframework|com\\.mybatisflex|org\\.apache\\.ibatis|jakarta\\.persistence"
                     + "|io\\.grpc|com\\.google\\.protobuf|io\\.github\\.loadup\\.components)\\.");
 
-    @Test
-    void productionSourcesFollowServiceAndColaBoundaries() throws Exception {
-        var violations = new ArrayList<String>();
-        for (var module : modules()) {
-            var root = module.directory().resolve("src/main/java");
-            if (!Files.isDirectory(root)) continue;
-            try (var sources = Files.walk(root)) {
-                for (var source : sources.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).toList()) {
-                    for (var violation : sourceViolations(module, module.directory().relativize(source).toString(), Files.readString(source)))
-                        violations.add(source + ": " + violation);
-                }
-            }
-        }
-        assertTrue(violations.isEmpty(), () -> String.join("\n", violations));
-    }
-
-    @Test
-    void productionPomDependenciesFollowTheSameBoundariesIncludingProfiles() throws Exception {
-        var violations = new ArrayList<String>();
-        for (var module : modules()) {
-            for (var dependency : dependencies(module.directory())) {
-                for (var violation : dependencyViolations(module, dependency)) violations.add(module.directory() + ": " + violation);
-            }
-        }
-        assertTrue(violations.isEmpty(), () -> String.join("\n", violations));
-    }
-
-    @Test
-    void sourceRulesRejectBypassesButAllowClientPortsAndPureMapping() {
-        assertRejected("payment", "domain", "model/Payment.java", "org.springframework.stereotype.Component marker;", "TECHNICAL_IMPLEMENTATION");
-        assertRejected("acquire", "client", "dto/Order.java", "io.github.loadup.pay.acquire.domain.model.Order value;", "OWN_LAYER");
-        assertRejected("payment", "app", "service/Payment.java", "io.github.loadup.pay.payment.infrastructure.repository.Payments value;", "OWN_LAYER");
-        assertRejected("payment", "infrastructure", "client/Peer.java", "io.github.loadup.pay.acquire.app.service.OrderService value;", "CROSS_SERVICE");
-        assertRejected("realtime", "app", "service/Apply.java", "io.github.loadup.pay.payment.rpc.PaymentRpc value;", "TRANSPORT_IN_BUSINESS");
-        assertRejected("customer", "app", "service/Customer.java", "io.github.loadup.pay.channel.wechat.WechatChannelProvider value;", "CHANNEL_IMPLEMENTATION");
-        assertRejected("payment", "infrastructure", "infrastructure/codec/Codec.java", "io.github.loadup.pay.payment.app.service.ResultService value;", "STORAGE_APP_ROLE");
-        assertAllowed("payment", "infrastructure", "infrastructure/repository/Gateway.java", "io.github.loadup.pay.payment.app.port.Codec value;");
-        assertAllowed("realtime", "infrastructure", "infrastructure/codec/Codec.java", "io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter value;");
-        assertAllowed("acquire", "app", "service/Order.java", "io.github.loadup.pay.payment.client.facade.PaymentFacade value;");
-        assertAllowed("payment", "infrastructure", "client/Remote.java", "io.github.loadup.pay.acquire.rpc.AcquireRpc value;");
-        assertAllowed("payment", "domain", "model/Payment.java", "io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity value;");
-    }
-
-    @Test
-    void pomRulesRejectImplementationDependenciesButPreserveAssemblyAndTestAdapters() {
-        assertFalse(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "")).isEmpty());
-        assertFalse(dependencyViolations(module("customer", "app"), dep("product-app", "")).isEmpty());
-        assertFalse(dependencyViolations(module("payment", "app"), dep("acquire-rpc", "")).isEmpty());
-        assertFalse(dependencyViolations(module("payment", "infrastructure"), dep("channel-wechat", "runtime")).isEmpty());
-        assertFalse(dependencyViolations(module("payment", "domain"), dep("loadup-components-database", "")).isEmpty());
-        assertTrue(dependencyViolations(module("payment", "bootstrap"), dep("channel-wechat", "runtime")).isEmpty());
-        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("payment-app", "")).isEmpty());
-        assertTrue(dependencyViolations(module("acquire", "app"), dep("payment-client", "")).isEmpty());
-        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("acquire-rpc", "")).isEmpty());
-        assertTrue(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "test")).isEmpty());
-    }
-
     private static List<String> sourceViolations(Module module, String path, String source) {
         var errors = new ArrayList<String>();
         if (Set.of("client", "domain").contains(module.layer()) && TECHNICAL_IMPLEMENTATION.matcher(source).find())
             errors.add("TECHNICAL_IMPLEMENTATION: client/domain cannot name Spring, ORM, RPC or component implementation types");
-        if (CHANNEL_IMPLEMENTATION.matcher(source).find()) errors.add("CHANNEL_IMPLEMENTATION: business sources must use channel-api");
+        if (CHANNEL_IMPLEMENTATION.matcher(source).find())
+            errors.add("CHANNEL_IMPLEMENTATION: business sources must use channel-api");
         var references = PAY_REFERENCE.matcher(source);
         while (references.find()) {
             String owner = references.group(1), layer = references.group(2), role = references.group(3);
@@ -113,7 +61,8 @@ class PayModuleBoundaryTest {
                 else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))
                     errors.add("TRANSPORT_IN_BUSINESS: gRPC belongs in adapters/ports");
             } else {
-                if (!allowedOwnLayer(module.layer(), layer)) errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
+                if (!allowedOwnLayer(module.layer(), layer))
+                    errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
                 var normalized = "/" + path.replace('\\', '/');
                 boolean storage = List.of("repository", "converter", "codec").stream()
                         .anyMatch(segment -> normalized.contains("/infrastructure/" + segment + "/"));
@@ -152,7 +101,8 @@ class PayModuleBoundaryTest {
                 if (!dependency.artifact().equals(owner + "-" + layer)) continue;
                 if (owner.equals(module.service())) {
                     if (!allowedOwnLayer(module.layer(), layer)) errors.add("OWN_LAYER: " + dependency.artifact());
-                } else if (!Set.of("client", "rpc").contains(layer)) errors.add("CROSS_SERVICE: " + dependency.artifact());
+                } else if (!Set.of("client", "rpc").contains(layer))
+                    errors.add("CROSS_SERVICE: " + dependency.artifact());
                 else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))
                     errors.add("TRANSPORT_IN_BUSINESS: " + dependency.artifact());
             }
@@ -168,8 +118,13 @@ class PayModuleBoundaryTest {
         assertEquals(List.of(), sourceViolations(module(owner, layer), path, source));
     }
 
-    private static Module module(String owner, String layer) { return new Module(owner, layer, Path.of(owner, owner + "-" + layer)); }
-    private static Dependency dep(String artifact, String scope) { return new Dependency("io.github.loadup-cloud", artifact, scope); }
+    private static Module module(String owner, String layer) {
+        return new Module(owner, layer, Path.of(owner, owner + "-" + layer));
+    }
+
+    private static Dependency dep(String artifact, String scope) {
+        return new Dependency("io.github.loadup-cloud", artifact, scope);
+    }
 
     private static List<Module> modules() {
         var root = repositoryRoot();
@@ -210,8 +165,70 @@ class PayModuleBoundaryTest {
         return List.copyOf(result);
     }
 
-    private record Module(String service, String layer, Path directory) {}
+    @Test
+    void productionSourcesFollowServiceAndColaBoundaries() throws Exception {
+        var violations = new ArrayList<String>();
+        for (var module : modules()) {
+            var root = module.directory().resolve("src/main/java");
+            if (!Files.isDirectory(root)) continue;
+            try (var sources = Files.walk(root)) {
+                for (var source : sources.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).toList()) {
+                    for (var violation : sourceViolations(module, module.directory().relativize(source).toString(), Files.readString(source)))
+                        violations.add(source + ": " + violation);
+                }
+            }
+        }
+        assertTrue(violations.isEmpty(), () -> String.join("\n", violations));
+    }
+
+    @Test
+    void productionPomDependenciesFollowTheSameBoundariesIncludingProfiles() throws Exception {
+        var violations = new ArrayList<String>();
+        for (var module : modules()) {
+            for (var dependency : dependencies(module.directory())) {
+                for (var violation : dependencyViolations(module, dependency))
+                    violations.add(module.directory() + ": " + violation);
+            }
+        }
+        assertTrue(violations.isEmpty(), () -> String.join("\n", violations));
+    }
+
+    @Test
+    void sourceRulesRejectBypassesButAllowClientPortsAndPureMapping() {
+        assertRejected("payment", "domain", "model/Payment.java", "org.springframework.stereotype.Component marker;", "TECHNICAL_IMPLEMENTATION");
+        assertRejected("acquire", "client", "dto/Order.java", "io.github.loadup.pay.acquire.domain.model.Order value;", "OWN_LAYER");
+        assertRejected("payment", "app", "service/Payment.java", "io.github.loadup.pay.payment.infrastructure.repository.Payments value;", "OWN_LAYER");
+        assertRejected("payment", "infrastructure", "client/Peer.java", "io.github.loadup.pay.acquire.app.service.OrderService value;", "CROSS_SERVICE");
+        assertRejected("realtime", "app", "service/Apply.java", "io.github.loadup.pay.payment.rpc.PaymentRpc value;", "TRANSPORT_IN_BUSINESS");
+        assertRejected("customer", "app", "service/Customer.java", "io.github.loadup.pay.channel.wechat.WechatChannelProvider value;", "CHANNEL_IMPLEMENTATION");
+        assertRejected("payment", "infrastructure", "infrastructure/codec/Codec.java", "io.github.loadup.pay.payment.app.service.ResultService value;", "STORAGE_APP_ROLE");
+        assertAllowed("payment", "infrastructure", "infrastructure/repository/Gateway.java", "io.github.loadup.pay.payment.app.port.Codec value;");
+        assertAllowed("realtime", "infrastructure", "infrastructure/codec/Codec.java", "io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter value;");
+        assertAllowed("acquire", "app", "service/Order.java", "io.github.loadup.pay.payment.client.facade.PaymentFacade value;");
+        assertAllowed("payment", "infrastructure", "client/Remote.java", "io.github.loadup.pay.acquire.rpc.AcquireRpc value;");
+        assertAllowed("payment", "domain", "model/Payment.java", "io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity value;");
+    }
+
+    @Test
+    void pomRulesRejectImplementationDependenciesButPreserveAssemblyAndTestAdapters() {
+        assertFalse(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "")).isEmpty());
+        assertFalse(dependencyViolations(module("customer", "app"), dep("product-app", "")).isEmpty());
+        assertFalse(dependencyViolations(module("payment", "app"), dep("acquire-rpc", "")).isEmpty());
+        assertFalse(dependencyViolations(module("payment", "infrastructure"), dep("channel-wechat", "runtime")).isEmpty());
+        assertFalse(dependencyViolations(module("payment", "domain"), dep("loadup-components-database", "")).isEmpty());
+        assertTrue(dependencyViolations(module("payment", "bootstrap"), dep("channel-wechat", "runtime")).isEmpty());
+        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("payment-app", "")).isEmpty());
+        assertTrue(dependencyViolations(module("acquire", "app"), dep("payment-client", "")).isEmpty());
+        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("acquire-rpc", "")).isEmpty());
+        assertTrue(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "test")).isEmpty());
+    }
+
+    private record Module(String service, String layer, Path directory) {
+    }
+
     private record Dependency(String group, String artifact, String scope) {
-        boolean local() { return Set.of("io.github.loadup-cloud", "${project.groupId}", "${project.parent.groupId}").contains(group); }
+        boolean local() {
+            return Set.of("io.github.loadup-cloud", "${project.groupId}", "${project.parent.groupId}").contains(group);
+        }
     }
 }

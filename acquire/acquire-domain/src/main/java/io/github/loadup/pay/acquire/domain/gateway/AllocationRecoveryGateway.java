@@ -16,12 +16,18 @@
 package io.github.loadup.pay.acquire.domain.gateway;
 
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
+
 import java.util.Optional;
 
-/** Joins the original parent/payment transaction; no independent execution claim. */
+/**
+ * Joins the original parent/payment transaction; no independent execution claim.
+ */
 public interface AllocationRecoveryGateway {
     Optional<AllocationRecoveryCursor> find(String tenant, String paymentId);
+
     Optional<AllocationRecoveryCursor> lock(String tenant, String paymentId);
+
     void insert(String tenant, AllocationRecoveryCursor value);
+
     void update(String tenant, AllocationRecoveryCursor before, AllocationRecoveryCursor after);
 }

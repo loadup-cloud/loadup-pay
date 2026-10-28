@@ -20,18 +20,23 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.signature.request.RequestSigningIdentity;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/** Tenant/merchant-owned immutable catalog references; changing a target requires a new reference. */
+/**
+ * Tenant/merchant-owned immutable catalog references; changing a target requires a new reference.
+ */
 @ConfigurationProperties("loadup.modules.acquire.merchant-notifications")
 public record MerchantNotificationProperties(Map<String, Map<String, Target>> targets,
-        Map<String, Map<String, Signing>> signingIdentities) {
+                                             Map<String, Map<String, Signing>> signingIdentities) {
     public MerchantNotificationProperties {
-        targets = immutable(targets); signingIdentities = immutable(signingIdentities);
+        targets = immutable(targets);
+        signingIdentities = immutable(signingIdentities);
     }
+
     private static <T> Map<String, Map<String, T>> immutable(Map<String, Map<String, T>> values) {
         if (values == null) return Map.of();
         return values.entrySet().stream().collect(Collectors.toUnmodifiableMap(e -> DomainChecks.id(e.getKey()), e -> {
@@ -39,18 +44,38 @@ public record MerchantNotificationProperties(Map<String, Map<String, Target>> ta
             return Map.copyOf(e.getValue());
         }));
     }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+
     public record Target(String payeeMerchantId, String client, String operation, @DiagnosticHidden URI uri) {
         public Target {
-            DomainChecks.id(payeeMerchantId); DomainChecks.id(client); DomainChecks.id(operation);
+            DomainChecks.id(payeeMerchantId);
+            DomainChecks.id(client);
+            DomainChecks.id(operation);
             if (uri == null || !"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null
                     || uri.getRawFragment() != null || uri.getRawQuery() != null || uri.getRawPath().isBlank() || uri.toASCIIString().length() > 2048
-                    || (uri.getPort() != -1 && uri.getPort() != 443)) throw new IllegalArgumentException("Invalid approved notification target");
+                    || (uri.getPort() != -1 && uri.getPort() != 443))
+                throw new IllegalArgumentException("Invalid approved notification target");
         }
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
+
     public record Signing(String payeeMerchantId, @DiagnosticHidden RequestSigningIdentity identity) {
-        public Signing { DomainChecks.id(payeeMerchantId); Objects.requireNonNull(identity); }
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+        public Signing {
+            DomainChecks.id(payeeMerchantId);
+            Objects.requireNonNull(identity);
+        }
+
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

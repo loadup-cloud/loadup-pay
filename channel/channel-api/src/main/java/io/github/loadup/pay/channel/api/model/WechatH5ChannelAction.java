@@ -19,13 +19,18 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+
 import java.net.URI;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.require;
 import java.time.OffsetDateTime;
 
-/** The untouched, verified provider URL; carries no proof of collection and no merchant return URL. */
-public record WechatH5ChannelAction(@DiagnosticHidden String redirectUrl, OffsetDateTime expiresAt) implements ChannelPaymentAction {
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * The untouched, verified provider URL; carries no proof of collection and no merchant return URL.
+ */
+public record WechatH5ChannelAction(@DiagnosticHidden String redirectUrl,
+                                    OffsetDateTime expiresAt) implements ChannelPaymentAction {
     public WechatH5ChannelAction {
         require(expiresAt != null && validUrl(redirectUrl), INVALID_ARGUMENT);
     }
@@ -43,7 +48,18 @@ public record WechatH5ChannelAction(@DiagnosticHidden String redirectUrl, Offset
         }
     }
 
-    @Override public Channel channel() { return Channel.WECHAT; }
-    @Override public PaymentMethod method() { return PaymentMethod.H5; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public Channel channel() {
+        return Channel.WECHAT;
+    }
+
+    @Override
+    public PaymentMethod method() {
+        return PaymentMethod.H5;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

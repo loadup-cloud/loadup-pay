@@ -18,9 +18,20 @@ package io.github.loadup.pay.reconciliation.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifference;
+
 import java.util.Objects;
 
-public record StoredReconciliationDifference(String id, String batchId, String runId, ReconciliationDifference difference) {
-    public StoredReconciliationDifference { DomainChecks.id(id); DomainChecks.id(batchId); DomainChecks.id(runId); Objects.requireNonNull(difference); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+public record StoredReconciliationDifference(String id, String batchId, String runId,
+                                             ReconciliationDifference difference) {
+    public StoredReconciliationDifference {
+        DomainChecks.id(id);
+        DomainChecks.id(batchId);
+        DomainChecks.id(runId);
+        Objects.requireNonNull(difference);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

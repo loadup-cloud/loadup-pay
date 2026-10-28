@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.product.domain.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 import java.time.LocalDateTime;

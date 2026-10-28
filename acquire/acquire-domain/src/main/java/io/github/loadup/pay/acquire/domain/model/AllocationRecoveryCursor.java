@@ -17,14 +17,19 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Only business continuation identity; scheduling claims and leases belong to DelayedTask. */
-public record AllocationRecoveryCursor(String paymentId, String orderId, long generation, LocalDateTime dueAt, boolean completed) {
+/**
+ * Only business continuation identity; scheduling claims and leases belong to DelayedTask.
+ */
+public record AllocationRecoveryCursor(String paymentId, String orderId, long generation, LocalDateTime dueAt,
+                                       boolean completed) {
     public AllocationRecoveryCursor {
         DomainChecks.id(paymentId);
         DomainChecks.id(orderId);
@@ -47,5 +52,7 @@ public record AllocationRecoveryCursor(String paymentId, String orderId, long ge
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

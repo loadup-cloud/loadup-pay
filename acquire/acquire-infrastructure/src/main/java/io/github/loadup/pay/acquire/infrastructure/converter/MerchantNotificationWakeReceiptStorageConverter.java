@@ -18,11 +18,13 @@ package io.github.loadup.pay.acquire.infrastructure.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationWakeReceiptDO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface MerchantNotificationWakeReceiptStorageConverter {
     MerchantNotificationWakeReceipt toDomain(MerchantNotificationWakeReceiptDO row);
+
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

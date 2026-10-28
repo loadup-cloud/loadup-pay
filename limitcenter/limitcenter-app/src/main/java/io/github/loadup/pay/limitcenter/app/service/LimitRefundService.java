@@ -26,8 +26,19 @@ import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.client.facade.LimitRefundFacade;
-import io.github.loadup.pay.limitcenter.domain.gateway.*;
-import io.github.loadup.pay.limitcenter.domain.model.*;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitRefundGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
+import io.github.loadup.pay.limitcenter.domain.gateway.MerchantLimitGateway;
+import io.github.loadup.pay.limitcenter.domain.model.ActivatedLimitPolicy;
+import io.github.loadup.pay.limitcenter.domain.model.GateState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
+import io.github.loadup.pay.limitcenter.domain.model.LimitItemRestore;
+import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.enums.RefundState;
@@ -45,7 +56,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_NOT_READY;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.OUTCOME_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class LimitRefundService implements LimitRefundFacade {
@@ -62,12 +79,19 @@ public class LimitRefundService implements LimitRefundFacade {
     private final LimitWindowPolicy windows = new LimitWindowPolicy();
 
     public LimitRefundService(LimitTransactions transactions, MerchantLimitGateway reservations, LimitPolicyGateway policies,
-            LimitSettlementGateway settlements, LimitRefundGateway receipts, PaymentEvidenceClient payment,
-            LimitRefundConverter converter, IdGenerator ids, @Qualifier("limitcenterClock") Clock clock,
-            @Value("${loadup.modules.limitcenter.payment-service-id:payment}") String paymentService) {
-        this.transactions = transactions; this.reservations = reservations; this.policies = policies;
-        this.settlements = settlements; this.receipts = receipts; this.payment = payment; this.converter = converter;
-        this.ids = ids; this.clock = clock; this.paymentService = DomainChecks.id(paymentService);
+                              LimitSettlementGateway settlements, LimitRefundGateway receipts, PaymentEvidenceClient payment,
+                              LimitRefundConverter converter, IdGenerator ids, @Qualifier("limitcenterClock") Clock clock,
+                              @Value("${loadup.modules.limitcenter.payment-service-id:payment}") String paymentService) {
+        this.transactions = transactions;
+        this.reservations = reservations;
+        this.policies = policies;
+        this.settlements = settlements;
+        this.receipts = receipts;
+        this.payment = payment;
+        this.converter = converter;
+        this.ids = ids;
+        this.clock = clock;
+        this.paymentService = DomainChecks.id(paymentService);
     }
 
     @Override
@@ -77,9 +101,13 @@ public class LimitRefundService implements LimitRefundFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return transactions.withTenantContext(actor, () -> {
-            DomainChecks.id(command.operationId()); DomainChecks.id(command.paymentId()); DomainChecks.id(command.refundId());
-            DomainChecks.id(command.businessEventId()); DomainChecks.id(command.refundEvidenceId());
-            if (command.refundAmountMinor() > command.cumulativePaymentRefundedMinor()) throw new CommonException(INVALID_ARGUMENT);
+            DomainChecks.id(command.operationId());
+            DomainChecks.id(command.paymentId());
+            DomainChecks.id(command.refundId());
+            DomainChecks.id(command.businessEventId());
+            DomainChecks.id(command.refundEvidenceId());
+            if (command.refundAmountMinor() > command.cumulativePaymentRefundedMinor())
+                throw new CommonException(INVALID_ARGUMENT);
             var digest = digest(actor, command);
             var prior = receipts.find(actor.tenantId(), command.refundId());
             if (prior.isPresent()) return replay(actor, prior.get(), digest);
@@ -146,7 +174,7 @@ public class LimitRefundService implements LimitRefundFacade {
         var expected = new HashMap<LimitBucketKey, Long>();
         for (var rule : policy.rules())
             expected.put(new LimitBucketKey(rule.ruleScopeId(), rule.merchantId(), rule.metric(), rule.currency(), rule.window(),
-                    windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
+                            windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
                     rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
         var items = reservations.loadItems(actor.tenantId(), value.id());
         var seen = new HashSet<LimitBucketKey>();

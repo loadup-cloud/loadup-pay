@@ -19,12 +19,14 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.infrastructure.converter.PaymentIntentSnapshotConverter;
+import io.github.loadup.pay.payment.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
@@ -38,10 +40,8 @@ import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import io.github.loadup.pay.payment.infrastructure.converter.PaymentIntentSnapshotConverter;
-import io.github.loadup.pay.payment.infrastructure.model.PaymentIntentSnapshot;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -60,7 +60,7 @@ class PaymentAcceptanceCodecImplTest {
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentIntentSnapshotConverter.class.getPackageName());
     final PaymentIntentSnapshotConverter snapshots = context.getBean(PaymentIntentSnapshotConverter.class);
-    final PaymentAcceptanceCodecImpl codec = new PaymentAcceptanceCodecImpl( validation.getValidator(), snapshots);
+    final PaymentAcceptanceCodecImpl codec = new PaymentAcceptanceCodecImpl(validation.getValidator(), snapshots);
 
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
@@ -191,13 +191,15 @@ class PaymentAcceptanceCodecImplTest {
         var apiPayload = apiMapper.writeValueAsString(value);
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiContractId"));
-        var independent = new PaymentAcceptanceCodecImpl( validation.getValidator(), snapshots);
+        var independent = new PaymentAcceptanceCodecImpl(validation.getValidator(), snapshots);
         var payload = independent.encode(value);
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
-        assertFalse(payload.contains("apiPaymentId")); assertFalse(payload.contains("apiContractId"));
-        assertFalse(payload.contains("payment_id")); assertFalse(payload.contains("\"choice\""));
+        assertFalse(payload.contains("apiPaymentId"));
+        assertFalse(payload.contains("apiContractId"));
+        assertFalse(payload.contains("payment_id"));
+        assertFalse(payload.contains("\"choice\""));
         assertEquals(value, independent.decode(stored(value, payload, codec.checksum(payload))));
         assertFalse(snapshots.toSnapshot(value).toString().contains("prepared-input"));
     }
@@ -207,7 +209,7 @@ class PaymentAcceptanceCodecImplTest {
         var value = command();
         var payload = codec.encode(value);
         var currentPublicValidation = org.mockito.Mockito.mock(jakarta.validation.Validator.class);
-        var reader = new PaymentAcceptanceCodecImpl( currentPublicValidation, snapshots);
+        var reader = new PaymentAcceptanceCodecImpl(currentPublicValidation, snapshots);
         assertEquals(value, reader.decode(stored(value, payload, codec.checksum(payload))));
         org.mockito.Mockito.verifyNoInteractions(currentPublicValidation);
     }
@@ -246,10 +248,13 @@ class PaymentAcceptanceCodecImplTest {
     }
 
     abstract static class RenamedCommand {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId") public abstract String paymentId();
+        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId")
+        public abstract String paymentId();
     }
+
     abstract static class RenamedAdmission {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId") public abstract String contractId();
+        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId")
+        public abstract String contractId();
     }
 
 }

@@ -25,7 +25,6 @@ import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
 import io.github.loadup.pay.payment.client.query.PaymentUnknownRecoveryQuery;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import jakarta.validation.Validation;
@@ -34,16 +33,33 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind.*;
-import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel.NORMAL;
+import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel.REVIEW;
+import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel.URGENT;
+import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind.COLLECTION;
+import static io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind.REFUND_REQUEST;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentUnknownRecoveryServiceTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
@@ -56,9 +72,14 @@ class PaymentUnknownRecoveryServiceTest {
             new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions()), validation.getValidator(),
             Clock.fixed(at.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()), "pay-ops");
 
-    @AfterEach void close() { validation.close(); context.close(); }
+    @AfterEach
+    void close() {
+        validation.close();
+        context.close();
+    }
 
-    @Test void trustedReadSnapshotReturnsTheExtraRowAsACursorWithoutClaimingATotalCount() {
+    @Test
+    void trustedReadSnapshotReturnsTheExtraRowAsACursorWithoutClaimingATotalCount() {
         var urgent = entry(COLLECTION, "pay-a", "pay-a", at.minusDays(1));
         var review = entry(COLLECTION, "pay-b", "pay-b", at.minusMinutes(15));
         var next = entry(COLLECTION, "pay-c", "pay-c", review.firstUnknownAt());
@@ -83,11 +104,15 @@ class PaymentUnknownRecoveryServiceTest {
         assertEquals(86400L, first.urgentAfterSeconds());
         var second = service.list(new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, first.nextFirstUnknownAt(), first.nextRecordId(), 2));
         assertEquals(List.of("pay-c"), second.items().stream().map(value -> value.recordId()).toList());
-        assertFalse(second.hasMore()); assertNull(second.nextFirstUnknownAt()); assertNull(second.nextRecordId());
-        assertNull(TenantUtil.getTenantId()); assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+        assertFalse(second.hasMore());
+        assertNull(second.nextFirstUnknownAt());
+        assertNull(second.nextRecordId());
+        assertNull(TenantUtil.getTenantId());
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
     }
 
-    @Test void childRefundsRetainTheirIndividualIdentityAndTheParentTaskIdentity() {
+    @Test
+    void childRefundsRetainTheirIndividualIdentityAndTheParentTaskIdentity() {
         var one = entry(REFUND_REQUEST, "refund-a", "request", at.minusDays(2));
         var two = new UnknownRecoveryEntry(REFUND_REQUEST, "refund-b", "request", "order", "merchant", one.amount(), one.firstUnknownAt(), 2L, null, null);
         when(reader.list(eq("tenant"), eq(REFUND_REQUEST), any())).thenReturn(List.of(one, two));
@@ -100,7 +125,8 @@ class PaymentUnknownRecoveryServiceTest {
         assertNull(page.items().getLast().recoveryCompleted());
     }
 
-    @Test void merchantOrUnprivilegedServicesAreRejectedBeforeAnyDataAccess() {
+    @Test
+    void merchantOrUnprivilegedServicesAreRejectedBeforeAnyDataAccess() {
         actor.set(new PaymentActor("tenant", "merchant-service", Set.of("pay:payment:recovery:read")));
         assertEquals(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.list(null)).getResultCode());
         actor.set(new PaymentActor("tenant", "pay-ops", Set.of()));
@@ -108,7 +134,8 @@ class PaymentUnknownRecoveryServiceTest {
         verifyNoInteractions(reader);
     }
 
-    @Test void clockRegressionKeepsExistingFutureStampedUnknownRowsVisibleAndPageable() {
+    @Test
+    void clockRegressionKeepsExistingFutureStampedUnknownRowsVisibleAndPageable() {
         var one = entry(COLLECTION, "pay-a", "pay-a", at.plusHours(1));
         var two = entry(COLLECTION, "pay-b", "pay-b", one.firstUnknownAt());
         when(reader.list(eq("tenant"), eq(COLLECTION), any())).thenAnswer(call -> {
@@ -123,7 +150,8 @@ class PaymentUnknownRecoveryServiceTest {
         assertEquals("pay-b", next.items().getFirst().recordId());
     }
 
-    @Test void malformedCursorPairsPrecisionAndUnboundedPageSizesNeverReachTheReader() {
+    @Test
+    void malformedCursorPairsPrecisionAndUnboundedPageSizesNeverReachTheReader() {
         var external = BusinessTime.external(at);
         for (var query : List.of(new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, external, null, 10),
                 new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, "pay-a", 10),
@@ -135,7 +163,8 @@ class PaymentUnknownRecoveryServiceTest {
         verifyNoInteractions(reader);
     }
 
-    @Test void inconsistentReaderResultsFailInsteadOfPublishingAnIncompleteOrIncorrectQueue() {
+    @Test
+    void inconsistentReaderResultsFailInsteadOfPublishingAnIncompleteOrIncorrectQueue() {
         var row = entry(COLLECTION, "pay-a", "pay-a", at.minusHours(1));
         var query = new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, null, 1);
         doReturn(List.of(row, row)).when(reader).list(anyString(), any(), any());

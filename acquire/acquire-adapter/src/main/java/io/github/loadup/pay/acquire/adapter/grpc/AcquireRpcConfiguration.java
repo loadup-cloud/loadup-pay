@@ -16,9 +16,9 @@
 package io.github.loadup.pay.acquire.adapter.grpc;
 
 import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
-import io.github.loadup.pay.acquire.rpc.AcquireRpcMapper;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.acquire.rpc.AcquireRpcMapper;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import org.springframework.context.annotation.Bean;
@@ -30,20 +30,22 @@ import org.springframework.context.annotation.Import;
 public class AcquireRpcConfiguration {
     @Bean
     BindableService acquireRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            io.github.loadup.pay.acquire.client.facade.PaymentOutcomeFacade facade0,
-            io.github.loadup.pay.acquire.client.facade.FeeRefundOutcomeFacade facade1,
-            io.github.loadup.pay.acquire.client.facade.RefundNotificationFacade facade2) {
+                               io.github.loadup.pay.acquire.client.facade.PaymentOutcomeFacade facade0,
+                               io.github.loadup.pay.acquire.client.facade.FeeRefundOutcomeFacade facade1,
+                               io.github.loadup.pay.acquire.client.facade.RefundNotificationFacade facade2) {
         var service = new io.github.loadup.pay.acquire.rpc.proto.AcquireRpcGrpc.AcquireRpcImplBase() {
             @Override
             public void paymentOutcome(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfPaymentOutcomeEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.acquire.rpc.proto.WirePaymentOutcomeAckDTO> observer) {
                 support.invoke(request, observer, AcquireRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfPaymentOutcomeEventDTO,
                         facade0::accept, AcquireRpcMapper.INSTANCE::toWirePaymentOutcomeAckDTO);
             }
+
             @Override
             public void feeRefund(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.acquire.rpc.proto.WireFeeRefundAckDTO> observer) {
                 support.invoke(request, observer, AcquireRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO,
                         facade1::accept, AcquireRpcMapper.INSTANCE::toWireFeeRefundAckDTO);
             }
+
             @Override
             public void refundNotification(io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfRefundMerchantEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.acquire.rpc.proto.WireRefundNotificationAckDTO> observer) {
                 support.invoke(request, observer, AcquireRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfRefundMerchantEventDTO,

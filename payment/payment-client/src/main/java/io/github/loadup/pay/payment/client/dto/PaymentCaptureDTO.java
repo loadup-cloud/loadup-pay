@@ -17,12 +17,16 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.payment.client.enums.PaymentCaptureBlocker;
+import io.github.loadup.pay.payment.client.enums.PaymentCaptureState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-/** Frozen source result only; blocked captures have no exportable lines, totals or content hash. */
+/**
+ * Frozen source result only; blocked captures have no exportable lines, totals or content hash.
+ */
 @Schema(description = "Immutable reconciliation source capture; unrelated to a payment authorization/capture flow")
 public record PaymentCaptureDTO(
         @Schema(description = "Original source capture id") String captureId,
@@ -46,5 +50,8 @@ public record PaymentCaptureDTO(
         @Schema(description = "Independent task state; a sealed capture remains immutable after a lost task ACK") String nativeStatus,
         @Schema(description = "Current claimed attempts") Integer attempts,
         @Schema(description = "Configured maximum attempts") Integer maxAttempts) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

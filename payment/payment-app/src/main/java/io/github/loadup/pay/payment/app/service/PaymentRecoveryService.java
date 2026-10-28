@@ -17,13 +17,14 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
-import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -31,9 +32,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Continuation generations complement native task claims; neither is channel evidence. */
+/**
+ * Continuation generations complement native task claims; neither is channel evidence.
+ */
 @Service
 public class PaymentRecoveryService {
     public static final String TYPE = "pay.payment.collection.progress";
@@ -47,14 +52,22 @@ public class PaymentRecoveryService {
     private final RecoveryPollingPolicy polling;
 
     public PaymentRecoveryService(PaymentRecoveryGateway cursors, DelayedTaskTemplate tasks, PaymentExecutionLocks locks,
-            PaymentExecutionService execution, io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway payments,
-            PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock,
-            RecoveryPollingPolicy polling) {
-        this.cursors = cursors; this.tasks = tasks; this.locks = locks; this.execution = execution;
-        this.payments = payments; this.transactions = transactions; this.clock = clock; this.polling = java.util.Objects.requireNonNull(polling);
+                                  PaymentExecutionService execution, io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway payments,
+                                  PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock,
+                                  RecoveryPollingPolicy polling) {
+        this.cursors = cursors;
+        this.tasks = tasks;
+        this.locks = locks;
+        this.execution = execution;
+        this.payments = payments;
+        this.transactions = transactions;
+        this.clock = clock;
+        this.polling = java.util.Objects.requireNonNull(polling);
     }
 
-    /** The original acceptance and its first wake-up commit atomically. */
+    /**
+     * The original acceptance and its first wake-up commit atomically.
+     */
     public void register(String tenant, StoredPaymentAcceptance stored) {
         writable(tenant);
         if (stored.payment().state() != io.github.loadup.pay.payment.domain.model.PaymentState.INIT
@@ -87,7 +100,8 @@ public class PaymentRecoveryService {
         return transactions.writeLocal(task.tenantId(), () -> {
             var request = lockPayment(task.tenantId(), key.paymentId());
             var before = cursor(task.tenantId(), key);
-            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt())) return RecoveryHandlingOutcome.SKIPPED;
+            if (!RecoveryTaskProtocol.current(identity, before.position(), task.executeAt()))
+                return RecoveryHandlingOutcome.SKIPPED;
             if (terminal(request)) {
                 cursors.update(task.tenantId(), before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;

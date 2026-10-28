@@ -17,49 +17,105 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.*;
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("fee_adjustment")
 public class FeeAdjustmentDO extends BaseDO {
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private String feeId;
-    public String getFeeId() { return feeId; }
-    public void setFeeId(String value) { feeId = value; }
-
     private String triggerKey;
-    public String getTriggerKey() { return triggerKey; }
-    public void setTriggerKey(String value) { triggerKey = value; }
-
     private String sourceEventId;
-    public String getSourceEventId() { return sourceEventId; }
-    public void setSourceEventId(String value) { sourceEventId = value; }
-
     private Long sourceVersion;
-    public Long getSourceVersion() { return sourceVersion; }
-    public void setSourceVersion(Long value) { sourceVersion = value; }
-
     private Long adjustmentMinor;
-    public Long getAdjustmentMinor() { return adjustmentMinor; }
-    public void setAdjustmentMinor(Long value) { adjustmentMinor = value; }
-
     private String currency;
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-
     private Long cumulativeRefundedMinor;
-    public Long getCumulativeRefundedMinor() { return cumulativeRefundedMinor; }
-    public void setCumulativeRefundedMinor(Long value) { cumulativeRefundedMinor = value; }
-
-    @DiagnosticHidden private String ruleSnapshot;
-    public String getRuleSnapshot() { return ruleSnapshot; }
-    public void setRuleSnapshot(String value) { ruleSnapshot = value; }
-
+    @DiagnosticHidden
+    private String ruleSnapshot;
     private java.time.LocalDateTime appliedAt;
-    public java.time.LocalDateTime getAppliedAt() { return appliedAt; }
-    public void setAppliedAt(java.time.LocalDateTime value) { appliedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public String getFeeId() {
+        return feeId;
+    }
+
+    public void setFeeId(String value) {
+        feeId = value;
+    }
+
+    public String getTriggerKey() {
+        return triggerKey;
+    }
+
+    public void setTriggerKey(String value) {
+        triggerKey = value;
+    }
+
+    public String getSourceEventId() {
+        return sourceEventId;
+    }
+
+    public void setSourceEventId(String value) {
+        sourceEventId = value;
+    }
+
+    public Long getSourceVersion() {
+        return sourceVersion;
+    }
+
+    public void setSourceVersion(Long value) {
+        sourceVersion = value;
+    }
+
+    public Long getAdjustmentMinor() {
+        return adjustmentMinor;
+    }
+
+    public void setAdjustmentMinor(Long value) {
+        adjustmentMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public Long getCumulativeRefundedMinor() {
+        return cumulativeRefundedMinor;
+    }
+
+    public void setCumulativeRefundedMinor(Long value) {
+        cumulativeRefundedMinor = value;
+    }
+
+    public String getRuleSnapshot() {
+        return ruleSnapshot;
+    }
+
+    public void setRuleSnapshot(String value) {
+        ruleSnapshot = value;
+    }
+
+    public java.time.LocalDateTime getAppliedAt() {
+        return appliedAt;
+    }
+
+    public void setAppliedAt(java.time.LocalDateTime value) {
+        appliedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

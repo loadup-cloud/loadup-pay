@@ -15,11 +15,10 @@
  */
 package io.github.loadup.pay.reconciliation.client.dto;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
 import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationEntryStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationLineDTO(
         @Schema(description = "Original channel merchant payment request number") @DiagnosticHidden String merchantPaymentNo,
@@ -27,5 +26,8 @@ public record ReconciliationLineDTO(
         @Schema(description = "Currency", example = "CNY") String currency,
         @Schema(description = "Normalized source state; processing refunds are not successful returned funds") ReconciliationEntryStatus status,
         @Schema(description = "Positive immutable normalized source record ordinal") long recordNumber) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

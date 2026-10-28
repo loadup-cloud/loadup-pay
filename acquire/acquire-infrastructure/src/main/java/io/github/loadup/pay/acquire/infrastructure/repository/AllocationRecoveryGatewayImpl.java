@@ -22,9 +22,10 @@ import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.pay.acquire.infrastructure.converter.AllocationRecoveryStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.mapper.AllocationRecoveryCursorDOMapper;
-import java.util.Optional;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
@@ -46,8 +47,11 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     public Optional<AllocationRecoveryCursor> find(String tenant, String paymentId) {
         trustedTenant(tenant);
         var row = mapper.selectOneByQuery(scope(tenant, paymentId));
-        try { return Optional.ofNullable(row).map(converter::toDomain); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

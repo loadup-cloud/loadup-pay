@@ -17,13 +17,21 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 
-/** No tenant, collecting-account hash, raw URL or completed-input assertions come from this command. */
+/**
+ * No tenant, collecting-account hash, raw URL or completed-input assertions come from this command.
+ */
 public record ReconciliationBatchCreateCommand(
         @Schema(description = "Caller idempotency key", example = "reconcile-20261026-store-01") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Trusted collecting-account catalog code", example = "merchant-wechat-direct") @NotBlank @Size(max = 64) String channelAccountCode,
         @Schema(description = "Channel statement date", example = "2026-10-26", format = "date") @NotNull LocalDate billDate) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

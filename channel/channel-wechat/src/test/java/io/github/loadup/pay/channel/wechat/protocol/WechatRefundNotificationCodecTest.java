@@ -52,11 +52,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class WechatRefundNotificationCodecTest {
     private static final String TENANT = "tenant";
@@ -70,12 +79,48 @@ class WechatRefundNotificationCodecTest {
             + "\"out_refund_no\":\"refund-request-18\",\"refund_id\":\"wx-refund-18\","
             + "\"refund_status\":\"SUCCESS\",\"amount\":{\"total\":125000,\"refund\":35000},"
             + "\"success_time\":\"2026-10-24T12:00:00+08:00\"";
-
+    private static final WechatAccountIdentity DIRECT = new WechatAccountIdentity("wx-app", "123456789", null, null);
+    private static final WechatAccountIdentity PARTNER = new WechatAccountIdentity("wx-sp-app", "987654321", "wx-sub-app", "555555555");
+    private static final ChannelBindingRevision DIRECT_BINDING = new ChannelBindingRevision("revision-1", "merchant-1",
+            Channel.WECHAT, AccessMode.DIRECT, HASH, "credential-ref", "3", DIRECT, Set.of(PaymentMethod.PAYMENT_CODE));
+    private static final ChannelBindingRevision PARTNER_BINDING = new ChannelBindingRevision("partner-revision", "merchant-2",
+            Channel.WECHAT, AccessMode.SERVICE_PROVIDER, HASH, "credential-ref", "3", PARTNER, Set.of(PaymentMethod.PAYMENT_CODE));
+    private static final ChannelExecutionContext DIRECT_CONTEXT = new ChannelExecutionContext(TENANT, DIRECT_BINDING);
+    private static final ChannelExecutionContext PARTNER_CONTEXT = new ChannelExecutionContext(TENANT, PARTNER_BINDING);
+    private static final Money ORIGINAL_AMOUNT = Money.ofMinor(125_000, "CNY");
+    private static final Money REFUND_AMOUNT = Money.ofMinor(35_000, "CNY");
+    private static final ChannelPaymentIdentity IDENTITY = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT,
+            "revision-1", HASH, "payment-request-18");
+    private static final ChannelPaymentIdentity PARTNER_IDENTITY = new ChannelPaymentIdentity("payment-2", "attempt-2", Channel.WECHAT,
+            "partner-revision", HASH, "payment-request-18");
+    private static final PreparedChannelRefund REFUND = new PreparedChannelRefund(IDENTITY, "refund-1", "refund-request-18",
+            REFUND_AMOUNT, ORIGINAL_AMOUNT, "wx-transaction-18");
+    private static final PreparedChannelRefund PARTNER_REFUND = new PreparedChannelRefund(PARTNER_IDENTITY, "refund-2", "refund-request-18",
+            REFUND_AMOUNT, ORIGINAL_AMOUNT, "wx-transaction-18");
     private KeyPair signingKeys;
     private WechatCredentialReader credentials;
     private WechatNotificationCodec codec;
     private AtomicReference<byte[]> lastApiKey;
     private List<byte[]> apiKeys;
+
+    private static String refund(WechatAccountIdentity identity, String fields) {
+        String account = identity.subMerchantId() == null ? "\"mchid\":\"" + identity.merchantId() + "\","
+                : "\"sp_mchid\":\"" + identity.merchantId() + "\",\"sub_mchid\":\"" + identity.subMerchantId() + "\",";
+        return "{" + account + fields + "}";
+    }
+
+    private static String replace(String json, String field, String value) {
+        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*([^,}]+)", "\\\"" + field + "\\\":" + value);
+    }
+
+    private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
+        var copy = new HashMap<String, List<String>>();
+        headers.forEach((key, value) -> {
+            if (!key.equalsIgnoreCase(name)) copy.put(key, value);
+        });
+        copy.put(name, values);
+        return copy;
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -175,9 +220,9 @@ class WechatRefundNotificationCodecTest {
         assertRejected(signedInput(notification(refund(DIRECT, replace(REFUND_JSON, "refund_status", "\"CLOSED\"")),
                 "REFUND.CLOSED", "refund", "closed-time")));
         assertRejected(signedInput(notification(refund(DIRECT, "\"out_trade_no\":\"payment-request-18\",\"transaction_id\":\"wx-transaction-18\","
-                        + "\"out_refund_no\":\"refund-request-18\",\"refund_id\":\"wx-refund-18\",\"refund_status\":\"SUCCESS\","
-                        + "\"amount\":{\"total\":125000,\"refund\":35000,\"currency\":\"USD\"},"
-                        + "\"success_time\":\"2026-10-24T12:00:00+08:00\""), "REFUND.SUCCESS", "refund", "currency")));
+                + "\"out_refund_no\":\"refund-request-18\",\"refund_id\":\"wx-refund-18\",\"refund_status\":\"SUCCESS\","
+                + "\"amount\":{\"total\":125000,\"refund\":35000,\"currency\":\"USD\"},"
+                + "\"success_time\":\"2026-10-24T12:00:00+08:00\""), "REFUND.SUCCESS", "refund", "currency")));
         assertEveryKeyWasZeroed();
     }
 
@@ -253,44 +298,8 @@ class WechatRefundNotificationCodecTest {
                 .getBytes(StandardCharsets.UTF_8);
     }
 
-    private static String refund(WechatAccountIdentity identity, String fields) {
-        String account = identity.subMerchantId() == null ? "\"mchid\":\"" + identity.merchantId() + "\","
-                : "\"sp_mchid\":\"" + identity.merchantId() + "\",\"sub_mchid\":\"" + identity.subMerchantId() + "\",";
-        return "{" + account + fields + "}";
-    }
-
-    private static String replace(String json, String field, String value) {
-        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*([^,}]+)", "\\\"" + field + "\\\":" + value);
-    }
-
-    private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
-        var copy = new HashMap<String, List<String>>();
-        headers.forEach((key, value) -> { if (!key.equalsIgnoreCase(name)) copy.put(key, value); });
-        copy.put(name, values);
-        return copy;
-    }
-
     private WechatCredentials credentials(WechatAccountIdentity identity) {
         return new WechatCredentials(TENANT, identity.appId(), identity.merchantId(), "1234ABCD", null,
                 "PUB_KEY_ID_test", signingKeys.getPublic());
     }
-
-    private static final WechatAccountIdentity DIRECT = new WechatAccountIdentity("wx-app", "123456789", null, null);
-    private static final WechatAccountIdentity PARTNER = new WechatAccountIdentity("wx-sp-app", "987654321", "wx-sub-app", "555555555");
-    private static final ChannelBindingRevision DIRECT_BINDING = new ChannelBindingRevision("revision-1", "merchant-1",
-            Channel.WECHAT, AccessMode.DIRECT, HASH, "credential-ref", "3", DIRECT, Set.of(PaymentMethod.PAYMENT_CODE));
-    private static final ChannelBindingRevision PARTNER_BINDING = new ChannelBindingRevision("partner-revision", "merchant-2",
-            Channel.WECHAT, AccessMode.SERVICE_PROVIDER, HASH, "credential-ref", "3", PARTNER, Set.of(PaymentMethod.PAYMENT_CODE));
-    private static final ChannelExecutionContext DIRECT_CONTEXT = new ChannelExecutionContext(TENANT, DIRECT_BINDING);
-    private static final ChannelExecutionContext PARTNER_CONTEXT = new ChannelExecutionContext(TENANT, PARTNER_BINDING);
-    private static final Money ORIGINAL_AMOUNT = Money.ofMinor(125_000, "CNY");
-    private static final Money REFUND_AMOUNT = Money.ofMinor(35_000, "CNY");
-    private static final ChannelPaymentIdentity IDENTITY = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT,
-            "revision-1", HASH, "payment-request-18");
-    private static final ChannelPaymentIdentity PARTNER_IDENTITY = new ChannelPaymentIdentity("payment-2", "attempt-2", Channel.WECHAT,
-            "partner-revision", HASH, "payment-request-18");
-    private static final PreparedChannelRefund REFUND = new PreparedChannelRefund(IDENTITY, "refund-1", "refund-request-18",
-            REFUND_AMOUNT, ORIGINAL_AMOUNT, "wx-transaction-18");
-    private static final PreparedChannelRefund PARTNER_REFUND = new PreparedChannelRefund(PARTNER_IDENTITY, "refund-2", "refund-request-18",
-            REFUND_AMOUNT, ORIGINAL_AMOUNT, "wx-transaction-18");
 }

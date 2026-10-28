@@ -20,21 +20,37 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.acquire.app.converter.MerchantNotificationQueryConverter;
-import io.github.loadup.pay.acquire.app.security.*;
+import io.github.loadup.pay.acquire.app.security.MerchantNotificationAccess;
+import io.github.loadup.pay.acquire.app.security.MerchantNotificationActor;
 import io.github.loadup.pay.acquire.client.query.MerchantNotificationPageQuery;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class MerchantNotificationQueryServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(MerchantNotificationQueryConverter.class.getPackageName());
@@ -44,9 +60,15 @@ class MerchantNotificationQueryServiceTest {
     final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
     final MerchantNotificationQueryService service = new MerchantNotificationQueryService(new MerchantNotificationAccess(actor::get, "pay-ops"), deliveries,
             context.getBean(MerchantNotificationQueryConverter.class), new OrderCreationTransactions(new UnitTransactions()), validation.getValidator());
-    @AfterEach void close() { validation.close(); context.close(); }
 
-    @Test void detailProjectsOnlyMerchantSafeMetadata() {
+    @AfterEach
+    void close() {
+        validation.close();
+        context.close();
+    }
+
+    @Test
+    void detailProjectsOnlyMerchantSafeMetadata() {
         var original = MerchantNotificationOperationsServiceTest.delivery(NOW);
         when(deliveries.find("tenant", "delivery")).thenReturn(Optional.of(original));
         var result = service.detail(new IdQuery("delivery"));
@@ -58,7 +80,8 @@ class MerchantNotificationQueryServiceTest {
             assertFalse(json.contains(secret));
     }
 
-    @Test void foreignMerchantCannotReadAnExistingDeliveryOrPageAnotherScope() {
+    @Test
+    void foreignMerchantCannotReadAnExistingDeliveryOrPageAnotherScope() {
         when(deliveries.find("tenant", "delivery")).thenReturn(Optional.of(MerchantNotificationOperationsServiceTest.delivery(NOW)));
         actor.set(new MerchantNotificationActor("tenant", "MERCHANT_APP", "foreign-app", "other-merchant", Set.of("pay:acquire:notification:read")));
         assertSame(NOT_FOUND, assertThrows(CommonException.class, () -> service.detail(new IdQuery("delivery"))).getResultCode());
@@ -67,7 +90,8 @@ class MerchantNotificationQueryServiceTest {
         verify(deliveries, never()).page(anyString(), any());
     }
 
-    @Test void pageUsesExplicitMerchantAndSourceTimeFiltersAndSharedPageContract() {
+    @Test
+    void pageUsesExplicitMerchantAndSourceTimeFiltersAndSharedPageContract() {
         var original = MerchantNotificationOperationsServiceTest.delivery(NOW);
         when(deliveries.page(eq("tenant"), any())).thenReturn(PageResult.of(List.of(original), 21, 2, 20));
         var page = service.page(new MerchantNotificationPageQuery("merchant", "order", null, null, null, null, 2, 20));
@@ -81,7 +105,8 @@ class MerchantNotificationQueryServiceTest {
         assertEquals(2, filter.getValue().page());
     }
 
-    @Test void missingReadPermissionAndUnconfiguredServiceAreRejected() {
+    @Test
+    void missingReadPermissionAndUnconfiguredServiceAreRejected() {
         actor.set(new MerchantNotificationActor("tenant", "MERCHANT", "merchant", "merchant", Set.of()));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.detail(new IdQuery("delivery"))).getResultCode());
         actor.set(new MerchantNotificationActor("tenant", "SERVICE", "payment", null, Set.of("pay:acquire:notification:manage")));

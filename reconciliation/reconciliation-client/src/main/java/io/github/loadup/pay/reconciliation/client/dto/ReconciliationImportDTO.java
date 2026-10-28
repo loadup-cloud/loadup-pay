@@ -16,7 +16,8 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.*;
+import io.github.loadup.pay.reconciliation.client.enums.ReconciliationImportState;
+import io.github.loadup.pay.reconciliation.client.enums.ReconciliationSourceKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationImportDTO(
@@ -31,5 +32,8 @@ public record ReconciliationImportDTO(
         @Schema(description = "Sealed artifact, absent before successful commit") String artifactId,
         @Schema(description = "Stable rejection code; no raw parser or file error") String rejectionCode,
         @Schema(description = "Import version") long version) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

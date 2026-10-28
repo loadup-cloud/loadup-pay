@@ -19,13 +19,17 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.net.URI;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Explicit environment gateway and trusted return destinations; no merchant-supplied redirect. */
+/**
+ * Explicit environment gateway and trusted return destinations; no merchant-supplied redirect.
+ */
 @ConfigurationProperties("loadup.pay.channel.alipay.h5")
 public record AlipayH5Properties(URI gateway, Map<String, Map<String, URI>> returnUrls) {
     public AlipayH5Properties {
@@ -44,5 +48,9 @@ public record AlipayH5Properties(URI gateway, Map<String, Map<String, URI>> retu
             }
         }
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

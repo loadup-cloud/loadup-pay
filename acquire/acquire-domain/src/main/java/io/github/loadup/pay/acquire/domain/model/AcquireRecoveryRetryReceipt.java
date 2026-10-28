@@ -18,23 +18,35 @@ package io.github.loadup.pay.acquire.domain.model;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Immutable operational authority and first decision, separate from all financial evidence. */
+/**
+ * Immutable operational authority and first decision, separate from all financial evidence.
+ */
 public record AcquireRecoveryRetryReceipt(String id, String requestKey, String callerScopeHash, String callerServiceId,
-        String requestDigest, String kind, String subjectId, long generation, String orderId, String nativeTaskId,
-        int expectedAttempts, LocalDateTime expectedNextExecuteAt, @DiagnosticHidden String reason,
-        String result, LocalDateTime acceptedAt) {
+                                          String requestDigest, String kind, String subjectId, long generation,
+                                          String orderId, String nativeTaskId,
+                                          int expectedAttempts, LocalDateTime expectedNextExecuteAt,
+                                          @DiagnosticHidden String reason,
+                                          String result, LocalDateTime acceptedAt) {
     public AcquireRecoveryRetryReceipt {
-        DomainChecks.id(id); DomainChecks.text(requestKey, 128); DomainChecks.id(callerServiceId);
-        DomainChecks.id(subjectId); DomainChecks.id(orderId); DomainChecks.id(nativeTaskId); DomainChecks.text(reason, 500);
-        Objects.requireNonNull(expectedNextExecuteAt); Objects.requireNonNull(acceptedAt);
+        DomainChecks.id(id);
+        DomainChecks.text(requestKey, 128);
+        DomainChecks.id(callerServiceId);
+        DomainChecks.id(subjectId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(nativeTaskId);
+        DomainChecks.text(reason, 500);
+        Objects.requireNonNull(expectedNextExecuteAt);
+        Objects.requireNonNull(acceptedAt);
         require(callerScopeHash != null && callerScopeHash.matches("[0-9a-f]{64}")
-                && requestDigest != null && requestDigest.matches("[0-9a-f]{64}") && generation >= 0 && expectedAttempts > 0,
+                        && requestDigest != null && requestDigest.matches("[0-9a-f]{64}") && generation >= 0 && expectedAttempts > 0,
                 INVALID_ARGUMENT);
         require(kind != null && Set.of("PAYMENT_ALLOCATION", "ORDER_DEADLINE", "ORDER_CLOSURE").contains(kind)
                 && (!"ORDER_DEADLINE".equals(kind) || generation > 0), INVALID_ARGUMENT);
@@ -43,5 +55,9 @@ public record AcquireRecoveryRetryReceipt(String id, String requestKey, String c
         for (var time : java.util.List.of(expectedNextExecuteAt, acceptedAt))
             require(time.getNano() % 1000 == 0 && time.getYear() >= 1970 && time.getYear() <= 9998, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

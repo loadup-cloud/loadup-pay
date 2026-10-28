@@ -24,21 +24,51 @@ import io.github.loadup.pay.acquire.app.converter.OrderClosureConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class OrderClosureOperationsTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AcquireOrderConverter.class.getPackageName());
@@ -62,6 +92,11 @@ class OrderClosureOperationsTest {
             () -> "close-" + ids.incrementAndGet(), validation.getValidator(), clock(NOW), snapshots, tasks);
     final OrderPaymentScope scope = new OrderPaymentScope("tenant", OWNER);
     final AcquireOrderCloseCommand command = new AcquireOrderCloseCommand("order", "original-key", "MERCHANT_CLOSED");
+
+    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
+        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(), original.admittedAt(),
+                original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
+    }
 
     @BeforeEach
     void setup() {
@@ -106,7 +141,12 @@ class OrderClosureOperationsTest {
             return new ParentFenceDTO("order", intent.get().closeEpoch(), true, false, 1);
         });
     }
-    @AfterEach void close() { context.close(); validation.close(); }
+
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void c0AndEveryCursorAdvanceRegisterANativeContinuationInTheirTransaction() {
@@ -183,10 +223,5 @@ class OrderClosureOperationsTest {
         operations.close(scope, command);
         assertEquals(1000L, order.get().order().paymentReservedMinor());
         verify(store, never()).finish(anyString(), any(), anyLong(), any());
-    }
-
-    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
-        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(), original.admittedAt(),
-                original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
     }
 }

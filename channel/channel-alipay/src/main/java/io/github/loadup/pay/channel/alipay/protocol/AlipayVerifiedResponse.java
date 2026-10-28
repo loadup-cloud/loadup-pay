@@ -18,7 +18,12 @@ package io.github.loadup.pay.channel.alipay.protocol;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** A verified API response still requires operation-specific identity, amount and status checks. */
+/**
+ * A verified API response still requires operation-specific identity, amount and status checks.
+ */
 public record AlipayVerifiedResponse(AlipayMethod method, @DiagnosticHidden String payload, String sourceDigest) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

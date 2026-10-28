@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChannelStrategyRegistryTest {
     @Test
@@ -61,5 +63,6 @@ class ChannelStrategyRegistryTest {
         assertThrows(CommonException.class, () -> new ChannelStrategyRegistry<>(List.of(new Strategy(null)), Strategy::channel));
     }
 
-    private record Strategy(Channel channel) {}
+    private record Strategy(Channel channel) {
+    }
 }

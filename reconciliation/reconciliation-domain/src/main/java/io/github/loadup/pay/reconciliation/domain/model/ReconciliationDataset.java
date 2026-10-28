@@ -15,18 +15,22 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
-import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
-/** Complete bounded normalized input. Duplicate keys and repeated source record ordinals invalidate the input. */
-public record ReconciliationDataset(ReconciliationManifest manifest, @DiagnosticHidden List<ReconciliationLine> records) {
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * Complete bounded normalized input. Duplicate keys and repeated source record ordinals invalidate the input.
+ */
+public record ReconciliationDataset(ReconciliationManifest manifest,
+                                    @DiagnosticHidden List<ReconciliationLine> records) {
     public ReconciliationDataset {
         Objects.requireNonNull(manifest);
         records = List.copyOf(records).stream().sorted(Comparator.comparing(ReconciliationLine::key)).toList();
@@ -39,12 +43,19 @@ public record ReconciliationDataset(ReconciliationManifest manifest, @Diagnostic
         require(manifest.totals().equals(ReconciliationTotals.count(records))
                 && manifest.normalizedSha256().equals(normalizedHash(manifest.scope(), manifest.side(), manifest.parserRevision(), records)), CONFLICT);
     }
+
     public static String normalizedHash(ReconciliationScope scope, ReconciliationSide side, String parserRevision, List<ReconciliationLine> records) {
         var fingerprint = new ReconciliationFingerprint("reconciliation-input-v1");
-        fingerprint.scope(scope); fingerprint.field(side.name()); fingerprint.field(parserRevision);
+        fingerprint.scope(scope);
+        fingerprint.field(side.name());
+        fingerprint.field(parserRevision);
         fingerprint.field(Integer.toString(records.size()));
         records.stream().sorted(Comparator.comparing(ReconciliationLine::key)).forEach(fingerprint::line);
         return fingerprint.finish();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

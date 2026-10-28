@@ -17,17 +17,27 @@ package io.github.loadup.pay.reconciliation.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Request identity stays separate from the immutable normalized evidence and public command JSON. */
+/**
+ * Request identity stays separate from the immutable normalized evidence and public command JSON.
+ */
 public record StoredReconciliationBatch(ReconciliationBatch batch, String callerServiceId, String requestKey,
-        String requestDigest, String channelAccountCode) {
+                                        String requestDigest, String channelAccountCode) {
     public StoredReconciliationBatch {
-        Objects.requireNonNull(batch); DomainChecks.id(callerServiceId); DomainChecks.text(requestKey, 128);
+        Objects.requireNonNull(batch);
+        DomainChecks.id(callerServiceId);
+        DomainChecks.text(requestKey, 128);
         DomainChecks.id(channelAccountCode);
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -23,7 +23,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReconciliationTaskHandler implements DelayedTaskHandler {
     private final ReconciliationExecutionService execution;
-    public ReconciliationTaskHandler(ReconciliationExecutionService execution) { this.execution = execution; }
-    @Override public String taskType() { return ReconciliationExecutionService.TYPE; }
-    @Override public void handle(DelayedTask task) { execution.handle(task); }
+
+    public ReconciliationTaskHandler(ReconciliationExecutionService execution) {
+        this.execution = execution;
+    }
+
+    @Override
+    public String taskType() {
+        return ReconciliationExecutionService.TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
+        execution.handle(task);
+    }
 }

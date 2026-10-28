@@ -17,10 +17,10 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
-import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;

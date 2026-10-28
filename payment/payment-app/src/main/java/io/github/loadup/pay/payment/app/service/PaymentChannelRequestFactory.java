@@ -25,12 +25,18 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.util.Objects;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
-/** Resolves only the original winner's submitted attempt and bound input; never an HTTP entry point. */
+/**
+ * Resolves only the original winner's submitted attempt and bound input; never an HTTP entry point.
+ */
 @Component
 public class PaymentChannelRequestFactory {
     private final PaymentAcceptanceGateway payments;
@@ -42,8 +48,8 @@ public class PaymentChannelRequestFactory {
     private final Clock clock;
 
     public PaymentChannelRequestFactory(PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts,
-            PaymentAcceptanceCodec codec, PaymentInputAccess inputs, PaymentChannelInputConverter converter,
-            PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock) {
+                                        PaymentAcceptanceCodec codec, PaymentInputAccess inputs, PaymentChannelInputConverter converter,
+                                        PaymentAcceptanceTransactions transactions, @Qualifier("paymentClock") Clock clock) {
         this.payments = payments;
         this.attempts = attempts;
         this.codec = codec;
@@ -67,7 +73,8 @@ public class PaymentChannelRequestFactory {
                 throw new CommonException(INVALID_STATE);
             var original = codec.decode(accepted);
             PaymentExecutionBindings.route(binding, original.choice().channel(), original.choice().method(), original.preparedInputRef());
-            if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
+            if (!clock.instant().isBefore(original.payableUntil().toInstant()))
+                throw new CommonException(PAYMENT_EXPIRED);
             var input = inputs.openForAttempt(tenant, prepared.identity().paymentId(), prepared.identity().attemptId());
             return converter.toRequest(prepared, original, converter.toInput(input));
         });

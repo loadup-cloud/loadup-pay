@@ -22,36 +22,80 @@ import io.github.loadup.commons.json.ToStringAsJson;
 @Table("fee_refund_receipt")
 public class FeeRefundReceiptDO extends BaseDO {
     private String deliveryId;
-    public String getDeliveryId() { return deliveryId; }
-    public void setDeliveryId(String value) { deliveryId = value; }
-
     private String businessEventId;
-    public String getBusinessEventId() { return businessEventId; }
-    public void setBusinessEventId(String value) { businessEventId = value; }
-
     private String orderId;
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String value) { orderId = value; }
-
     private Long sourceVersion;
-    public Long getSourceVersion() { return sourceVersion; }
-    public void setSourceVersion(Long value) { sourceVersion = value; }
-
     private Long appliedVersion;
-    public Long getAppliedVersion() { return appliedVersion; }
-    public void setAppliedVersion(Long value) { appliedVersion = value; }
-
     private String requestDigest;
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-
     private String callerServiceId;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-
     private java.time.LocalDateTime acceptedAt;
-    public java.time.LocalDateTime getAcceptedAt() { return acceptedAt; }
-    public void setAcceptedAt(java.time.LocalDateTime value) { acceptedAt = value; }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String getDeliveryId() {
+        return deliveryId;
+    }
+
+    public void setDeliveryId(String value) {
+        deliveryId = value;
+    }
+
+    public String getBusinessEventId() {
+        return businessEventId;
+    }
+
+    public void setBusinessEventId(String value) {
+        businessEventId = value;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String value) {
+        orderId = value;
+    }
+
+    public Long getSourceVersion() {
+        return sourceVersion;
+    }
+
+    public void setSourceVersion(Long value) {
+        sourceVersion = value;
+    }
+
+    public Long getAppliedVersion() {
+        return appliedVersion;
+    }
+
+    public void setAppliedVersion(Long value) {
+        appliedVersion = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public java.time.LocalDateTime getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public void setAcceptedAt(java.time.LocalDateTime value) {
+        acceptedAt = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

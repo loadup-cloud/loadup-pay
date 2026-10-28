@@ -26,5 +26,8 @@ public record ReconciliationLedgerSourceDTO(
         @Schema(description = "One blocker sample identity, not an exhaustive difference list") String blockerSubjectId,
         @Schema(description = "Original source task id") String nativeTaskId,
         @Schema(description = "Independent native task status") String nativeStatus) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

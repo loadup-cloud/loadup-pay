@@ -19,24 +19,37 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Persisted UNKNOWN identity and cursor metadata only, never an execution ticket. */
+/**
+ * Persisted UNKNOWN identity and cursor metadata only, never an execution ticket.
+ */
 public record UnknownRecoveryEntry(PaymentRecoveryKind kind, String recordId, String subjectId, String orderId,
-        String payeeMerchantId, Money amount, LocalDateTime firstUnknownAt, Long rowVersion,
-        Long recoveryGeneration, Boolean recoveryCompleted) {
+                                   String payeeMerchantId, Money amount, LocalDateTime firstUnknownAt, Long rowVersion,
+                                   Long recoveryGeneration, Boolean recoveryCompleted) {
     public UnknownRecoveryEntry {
         Objects.requireNonNull(kind);
-        DomainChecks.id(recordId); DomainChecks.id(subjectId); DomainChecks.id(orderId); DomainChecks.id(payeeMerchantId);
-        DomainChecks.cnyAmount(amount); Objects.requireNonNull(firstUnknownAt); Objects.requireNonNull(rowVersion);
+        DomainChecks.id(recordId);
+        DomainChecks.id(subjectId);
+        DomainChecks.id(orderId);
+        DomainChecks.id(payeeMerchantId);
+        DomainChecks.cnyAmount(amount);
+        Objects.requireNonNull(firstUnknownAt);
+        Objects.requireNonNull(rowVersion);
         require(amount.getCent() > 0 && rowVersion >= 0 && firstUnknownAt.getNano() % 1000 == 0
                 && firstUnknownAt.getYear() >= 1970 && firstUnknownAt.getYear() <= 9998, INVALID_ARGUMENT);
         require((recoveryGeneration == null) == (recoveryCompleted == null)
                 && (recoveryGeneration == null || recoveryGeneration >= 0), INVALID_ARGUMENT);
         require(kind != PaymentRecoveryKind.COLLECTION || recordId.equals(subjectId), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -21,16 +21,23 @@ import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import org.springframework.stereotype.Component;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class CashierChoices {
     private final CashierCapabilities hosted;
     private final OrderCreationCodec admissions;
-    public CashierChoices(CashierCapabilities hosted, OrderCreationCodec admissions) { this.hosted = hosted; this.admissions = admissions; }
+
+    public CashierChoices(CashierCapabilities hosted, OrderCreationCodec admissions) {
+        this.hosted = hosted;
+        this.admissions = admissions;
+    }
+
     public Set<PaymentChoiceDTO> choices(StoredAcquireOrder order, LocalDateTime at) {
         var policy = order.order().paymentPolicy();
         if (policy.maxSuccessfulPayments() != null && (long) order.order().successfulPaymentCount() + order.order().reservedPaymentCount()

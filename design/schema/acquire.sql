@@ -27,7 +27,8 @@ CREATE TABLE order_create_intent
     UNIQUE KEY uk_intent_order (tenant_id, order_id),
     UNIQUE KEY uk_intent_initial_session (tenant_id, initial_session_id),
     KEY ix_intent_recovery (tenant_id, state, updated_at),
-    CONSTRAINT ck_intent_entry_state CHECK (entry_mode IN ('ORDER', 'CHECKOUT', 'DIRECT_PAY') AND state IN ('INIT', 'COMPLETED', 'REJECTED', 'EXPIRED')),
+    CONSTRAINT ck_intent_entry_state CHECK (entry_mode IN ('ORDER', 'CHECKOUT', 'DIRECT_PAY') AND
+                                            state IN ('INIT', 'COMPLETED', 'REJECTED', 'EXPIRED')),
     CONSTRAINT ck_intent_initial_session CHECK ((entry_mode IN ('ORDER', 'DIRECT_PAY') AND initial_session_id IS NULL)
         OR (entry_mode = 'CHECKOUT' AND initial_session_id IS NOT NULL))
 ) ENGINE = InnoDB
@@ -157,46 +158,53 @@ CREATE TABLE order_fee
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
-CREATE TABLE fee_adjustment (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    order_id VARCHAR(64) NOT NULL,
-    fee_id VARCHAR(64) NOT NULL,
-    trigger_key VARCHAR(128) NOT NULL,
-    source_event_id VARCHAR(64) NOT NULL,
-    source_version BIGINT NOT NULL,
-    adjustment_minor BIGINT NOT NULL,
-    currency CHAR(3) NOT NULL,
-    cumulative_refunded_minor BIGINT NOT NULL,
-    rule_snapshot LONGTEXT NOT NULL,
-    applied_at DATETIME(6) NOT NULL,
+CREATE TABLE fee_adjustment
+(
+    id                        VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id                 VARCHAR(64)  NOT NULL,
+    created_at                DATETIME(6)  NOT NULL,
+    updated_at                DATETIME(6)  NOT NULL,
+    deleted                   TINYINT      NOT NULL DEFAULT 0,
+    order_id                  VARCHAR(64)  NOT NULL,
+    fee_id                    VARCHAR(64)  NOT NULL,
+    trigger_key               VARCHAR(128) NOT NULL,
+    source_event_id           VARCHAR(64)  NOT NULL,
+    source_version            BIGINT       NOT NULL,
+    adjustment_minor          BIGINT       NOT NULL,
+    currency                  CHAR(3)      NOT NULL,
+    cumulative_refunded_minor BIGINT       NOT NULL,
+    rule_snapshot             LONGTEXT     NOT NULL,
+    applied_at                DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_fee_adjust_trigger (tenant_id, fee_id, trigger_key),
     KEY ix_fee_adjust_order (tenant_id, order_id, created_at, id),
-    CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND cumulative_refunded_minor > 0),
+    CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND
+           cumulative_refunded_minor > 0),
     CHECK (JSON_VALID(rule_snapshot) AND OCTET_LENGTH(rule_snapshot) <= 32768)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-CREATE TABLE fee_refund_receipt (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    delivery_id VARCHAR(64) NOT NULL,
+CREATE TABLE fee_refund_receipt
+(
+    id                VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id         VARCHAR(64) NOT NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
+    deleted           TINYINT     NOT NULL DEFAULT 0,
+    delivery_id       VARCHAR(64) NOT NULL,
     business_event_id VARCHAR(64) NOT NULL,
-    order_id VARCHAR(64) NOT NULL,
-    source_version BIGINT NOT NULL,
-    applied_version BIGINT NOT NULL,
-    request_digest CHAR(64) NOT NULL,
+    order_id          VARCHAR(64) NOT NULL,
+    source_version    BIGINT      NOT NULL,
+    applied_version   BIGINT      NOT NULL,
+    request_digest    CHAR(64)    NOT NULL,
     caller_service_id VARCHAR(64) NOT NULL,
-    accepted_at DATETIME(6) NOT NULL,
+    accepted_at       DATETIME(6) NOT NULL,
     UNIQUE KEY uk_fee_refund_delivery (tenant_id, delivery_id),
     KEY ix_fee_refund_order (tenant_id, order_id, applied_version),
     CHECK (deleted = 0 AND source_version > 0 AND applied_version >= source_version)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
 CREATE TABLE checkout_session
 (
@@ -248,35 +256,35 @@ CREATE TABLE order_command_receipt
 
 CREATE TABLE merchant_notification_delivery
 (
-    id                    VARCHAR(64) NOT NULL,
-    tenant_id             VARCHAR(64) NOT NULL,
-    created_at            DATETIME(6) NOT NULL,
-    updated_at            DATETIME(6) NOT NULL,
-    deleted               TINYINT NOT NULL DEFAULT 0,
-    event_id              VARCHAR(64) NOT NULL,
-    order_id              VARCHAR(64) NOT NULL,
-    payee_merchant_id     VARCHAR(64) NOT NULL,
-    event_type            VARCHAR(64) NOT NULL,
-    aggregate_id          VARCHAR(64) NOT NULL,
-    source_version        BIGINT NOT NULL,
-    body                  MEDIUMTEXT NOT NULL,
-    body_digest           CHAR(64) NOT NULL,
-    target_ref            VARCHAR(128) NOT NULL,
-    signing_identity_ref  VARCHAR(128) NOT NULL,
-    timeout_millis        INT NOT NULL,
-    retry_initial_seconds BIGINT NOT NULL,
-    retry_multiplier      DECIMAL(38,18) NOT NULL,
-    retry_maximum_seconds BIGINT NOT NULL,
-    retry_max_attempts    INT NOT NULL,
-    retry_window_seconds  BIGINT NOT NULL,
-    occurred_at           DATETIME(6) NOT NULL,
-    expires_at            DATETIME(6) NOT NULL,
-    next_attempt_at       DATETIME(6) NOT NULL,
-    attempt_count         INT NOT NULL DEFAULT 0,
-    state                 VARCHAR(24) NOT NULL,
-    route_fingerprint     CHAR(64) NULL,
-    acknowledged_at       DATETIME(6) NULL,
-    row_version           BIGINT NOT NULL DEFAULT 0,
+    id                    VARCHAR(64)     NOT NULL,
+    tenant_id             VARCHAR(64)     NOT NULL,
+    created_at            DATETIME(6)     NOT NULL,
+    updated_at            DATETIME(6)     NOT NULL,
+    deleted               TINYINT         NOT NULL DEFAULT 0,
+    event_id              VARCHAR(64)     NOT NULL,
+    order_id              VARCHAR(64)     NOT NULL,
+    payee_merchant_id     VARCHAR(64)     NOT NULL,
+    event_type            VARCHAR(64)     NOT NULL,
+    aggregate_id          VARCHAR(64)     NOT NULL,
+    source_version        BIGINT          NOT NULL,
+    body                  MEDIUMTEXT      NOT NULL,
+    body_digest           CHAR(64)        NOT NULL,
+    target_ref            VARCHAR(128)    NOT NULL,
+    signing_identity_ref  VARCHAR(128)    NOT NULL,
+    timeout_millis        INT             NOT NULL,
+    retry_initial_seconds BIGINT          NOT NULL,
+    retry_multiplier      DECIMAL(38, 18) NOT NULL,
+    retry_maximum_seconds BIGINT          NOT NULL,
+    retry_max_attempts    INT             NOT NULL,
+    retry_window_seconds  BIGINT          NOT NULL,
+    occurred_at           DATETIME(6)     NOT NULL,
+    expires_at            DATETIME(6)     NOT NULL,
+    next_attempt_at       DATETIME(6)     NOT NULL,
+    attempt_count         INT             NOT NULL DEFAULT 0,
+    state                 VARCHAR(24)     NOT NULL,
+    route_fingerprint     CHAR(64)        NULL,
+    acknowledged_at       DATETIME(6)     NULL,
+    row_version           BIGINT          NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_notification_event_target (tenant_id, event_id, target_ref),
     KEY ix_notification_order (tenant_id, order_id, occurred_at, id),
@@ -297,22 +305,22 @@ CREATE TABLE merchant_notification_delivery
 -- Durable internal registration acknowledgement; merchant delivery uses merchant_notification_delivery.
 CREATE TABLE refund_notification_receipt
 (
-    id                 VARCHAR(64) NOT NULL,
-    tenant_id          VARCHAR(64) NOT NULL,
-    created_at         DATETIME(6) NOT NULL,
-    updated_at         DATETIME(6) NOT NULL,
-    deleted            TINYINT NOT NULL DEFAULT 0,
-    delivery_id        VARCHAR(64) NOT NULL,
-    business_event_id  VARCHAR(64) NOT NULL,
-    aggregate_id       VARCHAR(64) NOT NULL,
-    source_version     BIGINT NOT NULL,
-    order_id           VARCHAR(64) NOT NULL,
-    payee_merchant_id  VARCHAR(64) NOT NULL,
-    request_digest     CHAR(64) NOT NULL,
-    caller_service_id  VARCHAR(64) NOT NULL,
-    merchant_event_id  CHAR(64) NOT NULL,
-    disposition        VARCHAR(24) NOT NULL,
-    accepted_at        DATETIME(6) NOT NULL,
+    id                VARCHAR(64) NOT NULL,
+    tenant_id         VARCHAR(64) NOT NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
+    deleted           TINYINT     NOT NULL DEFAULT 0,
+    delivery_id       VARCHAR(64) NOT NULL,
+    business_event_id VARCHAR(64) NOT NULL,
+    aggregate_id      VARCHAR(64) NOT NULL,
+    source_version    BIGINT      NOT NULL,
+    order_id          VARCHAR(64) NOT NULL,
+    payee_merchant_id VARCHAR(64) NOT NULL,
+    request_digest    CHAR(64)    NOT NULL,
+    caller_service_id VARCHAR(64) NOT NULL,
+    merchant_event_id CHAR(64)    NOT NULL,
+    disposition       VARCHAR(24) NOT NULL,
+    accepted_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_notification_delivery (tenant_id, delivery_id),
     KEY ix_refund_notification_order (tenant_id, order_id, accepted_at, id),
@@ -326,52 +334,53 @@ CREATE TABLE refund_notification_receipt
 -- Immutable notification wake operation audit.
 CREATE TABLE merchant_notification_wake_receipt
 (
-    id                VARCHAR(64) NOT NULL,
-    tenant_id         VARCHAR(64) NOT NULL,
-    created_at        DATETIME(6) NOT NULL,
-    updated_at        DATETIME(6) NOT NULL,
-    deleted           TINYINT NOT NULL DEFAULT 0,
-    delivery_id       VARCHAR(64) NOT NULL,
-    event_id          VARCHAR(64) NOT NULL,
+    id                VARCHAR(64)  NOT NULL,
+    tenant_id         VARCHAR(64)  NOT NULL,
+    created_at        DATETIME(6)  NOT NULL,
+    updated_at        DATETIME(6)  NOT NULL,
+    deleted           TINYINT      NOT NULL DEFAULT 0,
+    delivery_id       VARCHAR(64)  NOT NULL,
+    event_id          VARCHAR(64)  NOT NULL,
     request_key       VARCHAR(128) NOT NULL,
-    caller_scope_hash CHAR(64) NOT NULL,
-    principal_type    VARCHAR(24) NOT NULL,
+    caller_scope_hash CHAR(64)     NOT NULL,
+    principal_type    VARCHAR(24)  NOT NULL,
     principal_id      VARCHAR(128) NOT NULL,
     reason            VARCHAR(500) NOT NULL,
-    request_digest    CHAR(64) NOT NULL,
-    result            VARCHAR(24) NOT NULL,
-    attempt_count     INT NOT NULL,
-    delivery_version  BIGINT NOT NULL,
-    native_task_id    VARCHAR(64) NULL,
-    accepted_at       DATETIME(6) NOT NULL,
+    request_digest    CHAR(64)     NOT NULL,
+    result            VARCHAR(24)  NOT NULL,
+    attempt_count     INT          NOT NULL,
+    delivery_version  BIGINT       NOT NULL,
+    native_task_id    VARCHAR(64)  NULL,
+    accepted_at       DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_notification_wake_request (tenant_id, caller_scope_hash, request_key),
     KEY ix_notification_wake_delivery (tenant_id, delivery_id, accepted_at, id),
     CHECK (principal_type IN ('OPERATOR', 'SERVICE')),
     CHECK (attempt_count >= 0 AND delivery_version >= 0),
-    CHECK (result IN ('REGISTERED', 'RETRIED', 'RESCHEDULED', 'PENDING', 'RUNNING', 'WAITING', 'ACKED', 'EXHAUSTED', 'EXPIRED'))
+    CHECK (result IN
+           ('REGISTERED', 'RETRIED', 'RESCHEDULED', 'PENDING', 'RUNNING', 'WAITING', 'ACKED', 'EXHAUSTED', 'EXPIRED'))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
 CREATE TABLE checkout_session_revocation_receipt
 (
-    id                VARCHAR(64) NOT NULL,
-    tenant_id         VARCHAR(64) NOT NULL,
-    created_at        DATETIME(6) NOT NULL,
-    updated_at        DATETIME(6) NOT NULL,
-    deleted           TINYINT NOT NULL DEFAULT 0,
-    session_id        VARCHAR(64) NOT NULL,
-    order_id          VARCHAR(64) NOT NULL,
+    id                VARCHAR(64)  NOT NULL,
+    tenant_id         VARCHAR(64)  NOT NULL,
+    created_at        DATETIME(6)  NOT NULL,
+    updated_at        DATETIME(6)  NOT NULL,
+    deleted           TINYINT      NOT NULL DEFAULT 0,
+    session_id        VARCHAR(64)  NOT NULL,
+    order_id          VARCHAR(64)  NOT NULL,
     request_key       VARCHAR(128) NOT NULL,
-    caller_scope_hash CHAR(64) NOT NULL,
-    request_digest    CHAR(64) NOT NULL,
+    caller_scope_hash CHAR(64)     NOT NULL,
+    request_digest    CHAR(64)     NOT NULL,
     reason            VARCHAR(500) NOT NULL,
-    newly_revoked     TINYINT NOT NULL,
-    before_version    BIGINT NOT NULL,
-    session_version   BIGINT NOT NULL,
-    revoked_at        DATETIME(6) NOT NULL,
-    accepted_at       DATETIME(6) NOT NULL,
+    newly_revoked     TINYINT      NOT NULL,
+    before_version    BIGINT       NOT NULL,
+    session_version   BIGINT       NOT NULL,
+    revoked_at        DATETIME(6)  NOT NULL,
+    accepted_at       DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_revocation_request (tenant_id, caller_scope_hash, request_key),
     KEY ix_session_revocation_history (tenant_id, session_id, accepted_at, id),
@@ -383,44 +392,50 @@ CREATE TABLE checkout_session_revocation_receipt
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
 
-CREATE TABLE allocation_recovery_cursor (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
+CREATE TABLE allocation_recovery_cursor
+(
+    id         VARCHAR(64) NOT NULL PRIMARY KEY,
+    tenant_id  VARCHAR(64) NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    order_id VARCHAR(64) NOT NULL,
-    generation BIGINT NOT NULL,
-    due_at DATETIME(6) NOT NULL,
-    completed TINYINT NOT NULL DEFAULT 0,
+    deleted    TINYINT     NOT NULL DEFAULT 0,
+    order_id   VARCHAR(64) NOT NULL,
+    generation BIGINT      NOT NULL,
+    due_at     DATETIME(6) NOT NULL,
+    completed  TINYINT     NOT NULL DEFAULT 0,
     KEY ix_allocation_recovery_order (tenant_id, order_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;
 
-CREATE TABLE acquire_recovery_retry_receipt (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id VARCHAR(64) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    deleted TINYINT NOT NULL DEFAULT 0,
-    request_key VARCHAR(128) NOT NULL,
-    caller_scope_hash CHAR(64) NOT NULL,
-    caller_service_id VARCHAR(64) NOT NULL,
-    request_digest CHAR(64) NOT NULL,
-    kind VARCHAR(32) NOT NULL,
-    subject_id VARCHAR(64) NOT NULL,
-    generation BIGINT NOT NULL,
-    order_id VARCHAR(64) NOT NULL,
-    native_task_id VARCHAR(64) NOT NULL,
-    expected_attempts INT NOT NULL,
-    expected_next_execute_at DATETIME(6) NOT NULL,
-    reason VARCHAR(500) NOT NULL,
-    result VARCHAR(32) NOT NULL,
-    accepted_at DATETIME(6) NOT NULL,
+CREATE TABLE acquire_recovery_retry_receipt
+(
+    id                       VARCHAR(64)  NOT NULL PRIMARY KEY,
+    tenant_id                VARCHAR(64)  NOT NULL,
+    created_at               DATETIME(6)  NOT NULL,
+    updated_at               DATETIME(6)  NOT NULL,
+    deleted                  TINYINT      NOT NULL DEFAULT 0,
+    request_key              VARCHAR(128) NOT NULL,
+    caller_scope_hash        CHAR(64)     NOT NULL,
+    caller_service_id        VARCHAR(64)  NOT NULL,
+    request_digest           CHAR(64)     NOT NULL,
+    kind                     VARCHAR(32)  NOT NULL,
+    subject_id               VARCHAR(64)  NOT NULL,
+    generation               BIGINT       NOT NULL,
+    order_id                 VARCHAR(64)  NOT NULL,
+    native_task_id           VARCHAR(64)  NOT NULL,
+    expected_attempts        INT          NOT NULL,
+    expected_next_execute_at DATETIME(6)  NOT NULL,
+    reason                   VARCHAR(500) NOT NULL,
+    result                   VARCHAR(32)  NOT NULL,
+    accepted_at              DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_acquire_recovery_retry (tenant_id, caller_scope_hash, request_key),
     KEY ix_acquire_recovery_retry_order (tenant_id, order_id, accepted_at),
     CHECK (deleted = 0 AND generation >= 0 AND expected_attempts > 0),
     CHECK (kind IN ('PAYMENT_ALLOCATION', 'ORDER_DEADLINE', 'ORDER_CLOSURE')),
     CHECK (kind <> 'ORDER_DEADLINE' OR generation > 0),
     CHECK (result IN ('RETRIED', 'NO_LONGER_NEEDED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_bin;

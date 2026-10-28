@@ -18,7 +18,7 @@ message WirePaymentCaptureCreateCommand {
   optional string bill_date = 4;
   optional string statement_profile = 5;
 }
-message WirePaymentCaptureQuery { optional string id = 1; }
+message WirePaymentCaptureQuery {optional string id = 1;}
 message WirePaymentCaptureLinesQuery {
   optional string capture_id = 1;
   optional int32 page = 2;

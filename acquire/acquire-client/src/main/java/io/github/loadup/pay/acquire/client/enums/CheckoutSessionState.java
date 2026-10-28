@@ -15,5 +15,7 @@
  */
 package io.github.loadup.pay.acquire.client.enums;
 
-/** Business lifecycle; security revocation is exposed independently. */
-public enum CheckoutSessionState { INIT, ACTIVE, COMPLETED, CANCELLED, EXPIRED }
+/**
+ * Business lifecycle; security revocation is exposed independently.
+ */
+public enum CheckoutSessionState {INIT, ACTIVE, COMPLETED, CANCELLED, EXPIRED}

@@ -18,18 +18,27 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskHandler;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** A native due wake-up uses the persisted deadline version, never a timer as financial evidence. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * A native due wake-up uses the persisted deadline version, never a timer as financial evidence.
+ */
 @Service
 public class OrderDeadlineService implements DelayedTaskHandler {
     private final DelayedTaskTemplate tasks;
@@ -42,14 +51,26 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     private final Clock clock;
 
     public OrderDeadlineService(DelayedTaskTemplate tasks, OrderCreationGateway orders,
-            io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions, OrderClosureGateway closes,
-            OrderClosureOperations operations, OrderCreationTransactions transactions, OrderSnapshotEvents snapshots,
-            @Qualifier("acquireClock") Clock clock) {
-        this.tasks = tasks; this.orders = orders; this.extensions = extensions; this.closes = closes;
-        this.operations = operations; this.transactions = transactions; this.snapshots = snapshots; this.clock = clock;
+                                io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions, OrderClosureGateway closes,
+                                OrderClosureOperations operations, OrderCreationTransactions transactions, OrderSnapshotEvents snapshots,
+                                @Qualifier("acquireClock") Clock clock) {
+        this.tasks = tasks;
+        this.orders = orders;
+        this.extensions = extensions;
+        this.closes = closes;
+        this.operations = operations;
+        this.transactions = transactions;
+        this.snapshots = snapshots;
+        this.clock = clock;
     }
-    @Override public String taskType() { return OrderDeadlineTasks.TYPE; }
-    @Override public void handle(DelayedTask task) {
+
+    @Override
+    public String taskType() {
+        return OrderDeadlineTasks.TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
         var key = validate(task);
         if (key.generation() < 1) throw new CommonException(SNAPSHOT_INVALID);
         transactions.writeLocal(task.tenantId(), () -> {
@@ -62,7 +83,8 @@ public class OrderDeadlineService implements DelayedTaskHandler {
             var at = LocalDateTime.now(clock);
             if (at.isBefore(order.order().orderDueAt())) throw new CommonException(INVALID_STATE);
             var scope = new OrderPaymentScope(task.tenantId(), order.callerScopeHash());
-            if (order.order().state() == AcquireOrderState.PAID || order.order().state() == AcquireOrderState.CLOSED) return true;
+            if (order.order().state() == AcquireOrderState.PAID || order.order().state() == AcquireOrderState.CLOSED)
+                return true;
             if (order.order().state() == AcquireOrderState.CLOSING) {
                 var original = closes.findIntent(task.tenantId(), key.orderId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -86,8 +108,11 @@ public class OrderDeadlineService implements DelayedTaskHandler {
         if (task == null || task.tenantId() == null || !taskType().equals(task.taskType())
                 || !task.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
         final OrderTaskKey key;
-        try { key = OrderTaskKey.parse(task.bizId()); }
-        catch (DomainViolation invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            key = OrderTaskKey.parse(task.bizId());
+        } catch (DomainViolation invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var nativeTask = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = LocalDateTime.now(clock);
         if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())

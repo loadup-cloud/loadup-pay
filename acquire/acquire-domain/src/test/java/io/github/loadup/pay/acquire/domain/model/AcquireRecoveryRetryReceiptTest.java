@@ -17,15 +17,21 @@ package io.github.loadup.pay.acquire.domain.model;
 
 import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class AcquireRecoveryRetryReceiptTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 26, 12, 0);
+
     AcquireRecoveryRetryReceipt receipt(String kind, String subject, long generation, String result, LocalDateTime expectedAt) {
         return new AcquireRecoveryRetryReceipt("receipt", "operation", "a".repeat(64), "pay-ops", "b".repeat(64), kind,
                 subject, generation, "order", "task", 5, expectedAt, "Audited private reason", result, at);
     }
+
     @Test
     void onlyNativeRetryDecisionsAndKnownTaskKindsCanEnterTheAuditLedger() {
         assertEquals("RETRIED", receipt("PAYMENT_ALLOCATION", "payment", 0L, "RETRIED", at).result());

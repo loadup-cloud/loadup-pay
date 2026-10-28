@@ -26,8 +26,11 @@ import java.util.Objects;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Polling pace only. It neither concludes financial outcomes nor grants execution rights. */
-public record RecoveryPollingPolicy(long initialDelaySeconds, long maximumDelaySeconds, long backoffEverySeconds, int jitterPercent) {
+/**
+ * Polling pace only. It neither concludes financial outcomes nor grants execution rights.
+ */
+public record RecoveryPollingPolicy(long initialDelaySeconds, long maximumDelaySeconds, long backoffEverySeconds,
+                                    int jitterPercent) {
     public RecoveryPollingPolicy {
         require(initialDelaySeconds >= 1 && initialDelaySeconds <= 86400
                 && maximumDelaySeconds >= initialDelaySeconds && maximumDelaySeconds <= 86400
@@ -36,7 +39,7 @@ public record RecoveryPollingPolicy(long initialDelaySeconds, long maximumDelayS
     }
 
     public LocalDateTime nextAt(String tenant, String operation, String businessId, long generation,
-            LocalDateTime startedAt, LocalDateTime previousDueAt, LocalDateTime now) {
+                                LocalDateTime startedAt, LocalDateTime previousDueAt, LocalDateTime now) {
         DomainChecks.id(tenant);
         DomainChecks.text(operation, 128);
         DomainChecks.id(businessId);

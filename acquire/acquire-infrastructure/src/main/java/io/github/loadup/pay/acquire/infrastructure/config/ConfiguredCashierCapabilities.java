@@ -15,18 +15,24 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.config;
 
-import io.github.loadup.pay.acquire.app.port.CashierCapabilities;
 import io.github.loadup.pay.acquire.app.converter.CashierPaymentConverter;
+import io.github.loadup.pay.acquire.app.port.CashierCapabilities;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import org.springframework.stereotype.Component;
+
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
 public class ConfiguredCashierCapabilities implements CashierCapabilities {
     private final Set<PaymentChoiceDTO> choices;
+
     public ConfiguredCashierCapabilities(CashierProperties properties, CashierPaymentConverter converter) {
         choices = properties.h5Channels().stream().map(converter::toH5Choice).collect(Collectors.toUnmodifiableSet());
     }
-    @Override public Set<PaymentChoiceDTO> choices() { return choices; }
+
+    @Override
+    public Set<PaymentChoiceDTO> choices() {
+        return choices;
+    }
 }

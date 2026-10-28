@@ -29,9 +29,7 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
-import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -43,9 +41,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayNotificationCodecTest {
     private static final String ORDER_NO = "payment-request-18";
@@ -61,6 +63,70 @@ class AlipayNotificationCodecTest {
 
     private final AlipayCredentialReader credentials = mock(AlipayCredentialReader.class);
     private final AlipayNotificationCodec codec = new AlipayNotificationCodec(credentials);
+
+    private static Map<String, String> fields() {
+        var values = new LinkedHashMap<String, String>();
+        values.put("app_id", "app");
+        values.put("seller_id", "seller");
+        values.put("out_trade_no", ORDER_NO);
+        values.put("total_amount", "1250.00");
+        values.put("notify_type", "trade_status_sync");
+        values.put("notify_time", "2026-10-23 18:30:00");
+        values.put("notify_id", "notify-18");
+        values.put("trade_no", "ali-trade-18");
+        values.put("trade_status", "TRADE_SUCCESS");
+        values.put("subject", "午餐 + tea");
+        values.put("extra_field", "unknown signed value");
+        values.put("sign_type", "RSA2");
+        values.put("charset", "utf-8");
+        return values;
+    }
+
+    private static Map<String, String> with(Map<String, String> original, String key, String value) {
+        var copy = new LinkedHashMap<>(original);
+        copy.put(key, value);
+        return copy;
+    }
+
+    private static String signedForm(Map<String, String> fields, KeyPair keys) throws Exception {
+        var canonicalFields = new TreeMap<>(fields);
+        canonicalFields.remove("sign");
+        canonicalFields.remove("sign_type");
+        var signer = Signature.getInstance("SHA256withRSA");
+        signer.initSign(keys.getPrivate());
+        signer.update(AlipayProtocolCodec.canonical(canonicalFields).getBytes(StandardCharsets.UTF_8));
+        var signedFields = new LinkedHashMap<>(fields);
+        signedFields.put("sign", Base64.getEncoder().encodeToString(signer.sign()));
+        return signedFields.entrySet().stream()
+                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
+                .collect(java.util.stream.Collectors.joining("&"));
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String signatureFrom(String form) {
+        for (var entry : form.split("&")) {
+            if (entry.startsWith("sign="))
+                return java.net.URLDecoder.decode(entry.substring(5), StandardCharsets.UTF_8);
+        }
+        return "";
+    }
+
+    private static ChannelNotificationInput input(String body) {
+        return input(body, "application/x-www-form-urlencoded; charset=UTF-8");
+    }
+
+    private static ChannelNotificationInput input(String body, String contentType) {
+        return new ChannelNotificationInput(contentType, java.util.Map.of(), body.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private static KeyPair rsaKeyPair() throws Exception {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        return generator.generateKeyPair();
+    }
 
     @Test
     void identifyIsUntrustedAndDoesNotReadVerificationCredentials() throws Exception {
@@ -141,68 +207,5 @@ class AlipayNotificationCodecTest {
     private void assertInvalid(String form, String contentType) {
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant",
                 () -> codec.verify(CONTEXT, TARGET, input(form, contentType))));
-    }
-
-    private static Map<String, String> fields() {
-        var values = new LinkedHashMap<String, String>();
-        values.put("app_id", "app");
-        values.put("seller_id", "seller");
-        values.put("out_trade_no", ORDER_NO);
-        values.put("total_amount", "1250.00");
-        values.put("notify_type", "trade_status_sync");
-        values.put("notify_time", "2026-10-23 18:30:00");
-        values.put("notify_id", "notify-18");
-        values.put("trade_no", "ali-trade-18");
-        values.put("trade_status", "TRADE_SUCCESS");
-        values.put("subject", "午餐 + tea");
-        values.put("extra_field", "unknown signed value");
-        values.put("sign_type", "RSA2");
-        values.put("charset", "utf-8");
-        return values;
-    }
-
-    private static Map<String, String> with(Map<String, String> original, String key, String value) {
-        var copy = new LinkedHashMap<>(original);
-        copy.put(key, value);
-        return copy;
-    }
-
-    private static String signedForm(Map<String, String> fields, KeyPair keys) throws Exception {
-        var canonicalFields = new TreeMap<>(fields);
-        canonicalFields.remove("sign");
-        canonicalFields.remove("sign_type");
-        var signer = Signature.getInstance("SHA256withRSA");
-        signer.initSign(keys.getPrivate());
-        signer.update(AlipayProtocolCodec.canonical(canonicalFields).getBytes(StandardCharsets.UTF_8));
-        var signedFields = new LinkedHashMap<>(fields);
-        signedFields.put("sign", Base64.getEncoder().encodeToString(signer.sign()));
-        return signedFields.entrySet().stream()
-                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
-                .collect(java.util.stream.Collectors.joining("&"));
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private static String signatureFrom(String form) {
-        for (var entry : form.split("&")) {
-            if (entry.startsWith("sign=")) return java.net.URLDecoder.decode(entry.substring(5), StandardCharsets.UTF_8);
-        }
-        return "";
-    }
-
-    private static ChannelNotificationInput input(String body) {
-        return input(body, "application/x-www-form-urlencoded; charset=UTF-8");
-    }
-
-    private static ChannelNotificationInput input(String body, String contentType) {
-        return new ChannelNotificationInput(contentType, java.util.Map.of(), body.getBytes(StandardCharsets.US_ASCII));
-    }
-
-    private static KeyPair rsaKeyPair() throws Exception {
-        var generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        return generator.generateKeyPair();
     }
 }

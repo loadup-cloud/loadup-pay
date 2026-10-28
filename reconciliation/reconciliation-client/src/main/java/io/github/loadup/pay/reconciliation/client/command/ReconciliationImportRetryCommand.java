@@ -17,10 +17,14 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record ReconciliationImportRetryCommand(
         @Schema(description = "Original import id") @NotBlank @Size(max = 64) String importId,
         @Schema(description = "Original native transfer task id") @NotBlank @Size(max = 64) String expectedTaskId) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

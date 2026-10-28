@@ -21,7 +21,10 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.outbox.*;
+import io.github.loadup.components.outbox.OutboxEvent;
+import io.github.loadup.components.outbox.OutboxMessage;
+import io.github.loadup.components.outbox.OutboxRecord;
+import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
@@ -29,11 +32,23 @@ import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Optional;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundMerchantDeliveryTest {
     final OutboxTemplate outbox = mock(OutboxTemplate.class);
@@ -48,27 +63,35 @@ class RefundMerchantDeliveryTest {
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     final String merchantEventId = DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", "tenant", "RefundFailed", "refund", 3L)));
 
-    @BeforeEach void setup() {
+    @BeforeEach
+    void setup() {
         when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", RefundMerchantEventDTO.TYPE,
                 "refund", "PROCESSING", 1, null)));
         when(codec.merchant("payload")).thenReturn(envelope);
         when(acquire.supportsTenant("tenant")).thenReturn(true);
         when(acquire.acceptRefundNotification("tenant", envelope)).thenReturn(ack("ENQUEUED"));
     }
-    void deliver() { TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event)); }
+
+    void deliver() {
+        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(event));
+    }
+
     RefundNotificationAckDTO ack(String disposition) {
         return new RefundNotificationAckDTO("delivery", "business", "refund", 3, merchantEventId, disposition);
     }
 
-    @Test void retriesPreserveTheOriginalSourceAndAcceptDurablyDisabledPolicies() {
-        deliver(); deliver();
+    @Test
+    void retriesPreserveTheOriginalSourceAndAcceptDurablyDisabledPolicies() {
+        deliver();
+        deliver();
         when(acquire.acceptRefundNotification("tenant", envelope)).thenReturn(ack("DISABLED"));
         deliver();
         verify(acquire, times(3)).acceptRefundNotification("tenant", envelope);
         verify(acquire, never()).acceptFeeRefund(anyString(), any());
     }
 
-    @Test void everyAcknowledgementIdentityMustMatchTheOriginalMessage() {
+    @Test
+    void everyAcknowledgementIdentityMustMatchTheOriginalMessage() {
         for (var wrong : List.of(
                 new RefundNotificationAckDTO("other", "business", "refund", 3, merchantEventId, "ENQUEUED"),
                 new RefundNotificationAckDTO("delivery", "other", "refund", 3, merchantEventId, "ENQUEUED"),
@@ -80,13 +103,17 @@ class RefundMerchantDeliveryTest {
         }
     }
 
-    @Test void unclaimedQueueWrongTenantAndActiveTransactionsCannotDeliver() {
+    @Test
+    void unclaimedQueueWrongTenantAndActiveTransactionsCannotDeliver() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
         when(outbox.find("tenant", "queue")).thenReturn(Optional.empty());
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, this::deliver).getResultCode()); }
-        finally { TransactionSynchronizationManager.clear(); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, this::deliver).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
         verifyNoInteractions(acquire);
     }
 }

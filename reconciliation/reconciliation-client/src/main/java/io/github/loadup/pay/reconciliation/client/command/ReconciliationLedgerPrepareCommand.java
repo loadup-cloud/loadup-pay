@@ -17,11 +17,15 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "Prepare one original source-owned snapshot")
 public record ReconciliationLedgerPrepareCommand(
         @Schema(description = "Original owned batch") @NotBlank @Size(max = 64) String batchId,
         @Schema(description = "Stable source request key; change only to request a fresh capture after a blocked result") @NotBlank @Size(max = 128) String requestKey) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

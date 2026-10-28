@@ -16,15 +16,20 @@
 package io.github.loadup.pay.reconciliation.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
-import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.payment.Channel;
-import java.time.LocalDate;
+import io.github.loadup.commons.validation.DomainChecks;
 
-/** The trusted actual collecting account and channel statement profile, independent of an application or payee. */
-public record ReconciliationScope(Channel channel, String accountScopeHash, LocalDate billDate, String statementProfile) {
+import java.time.LocalDate;
+import java.util.Objects;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * The trusted actual collecting account and channel statement profile, independent of an application or payee.
+ */
+public record ReconciliationScope(Channel channel, String accountScopeHash, LocalDate billDate,
+                                  String statementProfile) {
     public ReconciliationScope {
         require(channel == Channel.ALIPAY || channel == Channel.WECHAT, INVALID_ARGUMENT);
         require(accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
@@ -32,5 +37,9 @@ public record ReconciliationScope(Channel channel, String accountScopeHash, Loca
         require(billDate.getYear() >= 1970 && billDate.getYear() <= 9998, INVALID_ARGUMENT);
         DomainChecks.text(statementProfile, 64);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

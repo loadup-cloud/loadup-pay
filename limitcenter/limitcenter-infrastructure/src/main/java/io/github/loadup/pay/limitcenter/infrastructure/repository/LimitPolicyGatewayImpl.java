@@ -120,7 +120,8 @@ public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     public Optional<RuntimeLimitRule> lockRule(String tenant, LimitRule rule) {
         var row = rules.selectOneByQuery(ruleQuery(tenant, rule).forUpdate());
         if (row == null) return Optional.empty();
-        if (!java.time.ZoneId.systemDefault().getId().equals(row.getTimezone())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!java.time.ZoneId.systemDefault().getId().equals(row.getTimezone()))
+            throw new CommonException(SNAPSHOT_INVALID);
         return Optional.of(converter.toRuntime(row));
     }
 

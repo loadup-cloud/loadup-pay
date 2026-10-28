@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import org.mapstruct.Mapper;

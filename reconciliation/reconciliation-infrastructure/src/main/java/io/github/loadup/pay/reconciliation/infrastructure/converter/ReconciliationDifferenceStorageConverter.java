@@ -15,15 +15,20 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
 
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.reconciliation.domain.model.*;
-import io.github.loadup.pay.reconciliation.infrastructure.dataobject.*;
+import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifference;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationDifferenceDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
+
 import java.util.EnumSet;
 import java.util.Set;
+
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 @Mapper(config = LoadUpMapStructConfig.class, imports = ReconciliationDifferenceReason.class)
@@ -33,7 +38,9 @@ public interface ReconciliationDifferenceStorageConverter {
     @Mapping(target = "ledger", source = "ledger")
     @Mapping(target = "reasons", expression = "java(reasons(row))")
     ReconciliationDifference toDifference(ReconciliationDifferenceDO row, ReconciliationLine channel, ReconciliationLine ledger);
+
     ReconciliationKey toKey(ReconciliationDifferenceDO row);
+
     @Mapping(target = "id", source = "row.id")
     @Mapping(target = "batchId", source = "row.batchId")
     @Mapping(target = "runId", source = "row.runId")
@@ -49,10 +56,12 @@ public interface ReconciliationDifferenceStorageConverter {
         flag(result, row.getStateMismatch(), ReconciliationDifferenceReason.STATE_MISMATCH);
         return Set.copyOf(result);
     }
+
     private void flag(Set<ReconciliationDifferenceReason> result, Integer flag, ReconciliationDifferenceReason reason) {
         if (flag == null || flag < 0 || flag > 1) throw new CommonException(SNAPSHOT_INVALID);
         if (flag == 1) result.add(reason);
     }
+
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "batchId", source = "batchId")
@@ -72,5 +81,5 @@ public interface ReconciliationDifferenceStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")
     ReconciliationDifferenceDO toDO(String tenant, String batchId, String runId, ReconciliationDifference value,
-            String channelEntryId, String ledgerEntryId);
+                                    String channelEntryId, String ledgerEntryId);
 }

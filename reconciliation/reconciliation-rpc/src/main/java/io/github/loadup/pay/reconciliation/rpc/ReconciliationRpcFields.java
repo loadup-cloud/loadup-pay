@@ -17,40 +17,72 @@ package io.github.loadup.pay.reconciliation.rpc;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState;
+import io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
 
-/** Protocol scalar parsing only; account authorization belongs to the application. */
+/**
+ * Protocol scalar parsing only; account authorization belongs to the application.
+ */
 public final class ReconciliationRpcFields {
-    private ReconciliationRpcFields() {}
-    public static String date(LocalDate value) { return value == null ? null : value.toString(); }
+    private ReconciliationRpcFields() {
+    }
+
+    public static String date(LocalDate value) {
+        return value == null ? null : value.toString();
+    }
+
     public static LocalDate date(String value) {
         if (value == null) return null;
         try {
             var date = LocalDate.parse(value);
-            if (!date.toString().equals(value) || date.getYear() < 1970 || date.getYear() > 9998) throw new CommonException(INVALID_ARGUMENT);
+            if (!date.toString().equals(value) || date.getYear() < 1970 || date.getYear() > 9998)
+                throw new CommonException(INVALID_ARGUMENT);
             return date;
-        } catch (DateTimeParseException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        } catch (DateTimeParseException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
-    public static String channel(Channel value) { return value == null ? null : value.name(); }
+
+    public static String channel(Channel value) {
+        return value == null ? null : value.name();
+    }
+
     public static Channel channel(String value) {
         try {
             var channel = Channel.valueOf(value);
             if (channel != Channel.ALIPAY && channel != Channel.WECHAT) throw new CommonException(INVALID_ARGUMENT);
             return channel;
-        } catch (IllegalArgumentException | NullPointerException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
-    public static String side(ReconciliationSide value) { return value == null ? null : value.name(); }
+
+    public static String side(ReconciliationSide value) {
+        return value == null ? null : value.name();
+    }
+
     public static ReconciliationSide side(String value) {
-        try { return ReconciliationSide.valueOf(value); }
-        catch (IllegalArgumentException | NullPointerException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        try {
+            return ReconciliationSide.valueOf(value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
-    public static String state(ReconciliationBatchState value) { return value == null ? null : value.name(); }
+
+    public static String state(ReconciliationBatchState value) {
+        return value == null ? null : value.name();
+    }
+
     public static ReconciliationBatchState state(String value) {
-        try { return ReconciliationBatchState.valueOf(value); }
-        catch (IllegalArgumentException | NullPointerException invalid) { throw new CommonException(INVALID_ARGUMENT); }
+        try {
+            return ReconciliationBatchState.valueOf(value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 }

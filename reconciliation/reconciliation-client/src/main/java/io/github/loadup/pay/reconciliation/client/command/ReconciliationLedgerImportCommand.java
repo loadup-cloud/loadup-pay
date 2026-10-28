@@ -17,11 +17,15 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "Import only a complete sealed payment snapshot")
 public record ReconciliationLedgerImportCommand(
         @Schema(description = "Original owned batch") @NotBlank @Size(max = 64) String batchId,
         @Schema(description = "Original sealed payment capture") @NotBlank @Size(max = 64) String captureId) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

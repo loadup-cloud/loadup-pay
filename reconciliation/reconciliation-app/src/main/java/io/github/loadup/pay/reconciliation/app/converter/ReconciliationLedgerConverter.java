@@ -18,10 +18,14 @@ package io.github.loadup.pay.reconciliation.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationLedgerSourceDTO;
-import io.github.loadup.pay.reconciliation.domain.model.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class, imports = Money.class)
 public interface ReconciliationLedgerConverter {
@@ -31,11 +35,14 @@ public interface ReconciliationLedgerConverter {
     @Mapping(target = "statementProfile", source = "scope.statementProfile")
     @Mapping(target = "requestKey", source = "requestKey")
     PaymentCaptureCreateCommand toCreate(ReconciliationScope scope, String requestKey);
+
     ReconciliationLedgerSourceDTO toDTO(PaymentCaptureDTO value);
+
     @Mapping(target = "kind", source = "kind")
     @Mapping(target = "channelTransactionNo", source = "channelTransactionNo")
     @Mapping(target = "channelRefundNo", source = "channelRefundNo")
     ReconciliationKey toKey(PaymentLedgerLineDTO value);
+
     @Mapping(target = "key", source = "value")
     @Mapping(target = "amount", expression = "java(Money.ofMinor(value.amountMinor(), value.currency()))")
     @Mapping(target = "recordNumber", source = "ordinal")

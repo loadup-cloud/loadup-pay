@@ -19,18 +19,27 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.OBSERVATION_BEFORE_SUBMISSION;
+import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.PAYMENT_IDENTITY_MISMATCH;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PaymentExecutionBindingsTest {
-    enum Changed { PAYMENT, AMOUNT, MERCHANT, OPERATION, CALLER, PAYMENT_DIGEST }
-
-    @ParameterizedTest @EnumSource(Changed.class)
+    @ParameterizedTest
+    @EnumSource(Changed.class)
     void eachSharedMismatchUsesSnapshotFailureExceptForTheOriginalSubmissionRequestBoundary(Changed changed) {
         var accepted = AttemptFixtures.accepted(true);
         var prepared = changed(AttemptFixtures.prepared(), changed);
@@ -43,7 +52,8 @@ class PaymentExecutionBindingsTest {
         assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> PaymentExecutionBindings.submissionRequest(accepted, submitted)).getResultCode());
     }
 
-    @Test void observationConflictIsDataForTheExistingAuditPathRatherThanAnIdempotencyException() {
+    @Test
+    void observationConflictIsDataForTheExistingAuditPathRatherThanAnIdempotencyException() {
         var accepted = AttemptFixtures.accepted(true);
         var prepared = AttemptFixtures.prepared();
         var submitted = prepared.beginSubmission(1L, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
@@ -58,7 +68,8 @@ class PaymentExecutionBindingsTest {
         assertNull(PaymentExecutionBindings.observationRejection(accepted, submitted, identity, submitted.attempt().amount()));
     }
 
-    @Test void pureBindingDoesNotProduceAReplacementY2WinnerAndRouteMismatchStaysSnapshotInvalid() {
+    @Test
+    void pureBindingDoesNotProduceAReplacementY2WinnerAndRouteMismatchStaysSnapshotInvalid() {
         var accepted = AttemptFixtures.accepted(true);
         var prepared = AttemptFixtures.prepared();
         var binding = PaymentExecutionBindings.submittable(accepted, prepared);
@@ -69,7 +80,8 @@ class PaymentExecutionBindingsTest {
         assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> PaymentExecutionBindings.submissionRequest(accepted, prepared)).getResultCode());
     }
 
-    @Test void gateFailuresAndModeFailuresKeepTheirDistinctPaymentErrorCodes() {
+    @Test
+    void gateFailuresAndModeFailuresKeepTheirDistinctPaymentErrorCodes() {
         var accepted = AttemptFixtures.accepted(true);
         var prepared = AttemptFixtures.prepared();
         var parent = AttemptFixtures.gate(true);
@@ -93,8 +105,9 @@ class PaymentExecutionBindingsTest {
     private StoredPaymentAttempt changed(StoredPaymentAttempt value, Changed changed) {
         var source = value.attempt();
         var route = source.binding();
-        if (changed == Changed.MERCHANT) route = new ChannelBindingRevision(route.id(), "other-merchant", route.channel(), route.accessMode(),
-                route.accountScopeHash(), route.credentialReference(), route.credentialVersion(), route.identity(), route.capabilities());
+        if (changed == Changed.MERCHANT)
+            route = new ChannelBindingRevision(route.id(), "other-merchant", route.channel(), route.accessMode(),
+                    route.accountScopeHash(), route.credentialReference(), route.credentialVersion(), route.identity(), route.capabilities());
         var modified = new PaymentAttempt(source.id(), changed == Changed.PAYMENT ? "other-payment" : source.paymentId(), source.attemptNo(),
                 changed == Changed.AMOUNT ? Money.ofMinor(source.amount().getCent() + 1L, "CNY") : source.amount(), route,
                 source.method(), source.channelRequestNo(), source.state(), source.executionEpoch(), source.noCollectionEvidenceId());
@@ -103,4 +116,6 @@ class PaymentExecutionBindingsTest {
                 changed == Changed.PAYMENT_DIGEST ? "f".repeat(64) : value.paymentRequestDigest(), value.preparedInputRef(), value.riskDecision(),
                 value.executionPermitHash(), value.preparedAt(), value.submissionStartedAt(), value.rowVersion());
     }
+
+    enum Changed {PAYMENT, AMOUNT, MERCHANT, OPERATION, CALLER, PAYMENT_DIGEST}
 }

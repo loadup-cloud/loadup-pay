@@ -19,9 +19,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.CheckoutSessionState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
-/** Issuer-only metadata; credentials and reconstruction inputs are excluded. */
+/**
+ * Issuer-only metadata; credentials and reconstruction inputs are excluded.
+ */
 public record CheckoutSessionStatusDTO(
         @Schema(description = "Session id") String id,
         @Schema(description = "Original order id") String orderId,
@@ -31,5 +34,8 @@ public record CheckoutSessionStatusDTO(
         @Schema(description = "Permanent security revocation flag") @JsonInclude(JsonInclude.Include.ALWAYS) boolean revoked,
         @Schema(description = "Original security revocation time") OffsetDateTime revokedAt,
         @Schema(description = "Session row version for revocation preconditions") @JsonInclude(JsonInclude.Include.ALWAYS) long rowVersion) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

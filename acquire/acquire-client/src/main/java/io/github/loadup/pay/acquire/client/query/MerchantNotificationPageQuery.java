@@ -23,6 +23,7 @@ import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
 
 public record MerchantNotificationPageQuery(
@@ -36,9 +37,14 @@ public record MerchantNotificationPageQuery(
         @Schema(description = "Page size, up to 100") Integer size) {
     public MerchantNotificationPageQuery {
         var bounds = PageQuery.normalized(page, size, AcquireResultCodeEnum.INVALID_PAGE);
-        page = bounds.page(); size = bounds.size();
+        page = bounds.page();
+        size = bounds.size();
         if (occurredFrom != null) occurredFrom = occurredFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         if (occurredTo != null) occurredTo = occurredTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

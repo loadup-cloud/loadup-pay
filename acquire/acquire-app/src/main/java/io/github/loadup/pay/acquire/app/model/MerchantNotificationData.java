@@ -17,8 +17,14 @@ package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Explicit merchant projection; no channel credentials, buyer identity or internal evidence tokens. */
+/**
+ * Explicit merchant projection; no channel credentials, buyer identity or internal evidence tokens.
+ */
 public record MerchantNotificationData(String orderId, String paymentId, String payeeMerchantId, long amountMinor,
-        String currency, long orderPaidAmountMinor, long orderAmountMinor, String orderState) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                       String currency, long orderPaidAmountMinor, long orderAmountMinor,
+                                       String orderState) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

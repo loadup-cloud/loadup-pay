@@ -16,7 +16,10 @@
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationImportDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -24,12 +27,15 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationImportStorageConverter {
     ReconciliationScope toScope(ReconciliationImportDO row);
+
     @Mapping(target = "size", source = "fileSize")
     @Mapping(target = "sha256", source = "sourceSha256")
     ReconciliationFileSnapshot toFile(ReconciliationImportDO row);
+
     @Mapping(target = "merchantId", source = "statementMerchantId")
     @Mapping(target = "subMerchantId", source = "statementSubMerchantId")
     ReconciliationStatementAccount toAccount(ReconciliationImportDO row);
+
     @Mapping(target = "scope", source = "row")
     @Mapping(target = "statementAccount", source = "row")
     @Mapping(target = "file", source = "row")

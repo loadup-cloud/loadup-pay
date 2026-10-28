@@ -23,8 +23,11 @@ import java.util.Objects;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** UNKNOWN row inventory; nominal amount is not a limitcenter-held or channel-balance fact. */
-public record RecoveryInventoryCell(Kind kind, long unknownCount, long nominalAmountMinor, LocalDateTime oldestUnknownAt) {
+/**
+ * UNKNOWN row inventory; nominal amount is not a limitcenter-held or channel-balance fact.
+ */
+public record RecoveryInventoryCell(Kind kind, long unknownCount, long nominalAmountMinor,
+                                    LocalDateTime oldestUnknownAt) {
     public RecoveryInventoryCell {
         Objects.requireNonNull(kind);
         require(unknownCount >= 0 && nominalAmountMinor >= 0
@@ -44,7 +47,10 @@ public record RecoveryInventoryCell(Kind kind, long unknownCount, long nominalAm
                 Math.addExact(nominalAmountMinor, other.nominalAmountMinor), oldest);
     }
 
-    public enum Kind { PAYMENT, REFUND }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public enum Kind {PAYMENT, REFUND}
 }

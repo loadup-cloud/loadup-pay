@@ -18,12 +18,14 @@ package io.github.loadup.pay.acquire.client.facade;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionRevokeCommand;
-import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
 import io.github.loadup.pay.acquire.client.dto.CheckoutSessionRevocationDTO;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
 import io.github.loadup.pay.acquire.client.query.CheckoutSessionRevocationPageQuery;
 
 public interface CheckoutSessionManagementFacade {
     CheckoutSessionStatusDTO detail(IdQuery query);
+
     CheckoutSessionRevocationDTO revoke(CheckoutSessionRevokeCommand command);
+
     PageDTO<CheckoutSessionRevocationDTO> revocations(CheckoutSessionRevocationPageQuery query);
 }

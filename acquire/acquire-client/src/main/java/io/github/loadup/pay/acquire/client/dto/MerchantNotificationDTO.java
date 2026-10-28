@@ -18,9 +18,12 @@ package io.github.loadup.pay.acquire.client.dto;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.MerchantNotificationState;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
-/** Public delivery metadata excludes body, routing references, signing identities and native errors. */
+/**
+ * Public delivery metadata excludes body, routing references, signing identities and native errors.
+ */
 public record MerchantNotificationDTO(
         @Schema(description = "Delivery id") String id,
         @Schema(description = "Stable merchant event id") String eventId,
@@ -37,5 +40,8 @@ public record MerchantNotificationDTO(
         @Schema(description = "Business next-attempt time; terminal rows retain the historical value") OffsetDateTime nextAttemptAt,
         @Schema(description = "Merchant acknowledgement time, if received") OffsetDateTime acknowledgedAt,
         @Schema(description = "Delivery row version") long rowVersion) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

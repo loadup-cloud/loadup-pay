@@ -19,27 +19,70 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.payment.app.converter.PaymentRecoveryOperationsConverter;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentRecoveryRetryCommand;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.client.query.PaymentRecoveryTaskQuery;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
+import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+
 import static io.github.loadup.pay.payment.app.service.AttemptFixtures.NOW;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.VERSION_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentRecoveryOperationsServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentRecoveryOperationsConverter.class.getPackageName());
@@ -109,14 +152,24 @@ class PaymentRecoveryOperationsServiceTest {
         }).when(receipts).insert(eq("tenant"), any());
         put(PaymentRecoveryService.TYPE, "payment.0", NOW, NOW, DelayedTaskStatus.FAILED);
     }
-    @AfterEach void close() { context.close(); validation.close(); }
+
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
     void put(String type, String biz, LocalDateTime due, LocalDateTime next, DelayedTaskStatus status) {
         nativeTasks.put(type + "/" + biz, new DelayedTask(type.equals(RefundRecoveryService.TYPE) ? "native-refund-task" : "native-task", "tenant", type, biz, due, next, status, 5, 5, null, "private-wire-error"));
     }
+
     PaymentRecoveryRetryCommand command(PaymentRecoveryKind kind, String subject, String key, LocalDateTime next) {
         return new PaymentRecoveryRetryCommand(kind, subject, 0L, kind == PaymentRecoveryKind.REFUND_REQUEST ? "native-refund-task" : "native-task", 5, BusinessTime.external(next), key, "Dependency restored");
     }
-    PaymentRecoveryRetryCommand command() { return command(PaymentRecoveryKind.COLLECTION, "payment", "operation", NOW); }
+
+    PaymentRecoveryRetryCommand command() {
+        return command(PaymentRecoveryKind.COLLECTION, "payment", "operation", NOW);
+    }
 
     @Test
     void collectionInspectionUsesReadSnapshotAndHidesNativeErrors() {
@@ -270,8 +323,11 @@ class PaymentRecoveryOperationsServiceTest {
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode());
         actor.set(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:retry")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode()); }
-        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(receipts, payments, tasks);
     }
 }

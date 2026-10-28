@@ -16,12 +16,12 @@
 package io.github.loadup.pay.product.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.modules.contract.domain.model.ResolvedConfiguration;
-import io.github.loadup.modules.contract.domain.model.TypedValue;
-import io.github.loadup.modules.contract.domain.model.ValueType;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.modules.contract.domain.model.ResolvedConfiguration;
+import io.github.loadup.modules.contract.domain.model.TypedValue;
+import io.github.loadup.modules.contract.domain.model.ValueType;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;

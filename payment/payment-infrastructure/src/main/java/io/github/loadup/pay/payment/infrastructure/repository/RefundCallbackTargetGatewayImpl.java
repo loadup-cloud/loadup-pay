@@ -21,26 +21,37 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Objects;
 import java.util.Optional;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
 
-/** Bounded immutable refund lookup; no current route selection or local locks around channel calls. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
+
+/**
+ * Bounded immutable refund lookup; no current route selection or local locks around channel calls.
+ */
 @Repository
 public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGateway {
     private final RefundOrderDOMapper children;
     private final PaymentRefundCapacityDOMapper capacities;
     private final RefundCallbackStorageConverter converter;
+
     public RefundCallbackTargetGatewayImpl(RefundOrderDOMapper children, PaymentRefundCapacityDOMapper capacities, RefundCallbackStorageConverter converter) {
-        this.children = children; this.capacities = capacities; this.converter = converter;
+        this.children = children;
+        this.capacities = capacities;
+        this.converter = converter;
     }
-    @Override public Optional<PreparedChannelRefund> find(String tenant, String revision, String orderNo, String refundNo) {
+
+    @Override
+    public Optional<PreparedChannelRefund> find(String tenant, String revision, String orderNo, String refundNo) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         var rows = children.selectListByQuery(QueryWrapper.create().where(REFUND_ORDER_DO.TENANT_ID.eq(tenant))
@@ -49,12 +60,17 @@ public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGate
         if (rows.isEmpty()) return Optional.empty();
         if (rows.size() != 1) throw new CommonException(SNAPSHOT_INVALID);
         var row = rows.getFirst();
-        if (row.getSubmissionStartedAt() == null || "INIT".equals(row.getState())) throw new CommonException(INVALID_STATE);
+        if (row.getSubmissionStartedAt() == null || "INIT".equals(row.getState()))
+            throw new CommonException(INVALID_STATE);
         var capacity = capacities.selectOneByQuery(QueryWrapper.create().where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(tenant))
                 .and(PAYMENT_REFUND_CAPACITY_DO.DELETED.eq(0)).and(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.eq(row.getPaymentId())));
         if (capacity == null || !Objects.equals(capacity.getSucceededAt(), row.getOriginalSucceededAt())
-                || !Objects.equals(capacity.getCurrency(), row.getCurrency())) throw new CommonException(SNAPSHOT_INVALID);
-        try { return Optional.of(converter.toPrepared(row, capacity, converter.toIdentity(row))); }
-        catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+                || !Objects.equals(capacity.getCurrency(), row.getCurrency()))
+            throw new CommonException(SNAPSHOT_INVALID);
+        try {
+            return Optional.of(converter.toPrepared(row, capacity, converter.toIdentity(row)));
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

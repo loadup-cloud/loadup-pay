@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-public enum ReconciliationRecordKind { PAYMENT, REFUND }
+public enum ReconciliationRecordKind {PAYMENT, REFUND}

@@ -22,5 +22,8 @@ import jakarta.validation.constraints.Size;
 
 public record ReconciliationBatchStartCommand(
         @Schema(description = "Batch whose original sealed inputs will be compared") @NotBlank @Size(max = 64) String batchId) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

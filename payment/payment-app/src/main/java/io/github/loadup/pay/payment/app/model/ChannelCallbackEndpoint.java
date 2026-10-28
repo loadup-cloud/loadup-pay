@@ -18,12 +18,21 @@ package io.github.loadup.pay.payment.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
 
-/** Trusted configuration selects tenant and immutable binding; request metadata cannot override them. */
+/**
+ * Trusted configuration selects tenant and immutable binding; request metadata cannot override them.
+ */
 public record ChannelCallbackEndpoint(String tenantId, Channel channel, String bindingRevisionId) {
     public ChannelCallbackEndpoint {
-        DomainChecks.id(tenantId); Objects.requireNonNull(channel); DomainChecks.id(bindingRevisionId);
+        DomainChecks.id(tenantId);
+        Objects.requireNonNull(channel);
+        DomainChecks.id(bindingRevisionId);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

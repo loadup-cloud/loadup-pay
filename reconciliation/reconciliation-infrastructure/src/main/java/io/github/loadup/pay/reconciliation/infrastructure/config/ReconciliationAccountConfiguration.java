@@ -20,4 +20,5 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(ReconciliationAccountsProperties.class)
-public class ReconciliationAccountConfiguration {}
+public class ReconciliationAccountConfiguration {
+}

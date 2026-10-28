@@ -17,10 +17,13 @@ package io.github.loadup.pay.acquire.domain.gateway;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
+
 import java.util.Optional;
 
 public interface CheckoutSessionRevocationGateway {
     Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey);
+
     void insert(String tenant, CheckoutSessionRevocationReceipt value);
+
     PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size);
 }

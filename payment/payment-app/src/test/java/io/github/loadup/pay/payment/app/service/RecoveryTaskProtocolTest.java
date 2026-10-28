@@ -22,20 +22,22 @@ import io.github.loadup.pay.payment.domain.model.RecoveryPosition;
 import io.github.loadup.pay.payment.domain.model.RecoveryTaskKey;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecoveryTaskProtocolTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
-    enum Flow {
-        COLLECTION(PaymentRecoveryService.TYPE, "payment"), REFUND(RefundRecoveryService.TYPE, "request");
-        final String type, subject;
-        Flow(String type, String subject) { this.type = type; this.subject = subject; }
-    }
-    enum Changed { ID, TENANT, TYPE, BIZ_ID, EXECUTE_AT, STATUS, ATTEMPTS, MAX_ATTEMPTS, EXPIRED_LEASE, NOT_DUE, REGISTERED_STATUS }
 
-    @ParameterizedTest @EnumSource(Flow.class)
+    @ParameterizedTest
+    @EnumSource(Flow.class)
     void bothFlowsCheckTrustedEnvelopeAndCanonicalIdentityBeforeLookup(Flow flow) {
         var task = task(flow);
         assertEquals(new RecoveryTaskKey(flow.subject, 0L), RecoveryTaskProtocol.receive(flow.type, task, "tenant"));
@@ -47,7 +49,8 @@ class RecoveryTaskProtocolTest {
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive(flow.type, malformed, "tenant")).getResultCode());
     }
 
-    @ParameterizedTest @EnumSource(Flow.class)
+    @ParameterizedTest
+    @EnumSource(Flow.class)
     void staleOrChangedClaimMetadataIsRejectedForEitherBusinessFlow(Flow flow) {
         var original = task(flow);
         for (var changed : Changed.values()) {
@@ -65,7 +68,8 @@ class RecoveryTaskProtocolTest {
         }
     }
 
-    @ParameterizedTest @EnumSource(Flow.class)
+    @ParameterizedTest
+    @EnumSource(Flow.class)
     void activeHeartbeatsMayExtendTheLeaseWithoutChangingTheReceivedSnapshot(Flow flow) {
         var original = task(flow);
         var extended = new DelayedTask(original.id(), original.tenantId(), original.taskType(), original.bizId(), original.executeAt(), original.nextExecuteAt(),
@@ -75,7 +79,8 @@ class RecoveryTaskProtocolTest {
                 () -> RecoveryTaskProtocol.requireClaim(flow.type, original, extended, extended.leaseUntil())).getResultCode());
     }
 
-    @ParameterizedTest @EnumSource(Flow.class)
+    @ParameterizedTest
+    @EnumSource(Flow.class)
     void sharedPositionMappingNeverSkipsAFutureGenerationOrAdvancesAWrongDueTime(Flow flow) {
         var key = new RecoveryTaskKey(flow.subject, 0L);
         assertTrue(RecoveryTaskProtocol.current(key, new RecoveryPosition(flow.subject, 0L, at, false), at));
@@ -90,4 +95,16 @@ class RecoveryTaskProtocolTest {
     private DelayedTask task(Flow flow) {
         return new DelayedTask("task", "tenant", flow.type, flow.subject + ".0", at, at, DelayedTaskStatus.RUNNING, 1, 5, at.plusMinutes(5), null);
     }
+
+    enum Flow {
+        COLLECTION(PaymentRecoveryService.TYPE, "payment"), REFUND(RefundRecoveryService.TYPE, "request");
+        final String type, subject;
+
+        Flow(String type, String subject) {
+            this.type = type;
+            this.subject = subject;
+        }
+    }
+
+    enum Changed {ID, TENANT, TYPE, BIZ_ID, EXECUTE_AT, STATUS, ATTEMPTS, MAX_ATTEMPTS, EXPIRED_LEASE, NOT_DUE, REGISTERED_STATUS}
 }

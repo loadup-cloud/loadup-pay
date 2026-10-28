@@ -18,13 +18,21 @@ package io.github.loadup.pay.acquire.client.command;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 
-/** Resumes only the current native wake-up; never grants a new business attempt budget. */
+/**
+ * Resumes only the current native wake-up; never grants a new business attempt budget.
+ */
 public record MerchantNotificationWakeCommand(
         @Schema(description = "Original notification delivery id") @NotBlank @Size(max = 64) String id,
         @Schema(description = "Stable operation key; retries retain all original parameters") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Observed delivery rowVersion precondition") @NotNull @PositiveOrZero Long expectedVersion,
         @Schema(description = "Audited operational reason") @NotBlank @Size(max = 500) @DiagnosticHidden String reason) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

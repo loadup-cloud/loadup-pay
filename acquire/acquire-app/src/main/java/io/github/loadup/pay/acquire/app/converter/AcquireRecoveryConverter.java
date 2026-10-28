@@ -20,11 +20,12 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.model.AcquireRecoveryInspection;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
 import io.github.loadup.pay.acquire.client.command.AcquireRecoveryRetryCommand;
-import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryTaskDTO;
 import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryRetryDTO;
+import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryTaskDTO;
 import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryRetryReceipt;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -52,8 +53,13 @@ public interface AcquireRecoveryConverter {
     @Mapping(target = "expectedNextExecuteAt", source = "command.expectedNextExecuteAt")
     @Mapping(target = "reason", source = "command.reason")
     AcquireRecoveryRetryReceipt toReceipt(String id, AcquireRecoveryRetryCommand command, AcquireServiceActor actor,
-            AcquireRecoveryInspection inspection, String callerScopeHash, String requestDigest, String result, LocalDateTime acceptedAt);
+                                          AcquireRecoveryInspection inspection, String callerScopeHash, String requestDigest, String result, LocalDateTime acceptedAt);
 
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
-    default LocalDateTime local(OffsetDateTime value) { return value == null ? null : BusinessTime.local(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
+
+    default LocalDateTime local(OffsetDateTime value) {
+        return value == null ? null : BusinessTime.local(value);
+    }
 }

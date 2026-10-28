@@ -18,10 +18,16 @@ package io.github.loadup.pay.channel.alipay.protocol;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsKeyRef;
+
 import java.security.PublicKey;
 
-/** Resolved only from the version frozen in an immutable channel binding. */
+/**
+ * Resolved only from the version frozen in an immutable channel binding.
+ */
 public record AlipayCredentials(String tenantId, String appId, String sellerId, KmsKeyRef signingKey,
-        @DiagnosticHidden PublicKey platformPublicKey, @DiagnosticHidden String appAuthToken) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                @DiagnosticHidden PublicKey platformPublicKey, @DiagnosticHidden String appAuthToken) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

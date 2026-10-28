@@ -10,14 +10,14 @@ PaymentExecutionBindings 仅在 payment-app 将领域失败映射为本模块错
 
 共同绑定规则由该值对象集中表达：
 
-| 关系 | 要求 |
-|---|---|
-| 付款身份 | payment.id == attempt.paymentId |
-| 原金额 | payment.amount == attempt.amount，沿用 CNY Money 和原聚合的币种/金额构造约束 |
-| 收款商户 | payment.payeeMerchantId == attempt.binding.payeeMerchantId |
-| 原额度操作 | payment.limitOperationId == storedAttempt.limitOperationId |
-| 原调用服务 | acceptance.callerServiceId == storedAttempt.callerServiceId |
-| 原付款摘要 | acceptance.requestDigest == storedAttempt.paymentRequestDigest |
+| 关系       | 要求                                                                         |
+|------------|------------------------------------------------------------------------------|
+| 付款身份   | payment.id == attempt.paymentId                                              |
+| 原金额     | payment.amount == attempt.amount，沿用 CNY Money 和原聚合的币种/金额构造约束 |
+| 收款商户   | payment.payeeMerchantId == attempt.binding.payeeMerchantId                   |
+| 原额度操作 | payment.limitOperationId == storedAttempt.limitOperationId                   |
+| 原调用服务 | acceptance.callerServiceId == storedAttempt.callerServiceId                  |
+| 原付款摘要 | acceptance.requestDigest == storedAttempt.paymentRequestDigest               |
 
 attempt 自身 requestKey/requestDigest 属于其请求幂等范围，不与原付款摘要混同。
 activeAttemptId 的要求取决于操作类型，不在所有绑定构造中一概要求当前 active，以保留原始已提交请求的迟到观察。
@@ -25,14 +25,14 @@ activeAttemptId 的要求取决于操作类型，不在所有绑定构造中一�
 
 ## 操作语义
 
-| 领域要求 | 前置条件 | 额外业务门禁仍由调用方负责 |
-|---|---|---|
-| 共同 bound | 以上六类绑定完整 | 不表示当前 active、允许提交或允许修改 |
-| requireActive | 当前 activeAttemptId 指向该 attempt | 适用于恢复快照、动作、投递等各自现有状态检查 |
-| requireSubmittable | active、付款 PROCESSING、attempt INIT、尚未跨过 Y2 | 双 OPEN 门禁、有效输入/期限、风险、额度许可，以及锁内 CAS |
-| requireObservable | 原 executionEpoch > 0，沿用 StoredPaymentAttempt 的单向 Y2 元数据约束 | 不因 gate fenced、付款终态或当前 active 改变而直接禁止查询；应用资金结果仍走 Y3 |
-| requireClosable | active、付款不是 SUCCEEDED/FAILED/CLOSED | 关闭权限、门禁 epoch、是否可本地关闭，以及无收款证据仍独立判断 |
-| requireSubmissionRequest | active、付款 PROCESSING、attempt SUBMITTING 且已经提交准备 | 必须持有原内存 PaymentSubmissionTicket；不允许由此重建票据 |
+| 领域要求                 | 前置条件                                                              | 额外业务门禁仍由调用方负责                                                      |
+|--------------------------|-----------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| 共同 bound               | 以上六类绑定完整                                                      | 不表示当前 active、允许提交或允许修改                                           |
+| requireActive            | 当前 activeAttemptId 指向该 attempt                                   | 适用于恢复快照、动作、投递等各自现有状态检查                                    |
+| requireSubmittable       | active、付款 PROCESSING、attempt INIT、尚未跨过 Y2                    | 双 OPEN 门禁、有效输入/期限、风险、额度许可，以及锁内 CAS                       |
+| requireObservable        | 原 executionEpoch > 0，沿用 StoredPaymentAttempt 的单向 Y2 元数据约束 | 不因 gate fenced、付款终态或当前 active 改变而直接禁止查询；应用资金结果仍走 Y3 |
+| requireClosable          | active、付款不是 SUCCEEDED/FAILED/CLOSED                              | 关闭权限、门禁 epoch、是否可本地关闭，以及无收款证据仍独立判断                  |
+| requireSubmissionRequest | active、付款 PROCESSING、attempt SUBMITTING 且已经提交准备            | 必须持有原内存 PaymentSubmissionTicket；不允许由此重建票据                      |
 
 所有方法返回原只读绑定，既不变更聚合，也不生成 operation、attempt、渠道请求号、执行 epoch 或任务。
 本地未提交关闭仍必须由原 INIT/epoch=0 检查与持久证据路径决定；requireClosable 本身不能证明未收款或释放资金占用。
@@ -68,45 +68,54 @@ PaymentAttemptBinding.observationRejection 只使用已验证渠道身份/金额
 
 ## 测试与未完成范围
 
-PaymentAttemptBindingTest 源码覆盖逐项付款身份/金额/商户/operation/caller/paymentDigest 篡改，提交前/已提交 winner 区分、终态/旧 attempt 继续可观察、冻结 route、冲突顺序和原错误原因。
+PaymentAttemptBindingTest 源码覆盖逐项付款身份/金额/商户/operation/caller/paymentDigest 篡改，提交前/已提交 winner
+区分、终态/旧 attempt 继续可观察、冻结 route、冲突顺序和原错误原因。
 PaymentExecutionBindingsTest 源码覆盖同一批篡改在各模式的错误映射、原请求边界 INVALID_STATE、无提交权扩张与观测冲突不被误译为幂等错误。
-PaymentResultServiceTest 扩充真实 app 编排输入：错误目标加损坏绑定仍只记冲突；正确目标遇到相同损坏时不记金融结果/新 receipt，不更新 attempt/付款/claim/capacity/Outbox。
+PaymentResultServiceTest 扩充真实 app 编排输入：错误目标加损坏绑定仍只记冲突；正确目标遇到相同损坏时不记金融结果/新
+receipt，不更新 attempt/付款/claim/capacity/Outbox。
 其他既有入口测试和实际 MySQL IT 源码继续保留，不用这些纯值对象测试替代完整入口与真实事务证明。
 
 本轮未执行 IDEA、编译、单测、数据库或渠道验收，没有新增通过证据。
-门禁与完整执行上下文源码现已补充如下。R4 后续仍需所有入口组合的篡改/终态/权限运行证明，并结合 R6 收敛冻结意图表示；不宣称 R4 全部完成。
-
+门禁与完整执行上下文源码现已补充如下。R4 后续仍需所有入口组合的篡改/终态/权限运行证明，并结合 R6 收敛冻结意图表示；不宣称
+R4 全部完成。
 
 ## 完整门禁执行上下文
 
 新增纯领域 PaymentGateBinding，构造时一次核对父门禁与付款门禁的 orderId、目标 paymentId、收款商户、原 caller，且拒绝 INIT 门禁。
-父门禁的 paymentId 必须为 null，付款门禁的 paymentId 必须匹配当前付款；FENCED 仍可作为合法已关闭门禁视图，只有首次提交要求双 OPEN。
+父门禁的 paymentId 必须为 null，付款门禁的 paymentId 必须匹配当前付款；FENCED 仍可作为合法已关闭门禁视图，只有首次提交要求双
+OPEN。
 
-LockedPayment 改为直接持有已校验的 PaymentGateBinding，原 payment/parent/gate 访问均由它派生；删除旧三参数原始记录构造方式，生产与测试调用方同步经过局部 checked factory。
+LockedPayment 改为直接持有已校验的 PaymentGateBinding，原 payment/parent/gate 访问均由它派生；删除旧三参数原始记录构造方式，生产与测试调用方同步经过局部
+checked factory。
 PaymentExecutionLocks 保持 find→parent→payment gate→payment 锁序及原 caller 检查，在真实可写事务中构造该视图，拒绝无事务或只读事务后才允许访问锁网关。
 初查与锁后付款 ID/订单身份也必须仍匹配请求，不能将另一个完整付款视图当作本次请求目标。
 
-PaymentExecutionContext 将 PaymentGateBinding 与 PaymentAttemptBinding 组合，并要求两者引用同一个完整付款值快照（含版本/状态/原意图等），不能仅凭相同 ID 混用不同快照。
+PaymentExecutionContext 将 PaymentGateBinding 与 PaymentAttemptBinding 组合，并要求两者引用同一个完整付款值快照（含版本/状态/原意图等），不能仅凭相同
+ID 混用不同快照。
 
-| 完整上下文模式 | 规则 |
-|---|---|
-| activeContext | 完整绑定 + 当前 active；可用于恢复，门禁可以已经 FENCED |
+| 完整上下文模式     | 规则                                                                                                               |
+|--------------------|--------------------------------------------------------------------------------------------------------------------|
+| activeContext      | 完整绑定 + 当前 active；可用于恢复，门禁可以已经 FENCED                                                            |
 | submittableContext | 完整绑定 + 双 OPEN + PROCESSING/INIT/未跨 Y2；锁内提交资格变化保持 EXECUTION_FENCED，绑定损坏仍为 SNAPSHOT_INVALID |
-| observableContext | 完整绑定 + 已提交原请求；不要求 OPEN 或非终态。Y3 仍先处理错误目标冲突，再组装上下文 |
-| closableContext | 完整绑定 + active + 非终态；允许已 FENCED，不提供无收款证据 |
+| observableContext  | 完整绑定 + 已提交原请求；不要求 OPEN 或非终态。Y3 仍先处理错误目标冲突，再组装上下文                               |
+| closableContext    | 完整绑定 + active + 非终态；允许已 FENCED，不提供无收款证据                                                        |
 
 已接入锁内 Y2、恢复/本地关闭、Y3、动作与结果投递；控制关闭入口使用现有父门禁/付款门禁锁值构造同样的上下文。
 付款 outcome 的门禁内部关系改由同一值对象核对；创单/关单对外请求的 actor/command 绑定检查继续保留，属于外部协议边界。
 首次 attempt 创建后，使用更新后的付款值与仍持有的门禁重新组装本地视图，不能把创建前后的付款快照混接。
 
-这些值不跟踪锁租约、事务生命周期或持久票据归属；在事务外构造/保留值也不会成为可扣款凭据。Y2 仍只有原 writeLocal 中 CAS 赢得并返回的 PaymentSubmissionTicket 可以跨出事务提交一次。
+这些值不跟踪锁租约、事务生命周期或持久票据归属；在事务外构造/保留值也不会成为可扣款凭据。Y2 仍只有原 writeLocal 中 CAS
+赢得并返回的 PaymentSubmissionTicket 可以跨出事务提交一次。
 渠道 IO、令牌、额度许可、输入/期限及金融证据的检查没有搬进领域值；没有增加事务内网络或渠道调用。
 
 ### 新增测试源码
 
-- PaymentExecutionContextTest：父/付款门禁十类独立字段/状态篡改、任一 FENCED 拦截首次提交、已提交及终态可观察、关闭不发明证据、拒绝相同 ID 的不同版本快照混用及诊断字段隐藏。
-- PaymentExecutionLocksTest：原网关调用/锁序、只读/无事务在网关前拒绝、caller 不符不获取金融锁、完整但属于另一付款 ID 的视图仍拒绝。
+- PaymentExecutionContextTest：父/付款门禁十类独立字段/状态篡改、任一 FENCED 拦截首次提交、已提交及终态可观察、关闭不发明证据、拒绝相同
+  ID 的不同版本快照混用及诊断字段隐藏。
+- PaymentExecutionLocksTest：原网关调用/锁序、只读/无事务在网关前拒绝、caller 不符不获取金融锁、完整但属于另一付款 ID
+  的视图仍拒绝。
 - PaymentExecutionBindingsTest：门禁变化映射 EXECUTION_FENCED、绑定损坏优先 SNAPSHOT_INVALID、关闭门禁仍允许原请求观察。
 - PaymentSubmissionPreparationTest：新门禁视图已 FENCED 时不跨 Y2、不绑定输入、不更新 attempt/付款，也不制造无收款证据。
 
-所有测试只补源码，未执行 IDEA/编译/单测/MySQL/渠道；网关 mock 的顺序断言不证明实际 SQL 锁持有或隔离，R1/R2 与完整 R4 运行验收继续保留。
+所有测试只补源码，未执行 IDEA/编译/单测/MySQL/渠道；网关 mock 的顺序断言不证明实际 SQL 锁持有或隔离，R1/R2 与完整 R4
+运行验收继续保留。

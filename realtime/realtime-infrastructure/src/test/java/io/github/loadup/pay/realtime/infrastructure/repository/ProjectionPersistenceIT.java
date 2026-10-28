@@ -70,9 +70,13 @@ import java.util.function.Supplier;
 
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.IDEMPOTENCY_CONFLICT;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Actual projection and receipt persistence; no transport, storage or transaction substitutes. */
+/**
+ * Actual projection and receipt persistence; no transport, storage or transaction substitutes.
+ */
 @SpringBootTest(classes = ProjectionPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
 class ProjectionPersistenceIT {
@@ -87,7 +91,7 @@ class ProjectionPersistenceIT {
 
     @Autowired
     ProjectionPersistenceIT(TradeProjectionService service, RealtimeTransactions transactions, Actors actors,
-            FaultingReceipts receipts, JdbcTemplate jdbc, TestScenario scenario, JsonMapper json) {
+                            FaultingReceipts receipts, JdbcTemplate jdbc, TestScenario scenario, JsonMapper json) {
         this.service = service;
         this.transactions = transactions;
         this.actors = actors;
@@ -149,9 +153,12 @@ class ProjectionPersistenceIT {
         var payload = (String) latest.get("payload");
         switch (kind) {
             case ORDER -> assertEquals(200L, json.readValue(payload, OrderSnapshotEventDTO.class).paidAmountMinor());
-            case PAYMENT -> assertEquals(PaymentState.UNKNOWN, json.readValue(payload, PaymentSnapshotEventDTO.class).state());
-            case REFUND -> assertEquals(RefundState.UNKNOWN, json.readValue(payload, RefundSnapshotEventDTO.class).state());
-            case SUMMARY -> assertEquals(200L, json.readValue(payload, OrderRefundSummaryEventDTO.class).refundReservedMinor());
+            case PAYMENT ->
+                    assertEquals(PaymentState.UNKNOWN, json.readValue(payload, PaymentSnapshotEventDTO.class).state());
+            case REFUND ->
+                    assertEquals(RefundState.UNKNOWN, json.readValue(payload, RefundSnapshotEventDTO.class).state());
+            case SUMMARY ->
+                    assertEquals(200L, json.readValue(payload, OrderRefundSummaryEventDTO.class).refundReservedMinor());
         }
         var stale = apply(fixture, "late", 1L, false);
         assertEquals("STALE", stale.disposition());
@@ -196,8 +203,13 @@ class ProjectionPersistenceIT {
             var data = json.readValue((String) row(fixture).get("payload"), PaymentSnapshotEventDTO.class);
             assertEquals(states.get(version), data.state());
             assertEquals(version, data.sourceVersion());
-            if (version == 0) { assertNull(data.channel()); assertNull(data.accessMode()); }
-            else { assertEquals(Channel.WECHAT, data.channel()); assertEquals(AccessMode.DIRECT, data.accessMode()); }
+            if (version == 0) {
+                assertNull(data.channel());
+                assertNull(data.accessMode());
+            } else {
+                assertEquals(Channel.WECHAT, data.channel());
+                assertEquals(AccessMode.DIRECT, data.accessMode());
+            }
         }
         var latest = row(fixture);
         assertEquals("STALE", lifecycle(fixture, "late-init", 0L, PaymentState.INIT).disposition());
@@ -224,19 +236,19 @@ class ProjectionPersistenceIT {
         return actors.call(fixture, () -> switch (fixture.kind) {
             case ORDER -> service.applyOrder(envelope(fixture, delivery, version,
                     "pay.acquire.snapshot.realtime.v1", new OrderSnapshotEventDTO(fixture.aggregate, "merchant", "merchant-order",
-                    1000, "CNY", changed ? 200 : 100, 0, AcquireOrderState.PENDING,
-                    BusinessTime.external(AT.minusMinutes(1)), BusinessTime.external(AT), version)));
+                            1000, "CNY", changed ? 200 : 100, 0, AcquireOrderState.PENDING,
+                            BusinessTime.external(AT.minusMinutes(1)), BusinessTime.external(AT), version)));
             case PAYMENT -> service.applyPayment(envelope(fixture, delivery, version,
                     "pay.payment.snapshot.realtime.v1", new PaymentSnapshotEventDTO(fixture.aggregate, "order", "merchant",
-                    1000, "CNY", changed ? PaymentState.UNKNOWN : PaymentState.PROCESSING, Channel.WECHAT, AccessMode.DIRECT,
-                    BusinessTime.external(AT.minusMinutes(1)), null, version)));
+                            1000, "CNY", changed ? PaymentState.UNKNOWN : PaymentState.PROCESSING, Channel.WECHAT, AccessMode.DIRECT,
+                            BusinessTime.external(AT.minusMinutes(1)), null, version)));
             case REFUND -> service.applyRefund(envelope(fixture, delivery, version,
                     "pay.payment.refund.realtime.v1", new RefundSnapshotEventDTO(fixture.aggregate, "refund-request", "payment",
-                    "order", "merchant", 1000, "CNY", changed ? RefundState.UNKNOWN : RefundState.PROCESSING,
-                    BusinessTime.external(AT.minusMinutes(1)), null, version)));
+                            "order", "merchant", 1000, "CNY", changed ? RefundState.UNKNOWN : RefundState.PROCESSING,
+                            BusinessTime.external(AT.minusMinutes(1)), null, version)));
             case SUMMARY -> service.applyRefundSummary(envelope(fixture, delivery, version,
                     "pay.payment.refund-summary.realtime.v1", new OrderRefundSummaryEventDTO(fixture.aggregate,
-                    "merchant", "CNY", 0, changed ? 200 : 100, version)));
+                            "merchant", "CNY", 0, changed ? 200 : 100, version)));
         });
     }
 
@@ -296,7 +308,10 @@ class ProjectionPersistenceIT {
         final String producer, permission, table, key;
 
         Kind(String producer, String permission, String table, String key) {
-            this.producer = producer; this.permission = permission; this.table = table; this.key = key;
+            this.producer = producer;
+            this.permission = permission;
+            this.table = table;
+            this.key = key;
         }
     }
 
@@ -305,35 +320,51 @@ class ProjectionPersistenceIT {
         final String tenant = "tenant-" + UUID.randomUUID();
         final String aggregate = "aggregate-" + UUID.randomUUID();
 
-        Fixture(Kind kind) { this.kind = kind; }
+        Fixture(Kind kind) {
+            this.kind = kind;
+        }
     }
 
-    private record Outcome(ProjectionAckDTO ack, String failure) {}
+    private record Outcome(ProjectionAckDTO ack, String failure) {
+    }
 
-    /** Only the trusted actor adapter is supplied by the test; each racing caller owns its scope. */
+    /**
+     * Only the trusted actor adapter is supplied by the test; each racing caller owns its scope.
+     */
     static final class Actors implements RealtimeActorProvider {
         private final ThreadLocal<RealtimeActor> current = new ThreadLocal<>();
 
         @Override
-        public RealtimeActor current() { return current.get(); }
+        public RealtimeActor current() {
+            return current.get();
+        }
 
         <T> T call(Fixture fixture, Supplier<T> work) {
             current.set(new RealtimeActor(fixture.tenant, fixture.kind.producer, null,
                     Set.of("pay:realtime:projection:" + fixture.kind.permission)));
-            try { return work.get(); } finally { current.remove(); }
+            try {
+                return work.get();
+            } finally {
+                current.remove();
+            }
         }
     }
 
-    /** Injects failure only after the actual generated Mapper inserted the receipt. */
+    /**
+     * Injects failure only after the actual generated Mapper inserted the receipt.
+     */
     static final class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
-        FaultingReceipts(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) { super(mapper, converter); }
+        FaultingReceipts(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) {
+            super(mapper, converter);
+        }
 
         @Override
         public void insert(String tenant, ProjectionReceipt receipt) {
             super.insert(tenant, receipt);
-            if (failAfterInsert.compareAndSet(true, false)) throw new IllegalStateException("Injected after actual receipt insert");
+            if (failAfterInsert.compareAndSet(true, false))
+                throw new IllegalStateException("Injected after actual receipt insert");
         }
     }
 
@@ -344,7 +375,9 @@ class ProjectionPersistenceIT {
     @Import({TradeProjectionGatewayImpl.class, TradeProjectionCodecImpl.class, RealtimeTransactions.class, TradeProjectionService.class})
     static class Application {
         @Bean
-        Actors actors() { return new Actors(); }
+        Actors actors() {
+            return new Actors();
+        }
 
         @Bean
         FaultingReceipts receipts(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) {
@@ -352,6 +385,8 @@ class ProjectionPersistenceIT {
         }
 
         @Bean("realtimeClock")
-        Clock realtimeClock() { return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()); }
+        Clock realtimeClock() {
+            return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        }
     }
 }

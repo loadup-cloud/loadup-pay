@@ -32,5 +32,7 @@ public interface RecoveryInventoryConverter {
     @Mapping(target = "plus", ignore = true)
     RecoveryInventoryCell toCell(RecoveryInventoryCell.Kind kind, RecoveryInventoryAggregate row);
 
-    default long minor(BigDecimal value) { return value == null ? 0L : value.longValueExact(); }
+    default long minor(BigDecimal value) {
+        return value == null ? 0L : value.longValueExact();
+    }
 }

@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.junit.jupiter.api.Test;

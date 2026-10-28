@@ -20,27 +20,56 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.acquire.app.converter.*;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.*;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentRecoveryDTO;
+import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
 import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
-import io.github.loadup.pay.acquire.client.facade.*;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.payment.client.dto.*;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
+import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
+import io.github.loadup.pay.acquire.client.facade.PaymentRecoveryFacade;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.channel.api.model.H5SceneType;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentState;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class DirectPaymentServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(DirectPaymentConverter.class.getPackageName());
@@ -61,13 +90,20 @@ class DirectPaymentServiceTest {
             PaymentState.INIT, null, null, null, 0L, BusinessTime.external(NOW)), order);
     final PaymentRecoveryDTO resolved = new PaymentRecoveryDTO("order", "action", PaymentRecoveryState.RESOLVED, "payment", true, progress);
 
-    @BeforeEach void setup() {
+    @BeforeEach
+    void setup() {
         when(orders.createDirectPay(any())).thenReturn(order);
         when(payments.startPayment(any())).thenReturn(new PaymentStartDTO("order", "payment", "allocation", PaymentState.INIT, null, 0L));
     }
-    @AfterEach void close() { context.close(); validation.close(); }
 
-    @Test void newDirectPayFreezesNonSensitiveMetadataThenStartsOnlyTheMissingOriginalAction() {
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
+
+    @Test
+    void newDirectPayFreezesNonSensitiveMetadataThenStartsOnlyTheMissingOriginalAction() {
         when(recovery.recover(any())).thenReturn(new PaymentRecoveryDTO("order", "action", PaymentRecoveryState.NOT_OBSERVED, null, null, null), resolved);
         var result = service.directPay(command);
         assertSame(resolved, result.payment());
@@ -87,13 +123,15 @@ class DirectPaymentServiceTest {
         verify(orders, never()).create(any());
     }
 
-    @Test void aLostPreviousReplyIsResolvedWithoutResubmittingRawInput() {
+    @Test
+    void aLostPreviousReplyIsResolvedWithoutResubmittingRawInput() {
         when(recovery.recover(any())).thenReturn(resolved);
         assertSame(resolved, service.directPay(command).payment());
         verifyNoInteractions(payments);
     }
 
-    @Test void aNeverAcceptedExpiredActionRemainsAnExplicitResultWithoutInventingAPayment() {
+    @Test
+    void aNeverAcceptedExpiredActionRemainsAnExplicitResultWithoutInventingAPayment() {
         var absent = new PaymentRecoveryDTO("order", "action", PaymentRecoveryState.RESOLVED, "payment", false, new PaymentProgressDTO(null, order));
         when(recovery.recover(any())).thenReturn(absent);
         var result = service.directPay(command);
@@ -102,19 +140,22 @@ class DirectPaymentServiceTest {
         verifyNoInteractions(payments);
     }
 
-    @Test void firstActionOrEntryConflictsStopBeforeAnyPaymentWork() {
+    @Test
+    void firstActionOrEntryConflictsStopBeforeAnyPaymentWork() {
         when(orders.createDirectPay(any())).thenThrow(new CommonException(IDEMPOTENCY_CONFLICT));
         assertSame(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.directPay(command)).getResultCode());
         verifyNoInteractions(payments, recovery);
     }
 
-    @Test void incompleteOrUnboundRecoveryCannotTriggerAnotherPayment() {
+    @Test
+    void incompleteOrUnboundRecoveryCannotTriggerAnotherPayment() {
         when(recovery.recover(any())).thenReturn(new PaymentRecoveryDTO("other-order", "action", PaymentRecoveryState.NOT_OBSERVED, null, null, null));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> service.directPay(command)).getResultCode());
         verifyNoInteractions(payments);
     }
 
-    @Test void permissionsAndFirstAmountAreCheckedBeforeCreation() {
+    @Test
+    void permissionsAndFirstAmountAreCheckedBeforeCreation() {
         actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start")));
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.directPay(command)).getResultCode());
         var excessive = new DirectPayCommand("merchant", "M001", "scope", 10000, "CNY", "subject", null, "action", 10001, choice, command.interaction());

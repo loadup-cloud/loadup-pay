@@ -8,13 +8,13 @@ payment 的原终态事件组件重命名为 `PaymentEvents`，不保留旧内�
 现有 wire 类型 `pay.payment.snapshot.realtime.v1`、PaymentSnapshotEventDTO、RPC、Outbox handler 和投影表沿用。
 快照本来允许版本 0 和非终态，本次补齐实际生产入口。
 
-| 持久变更 | 生产位置 | 本次提交的快照 |
-|---|---|---|
-| 首次受理 | PaymentAcceptanceService.accept | INIT / version 0，与付款、门禁、恢复任务同事务 |
-| 创建首个 attempt | PaymentInitialAttemptService.create | PROCESSING / 新付款版本，与冻结路由和 attempt 同事务 |
-| 首次不明结果进入 UNKNOWN | PaymentResultService.apply | UNKNOWN / 新付款版本，与 attempt、付款和观察回执同事务 |
-| 受控关闭或后台截止进入关闭中 | PaymentControlService / PaymentExecutionService | CLOSING / 新付款版本，与原门禁和付款更新同事务 |
-| 成功、最终失败、已关闭 | 原终态 publish 路径 | 最终快照及 acquire/limit/risk 各独立投递 |
+| 持久变更                     | 生产位置                                        | 本次提交的快照                                         |
+|------------------------------|-------------------------------------------------|--------------------------------------------------------|
+| 首次受理                     | PaymentAcceptanceService.accept                 | INIT / version 0，与付款、门禁、恢复任务同事务         |
+| 创建首个 attempt             | PaymentInitialAttemptService.create             | PROCESSING / 新付款版本，与冻结路由和 attempt 同事务   |
+| 首次不明结果进入 UNKNOWN     | PaymentResultService.apply                      | UNKNOWN / 新付款版本，与 attempt、付款和观察回执同事务 |
+| 受控关闭或后台截止进入关闭中 | PaymentControlService / PaymentExecutionService | CLOSING / 新付款版本，与原门禁和付款更新同事务         |
+| 成功、最终失败、已关闭       | 原终态 publish 路径                             | 最终快照及 acquire/limit/risk 各独立投递               |
 
 只生产事务最终保存的付款版本；同事务内 INIT → CLOSING → CLOSED 等未单独提交的过渡不伪造一份独立 CLOSING 快照。
 Y2 只改变 attempt 的提交元数据、JSAPI 受理但付款根版本未变、本地 H5 动作保存、相同状态查证、
@@ -56,8 +56,11 @@ realtime 继续消费四类独立完整快照。付款 INIT/PROCESSING/UNKNOWN/C
 ## 测试源码与证据范围
 
 - PaymentEventsTest：INIT 到 CLOSING 的完整版本/身份/金额快照、只投 realtime、只读/租户/缺失 attempt 拒绝，终态继续四个目标。
-- 受理/attempt/结果/关闭服务测试：首次提交事件、重复不增发、UNKNOWN 不改变资金副作用，初始 Outbox 异常的事务传播；单元事务计数不能证明真实 SQL 回滚。
-- PaymentResultPersistenceIT：真实 UNKNOWN 付款/attempt/首未知时间、回执与 Outbox 写后故障一起回滚；重试和同状态新回执不重复快照；后续真实成功独立四目标。只是 IT 源码，未运行。
-- ProjectionPersistenceIT：独立数据库 INIT version 0 到成功、无父订单投影、迟到 INIT 为 STALE、终态新 delivery 幂等、拒绝高版本重开。只是 IT 源码，未运行。
+- 受理/attempt/结果/关闭服务测试：首次提交事件、重复不增发、UNKNOWN 不改变资金副作用，初始 Outbox 异常的事务传播；单元事务计数不能证明真实
+  SQL 回滚。
+- PaymentResultPersistenceIT：真实 UNKNOWN 付款/attempt/首未知时间、回执与 Outbox 写后故障一起回滚；重试和同状态新回执不重复快照；后续真实成功独立四目标。只是
+  IT 源码，未运行。
+- ProjectionPersistenceIT：独立数据库 INIT version 0 到成功、无父订单投影、迟到 INIT 为 STALE、终态新 delivery 幂等、拒绝高版本重开。只是
+  IT 源码，未运行。
 
 仍缺实际构建、MySQL 回滚与并发执行、跨进程 Outbox/gRPC/JWT/TLS、宕机重启和积压恢复证明；不把源码计作通过证据。

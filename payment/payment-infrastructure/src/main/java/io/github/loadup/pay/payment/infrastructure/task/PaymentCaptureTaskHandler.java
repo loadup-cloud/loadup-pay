@@ -23,7 +23,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentCaptureTaskHandler implements DelayedTaskHandler {
     private final PaymentCaptureExecutionService service;
-    public PaymentCaptureTaskHandler(PaymentCaptureExecutionService service) { this.service = service; }
-    @Override public String taskType() { return PaymentCaptureExecutionService.TYPE; }
-    @Override public void handle(DelayedTask task) { service.handle(task); }
+
+    public PaymentCaptureTaskHandler(PaymentCaptureExecutionService service) {
+        this.service = service;
+    }
+
+    @Override
+    public String taskType() {
+        return PaymentCaptureExecutionService.TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
+        service.handle(task);
+    }
 }

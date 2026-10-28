@@ -15,7 +15,12 @@ package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Business decision about the current wake-up, not a new delivery attempt. */
+/**
+ * Business decision about the current wake-up, not a new delivery attempt.
+ */
 public record MerchantNotificationWakeDecision(String result, String nativeTaskId) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

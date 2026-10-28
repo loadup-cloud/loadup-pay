@@ -27,5 +27,8 @@ public record DirectPayRecoveryDTO(
         @Schema(description = "Validated original creation result code; absent before a decision") String resultCode,
         @Schema(description = "Original materialized order; absent unless creation completed") @Valid AcquireOrderDTO order,
         @Schema(description = "Original first payment recovery; absent unless creation completed") @Valid PaymentRecoveryDTO payment) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

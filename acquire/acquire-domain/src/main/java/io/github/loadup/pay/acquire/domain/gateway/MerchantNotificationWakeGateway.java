@@ -17,10 +17,13 @@ package io.github.loadup.pay.acquire.domain.gateway;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
+
 import java.util.Optional;
 
 public interface MerchantNotificationWakeGateway {
     Optional<MerchantNotificationWakeReceipt> find(String tenant, String callerScopeHash, String requestKey);
+
     void insert(String tenant, MerchantNotificationWakeReceipt value);
+
     PageResult<MerchantNotificationWakeReceipt> page(String tenant, String deliveryId, int page, int size);
 }

@@ -18,5 +18,8 @@ package io.github.loadup.pay.acquire.app.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 public record MerchantNotificationRegistration(String merchantEventId, String disposition) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,7 +17,9 @@ package io.github.loadup.pay.channel.api.codec;
 
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 
-/** Strict typed channel-action snapshots; the discriminator never accepts arbitrary Java class names. */
+/**
+ * Strict typed channel-action snapshots; the discriminator never accepts arbitrary Java class names.
+ */
 public interface ChannelActionCodec {
     String kind(ChannelPaymentAction action);
 

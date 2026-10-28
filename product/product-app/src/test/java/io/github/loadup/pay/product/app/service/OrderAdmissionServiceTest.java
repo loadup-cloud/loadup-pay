@@ -15,7 +15,10 @@
  */
 package io.github.loadup.pay.product.app.service;
 
+import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.modules.contract.domain.model.Condition;
 import io.github.loadup.modules.contract.domain.model.ConfigurationLayer;
@@ -25,9 +28,6 @@ import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.ResolvedContractItem;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
 import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.contract.ContractReference;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverter;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverterImpl;

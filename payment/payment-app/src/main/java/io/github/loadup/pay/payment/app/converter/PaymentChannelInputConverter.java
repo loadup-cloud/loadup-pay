@@ -16,9 +16,29 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.ChannelPayerIdentityInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.NoChannelInput;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.dto.AlipayJsapiActionDTO;
+import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.RedirectActionDTO;
+import io.github.loadup.pay.payment.client.dto.WechatJsapiActionDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -52,7 +72,7 @@ public interface PaymentChannelInputConverter {
     @Mapping(target = "payableUntil", source = "command.payableUntil")
     @Mapping(target = "input", source = "input")
     ChannelPaymentValidation toValidation(io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt stored,
-            PaymentExecuteCommand command, ChannelPaymentInput input);
+                                          PaymentExecuteCommand command, ChannelPaymentInput input);
 
     default PaymentActionDTO toAction(ChannelPaymentAction value) {
         if (value == null) return null;

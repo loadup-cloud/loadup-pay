@@ -15,22 +15,31 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
-import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.validation.DomainChecks;
 
-/** Positive gross payment/refund amount; statement status is not automatically financial success. */
+import java.util.Objects;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * Positive gross payment/refund amount; statement status is not automatically financial success.
+ */
 public record ReconciliationLine(ReconciliationKey key, @DiagnosticHidden String merchantPaymentNo, Money amount,
-        ReconciliationEntryStatus status, long recordNumber) {
+                                 ReconciliationEntryStatus status, long recordNumber) {
     public ReconciliationLine {
-        Objects.requireNonNull(key); Objects.requireNonNull(status);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(status);
         DomainChecks.text(merchantPaymentNo, 64);
         DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0 && recordNumber > 0, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -16,34 +16,47 @@
 package io.github.loadup.pay.channel.wechat.protocol;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.kms.KmsTemplate;
 import io.github.loadup.components.kms.KmsSignatureAlgorithm;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
+
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** The client invocation signature uses the same frozen merchant signing key as the server request. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+
+/**
+ * The client invocation signature uses the same frozen merchant signing key as the server request.
+ */
 public final class WechatJsapiSigner {
     private final WechatCredentialReader credentials;
     private final KmsTemplate kms;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
+
     public WechatJsapiSigner(WechatCredentialReader credentials, KmsTemplate kms, Clock clock) {
-        this.credentials = credentials; this.kms = kms; this.clock = clock;
+        this.credentials = credentials;
+        this.kms = kms;
+        this.clock = clock;
     }
+
     public WechatJsapiChannelAction sign(ChannelExecutionContext context, ChannelPaymentIdentity identity,
-            String prepayId, OffsetDateTime expiresAt) {
+                                         String prepayId, OffsetDateTime expiresAt) {
         var account = WechatBindingGuard.require(context, identity);
         if (prepayId == null || !prepayId.matches("[A-Za-z0-9_-]{1,128}") || expiresAt == null
                 || !expiresAt.toInstant().isAfter(clock.instant())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
         String appId = account.subAppId() == null ? account.appId() : account.subAppId();
         var original = credentials.read(context.tenantId(), context.binding());
-        byte[] nonceBytes = new byte[16]; random.nextBytes(nonceBytes);
+        byte[] nonceBytes = new byte[16];
+        random.nextBytes(nonceBytes);
         String timestamp = Long.toString(clock.instant().getEpochSecond()), nonce = HexFormat.of().formatHex(nonceBytes);
         String packageValue = "prepay_id=" + prepayId;
         var key = original.signingKey();
@@ -56,7 +69,10 @@ public final class WechatJsapiSigner {
             byte[] bytes = Base64.getDecoder().decode(signature.base64());
             if (bytes.length < 256 || bytes.length > 512) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
             return new WechatJsapiChannelAction(appId, timestamp, nonce, packageValue, "RSA", signature.base64(), expiresAt);
-        } catch (CommonException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

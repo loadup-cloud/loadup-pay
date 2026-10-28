@@ -19,7 +19,8 @@ import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record CheckoutSessionRevocationPageQuery(
         @Schema(description = "Original checkout session id") @NotBlank @Size(max = 64) String sessionId,
@@ -27,7 +28,12 @@ public record CheckoutSessionRevocationPageQuery(
         @Schema(description = "Page size, up to 100") Integer size) {
     public CheckoutSessionRevocationPageQuery {
         var bounds = PageQuery.normalized(page, size, AcquireResultCodeEnum.INVALID_PAGE);
-        page = bounds.page(); size = bounds.size();
+        page = bounds.page();
+        size = bounds.size();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

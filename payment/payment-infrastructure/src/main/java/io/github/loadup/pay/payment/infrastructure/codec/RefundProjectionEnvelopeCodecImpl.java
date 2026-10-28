@@ -18,11 +18,11 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
-import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
-import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
@@ -83,7 +83,8 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     @Override
     public EventEnvelope<RefundOutcomeEventDTO> limit(String payload) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {});
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {
+            });
             event.data().requireEnvelope(event);
             if (event.data().state() != RefundState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
             return event;
@@ -95,7 +96,8 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     @Override
     public EventEnvelope<RefundMerchantEventDTO> merchant(String payload) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<RefundMerchantEventDTO>>() {});
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundMerchantEventDTO>>() {
+            });
             event.data().requireEnvelope(event);
             return event;
         } catch (RuntimeException invalid) {

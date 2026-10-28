@@ -18,14 +18,19 @@ package io.github.loadup.pay.reconciliation.infrastructure.repository;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 
 final class ReconciliationStoreContext {
-    private ReconciliationStoreContext() {}
+    private ReconciliationStoreContext() {
+    }
+
     static void readable(String tenant) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
     }
+
     static void writable(String tenant) {
         readable(tenant);
         if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);

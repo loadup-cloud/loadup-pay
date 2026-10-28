@@ -17,11 +17,11 @@ package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayBindingGuard;
-import io.github.loadup.pay.channel.alipay.protocol.AlipayResponseReader;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolTime;
+import io.github.loadup.pay.channel.alipay.protocol.AlipayResponseReader;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
@@ -36,9 +36,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
-/** Maps verified Alipay refund responses to original-account facts; never infers absence of a refund. */
+/**
+ * Maps verified Alipay refund responses to original-account facts; never infers absence of a refund.
+ */
 public final class AlipayRefundAdapter {
     private final AlipayProtocolClient client;
     private final JsonMapper json;
@@ -86,8 +89,10 @@ public final class AlipayRefundAdapter {
         if (!"10000".equals(responses.text(response, "code")) || responses.text(response, "refund_status") != null || !originalIdentity)
             return interpret(refund, queried);
         String amount = responses.text(response, "refund_amount");
-        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount)) responses.requireAmount(amount, refund.amount().getCent());
-        if (response.get("total_amount") != null) responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount))
+            responses.requireAmount(amount, refund.amount().getCent());
+        if (response.get("total_amount") != null)
+            responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
         // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider idempotency.
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256("alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
@@ -157,7 +162,7 @@ public final class AlipayRefundAdapter {
     }
 
     private RefundObservation observation(PreparedChannelRefund refund, AlipayVerifiedResponse response,
-            ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source) {
+                                          ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source) {
         return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
                 refund.originalChannelTransactionNo(), kind, refund.amount(), reference, succeededAt, source,
                 response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest(), null);

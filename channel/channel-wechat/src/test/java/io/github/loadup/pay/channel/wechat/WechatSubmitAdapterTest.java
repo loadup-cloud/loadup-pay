@@ -17,21 +17,61 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.ChannelPayerIdentityInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
+import io.github.loadup.pay.channel.api.model.NoChannelInput;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.wechat.protocol.WechatJsapiSigner;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatVerifiedResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.net.URI;
-import java.time.*;
-import java.util.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatSubmitAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-24T03:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -62,7 +102,8 @@ class WechatSubmitAdapterTest {
         var body = ArgumentCaptor.forClass(String.class);
         verify(client).call(eq("tenant"), eq(context.binding()), eq(WechatMethod.DIRECT_JSAPI), eq(Map.of()), eq(Map.of()), body.capture());
         var data = json.readValue(body.getValue(), Map.class);
-        assertEquals("wx-app", data.get("appid")); assertEquals("1900000001", data.get("mchid"));
+        assertEquals("wx-app", data.get("appid"));
+        assertEquals("1900000001", data.get("mchid"));
         assertEquals("original_01", data.get("out_trade_no"));
         assertEquals(Map.of("openid", "openid-original"), data.get("payer"));
         assertEquals(1250, ((Map<?, ?>) data.get("amount")).get("total"));
@@ -74,7 +115,7 @@ class WechatSubmitAdapterTest {
 
     @Test
     void partnerUsesFrozenSubMerchantAndMatchingSpOrSubOpenIdWithOriginalDeadline() {
-        for (String subAppId : new String[] {null, "wx-sub-app"}) {
+        for (String subAppId : new String[]{null, "wx-sub-app"}) {
             clearInvocations(client, signer);
             var context = context(new WechatAccountIdentity("wx-provider", "1900000001", subAppId, "1900000002"));
             String appId = subAppId == null ? "wx-provider" : subAppId;
@@ -87,8 +128,10 @@ class WechatSubmitAdapterTest {
             var body = ArgumentCaptor.forClass(String.class);
             verify(client).call(eq("tenant"), eq(context.binding()), eq(WechatMethod.PARTNER_JSAPI), anyMap(), anyMap(), body.capture());
             var data = json.readValue(body.getValue(), Map.class);
-            assertEquals("wx-provider", data.get("sp_appid")); assertEquals("1900000001", data.get("sp_mchid"));
-            assertEquals("1900000002", data.get("sub_mchid")); assertEquals(subAppId, data.get("sub_appid"));
+            assertEquals("wx-provider", data.get("sp_appid"));
+            assertEquals("1900000001", data.get("sp_mchid"));
+            assertEquals("1900000002", data.get("sub_mchid"));
+            assertEquals(subAppId, data.get("sub_appid"));
             assertEquals(Map.of(subAppId == null ? "sp_openid" : "sub_openid", "openid-original"), data.get("payer"));
             assertFalse(data.containsKey("mchid"));
         }
@@ -248,44 +291,74 @@ class WechatSubmitAdapterTest {
                 .thenReturn(response(WechatMethod.DIRECT_JSAPI, 400, "{\"code\":\"OUT_TRADE_NO_USED\"}"));
         TenantUtil.runWithTenant("tenant", () -> {
             var result = adapter.submit(context, request("wx-app", UNTIL));
-            assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, result.observation().kind()); assertNull(result.action());
+            assertEquals(ChannelPaymentOutcome.Kind.UNKNOWN, result.observation().kind());
+            assertNull(result.action());
         });
         verifyNoInteractions(signer);
     }
+
     private ChannelExecutionContext context(WechatAccountIdentity account) {
         return context(account, Set.of(PaymentMethod.JSAPI, PaymentMethod.H5));
     }
+
     private ChannelExecutionContext context(WechatAccountIdentity account, Set<PaymentMethod> capabilities) {
         return new ChannelExecutionContext("tenant", new ChannelBindingRevision("binding", "merchant", Channel.WECHAT,
                 account.accessMode(), "a".repeat(64), "credential", "v1", account, capabilities));
     }
-    private ChannelPaymentIdentity identity() { return new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "binding", "a".repeat(64), "original_01"); }
+
+    private ChannelPaymentIdentity identity() {
+        return new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "binding", "a".repeat(64), "original_01");
+    }
+
     private ChannelPaymentRequest request(String appId, OffsetDateTime until) {
         return new ChannelPaymentRequest(new PreparedChannelPayment(identity(), AMOUNT, PaymentMethod.JSAPI, 1, "prepared-input"),
                 "original subject", until, new ChannelPayerIdentityInput(Channel.WECHAT, PayerIdentityType.OPEN_ID, "openid-original", appId));
     }
+
     private ChannelPaymentRequest h5Request(OffsetDateTime until, ChannelPaymentInput input) {
         return new ChannelPaymentRequest(new PreparedChannelPayment(identity(), AMOUNT, PaymentMethod.H5, 1, "prepared-input"),
                 "original subject", until, input);
     }
+
     private ChannelPaymentValidation validation(PaymentMethod method, ChannelPaymentInput input) {
         return new ChannelPaymentValidation(identity(), AMOUNT, method, "subject", UNTIL, input);
     }
+
     private WechatJsapiChannelAction action(String appId, OffsetDateTime expiry) {
         return new WechatJsapiChannelAction(appId, Long.toString(CLOCK.instant().getEpochSecond()), "nonce", "prepay_id=synthetic",
                 "RSA", Base64.getEncoder().encodeToString(new byte[256]), expiry);
     }
+
     private WechatVerifiedResponse response(WechatMethod method, int status, String body) {
         return new WechatVerifiedResponse(method, status, body, DigestUtils.sha256(body));
     }
 
     private static final class AdvancingClock extends Clock {
-        private Instant instant;
         private final ZoneId zone;
-        private AdvancingClock(Instant instant, ZoneId zone) { this.instant = instant; this.zone = zone; }
-        @Override public ZoneId getZone() { return zone; }
-        @Override public Clock withZone(ZoneId zone) { return new AdvancingClock(instant, zone); }
-        @Override public Instant instant() { return instant; }
-        private void advance(Duration duration) { instant = instant.plus(duration); }
+        private Instant instant;
+
+        private AdvancingClock(Instant instant, ZoneId zone) {
+            this.instant = instant;
+            this.zone = zone;
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return zone;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return new AdvancingClock(instant, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
     }
 }

@@ -16,11 +16,21 @@
 package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 
 
-/** Alipay collection and refund strategy, independent of payment application orchestration. */
+/**
+ * Alipay collection and refund strategy, independent of payment application orchestration.
+ */
 public final class AlipayChannelProvider implements ChannelProvider {
     private final AlipayRefundAdapter refunds;
     private final AlipayPaymentAdapter payments;
@@ -33,7 +43,9 @@ public final class AlipayChannelProvider implements ChannelProvider {
     }
 
     @Override
-    public Channel channel() { return Channel.ALIPAY; }
+    public Channel channel() {
+        return Channel.ALIPAY;
+    }
 
     @Override
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {

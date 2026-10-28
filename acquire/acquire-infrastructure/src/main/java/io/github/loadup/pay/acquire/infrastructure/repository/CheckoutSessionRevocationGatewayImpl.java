@@ -27,29 +27,43 @@ import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionRev
 import io.github.loadup.pay.acquire.infrastructure.mapper.CheckoutSessionRevocationReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_PAGE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.CHECKOUT_SESSION_REVOCATION_RECEIPT_DO;
 
 @Repository
 public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevocationGateway {
     private final CheckoutSessionRevocationReceiptDOMapper mapper;
     private final CheckoutSessionRevocationReceiptStorageConverter converter;
+
     public CheckoutSessionRevocationGatewayImpl(CheckoutSessionRevocationReceiptDOMapper mapper, CheckoutSessionRevocationReceiptStorageConverter converter) {
-        this.mapper = mapper; this.converter = converter;
+        this.mapper = mapper;
+        this.converter = converter;
     }
-    @Override public Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey) {
+
+    @Override
+    public Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         var row = mapper.selectOneByQuery(scope(tenant).and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.CALLER_SCOPE_HASH.eq(callerScopeHash))
                 .and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.REQUEST_KEY.eq(requestKey)));
         return Optional.ofNullable(row).map(this::decode);
     }
-    @Override public void insert(String tenant, CheckoutSessionRevocationReceipt value) {
+
+    @Override
+    public void insert(String tenant, CheckoutSessionRevocationReceipt value) {
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
         if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
-    @Override public PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size) {
+
+    @Override
+    public PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
         var query = scope(tenant).and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.SESSION_ID.eq(sessionId));
         long total = mapper.selectCountByQuery(query);
@@ -57,13 +71,18 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
                 .limit(size).offset((long) (page - 1) * size);
         return PageResult.of(mapper.selectListByQuery(query).stream().map(this::decode).toList(), total, page, size);
     }
+
     private QueryWrapper scope(String tenant) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         return QueryWrapper.create().where(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.TENANT_ID.eq(tenant))
                 .and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.DELETED.eq(0));
     }
+
     private CheckoutSessionRevocationReceipt decode(CheckoutSessionRevocationReceiptDO row) {
-        try { return converter.toDomain(row); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return converter.toDomain(row);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

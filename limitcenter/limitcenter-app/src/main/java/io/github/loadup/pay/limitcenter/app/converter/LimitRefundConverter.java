@@ -20,12 +20,14 @@ import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand
 import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
 import org.mapstruct.Mapper;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface LimitRefundConverter {
     LimitRefundReceipt toReceipt(String id, String callerServiceId, LimitRefundRestoreCommand command, String requestDigest,
-            long verifiedPaymentRefundedMinor, long verifiedPaymentRefundVersion, String result,
-            long restoredAmountMinor, boolean restoredPaymentCount, LocalDateTime acceptedAt);
+                                 long verifiedPaymentRefundedMinor, long verifiedPaymentRefundVersion, String result,
+                                 long restoredAmountMinor, boolean restoredPaymentCount, LocalDateTime acceptedAt);
+
     LimitRestoreDTO toDTO(LimitRefundReceipt value);
 }

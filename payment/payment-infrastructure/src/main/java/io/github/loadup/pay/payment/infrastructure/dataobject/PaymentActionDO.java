@@ -106,9 +106,13 @@ public class PaymentActionDO extends BaseDO {
         executionEpoch = value;
     }
 
-    public String getSource() { return source; }
+    public String getSource() {
+        return source;
+    }
 
-    public void setSource(String value) { source = value; }
+    public void setSource(String value) {
+        source = value;
+    }
 
     public String getReceiptId() {
         return receiptId;

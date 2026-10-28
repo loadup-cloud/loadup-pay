@@ -16,9 +16,18 @@
 package io.github.loadup.pay.reconciliation.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.reconciliation.client.dto.*;
-import io.github.loadup.pay.reconciliation.domain.model.*;
 import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationDifferenceDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationInputDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationLineDTO;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationBatch;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -63,7 +72,10 @@ public interface ReconciliationConverter {
     StoredReconciliationBatch withBatch(StoredReconciliationBatch original, ReconciliationBatch batch);
 
     StoredReconciliationBatch toStored(ReconciliationBatch batch, String callerServiceId, String requestKey, String requestDigest, String channelAccountCode);
+
     ReconciliationSide toSide(io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide value);
+
     ReconciliationRecordKind toKind(io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind value);
+
     ReconciliationDifferenceReason toReason(io.github.loadup.pay.reconciliation.client.enums.ReconciliationDifferenceReason value);
 }

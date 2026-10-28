@@ -16,20 +16,32 @@
 package io.github.loadup.pay.payment.infrastructure.channel;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.facade.ChannelNotificationFacade;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentChannelNotificationGatewayImplTest {
     private final ChannelNotificationFacade facade = mock(ChannelNotificationFacade.class);
@@ -67,7 +79,9 @@ class PaymentChannelNotificationGatewayImplTest {
         try {
             TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                     () -> gateway.identify(Channel.WECHAT, "old-revision", input)));
-        } finally { TransactionSynchronizationManager.clear(); }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
         verifyNoInteractions(bindings, facade);
     }
 }

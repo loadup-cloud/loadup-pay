@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.client.enums;
 
-public enum ReconciliationSide { CHANNEL, LEDGER }
+public enum ReconciliationSide {CHANNEL, LEDGER}

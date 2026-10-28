@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
-import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 
 @Table("refund_acceptance_evidence")
 public class RefundAcceptanceDO extends BaseDO {
@@ -36,29 +36,105 @@ public class RefundAcceptanceDO extends BaseDO {
     private String currency;
     private java.time.LocalDateTime acceptedAt;
     private String receiptId;
-    public String getPaymentId() { return paymentId; }
-    public void setPaymentId(String value) { paymentId = value; }
-    public String getAttemptId() { return attemptId; }
-    public void setAttemptId(String value) { attemptId = value; }
-    public String getChannel() { return channel; }
-    public void setChannel(String value) { channel = value; }
-    public String getBindingRevisionId() { return bindingRevisionId; }
-    public void setBindingRevisionId(String value) { bindingRevisionId = value; }
-    public String getAccountScopeHash() { return accountScopeHash; }
-    public void setAccountScopeHash(String value) { accountScopeHash = value; }
-    public String getChannelRequestNo() { return channelRequestNo; }
-    public void setChannelRequestNo(String value) { channelRequestNo = value; }
-    public String getOriginalChannelTransactionNo() { return originalChannelTransactionNo; }
-    public void setOriginalChannelTransactionNo(String value) { originalChannelTransactionNo = value; }
-    public String getChannelRefundNo() { return channelRefundNo; }
-    public void setChannelRefundNo(String value) { channelRefundNo = value; }
-    public Long getAmountMinor() { return amountMinor; }
-    public void setAmountMinor(Long value) { amountMinor = value; }
-    public String getCurrency() { return currency; }
-    public void setCurrency(String value) { currency = value; }
-    public java.time.LocalDateTime getAcceptedAt() { return acceptedAt; }
-    public void setAcceptedAt(java.time.LocalDateTime value) { acceptedAt = value; }
-    public String getReceiptId() { return receiptId; }
-    public void setReceiptId(String value) { receiptId = value; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public String getPaymentId() {
+        return paymentId;
+    }
+
+    public void setPaymentId(String value) {
+        paymentId = value;
+    }
+
+    public String getAttemptId() {
+        return attemptId;
+    }
+
+    public void setAttemptId(String value) {
+        attemptId = value;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String value) {
+        channel = value;
+    }
+
+    public String getBindingRevisionId() {
+        return bindingRevisionId;
+    }
+
+    public void setBindingRevisionId(String value) {
+        bindingRevisionId = value;
+    }
+
+    public String getAccountScopeHash() {
+        return accountScopeHash;
+    }
+
+    public void setAccountScopeHash(String value) {
+        accountScopeHash = value;
+    }
+
+    public String getChannelRequestNo() {
+        return channelRequestNo;
+    }
+
+    public void setChannelRequestNo(String value) {
+        channelRequestNo = value;
+    }
+
+    public String getOriginalChannelTransactionNo() {
+        return originalChannelTransactionNo;
+    }
+
+    public void setOriginalChannelTransactionNo(String value) {
+        originalChannelTransactionNo = value;
+    }
+
+    public String getChannelRefundNo() {
+        return channelRefundNo;
+    }
+
+    public void setChannelRefundNo(String value) {
+        channelRefundNo = value;
+    }
+
+    public Long getAmountMinor() {
+        return amountMinor;
+    }
+
+    public void setAmountMinor(Long value) {
+        amountMinor = value;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String value) {
+        currency = value;
+    }
+
+    public java.time.LocalDateTime getAcceptedAt() {
+        return acceptedAt;
+    }
+
+    public void setAcceptedAt(java.time.LocalDateTime value) {
+        acceptedAt = value;
+    }
+
+    public String getReceiptId() {
+        return receiptId;
+    }
+
+    public void setReceiptId(String value) {
+        receiptId = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -16,11 +16,18 @@
 package io.github.loadup.pay.acquire.app.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.OffsetDateTime;
 
-/** Public business projection; source evidence ids, channel accounts and submission secrets are excluded. */
+/**
+ * Public business projection; source evidence ids, channel accounts and submission secrets are excluded.
+ */
 public record MerchantRefundNotificationData(String orderId, String refundRequestId, String merchantRefundNo,
-        String refundId, String paymentId, String payeeMerchantId, long amountMinor, String currency, String state,
-        long succeededMinor, long failedMinor, OffsetDateTime succeededAt) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                             String refundId, String paymentId, String payeeMerchantId,
+                                             long amountMinor, String currency, String state,
+                                             long succeededMinor, long failedMinor, OffsetDateTime succeededAt) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -27,7 +27,9 @@ import java.util.Map;
 
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
 
-/** Strict typed field access after the protocol client has verified the original response bytes. */
+/**
+ * Strict typed field access after the protocol client has verified the original response bytes.
+ */
 public final class AlipayResponseReader {
     private final JsonMapper json;
 

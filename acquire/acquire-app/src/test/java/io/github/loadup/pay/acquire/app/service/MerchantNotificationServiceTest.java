@@ -25,6 +25,11 @@ import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -34,10 +39,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +71,22 @@ class MerchantNotificationServiceTest {
     private final AtomicReference<MerchantNotificationDelivery> current = new AtomicReference<>();
     private final Map<String, DelayedTask> nativeTasks = new HashMap<>();
     private final ArrayList<String> operations = new ArrayList<>();
+
+    private static DelayedTask runningTask(String bizId, LocalDateTime executeAt, LocalDateTime nextExecuteAt,
+                                           String id, int attempts, LocalDateTime leaseUntil) {
+        return new DelayedTask(id, TENANT, MerchantNotificationService.TYPE, bizId, executeAt, nextExecuteAt,
+                DelayedTaskStatus.RUNNING, attempts, 5, leaseUntil, null);
+    }
+
+    private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
+        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
+                "payment", 7, BODY, DIGEST, policy, NOW);
+    }
+
+    private static MerchantNotificationPolicy policy(long initialSeconds, int maxAttempts, long windowSeconds) {
+        return new MerchantNotificationPolicy("target", "signing-key", 1000, initialSeconds,
+                BigDecimal.ONE, 60, maxAttempts, windowSeconds);
+    }
 
     @BeforeEach
     void setup() {
@@ -217,21 +234,5 @@ class MerchantNotificationServiceTest {
 
     private void invoke(DelayedTask task, MerchantNotificationService service) {
         TenantUtil.runWithTenant(TENANT, () -> service.handle(task));
-    }
-
-    private static DelayedTask runningTask(String bizId, LocalDateTime executeAt, LocalDateTime nextExecuteAt,
-            String id, int attempts, LocalDateTime leaseUntil) {
-        return new DelayedTask(id, TENANT, MerchantNotificationService.TYPE, bizId, executeAt, nextExecuteAt,
-                DelayedTaskStatus.RUNNING, attempts, 5, leaseUntil, null);
-    }
-
-    private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
-        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
-                "payment", 7, BODY, DIGEST, policy, NOW);
-    }
-
-    private static MerchantNotificationPolicy policy(long initialSeconds, int maxAttempts, long windowSeconds) {
-        return new MerchantNotificationPolicy("target", "signing-key", 1000, initialSeconds,
-                BigDecimal.ONE, 60, maxAttempts, windowSeconds);
     }
 }

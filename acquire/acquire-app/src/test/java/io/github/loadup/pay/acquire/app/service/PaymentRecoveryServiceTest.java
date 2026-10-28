@@ -16,30 +16,54 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.PaymentRecoveryConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
-import io.github.loadup.pay.acquire.domain.model.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentRecoveryServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentRecoveryConverter.class.getPackageName());
@@ -56,7 +80,11 @@ class PaymentRecoveryServiceTest {
             null, null, null, 0L, BusinessTime.external(NOW));
     final PaymentProgressDTO progress = new PaymentProgressDTO(payment, context.getBean(AcquireOrderConverter.class).toDTO(original, NOW));
 
-    @AfterEach void close() { context.close(); validation.close(); }
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void recoveryUsesMerchantOwnershipAndTheExistingConvergencePath() {
@@ -116,8 +144,11 @@ class PaymentRecoveryServiceTest {
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
         actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode()); }
-        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(initiation, outcomes);
     }
 

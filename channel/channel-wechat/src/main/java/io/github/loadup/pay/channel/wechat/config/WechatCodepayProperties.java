@@ -19,12 +19,16 @@ import com.google.common.net.InetAddresses;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Trusted API-calling machine IP by tenant and binding revision, never a browser forwarding header. */
+/**
+ * Trusted API-calling machine IP by tenant and binding revision, never a browser forwarding header.
+ */
 @ConfigurationProperties("loadup.pay.channel.wechat.codepay")
 public record WechatCodepayProperties(Map<String, Map<String, String>> serverIps) {
     public WechatCodepayProperties {
@@ -38,11 +42,16 @@ public record WechatCodepayProperties(Map<String, Map<String, String>> serverIps
             }
         }
     }
+
     private static boolean validIp(String value) {
         if (value == null || value.length() > 64 || !InetAddresses.isInetAddress(value)) return false;
         var address = InetAddresses.forString(value);
         return !address.isAnyLocalAddress() && !address.isMulticastAddress() && !address.isLoopbackAddress()
                 && !address.isLinkLocalAddress();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -20,11 +20,12 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.model.PaymentRecoveryInspection;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentRecoveryRetryCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentRecoveryTaskDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryRetryDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentRecoveryTaskDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -52,8 +53,13 @@ public interface PaymentRecoveryOperationsConverter {
     @Mapping(target = "expectedNextExecuteAt", source = "command.expectedNextExecuteAt")
     @Mapping(target = "reason", source = "command.reason")
     PaymentRecoveryRetryReceipt toReceipt(String id, PaymentRecoveryRetryCommand command, PaymentActor actor,
-            PaymentRecoveryInspection inspection, String callerScopeHash, String requestDigest, String result, LocalDateTime acceptedAt);
+                                          PaymentRecoveryInspection inspection, String callerScopeHash, String requestDigest, String result, LocalDateTime acceptedAt);
 
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
-    default LocalDateTime local(OffsetDateTime value) { return value == null ? null : BusinessTime.local(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
+
+    default LocalDateTime local(OffsetDateTime value) {
+        return value == null ? null : BusinessTime.local(value);
+    }
 }

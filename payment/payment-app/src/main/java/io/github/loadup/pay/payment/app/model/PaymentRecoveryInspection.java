@@ -15,13 +15,19 @@
  */
 package io.github.loadup.pay.payment.app.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 
-/** Bounded operational projection; contains neither native errors nor financial request payloads. */
+/**
+ * Bounded operational projection; contains neither native errors nor financial request payloads.
+ */
 public record PaymentRecoveryInspection(PaymentRecoveryKind kind, String subjectId, long generation, String orderId,
-        @DiagnosticHidden DelayedTask task, boolean businessCurrent, boolean retryable) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                        @DiagnosticHidden DelayedTask task, boolean businessCurrent,
+                                        boolean retryable) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

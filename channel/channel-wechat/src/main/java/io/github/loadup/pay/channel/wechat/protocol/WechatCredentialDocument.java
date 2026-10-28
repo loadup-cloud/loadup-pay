@@ -19,9 +19,18 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsCiphertext;
 
-/** Immutable mounted descriptor. Merchant private keys remain in KMS. */
-public record WechatCredentialDocument(String tenantId, String reference, String version, String appId, String merchantId,
-        String merchantSerial, String signingKeyName, int signingKeyVersion, String platformKeyId,
-        @DiagnosticHidden String platformPublicKey, @DiagnosticHidden KmsCiphertext apiV3Key, @DiagnosticHidden KmsCiphertext apiV2Key) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+/**
+ * Immutable mounted descriptor. Merchant private keys remain in KMS.
+ */
+public record WechatCredentialDocument(String tenantId, String reference, String version, String appId,
+                                       String merchantId,
+                                       String merchantSerial, String signingKeyName, int signingKeyVersion,
+                                       String platformKeyId,
+                                       @DiagnosticHidden String platformPublicKey,
+                                       @DiagnosticHidden KmsCiphertext apiV3Key,
+                                       @DiagnosticHidden KmsCiphertext apiV2Key) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -15,7 +15,9 @@
  */
 package io.github.loadup.pay.channel.api.model;
 
-/** Internal plaintext obtained only from the calling application's bound, short-lived encrypted input. */
+/**
+ * Internal plaintext obtained only from the calling application's bound, short-lived encrypted input.
+ */
 public sealed interface ChannelPaymentInput permits ChannelPaymentCodeInput, ChannelPayerIdentityInput, ChannelH5Input, NoChannelInput {
 }
 

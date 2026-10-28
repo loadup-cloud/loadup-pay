@@ -18,6 +18,7 @@ package io.github.loadup.pay.acquire.client.dto;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 public record AcquireRecoveryTaskDTO(
@@ -32,5 +33,8 @@ public record AcquireRecoveryTaskDTO(
         @Schema(description = "Observed native next execution time; use this exact value as a retry precondition") OffsetDateTime nextExecuteAt,
         @Schema(description = "This generation still has acquiring work; not a financial status") boolean businessCurrent,
         @Schema(description = "Native FAILED and current business work due now; this snapshot can change") boolean retryable) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

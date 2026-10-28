@@ -21,6 +21,7 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.kms.KmsTemplate;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
@@ -28,7 +29,6 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
-import io.github.loadup.components.kms.KmsTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -49,9 +49,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class WechatNotificationCodecTest {
     private static final String TENANT = "tenant";
@@ -62,11 +72,66 @@ class WechatNotificationCodecTest {
     private static final String NONCE = "signing-nonce-18";
     private static final String RESOURCE_NONCE = "nonce12345678";
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-24T04:00:00Z"), ZoneId.of("Asia/Shanghai"));
-
+    private static final WechatAccountIdentity DIRECT = new WechatAccountIdentity("wx-app", "123456789", null, null);
+    private static final WechatAccountIdentity PARTNER = new WechatAccountIdentity("wx-sp-app", "987654321", "wx-sub-app", "555555555");
+    private static final ChannelBindingRevision DIRECT_BINDING = new ChannelBindingRevision("revision-1", "merchant-1",
+            Channel.WECHAT, AccessMode.DIRECT, HASH, "credential-ref", "3", DIRECT, Set.of(PaymentMethod.PAYMENT_CODE));
+    private static final ChannelBindingRevision PARTNER_BINDING = new ChannelBindingRevision("partner-revision", "merchant-2",
+            Channel.WECHAT, AccessMode.SERVICE_PROVIDER, HASH, "credential-ref", "3", PARTNER, Set.of(PaymentMethod.PAYMENT_CODE));
+    private static final ChannelExecutionContext DIRECT_CONTEXT = new ChannelExecutionContext(TENANT, DIRECT_BINDING);
+    private static final ChannelExecutionContext PARTNER_CONTEXT = new ChannelExecutionContext(TENANT, PARTNER_BINDING);
+    private static final Money AMOUNT = Money.ofMinor(125_000, "CNY");
+    private static final ChannelPaymentIdentity IDENTITY = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT,
+            "revision-1", HASH, ORDER_NO);
+    private static final ChannelPaymentTarget TARGET = new ChannelPaymentTarget(IDENTITY, AMOUNT);
     private KeyPair signingKeys;
     private WechatCredentialReader credentials;
     private WechatNotificationCodec codec;
     private AtomicReference<byte[]> lastApiKey;
+
+    private static String payment(WechatAccountIdentity identity) {
+        var account = identity.subMerchantId() == null
+                ? "\"appid\":\"" + identity.appId() + "\",\"mchid\":\"" + identity.merchantId() + "\""
+                : "\"sp_appid\":\"" + identity.appId() + "\",\"sp_mchid\":\"" + identity.merchantId()
+                + "\",\"sub_mchid\":\"" + identity.subMerchantId() + "\",\"sub_appid\":\"" + identity.subAppId() + "\"";
+        return "{" + account + ",\"trade_state\":\"SUCCESS\",\"transaction_id\":\"wx-transaction-18\","
+                + "\"out_trade_no\":\"" + ORDER_NO + "\",\"amount\":{\"total\":125000,\"currency\":\"CNY\"},"
+                + "\"success_time\":\"2026-10-24T12:00:00+08:00\"}";
+    }
+
+    private static String with(String json, String field, Object value) {
+        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*([^,}]+)", "\\\"" + field + "\\\":" + value);
+    }
+
+    private static String with(String json, String field, Map<String, Object> value) {
+        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*\\{[^}]*}", "\\\"" + field + "\\\":" +
+                "{\\\"total\\\":" + value.get("total") + ",\\\"currency\\\":\\\"" + value.get("currency") + "\\\"}");
+    }
+
+    private static byte[] withByteChanged(byte[] original) {
+        byte[] changed = original.clone();
+        changed[changed.length - 2] ^= 1;
+        return changed;
+    }
+
+    private static byte[] corruptTag(byte[] original) {
+        String value = new String(original, StandardCharsets.UTF_8);
+        int start = value.indexOf("\"ciphertext\":\"") + "\"ciphertext\":\"".length();
+        int end = value.indexOf('"', start);
+        byte[] decoded = Base64.getDecoder().decode(value.substring(start, end));
+        decoded[decoded.length - 1] ^= 1;
+        return (value.substring(0, start) + Base64.getEncoder().encodeToString(decoded) + value.substring(end))
+                .getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
+        var copy = new java.util.HashMap<String, List<String>>();
+        headers.forEach((key, value) -> {
+            if (!key.equalsIgnoreCase(name)) copy.put(key, value);
+        });
+        copy.put(name, values);
+        return copy;
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -145,7 +210,7 @@ class WechatNotificationCodecTest {
     @Test
     void rejectsMalformedJsonUtf8WrongAccountAmountOrderAndRefundEvent() throws Exception {
         assertRejected(signedInput("{".getBytes(StandardCharsets.UTF_8)));
-        assertRejected(signedInput(new byte[] {(byte) 0xc3, (byte) 0x28}));
+        assertRejected(signedInput(new byte[]{(byte) 0xc3, (byte) 0x28}));
         assertRejected(signedInput(notification(with(payment(DIRECT), "mchid", "\"other\""), "TRANSACTION.SUCCESS", "transaction", "n", "trade-table", false)));
         assertRejected(signedInput(notification(with(payment(DIRECT), "amount", Map.of("total", 125001, "currency", "CNY")), "TRANSACTION.SUCCESS", "transaction", "n", "trade-table", false)));
         assertRejected(signedInput(notification(with(payment(DIRECT), "out_trade_no", "\"another-order\""), "TRANSACTION.SUCCESS", "transaction", "n", "trade-table", false)));
@@ -195,7 +260,7 @@ class WechatNotificationCodecTest {
     }
 
     private byte[] notification(String payment, String event, String originalType, String id, String associated,
-            boolean omitAssociatedData) throws Exception {
+                                boolean omitAssociatedData) throws Exception {
         var cipher = Cipher.getInstance("AES/GCM/NoPadding");
         byte[] key = API_V3_KEY.getBytes(StandardCharsets.US_ASCII);
         cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"),
@@ -210,65 +275,8 @@ class WechatNotificationCodecTest {
                 .getBytes(StandardCharsets.UTF_8);
     }
 
-    private static String payment(WechatAccountIdentity identity) {
-        var account = identity.subMerchantId() == null
-                ? "\"appid\":\"" + identity.appId() + "\",\"mchid\":\"" + identity.merchantId() + "\""
-                : "\"sp_appid\":\"" + identity.appId() + "\",\"sp_mchid\":\"" + identity.merchantId()
-                        + "\",\"sub_mchid\":\"" + identity.subMerchantId() + "\",\"sub_appid\":\"" + identity.subAppId() + "\"";
-        return "{" + account + ",\"trade_state\":\"SUCCESS\",\"transaction_id\":\"wx-transaction-18\","
-                + "\"out_trade_no\":\"" + ORDER_NO + "\",\"amount\":{\"total\":125000,\"currency\":\"CNY\"},"
-                + "\"success_time\":\"2026-10-24T12:00:00+08:00\"}";
-    }
-
-    private static String with(String json, String field, Object value) {
-        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*([^,}]+)", "\\\"" + field + "\\\":" + value);
-    }
-
-    private static String with(String json, String field, Map<String, Object> value) {
-        return json.replaceFirst("\\\"" + field + "\\\"\\s*:\\s*\\{[^}]*}", "\\\"" + field + "\\\":" +
-                "{\\\"total\\\":" + value.get("total") + ",\\\"currency\\\":\\\"" + value.get("currency") + "\\\"}");
-    }
-
-    private static byte[] withByteChanged(byte[] original) {
-        byte[] changed = original.clone();
-        changed[changed.length - 2] ^= 1;
-        return changed;
-    }
-
-    private static byte[] corruptTag(byte[] original) {
-        String value = new String(original, StandardCharsets.UTF_8);
-        int start = value.indexOf("\"ciphertext\":\"") + "\"ciphertext\":\"".length();
-        int end = value.indexOf('"', start);
-        byte[] decoded = Base64.getDecoder().decode(value.substring(start, end));
-        decoded[decoded.length - 1] ^= 1;
-        return (value.substring(0, start) + Base64.getEncoder().encodeToString(decoded) + value.substring(end))
-                .getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
-        var copy = new java.util.HashMap<String, List<String>>();
-        headers.forEach((key, value) -> {
-            if (!key.equalsIgnoreCase(name)) copy.put(key, value);
-        });
-        copy.put(name, values);
-        return copy;
-    }
-
     private WechatCredentials credentials(WechatAccountIdentity identity) {
         return new WechatCredentials(TENANT, identity.appId(), identity.merchantId(), "1234ABCD", null,
                 "PUB_KEY_ID_test", signingKeys.getPublic());
     }
-
-    private static final WechatAccountIdentity DIRECT = new WechatAccountIdentity("wx-app", "123456789", null, null);
-    private static final WechatAccountIdentity PARTNER = new WechatAccountIdentity("wx-sp-app", "987654321", "wx-sub-app", "555555555");
-    private static final ChannelBindingRevision DIRECT_BINDING = new ChannelBindingRevision("revision-1", "merchant-1",
-            Channel.WECHAT, AccessMode.DIRECT, HASH, "credential-ref", "3", DIRECT, Set.of(PaymentMethod.PAYMENT_CODE));
-    private static final ChannelBindingRevision PARTNER_BINDING = new ChannelBindingRevision("partner-revision", "merchant-2",
-            Channel.WECHAT, AccessMode.SERVICE_PROVIDER, HASH, "credential-ref", "3", PARTNER, Set.of(PaymentMethod.PAYMENT_CODE));
-    private static final ChannelExecutionContext DIRECT_CONTEXT = new ChannelExecutionContext(TENANT, DIRECT_BINDING);
-    private static final ChannelExecutionContext PARTNER_CONTEXT = new ChannelExecutionContext(TENANT, PARTNER_BINDING);
-    private static final Money AMOUNT = Money.ofMinor(125_000, "CNY");
-    private static final ChannelPaymentIdentity IDENTITY = new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.WECHAT,
-            "revision-1", HASH, ORDER_NO);
-    private static final ChannelPaymentTarget TARGET = new ChannelPaymentTarget(IDENTITY, AMOUNT);
 }

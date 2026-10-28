@@ -15,7 +15,9 @@
  */
 package io.github.loadup.pay.payment.app.model;
 
-/** Committed continuation decision, not a payment/refund outcome or a native task acknowledgement. */
+/**
+ * Committed continuation decision, not a payment/refund outcome or a native task acknowledgement.
+ */
 public enum RecoveryHandlingOutcome {
     COMPLETED,
     CONTINUED,

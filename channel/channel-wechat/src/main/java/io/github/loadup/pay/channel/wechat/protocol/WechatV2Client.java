@@ -20,20 +20,32 @@ import io.github.loadup.components.http.HttpCall;
 import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Arrays;
 import java.util.Map;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** One original debit through a named HTTP operation, no transport retry or protocol fallback. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+
+/**
+ * One original debit through a named HTTP operation, no transport retry or protocol fallback.
+ */
 public class WechatV2Client {
     private final HttpTemplate http;
     private final WechatCredentialReader credentials;
     private final WechatV2Codec codec;
+
     public WechatV2Client(HttpTemplate http, WechatCredentialReader credentials, WechatV2Codec codec) {
-        this.http = http; this.credentials = credentials; this.codec = codec;
+        this.http = http;
+        this.credentials = credentials;
+        this.codec = codec;
     }
+
     public WechatV2VerifiedResponse call(String tenant, ChannelBindingRevision binding, WechatV2Method method,
-            Map<String, String> fields) {
+                                         Map<String, String> fields) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (method == null || fields == null) throw new CommonException(INVALID_ARGUMENT);
         if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
@@ -50,10 +62,15 @@ public class WechatV2Client {
             var body = codec.encode(fields, key);
             var response = http.exchange("wechat-v2", method.operation(), new HttpCall(Map.of(), Map.of(),
                     Map.of("Content-Type", "application/xml;charset=UTF-8", "Accept", "application/xml"), body));
-            if (response == null || !response.getStatusCode().is2xxSuccessful()) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null || !response.getStatusCode().is2xxSuccessful())
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return codec.verify(method, response.getBody(), key);
-        } catch (CommonException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
-        finally { if (key != null) Arrays.fill(key, (byte) 0); }
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        } finally {
+            if (key != null) Arrays.fill(key, (byte) 0);
+        }
     }
 }

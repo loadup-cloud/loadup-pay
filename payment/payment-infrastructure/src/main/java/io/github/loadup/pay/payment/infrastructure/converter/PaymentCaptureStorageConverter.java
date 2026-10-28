@@ -16,15 +16,18 @@
 package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
+import io.github.loadup.pay.payment.domain.model.PaymentCapture;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureScope;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureLineDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.BeanMapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentCaptureStorageConverter {
     PaymentCaptureScope toScope(PaymentCaptureDO row);
+
     @Mapping(target = "scope", source = "row")
     @Mapping(target = "version", source = "rowVersion")
     PaymentCapture toModel(PaymentCaptureDO row);

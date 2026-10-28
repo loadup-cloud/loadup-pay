@@ -16,27 +16,45 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** A consistent validated financial view, never proof that a database lock or Y2 ticket is still owned. */
+/**
+ * A consistent validated financial view, never proof that a database lock or Y2 ticket is still owned.
+ */
 public record PaymentExecutionContext(PaymentGateBinding gates, PaymentAttemptBinding attempt) {
     public PaymentExecutionContext {
-        Objects.requireNonNull(gates); Objects.requireNonNull(attempt);
+        Objects.requireNonNull(gates);
+        Objects.requireNonNull(attempt);
         require(gates.accepted().equals(attempt.accepted()), CONFLICT);
     }
+
     public PaymentExecutionContext requireActive() {
-        attempt.requireActive(); return this;
+        attempt.requireActive();
+        return this;
     }
+
     public PaymentExecutionContext requireSubmittable() {
-        gates.requireOpen(); attempt.requireSubmittable(); return this;
+        gates.requireOpen();
+        attempt.requireSubmittable();
+        return this;
     }
+
     public PaymentExecutionContext requireObservable() {
-        attempt.requireObservable(); return this;
+        attempt.requireObservable();
+        return this;
     }
+
     public PaymentExecutionContext requireClosable() {
-        attempt.requireClosable(); return this;
+        attempt.requireClosable();
+        return this;
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

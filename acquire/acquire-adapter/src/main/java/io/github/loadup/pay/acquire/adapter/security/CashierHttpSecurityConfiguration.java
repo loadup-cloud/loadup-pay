@@ -46,6 +46,7 @@ public class CashierHttpSecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, paths).permitAll().anyRequest().denyAll());
         return http.build();
     }
+
     @Bean
     @Order(90)
     SecurityFilterChain cashierSecurityFilterChain(HttpSecurity http, ObjectProvider<JsonMapper> mappers)

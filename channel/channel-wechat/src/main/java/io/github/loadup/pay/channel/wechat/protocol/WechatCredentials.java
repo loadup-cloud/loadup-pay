@@ -18,10 +18,17 @@ package io.github.loadup.pay.channel.wechat.protocol;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.components.kms.KmsKeyRef;
+
 import java.security.PublicKey;
 
-/** Versioned signer and platform verification pin for the original direct or service-provider merchant. */
+/**
+ * Versioned signer and platform verification pin for the original direct or service-provider merchant.
+ */
 public record WechatCredentials(String tenantId, String appId, String merchantId, String merchantSerial,
-        @DiagnosticHidden KmsKeyRef signingKey, String platformKeyId, @DiagnosticHidden PublicKey platformPublicKey) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                @DiagnosticHidden KmsKeyRef signingKey, String platformKeyId,
+                                @DiagnosticHidden PublicKey platformPublicKey) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

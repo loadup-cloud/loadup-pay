@@ -17,11 +17,20 @@ package io.github.loadup.pay.channel.wechat.protocol;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.util.Map;
 
-/** All nonempty extension fields participate in the verified V2 MAC. */
+/**
+ * All nonempty extension fields participate in the verified V2 MAC.
+ */
 public record WechatV2VerifiedResponse(WechatV2Method method, @DiagnosticHidden Map<String, String> fields,
-        String sourceDigest) {
-    public WechatV2VerifiedResponse { fields = Map.copyOf(fields); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                       String sourceDigest) {
+    public WechatV2VerifiedResponse {
+        fields = Map.copyOf(fields);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

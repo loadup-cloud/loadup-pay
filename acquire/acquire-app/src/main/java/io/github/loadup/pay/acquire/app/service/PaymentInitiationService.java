@@ -21,17 +21,24 @@ import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
 import org.springframework.stereotype.Service;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 
-/** Merchant authorization is separate from the shared reservation and acceptance workflow. */
+/**
+ * Merchant authorization is separate from the shared reservation and acceptance workflow.
+ */
 @Service
 public class PaymentInitiationService implements PaymentInitiationFacade {
     private final AcquireActorProvider actors;
     private final PaymentInitiationOperations operations;
+
     public PaymentInitiationService(AcquireActorProvider actors, PaymentInitiationOperations operations) {
-        this.actors = actors; this.operations = operations;
+        this.actors = actors;
+        this.operations = operations;
     }
-    @Override public PaymentStartDTO startPayment(PaymentStartCommand command) {
+
+    @Override
+    public PaymentStartDTO startPayment(PaymentStartCommand command) {
         var actor = actors.current();
         if (!actor.permissions().contains("pay:acquire:payment:start")) throw new CommonException(ACTION_FORBIDDEN);
         return operations.start(new PaymentInitiationPrincipal(actor.tenantId(), actor.scopeHash(), "merchant/" + actor.scopeHash(),

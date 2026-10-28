@@ -15,31 +15,49 @@
  */
 package io.github.loadup.pay.payment.adapter.grpc;
 
-import io.github.loadup.components.rpc.grpc.*;
+import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
+import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.payment.client.facade.PaymentCaptureFacade;
 import io.github.loadup.pay.payment.rpc.PaymentCaptureRpcMapper;
-import io.github.loadup.pay.payment.rpc.proto.*;
+import io.github.loadup.pay.payment.rpc.proto.PaymentCaptureRpcGrpc;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureDTO;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureLinesQuery;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCapturePage;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureQuery;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureRetryCommand;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import io.grpc.stub.StreamObserver;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
 @Import(GrpcSupportConfiguration.class)
 public class PaymentCaptureRpcConfiguration {
-    @Bean BindableService paymentCaptureRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            PaymentCaptureFacade facade, PaymentCaptureRpcMapper mapper) {
+    @Bean
+    BindableService paymentCaptureRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
+                                      PaymentCaptureFacade facade, PaymentCaptureRpcMapper mapper) {
         var service = new PaymentCaptureRpcGrpc.PaymentCaptureRpcImplBase() {
-            @Override public void create(WirePaymentCaptureCreateCommand request, StreamObserver<WirePaymentCaptureDTO> observer) {
+            @Override
+            public void create(WirePaymentCaptureCreateCommand request, StreamObserver<WirePaymentCaptureDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::create, mapper::toWire);
             }
-            @Override public void retry(WirePaymentCaptureRetryCommand request, StreamObserver<WirePaymentCaptureDTO> observer) {
+
+            @Override
+            public void retry(WirePaymentCaptureRetryCommand request, StreamObserver<WirePaymentCaptureDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::retry, mapper::toWire);
             }
-            @Override public void detail(WirePaymentCaptureQuery request, StreamObserver<WirePaymentCaptureDTO> observer) {
+
+            @Override
+            public void detail(WirePaymentCaptureQuery request, StreamObserver<WirePaymentCaptureDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::detail, mapper::toWire);
             }
-            @Override public void lines(WirePaymentCaptureLinesQuery request, StreamObserver<WirePaymentCapturePage> observer) {
+
+            @Override
+            public void lines(WirePaymentCaptureLinesQuery request, StreamObserver<WirePaymentCapturePage> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::lines, mapper::toWire);
             }
         };

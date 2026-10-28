@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.util.TenantUtil;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
@@ -49,7 +49,9 @@ public class PaymentAcceptanceTransactions {
         snapshots.setReadOnly(true);
     }
 
-    /** REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO. */
+    /**
+     * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
+     */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return withTenantContext(tenant, () -> {
@@ -64,13 +66,17 @@ public class PaymentAcceptanceTransactions {
         });
     }
 
-    /** A short consistent local database snapshot. No row locks, mutations, remote IO or outer transaction. */
+    /**
+     * A short consistent local database snapshot. No row locks, mutations, remote IO or outer transaction.
+     */
     public <T> T readSnapshot(String tenant, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return withTenantContext(tenant, () -> Objects.requireNonNull(snapshots.execute(status -> work.get())));
     }
 
-    /** Dedicated bounded RR read. The transaction deadline is propagated by Spring/MyBatis to JDBC statements. */
+    /**
+     * Dedicated bounded RR read. The transaction deadline is propagated by Spring/MyBatis to JDBC statements.
+     */
     public <T> T readSnapshot(String tenant, int timeoutSeconds, Supplier<T> work) {
         if (timeoutSeconds < 1 || timeoutSeconds > 60) throw new CommonException(INVALID_ARGUMENT);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
@@ -79,7 +85,9 @@ public class PaymentAcceptanceTransactions {
         return withTenantContext(tenant, () -> Objects.requireNonNull(bounded.execute(status -> work.get())));
     }
 
-    /** Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active. */
+    /**
+     * Tenant scope/error translation only. Creates no transaction; any existing caller transaction remains active.
+     */
     public <T> T withTenantContext(String tenant, Supplier<T> work) {
         try {
             return TenantUtil.callWithTenant(tenant, work::get);

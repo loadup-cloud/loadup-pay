@@ -17,18 +17,19 @@ package io.github.loadup.pay.product.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
-import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
+import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
 import io.grpc.Metadata;
 import io.grpc.Status;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.OffsetDateTime;
 
 import static io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcOperations.LIMITCENTER_ACTIVATE;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,6 +46,12 @@ class LimitPolicyActivationGrpcClientTest {
     final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
     @TempDir
     Path directory;
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     LimitPolicyActivationGrpcClient client(Path file) {
         return new LimitPolicyActivationGrpcClient(
@@ -94,10 +101,5 @@ class LimitPolicyActivationGrpcClientTest {
                 .thenThrow(remoteFailure((
                         io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.POLICY_CONFLICT).getCode()));
         assertThrows(CommonException.class, () -> client(file).activate("tenant", null));
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

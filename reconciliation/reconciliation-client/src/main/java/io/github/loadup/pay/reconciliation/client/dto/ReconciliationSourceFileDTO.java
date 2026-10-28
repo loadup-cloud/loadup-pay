@@ -22,5 +22,8 @@ public record ReconciliationSourceFileDTO(
         @Schema(description = "Owned FileResource id") String fileId,
         @Schema(description = "Original bytes") long size,
         @Schema(description = "Content SHA-256; not proof of channel provenance") String sha256) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

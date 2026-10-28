@@ -18,10 +18,18 @@ package io.github.loadup.pay.reconciliation.app.config;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 public class ReconciliationConfiguration {
-    @Bean("reconciliationClock") Clock reconciliationClock() { return Clock.systemDefaultZone(); }
-    @Bean ReconciliationMatcher reconciliationMatcher() { return new ReconciliationMatcher(); }
+    @Bean("reconciliationClock")
+    Clock reconciliationClock() {
+        return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    ReconciliationMatcher reconciliationMatcher() {
+        return new ReconciliationMatcher();
+    }
 }

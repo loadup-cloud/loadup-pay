@@ -36,7 +36,8 @@ acquire/
 ```
 
 payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选
-web 层，并同时承载未来业务 gRPC 入站。2026-10-23源码更新：应用间统一使用 gRPC，实际协议与映射归各服务 *-rpc 模块，框架现有 gRPC binder 提供通用调用/认证支持；各业务 profile 提供 gRPC 入站，Java业务client不引入传输协议依赖。
+web 层，并同时承载未来业务 gRPC 入站。2026-10-23源码更新：应用间统一使用 gRPC，实际协议与映射归各服务 *-rpc 模块，框架现有
+gRPC binder 提供通用调用/认证支持；各业务 profile 提供 gRPC 入站，Java业务client不引入传输协议依赖。
 
 ```mermaid
 flowchart LR
@@ -167,7 +168,8 @@ PaymentOrder 或释放 acquire allocation。成功后再收到互相矛盾的退
 
 ### 4.3 时间约定
 
-应用 Clock、JVM、任务、JDBC 和数据库会话采用一致的系统默认时区；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime 携带实际偏移。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
+应用 Clock、JVM、任务、JDBC 和数据库会话采用一致的系统默认时区；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime
+携带实际偏移。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
 
 orderDueAt 是未付清处理检查点；sessionExpiresAt 是访问凭证期限；actionExpiresAt 是渠道参数期限。KEEP_PENDING 不把
 orderDueAt 当成隐蔽停付时间，也不会延长旧二维码。延期按原条款修改检查点，不改总额或合约版本。
@@ -375,73 +377,104 @@ Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存prod
 
 ## 渠道集成模块边界更新（2026-10-23）
 
-渠道技术实现不再归属 payment-infrastructure。统一契约归 channel-api，Facade/Registry 归 channel-core，协议策略分别归 channel-alipay/channel-wechat。payment 的领域 Gateway 保留，基础设施仅提供原绑定解析适配器；依赖从 payment 指向 channel，不允许 channel 反向依赖 payment。统一 API、路由约束和当前未完成边界详见 [渠道模块](channel/README.md)。该调整不增加独立部署服务，也不增加内部 HTTP 调用。
+渠道技术实现不再归属 payment-infrastructure。统一契约归 channel-api，Facade/Registry 归 channel-core，协议策略分别归
+channel-alipay/channel-wechat。payment 的领域 Gateway 保留，基础设施仅提供原绑定解析适配器；依赖从 payment 指向 channel，不允许
+channel 反向依赖 payment。统一 API、路由约束和当前未完成边界详见 [渠道模块](channel/README.md)。该调整不增加独立部署服务，也不增加内部
+HTTP 调用。
 
-payment-infrastructure 显式依赖 channel-api，channel-core 和厂商插件统一由 payment-bootstrap 装配。类型化 ChannelAccountIdentity 通过多态提供所属渠道、接入模式与实际收款主体；payment 的账户摘要计算不再按厂商类型分支。完整依赖图、设计模式和扩展约束见 [渠道架构](channel/ARCHITECTURE.md)。
+payment-infrastructure 显式依赖 channel-api，channel-core 和厂商插件统一由 payment-bootstrap 装配。类型化
+ChannelAccountIdentity 通过多态提供所属渠道、接入模式与实际收款主体；payment
+的账户摘要计算不再按厂商类型分支。完整依赖图、设计模式和扩展约束见 [渠道架构](channel/ARCHITECTURE.md)。
 
-支付渠道 query/close 使用 ChannelPaymentTarget，统一携带原金额；支付宝已补查单与待付款关闭的协议映射，未付款关闭采用明确 CLOSE_RESPONSE 组合来源。payment 主链自动驱动已有源码，关闭 ACK 丢失恢复仍为后续工作，详见 [支付宝说明](channel/channel-alipay/README.md)。
+支付渠道 query/close 使用 ChannelPaymentTarget，统一携带原金额；支付宝已补查单与待付款关闭的协议映射，未付款关闭采用明确
+CLOSE_RESPONSE 组合来源。payment 主链自动驱动已有源码，关闭 ACK
+丢失恢复仍为后续工作，详见 [支付宝说明](channel/channel-alipay/README.md)。
 
-收款提交现采用独立 ChannelPaymentRequest/Submission，将付款码/已解析渠道标识和唤起动作与资金事实分开；原订单标题、截止时间在 acquire→payment 的持久意图/gRPC 中冻结。支付宝付款码/JSAPI 适配源码已补；动作快照/Y3 同事务记录/授权查询已补源码；Y2 前本地预检与自动执行已有源码；H5 仍待实现，详见 [提交契约](design/CLIENT-API.md)。
-
+收款提交现采用独立 ChannelPaymentRequest/Submission，将付款码/已解析渠道标识和唤起动作与资金事实分开；原订单标题、截止时间在
+acquire→payment 的持久意图/gRPC 中冻结。支付宝付款码/JSAPI 适配源码已补；动作快照/Y3 同事务记录/授权查询已补源码；Y2
+前本地预检与自动执行已有源码；H5 仍待实现，详见 [提交契约](design/CLIENT-API.md)。
 
 ### 付款自动续行协议
 
-受理事务登记 payment_recovery_cursor 和原生首轮 DelayedTask；任务只保存 paymentId/generation，不保存付款码、凭证或成功状态。正常等待与异常重试分开：正常等待在原门禁/游标 CAS 事务登记下一代，异常沿用原生租约重试。事务失败不能只提交游标或只登记后继。
+受理事务登记 payment_recovery_cursor 和原生首轮 DelayedTask；任务只保存
+paymentId/generation，不保存付款码、凭证或成功状态。正常等待与异常重试分开：正常等待在原门禁/游标 CAS
+事务登记下一代，异常沿用原生租约重试。事务失败不能只提交游标或只登记后继。
 
-首笔固定路由后，锁外打开原未绑定输入并调用统一 ChannelPaymentFacade.validate，再执行风控与额度/Y2。仅返回给 Y2 赢家的内存 ticket 允许一次 submit；任何恢复都不能从持久 attempt 重新创建提交许可。Y3 接收原观察与动作。已进入 Y2 的 attempt 保持原身份 query/close；到期/封禁先持久关闭门禁，渠道未知仍保留资金/额度占用。
+首笔固定路由后，锁外打开原未绑定输入并调用统一 ChannelPaymentFacade.validate，再执行风控与额度/Y2。仅返回给 Y2 赢家的内存
+ticket 允许一次 submit；任何恢复都不能从持久 attempt 重新创建提交许可。Y3 接收原观察与动作。已进入 Y2 的 attempt 保持原身份
+query/close；到期/封禁先持久关闭门禁，渠道未知仍保留资金/额度占用。
 
 源码已接线不等于验收；关闭及 JSAPI 动作 ACK 丢失的确定恢复仍待后续协议。原生异常重试有上限，专用运维重放/监控与清理仍待补。未执行本批编译、测试、迁移或真实渠道验证。
 
-
 ### JSAPI 创建响应丢失后的恢复
 
-查询恢复使用不带输入/提交许可的 ChannelPaymentRecovery，包含原 identity/amount/method/executionEpoch/payableUntil；统一 Facade 路由到原 Provider。支付宝插件仅从验签的原交易 WAIT_BUYER_PAY 重建原 trade_no 和原到期时间的 JSAPI 动作。调用 recover 不产生新的渠道创单或扣款请求，原短期输入到期不阻止查询。
+查询恢复使用不带输入/提交许可的 ChannelPaymentRecovery，包含原 identity/amount/method/executionEpoch/payableUntil；统一
+Facade 路由到原 Provider。支付宝插件仅从验签的原交易 WAIT_BUYER_PAY 重建原 trade_no 和原到期时间的 JSAPI 动作。调用
+recover 不产生新的渠道创单或扣款请求，原短期输入到期不阻止查询。
 
-payment 的非关闭任务经 recover→recordRecovery 接收观察与动作，二者仍由原 Y3 事务应用；首次 submit 与 close 路径保持独立。已有动作的交易号/期限不能被重放覆盖。动作可见性仍要求 PROCESSING、原 active attempt/epoch、双门禁 OPEN 且未过期；UNKNOWN 中间财务状态不降级。此接线不提供商户结果写入 API，不解决关闭 ACK 丢失的确定未收款证据问题，未执行编译/测试/真实环境验收。
-
+payment 的非关闭任务经 recover→recordRecovery 接收观察与动作，二者仍由原 Y3 事务应用；首次 submit 与 close
+路径保持独立。已有动作的交易号/期限不能被重放覆盖。动作可见性仍要求 PROCESSING、原 active attempt/epoch、双门禁 OPEN
+且未过期；UNKNOWN 中间财务状态不降级。此接线不提供商户结果写入 API，不解决关闭 ACK 丢失的确定未收款证据问题，未执行编译/测试/真实环境验收。
 
 ### 渠道异步通知入口
 
-接收流程为可信 endpointRef→tenant/channel/bindingRevision、无权限 identify→原已 Y2 attempt→原公钥 verify→原渠道 query→归一 CALLBACK 观察→Y3 原子应用→渠道 ACK。签名失败之前不能查询渠道或写付款；原 HTTP/body 参数不能覆盖配置中的租户、绑定或收款账户。本地锁不跨文件/KMS/渠道调用。
+接收流程为可信 endpointRef→tenant/channel/bindingRevision、无权限 identify→原已 Y2 attempt→原公钥 verify→原渠道 query→归一
+CALLBACK 观察→Y3 原子应用→渠道 ACK。签名失败之前不能查询渠道或写付款；原 HTTP/body 参数不能覆盖配置中的租户、绑定或收款账户。本地锁不跨文件/KMS/渠道调用。
 
-复用现有 payment_channel_receipt，receiptKey 为 notifyId 与 query factsDigest 的长度分帧摘要，sourceDigest 组合验签内容和查询源摘要；同一通知先未知后查明成功可以形成不同查证回执，重复相同事实仍幂等。没有新增双写 Inbox，只有 payment_attempt 查找索引。CALLBACK 资金事实来自验签后原号查询，不直接使用回调状态或 gmt_payment；终态与独立退款不被中间通知回退。
+复用现有 payment_channel_receipt，receiptKey 为 notifyId 与 query factsDigest 的长度分帧摘要，sourceDigest
+组合验签内容和查询源摘要；同一通知先未知后查明成功可以形成不同查证回执，重复相同事实仍幂等。没有新增双写 Inbox，只有
+payment_attempt 查找索引。CALLBACK 资金事实来自验签后原号查询，不直接使用回调状态或 gmt_payment；终态与独立退款不被中间通知回退。
 
-公开路径只放行 JWT，渠道签名与冻结账户核验仍为实际认证。当前 form/RSA2 原生协议 ACK 与 JSAPI notify_url 配置已有源码；其他渠道、公开路径装配、生成代码/事务/真实回调验收仍未执行，业务目标继续按实现清单推进。
-
+公开路径只放行 JWT，渠道签名与冻结账户核验仍为实际认证。当前 form/RSA2 原生协议 ACK 与 JSAPI notify_url
+配置已有源码；其他渠道、公开路径装配、生成代码/事务/真实回调验收仍未执行，业务目标继续按实现清单推进。
 
 ## 退款商户通知实施归属（2026-10-24）
 
-退款结果归 payment，商户签名投递统一归 acquire。payment 在既有退款结果/容量事务写独立商户目标 Outbox；acquire 通过 SERVICE gRPC 验证源身份、原订单及子付款绑定，按原订单通知条款登记固定正文、原生任务和不可变接收回执。此接收是通知事实投影，不作金融裁决、不写交易金额，也不跨数据库事务。
+退款结果归 payment，商户签名投递统一归 acquire。payment 在既有退款结果/容量事务写独立商户目标 Outbox；acquire 通过 SERVICE
+gRPC 验证源身份、原订单及子付款绑定，按原订单通知条款登记固定正文、原生任务和不可变接收回执。此接收是通知事实投影，不作金融裁决、不写交易金额，也不跨数据库事务。
 
-终态通知分别为 RefundSucceeded、RefundFailed、RefundRequestCompleted，整笔申请保留固定总额及成功/失败两部分，允许 PARTIAL_SUCCEEDED。未知不通知成失败，退款不减少原付款成功金额。共用 acquire merchant_notification_delivery 引擎，移除 payment 侧重复投递表草案。内部 ACK 表示持久登记/原策略禁用，外部 2xx+精确 eventId/SUCCESS 才是送达。契约与 DDL 见 design/CLIENT-API.md、design/DATABASE.md；未运行验证或真实发送。
-
+终态通知分别为 RefundSucceeded、RefundFailed、RefundRequestCompleted，整笔申请保留固定总额及成功/失败两部分，允许
+PARTIAL_SUCCEEDED。未知不通知成失败，退款不减少原付款成功金额。共用 acquire merchant_notification_delivery 引擎，移除
+payment 侧重复投递表草案。内部 ACK 表示持久登记/原策略禁用，外部 2xx+精确 eventId/SUCCESS 才是送达。契约与 DDL 见
+design/CLIENT-API.md、design/DATABASE.md；未运行验证或真实发送。
 
 ## 通知运营入口与恢复边界（2026-10-24）
 
-通知元数据查询按商户 JWT 隔离，运营由 OPERATOR/配置的 pay-ops SERVICE 与专门 manage 权限授权。client Facade 不输出私有正文和签名路由；分页复用框架契约。
+通知元数据查询按商户 JWT 隔离，运营由 OPERATOR/配置的 pay-ops SERVICE 与专门 manage 权限授权。client Facade
+不输出私有正文和签名路由；分页复用框架契约。
 
-运营恢复是当前 native wake 的有界恢复：原业务预算、窗口、退避、正文/事件身份、不可变路由不变。当前代次缺任务登记原 due，FAILED 调组件 retryFailed，CANCELLED 调组件 reschedule 原 due；运行租约不抢占，PENDING 不加速，终态/超期不另授许可。SUCCEEDED/current generation 不一致必须显式修复，不能通过重复发送掩盖。
+运营恢复是当前 native wake 的有界恢复：原业务预算、窗口、退避、正文/事件身份、不可变路由不变。当前代次缺任务登记原 due，FAILED
+调组件 retryFailed，CANCELLED 调组件 reschedule 原 due；运行租约不抢占，PENDING 不加速，终态/超期不另授许可。SUCCEEDED/current
+generation 不一致必须显式修复，不能通过重复发送掩盖。
 
-wake receipt 与调度变化同库事务，操作身份绑定已验证主体、请求键和完整参数，重复请求回首次决定；新操作显式 expectedVersion，防止误操作已推进通知。审计只给运营读取，不修改任何交易金额或生命周期。本批源码/测试源码未运行，真实数据库原子性与调度竞态仍为未验证项。
-
+wake receipt 与调度变化同库事务，操作身份绑定已验证主体、请求键和完整参数，重复请求回首次决定；新操作显式
+expectedVersion，防止误操作已推进通知。审计只给运营读取，不修改任何交易金额或生命周期。本批源码/测试源码未运行，真实数据库原子性与调度竞态仍为未验证项。
 
 ## Cashier 付款编排复用（2026-10-24）
 
-商户 API 的授权切片调用共享 PaymentInitiationOperations，cashier 使用 capability 授权切片调用同一 A2/安全输入/受理链路。原金额与次数规则不复制；内部 PaymentInitiationPrincipal 仅封装可信 owner、幂等 actorScope 和本地授权策略，不能由 HTTP 参数构造。收银台 checkout/sessionId 与 merchant/ownerHash 分开幂等，原收款商户、合约和数据归属不改变。
+商户 API 的授权切片调用共享 PaymentInitiationOperations，cashier 使用 capability 授权切片调用同一
+A2/安全输入/受理链路。原金额与次数规则不复制；内部 PaymentInitiationPrincipal 仅封装可信 owner、幂等 actorScope 和本地授权策略，不能由
+HTTP 参数构造。收银台 checkout/sessionId 与 merchant/ownerHash 分开幂等，原收款商户、合约和数据归属不改变。
 
-新动作 order→session 行锁内核验 ACTIVE、期限、原 scope 与当前会话权限；原已预占意图在到期后继续履约。结果收敛改用内部 OrderPaymentScope，核对原归属/意图与 merchant 或 checkout 范围，不授予创建或商户 API 权限；后台不依赖浏览器能力仍有效。会话进度入口另行核对精确 session actorScope，不能跨会话查询。
+新动作 order→session 行锁内核验 ACTIVE、期限、原 scope 与当前会话权限；原已预占意图在到期后继续履约。结果收敛改用内部
+OrderPaymentScope，核对原归属/意图与 merchant 或 checkout 范围，不授予创建或商户 API 权限；后台不依赖浏览器能力仍有效。会话进度入口另行核对精确
+session actorScope，不能跨会话查询。
 
-当前托管交互子集为服务端场景的 H5/WAP，choices 来自显式部署目录与原冻结能力交集；JSAPI 身份等待可信 OAuth。浏览器请求不持商户令牌、OpenID 或任意渠道参数，响应只给安全 CashierPaymentDTO 与原动作。scope 初期直接更新，无兼容层；未做运行验证。H5 页面交互/轮询源码已补，OAuth 与实网域名/代理验收仍待完成；撤销源码见本文末节。
-
+当前托管交互子集为服务端场景的 H5/WAP，choices 来自显式部署目录与原冻结能力交集；JSAPI 身份等待可信
+OAuth。浏览器请求不持商户令牌、OpenID 或任意渠道参数，响应只给安全 CashierPaymentDTO 与原动作。scope 初期直接更新，无兼容层；未做运行验证。H5
+页面交互/轮询源码已补，OAuth 与实网域名/代理验收仍待完成；撤销源码见本文末节。
 
 ## 托管 H5 页面状态（2026-10-24）
 
-页面以未确认付款操作为边界维护固定 actionKey、金额/渠道选择和可空 paymentId；原操作在第一次 HTTP 前保存到当前标签页 sessionStorage，token/支付 URL 只留内存。未知或网络失败只允许原动作重试；取得 paymentId 后只查原付款，start 返回终态也先经 progress/A3 收敛，才移除操作并允许下一笔手动付款。损坏/不可保存状态不静默生成新动作。
+页面以未确认付款操作为边界维护固定 actionKey、金额/渠道选择和可空 paymentId；原操作在第一次 HTTP 前保存到当前标签页
+sessionStorage，token/支付 URL 只留内存。未知或网络失败只允许原动作重试；取得 paymentId 后只查原付款，start 返回终态也先经
+progress/A3 收敛，才移除操作并允许下一笔手动付款。损坏/不可保存状态不静默生成新动作。
 
-金额输入和 JSON 边界用精确整数分，展示原单笔/准确尾款/剩余笔数规则；服务端仍行锁校验并发总额、笔数和终态。响应必需 accepted 判别未受理，不把状态字段缺失等价未收款。轮询有次数上限、页面隐藏暂停，超时不迁移金融状态；支付 URL 保留原文/原期限、不自动重建付款。
+金额输入和 JSON 边界用精确整数分，展示原单笔/准确尾款/剩余笔数规则；服务端仍行锁校验并发总额、笔数和终态。响应必需 accepted
+判别未受理，不把状态字段缺失等价未收款。轮询有次数上限、页面隐藏暂停，超时不迁移金融状态；支付 URL 保留原文/原期限、不自动重建付款。
 
-四个静态 GET 资源单独公开，业务 capability POST 独立鉴权；无内联/第三方脚本，安全文本渲染，API 无 referrer，支付链接只发送 strict-origin。现有页面已由摘要页扩展为 H5 操作页面源码；JSAPI OAuth/动作与真实浏览器/域名/恢复验证仍需完成；撤销管理源码见本文末节，未执行构建/测试/实际发送。
-
+四个静态 GET 资源单独公开，业务 capability POST 独立鉴权；无内联/第三方脚本，安全文本渲染，API 无 referrer，支付链接只发送
+strict-origin。现有页面已由摘要页扩展为 H5 操作页面源码；JSAPI OAuth/动作与真实浏览器/域名/恢复验证仍需完成；撤销管理源码见本文末节，未执行构建/测试/实际发送。
 
 ## 收银台链接撤销（2026-10-24）
 
@@ -454,18 +487,18 @@ API、专门 read/revoke 权限、客户端契约与 MapStruct/DO/Gateway/迁移
 新增领域/管理服务/认证/预占/已提交意图/签发重放测试源码，全部运行验证仍暂停。
 JSAPI OAuth、动作丢失/期限恢复、其他渠道能力、通知生命周期、交易重建、风控/后置对账及完整验证继续保留。
 
-
 ## 收银台原付款意图恢复（2026-10-24）
 
-新增 capability 范围的 recover Command/DTO/Facade/HTTP 入口，按原 actionKey 定位 A2，即使 start 回复丢失仍保留原 paymentId。
+新增 capability 范围的 recover Command/DTO/Facade/HTTP 入口，按原 actionKey 定位 A2，即使 start 回复丢失仍保留原
+paymentId。
 共享 PaymentInitiationOperations 在原订单→会话锁内绑定 owner/scope/金额/choice/原准入，返回明确三态；
 未观察到意图不创建预占，原安全输入未绑定保留 INPUT_REQUIRED，已绑定则在事务外使用原执行命令幂等受理。
 非 HELD 意图不重受理；结果经过 PaymentOutcomeOperations/A3 后安全投影给页面，不把恢复成功等同支付成功。
 
 页面原操作先恢复再重试，已知 paymentId 走原进度入口；未知不清元数据、不换键，终态经证据收敛后才允许下笔。
-补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup 补源码；未受理输入到期的有证据关闭已接 InputExpire，
+补充共享编排、capability/原会话和 JS 解析的测试源码，未运行验证。远端安全输入与本地引用间回复丢失的恢复已由 InputLookup
+补源码；未受理输入到期的有证据关闭已接 InputExpire，
 真实集成、JSAPI OAuth、其他渠道与对账等完整目标不变。
-
 
 ## 原安全输入引用恢复（2026-10-24）
 
@@ -476,7 +509,6 @@ payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验�
 
 新增权限须由服务 JWT 发行方配置，没有签发令牌或修改部署。provider/consumer/MapStruct/proto/接线与测试源码已补，
 未运行任何验证；未受理输入到期后的有证据关闭源码已补；第一次准备仍在途的竞态与其余完整业务范围继续。
-
 
 ## 未受理输入到期收敛（2026-10-26）
 
@@ -489,7 +521,6 @@ acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A
 paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
 控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
 首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
-
 
 ## 商户原 actionKey 恢复入口（2026-10-26）
 
@@ -505,20 +536,21 @@ Java 恢复枚举提升为共享 PaymentRecoveryState，商户与 cashier 使用
 新增源码与权限/隔离/三态/原证据/未知 JSON 判别/无输入与损坏拒绝测试源码，未执行任何验证、部署或实际支付。
 DirectPay 整体丢失回复、首次输入准备并发、JSAPI OAuth、其他渠道/通知生命周期/交易重建/风控/对账和完整验证仍需继续。
 
-
 ## DirectPay 首笔绑定与整体恢复（2026-10-26）
 
-DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT 同号混用或改变首笔。
-raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和 PaymentRecoveryDTO，
+DirectPay 改为独立 DIRECT_PAY A0，固定非敏感订单字段和首笔 actionKey/金额/choice/输入种类，禁止与 ORDER/CHECKOUT
+同号混用或改变首笔。
+raw input 不进入创建库。原 DirectPay 先恢复原首笔，确实尚未提交才用原请求补做 start；结果统一为当前订单和
+PaymentRecoveryDTO，
 不再保留早期 PaymentStartDTO 的嵌套兼容表示。调用权限增加 payment:recover。
 
-新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:recover。
+新 POST /api/acquire/payments/direct-pay/recover 接收原非敏感元数据，新增 direct-pay:recover 并要求 create/read/payment:
+recover。
 未知 orderId 也能按原商户订单号恢复 A0：未观察到不分配 ID；INIT 通过仅续办入口继续原准入；已拒绝/到期返回白名单固定决定；
 已完成后恢复原首笔。仅续办在 A0 事务内再次要求行存在，绝不因丢行重建新单；恢复不调用 start 或创建新 A2。
 
 DTO、Facade、编码/摘要、COLA 编排、模式约束、MapStruct、开发期 CHECK 与表草案、测试源码已同步。
 未执行 IDEA/构建/测试/DDL/部署或真实调用。首次输入准备并发/地址变动、JSAPI OAuth、其他渠道/通知/交易重建/风控/对账及全部原目标继续。
-
 
 ## A2 自主续办（2026-10-26）
 
@@ -531,7 +563,6 @@ A2 原子提交预占与第 0 代 native 恢复任务。任务按原 paymentId �
 其他情况原子登记 generation+1 和下一轮 native 任务，旧代不继续派生。缺输入及依赖错误不构成关闭或失败证明。
 具体 schema、配置和未完成边界见 acquire README 与数据库设计；本轮未做运行验证。
 
-
 ## 订单自动到期与 C0 续办（2026-10-26）
 
 A1 创建与 native 到期任务同事务；延期回执与新版本到期任务同事务。版本由原 acquire_order.deadline_version 驱动，
@@ -543,7 +574,6 @@ C0 的第 0 代任务与关闭意图同事务，后续扫描游标/rowVersion �
 最终 CLOSED 继续依赖完整权威证明，未知结果保持 CLOSING。到期处理与延期使用同一订单锁，不存在旧任务关闭新截止的路径。
 
 复用现有表及 gRPC；没有每笔作业或自建计时器。新增源码与测试源码，暂停验证仍有效；native FAILED 运维续办、真实环境证明继续待办。
-
 
 ## Payment/refund 失败唤醒的受限运营路径（2026-10-26）
 

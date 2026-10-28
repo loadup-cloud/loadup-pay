@@ -1,6 +1,7 @@
 # Review R8 前的历史快照
 
-记录日期：2026-10-27。以下是整理前的原文，只保留历史上下文；其中实现状态、计数、编译和部署描述不代表当前版本验收。当前能力以根 README 为准。
+记录日期：2026-10-27。以下是整理前的原文，只保留历史上下文；其中实现状态、计数、编译和部署描述不代表当前版本验收。当前能力以根
+README 为准。
 
 ---
 
@@ -14,11 +15,13 @@ LoadUp 收单支付平台：面向商户及子商户的外部渠道收单、付�
 - acquire、payment、customer、product、limitcenter、realtime：独立Bootstrap，HTTP 8080与Actuator基础健康入口。
 - 每个服务已拆为client/domain/bootstrap；业务Facade仍是接口，尚未提供下单、支付、退款的应用服务或Controller。
 
-默认镜像提供应用骨架；业务装配通过各应用的 `*-business` 构建与运行 profile 启用。应用间交互统一使用 gRPC，真实协议与接入见 [RPC 规范](design/RPC.md)。商户/运营 API、收银台及渠道通知保留 HTTP。
+默认镜像提供应用骨架；业务装配通过各应用的 `*-business` 构建与运行 profile 启用。应用间交互统一使用
+gRPC，真实协议与接入见 [RPC 规范](design/RPC.md)。商户/运营 API、收银台及渠道通知保留 HTTP。
 
 P0/P1源码结果与优先级见 [第一阶段实施说明](IMPLEMENTATION.md)。Money复用`loadup-commons-dto`的
 `io.github.loadup.commons.money.Money`；CNY/非负约束由收单领域校验，金额仍为整数分。业务数据对象的toString统一调用
-`ToStringAsJson.reflectionToString`，敏感字段使用`DiagnosticHidden`。各服务 `*-rpc` 模块分别维护本服务 Protobuf 契约、消息映射与方法定义；现有框架 gRPC binder 提供通用调用/认证支持；Java 业务 client/domain 保持与传输无关。
+`ToStringAsJson.reflectionToString`，敏感字段使用`DiagnosticHidden`。各服务 `*-rpc` 模块分别维护本服务 Protobuf
+契约、消息映射与方法定义；现有框架 gRPC binder 提供通用调用/认证支持；Java 业务 client/domain 保持与传输无关。
 
 P1已补齐聚合生命周期、关单证据、顺序退款/容量、额度原桶恢复、授权撤销和完整投影事件，保留15类37个单测源码。六应用已完成JAR/镜像构建及本地Kubernetes启动验收；本轮未编译或执行单元测试，业务功能仍为契约层。
 
@@ -48,7 +51,8 @@ Docker/Kubernetes context，不改变全局context。
 ```
 
 构建使用`mvnd clean package -pl <bootstrap列表> -am`
-，默认跳过测试编译/执行。全量只执行一次Maven，再构建六个镜像；发布使用独立时间戳标签，原始清单不被改写。单应用只应用自己的Deployment、HTTP Service、gRPC Headless Service和namespace。脚本用法、变量和镜像复用见[脚本说明](scripts/README.md)。
+，默认跳过测试编译/执行。全量只执行一次Maven，再构建六个镜像；发布使用独立时间戳标签，原始清单不被改写。单应用只应用自己的Deployment、HTTP
+Service、gRPC Headless Service和namespace。脚本用法、变量和镜像复用见[脚本说明](scripts/README.md)。
 
 镜像使用本地 OrbStack 共享镜像存储，imagePullPolicy 为 Never；其他集群需推送镜像并修改拉取策略。不要直接重新应用清单中的bootstrap示例标签覆盖脚本生成的发布标签。
 
@@ -64,11 +68,20 @@ liveness/readiness与Kubernetes探针；此阶段仅验收启动与技术健康�
 服务注册采用 Kubernetes 原生模型：Deployment labels → Service selector → EndpointSlice → DNS，无 Nacos/Eureka 客户端。可用
 `kubectl -n loadup-pay get pods,svc,endpointslices` 查看。
 
-业务 gRPC 统一遵循 [Kubernetes RPC 配置与发布规范](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)：服务 `<service>` 的 gRPC Service 固定为 `<service>-headless`，端口统一 50051，调用方在 `application.yml` 固定配置 `dns:///<service>-headless:50051`，Java 通过 Spring 配置读取 channel 名。沿用当前业务服务名，例如 `payment` → `payment-headless`，不额外追加 `-service`。
+业务 gRPC
+统一遵循 [Kubernetes RPC 配置与发布规范](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)
+：服务 `<service>` 的 gRPC Service 固定为 `<service>-headless`，端口统一 50051，调用方在 `application.yml` 固定配置
+`dns:///<service>-headless:50051`，Java 通过 Spring 配置读取 channel 名。沿用当前业务服务名，例如 `payment` →
+`payment-headless`，不额外追加 `-service`。
 
-各环境将调用双方部署在同一 Namespace，RPC 地址无需修改即可提升同一镜像。六应用固定 gRPC 50051 与 `<app>-headless`，出站 channel 配置 `round_robin` 和3秒 deadline。9个内部客户端和25个提供方操作已迁移为显式 Protobuf gRPC，内部 HTTP 入口与 `*_BASE_URL` 配置已删除；JWT 身份、租户约束、令牌轮换及本地错误码映射保留。
+各环境将调用双方部署在同一 Namespace，RPC 地址无需修改即可提升同一镜像。六应用固定 gRPC 50051 与 `<app>-headless`，出站
+channel 配置 `round_robin` 和3秒 deadline。9个内部客户端和25个提供方操作已迁移为显式 Protobuf gRPC，内部 HTTP 入口与
+`*_BASE_URL` 配置已删除；JWT 身份、租户约束、令牌轮换及本地错误码映射保留。
 
-业务监听随 `*-business` 装配启用，默认骨架镜像仍仅有 HTTP 健康入口。当前 `deploy/pay.yml` 和发布/验收脚本仍固定 `loadup-pay`、本地镜像策略；`verify.sh` 只检查技术就绪，不证明 RPC/业务链路通过。多环境交付前由部署层统一渲染 Namespace、镜像仓库、Secret 与 TLS；不能仅使用 `kubectl -n` 覆盖清单中的 Namespace。本批通过 IDEA MCP 执行六业务应用及依赖的 `clean test-compile`，未执行测试或部署。
+业务监听随 `*-business` 装配启用，默认骨架镜像仍仅有 HTTP 健康入口。当前 `deploy/pay.yml` 和发布/验收脚本仍固定
+`loadup-pay`、本地镜像策略；`verify.sh` 只检查技术就绪，不证明 RPC/业务链路通过。多环境交付前由部署层统一渲染
+Namespace、镜像仓库、Secret 与 TLS；不能仅使用 `kubectl -n` 覆盖清单中的 Namespace。本批通过 IDEA MCP 执行六业务应用及依赖的
+`clean test-compile`，未执行测试或部署。
 
 参考：[Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)。
 
@@ -114,9 +127,12 @@ acquire 缩放允许、Secret 查询拒绝。当时 acquire/payment 均为 1/1 �
 
 ## 系统默认时区
 
-应用与 BusinessTime 使用系统默认时区，默认业务 Clock 为 `Clock.systemDefaultZone()`。K8s 不注入 TZ/user.timezone，Headlamp 不挂载时区文件，JDBC 不执行固定 `SET time_zone`。数据库会话与应用本地时间语义由环境保持一致，JWT epoch 和 Protobuf Timestamp 保持绝对时间语义。额度规则记录并校验实际系统 zone；产品合约不再配置 `limit.timezone`。
+应用与 BusinessTime 使用系统默认时区，默认业务 Clock 为 `Clock.systemDefaultZone()`。K8s 不注入 TZ/user.timezone，Headlamp
+不挂载时区文件，JDBC 不执行固定 `SET time_zone`。数据库会话与应用本地时间语义由环境保持一致，JWT epoch 和 Protobuf
+Timestamp 保持绝对时间语义。额度规则记录并校验实际系统 zone；产品合约不再配置 `limit.timezone`。
 
-公共代码已迁入框架现有 commons/gRPC binder，支付工程的 pay-common/pay-rpc 已移除；Wire ↔ DTO 使用各服务的 MapStruct mapper。详见[RPC 与公共能力规范](design/RPC.md)。
+公共代码已迁入框架现有 commons/gRPC binder，支付工程的 pay-common/pay-rpc 已移除；Wire ↔ DTO 使用各服务的 MapStruct
+mapper。详见[RPC 与公共能力规范](design/RPC.md)。
 
 customer 已补齐首批授权/资格业务源码，包含 COLA 应用层、MyBatis-Flex 持久化、Flyway 与认证 HTTP
 入口。业务装配和验收状态见 [customer说明](customer/README.md)；默认构建和现有部署仍为基础启动骨架。
@@ -161,4 +177,5 @@ acquire 已新增 `/api/acquire/orders/extend`
 支付不在本次范围，最新边界见[架构说明](ARCHITECTURE.md)。付款码/JSAPI 安全输入准备、纯 API start 与 DirectPay
 受理编排源码已补；真实渠道执行仍待接通，新增源码未验证。
 
-渠道协议与支付编排分离：[channel 模块](channel/README.md) 提供统一 Facade、策略注册路由、支付宝/微信独立适配模块；payment 通过渠道端口桥接调用。支付宝退款 Provider 源码已补，收款/动作及微信 Provider 尚待完成。
+渠道协议与支付编排分离：[channel 模块](channel/README.md) 提供统一 Facade、策略注册路由、支付宝/微信独立适配模块；payment
+通过渠道端口桥接调用。支付宝退款 Provider 源码已补，收款/动作及微信 Provider 尚待完成。

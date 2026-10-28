@@ -25,7 +25,15 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -37,9 +45,22 @@ import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayPaymentAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-23T10:11:12Z"), ZoneOffset.UTC);
@@ -55,6 +76,34 @@ class AlipayPaymentAdapterTest {
             new AlipayAccountIdentity("app", "seller", null, null, null));
     private final ChannelPaymentIdentity identity = identity("revision-1", HASH);
     private final ChannelPaymentTarget target = new ChannelPaymentTarget(identity, AMOUNT);
+
+    private static String query(String status) {
+        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"}";
+    }
+
+    private static String paid(String status, String sendPayDate, String currency) {
+        var payload = "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
+                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"";
+        if (currency != null) payload += ",\"trans_currency\":\"" + currency + "\"";
+        if (sendPayDate != null) payload += ",\"send_pay_date\":\"" + sendPayDate + "\"";
+        return payload + "}";
+    }
+
+    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
+        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
+    }
+
+    private static ChannelExecutionContext context(String tenant, String revision, String hash, AccessMode mode,
+                                                   AlipayAccountIdentity account) {
+        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
+                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
+        return new ChannelExecutionContext(tenant, binding);
+    }
+
+    private static ChannelPaymentIdentity identity(String revision, String hash) {
+        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, revision, hash, ORDER_NO);
+    }
 
     @Test
     void queriesWaitingAndPaidTradesWithFrozenIdentityAmountAndBusinessTime() throws Exception {
@@ -322,33 +371,5 @@ class AlipayPaymentAdapterTest {
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
-    }
-
-    private static String query(String status) {
-        return "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"}";
-    }
-
-    private static String paid(String status, String sendPayDate, String currency) {
-        var payload = "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
-                + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"";
-        if (currency != null) payload += ",\"trans_currency\":\"" + currency + "\"";
-        if (sendPayDate != null) payload += ",\"send_pay_date\":\"" + sendPayDate + "\"";
-        return payload + "}";
-    }
-
-    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
-        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
-    }
-
-    private static ChannelExecutionContext context(String tenant, String revision, String hash, AccessMode mode,
-            AlipayAccountIdentity account) {
-        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
-                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
-        return new ChannelExecutionContext(tenant, binding);
-    }
-
-    private static ChannelPaymentIdentity identity(String revision, String hash) {
-        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, revision, hash, ORDER_NO);
     }
 }

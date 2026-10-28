@@ -16,12 +16,23 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelRefundNotification;
 
 public interface PaymentChannelNotificationGateway {
     ChannelNotificationHint identify(Channel channel, String bindingRevisionId, ChannelNotificationInput input);
+
     VerifiedChannelNotification verify(ChannelPaymentTarget target, ChannelNotificationInput input);
+
     ChannelRefundNotificationHint identifyRefund(Channel channel, String bindingRevisionId, ChannelNotificationInput input);
+
     VerifiedChannelRefundNotification verifyRefund(PreparedChannelRefund target, ChannelNotificationInput input);
+
     ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted);
 }

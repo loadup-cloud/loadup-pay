@@ -16,9 +16,9 @@
 package io.github.loadup.pay.realtime.adapter.grpc;
 
 import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
-import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import org.springframework.context.annotation.Bean;
@@ -30,23 +30,26 @@ import org.springframework.context.annotation.Import;
 public class RealtimeRpcConfiguration {
     @Bean
     BindableService realtimeRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            io.github.loadup.pay.realtime.client.facade.TradeProjectionFacade facade0) {
+                                io.github.loadup.pay.realtime.client.facade.TradeProjectionFacade facade0) {
         var service = new io.github.loadup.pay.realtime.rpc.proto.RealtimeRpcGrpc.RealtimeRpcImplBase() {
             @Override
             public void order(io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfOrderSnapshotEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> observer) {
                 support.invoke(request, observer, RealtimeRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfOrderSnapshotEventDTO,
                         facade0::applyOrder, RealtimeRpcMapper.INSTANCE::toWireProjectionAckDTO);
             }
+
             @Override
             public void payment(io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfPaymentSnapshotEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> observer) {
                 support.invoke(request, observer, RealtimeRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfPaymentSnapshotEventDTO,
                         facade0::applyPayment, RealtimeRpcMapper.INSTANCE::toWireProjectionAckDTO);
             }
+
             @Override
             public void refund(io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfRefundSnapshotEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> observer) {
                 support.invoke(request, observer, RealtimeRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfRefundSnapshotEventDTO,
                         facade0::applyRefund, RealtimeRpcMapper.INSTANCE::toWireProjectionAckDTO);
             }
+
             @Override
             public void refundSummary(io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfOrderRefundSummaryEventDTO request, io.grpc.stub.StreamObserver<io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO> observer) {
                 support.invoke(request, observer, RealtimeRpcMapper.INSTANCE::fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO,

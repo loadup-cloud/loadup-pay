@@ -22,19 +22,43 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.service.PaymentChannelRequestFactory;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
-import java.time.OffsetDateTime;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentChannelGatewayImplTest {
     private static final Money AMOUNT = Money.ofMinor(2500, "CNY");
@@ -51,6 +75,21 @@ class PaymentChannelGatewayImplTest {
             Channel.ALIPAY, AccessMode.DIRECT, HASH, "credential-ref", "7",
             new AlipayAccountIdentity("app", "seller", null, null, null), Set.of(PaymentMethod.PAYMENT_CODE));
     private final ChannelExecutionContext expectedContext = new ChannelExecutionContext("tenant", frozenRevision);
+
+    private static ChannelPaymentSubmission paymentSubmission(ChannelPaymentIdentity identity) {
+        return new ChannelPaymentSubmission(identity, AMOUNT, paymentObservation(identity), null);
+    }
+
+    private static PaymentObservation paymentObservation(ChannelPaymentIdentity identity) {
+        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, AMOUNT, null, null,
+                PaymentObservation.Source.QUERY_RESPONSE, "receipt-1", "b".repeat(64));
+    }
+
+    private static RefundObservation refundObservation(PreparedChannelRefund refund) {
+        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
+                refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
+                null, RefundObservation.Source.QUERY_RESPONSE, "receipt-2", "c".repeat(64), null);
+    }
 
     @Test
     void resolvesFrozenRevisionAndForwardsContextForPaymentRecoveryAndRefundQueries() {
@@ -159,20 +198,5 @@ class PaymentChannelGatewayImplTest {
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class, () -> gateway.query(target)));
         verify(bindings).findRevision("tenant", "frozen-revision");
         verifyNoInteractions(channels, requests);
-    }
-
-    private static ChannelPaymentSubmission paymentSubmission(ChannelPaymentIdentity identity) {
-        return new ChannelPaymentSubmission(identity, AMOUNT, paymentObservation(identity), null);
-    }
-
-    private static PaymentObservation paymentObservation(ChannelPaymentIdentity identity) {
-        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, AMOUNT, null, null,
-                PaymentObservation.Source.QUERY_RESPONSE, "receipt-1", "b".repeat(64));
-    }
-
-    private static RefundObservation refundObservation(PreparedChannelRefund refund) {
-        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
-                refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
-                null, RefundObservation.Source.QUERY_RESPONSE, "receipt-2", "c".repeat(64), null);
     }
 }

@@ -15,12 +15,16 @@
  */
 package io.github.loadup.pay.product.rpc;
 
-import io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionDTO;
 import org.junit.jupiter.api.Test;
+
 import java.time.OffsetDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProductRpcMapperTest {
     @Test
@@ -34,6 +38,7 @@ class ProductRpcMapperTest {
         assertThrows(IllegalArgumentException.class, () -> ProductRpcMapper.INSTANCE.fromWireOrderAdmissionDTO(
                 message.toBuilder().setDecision("UNKNOWN_SYMBOL").build()));
     }
+
     @Test
     void repeatedCapabilitiesAndEnumsUseMutableBuilderAdders() throws Exception {
         var capability = new io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO(

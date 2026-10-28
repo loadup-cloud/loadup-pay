@@ -24,14 +24,28 @@ import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
 import java.time.LocalDateTime;
 import java.util.Set;
-import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.OBSERVATION_BEFORE_SUBMISSION;
+import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.PAYMENT_AMOUNT_MISMATCH;
+import static io.github.loadup.pay.payment.domain.model.PaymentAttemptBinding.ObservationRejection.PAYMENT_IDENTITY_MISMATCH;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PaymentAttemptBindingTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
@@ -44,15 +58,15 @@ class PaymentAttemptBindingTest {
     final PaymentOrder payment = PaymentOrder.init("payment", "order", "allocation", "merchant", amount, "operation", at).prepareAttempt(attempt, null);
     final StoredPaymentAcceptance accepted = acceptance(payment, null);
 
-    enum Changed { PAYMENT, AMOUNT, MERCHANT, OPERATION, CALLER, PAYMENT_DIGEST }
-
-    @ParameterizedTest @EnumSource(Changed.class)
+    @ParameterizedTest
+    @EnumSource(Changed.class)
     void eachIndependentCrossRecordMismatchRejectsTheBindingBeforeAnyDecision(Changed changed) {
         var bad = changed(prepared, changed);
         assertThrows(DomainViolation.class, () -> new PaymentAttemptBinding(accepted, bad));
     }
 
-    @Test void preSubmissionAndAlreadyIssuedWinnerHaveDistinctPermissions() {
+    @Test
+    void preSubmissionAndAlreadyIssuedWinnerHaveDistinctPermissions() {
         var before = new PaymentAttemptBinding(accepted, prepared);
         assertSame(before, before.requireActive().requireSubmittable().requireClosable());
         assertThrows(DomainViolation.class, before::requireObservable);
@@ -66,7 +80,8 @@ class PaymentAttemptBindingTest {
         assertThrows(DomainViolation.class, closing::requireSubmissionRequest);
     }
 
-    @Test void terminalOrSupersededAttemptsRemainObservableButCannotBecomeNewSubmissionRights() {
+    @Test
+    void terminalOrSupersededAttemptsRemainObservableButCannotBecomeNewSubmissionRights() {
         var successful = submitted.applyOutcome(new ChannelPaymentOutcome(ChannelPaymentOutcome.Kind.SUCCEEDED, attempt.identity(), amount, "evidence"), false);
         var terminal = new PaymentAttemptBinding(acceptance(payment.applyAttempt(successful.attempt()), "evidence"), successful);
         assertSame(terminal, terminal.requireObservable());
@@ -83,7 +98,8 @@ class PaymentAttemptBindingTest {
         assertEquals(PAYMENT_IDENTITY_MISMATCH, PaymentAttemptBinding.observationRejection(original.accepted(), submitted, attempt.identity(), amount));
     }
 
-    @Test void observationTargetPrecedesCorruptionAndAmountOrPreSubmissionConflictsKeepTheirExactReason() {
+    @Test
+    void observationTargetPrecedesCorruptionAndAmountOrPreSubmissionConflictsKeepTheirExactReason() {
         var identity = attempt.identity();
         var wrong = new ChannelPaymentIdentity(identity.paymentId(), identity.attemptId(), identity.channel(), identity.bindingRevisionId(),
                 identity.accountScopeHash(), "wrong-request");
@@ -95,7 +111,8 @@ class PaymentAttemptBindingTest {
         assertNull(PaymentAttemptBinding.observationRejection(accepted, submitted, identity, amount));
     }
 
-    @Test void frozenRouteIsDistinctFromTheAttemptsOwnRequestDigest() {
+    @Test
+    void frozenRouteIsDistinctFromTheAttemptsOwnRequestDigest() {
         var binding = new PaymentAttemptBinding(accepted, prepared);
         assertSame(binding, binding.requireRoute(Channel.ALIPAY, PaymentMethod.H5, "input-ref"));
         assertThrows(DomainViolation.class, () -> binding.requireRoute(Channel.WECHAT, PaymentMethod.H5, "input-ref"));
@@ -109,9 +126,11 @@ class PaymentAttemptBindingTest {
         return new ChannelBindingRevision("revision", merchant, Channel.ALIPAY, AccessMode.DIRECT, "a".repeat(64), "credential", "v1",
                 new AlipayAccountIdentity("app", "seller", null, null, null), Set.of(PaymentMethod.H5, PaymentMethod.JSAPI));
     }
+
     private StoredPaymentAcceptance acceptance(PaymentOrder value, String evidence) {
         return new StoredPaymentAcceptance(value, "admission", "d".repeat(64), "acquire", "frozen-payload", "c".repeat(64), evidence);
     }
+
     private StoredPaymentAttempt changed(StoredPaymentAttempt value, Changed changed) {
         var source = value.attempt();
         var modified = new PaymentAttempt(source.id(), changed == Changed.PAYMENT ? "other-payment" : source.paymentId(), source.attemptNo(),
@@ -122,4 +141,6 @@ class PaymentAttemptBindingTest {
                 changed == Changed.PAYMENT_DIGEST ? "f".repeat(64) : value.paymentRequestDigest(), value.preparedInputRef(), value.riskDecision(),
                 value.executionPermitHash(), value.preparedAt(), value.submissionStartedAt(), value.rowVersion());
     }
+
+    enum Changed {PAYMENT, AMOUNT, MERCHANT, OPERATION, CALLER, PAYMENT_DIGEST}
 }

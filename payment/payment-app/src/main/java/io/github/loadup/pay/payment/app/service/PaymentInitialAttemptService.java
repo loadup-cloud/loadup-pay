@@ -22,17 +22,25 @@ import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Shared first-attempt creation; caller owns the original parent/payment gates. No submission occurs here. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+
+/**
+ * Shared first-attempt creation; caller owns the original parent/payment gates. No submission occurs here.
+ */
 @Service
 public class PaymentInitialAttemptService {
     private final PaymentRouteSelector routes;
@@ -47,16 +55,26 @@ public class PaymentInitialAttemptService {
     private final PaymentEvents events;
 
     public PaymentInitialAttemptService(PaymentRouteSelector routes, PaymentInputAccess inputs, PaymentAttemptGateway attempts,
-            PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentAttemptConverter converter,
-            PaymentControlConverter changes, IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentEvents events) {
-        this.routes = routes; this.inputs = inputs; this.attempts = attempts; this.payments = payments;
-        this.codec = codec; this.converter = converter; this.changes = changes; this.ids = ids; this.clock = clock; this.events = events;
+                                        PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentAttemptConverter converter,
+                                        PaymentControlConverter changes, IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentEvents events) {
+        this.routes = routes;
+        this.inputs = inputs;
+        this.attempts = attempts;
+        this.payments = payments;
+        this.codec = codec;
+        this.converter = converter;
+        this.changes = changes;
+        this.ids = ids;
+        this.clock = clock;
+        this.events = events;
     }
 
     public StoredPaymentAcceptance create(String tenant, StoredPaymentAcceptance accepted, String requestKey, String digest) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
+        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+            throw new CommonException(ACTION_FORBIDDEN);
         if (accepted.payment().activeAttemptId() != null || accepted.payment().state() != PaymentState.INIT)
             throw new CommonException(INVALID_STATE);
         var original = codec.decode(accepted);

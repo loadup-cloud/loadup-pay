@@ -18,15 +18,21 @@ package io.github.loadup.pay.payment.domain;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PaymentRecoveryRetryReceiptTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 26, 12, 0);
+
     PaymentRecoveryRetryReceipt receipt(String kind, long generation, String result, LocalDateTime expectedAt) {
         return new PaymentRecoveryRetryReceipt("receipt", "operation", "a".repeat(64), "pay-ops", "b".repeat(64), kind,
                 "original-subject", generation, "order", "task", 5, expectedAt, "Private audited reason", result, at);
     }
+
     @Test
     void retryDecisionsCannotMasqueradeAsFinancialResultsOrAnotherTasksNamespace() {
         assertEquals("RETRIED", receipt("COLLECTION", 0L, "RETRIED", at).result());

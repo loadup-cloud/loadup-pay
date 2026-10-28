@@ -18,11 +18,13 @@ package io.github.loadup.pay.acquire.app.converter;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionRevokeCommand;
-import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
 import io.github.loadup.pay.acquire.client.dto.CheckoutSessionRevocationDTO;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -47,8 +49,11 @@ public interface CheckoutSessionManagementConverter {
     @Mapping(target = "callerScopeHash", source = "callerScopeHash")
     @Mapping(target = "requestDigest", source = "requestDigest")
     CheckoutSessionRevocationReceipt toReceipt(String id, CheckoutSessionRevokeCommand command, StoredCheckoutSession before,
-            StoredCheckoutSession after, String callerScopeHash, String requestDigest, LocalDateTime acceptedAt);
+                                               StoredCheckoutSession after, String callerScopeHash, String requestDigest, LocalDateTime acceptedAt);
 
     CheckoutSessionRevocationDTO toDTO(CheckoutSessionRevocationReceipt value);
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

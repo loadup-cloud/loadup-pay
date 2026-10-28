@@ -17,7 +17,10 @@ package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
-import io.github.loadup.pay.payment.infrastructure.dataobject.*;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelTransactionClaimDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAcceptanceDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

@@ -16,9 +16,11 @@
 package io.github.loadup.pay.limitcenter.domain.gateway;
 
 import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
+
 import java.util.Optional;
 
 public interface LimitRefundGateway {
     Optional<LimitRefundReceipt> find(String tenant, String refundId);
+
     void insert(String tenant, LimitRefundReceipt value);
 }

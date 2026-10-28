@@ -26,22 +26,37 @@ import io.github.loadup.pay.acquire.app.converter.CheckoutSessionManagementConve
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.CheckoutSessionRevokeCommand;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionRevocationDTO;
+import io.github.loadup.pay.acquire.client.dto.CheckoutSessionStatusDTO;
 import io.github.loadup.pay.acquire.client.facade.CheckoutSessionManagementFacade;
 import io.github.loadup.pay.acquire.client.query.CheckoutSessionRevocationPageQuery;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Permanent issuer-owned revocation is independent of payment and session business lifecycles. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+
+/**
+ * Permanent issuer-owned revocation is independent of payment and session business lifecycles.
+ */
 @Service
 public class CheckoutSessionManagementService implements CheckoutSessionManagementFacade {
     private final AcquireActorProvider actors;
@@ -53,13 +68,23 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     private final IdGenerator ids;
     private final Validator validator;
     private final Clock clock;
+
     public CheckoutSessionManagementService(AcquireActorProvider actors, OrderCreationGateway orders, CheckoutSessionGateway sessions,
-            CheckoutSessionRevocationGateway receipts, CheckoutSessionManagementConverter converter, OrderCreationTransactions transactions,
-            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
-        this.actors = actors; this.orders = orders; this.sessions = sessions; this.receipts = receipts; this.converter = converter;
-        this.transactions = transactions; this.ids = ids; this.validator = validator; this.clock = clock;
+                                            CheckoutSessionRevocationGateway receipts, CheckoutSessionManagementConverter converter, OrderCreationTransactions transactions,
+                                            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
+        this.actors = actors;
+        this.orders = orders;
+        this.sessions = sessions;
+        this.receipts = receipts;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.validator = validator;
+        this.clock = clock;
     }
-    @Override public CheckoutSessionStatusDTO detail(IdQuery query) {
+
+    @Override
+    public CheckoutSessionStatusDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
@@ -70,12 +95,16 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
             return converter.toStatus(session);
         });
     }
-    @Override public CheckoutSessionRevocationDTO revoke(CheckoutSessionRevokeCommand command) {
+
+    @Override
+    public CheckoutSessionRevocationDTO revoke(CheckoutSessionRevokeCommand command) {
         validate(command);
         var actor = actor("pay:acquire:session:revoke");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            DomainChecks.id(command.id()); DomainChecks.text(command.requestKey(), 128); DomainChecks.text(command.reason(), 500);
+            DomainChecks.id(command.id());
+            DomainChecks.text(command.requestKey(), 128);
+            DomainChecks.text(command.reason(), 500);
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("checkout-session-revoke-v1", actor.tenantId(), actor.scopeHash(),
                     command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
             var known = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
@@ -100,7 +129,9 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
             });
         });
     }
-    @Override public PageDTO<CheckoutSessionRevocationDTO> revocations(CheckoutSessionRevocationPageQuery query) {
+
+    @Override
+    public PageDTO<CheckoutSessionRevocationDTO> revocations(CheckoutSessionRevocationPageQuery query) {
         validate(query);
         var actor = actor("pay:acquire:session:read");
         return transactions.withTenantContext(actor.tenantId(), () -> {
@@ -111,27 +142,37 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
             var page = receipts.page(actor.tenantId(), query.sessionId(), query.page(), query.size());
             for (var receipt : page.records()) {
                 if (!receipt.sessionId().equals(query.sessionId()) || !receipt.orderId().equals(order.order().id())
-                        || !receipt.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(SNAPSHOT_INVALID);
+                        || !receipt.callerScopeHash().equals(actor.scopeHash()))
+                    throw new CommonException(SNAPSHOT_INVALID);
             }
             return PageDTO.of(page.map(converter::toDTO));
         });
     }
+
     private AcquireActor actor(String permission) {
         var actor = actors.current();
         if (!actor.permissions().contains(permission)) throw new CommonException(ACTION_FORBIDDEN);
         return actor;
     }
+
     private void owned(AcquireActor actor, StoredAcquireOrder order, StoredCheckoutSession session) {
         if (!order.callerScopeHash().equals(actor.scopeHash()) || !session.scope().callerScopeHash().equals(actor.scopeHash()))
             throw new CommonException(ACTION_FORBIDDEN);
         if (!session.session().orderId().equals(order.order().id()) || !session.payeeMerchantId().equals(order.order().payeeMerchantId()))
             throw new CommonException(SNAPSHOT_INVALID);
     }
+
     private CheckoutSessionRevocationDTO replay(AcquireActor actor, CheckoutSessionRevocationReceipt receipt, String digest) {
         if (!receipt.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
         if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
         return converter.toDTO(receipt);
     }
-    private void validate(Object value) { if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT); }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()); }
+
+    private void validate(Object value) {
+        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
+    }
 }

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.product.infrastructure.converter;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.product.domain.model.AdmissionIntent;
 import io.github.loadup.pay.product.domain.model.OrderAdmission;

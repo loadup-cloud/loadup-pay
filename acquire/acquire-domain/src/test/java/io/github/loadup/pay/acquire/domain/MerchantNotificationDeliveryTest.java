@@ -18,9 +18,10 @@ package io.github.loadup.pay.acquire.domain;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
+import org.junit.jupiter.api.Test;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -30,6 +31,17 @@ class MerchantNotificationDeliveryTest {
     private static final String BODY = "frozen merchant event body";
     private static final String DIGEST = "a".repeat(64);
     private static final String FINGERPRINT = "b".repeat(64);
+
+    private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
+        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
+                "payment", 7, BODY, DIGEST, policy, NOW);
+    }
+
+    private static MerchantNotificationPolicy policy(long initial, BigDecimal multiplier, long maximum,
+                                                     int attempts, long window) {
+        return new MerchantNotificationPolicy("target", "signing-key", 1000, initial, multiplier, maximum,
+                attempts, window);
+    }
 
     @Test
     void retryBackoffRoundsUpAndSaturatesAtTheConfiguredMaximumEvenForMaximumAttempt() {
@@ -72,16 +84,5 @@ class MerchantNotificationDeliveryTest {
         assertEquals(0, initial.attemptCount());
         assertEquals(MerchantNotificationState.INIT, initial.state());
         assertEquals(null, initial.routeFingerprint());
-    }
-
-    private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
-        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
-                "payment", 7, BODY, DIGEST, policy, NOW);
-    }
-
-    private static MerchantNotificationPolicy policy(long initial, BigDecimal multiplier, long maximum,
-            int attempts, long window) {
-        return new MerchantNotificationPolicy("target", "signing-key", 1000, initial, multiplier, maximum,
-                attempts, window);
     }
 }

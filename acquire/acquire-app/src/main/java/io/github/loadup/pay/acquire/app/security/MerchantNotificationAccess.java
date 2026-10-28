@@ -17,28 +17,38 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 
 @Component
 public class MerchantNotificationAccess {
     private final MerchantNotificationActorProvider actors;
     private final String operationsService;
+
     public MerchantNotificationAccess(MerchantNotificationActorProvider actors,
-            @Value("${loadup.modules.acquire.notification-operations-service-id:pay-ops}") String operationsService) {
-        this.actors = actors; this.operationsService = DomainChecks.id(operationsService);
+                                      @Value("${loadup.modules.acquire.notification-operations-service-id:pay-ops}") String operationsService) {
+        this.actors = actors;
+        this.operationsService = DomainChecks.id(operationsService);
     }
+
     public MerchantNotificationActor reader() {
         var actor = actors.current();
         if (actor.merchant()) {
-            if (!actor.permissions().contains("pay:acquire:notification:read")) throw new CommonException(ACTION_FORBIDDEN);
+            if (!actor.permissions().contains("pay:acquire:notification:read"))
+                throw new CommonException(ACTION_FORBIDDEN);
             return actor;
         }
         return operator(actor);
     }
-    public MerchantNotificationActor operator() { return operator(actors.current()); }
+
+    public MerchantNotificationActor operator() {
+        return operator(actors.current());
+    }
+
     private MerchantNotificationActor operator(MerchantNotificationActor actor) {
         if (!("OPERATOR".equals(actor.principalType()) || "SERVICE".equals(actor.principalType()) && operationsService.equals(actor.principalId()))
-                || !actor.permissions().contains("pay:acquire:notification:manage")) throw new CommonException(ACTION_FORBIDDEN);
+                || !actor.permissions().contains("pay:acquire:notification:manage"))
+            throw new CommonException(ACTION_FORBIDDEN);
         return actor;
     }
 }

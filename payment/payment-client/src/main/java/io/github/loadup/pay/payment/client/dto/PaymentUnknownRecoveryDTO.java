@@ -17,9 +17,10 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
+import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 public record PaymentUnknownRecoveryDTO(
@@ -30,5 +31,8 @@ public record PaymentUnknownRecoveryDTO(
         long ageSeconds, PaymentRecoveryAttentionLevel attentionLevel, long rowVersion,
         @Schema(description = "Observed cursor generation; null means missing cursor, never permission to recreate it") Long recoveryGeneration,
         @Schema(description = "Observed cursor completion; null means missing cursor; UNKNOWN plus completed requires investigation") Boolean recoveryCompleted) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,18 +17,52 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentCodeInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.wechat.config.WechatCodepayProperties;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.wechat.protocol.WechatV2Client;
+import io.github.loadup.pay.channel.wechat.protocol.WechatV2Method;
+import io.github.loadup.pay.channel.wechat.protocol.WechatV2VerifiedResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import java.time.*;
-import java.util.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatCodepayAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-27T03:00:00Z"), ZoneId.of("Asia/Shanghai"));
@@ -43,8 +77,11 @@ class WechatCodepayAdapterTest {
             var context = context(partner);
             var request = request(context, "123456789012345678", 1250, "Original meal", OffsetDateTime.now(CLOCK).plusHours(1));
             var fields = response(context, "SUCCESS");
-            fields.put("out_trade_no", "original_01"); fields.put("transaction_id", "4200000000001");
-            fields.put("total_fee", "1250"); fields.put("fee_type", "CNY"); fields.put("trade_type", "MICROPAY");
+            fields.put("out_trade_no", "original_01");
+            fields.put("transaction_id", "4200000000001");
+            fields.put("total_fee", "1250");
+            fields.put("fee_type", "CNY");
+            fields.put("trade_type", "MICROPAY");
             var verified = new WechatV2VerifiedResponse(WechatV2Method.MICROPAY, fields, "a".repeat(64));
             when(client.call(eq("tenant"), eq(context.binding()), eq(WechatV2Method.MICROPAY), anyMap())).thenReturn(verified);
             var observed = new PaymentObservation(request.payment().identity(), ChannelPaymentOutcome.Kind.SUCCEEDED,
@@ -55,14 +92,17 @@ class WechatCodepayAdapterTest {
             TenantUtil.runWithTenant("tenant", () -> {
                 adapter.validate(context, validation(request));
                 var result = adapter.submit(context, request);
-                assertSame(observed, result.observation()); assertNull(result.action());
+                assertSame(observed, result.observation());
+                assertNull(result.action());
             });
             var body = ArgumentCaptor.forClass(Map.class);
             verify(client).call(eq("tenant"), eq(context.binding()), eq(WechatV2Method.MICROPAY), body.capture());
-            assertEquals("wx-main", body.getValue().get("appid")); assertEquals("1900000001", body.getValue().get("mch_id"));
+            assertEquals("wx-main", body.getValue().get("appid"));
+            assertEquals("1900000001", body.getValue().get("mch_id"));
             assertEquals(partner ? "1900000002" : null, body.getValue().get("sub_mch_id"));
             assertEquals(partner ? "wx-sub" : null, body.getValue().get("sub_appid"));
-            assertEquals("original_01", body.getValue().get("out_trade_no")); assertEquals("1250", body.getValue().get("total_fee"));
+            assertEquals("original_01", body.getValue().get("out_trade_no"));
+            assertEquals("1250", body.getValue().get("total_fee"));
             assertEquals("123456789012345678", body.getValue().get("auth_code"));
             assertEquals("203.0.113.10", body.getValue().get("spbill_create_ip"));
             assertEquals("20261027120000", body.getValue().get("time_expire"));
@@ -77,14 +117,16 @@ class WechatCodepayAdapterTest {
         var context = context(false);
         var request = request(context, "123456789012345678", 1250, "Meal", OffsetDateTime.now(CLOCK).plusHours(1));
         for (String error : List.of("USERPAYING", "SYSTEMERROR", "AUTHCODEEXPIRE", "ORDERPAID")) {
-            var fields = response(context, "FAIL"); fields.put("err_code", error);
+            var fields = response(context, "FAIL");
+            fields.put("err_code", error);
             when(client.call(anyString(), any(), any(), anyMap()))
                     .thenReturn(new WechatV2VerifiedResponse(WechatV2Method.MICROPAY, fields, "a".repeat(64)));
             var result = TenantUtil.callWithTenant("tenant", () -> adapter.submit(context, request));
             assertEquals(error.equals("USERPAYING") ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN,
                     result.observation().kind());
             assertEquals(PaymentObservation.Source.SUBMIT_RESPONSE, result.observation().source());
-            assertNull(result.observation().succeededAt()); assertNull(result.action());
+            assertNull(result.observation().succeededAt());
+            assertNull(result.action());
         }
         verifyNoInteractions(queries);
     }
@@ -95,7 +137,7 @@ class WechatCodepayAdapterTest {
         var until = OffsetDateTime.now(CLOCK).plusHours(1);
         for (var invalid : List.of(request(context, "163456789012345678", 1250, "Meal", until),
                 request(context, "12345678901234567", 1250, "Meal", until),
-                request(context, "123456789012345678", (long)Integer.MAX_VALUE + 1, "Meal", until),
+                request(context, "123456789012345678", (long) Integer.MAX_VALUE + 1, "Meal", until),
                 request(context, "123456789012345678", 1250, "Meal \uD83D\uDE00", until),
                 request(context, "123456789012345678", 1250, "Meal", OffsetDateTime.now(CLOCK).plusSeconds(59)))) {
             assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> adapter.validate(context, validation(invalid))));
@@ -110,12 +152,16 @@ class WechatCodepayAdapterTest {
     void wrongSubMerchantAndSuccessfulSubmitQueryTransactionMismatchAreRejected() {
         var context = context(true);
         var request = request(context, "123456789012345678", 1250, "Meal", OffsetDateTime.now(CLOCK).plusHours(1));
-        var fields = response(context, "FAIL"); fields.put("sub_mch_id", "1900000003");
+        var fields = response(context, "FAIL");
+        fields.put("sub_mch_id", "1900000003");
         when(client.call(anyString(), any(), any(), anyMap())).thenReturn(new WechatV2VerifiedResponse(WechatV2Method.MICROPAY, fields, "a".repeat(64)));
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> adapter.submit(context, request)));
         verifyNoInteractions(queries);
-        fields = response(context, "SUCCESS"); fields.put("out_trade_no", "original_01"); fields.put("transaction_id", "4200000000001");
-        fields.put("total_fee", "1250"); fields.put("trade_type", "MICROPAY");
+        fields = response(context, "SUCCESS");
+        fields.put("out_trade_no", "original_01");
+        fields.put("transaction_id", "4200000000001");
+        fields.put("total_fee", "1250");
+        fields.put("trade_type", "MICROPAY");
         when(client.call(anyString(), any(), any(), anyMap())).thenReturn(new WechatV2VerifiedResponse(WechatV2Method.MICROPAY, fields, "a".repeat(64)));
         when(queries.query(any(), any())).thenReturn(new PaymentObservation(request.payment().identity(), ChannelPaymentOutcome.Kind.ACCEPTED,
                 request.payment().amount(), "another-transaction", null, PaymentObservation.Source.QUERY_RESPONSE, "query", "b".repeat(64)));
@@ -128,14 +174,17 @@ class WechatCodepayAdapterTest {
                 new WechatAccountIdentity("wx-main", "1900000001", partner ? "wx-sub" : null, partner ? "1900000002" : null),
                 Set.of(PaymentMethod.PAYMENT_CODE)));
     }
+
     private ChannelPaymentRequest request(ChannelExecutionContext context, String code, long amount, String subject, OffsetDateTime until) {
         var identity = new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, context.binding().id(), context.binding().accountScopeHash(), "original_01");
         return new ChannelPaymentRequest(new PreparedChannelPayment(identity, Money.ofMinor(amount, "CNY"), PaymentMethod.PAYMENT_CODE, 1, "input"),
                 subject, until, new ChannelPaymentCodeInput(code));
     }
+
     private ChannelPaymentValidation validation(ChannelPaymentRequest request) {
         return new ChannelPaymentValidation(request.payment().identity(), request.payment().amount(), request.payment().method(), request.subject(), request.payableUntil(), request.input());
     }
+
     private TreeMap<String, String> response(ChannelExecutionContext context, String result) {
         var account = (WechatAccountIdentity) context.binding().identity();
         var fields = new TreeMap<>(Map.of("return_code", "SUCCESS", "result_code", result, "appid", account.appId(), "mch_id", account.merchantId()));

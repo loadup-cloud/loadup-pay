@@ -18,28 +18,40 @@ package io.github.loadup.pay.payment.domain;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy.Level.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy.Level.NORMAL;
+import static io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy.Level.REVIEW;
+import static io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy.Level.URGENT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RecoveryEscalationPolicyTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
     final RecoveryEscalationPolicy policy = new RecoveryEscalationPolicy(900L, 86400L);
-    @Test void exactThresholdsEscalateWithoutRoundingUpPartialSeconds() {
+
+    @Test
+    void exactThresholdsEscalateWithoutRoundingUpPartialSeconds() {
         assertEquals(NORMAL, policy.level(at, at.plusSeconds(900).minusNanos(1000)));
         assertEquals(REVIEW, policy.level(at, at.plusSeconds(900)));
         assertEquals(REVIEW, policy.level(at, at.plusSeconds(86400).minusNanos(1000)));
         assertEquals(URGENT, policy.level(at, at.plusSeconds(86400)));
         assertEquals(URGENT, policy.level(at, at.plusYears(20)));
     }
-    @Test void cutoffsUseTheSameInclusiveBoundariesAndClockRegressionCannotCreateNegativeAge() {
+
+    @Test
+    void cutoffsUseTheSameInclusiveBoundariesAndClockRegressionCannotCreateNegativeAge() {
         assertNull(policy.cutoff(NORMAL, at));
         assertEquals(at.minusSeconds(900), policy.cutoff(REVIEW, at));
         assertEquals(at.minusSeconds(86400), policy.cutoff(URGENT, at));
         assertEquals(0L, policy.ageSeconds(at, at.minusHours(1)));
         assertEquals(NORMAL, policy.level(at, at.minusHours(1)));
     }
-    @Test void invalidOrUnorderedConfigurationCannotDisableEscalationSilently() {
+
+    @Test
+    void invalidOrUnorderedConfigurationCannotDisableEscalationSilently() {
         assertThrows(DomainViolation.class, () -> new RecoveryEscalationPolicy(0, 86400));
         assertThrows(DomainViolation.class, () -> new RecoveryEscalationPolicy(900, 900));
         assertThrows(DomainViolation.class, () -> new RecoveryEscalationPolicy(900, 899));

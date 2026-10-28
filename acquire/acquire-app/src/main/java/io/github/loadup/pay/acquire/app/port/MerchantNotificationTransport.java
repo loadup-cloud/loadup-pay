@@ -17,8 +17,11 @@ package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 
-/** Resolution is local configuration only; sending must never run in a local database transaction. */
+/**
+ * Resolution is local configuration only; sending must never run in a local database transaction.
+ */
 public interface MerchantNotificationTransport {
     String fingerprint(String tenant, MerchantNotificationDelivery delivery);
+
     boolean send(String tenant, MerchantNotificationDelivery delivery);
 }

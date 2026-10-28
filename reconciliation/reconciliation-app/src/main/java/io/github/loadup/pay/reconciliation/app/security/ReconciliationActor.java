@@ -17,10 +17,21 @@ package io.github.loadup.pay.reconciliation.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Set;
 
-/** Supplied only by an authenticated inbound adapter; request DTOs carry no tenant or permission claims. */
+/**
+ * Supplied only by an authenticated inbound adapter; request DTOs carry no tenant or permission claims.
+ */
 public record ReconciliationActor(String tenantId, String serviceId, Set<String> permissions) {
-    public ReconciliationActor { DomainChecks.id(tenantId); DomainChecks.id(serviceId); permissions = Set.copyOf(permissions); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public ReconciliationActor {
+        DomainChecks.id(tenantId);
+        DomainChecks.id(serviceId);
+        permissions = Set.copyOf(permissions);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

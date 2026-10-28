@@ -25,7 +25,17 @@ import org.springframework.stereotype.Component;
 public class RefundMerchantOutboxHandler implements OutboxHandler {
     private final RefundMerchantDelivery delivery;
 
-    public RefundMerchantOutboxHandler(RefundMerchantDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return RefundProjectionEvents.MERCHANT; }
-    @Override public void handle(OutboxEvent event) { delivery.deliver(event); }
+    public RefundMerchantOutboxHandler(RefundMerchantDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return RefundProjectionEvents.MERCHANT;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.deliver(event);
+    }
 }

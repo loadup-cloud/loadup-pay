@@ -17,10 +17,27 @@ package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelH5Input;
+import io.github.loadup.pay.channel.api.model.ChannelPayerIdentityInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties;
-import io.github.loadup.pay.channel.wechat.protocol.*;
+import io.github.loadup.pay.channel.wechat.protocol.WechatBindingGuard;
+import io.github.loadup.pay.channel.wechat.protocol.WechatJsapiSigner;
+import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
+import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
+import io.github.loadup.pay.channel.wechat.protocol.WechatResponseReader;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -28,9 +45,16 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.TreeMap;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** APIv3 JSAPI and H5 prepay adapter for direct and service-provider merchant accounts. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * APIv3 JSAPI and H5 prepay adapter for direct and service-provider merchant accounts.
+ */
 public final class WechatSubmitAdapter {
     private final WechatProtocolClient client;
     private final WechatJsapiSigner signer;
@@ -38,17 +62,24 @@ public final class WechatSubmitAdapter {
     private final WechatResponseReader responses;
     private final JsonMapper json;
     private final Clock clock;
+
     public WechatSubmitAdapter(WechatProtocolClient client, WechatJsapiSigner signer,
-            WechatNotificationProperties notifications, JsonMapper json, Clock clock) {
-        this.client = client; this.signer = signer; this.notifications = notifications;
-        this.responses = new WechatResponseReader(json); this.json = json; this.clock = clock;
+                               WechatNotificationProperties notifications, JsonMapper json, Clock clock) {
+        this.client = client;
+        this.signer = signer;
+        this.notifications = notifications;
+        this.responses = new WechatResponseReader(json);
+        this.json = json;
+        this.clock = clock;
     }
+
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         validate(context, request.identity(), request.amount().getCent(), request.method(), request.subject(), request.payableUntil(), request.input());
     }
+
     private void validate(ChannelExecutionContext context, ChannelPaymentIdentity identity, long amount,
-            PaymentMethod method, String subject, OffsetDateTime until, ChannelPaymentInput input) {
+                          PaymentMethod method, String subject, OffsetDateTime until, ChannelPaymentInput input) {
         var account = WechatBindingGuard.require(context, identity);
         if ((method != PaymentMethod.JSAPI && method != PaymentMethod.H5) || !context.binding().capabilities().contains(method))
             throw new CommonException(UNSUPPORTED_CAPABILITY);
@@ -67,6 +98,7 @@ public final class WechatSubmitAdapter {
         if (notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id()) == null)
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
     }
+
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
         if (request == null) throw new CommonException(INVALID_ARGUMENT);
         var payment = request.payment();
@@ -78,7 +110,8 @@ public final class WechatSubmitAdapter {
         body.put(partner ? "sp_mchid" : "mchid", account.merchantId());
         if (partner) body.put("sub_mchid", account.subMerchantId());
         if (account.subAppId() != null) body.put("sub_appid", account.subAppId());
-        body.put("description", request.subject()); body.put("out_trade_no", payment.identity().channelRequestNo());
+        body.put("description", request.subject());
+        body.put("out_trade_no", payment.identity().channelRequestNo());
         body.put("amount", Map.of("total", payment.amount().getCent(), "currency", "CNY"));
         body.put("time_expire", request.payableUntil().withNano(0).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         body.put("notify_url", notifications.notifyUrls().get(context.tenantId()).get(context.binding().id()).toASCIIString());
@@ -103,13 +136,17 @@ public final class WechatSubmitAdapter {
         var kind = response.status() == 200 ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN;
         var observation = new PaymentObservation(payment.identity(), kind, payment.amount(), null, null,
                 PaymentObservation.Source.SUBMIT_RESPONSE, operation.operation() + ":" + response.sourceDigest(), response.sourceDigest());
-        if (response.status() != 200) return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, null);
+        if (response.status() != 200)
+            return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, null);
         var expiry = request.payableUntil().withNano(0);
         if (payment.method() == PaymentMethod.H5) {
             if (startedAt.plusMinutes(5).isBefore(expiry)) expiry = startedAt.plusMinutes(5);
             final WechatH5ChannelAction action;
-            try { action = new WechatH5ChannelAction(responses.text(data, "h5_url", 4096), expiry); }
-            catch (RuntimeException invalid) { throw new CommonException(CHANNEL_RESPONSE_INVALID); }
+            try {
+                action = new WechatH5ChannelAction(responses.text(data, "h5_url", 4096), expiry);
+            } catch (RuntimeException invalid) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation,
                     expiry.toInstant().isAfter(clock.instant()) ? action : null);
         }

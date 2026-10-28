@@ -16,25 +16,36 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
+import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentActionType;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
-import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
@@ -42,18 +53,6 @@ import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
-import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
-import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
-import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
-import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentActionType;
-import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -90,11 +89,11 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
 class PaymentResultServiceTest {
@@ -155,7 +154,7 @@ class PaymentResultServiceTest {
     }
 
     ChannelPaymentSubmission jsapiRecoverySubmission(ChannelPaymentRecovery original, String tradeNo,
-            PaymentObservation.Source source) {
+                                                     PaymentObservation.Source source) {
         var observation = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.ACCEPTED,
                 original.amount(), tradeNo, null, source, "query-receipt", "f".repeat(64));
         var action = new AlipayJsapiChannelAction(tradeNo, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
@@ -275,7 +274,10 @@ class PaymentResultServiceTest {
         var submission = new ChannelPaymentSubmission(original.identity(), original.amount(), null, action);
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
-        doAnswer(call -> { active(); return null; }).when(actions).record("tenant", locked, original, submission, null);
+        doAnswer(call -> {
+            active();
+            return null;
+        }).when(actions).record("tenant", locked, original, submission, null);
         var before = accepted.get();
 
         var result = service.recordSubmission("tenant", original, submission);
@@ -471,7 +473,8 @@ class PaymentResultServiceTest {
                 o.source(), "correct-target-corrupt-binding", o.sourceDigest());
         var rejected = assertThrows(CommonException.class, () -> service.record("tenant", correctTarget));
         assertEquals(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID, rejected.getResultCode());
-        assertEquals(1, receipts.size()); assertEquals(1, anomalies.size());
+        assertEquals(1, receipts.size());
+        assertEquals(1, anomalies.size());
         assertNull(capacity.get());
         verify(attempts, never()).update(anyString(), any(), anyLong());
         verify(changes, never()).updatePayment(anyString(), any(), anyLong());

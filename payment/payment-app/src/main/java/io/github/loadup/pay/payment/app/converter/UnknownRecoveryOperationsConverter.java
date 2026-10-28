@@ -23,6 +23,7 @@ import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -31,6 +32,10 @@ public interface UnknownRecoveryOperationsConverter {
     @Mapping(target = "attentionLevel", source = "level")
     @Mapping(target = "ageSeconds", source = "ageSeconds")
     PaymentUnknownRecoveryDTO toDTO(UnknownRecoveryEntry value, RecoveryEscalationPolicy.Level level, long ageSeconds);
+
     RecoveryEscalationPolicy.Level toLevel(PaymentRecoveryAttentionLevel value);
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

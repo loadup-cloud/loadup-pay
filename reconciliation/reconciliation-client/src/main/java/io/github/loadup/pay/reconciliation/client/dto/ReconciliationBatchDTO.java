@@ -16,10 +16,10 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDate;
 
 public record ReconciliationBatchDTO(
@@ -36,5 +36,8 @@ public record ReconciliationBatchDTO(
         @Schema(description = "Difference count; null before completion") Long differenceCount,
         @Schema(description = "Deterministic result SHA-256; null before completion") String resultHash,
         @Schema(description = "Batch aggregate version") long version) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

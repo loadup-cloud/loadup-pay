@@ -17,19 +17,32 @@ package io.github.loadup.pay.reconciliation.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationConverter;
-import io.github.loadup.pay.reconciliation.domain.gateway.*;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
+import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
+import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationBatch;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
+import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
 
-/** Read immutable local inputs, compare outside transactions, then commit differences and completion together. */
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Read immutable local inputs, compare outside transactions, then commit differences and completion together.
+ */
 @Service
 public class ReconciliationExecutionService {
     public static final String TYPE = "pay.reconciliation.compare";
@@ -41,12 +54,20 @@ public class ReconciliationExecutionService {
     private final ReconciliationConverter converter;
     private final ReconciliationMatcher matcher;
     private final Clock clock;
+
     public ReconciliationExecutionService(DelayedTaskTemplate tasks, ReconciliationBatchGateway batches, ReconciliationInputGateway inputs,
-            ReconciliationResultGateway results, ReconciliationTransactions transactions, ReconciliationConverter converter,
-            ReconciliationMatcher matcher, @Qualifier("reconciliationClock") Clock clock) {
-        this.tasks = tasks; this.batches = batches; this.inputs = inputs; this.results = results; this.transactions = transactions;
-        this.converter = converter; this.matcher = matcher; this.clock = clock;
+                                          ReconciliationResultGateway results, ReconciliationTransactions transactions, ReconciliationConverter converter,
+                                          ReconciliationMatcher matcher, @Qualifier("reconciliationClock") Clock clock) {
+        this.tasks = tasks;
+        this.batches = batches;
+        this.inputs = inputs;
+        this.results = results;
+        this.transactions = transactions;
+        this.converter = converter;
+        this.matcher = matcher;
+        this.clock = clock;
     }
+
     public void handle(DelayedTask task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (task == null || !TYPE.equals(task.taskType()) || !Objects.equals(TenantUtil.getTenantId(), task.tenantId())
@@ -62,7 +83,8 @@ public class ReconciliationExecutionService {
                 || !Objects.equals(task.nextExecuteAt(), registered.nextExecuteAt())
                 || task.attempts() != registered.attempts() || task.maxAttempts() != registered.maxAttempts()
                 || registered.status() != DelayedTaskStatus.RUNNING || registered.leaseUntil() == null || !registered.leaseUntil().isAfter(now)
-                || registered.nextExecuteAt() == null || registered.nextExecuteAt().isAfter(now)) throw new CommonException(INVALID_STATE);
+                || registered.nextExecuteAt() == null || registered.nextExecuteAt().isAfter(now))
+            throw new CommonException(INVALID_STATE);
         var work = transactions.readSnapshot(task.tenantId(), () -> {
             var stored = batches.findRun(task.tenantId(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!task.bizId().equals(stored.batch().runId())) throw new CommonException(SNAPSHOT_INVALID);
@@ -70,7 +92,8 @@ public class ReconciliationExecutionService {
             if (stored.batch().state() != ReconciliationState.RUNNING) throw new CommonException(INVALID_STATE);
             var channel = inputs.loadSealed(task.tenantId(), stored.batch().channel().artifactId());
             var ledger = inputs.loadSealed(task.tenantId(), stored.batch().ledger().artifactId());
-            if (!stored.batch().channel().equals(channel.manifest()) || !stored.batch().ledger().equals(ledger.manifest())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!stored.batch().channel().equals(channel.manifest()) || !stored.batch().ledger().equals(ledger.manifest()))
+                throw new CommonException(SNAPSHOT_INVALID);
             return java.util.Optional.of(new Work(stored, channel, ledger));
         });
         if (work.isEmpty()) return;
@@ -85,8 +108,15 @@ public class ReconciliationExecutionService {
             return true;
         });
     }
-    private boolean terminal(ReconciliationBatch batch) { return batch.state() == ReconciliationState.MATCHED || batch.state() == ReconciliationState.DIFFERENCES; }
+
+    private boolean terminal(ReconciliationBatch batch) {
+        return batch.state() == ReconciliationState.MATCHED || batch.state() == ReconciliationState.DIFFERENCES;
+    }
+
     private record Work(StoredReconciliationBatch stored, ReconciliationDataset channel, ReconciliationDataset ledger) {
-        @Override public String toString() { return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this); }
+        @Override
+        public String toString() {
+            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+        }
     }
 }

@@ -19,17 +19,27 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.acquire.app.port.CashierCapabilities;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import org.junit.jupiter.api.Test;
+
 import java.util.Set;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.admission;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class CashierChoicesTest {
-    @Test void hostedCatalogIsIntersectedWithTheFrozenContractAndTerminalOrdersHaveNoChoices() {
-        var hosted = mock(CashierCapabilities.class); var codec = mock(OrderCreationCodec.class);
+    @Test
+    void hostedCatalogIsIntersectedWithTheFrozenContractAndTerminalOrdersHaveNoChoices() {
+        var hosted = mock(CashierCapabilities.class);
+        var codec = mock(OrderCreationCodec.class);
         var wechat = new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5);
         var alipay = new PaymentChoiceDTO(Channel.ALIPAY, PaymentMethod.H5);
         when(hosted.choices()).thenReturn(Set.of(wechat, alipay));

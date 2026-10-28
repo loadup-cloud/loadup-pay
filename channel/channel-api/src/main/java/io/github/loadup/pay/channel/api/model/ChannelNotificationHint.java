@@ -18,8 +18,16 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/** Untrusted locator only; cannot authorize any query, mutation or acknowledgement. */
+/**
+ * Untrusted locator only; cannot authorize any query, mutation or acknowledgement.
+ */
 public record ChannelNotificationHint(String channelRequestNo) {
-    public ChannelNotificationHint { DomainChecks.text(channelRequestNo, 64); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public ChannelNotificationHint {
+        DomainChecks.text(channelRequestNo, 64);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

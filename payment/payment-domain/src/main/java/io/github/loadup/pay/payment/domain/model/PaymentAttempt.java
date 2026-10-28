@@ -15,15 +15,14 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
-import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 
 import java.util.Objects;
 import java.util.Set;

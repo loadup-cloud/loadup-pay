@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.domain;
 
-import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
-
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;

@@ -16,9 +16,12 @@
 package io.github.loadup.pay.payment.domain.gateway;
 
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
+
 import java.util.Optional;
 
-/** Actions are append-only and keyed by the original attempt. */
+/**
+ * Actions are append-only and keyed by the original attempt.
+ */
 public interface PaymentActionGateway {
     Optional<StoredPaymentAction> find(String tenant, String attemptId);
 

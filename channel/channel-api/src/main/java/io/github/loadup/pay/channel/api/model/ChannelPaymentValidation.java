@@ -20,14 +20,19 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.OffsetDateTime;
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Pre-Y2 parameter inspection grants no execution epoch or permission to collect funds. */
+/**
+ * Pre-Y2 parameter inspection grants no execution epoch or permission to collect funds.
+ */
 public record ChannelPaymentValidation(ChannelPaymentIdentity identity, Money amount, PaymentMethod method,
-        String subject, OffsetDateTime payableUntil, @DiagnosticHidden ChannelPaymentInput input) {
+                                       String subject, OffsetDateTime payableUntil,
+                                       @DiagnosticHidden ChannelPaymentInput input) {
     public ChannelPaymentValidation {
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
@@ -44,5 +49,9 @@ public record ChannelPaymentValidation(ChannelPaymentIdentity identity, Money am
         };
         require(matches, INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

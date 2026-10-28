@@ -25,10 +25,12 @@ import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.charset.StandardCharsets;
+
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
@@ -44,7 +46,9 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
                         DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT).build();
-        this.validator = validator; this.hashes = hashes; this.snapshots = snapshots;
+        this.validator = validator;
+        this.hashes = hashes;
+        this.snapshots = snapshots;
     }
 
     @Override
@@ -54,14 +58,17 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
             String payload = mapper.writeValueAsString(snapshots.toSnapshot(command));
             if (payload.getBytes(StandardCharsets.UTF_8).length > 262144) throw new CommonException(SNAPSHOT_INVALID);
             return payload;
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override
     public PaymentExecuteCommand decode(StoredPaymentAllocation stored) {
         try {
             if (stored.intentPayload().getBytes(StandardCharsets.UTF_8).length > 262144
-                    || !hashes.checksum(stored.intentPayload()).equals(stored.payloadHash())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !hashes.checksum(stored.intentPayload()).equals(stored.payloadHash()))
+                throw new CommonException(SNAPSHOT_INVALID);
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
             var allocation = stored.allocation();
             if (value == null || !allocation.id().equals(value.allocationId()) || !allocation.orderId().equals(value.orderId())
@@ -70,6 +77,8 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
                 throw new CommonException(SNAPSHOT_INVALID);
             // The owner-local format permits staged input references, without depending on current Command validation.
             return snapshots.toCommand(value);
-        } catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

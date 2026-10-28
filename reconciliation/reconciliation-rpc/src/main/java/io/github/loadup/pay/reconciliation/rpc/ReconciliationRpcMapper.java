@@ -15,13 +15,26 @@
  */
 package io.github.loadup.pay.reconciliation.rpc;
 
-import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.reconciliation.client.command.*;
-import io.github.loadup.pay.reconciliation.client.dto.*;
-import io.github.loadup.pay.reconciliation.rpc.proto.*;
-import org.mapstruct.*;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationInputDTO;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCreateCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchQuery;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputDTO;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.BeforeMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.NullValueCheckStrategy;
+
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
 
 @Mapper(config = LoadUpMapStructConfig.class, uses = ReconciliationRpcFields.class,
@@ -32,6 +45,7 @@ public interface ReconciliationRpcMapper {
     @Mapping(target = "channelAccountCode", source = "channelAccountCode")
     @Mapping(target = "billDate", source = "billDate")
     WireReconciliationBatchCreateCommand toWire(ReconciliationBatchCreateCommand value);
+
     ReconciliationBatchCreateCommand fromWire(WireReconciliationBatchCreateCommand value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -39,11 +53,13 @@ public interface ReconciliationRpcMapper {
     @Mapping(target = "side", source = "side")
     @Mapping(target = "artifactId", source = "artifactId")
     WireReconciliationInputAttachCommand toWire(ReconciliationInputAttachCommand value);
+
     ReconciliationInputAttachCommand fromWire(WireReconciliationInputAttachCommand value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "batchId", source = "batchId")
     WireReconciliationBatchStartCommand toWire(ReconciliationBatchStartCommand value);
+
     ReconciliationBatchStartCommand fromWire(WireReconciliationBatchStartCommand value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -61,6 +77,7 @@ public interface ReconciliationRpcMapper {
     @Mapping(target = "resultHash", source = "resultHash")
     @Mapping(target = "version", source = "version")
     WireReconciliationBatchDTO toWire(ReconciliationBatchDTO value);
+
     ReconciliationBatchDTO fromWire(WireReconciliationBatchDTO value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -75,43 +92,66 @@ public interface ReconciliationRpcMapper {
     @Mapping(target = "refundCount", source = "refundCount")
     @Mapping(target = "refundAmountMinor", source = "refundAmountMinor")
     WireReconciliationInputDTO toWire(ReconciliationInputDTO value);
+
     ReconciliationInputDTO fromWire(WireReconciliationInputDTO value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     WireReconciliationBatchQuery toWire(IdQuery value);
+
     IdQuery fromWire(WireReconciliationBatchQuery value);
 
-    @BeforeMapping default void required(WireReconciliationBatchCreateCommand value) {
-        if (value != null && (!value.hasRequestKey() || !value.hasChannelAccountCode() || !value.hasBillDate())) invalid();
+    @BeforeMapping
+    default void required(WireReconciliationBatchCreateCommand value) {
+        if (value != null && (!value.hasRequestKey() || !value.hasChannelAccountCode() || !value.hasBillDate()))
+            invalid();
     }
-    @BeforeMapping default void required(WireReconciliationInputAttachCommand value) {
+
+    @BeforeMapping
+    default void required(WireReconciliationInputAttachCommand value) {
         if (value != null && (!value.hasBatchId() || !value.hasSide() || !value.hasArtifactId())) invalid();
     }
-    @BeforeMapping default void required(WireReconciliationBatchStartCommand value) {
+
+    @BeforeMapping
+    default void required(WireReconciliationBatchStartCommand value) {
         if (value != null && !value.hasBatchId()) invalid();
     }
-    @BeforeMapping default void required(WireReconciliationBatchQuery value) {
+
+    @BeforeMapping
+    default void required(WireReconciliationBatchQuery value) {
         if (value != null && !value.hasId()) invalid();
     }
-    @BeforeMapping default void required(WireReconciliationInputDTO value) {
+
+    @BeforeMapping
+    default void required(WireReconciliationInputDTO value) {
         if (value == null) return;
         if (!value.hasSide() || !value.hasArtifactId() || !value.hasArtifactSha256() || !value.hasNormalizedSha256()
                 || !value.hasSourceCaptureId() || !value.hasParserRevision() || !value.hasPaymentCount()
                 || !value.hasPaymentAmountMinor() || !value.hasRefundCount() || !value.hasRefundAmountMinor()
-                || value.getPaymentCount() < 0 || value.getRefundCount() < 0 || value.getPaymentAmountMinor() < 0 || value.getRefundAmountMinor() < 0) invalid();
-        text(value.getArtifactId(), 64); text(value.getSourceCaptureId(), 64); text(value.getParserRevision(), 64);
-        hash(value.getArtifactSha256()); hash(value.getNormalizedSha256());
+                || value.getPaymentCount() < 0 || value.getRefundCount() < 0 || value.getPaymentAmountMinor() < 0 || value.getRefundAmountMinor() < 0)
+            invalid();
+        text(value.getArtifactId(), 64);
+        text(value.getSourceCaptureId(), 64);
+        text(value.getParserRevision(), 64);
+        hash(value.getArtifactSha256());
+        hash(value.getNormalizedSha256());
         if ((value.getPaymentCount() == 0) != (value.getPaymentAmountMinor() == 0)
                 || (value.getRefundCount() == 0) != (value.getRefundAmountMinor() == 0)
-                || value.getPaymentAmountMinor() < value.getPaymentCount() || value.getRefundAmountMinor() < value.getRefundCount()) invalid();
-        try { Math.addExact(value.getPaymentCount(), value.getRefundCount()); }
-        catch (ArithmeticException overflow) { invalid(); }
+                || value.getPaymentAmountMinor() < value.getPaymentCount() || value.getRefundAmountMinor() < value.getRefundCount())
+            invalid();
+        try {
+            Math.addExact(value.getPaymentCount(), value.getRefundCount());
+        } catch (ArithmeticException overflow) {
+            invalid();
+        }
     }
-    @BeforeMapping default void required(WireReconciliationBatchDTO value) {
+
+    @BeforeMapping
+    default void required(WireReconciliationBatchDTO value) {
         if (value == null) return;
         if (!value.hasBatchId() || !value.hasChannel() || !value.hasAccountScopeHash() || !value.hasBillDate()
-                || !value.hasStatementProfile() || !value.hasState() || !value.hasVersion() || value.getVersion() < 0) invalid();
+                || !value.hasStatementProfile() || !value.hasState() || !value.hasVersion() || value.getVersion() < 0)
+            invalid();
         var state = ReconciliationRpcFields.state(value.getState());
         boolean complete = state == io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState.MATCHED
                 || state == io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState.DIFFERENCES;
@@ -119,21 +159,33 @@ public interface ReconciliationRpcMapper {
         if (started != value.hasRunId() || complete != value.hasMatchedCount() || complete != value.hasDifferenceCount()
                 || complete != value.hasResultHash()
                 || (state == io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState.INIT)
-                    == (value.hasChannelInput() && value.hasLedgerInput())) invalid();
-        text(value.getBatchId(), 64); text(value.getStatementProfile(), 64); hash(value.getAccountScopeHash());
+                == (value.hasChannelInput() && value.hasLedgerInput())) invalid();
+        text(value.getBatchId(), 64);
+        text(value.getStatementProfile(), 64);
+        hash(value.getAccountScopeHash());
         if (started) text(value.getRunId(), 64);
         if (complete) hash(value.getResultHash());
         if (value.hasChannelInput() && value.hasLedgerInput()
                 && (value.getChannelInput().getArtifactId().equals(value.getLedgerInput().getArtifactId())
-                    || value.getChannelInput().getSourceCaptureId().equals(value.getLedgerInput().getSourceCaptureId()))) invalid();
+                || value.getChannelInput().getSourceCaptureId().equals(value.getLedgerInput().getSourceCaptureId())))
+            invalid();
         if (complete && (value.getMatchedCount() < 0 || value.getDifferenceCount() < 0
-                || (state == io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState.MATCHED) != (value.getDifferenceCount() == 0))) invalid();
+                || (state == io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState.MATCHED) != (value.getDifferenceCount() == 0)))
+            invalid();
         if (value.hasChannelInput() && !"CHANNEL".equals(value.getChannelInput().getSide())
                 || value.hasLedgerInput() && !"LEDGER".equals(value.getLedgerInput().getSide())) invalid();
     }
+
     private void text(String value, int max) {
-        if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl)) invalid();
+        if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl))
+            invalid();
     }
-    private void hash(String value) { if (value == null || !value.matches("[0-9a-f]{64}")) invalid(); }
-    private void invalid() { throw new CommonException(INVALID_ARGUMENT); }
+
+    private void hash(String value) {
+        if (value == null || !value.matches("[0-9a-f]{64}")) invalid();
+    }
+
+    private void invalid() {
+        throw new CommonException(INVALID_ARGUMENT);
+    }
 }

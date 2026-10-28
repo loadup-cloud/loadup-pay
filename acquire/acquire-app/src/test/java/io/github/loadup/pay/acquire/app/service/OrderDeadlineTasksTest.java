@@ -17,12 +17,20 @@ package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import org.junit.jupiter.api.Test;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 class OrderDeadlineTasksTest {
     final DelayedTaskTemplate nativeTasks = mock(DelayedTaskTemplate.class);
@@ -52,7 +60,10 @@ class OrderDeadlineTasksTest {
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
                 () -> io.github.loadup.commons.util.TenantUtil.runWithTenant("tenant", () -> tasks.register("tenant", order, 1L))).getResultCode());
         assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> { tasks.register("tenant", order, 0L); return true; })).getResultCode());
+                () -> transactions.writeLocal("tenant", () -> {
+                    tasks.register("tenant", order, 0L);
+                    return true;
+                })).getResultCode());
         verifyNoInteractions(nativeTasks);
     }
 }

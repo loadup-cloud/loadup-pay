@@ -18,16 +18,29 @@ package io.github.loadup.pay.payment.infrastructure.channel;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.service.PaymentChannelRequestFactory;
+import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
-/** Bridges payment-owned persistence to the independent channel facade; contains no channel protocol. */
+/**
+ * Bridges payment-owned persistence to the independent channel facade; contains no channel protocol.
+ */
 @Component
 public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
     private final ChannelPaymentFacade channels;

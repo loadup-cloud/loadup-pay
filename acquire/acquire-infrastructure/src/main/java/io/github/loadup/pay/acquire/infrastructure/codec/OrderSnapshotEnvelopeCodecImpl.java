@@ -16,9 +16,9 @@
 package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotEnvelopeCodec;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.commons.event.EventEnvelope;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;

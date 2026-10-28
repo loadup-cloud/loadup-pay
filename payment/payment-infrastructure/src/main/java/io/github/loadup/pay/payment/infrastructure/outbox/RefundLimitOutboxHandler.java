@@ -24,7 +24,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class RefundLimitOutboxHandler implements OutboxHandler {
     private final RefundLimitDelivery delivery;
-    public RefundLimitOutboxHandler(RefundLimitDelivery delivery) { this.delivery = delivery; }
-    @Override public String eventType() { return RefundProjectionEvents.LIMIT; }
-    @Override public void handle(OutboxEvent event) { delivery.deliver(event); }
+
+    public RefundLimitOutboxHandler(RefundLimitDelivery delivery) {
+        this.delivery = delivery;
+    }
+
+    @Override
+    public String eventType() {
+        return RefundProjectionEvents.LIMIT;
+    }
+
+    @Override
+    public void handle(OutboxEvent event) {
+        delivery.deliver(event);
+    }
 }

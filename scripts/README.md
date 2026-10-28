@@ -2,13 +2,13 @@
 
 用于七个应用的本地JAR、Docker镜像和OrbStack Kubernetes部署。每个应用目录提供`build.sh`与`deploy.sh`，入口委托本目录的公共实现。
 
-| 入口                                | 行为                                                  |
-|-------------------------------------|-------------------------------------------------------|
-| `./scripts/build.sh all`            | 一次Maven构建七应用及其依赖，然后构建七个镜像         |
-| `./scripts/deploy.sh all`           | 构建JAR/镜像、部署七应用、等待就绪端点                |
-| `./payment/build.sh`                | 仅构建payment及其必需依赖，生成payment镜像            |
-| `./payment/deploy.sh`               | 构建并部署payment，不修改其他六个应用                 |
-| `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice       |
+| 入口                                | 行为                                            |
+|-------------------------------------|-------------------------------------------------|
+| `./scripts/build.sh all`            | 一次Maven构建七应用及其依赖，然后构建七个镜像   |
+| `./scripts/deploy.sh all`           | 构建JAR/镜像、部署七应用、等待就绪端点          |
+| `./payment/build.sh`                | 仅构建payment及其必需依赖，生成payment镜像      |
+| `./payment/deploy.sh`               | 构建并部署payment，不修改其他六个应用           |
+| `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
 
 可选应用名：`acquire`、`payment`、`customer`、`product`、`limitcenter`、`realtime`、`reconciliation`
 。所有入口均可从其他工作目录调用。client/domain/rpc作为应用依赖参与构建，不单独生成部署镜像。
@@ -49,7 +49,9 @@ SKIP_BUILD=1 IMAGE_TAG=release-002 ./scripts/deploy.sh all
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经kubectl本地dry-run输出的JSON：全量选择22个资源（namespace及七组Deployment/HTTP Service/gRPC Headless Service），单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为 50051；渲染器拒绝缺失、重复或不符合约定的 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+经kubectl本地dry-run输出的JSON：全量选择22个资源（namespace及七组Deployment/HTTP Service/gRPC Headless
+Service），单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为
+50051；渲染器拒绝缺失、重复或不符合约定的 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
@@ -118,18 +120,26 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 
 ## 应用间 gRPC 发布
 
-七应用 `application.yml` 固定 gRPC 50051、30秒优雅退出，Pod 终止窗口45秒。出站 channel 使用 `dns:///<peer>-headless:50051` 和 `default.load-balancing-policy: round_robin`；`loadup.rpc.clients.<peer>` 配置 channel 名和3秒 deadline。Java 通过 Spring 配置类读取，无应用间 HTTP 地址或降级路径。
+七应用 `application.yml` 固定 gRPC 50051、30秒优雅退出，Pod 终止窗口45秒。出站 channel 使用 `dns:///<peer>-headless:50051`
+和 `default.load-balancing-policy: round_robin`；`loadup.rpc.clients.<peer>` 配置 channel 名和3秒 deadline。Java 通过
+Spring 配置类读取，无应用间 HTTP 地址或降级路径。
 
-业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产 TLS 配置。默认骨架构建不包含业务 adapter，也没有业务 gRPC 监听；只声明 Headless Service 与 containerPort 不会启动监听。
+业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产
+TLS 配置。默认骨架构建不包含业务 adapter，也没有业务 gRPC 监听；只声明 Headless Service 与 containerPort 不会启动监听。
 
-`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 gRPC Headless Service。`verify.sh` 目前仅检查 Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 gRPC 调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
+`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 gRPC Headless Service。`verify.sh` 目前仅检查
+Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 gRPC
+调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
 
-双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 兼容通道；旧 HTTP 镜像与新 gRPC 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
+双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 兼容通道；旧 HTTP 镜像与新 gRPC
+镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
 
-协议与调用关系见[RPC 规范](../design/RPC.md)，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
+协议与调用关系见[RPC 规范](../design/RPC.md)
+，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
 
-渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的 -am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款 Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。
-
+渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的
+-am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款
+Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。
 
 ## 托管收银台浏览器核心测试源码
 
@@ -139,7 +149,8 @@ H5 页面核心使用原生 ES module/BigInt，无新增前端依赖。用户恢
 node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 ```
 
-本轮没有执行此命令。该测试只覆盖纯逻辑，不替代 Java 生成代码/事务、浏览器/CSP/标签页存储、可信代理、渠道域名及真实 H5 跳转验收。静态页面与 /checkout.js、/checkout-core.js、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。
+本轮没有执行此命令。该测试只覆盖纯逻辑，不替代 Java 生成代码/事务、浏览器/CSP/标签页存储、可信代理、渠道域名及真实 H5
+跳转验收。静态页面与 /checkout.js、/checkout-core.js、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。
 
 ## Reconciliation 业务镜像
 
@@ -149,5 +160,6 @@ node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 当前批次/查询/核对源码不包含已完成的实际账单下载与权威数据导入；不能将 Pod 就绪当成对账业务验收。
 
 Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码；除 JDBC/JWT/账户目录，还需私有 RECONCILIATION_S3_BUCKET，
-可选 REGION/ENDPOINT/PATH_STYLE 和一对 S3_ACCESS_KEY/S3_SECRET_KEY（或默认凭证链）。不自动创建 bucket；statement-account 显式配置实际主/子商户。
+可选 REGION/ENDPOINT/PATH_STYLE 和一对 S3_ACCESS_KEY/S3_SECRET_KEY（或默认凭证链）。不自动创建 bucket；statement-account
+显式配置实际主/子商户。
 源码部署清单没有注入这些业务 Secret 或存储策略，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。

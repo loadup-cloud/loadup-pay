@@ -15,6 +15,7 @@
  */
 package io.github.loadup.pay.acquire.domain;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -24,7 +25,6 @@ import io.github.loadup.pay.acquire.domain.model.ParentCloseEvidence;
 import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
-import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;

@@ -22,14 +22,14 @@ import io.github.loadup.commons.validation.DomainChecks;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** The generation fences obsolete wake-ups; it is not a channel submission key. */
+/**
+ * The generation fences obsolete wake-ups; it is not a channel submission key.
+ */
 public record AllocationRecoveryKey(String paymentId, long generation) {
     public AllocationRecoveryKey {
         DomainChecks.id(paymentId);
         require(generation >= 0, INVALID_ARGUMENT);
     }
-
-    public String bizId() { return paymentId + "." + generation; }
 
     public static AllocationRecoveryKey parse(String value) {
         require(value != null && value.length() <= 128, INVALID_ARGUMENT);
@@ -46,6 +46,12 @@ public record AllocationRecoveryKey(String paymentId, long generation) {
         return key;
     }
 
+    public String bizId() {
+        return paymentId + "." + generation;
+    }
+
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -15,15 +15,18 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
-import io.github.loadup.components.delayedtask.*;
 import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,9 +39,25 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.app.service.RefundResultFixtures.NOW;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundRecoveryServiceTest {
     final RefundRecoveryGateway cursors = mock(RefundRecoveryGateway.class);
@@ -66,12 +85,14 @@ class RefundRecoveryServiceTest {
         when(cursors.lock("tenant", "request")).thenAnswer(c -> Optional.ofNullable(cursor.get()));
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            cursor.set(c.getArgument(1)); return null;
+            cursor.set(c.getArgument(1));
+            return null;
         }).when(cursors).insert(eq("tenant"), any());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(cursor.get(), c.getArgument(1));
-            cursor.set(c.getArgument(2)); return null;
+            cursor.set(c.getArgument(2));
+            return null;
         }).when(cursors).update(eq("tenant"), any(), any());
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
@@ -84,7 +105,9 @@ class RefundRecoveryServiceTest {
         }).when(execution).progress("tenant", "request");
     }
 
-    RecoveryHandlingOutcome handle() { return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task)); }
+    RecoveryHandlingOutcome handle() {
+        return TenantUtil.callWithTenant("tenant", () -> recovery.handle(task));
+    }
 
     StoredRefundRequest terminal() {
         var value = request.get();
@@ -103,7 +126,10 @@ class RefundRecoveryServiceTest {
     @Test
     void fixedPlanAndInitialWakeUpUseTheSameTransactionAndOriginalPlanningTime() {
         cursor.set(null);
-        transactions.writeLocal("tenant", () -> { recovery.register("tenant", request.get()); return true; });
+        transactions.writeLocal("tenant", () -> {
+            recovery.register("tenant", request.get());
+            return true;
+        });
         assertEquals(0, cursor.get().generation());
         assertEquals(request.get().plannedAt(), cursor.get().dueAt());
         verify(tasks).register(RefundRecoveryService.TYPE, "request.0", request.get().plannedAt());
@@ -144,7 +170,10 @@ class RefundRecoveryServiceTest {
 
     @Test
     void finalChannelResultStopsContinuationAndRetainsTheCompletedGeneration() {
-        doAnswer(c -> { request.set(terminal()); return null; }).when(execution).progress("tenant", "request");
+        doAnswer(c -> {
+            request.set(terminal());
+            return null;
+        }).when(execution).progress("tenant", "request");
         assertEquals(RecoveryHandlingOutcome.COMPLETED, handle());
         assertTrue(cursor.get().completed());
         assertEquals(0, cursor.get().generation());
@@ -172,7 +201,10 @@ class RefundRecoveryServiceTest {
 
     @Test
     void aDuplicateThatLosesTheGenerationRaceDoesNotRegisterAnotherSuccessor() {
-        doAnswer(c -> { cursor.set(cursor.get().schedule(NOW.plusSeconds(30), 0)); return null; })
+        doAnswer(c -> {
+            cursor.set(cursor.get().schedule(NOW.plusSeconds(30), 0));
+            return null;
+        })
                 .when(execution).progress("tenant", "request");
         assertEquals(RecoveryHandlingOutcome.SKIPPED, handle());
         verify(tasks, never()).register(anyString(), anyString(), any());
@@ -220,7 +252,8 @@ class RefundRecoveryServiceTest {
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
         verify(tasks, never()).register(anyString(), anyString(), any());
         verify(cursors, never()).update(anyString(), any(), any());
-        assertEquals(1, manager.commits); assertEquals(1, manager.rollbacks);
+        assertEquals(1, manager.commits);
+        assertEquals(1, manager.rollbacks);
     }
 
 }

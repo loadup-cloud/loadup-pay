@@ -16,9 +16,9 @@
 package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
-import io.github.loadup.pay.channel.api.model.RefundObservation;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 

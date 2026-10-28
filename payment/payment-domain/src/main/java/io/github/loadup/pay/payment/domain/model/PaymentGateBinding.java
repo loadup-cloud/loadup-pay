@@ -16,22 +16,23 @@
 package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** One validated parent/payment-gate view. No lock acquisition, authorization or submission rights. */
+/**
+ * One validated parent/payment-gate view. No lock acquisition, authorization or submission rights.
+ */
 public record PaymentGateBinding(StoredPaymentAcceptance accepted, StoredPaymentGate parent, StoredPaymentGate gate) {
     public PaymentGateBinding {
-        Objects.requireNonNull(accepted); Objects.requireNonNull(parent); Objects.requireNonNull(gate);
+        Objects.requireNonNull(accepted);
+        Objects.requireNonNull(parent);
+        Objects.requireNonNull(gate);
         requireGate(parent, accepted, null);
         requireGate(gate, accepted, accepted.payment().id());
-    }
-
-    public PaymentGateBinding requireOpen() {
-        require(parent.gate().state() == GateState.OPEN && gate.gate().state() == GateState.OPEN, INVALID_STATE);
-        return this;
     }
 
     private static void requireGate(StoredPaymentGate value, StoredPaymentAcceptance accepted, String paymentId) {
@@ -40,5 +41,14 @@ public record PaymentGateBinding(StoredPaymentAcceptance accepted, StoredPayment
                 && value.payeeMerchantId().equals(accepted.payment().payeeMerchantId())
                 && value.callerServiceId().equals(accepted.callerServiceId()) && value.gate().state() != GateState.INIT, CONFLICT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public PaymentGateBinding requireOpen() {
+        require(parent.gate().state() == GateState.OPEN && gate.gate().state() == GateState.OPEN, INVALID_STATE);
+        return this;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

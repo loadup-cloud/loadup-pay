@@ -17,14 +17,21 @@ package io.github.loadup.pay.acquire.app.security;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Set;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Resource scope comes only from authenticated JWT claims, never the notification query. */
-public record MerchantNotificationActor(String tenantId, String principalType, String principalId, String merchantId, Set<String> permissions) {
+/**
+ * Resource scope comes only from authenticated JWT claims, never the notification query.
+ */
+public record MerchantNotificationActor(String tenantId, String principalType, String principalId, String merchantId,
+                                        Set<String> permissions) {
     public MerchantNotificationActor {
-        DomainChecks.id(tenantId); DomainChecks.text(principalId, 128); permissions = Set.copyOf(permissions);
+        DomainChecks.id(tenantId);
+        DomainChecks.text(principalId, 128);
+        permissions = Set.copyOf(permissions);
         require(principalType != null && Set.of("MERCHANT", "MERCHANT_APP", "OPERATOR", "SERVICE").contains(principalType), INVALID_ARGUMENT);
         if ("MERCHANT".equals(principalType) || "MERCHANT_APP".equals(principalType)) {
             DomainChecks.id(merchantId);
@@ -32,6 +39,13 @@ public record MerchantNotificationActor(String tenantId, String principalType, S
         } else require(merchantId == null, INVALID_ARGUMENT);
         if ("SERVICE".equals(principalType)) DomainChecks.id(principalId);
     }
-    public boolean merchant() { return merchantId != null; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public boolean merchant() {
+        return merchantId != null;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

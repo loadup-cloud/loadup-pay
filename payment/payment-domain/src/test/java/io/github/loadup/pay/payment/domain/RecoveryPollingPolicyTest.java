@@ -23,7 +23,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecoveryPollingPolicyTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);

@@ -17,13 +17,13 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
 import io.github.loadup.pay.payment.app.converter.ChannelBindingConverter;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.client.command.ChannelBindingPublishCommand;
 import io.github.loadup.pay.payment.client.command.ChannelBindingRevokeCommand;
 import io.github.loadup.pay.payment.client.command.ChannelBindingSuspendCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelAccountIdentityDTO;
-import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;

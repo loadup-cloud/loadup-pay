@@ -26,7 +26,9 @@ public interface OrderFeeGateway {
      */
     void confirmPaid(String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt);
 
-    /** Authoritative cumulative refund facts only; caller holds the original order lock and writable transaction. */
+    /**
+     * Authoritative cumulative refund facts only; caller holds the original order lock and writable transaction.
+     */
     void applyRefundBasis(String tenant, AcquireOrder order, OrderFeePolicy expectedPolicy, long sourceVersion,
-            long cumulativeMinor, String sourceEventId, LocalDateTime appliedAt);
+                          long cumulativeMinor, String sourceEventId, LocalDateTime appliedAt);
 }

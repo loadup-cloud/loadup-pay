@@ -16,17 +16,23 @@
 package io.github.loadup.pay.acquire.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.acquire.infrastructure.config.AcquireRealtimeProperties;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -34,11 +40,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 import static io.github.loadup.pay.realtime.rpc.RealtimeRpcOperations.REALTIME_ORDER;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,6 +62,12 @@ class AcquireRealtimeGrpcClientTest {
     Path directory;
     AcquireRealtimeGrpcClient client;
     Path file;
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     String credential(String tenant, String service, String audience, long expires, String revision) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -122,10 +129,5 @@ class AcquireRealtimeGrpcClientTest {
     void businessFailureOrMissingAckRemainsRetryable() {
         when(rpc.call(eq(REALTIME_ORDER), any(), any())).thenThrow(Status.UNAVAILABLE.asRuntimeException());
         assertThrows(CommonException.class, () -> client.apply("tenant", event));
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

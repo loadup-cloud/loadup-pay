@@ -18,6 +18,7 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.time.LocalDateTime;
 
 @Table("refund_recovery_cursor")
@@ -26,12 +27,32 @@ public class RefundRecoveryCursorDO extends BaseDO {
     private LocalDateTime dueAt;
     private Boolean completed;
 
-    public Long getGeneration() { return generation; }
-    public void setGeneration(Long value) { generation = value; }
-    public LocalDateTime getDueAt() { return dueAt; }
-    public void setDueAt(LocalDateTime value) { dueAt = value; }
-    public Boolean getCompleted() { return completed; }
-    public void setCompleted(Boolean value) { completed = value; }
+    public Long getGeneration() {
+        return generation;
+    }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public void setGeneration(Long value) {
+        generation = value;
+    }
+
+    public LocalDateTime getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(LocalDateTime value) {
+        dueAt = value;
+    }
+
+    public Boolean getCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(Boolean value) {
+        completed = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

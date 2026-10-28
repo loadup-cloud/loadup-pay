@@ -69,6 +69,28 @@ class PaymentChannelRequestFactoryTest {
     private final PaymentChannelRequestFactory factory = new PaymentChannelRequestFactory(payments, attempts, codec,
             inputs, converter, transactions, Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()));
 
+    private static StoredPaymentAttempt submittingAttempt() {
+        return AttemptFixtures.prepared().beginSubmission(1, HASH, RiskDecision.notConnected(), AttemptFixtures.NOW);
+    }
+
+    private static PreparedChannelPayment prepared(PaymentAttempt attempt) {
+        return new PreparedChannelPayment(attempt.identity(), attempt.amount(), attempt.method(), attempt.executionEpoch(),
+                AttemptFixtures.prepared().preparedInputRef());
+    }
+
+    private static StoredPaymentAttempt copy(StoredPaymentAttempt source, PaymentAttempt attempt, String caller,
+                                             String paymentRequestDigest, String preparedInputRef) {
+        return new StoredPaymentAttempt(attempt, source.limitOperationId(), caller, source.requestKey(), source.requestDigest(),
+                paymentRequestDigest, preparedInputRef, source.riskDecision(), source.executionPermitHash(),
+                source.preparedAt(), source.submissionStartedAt(), source.rowVersion());
+    }
+
+    private static PaymentExecuteCommand withDeadline(PaymentExecuteCommand command, OffsetDateTime deadline) {
+        return new PaymentExecuteCommand(command.paymentId(), command.orderId(), command.allocationId(), command.admissionId(),
+                command.payeeMerchantId(), command.amountMinor(), command.currency(), command.requestDigest(), command.choice(),
+                command.preparedInputRef(), command.admittedTerms(), command.subject(), deadline);
+    }
+
     @AfterEach
     void clearTransactionState() {
         TransactionSynchronizationManager.clear();
@@ -101,8 +123,8 @@ class PaymentChannelRequestFactoryTest {
         var submitting = submittingAttempt();
         var staleAttempt = submitting.attempt();
         var staleStoredAttempt = copy(submitting, new PaymentAttempt(staleAttempt.id(), staleAttempt.paymentId(),
-                staleAttempt.attemptNo(), staleAttempt.amount(), staleAttempt.binding(), staleAttempt.method(),
-                staleAttempt.channelRequestNo(), PaymentAttemptState.PENDING, staleAttempt.executionEpoch(), null),
+                        staleAttempt.attemptNo(), staleAttempt.amount(), staleAttempt.binding(), staleAttempt.method(),
+                        staleAttempt.channelRequestNo(), PaymentAttemptState.PENDING, staleAttempt.executionEpoch(), null),
                 submitting.callerServiceId(), submitting.paymentRequestDigest(), submitting.preparedInputRef());
         var acceptance = AttemptFixtures.accepted(true);
         var stalePrepared = prepared(staleStoredAttempt.attempt());
@@ -113,7 +135,7 @@ class PaymentChannelRequestFactoryTest {
         var storedAttempt = submittingAttempt();
         var validPrepared = prepared(storedAttempt.attempt());
         var identity = validPrepared.identity();
-        var changedPreparedFacts = new PreparedChannelPayment[] {
+        var changedPreparedFacts = new PreparedChannelPayment[]{
                 new PreparedChannelPayment(new io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity(
                         identity.paymentId(), identity.attemptId(), identity.channel(), identity.bindingRevisionId(),
                         identity.accountScopeHash(), "different-request"), validPrepared.amount(), validPrepared.method(),
@@ -180,8 +202,8 @@ class PaymentChannelRequestFactoryTest {
     }
 
     private void stubRead(StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt,
-            PaymentExecuteCommand command, NoInteractionDTO plaintext, ChannelPaymentInput channelInput,
-            ChannelPaymentRequest expected) {
+                          PaymentExecuteCommand command, NoInteractionDTO plaintext, ChannelPaymentInput channelInput,
+                          ChannelPaymentRequest expected) {
         stubRecords(acceptance, storedAttempt, command);
         when(transactions.withTenantContext(eq(TENANT), any())).thenAnswer(invocation -> invocation.<Supplier<ChannelPaymentRequest>>getArgument(1).get());
         when(inputs.openForAttempt(TENANT, expected.payment().identity().paymentId(), expected.payment().identity().attemptId()))
@@ -191,31 +213,9 @@ class PaymentChannelRequestFactoryTest {
     }
 
     private void stubRecords(StoredPaymentAcceptance acceptance, StoredPaymentAttempt storedAttempt,
-            PaymentExecuteCommand command) {
+                             PaymentExecuteCommand command) {
         when(payments.find(TENANT, "payment")).thenReturn(Optional.of(acceptance));
         when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(storedAttempt));
         when(codec.decode(acceptance)).thenReturn(command);
-    }
-
-    private static StoredPaymentAttempt submittingAttempt() {
-        return AttemptFixtures.prepared().beginSubmission(1, HASH, RiskDecision.notConnected(), AttemptFixtures.NOW);
-    }
-
-    private static PreparedChannelPayment prepared(PaymentAttempt attempt) {
-        return new PreparedChannelPayment(attempt.identity(), attempt.amount(), attempt.method(), attempt.executionEpoch(),
-                AttemptFixtures.prepared().preparedInputRef());
-    }
-
-    private static StoredPaymentAttempt copy(StoredPaymentAttempt source, PaymentAttempt attempt, String caller,
-            String paymentRequestDigest, String preparedInputRef) {
-        return new StoredPaymentAttempt(attempt, source.limitOperationId(), caller, source.requestKey(), source.requestDigest(),
-                paymentRequestDigest, preparedInputRef, source.riskDecision(), source.executionPermitHash(),
-                source.preparedAt(), source.submissionStartedAt(), source.rowVersion());
-    }
-
-    private static PaymentExecuteCommand withDeadline(PaymentExecuteCommand command, OffsetDateTime deadline) {
-        return new PaymentExecuteCommand(command.paymentId(), command.orderId(), command.allocationId(), command.admissionId(),
-                command.payeeMerchantId(), command.amountMinor(), command.currency(), command.requestDigest(), command.choice(),
-                command.preparedInputRef(), command.admittedTerms(), command.subject(), deadline);
     }
 }

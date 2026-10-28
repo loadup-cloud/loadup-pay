@@ -15,15 +15,20 @@
  */
 package io.github.loadup.pay.payment.app.converter;
 
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -63,5 +68,7 @@ public interface RefundSettlementConverter {
     @Mapping(target = "paymentRefundVersion", source = "capacity.version")
     RefundSettlementFactsDTO toFacts(RefundOutcomeEventDTO refund, StoredPaymentAcceptance original, PaymentRefundCapacity capacity);
 
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
 }

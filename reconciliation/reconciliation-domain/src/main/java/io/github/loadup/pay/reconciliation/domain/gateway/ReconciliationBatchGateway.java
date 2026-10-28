@@ -16,14 +16,22 @@
 package io.github.loadup.pay.reconciliation.domain.gateway;
 
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
+
 import java.util.Optional;
 
-/** All writes and locks require the caller's actual writable local transaction and trusted tenant. */
+/**
+ * All writes and locks require the caller's actual writable local transaction and trusted tenant.
+ */
 public interface ReconciliationBatchGateway {
     Optional<StoredReconciliationBatch> findRequest(String tenant, String caller, String requestKey);
+
     Optional<StoredReconciliationBatch> find(String tenant, String batchId);
+
     Optional<StoredReconciliationBatch> lock(String tenant, String batchId);
+
     Optional<StoredReconciliationBatch> findRun(String tenant, String runId);
+
     void insert(String tenant, StoredReconciliationBatch value);
+
     void update(String tenant, StoredReconciliationBatch value, long expectedVersion);
 }

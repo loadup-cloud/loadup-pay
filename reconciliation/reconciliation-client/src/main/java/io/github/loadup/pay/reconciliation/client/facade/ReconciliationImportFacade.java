@@ -16,13 +16,19 @@
 package io.github.loadup.pay.reconciliation.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.pay.reconciliation.client.command.*;
-import io.github.loadup.pay.reconciliation.client.dto.*;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationChannelImportCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationImportRetryCommand;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationImportDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationSourceFileDTO;
+
 import java.io.InputStream;
 
 public interface ReconciliationImportFacade {
     ReconciliationSourceFileDTO upload(String filename, String contentType, long size, InputStream content);
+
     ReconciliationImportDTO submit(ReconciliationChannelImportCommand command);
+
     ReconciliationImportDTO detail(IdQuery query);
+
     ReconciliationImportDTO retry(ReconciliationImportRetryCommand command);
 }

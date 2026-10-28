@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
@@ -123,7 +123,9 @@ public class PaymentInputAccess {
         });
     }
 
-    /** Opens only the original still-unbound input for local parameter inspection before Y2. */
+    /**
+     * Opens only the original still-unbound input for local parameter inspection before Y2.
+     */
     public PaymentInteractionDTO openForPreparation(String tenant, StoredPaymentAcceptance original, String attemptId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return transactions.withTenantContext(tenant, () -> {
@@ -131,7 +133,8 @@ public class PaymentInputAccess {
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())
                     || !accepted.requestDigest().equals(original.requestDigest())
-                    || !accepted.callerServiceId().equals(original.callerServiceId())) throw new CommonException(INVALID_STATE);
+                    || !accepted.callerServiceId().equals(original.callerServiceId()))
+                throw new CommonException(INVALID_STATE);
             var command = codec.decode(accepted);
             if (!requiresInput(command)) return new NoInteractionDTO();
             var input = inputs.find(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

@@ -21,9 +21,9 @@ import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.kms.KmsCiphertext;
 import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
-import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
@@ -35,12 +35,27 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayCredentialReaderTest {
-    @TempDir Path directory;
+    @TempDir
+    Path directory;
+
+    private static String credential(String tenant, String reference, String version, String app, String seller, String key) {
+        return "{\"tenantId\":\"" + tenant + "\",\"reference\":\"" + reference + "\",\"version\":\"" + version
+                + "\",\"appId\":\"" + app + "\",\"sellerId\":\"" + seller
+                + "\",\"signingKeyName\":\"signing-key\",\"signingKeyVersion\":4,\"platformPublicKey\":\"" + key + "\"}";
+    }
 
     @Test
     void readsMountedDirectAndProviderCredentialsWithStrictFrozenIdentity() throws Exception {
@@ -195,18 +210,12 @@ class AlipayCredentialReaderTest {
     }
 
     private AlipayCredentialReader reader(Map<String, Map<String, Path>> credentials,
-            Map<String, Map<String, Path>> authorizations, KmsTemplate kms) {
+                                          Map<String, Map<String, Path>> authorizations, KmsTemplate kms) {
         return new AlipayCredentialReader(new AlipayProperties(true, credentials, authorizations), JsonMapper.builder().build(), kms);
     }
 
     private ChannelBindingRevision binding(AccessMode mode, AlipayAccountIdentity identity, String reference, String version) {
         return new ChannelBindingRevision("binding-1", "merchant-1", Channel.ALIPAY, mode, "a".repeat(64),
                 reference, version, identity, Set.of(PaymentMethod.PAYMENT_CODE));
-    }
-
-    private static String credential(String tenant, String reference, String version, String app, String seller, String key) {
-        return "{\"tenantId\":\"" + tenant + "\",\"reference\":\"" + reference + "\",\"version\":\"" + version
-                + "\",\"appId\":\"" + app + "\",\"sellerId\":\"" + seller
-                + "\",\"signingKeyName\":\"signing-key\",\"signingKeyVersion\":4,\"platformPublicKey\":\"" + key + "\"}";
     }
 }

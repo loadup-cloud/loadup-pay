@@ -17,17 +17,27 @@ package io.github.loadup.pay.payment.infrastructure.task;
 
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskHandler;
-import io.github.loadup.pay.payment.app.service.RefundRecoveryService;
 import io.github.loadup.pay.payment.app.service.RecoveryExecutionMetrics;
+import io.github.loadup.pay.payment.app.service.RefundRecoveryService;
 import org.springframework.stereotype.Component;
 
 @Component
 public class RefundRecoveryTaskHandler implements DelayedTaskHandler {
     private final RefundRecoveryService recovery;
     private final RecoveryExecutionMetrics metrics;
+
     public RefundRecoveryTaskHandler(RefundRecoveryService recovery, RecoveryExecutionMetrics metrics) {
-        this.recovery = recovery; this.metrics = metrics;
+        this.recovery = recovery;
+        this.metrics = metrics;
     }
-    @Override public String taskType() { return RefundRecoveryService.TYPE; }
-    @Override public void handle(DelayedTask task) { metrics.observe(RecoveryExecutionMetrics.Kind.REFUND, () -> recovery.handle(task)); }
+
+    @Override
+    public String taskType() {
+        return RefundRecoveryService.TYPE;
+    }
+
+    @Override
+    public void handle(DelayedTask task) {
+        metrics.observe(RecoveryExecutionMetrics.Kind.REFUND, () -> recovery.handle(task));
+    }
 }

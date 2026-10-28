@@ -16,19 +16,30 @@
 package io.github.loadup.pay.payment.domain;
 
 import io.github.loadup.commons.error.DomainViolation;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.RecoveryPosition;
+import io.github.loadup.pay.payment.domain.model.RecoveryTaskKey;
+import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
+import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
 import org.junit.jupiter.api.Test;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RecoveryPositionTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
     final RecoveryTaskKey key = new RecoveryTaskKey("subject", 0L);
     final RecoveryPosition position = new RecoveryPosition("subject", 0L, at, false);
 
-    @Test void typedKeysRetainTheSameCanonicalBytesAndRejectNonCanonicalNumbers() {
-        for (String value : new String[] {"subject.0", "subject.1", "subject." + Long.MAX_VALUE}) {
+    @Test
+    void typedKeysRetainTheSameCanonicalBytesAndRejectNonCanonicalNumbers() {
+        for (String value : new String[]{"subject.0", "subject.1", "subject." + Long.MAX_VALUE}) {
             var parsed = RecoveryTaskKey.parse(value);
             assertEquals(value, parsed.bizId());
             assertEquals(parsed, PaymentRecoveryKey.parse(value).taskKey());
@@ -42,7 +53,8 @@ class RecoveryPositionTest {
         }
     }
 
-    @Test void currentOldCompletedFutureAndDifferentSubjectsUseOneProtocol() {
+    @Test
+    void currentOldCompletedFutureAndDifferentSubjectsUseOneProtocol() {
         assertTrue(position.current(key, at));
         assertFalse(new RecoveryPosition("subject", 1L, at.plusSeconds(30), false).current(key, at));
         assertFalse(new RecoveryPosition("subject", 0L, at, true).current(key, at));
@@ -52,23 +64,27 @@ class RecoveryPositionTest {
         assertThrows(DomainViolation.class, () -> position.current(key, at.plusSeconds(1)));
     }
 
-    @Test void bothTypedCursorsScheduleTheSameSuccessorAndKeepTheirOriginalSubjects() {
+    @Test
+    void bothTypedCursorsScheduleTheSameSuccessorAndKeepTheirOriginalSubjects() {
         var expected = position.schedule(at.plusSeconds(30), 0L);
         assertEquals(new RecoveryPosition("subject", 1L, at.plusSeconds(30), false), expected);
         var payment = PaymentRecoveryCursor.init("subject", at).schedule(at.plusSeconds(30), 0L);
         var refund = RefundRecoveryCursor.init("subject", at).schedule(at.plusSeconds(30), 0L);
-        assertEquals(expected, payment.position()); assertEquals(expected, refund.position());
+        assertEquals(expected, payment.position());
+        assertEquals(expected, refund.position());
         assertFalse(payment.finish().position().current(new RecoveryTaskKey("subject", 1L), at.plusSeconds(30)));
         assertFalse(refund.finish().position().current(new RecoveryTaskKey("subject", 1L), at.plusSeconds(30)));
     }
 
-    @Test void generationOverflowAndNonForwardSchedulingCannotMutateThePosition() {
+    @Test
+    void generationOverflowAndNonForwardSchedulingCannotMutateThePosition() {
         assertThrows(DomainViolation.class, () -> position.schedule(at, 0L));
         assertThrows(DomainViolation.class, () -> position.schedule(at.minusSeconds(1), 0L));
         assertThrows(DomainViolation.class, () -> position.schedule(at.plusSeconds(1), 1L));
         assertThrows(DomainViolation.class, () -> new RecoveryPosition("subject", 0L, at, true).schedule(at.plusSeconds(1), 0L));
         var exhausted = new RecoveryPosition("subject", Long.MAX_VALUE, at, false);
         assertThrows(ArithmeticException.class, () -> exhausted.schedule(at.plusSeconds(1), Long.MAX_VALUE));
-        assertEquals(Long.MAX_VALUE, exhausted.generation()); assertEquals(at, exhausted.dueAt());
+        assertEquals(Long.MAX_VALUE, exhausted.generation());
+        assertEquals(at, exhausted.dueAt());
     }
 }

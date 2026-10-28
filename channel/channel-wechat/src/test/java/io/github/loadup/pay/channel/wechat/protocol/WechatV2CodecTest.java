@@ -17,11 +17,16 @@ package io.github.loadup.pay.channel.wechat.protocol;
 
 import io.github.loadup.commons.error.CommonException;
 import org.junit.jupiter.api.Test;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
-import static org.junit.jupiter.api.Assertions.*;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WechatV2CodecTest {
     private final WechatV2Codec codec = new WechatV2Codec();
@@ -74,7 +79,7 @@ class WechatV2CodecTest {
                 "<?xml version='1.0' encoding='ISO-8859-1'?><xml/>", "<xml><return_code>FAIL</return_code></xml>")) {
             assertThrows(CommonException.class, () -> codec.verify(WechatV2Method.MICROPAY, invalid.getBytes(StandardCharsets.UTF_8), key));
         }
-        assertThrows(CommonException.class, () -> codec.verify(WechatV2Method.MICROPAY, new byte[] {(byte)0xC3, 0x28}, key));
+        assertThrows(CommonException.class, () -> codec.verify(WechatV2Method.MICROPAY, new byte[]{(byte) 0xC3, 0x28}, key));
         assertThrows(CommonException.class, () -> codec.verify(WechatV2Method.MICROPAY, " ".repeat(65537).getBytes(StandardCharsets.UTF_8), key));
         assertThrows(CommonException.class, () -> codec.encode(Map.of("sign_type", "MD5"), key));
         assertThrows(CommonException.class, () -> codec.encode(Map.of("sign_type", "HMAC-SHA256", "body", "four-byte \uD83D\uDE00"), key));

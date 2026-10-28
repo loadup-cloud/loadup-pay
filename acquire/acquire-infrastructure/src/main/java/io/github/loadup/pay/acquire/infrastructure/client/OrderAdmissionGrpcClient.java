@@ -16,11 +16,11 @@
 package io.github.loadup.pay.acquire.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.pay.acquire.app.port.OrderAdmissionClient;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 

@@ -17,13 +17,16 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Only business continuation identity; scheduling claims and leases belong to DelayedTask. */
+/**
+ * Only business continuation identity; scheduling claims and leases belong to DelayedTask.
+ */
 public record PaymentRecoveryCursor(String paymentId, long generation, LocalDateTime dueAt, boolean completed) {
     public PaymentRecoveryCursor {
         DomainChecks.id(paymentId);
@@ -35,15 +38,21 @@ public record PaymentRecoveryCursor(String paymentId, long generation, LocalDate
         return new PaymentRecoveryCursor(paymentId, 0, dueAt, false);
     }
 
-    public RecoveryPosition position() { return new RecoveryPosition(paymentId, generation, dueAt, completed); }
+    public RecoveryPosition position() {
+        return new RecoveryPosition(paymentId, generation, dueAt, completed);
+    }
+
     public PaymentRecoveryCursor schedule(LocalDateTime nextAt, long expectedGeneration) {
         var next = position().schedule(nextAt, expectedGeneration);
         return new PaymentRecoveryCursor(paymentId, next.generation(), next.dueAt(), next.completed());
     }
+
     public PaymentRecoveryCursor finish() {
         return completed ? this : new PaymentRecoveryCursor(paymentId, generation, dueAt, true);
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

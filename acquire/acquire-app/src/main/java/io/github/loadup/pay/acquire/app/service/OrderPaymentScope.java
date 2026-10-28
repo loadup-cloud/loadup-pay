@@ -15,16 +15,23 @@
  */
 package io.github.loadup.pay.acquire.app.service;
 
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Persisted owner binding used by result convergence; it confers no merchant API or creation privileges. */
+/**
+ * Persisted owner binding used by result convergence; it confers no merchant API or creation privileges.
+ */
 record OrderPaymentScope(String tenantId, String scopeHash) {
     OrderPaymentScope {
         DomainChecks.id(tenantId);
         require(scopeHash != null && scopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

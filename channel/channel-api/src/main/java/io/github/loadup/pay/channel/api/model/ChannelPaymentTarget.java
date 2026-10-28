@@ -18,11 +18,15 @@ package io.github.loadup.pay.channel.api.model;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Original expected payment facts; error responses need not contain an amount. */
+/**
+ * Original expected payment facts; error responses need not contain an amount.
+ */
 public record ChannelPaymentTarget(ChannelPaymentIdentity identity, Money amount) {
     public ChannelPaymentTarget {
         Objects.requireNonNull(identity);

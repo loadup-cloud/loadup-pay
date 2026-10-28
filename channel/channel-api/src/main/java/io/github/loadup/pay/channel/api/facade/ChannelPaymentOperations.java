@@ -15,30 +15,48 @@
  */
 package io.github.loadup.pay.channel.api.facade;
 
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 
-/** Account-bound channel operations. Financial results require verified provider evidence. */
+/**
+ * Account-bound channel operations. Financial results require verified provider evidence.
+ */
 public interface ChannelPaymentOperations {
-    /** Validate capabilities and parameters without HTTP, KMS, file access or financial side effects. */
+    /**
+     * Validate capabilities and parameters without HTTP, KMS, file access or financial side effects.
+     */
     void validate(ChannelExecutionContext context, ChannelPaymentValidation request);
 
     ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request);
 
     PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target);
 
-    /** Query the original transaction and reconstruct only provider-supported unexpired actions; never submits. */
+    /**
+     * Query the original transaction and reconstruct only provider-supported unexpired actions; never submits.
+     */
     ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request);
 
     PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target);
 
-    /** Pure local metadata lookup, safe while the caller holds local locks. */
+    /**
+     * Pure local metadata lookup, safe while the caller holds local locks.
+     */
     boolean canRefund(PreparedChannelRefund refund);
 
     RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
 
     RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
 
-    /** Query first; a provider may repeat the exact original idempotent refund request only under its explicit protocol guarantee. */
+    /**
+     * Query first; a provider may repeat the exact original idempotent refund request only under its explicit protocol guarantee.
+     */
     RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund);
 }
 

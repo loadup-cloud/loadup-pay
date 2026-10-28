@@ -21,15 +21,20 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Immutable first issued action per original attempt; receipts and successful amounts remain independent. */
+/**
+ * Immutable first issued action per original attempt; receipts and successful amounts remain independent.
+ */
 public record StoredPaymentAction(ChannelPaymentIdentity identity, Money amount, long executionEpoch,
-        @DiagnosticHidden ChannelPaymentAction action, PaymentActionSource source, String receiptId, String sourceDigest, LocalDateTime issuedAt) {
+                                  @DiagnosticHidden ChannelPaymentAction action, PaymentActionSource source,
+                                  String receiptId, String sourceDigest, LocalDateTime issuedAt) {
     public StoredPaymentAction {
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
@@ -39,14 +44,17 @@ public record StoredPaymentAction(ChannelPaymentIdentity identity, Money amount,
         require((source == PaymentActionSource.LOCAL_SIGNED)
                 == (action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction), INVALID_ARGUMENT);
         if (source == PaymentActionSource.CHANNEL_RECEIPT) DomainChecks.id(receiptId);
-        else require(receiptId == null && action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction,
-                INVALID_ARGUMENT);
+        else
+            require(receiptId == null && action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction,
+                    INVALID_ARGUMENT);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(issuedAt);
         issuedAt = issuedAt.truncatedTo(ChronoUnit.MICROS);
     }
 
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

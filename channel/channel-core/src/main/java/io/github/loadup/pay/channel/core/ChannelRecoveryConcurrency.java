@@ -29,7 +29,9 @@ import java.util.function.Supplier;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.RECOVERY_BUSY;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.RECOVERY_CONFIGURATION_INVALID;
 
-/** Shared per-channel recovery admission; it never wraps a newly won first-submission ticket. */
+/**
+ * Shared per-channel recovery admission; it never wraps a newly won first-submission ticket.
+ */
 public final class ChannelRecoveryConcurrency {
     private final Map<Channel, Bulkhead> limits;
 
@@ -38,10 +40,15 @@ public final class ChannelRecoveryConcurrency {
         var values = new EnumMap<Channel, Bulkhead>(Channel.class);
         for (var channel : Channel.values()) {
             var limit = registries.bulkheadRegistry().bulkhead(instanceName(channel));
-            if (!limit.getBulkheadConfig().getMaxWaitDuration().isZero()) throw new CommonException(RECOVERY_CONFIGURATION_INVALID);
+            if (!limit.getBulkheadConfig().getMaxWaitDuration().isZero())
+                throw new CommonException(RECOVERY_CONFIGURATION_INVALID);
             values.put(channel, limit);
         }
         limits = Map.copyOf(values);
+    }
+
+    public static String instanceName(Channel channel) {
+        return "pay-channel-recovery-" + channel.name().toLowerCase(Locale.ROOT);
     }
 
     public <T> T execute(Channel channel, Supplier<T> work) {
@@ -53,9 +60,5 @@ public final class ChannelRecoveryConcurrency {
         } finally {
             limit.onComplete();
         }
-    }
-
-    public static String instanceName(Channel channel) {
-        return "pay-channel-recovery-" + channel.name().toLowerCase(Locale.ROOT);
     }
 }

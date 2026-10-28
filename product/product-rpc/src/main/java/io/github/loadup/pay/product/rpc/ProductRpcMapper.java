@@ -83,7 +83,8 @@ public interface ProductRpcMapper {
 
     @AfterMapping
     default void appendAcquiringTermsDTO(io.github.loadup.pay.product.client.dto.AcquiringTermsDTO value, @MappingTarget io.github.loadup.pay.product.rpc.proto.WireAcquiringTermsDTO.Builder builder) {
-        if (value.capabilities() != null) for (var item : value.capabilities()) builder.addCapabilities(toWireChannelCapabilityDTO(item));
+        if (value.capabilities() != null)
+            for (var item : value.capabilities()) builder.addCapabilities(toWireChannelCapabilityDTO(item));
     }
 
     @BeanMapping(ignoreByDefault = true)

@@ -15,19 +15,28 @@
  */
 package io.github.loadup.pay.payment.app.service;
 
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -36,9 +45,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class RefundSettlementFactsServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundSettlementConverter.class.getPackageName());
@@ -82,7 +102,10 @@ class RefundSettlementFactsServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); validation.close(); }
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     @Test
     void successfulChildAndLatestPaymentCumulativeAreReadUnderExistingFinancialLocks() {

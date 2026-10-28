@@ -17,28 +17,42 @@ package io.github.loadup.pay.payment.domain.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.require;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
 
-/** Only business continuation identity; scheduling claims and leases belong to DelayedTask. */
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * Only business continuation identity; scheduling claims and leases belong to DelayedTask.
+ */
 public record RefundRecoveryCursor(String requestId, long generation, LocalDateTime dueAt, boolean completed) {
     public RefundRecoveryCursor {
         DomainChecks.id(requestId);
         Objects.requireNonNull(dueAt);
         require(generation >= 0, INVALID_ARGUMENT);
     }
+
     public static RefundRecoveryCursor init(String requestId, LocalDateTime dueAt) {
         return new RefundRecoveryCursor(requestId, 0, dueAt, false);
     }
-    public RecoveryPosition position() { return new RecoveryPosition(requestId, generation, dueAt, completed); }
+
+    public RecoveryPosition position() {
+        return new RecoveryPosition(requestId, generation, dueAt, completed);
+    }
+
     public RefundRecoveryCursor schedule(LocalDateTime nextAt, long expectedGeneration) {
         var next = position().schedule(nextAt, expectedGeneration);
         return new RefundRecoveryCursor(requestId, next.generation(), next.dueAt(), next.completed());
     }
+
     public RefundRecoveryCursor finish() {
         return completed ? this : new RefundRecoveryCursor(requestId, generation, dueAt, true);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

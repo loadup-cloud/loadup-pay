@@ -17,18 +17,27 @@ package io.github.loadup.pay.acquire.rpc;
 
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.acquire.rpc.proto.WirePayEventEnvelopeOfRefundMerchantEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
-import io.github.loadup.pay.payment.rpc.proto.WireRefundMerchantEventDTO;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AcquireRpcMapperTest {
+    private static EventEnvelope<RefundMerchantEventDTO> envelope(String aggregateId, long version,
+                                                                  RefundMerchantEventDTO data) {
+        return new EventEnvelope<>("delivery", "business", "payment", RefundMerchantEventDTO.TYPE, 1,
+                aggregateId, version,
+                BusinessTime.external(LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456000)), data);
+    }
+
     @Test
     void childSuccessBinaryRoundTripPreservesNullableFieldsAndExactVersion() throws Exception {
         long exact = 9007199254740993L;
@@ -82,12 +91,5 @@ class AcquireRpcMapperTest {
         var unknownState = PaymentRpcMapper.INSTANCE.toWireRefundMerchantEventDTO(valid.data()).toBuilder()
                 .setState("UNKNOWN").build();
         assertThrows(RuntimeException.class, () -> PaymentRpcMapper.INSTANCE.fromWireRefundMerchantEventDTO(unknownState));
-    }
-
-    private static EventEnvelope<RefundMerchantEventDTO> envelope(String aggregateId, long version,
-            RefundMerchantEventDTO data) {
-        return new EventEnvelope<>("delivery", "business", "payment", RefundMerchantEventDTO.TYPE, 1,
-                aggregateId, version,
-                BusinessTime.external(LocalDateTime.of(2026, 10, 23, 12, 0, 0, 123456000)), data);
     }
 }

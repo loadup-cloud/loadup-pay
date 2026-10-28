@@ -17,12 +17,17 @@ package io.github.loadup.pay.channel.api.model;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.net.InetAddress;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** A reported payer IP literal; never performs DNS lookup or trusts forwarding headers. */
-public record ChannelH5Input(@DiagnosticHidden String payerClientIp, H5SceneType sceneType) implements ChannelPaymentInput {
+/**
+ * A reported payer IP literal; never performs DNS lookup or trusts forwarding headers.
+ */
+public record ChannelH5Input(@DiagnosticHidden String payerClientIp,
+                             H5SceneType sceneType) implements ChannelPaymentInput {
     public ChannelH5Input {
         require(sceneType != null && validIp(payerClientIp), INVALID_ARGUMENT);
     }
@@ -38,5 +43,8 @@ public record ChannelH5Input(@DiagnosticHidden String payerClientIp, H5SceneType
         }
     }
 
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

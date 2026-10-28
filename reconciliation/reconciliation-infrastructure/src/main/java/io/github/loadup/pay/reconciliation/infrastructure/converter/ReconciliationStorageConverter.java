@@ -16,20 +16,34 @@
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.reconciliation.domain.model.*;
-import io.github.loadup.pay.reconciliation.infrastructure.dataobject.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationBatch;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationResultSummary;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
+import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationBatchDO;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationDifferenceDO;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationEntryDO;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationInputDO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationStorageConverter {
     ReconciliationScope toScope(ReconciliationBatchDO row);
+
     ReconciliationScope toScope(ReconciliationInputDO row);
+
     @Mapping(target = "artifactId", source = "id")
     @Mapping(target = "scope", source = "row")
     @Mapping(target = "totals", source = "row")
     ReconciliationManifest toManifest(ReconciliationInputDO row);
+
     ReconciliationTotals toTotals(ReconciliationInputDO row);
+
     ReconciliationResultSummary toSummary(ReconciliationBatchDO row);
 
     @Mapping(target = "id", source = "row.id")
@@ -102,7 +116,9 @@ public interface ReconciliationStorageConverter {
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "status", source = "state")
     ReconciliationLine toLine(ReconciliationEntryDO row);
+
     ReconciliationKey toKey(ReconciliationEntryDO row);
+
     ReconciliationKey toKey(ReconciliationDifferenceDO row);
 
     @Mapping(target = "id", ignore = true)

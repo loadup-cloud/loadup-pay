@@ -36,31 +36,113 @@ public class ReconciliationDifferenceDO extends BaseDO {
     private Integer amountMismatch;
     private Integer requestMismatch;
     private Integer stateMismatch;
-    public String getBatchId() { return batchId; }
-    public void setBatchId(String value) { batchId = value; }
-    public String getRunId() { return runId; }
-    public void setRunId(String value) { runId = value; }
-    public String getMatchKeyHash() { return matchKeyHash; }
-    public void setMatchKeyHash(String value) { matchKeyHash = value; }
-    public String getKind() { return kind; }
-    public void setKind(String value) { kind = value; }
-    public String getChannelTransactionNo() { return channelTransactionNo; }
-    public void setChannelTransactionNo(String value) { channelTransactionNo = value; }
-    public String getChannelRefundNo() { return channelRefundNo; }
-    public void setChannelRefundNo(String value) { channelRefundNo = value; }
-    public String getChannelEntryId() { return channelEntryId; }
-    public void setChannelEntryId(String value) { channelEntryId = value; }
-    public String getLedgerEntryId() { return ledgerEntryId; }
-    public void setLedgerEntryId(String value) { ledgerEntryId = value; }
-    public Integer getChannelOnly() { return channelOnly; }
-    public void setChannelOnly(Integer value) { channelOnly = value; }
-    public Integer getLedgerOnly() { return ledgerOnly; }
-    public void setLedgerOnly(Integer value) { ledgerOnly = value; }
-    public Integer getAmountMismatch() { return amountMismatch; }
-    public void setAmountMismatch(Integer value) { amountMismatch = value; }
-    public Integer getRequestMismatch() { return requestMismatch; }
-    public void setRequestMismatch(Integer value) { requestMismatch = value; }
-    public Integer getStateMismatch() { return stateMismatch; }
-    public void setStateMismatch(Integer value) { stateMismatch = value; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public String getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(String value) {
+        batchId = value;
+    }
+
+    public String getRunId() {
+        return runId;
+    }
+
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    public String getMatchKeyHash() {
+        return matchKeyHash;
+    }
+
+    public void setMatchKeyHash(String value) {
+        matchKeyHash = value;
+    }
+
+    public String getKind() {
+        return kind;
+    }
+
+    public void setKind(String value) {
+        kind = value;
+    }
+
+    public String getChannelTransactionNo() {
+        return channelTransactionNo;
+    }
+
+    public void setChannelTransactionNo(String value) {
+        channelTransactionNo = value;
+    }
+
+    public String getChannelRefundNo() {
+        return channelRefundNo;
+    }
+
+    public void setChannelRefundNo(String value) {
+        channelRefundNo = value;
+    }
+
+    public String getChannelEntryId() {
+        return channelEntryId;
+    }
+
+    public void setChannelEntryId(String value) {
+        channelEntryId = value;
+    }
+
+    public String getLedgerEntryId() {
+        return ledgerEntryId;
+    }
+
+    public void setLedgerEntryId(String value) {
+        ledgerEntryId = value;
+    }
+
+    public Integer getChannelOnly() {
+        return channelOnly;
+    }
+
+    public void setChannelOnly(Integer value) {
+        channelOnly = value;
+    }
+
+    public Integer getLedgerOnly() {
+        return ledgerOnly;
+    }
+
+    public void setLedgerOnly(Integer value) {
+        ledgerOnly = value;
+    }
+
+    public Integer getAmountMismatch() {
+        return amountMismatch;
+    }
+
+    public void setAmountMismatch(Integer value) {
+        amountMismatch = value;
+    }
+
+    public Integer getRequestMismatch() {
+        return requestMismatch;
+    }
+
+    public void setRequestMismatch(Integer value) {
+        requestMismatch = value;
+    }
+
+    public Integer getStateMismatch() {
+        return stateMismatch;
+    }
+
+    public void setStateMismatch(Integer value) {
+        stateMismatch = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

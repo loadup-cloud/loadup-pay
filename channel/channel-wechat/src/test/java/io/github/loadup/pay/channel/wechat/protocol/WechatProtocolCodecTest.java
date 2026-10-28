@@ -27,6 +27,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -37,9 +38,17 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Base64;
 import java.util.regex.Pattern;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class WechatProtocolCodecTest {
     private static final Instant NOW = Instant.parse("2026-10-24T03:00:00Z");
@@ -48,6 +57,22 @@ class WechatProtocolCodecTest {
     private final KmsTemplate kms = mock(KmsTemplate.class);
     private final WechatProtocolCodec codec = new WechatProtocolCodec(JsonMapper.builder().build(), kms,
             Clock.fixed(NOW, ZoneId.of("Asia/Shanghai")));
+
+    private static KeyPair keyPair() throws Exception {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        return generator.generateKeyPair();
+    }
+
+    private static ResponseEntity<byte[]> response(KeyPair pair, byte[] body, long timestamp, int status) throws Exception {
+        var signer = Signature.getInstance("SHA256withRSA");
+        signer.initSign(pair.getPrivate());
+        signer.update((timestamp + "\nnonce\n").getBytes(StandardCharsets.UTF_8));
+        signer.update(body);
+        signer.update((byte) '\n');
+        return ResponseEntity.status(status).header("Wechatpay-Serial", PLATFORM).header("Wechatpay-Timestamp", Long.toString(timestamp))
+                .header("Wechatpay-Nonce", "nonce").header("Wechatpay-Signature", Base64.getEncoder().encodeToString(signer.sign())).body(body);
+    }
 
     @Test
     void signsExactEncodedPathQueryAndUtf8BodyWithFrozenKmsVersion() {
@@ -83,13 +108,15 @@ class WechatProtocolCodecTest {
         assertThrows(CommonException.class, () -> codec.sign(WechatMethod.DIRECT_QUERY, original, HttpMethod.POST,
                 URI.create("https://api.mch.weixin.qq.com/v3/pay/transactions/out-trade-no/original"), new byte[0]));
         assertThrows(CommonException.class, () -> codec.sign(WechatMethod.DIRECT_QUERY, original, HttpMethod.GET,
-                URI.create("https://api.mch.weixin.qq.com/v3/pay/transactions/out-trade-no/original"), new byte[] {1}));
+                URI.create("https://api.mch.weixin.qq.com/v3/pay/transactions/out-trade-no/original"), new byte[]{1}));
         verifyNoInteractions(kms);
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertThrows(CommonException.class, () -> codec.sign(WechatMethod.DIRECT_JSAPI, original, HttpMethod.POST,
                     URI.create("https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi"), new byte[0]));
-        } finally { TransactionSynchronizationManager.clear(); }
+        } finally {
+            TransactionSynchronizationManager.clear();
+        }
         when(kms.sign(any(), any(), any())).thenReturn(new KmsSignature("merchant", 5,
                 KmsSignatureAlgorithm.RSA_SHA256_PKCS1, new byte[256]));
         assertThrows(CommonException.class, () -> codec.sign(WechatMethod.DIRECT_JSAPI, original, HttpMethod.POST,
@@ -98,16 +125,21 @@ class WechatProtocolCodecTest {
 
     @Test
     void verifiesRawBytesPinnedKeyAndFreshHeadersIncludingSignedEmptyClose() throws Exception {
-        var pair = keyPair(); var original = credentials(pair);
+        var pair = keyPair();
+        var original = credentials(pair);
         var raw = "{ \"prepay_id\":\"synthetic\", \"memo\":\"中文\" }".getBytes(StandardCharsets.UTF_8);
         var response = response(pair, raw, NOW.getEpochSecond(), 200);
         assertEquals(new String(raw, StandardCharsets.UTF_8), codec.verify(WechatMethod.DIRECT_JSAPI, original, response).payload());
         assertEquals("", codec.verify(WechatMethod.DIRECT_CLOSE, original, response(pair, new byte[0], NOW.getEpochSecond(), 204)).payload());
         assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original,
                 ResponseEntity.ok().headers(response.getHeaders()).body("{}".getBytes(StandardCharsets.UTF_8))));
-        var wrongSerial = new HttpHeaders(); wrongSerial.addAll(response.getHeaders()); wrongSerial.set("Wechatpay-Serial", "PUB_KEY_ID_other");
+        var wrongSerial = new HttpHeaders();
+        wrongSerial.addAll(response.getHeaders());
+        wrongSerial.set("Wechatpay-Serial", "PUB_KEY_ID_other");
         assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original, ResponseEntity.ok().headers(wrongSerial).body(raw)));
-        var duplicates = new HttpHeaders(); duplicates.addAll(response.getHeaders()); duplicates.add("Wechatpay-Nonce", "duplicate");
+        var duplicates = new HttpHeaders();
+        duplicates.addAll(response.getHeaders());
+        duplicates.add("Wechatpay-Nonce", "duplicate");
         assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original, ResponseEntity.ok().headers(duplicates).body(raw)));
         assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original,
                 response(pair, raw, NOW.minusSeconds(300).getEpochSecond(), 200)));
@@ -118,26 +150,18 @@ class WechatProtocolCodecTest {
 
     @Test
     void evenValidSignaturesCannotAdmitDuplicateJsonTrailingContentOrMalformedUtf8() throws Exception {
-        var pair = keyPair(); var original = credentials(pair);
-        for (String payload : new String[] {"{\"x\":1,\"x\":2}", "{} {}", "null", "[]"}) {
+        var pair = keyPair();
+        var original = credentials(pair);
+        for (String payload : new String[]{"{\"x\":1,\"x\":2}", "{} {}", "null", "[]"}) {
             var response = response(pair, payload.getBytes(StandardCharsets.UTF_8), NOW.getEpochSecond(), 200);
             assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original, response));
         }
-        var malformed = response(pair, new byte[] {(byte) 0xC3, (byte) 0x28}, NOW.getEpochSecond(), 200);
+        var malformed = response(pair, new byte[]{(byte) 0xC3, (byte) 0x28}, NOW.getEpochSecond(), 200);
         assertThrows(CommonException.class, () -> codec.verify(WechatMethod.DIRECT_JSAPI, original, malformed));
     }
 
     private WechatCredentials credentials(KeyPair pair) {
         return new WechatCredentials("tenant", "wx-app", "1900000001", SERIAL, new KmsKeyRef("merchant", 4), PLATFORM,
                 pair == null ? null : pair.getPublic());
-    }
-    private static KeyPair keyPair() throws Exception {
-        var generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048); return generator.generateKeyPair();
-    }
-    private static ResponseEntity<byte[]> response(KeyPair pair, byte[] body, long timestamp, int status) throws Exception {
-        var signer = Signature.getInstance("SHA256withRSA"); signer.initSign(pair.getPrivate());
-        signer.update((timestamp + "\nnonce\n").getBytes(StandardCharsets.UTF_8)); signer.update(body); signer.update((byte) '\n');
-        return ResponseEntity.status(status).header("Wechatpay-Serial", PLATFORM).header("Wechatpay-Timestamp", Long.toString(timestamp))
-                .header("Wechatpay-Nonce", "nonce").header("Wechatpay-Signature", Base64.getEncoder().encodeToString(signer.sign())).body(body);
     }
 }

@@ -37,37 +37,137 @@ public class ReconciliationBatchDO extends BaseDO {
     private Long differenceCount;
     private String resultHash;
     private Long rowVersion;
-    public String getCallerServiceId() { return callerServiceId; }
-    public void setCallerServiceId(String value) { callerServiceId = value; }
-    public String getRequestKey() { return requestKey; }
-    public void setRequestKey(String value) { requestKey = value; }
-    public String getRequestDigest() { return requestDigest; }
-    public void setRequestDigest(String value) { requestDigest = value; }
-    public String getChannelAccountCode() { return channelAccountCode; }
-    public void setChannelAccountCode(String value) { channelAccountCode = value; }
-    public String getChannel() { return channel; }
-    public void setChannel(String value) { channel = value; }
-    public String getAccountScopeHash() { return accountScopeHash; }
-    public void setAccountScopeHash(String value) { accountScopeHash = value; }
-    public java.time.LocalDate getBillDate() { return billDate; }
-    public void setBillDate(java.time.LocalDate value) { billDate = value; }
-    public String getStatementProfile() { return statementProfile; }
-    public void setStatementProfile(String value) { statementProfile = value; }
-    public String getState() { return state; }
-    public void setState(String value) { state = value; }
-    public String getChannelInputId() { return channelInputId; }
-    public void setChannelInputId(String value) { channelInputId = value; }
-    public String getLedgerInputId() { return ledgerInputId; }
-    public void setLedgerInputId(String value) { ledgerInputId = value; }
-    public String getRunId() { return runId; }
-    public void setRunId(String value) { runId = value; }
-    public Long getMatchedCount() { return matchedCount; }
-    public void setMatchedCount(Long value) { matchedCount = value; }
-    public Long getDifferenceCount() { return differenceCount; }
-    public void setDifferenceCount(Long value) { differenceCount = value; }
-    public String getResultHash() { return resultHash; }
-    public void setResultHash(String value) { resultHash = value; }
-    public Long getRowVersion() { return rowVersion; }
-    public void setRowVersion(Long value) { rowVersion = value; }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    public String getCallerServiceId() {
+        return callerServiceId;
+    }
+
+    public void setCallerServiceId(String value) {
+        callerServiceId = value;
+    }
+
+    public String getRequestKey() {
+        return requestKey;
+    }
+
+    public void setRequestKey(String value) {
+        requestKey = value;
+    }
+
+    public String getRequestDigest() {
+        return requestDigest;
+    }
+
+    public void setRequestDigest(String value) {
+        requestDigest = value;
+    }
+
+    public String getChannelAccountCode() {
+        return channelAccountCode;
+    }
+
+    public void setChannelAccountCode(String value) {
+        channelAccountCode = value;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String value) {
+        channel = value;
+    }
+
+    public String getAccountScopeHash() {
+        return accountScopeHash;
+    }
+
+    public void setAccountScopeHash(String value) {
+        accountScopeHash = value;
+    }
+
+    public java.time.LocalDate getBillDate() {
+        return billDate;
+    }
+
+    public void setBillDate(java.time.LocalDate value) {
+        billDate = value;
+    }
+
+    public String getStatementProfile() {
+        return statementProfile;
+    }
+
+    public void setStatementProfile(String value) {
+        statementProfile = value;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String value) {
+        state = value;
+    }
+
+    public String getChannelInputId() {
+        return channelInputId;
+    }
+
+    public void setChannelInputId(String value) {
+        channelInputId = value;
+    }
+
+    public String getLedgerInputId() {
+        return ledgerInputId;
+    }
+
+    public void setLedgerInputId(String value) {
+        ledgerInputId = value;
+    }
+
+    public String getRunId() {
+        return runId;
+    }
+
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    public Long getMatchedCount() {
+        return matchedCount;
+    }
+
+    public void setMatchedCount(Long value) {
+        matchedCount = value;
+    }
+
+    public Long getDifferenceCount() {
+        return differenceCount;
+    }
+
+    public void setDifferenceCount(Long value) {
+        differenceCount = value;
+    }
+
+    public String getResultHash() {
+        return resultHash;
+    }
+
+    public void setResultHash(String value) {
+        resultHash = value;
+    }
+
+    public Long getRowVersion() {
+        return rowVersion;
+    }
+
+    public void setRowVersion(Long value) {
+        rowVersion = value;
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

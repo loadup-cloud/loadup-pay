@@ -16,16 +16,16 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
-import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.RefundState;
@@ -260,6 +260,7 @@ class RefundResultServiceTest {
         verify(results, never()).insertReceipt(anyString(), any());
         verify(results, never()).insertClaim(any());
     }
+
     @Test
     void acceptedTimeIsCommittedWithItsReceiptWithoutConfirmingRefundOrChangingCapacity() {
         var original = observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted");
@@ -267,7 +268,8 @@ class RefundResultServiceTest {
         when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
         var result = service.record("tenant", observed);
         assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
-        assertEquals(0L, capacity.get().refundedMinor()); assertEquals(1000L, capacity.get().reservedMinor());
+        assertEquals(0L, capacity.get().refundedMinor());
+        assertEquals(1000L, capacity.get().reservedMinor());
         var order = org.mockito.Mockito.inOrder(results, acceptances);
         order.verify(results).insertReceipt(eq("tenant"), any());
         order.verify(acceptances).remember(eq("tenant"), eq(converter.toAcceptance(observed, result.receiptId())), eq(facts.get().child().refund().version()));
@@ -279,7 +281,8 @@ class RefundResultServiceTest {
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
         when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
         var result = service.record("tenant", observed);
-        assertEquals(APPLIED, result.disposition()); assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
+        assertEquals(APPLIED, result.disposition());
+        assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
         assertEquals(1000L, capacity.get().refundedMinor());
         assertTrue(anomalies.stream().anyMatch(value -> value.reasonCode().equals("REFUND_ACCEPTANCE_TIME_CONFLICT")));
     }
@@ -288,7 +291,8 @@ class RefundResultServiceTest {
     void acceptanceBeforeOriginalPaymentIsRejectedBeforeMetadataOrFinancialWrite() {
         var observed = accepted(observation(ChannelRefundOutcome.Kind.ACCEPTED, "too-early"), facts.get().child().originalSucceededAt().minusSeconds(1));
         assertEquals(CONFLICT, service.record("tenant", observed).disposition());
-        org.mockito.Mockito.verifyNoInteractions(acceptances); verify(results, never()).update(anyString(), any());
+        org.mockito.Mockito.verifyNoInteractions(acceptances);
+        verify(results, never()).update(anyString(), any());
         assertTrue(anomalies.stream().anyMatch(value -> value.reasonCode().equals("REFUND_ACCEPTANCE_TIME_MISMATCH")));
     }
 

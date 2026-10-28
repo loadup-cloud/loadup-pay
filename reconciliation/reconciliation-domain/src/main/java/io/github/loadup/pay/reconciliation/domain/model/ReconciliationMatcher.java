@@ -15,17 +15,19 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-import java.util.Objects;
-import static io.github.loadup.commons.error.DomainViolation.Reason.*;
-import static io.github.loadup.commons.error.DomainViolation.require;
 import java.util.ArrayList;
+import java.util.Objects;
 
-/** Pure merge of two complete inputs; no source lookups, clocks, financial writes or partial-window orphan decisions. */
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * Pure merge of two complete inputs; no source lookups, clocks, financial writes or partial-window orphan decisions.
+ */
 public final class ReconciliationMatcher {
     public ReconciliationResult compare(ReconciliationDataset channel, ReconciliationDataset ledger) {
-        Objects.requireNonNull(channel); Objects.requireNonNull(ledger);
+        Objects.requireNonNull(channel);
+        Objects.requireNonNull(ledger);
         require(channel.manifest().side() == ReconciliationSide.CHANNEL && ledger.manifest().side() == ReconciliationSide.LEDGER
                 && channel.manifest().scope().equals(ledger.manifest().scope()), CONFLICT);
         var differences = new ArrayList<ReconciliationDifference>();

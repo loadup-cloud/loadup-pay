@@ -125,12 +125,16 @@ public class CheckoutSessionDO extends BaseDO {
         return allowedOrigin;
     }
 
-    public LocalDateTime getRevokedAt() { return revokedAt; }
-
-    public void setRevokedAt(LocalDateTime value) { revokedAt = value; }
-
     public void setAllowedOrigin(String value) {
         allowedOrigin = value;
+    }
+
+    public LocalDateTime getRevokedAt() {
+        return revokedAt;
+    }
+
+    public void setRevokedAt(LocalDateTime value) {
+        revokedAt = value;
     }
 
     public String getScopeSnapshot() {

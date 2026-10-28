@@ -19,8 +19,18 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
-/** Actual statement account identifiers, frozen from trusted server configuration. */
-public record ReconciliationStatementAccount(@DiagnosticHidden String merchantId, @DiagnosticHidden String subMerchantId) {
-    public ReconciliationStatementAccount { DomainChecks.id(merchantId); if (subMerchantId != null) DomainChecks.id(subMerchantId); }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+/**
+ * Actual statement account identifiers, frozen from trusted server configuration.
+ */
+public record ReconciliationStatementAccount(@DiagnosticHidden String merchantId,
+                                             @DiagnosticHidden String subMerchantId) {
+    public ReconciliationStatementAccount {
+        DomainChecks.id(merchantId);
+        if (subMerchantId != null) DomainChecks.id(subMerchantId);
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -17,13 +17,20 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
-/** Manual CHANNEL file only; no caller-supplied account, parser, totals or ledger-completeness assertions. */
+/**
+ * Manual CHANNEL file only; no caller-supplied account, parser, totals or ledger-completeness assertions.
+ */
 public record ReconciliationChannelImportCommand(
         @Schema(description = "Original batch id") @NotBlank @Size(max = 64) String batchId,
         @Schema(description = "Caller idempotency key") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Owned immutable FileResource id") @NotBlank @Size(max = 64) String fileId,
         @Schema(description = "Expected original bytes SHA-256 returned by upload; not channel provenance") @NotBlank @Pattern(regexp = "[0-9a-f]{64}") String sourceSha256) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

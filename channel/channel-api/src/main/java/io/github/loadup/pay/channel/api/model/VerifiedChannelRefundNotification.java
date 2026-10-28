@@ -17,13 +17,18 @@ package io.github.loadup.pay.channel.api.model;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+
 import java.util.Objects;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
-/** Authenticated refund trigger only, not a terminal financial outcome. */
+/**
+ * Authenticated refund trigger only, not a terminal financial outcome.
+ */
 public record VerifiedChannelRefundNotification(PreparedChannelRefund refund, String notificationId,
-        String channelRefundTransactionNo, String channelStatus, String sourceDigest) {
+                                                String channelRefundTransactionNo, String channelStatus,
+                                                String sourceDigest) {
     public VerifiedChannelRefundNotification {
         Objects.requireNonNull(refund);
         DomainChecks.text(notificationId, 128);
@@ -31,5 +36,9 @@ public record VerifiedChannelRefundNotification(PreparedChannelRefund refund, St
         DomainChecks.text(channelStatus, 64);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

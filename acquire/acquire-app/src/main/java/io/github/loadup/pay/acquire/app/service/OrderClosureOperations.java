@@ -16,6 +16,7 @@
 package io.github.loadup.pay.acquire.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.OrderClosureConverter;
@@ -29,7 +30,6 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -65,9 +65,9 @@ public class OrderClosureOperations {
     private final OrderClosureTasks tasks;
 
     public OrderClosureOperations(OrderCreationGateway orders, OrderClosureGateway store,
-                               PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
-                               AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
-                               IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderClosureTasks tasks) {
+                                  PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
+                                  AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
+                                  IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderClosureTasks tasks) {
         this.orders = orders;
         this.store = store;
         this.payment = payment;
@@ -95,11 +95,15 @@ public class OrderClosureOperations {
         });
     }
 
-    /** Caller holds the order lock; C0 and its first native continuation commit atomically. */
+    /**
+     * Caller holds the order lock; C0 and its first native continuation commit atomically.
+     */
     OrderCloseIntent startLocked(OrderPaymentScope actor, StoredAcquireOrder order, AcquireOrderCloseCommand command) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
-        if (!actor.tenantId().equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
+        if (!actor.tenantId().equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+            throw new CommonException(ACTION_FORBIDDEN);
         if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
         DomainChecks.id(command.id());
         DomainChecks.text(command.requestKey(), 128);
@@ -124,7 +128,9 @@ public class OrderClosureOperations {
         return intent;
     }
 
-    /** Continue the persisted request without requiring a live merchant token or creating another C0. */
+    /**
+     * Continue the persisted request without requiring a live merchant token or creating another C0.
+     */
     AcquireOrderDTO resume(OrderPaymentScope actor, OrderCloseIntent intent) {
         requireNoTransaction(actor);
         return transactions.withTenantContext(actor.tenantId(), () -> {
@@ -164,7 +170,9 @@ public class OrderClosureOperations {
         });
     }
 
-    /** Checks the supplied consistent view without acquiring locks or starting another close request. */
+    /**
+     * Checks the supplied consistent view without acquiring locks or starting another close request.
+     */
     boolean isCurrent(OrderPaymentScope actor, StoredAcquireOrder order, OrderCloseIntent intent, long generation) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         owned(actor, order);

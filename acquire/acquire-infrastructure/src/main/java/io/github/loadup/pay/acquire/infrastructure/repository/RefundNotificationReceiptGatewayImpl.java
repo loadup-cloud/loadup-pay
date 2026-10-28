@@ -24,27 +24,46 @@ import io.github.loadup.pay.acquire.infrastructure.converter.RefundNotificationR
 import io.github.loadup.pay.acquire.infrastructure.mapper.RefundNotificationReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.REFUND_NOTIFICATION_RECEIPT_DO;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
 @Repository
 public class RefundNotificationReceiptGatewayImpl implements RefundNotificationReceiptGateway {
     private final RefundNotificationReceiptDOMapper mapper;
     private final RefundNotificationReceiptStorageConverter converter;
-    public RefundNotificationReceiptGatewayImpl(RefundNotificationReceiptDOMapper mapper, RefundNotificationReceiptStorageConverter converter) { this.mapper = mapper; this.converter = converter; }
-    @Override public Optional<RefundNotificationReceipt> find(String tenant, String id) {
+
+    public RefundNotificationReceiptGatewayImpl(RefundNotificationReceiptDOMapper mapper, RefundNotificationReceiptStorageConverter converter) {
+        this.mapper = mapper;
+        this.converter = converter;
+    }
+
+    @Override
+    public Optional<RefundNotificationReceipt> find(String tenant, String id) {
         scope(tenant);
         var row = mapper.selectOneByQuery(QueryWrapper.create().where(REFUND_NOTIFICATION_RECEIPT_DO.TENANT_ID.eq(tenant))
                 .and(REFUND_NOTIFICATION_RECEIPT_DO.DELETED.eq(0)).and(REFUND_NOTIFICATION_RECEIPT_DO.DELIVERY_ID.eq(id)));
-        try { return Optional.ofNullable(row).map(converter::toDomain); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insert(String tenant, RefundNotificationReceipt value) {
+
+    @Override
+    public void insert(String tenant, RefundNotificationReceipt value) {
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
         if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
-    private void scope(String tenant) { if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN); }
+
+    private void scope(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+    }
 }

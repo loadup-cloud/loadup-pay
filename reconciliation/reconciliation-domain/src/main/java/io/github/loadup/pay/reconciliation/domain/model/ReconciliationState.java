@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.domain.model;
 
-public enum ReconciliationState { INIT, READY, RUNNING, MATCHED, DIFFERENCES }
+public enum ReconciliationState {INIT, READY, RUNNING, MATCHED, DIFFERENCES}

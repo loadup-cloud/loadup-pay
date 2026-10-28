@@ -21,7 +21,6 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.app.security.PaymentActor;

@@ -153,16 +153,16 @@ public class PaymentOrderDO extends BaseDO {
         return succeededAt;
     }
 
+    public void setSucceededAt(LocalDateTime value) {
+        succeededAt = value;
+    }
+
     public LocalDateTime getFirstUnknownAt() {
         return firstUnknownAt;
     }
 
     public void setFirstUnknownAt(LocalDateTime value) {
         firstUnknownAt = value;
-    }
-
-    public void setSucceededAt(LocalDateTime value) {
-        succeededAt = value;
     }
 
     public String getTerminalEvidenceId() {

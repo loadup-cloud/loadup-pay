@@ -15,9 +15,8 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

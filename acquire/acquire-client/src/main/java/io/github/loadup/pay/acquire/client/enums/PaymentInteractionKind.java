@@ -17,9 +17,12 @@ package io.github.loadup.pay.acquire.client.enums;
 
 import io.github.loadup.commons.payment.PaymentMethod;
 
-/** The input type is immutable metadata; sensitive input values remain in the payment input vault. */
+/**
+ * The input type is immutable metadata; sensitive input values remain in the payment input vault.
+ */
 public enum PaymentInteractionKind {
     NONE, PAYMENT_CODE, CHANNEL_IDENTITY, H5_SCENE;
+
     public boolean supports(PaymentMethod method) {
         if (method == null) return false;
         return switch (method) {

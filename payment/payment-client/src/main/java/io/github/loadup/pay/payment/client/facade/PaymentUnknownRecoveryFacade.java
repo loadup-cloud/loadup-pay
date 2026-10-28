@@ -18,7 +18,9 @@ package io.github.loadup.pay.payment.client.facade;
 import io.github.loadup.pay.payment.client.dto.PaymentUnknownRecoveryPageDTO;
 import io.github.loadup.pay.payment.client.query.PaymentUnknownRecoveryQuery;
 
-/** Read-only operational investigation, independent of merchant querying and financial commands. */
+/**
+ * Read-only operational investigation, independent of merchant querying and financial commands.
+ */
 public interface PaymentUnknownRecoveryFacade {
     PaymentUnknownRecoveryPageDTO list(PaymentUnknownRecoveryQuery query);
 }

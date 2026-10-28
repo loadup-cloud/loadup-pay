@@ -14,17 +14,24 @@
 package io.github.loadup.pay.acquire.adapter.web;
 
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.*;
+import io.github.loadup.commons.result.PageResponse;
+import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.acquire.client.command.MerchantNotificationWakeCommand;
-import io.github.loadup.pay.acquire.client.dto.*;
-import io.github.loadup.pay.acquire.client.facade.*;
-import io.github.loadup.pay.acquire.client.query.*;
+import io.github.loadup.pay.acquire.client.dto.MerchantNotificationDTO;
+import io.github.loadup.pay.acquire.client.dto.MerchantNotificationWakeDTO;
+import io.github.loadup.pay.acquire.client.facade.MerchantNotificationOperationsFacade;
+import io.github.loadup.pay.acquire.client.facade.MerchantNotificationQueryFacade;
+import io.github.loadup.pay.acquire.client.query.MerchantNotificationPageQuery;
+import io.github.loadup.pay.acquire.client.query.MerchantNotificationWakePageQuery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/acquire/notifications")
@@ -32,24 +39,30 @@ import org.springframework.web.bind.annotation.*;
 public class MerchantNotificationController {
     private final MerchantNotificationQueryFacade queries;
     private final MerchantNotificationOperationsFacade operations;
+
     public MerchantNotificationController(MerchantNotificationQueryFacade queries, MerchantNotificationOperationsFacade operations) {
-        this.queries = queries; this.operations = operations;
+        this.queries = queries;
+        this.operations = operations;
     }
+
     @PostMapping("/detail")
     @Operation(summary = "Read notification delivery metadata within the authenticated merchant scope")
     public ResponseEntity<SuccessResponse<MerchantNotificationDTO>> detail(@Valid @RequestBody IdQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(queries.detail(query)));
     }
+
     @PostMapping("/page")
     @Operation(summary = "Page notifications for one collecting merchant")
     public ResponseEntity<PageResponse<MerchantNotificationDTO>> page(@Valid @RequestBody MerchantNotificationPageQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(PageResponse.of(queries.page(query)));
     }
+
     @PostMapping("/wake")
     @Operation(summary = "Audit and resume the current native task within the frozen business budget; operators only")
     public ResponseEntity<SuccessResponse<MerchantNotificationWakeDTO>> wake(@Valid @RequestBody MerchantNotificationWakeCommand command) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(operations.wake(command)));
     }
+
     @PostMapping("/wakes")
     @Operation(summary = "Page immutable wake decisions for an original notification; operators only")
     public ResponseEntity<PageResponse<MerchantNotificationWakeDTO>> wakes(@Valid @RequestBody MerchantNotificationWakePageQuery query) {

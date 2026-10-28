@@ -16,17 +16,17 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
 import io.github.loadup.pay.payment.app.model.RefundResultApplication;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
-import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;

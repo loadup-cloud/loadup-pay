@@ -19,18 +19,19 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.result.FailureResponse;
 import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.product.app.security.ProductActor;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.grpc.Metadata;
 import io.grpc.Status;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.util.Set;
 
 import static io.github.loadup.pay.customer.rpc.CustomerRpcOperations.CUSTOMER_AUTHORIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +50,12 @@ class CustomerEligibilityGrpcLookupTest {
             new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", "synthetic", Set.of());
     private final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     private final CustomerEligibilityGrpcLookup lookup = new CustomerEligibilityGrpcLookup(rpc, () -> actor);
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     private void response(Object value) {
         when(rpc.call(eq(CUSTOMER_AUTHORIZE), any(), any()))
@@ -100,10 +107,5 @@ class CustomerEligibilityGrpcLookupTest {
         response(SuccessResponse.of(new MerchantEligibilityDTO(
                 false, CustomerResultCodeEnum.MERCHANT_INACTIVE.getCode(), null, 0, null, null)));
         assertFalse(lookup.authorizeNewOrder("tenant", "merchant").allowed());
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

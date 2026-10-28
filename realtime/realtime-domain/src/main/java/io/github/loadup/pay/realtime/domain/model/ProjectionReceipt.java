@@ -15,9 +15,9 @@
  */
 package io.github.loadup.pay.realtime.domain.model;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

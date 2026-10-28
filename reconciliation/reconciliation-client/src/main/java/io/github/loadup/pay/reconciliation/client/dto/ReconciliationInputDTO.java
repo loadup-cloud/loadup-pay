@@ -16,9 +16,8 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
 import io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationInputDTO(
         @Schema(description = "Evidence side") ReconciliationSide side,
@@ -31,5 +30,8 @@ public record ReconciliationInputDTO(
         @Schema(description = "Gross payment total in CNY minor units; not net of refunds") long paymentAmountMinor,
         @Schema(description = "Normalized refund record count") long refundCount,
         @Schema(description = "Gross refund request total in CNY minor units; does not assert returned funds") long refundAmountMinor) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

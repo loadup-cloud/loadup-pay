@@ -26,19 +26,34 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.EXCEEDED;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_ARGUMENT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LimitTransactionsTest {
     final Manager manager = new Manager();
     final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final LimitActor actor = new LimitActor("tenant", "payment", Set.of("pay:limit:reserve"));
     final LimitTransactions transactions = new LimitTransactions(() -> actor, validation.getValidator(), manager);
-    @AfterEach void close() { validation.close(); }
 
-    @Test void contextScopeDoesNotStartATransactionAndRestoresTenantOnFailure() {
+    @AfterEach
+    void close() {
+        validation.close();
+    }
+
+    @Test
+    void contextScopeDoesNotStartATransactionAndRestoresTenantOnFailure() {
         var original = new IllegalStateException("Synthetic scope failure");
         TenantUtil.callWithTenant("outer", () -> {
             assertSame(original, assertThrows(IllegalStateException.class, () -> transactions.withTenantContext(actor, () -> {
@@ -52,7 +67,8 @@ class LimitTransactionsTest {
         assertEquals(0, manager.begins);
     }
 
-    @Test void localReservationRetriesAfterRollbackWithTheOriginalActorAndConflictPolicy() {
+    @Test
+    void localReservationRetriesAfterRollbackWithTheOriginalActorAndConflictPolicy() {
         var calls = new AtomicInteger();
         assertEquals("reserved", transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             assertEquals("tenant", TenantUtil.getTenantId());
@@ -64,15 +80,19 @@ class LimitTransactionsTest {
             if (attempt < 3) throw new org.springframework.dao.DuplicateKeyException("Synthetic reservation race");
             return "reserved";
         }));
-        assertEquals(3, calls.get()); assertEquals(2, manager.rollbacks); assertEquals(1, manager.commits);
+        assertEquals(3, calls.get());
+        assertEquals(2, manager.rollbacks);
+        assertEquals(1, manager.commits);
         var exhausted = assertThrows(CommonException.class, () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             throw new org.springframework.dao.ConcurrencyFailureException("Synthetic repeated reservation contention");
         }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
-        assertEquals(6, manager.begins); assertEquals(5, manager.rollbacks);
+        assertEquals(6, manager.begins);
+        assertEquals(5, manager.rollbacks);
     }
 
-    @Test void domainFailuresKeepTheirModuleMappingAndNeverTriggerDatabaseRetry() {
+    @Test
+    void domainFailuresKeepTheirModuleMappingAndNeverTriggerDatabaseRetry() {
         var conflict = assertThrows(CommonException.class, () -> transactions.writeLocal(actor, INVALID_ARGUMENT, () -> {
             throw new DomainViolation(DomainViolation.Reason.CONFLICT);
         }));
@@ -81,21 +101,41 @@ class LimitTransactionsTest {
             throw new DomainViolation(DomainViolation.Reason.AMOUNT_EXCEEDED);
         }));
         assertEquals(EXCEEDED, exceeded.getResultCode());
-        assertEquals(2, manager.begins); assertEquals(2, manager.rollbacks);
+        assertEquals(2, manager.begins);
+        assertEquals(2, manager.rollbacks);
         transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
             assertTrue(transactions.withTenantContext(actor, () -> TransactionSynchronizationManager.isActualTransactionActive()));
             assertEquals(CONCURRENT_UPDATE, assertThrows(CommonException.class,
                     () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> true)).getResultCode());
             return true;
         });
-        assertEquals(3, manager.begins); assertEquals(1, manager.commits);
+        assertEquals(3, manager.begins);
+        assertEquals(1, manager.commits);
         assertNull(TenantUtil.getTenantId());
     }
+
     static final class Manager extends AbstractPlatformTransactionManager {
         int isolation, begins, commits, rollbacks;
-        @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { isolation = definition.getIsolationLevel(); begins++; }
-        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
-        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+            isolation = definition.getIsolationLevel();
+            begins++;
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            commits++;
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            rollbacks++;
+        }
     }
 }

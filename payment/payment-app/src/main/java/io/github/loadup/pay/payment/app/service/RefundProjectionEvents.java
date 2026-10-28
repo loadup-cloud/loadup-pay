@@ -16,19 +16,19 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
-import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
@@ -88,7 +88,8 @@ public class RefundProjectionEvents {
         if (!change.refund().terminal()) return;
         if (!facts.refundRequestId().equals(change.request().id()) || !facts.paymentId().equals(change.refund().paymentId())
                 || !facts.state().equals(change.refund().state().name()) || !facts.amount().equals(change.refund().amount())
-                || !java.util.Objects.equals(facts.succeededAt(), change.succeededAt())) throw new CommonException(SNAPSHOT_INVALID);
+                || !java.util.Objects.equals(facts.succeededAt(), change.succeededAt()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var before = summaries.lock(tenant, change.request().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!before.payeeMerchantId().equals(change.request().payeeMerchantId())
                 || !before.orderAmount().getCurrencyValue().equals(change.refund().amount().getCurrencyValue()))

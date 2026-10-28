@@ -15,29 +15,43 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.statement;
 
-import io.github.loadup.pay.reconciliation.app.port.ReconciliationStatementParser;
-import io.github.loadup.pay.reconciliation.domain.model.*;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.pay.reconciliation.app.port.ReconciliationStatementParser;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import org.springframework.stereotype.Component;
-import java.io.InputStream;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 
 @Component
 public class ReconciliationStatementParserAdapter implements ReconciliationStatementParser {
     private final WechatTradeStatementParser wechat;
-    public ReconciliationStatementParserAdapter(WechatTradeStatementParser wechat) { this.wechat = wechat; }
-    @Override public boolean supports(ReconciliationScope scope) {
+
+    public ReconciliationStatementParserAdapter(WechatTradeStatementParser wechat) {
+        this.wechat = wechat;
+    }
+
+    @Override
+    public boolean supports(ReconciliationScope scope) {
         return scope != null && scope.channel() == Channel.WECHAT && WechatTradeStatementParser.PROFILE.equals(scope.statementProfile());
     }
-    @Override public ReconciliationDataset parse(InputStream input, ReconciliationImportRequest request) {
+
+    @Override
+    public ReconciliationDataset parse(InputStream input, ReconciliationImportRequest request) {
         if (!supports(request.scope())) throw new CommonException(INPUT_INVALID);
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new CommonException(INVALID_STATE);
         if (request.file().size() > 67108864L) throw new CommonException(INPUT_INVALID);
         try {
             int size = Math.toIntExact(request.file().size());
@@ -47,6 +61,8 @@ public class ReconciliationStatementParserAdapter implements ReconciliationState
             if (!request.file().sha256().equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))))
                 throw new CommonException(INPUT_INVALID);
             return wechat.parse(new ByteArrayInputStream(bytes), request.scope(), request.statementAccount(), request.id(), request.id());
-        } catch (IOException | NoSuchAlgorithmException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (IOException | NoSuchAlgorithmException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

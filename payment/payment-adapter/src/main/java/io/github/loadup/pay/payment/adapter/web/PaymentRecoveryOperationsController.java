@@ -26,19 +26,27 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/operations/recovery/tasks")
 @Tag(name = "Audited payment recovery operations")
 public class PaymentRecoveryOperationsController {
     private final PaymentRecoveryOperationsFacade facade;
-    public PaymentRecoveryOperationsController(PaymentRecoveryOperationsFacade facade) { this.facade = facade; }
+
+    public PaymentRecoveryOperationsController(PaymentRecoveryOperationsFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/detail")
     @Operation(summary = "Inspect one original payment native task; requires the configured operations SERVICE and recovery read permission")
     public ResponseEntity<SuccessResponse<PaymentRecoveryTaskDTO>> detail(@Valid @RequestBody PaymentRecoveryTaskQuery query) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(SuccessResponse.of(facade.detail(query)));
     }
+
     @PostMapping("/retry")
     @Operation(summary = "Audit and retry a current FAILED task with exact observed preconditions; never changes a financial status")
     public ResponseEntity<SuccessResponse<PaymentRecoveryRetryDTO>> retry(@Valid @RequestBody PaymentRecoveryRetryCommand command) {

@@ -24,29 +24,44 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryRetr
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRecoveryRetryReceiptDOMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Optional;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_RECOVERY_RETRY_RECEIPT_DO;
 
 @Repository
 public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGateway {
     private final PaymentRecoveryRetryReceiptDOMapper mapper;
     private final PaymentRecoveryRetryStorageConverter converter;
+
     public PaymentRecoveryRetryGatewayImpl(PaymentRecoveryRetryReceiptDOMapper mapper, PaymentRecoveryRetryStorageConverter converter) {
-        this.mapper = mapper; this.converter = converter;
+        this.mapper = mapper;
+        this.converter = converter;
     }
-    @Override public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
+
+    @Override
+    public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         var row = mapper.selectOneByQuery(scope(tenant).and(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.CALLER_SCOPE_HASH.eq(callerScopeHash))
                 .and(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.REQUEST_KEY.eq(requestKey)));
-        try { return Optional.ofNullable(row).map(converter::toDomain); }
-        catch (RuntimeException corrupt) { throw new CommonException(SNAPSHOT_INVALID); }
+        try {
+            return Optional.ofNullable(row).map(converter::toDomain);
+        } catch (RuntimeException corrupt) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insert(String tenant, PaymentRecoveryRetryReceipt receipt) {
+
+    @Override
+    public void insert(String tenant, PaymentRecoveryRetryReceipt receipt) {
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
         if (mapper.insert(converter.toDO(tenant, receipt)) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
+
     private QueryWrapper scope(String tenant) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         return QueryWrapper.create().where(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.TENANT_ID.eq(tenant))

@@ -16,32 +16,83 @@
 package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 
-/** Independent WeChat strategy; unsupported capabilities never fall back to another channel. */
+/**
+ * Independent WeChat strategy; unsupported capabilities never fall back to another channel.
+ */
 public final class WechatChannelProvider implements ChannelProvider {
     private final WechatSubmitAdapter submissions;
     private final WechatPaymentAdapter payments;
     private final WechatRefundAdapter refunds;
     private final WechatCodepayAdapter codepay;
+
     public WechatChannelProvider(WechatSubmitAdapter submissions, WechatPaymentAdapter payments, WechatRefundAdapter refunds, WechatCodepayAdapter codepay) {
-        this.submissions = submissions; this.payments = payments; this.refunds = refunds; this.codepay = codepay;
+        this.submissions = submissions;
+        this.payments = payments;
+        this.refunds = refunds;
+        this.codepay = codepay;
     }
-    @Override public Channel channel() { return Channel.WECHAT; }
-    @Override public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
-        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE) codepay.validate(context, request);
+
+    @Override
+    public Channel channel() {
+        return Channel.WECHAT;
+    }
+
+    @Override
+    public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
+        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE)
+            codepay.validate(context, request);
         else submissions.validate(context, request);
     }
-    @Override public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
+
+    @Override
+    public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
         return request != null && request.payment().method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE
                 ? codepay.submit(context, request) : submissions.submit(context, request);
     }
-    @Override public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.query(context, target); }
-    @Override public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) { return payments.recover(context, request); }
-    @Override public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) { return payments.close(context, target); }
-    @Override public boolean canRefund(PreparedChannelRefund refund) { return refunds.canRefund(refund); }
-    @Override public RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.submit(context, refund); }
-    @Override public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.recover(context, refund); }
-    @Override public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) { return refunds.query(context, refund); }
+
+    @Override
+    public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) {
+        return payments.query(context, target);
+    }
+
+    @Override
+    public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
+        return payments.recover(context, request);
+    }
+
+    @Override
+    public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
+        return payments.close(context, target);
+    }
+
+    @Override
+    public boolean canRefund(PreparedChannelRefund refund) {
+        return refunds.canRefund(refund);
+    }
+
+    @Override
+    public RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        return refunds.submit(context, refund);
+    }
+
+    @Override
+    public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        return refunds.recover(context, refund);
+    }
+
+    @Override
+    public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
+        return refunds.query(context, refund);
+    }
 }

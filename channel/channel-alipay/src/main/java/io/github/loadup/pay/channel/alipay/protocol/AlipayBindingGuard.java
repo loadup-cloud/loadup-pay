@@ -23,9 +23,14 @@ import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
 
-/** Direct adapter entry points enforce the same tenant and frozen-account boundary as the facade. */
+/**
+ * Direct adapter entry points enforce the same tenant and frozen-account boundary as the facade.
+ */
 public final class AlipayBindingGuard {
     private AlipayBindingGuard() {
     }

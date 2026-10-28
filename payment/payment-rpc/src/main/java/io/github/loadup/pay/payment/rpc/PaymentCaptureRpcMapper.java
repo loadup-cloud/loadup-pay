@@ -18,14 +18,33 @@ package io.github.loadup.pay.payment.rpc;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.result.*;
+import io.github.loadup.commons.result.PageDTO;
+import io.github.loadup.commons.result.PageInfo;
 import io.github.loadup.components.rpc.grpc.GrpcScalarMapper;
-import io.github.loadup.pay.payment.client.command.*;
-import io.github.loadup.pay.payment.client.dto.*;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
-import io.github.loadup.pay.payment.rpc.proto.*;
-import org.mapstruct.*;
-import java.util.*;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureDTO;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureLinesQuery;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCapturePage;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureQuery;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureRetryCommand;
+import io.github.loadup.pay.payment.rpc.proto.WirePaymentLedgerLineDTO;
+import org.mapstruct.AfterMapping;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.BeforeMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValueCheckStrategy;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 
 @Mapper(config = LoadUpMapStructConfig.class, uses = {PaymentCaptureRpcFields.class, GrpcScalarMapper.class},
@@ -35,11 +54,17 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "captureId", source = "captureId")
     @Mapping(target = "expectedTaskId", source = "expectedTaskId")
     WirePaymentCaptureRetryCommand toWire(PaymentCaptureRetryCommand value);
+
     PaymentCaptureRetryCommand fromWire(WirePaymentCaptureRetryCommand value);
-    @BeforeMapping default void required(WirePaymentCaptureRetryCommand value) {
+
+    @BeforeMapping
+    default void required(WirePaymentCaptureRetryCommand value) {
         if (value == null) return;
-        if (!value.hasCaptureId() || !value.hasExpectedTaskId()) invalid(); text(value.getCaptureId(), 64); text(value.getExpectedTaskId(), 64);
+        if (!value.hasCaptureId() || !value.hasExpectedTaskId()) invalid();
+        text(value.getCaptureId(), 64);
+        text(value.getExpectedTaskId(), 64);
     }
+
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "requestKey", source = "requestKey")
     @Mapping(target = "channel", source = "channel")
@@ -47,11 +72,13 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "billDate", source = "billDate")
     @Mapping(target = "statementProfile", source = "statementProfile")
     WirePaymentCaptureCreateCommand toWire(PaymentCaptureCreateCommand value);
+
     PaymentCaptureCreateCommand fromWire(WirePaymentCaptureCreateCommand value);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     WirePaymentCaptureQuery toWire(IdQuery value);
+
     IdQuery fromWire(WirePaymentCaptureQuery value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -59,6 +86,7 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "page", source = "page")
     @Mapping(target = "size", source = "size")
     WirePaymentCaptureLinesQuery toWire(PaymentCaptureLinesQuery value);
+
     PaymentCaptureLinesQuery fromWire(WirePaymentCaptureLinesQuery value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -84,6 +112,7 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "attempts", source = "attempts")
     @Mapping(target = "maxAttempts", source = "maxAttempts")
     WirePaymentCaptureDTO toWire(PaymentCaptureDTO value);
+
     PaymentCaptureDTO fromWire(WirePaymentCaptureDTO value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -100,6 +129,7 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "evidenceId", source = "evidenceId")
     @Mapping(target = "sourceVersion", source = "sourceVersion")
     WirePaymentLedgerLineDTO toWire(PaymentLedgerLineDTO value);
+
     PaymentLedgerLineDTO fromWire(WirePaymentLedgerLineDTO value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -116,50 +146,81 @@ public interface PaymentCaptureRpcMapper {
     @Mapping(target = "pageIndex", source = "page")
     @Mapping(target = "pageSize", source = "size")
     PageInfo metadata(WirePaymentCapturePage value);
+
     List<WirePaymentLedgerLineDTO> toWireLines(Collection<PaymentLedgerLineDTO> value);
 
-    @AfterMapping default void entries(PageDTO<PaymentLedgerLineDTO> value, @MappingTarget WirePaymentCapturePage.Builder target) {
+    @AfterMapping
+    default void entries(PageDTO<PaymentLedgerLineDTO> value, @MappingTarget WirePaymentCapturePage.Builder target) {
         if (value != null && value.getData() != null) target.addAllData(toWireLines(value.getData()));
     }
-    @BeforeMapping default void required(WirePaymentCaptureCreateCommand value) {
+
+    @BeforeMapping
+    default void required(WirePaymentCaptureCreateCommand value) {
         if (value == null) return;
-        if (!value.hasRequestKey() || !value.hasChannel() || !value.hasAccountScopeHash() || !value.hasBillDate() || !value.hasStatementProfile()) invalid();
-        text(value.getRequestKey(), 128); scope(value.getChannel(), value.getAccountScopeHash(), value.getBillDate(), value.getStatementProfile());
+        if (!value.hasRequestKey() || !value.hasChannel() || !value.hasAccountScopeHash() || !value.hasBillDate() || !value.hasStatementProfile())
+            invalid();
+        text(value.getRequestKey(), 128);
+        scope(value.getChannel(), value.getAccountScopeHash(), value.getBillDate(), value.getStatementProfile());
     }
-    @BeforeMapping default void required(WirePaymentCaptureQuery value) {
-        if (value != null) { if (!value.hasId()) invalid(); text(value.getId(), 64); }
+
+    @BeforeMapping
+    default void required(WirePaymentCaptureQuery value) {
+        if (value != null) {
+            if (!value.hasId()) invalid();
+            text(value.getId(), 64);
+        }
     }
-    @BeforeMapping default void required(WirePaymentCaptureLinesQuery value) {
+
+    @BeforeMapping
+    default void required(WirePaymentCaptureLinesQuery value) {
         if (value == null) return;
-        if (!value.hasCaptureId()) invalid(); text(value.getCaptureId(), 64);
-        if (value.hasPage() && value.getPage() < 1 || value.hasSize() && (value.getSize() < 1 || value.getSize() > 100)) invalid();
+        if (!value.hasCaptureId()) invalid();
+        text(value.getCaptureId(), 64);
+        if (value.hasPage() && value.getPage() < 1 || value.hasSize() && (value.getSize() < 1 || value.getSize() > 100))
+            invalid();
     }
-    @BeforeMapping default void required(WirePaymentLedgerLineDTO value) {
+
+    @BeforeMapping
+    default void required(WirePaymentLedgerLineDTO value) {
         if (value == null) return;
         if (!value.hasOrdinal() || !value.hasKind() || !value.hasChannelTransactionNo() || !value.hasMerchantPaymentNo()
                 || !value.hasAmountMinor() || !value.hasCurrency() || !value.hasStatus() || !value.hasSourceAt()
                 || !value.hasSourceId() || !value.hasEvidenceId() || !value.hasSourceVersion()
-                || value.getOrdinal() < 1 || value.getAmountMinor() < 1 || value.getSourceVersion() < 0 || !"CNY".equals(value.getCurrency())) invalid();
-        var kind = PaymentCaptureRpcFields.kind(value.getKind()); var status = PaymentCaptureRpcFields.status(value.getStatus());
+                || value.getOrdinal() < 1 || value.getAmountMinor() < 1 || value.getSourceVersion() < 0 || !"CNY".equals(value.getCurrency()))
+            invalid();
+        var kind = PaymentCaptureRpcFields.kind(value.getKind());
+        var status = PaymentCaptureRpcFields.status(value.getStatus());
         if ((kind == io.github.loadup.pay.payment.client.enums.PaymentLedgerKind.REFUND) != value.hasChannelRefundNo()
                 || kind == io.github.loadup.pay.payment.client.enums.PaymentLedgerKind.PAYMENT
-                    && status != io.github.loadup.pay.payment.client.enums.PaymentLedgerStatus.SUCCEEDED) invalid();
-        text(value.getChannelTransactionNo(), 128); text(value.getMerchantPaymentNo(), 64);
+                && status != io.github.loadup.pay.payment.client.enums.PaymentLedgerStatus.SUCCEEDED) invalid();
+        text(value.getChannelTransactionNo(), 128);
+        text(value.getMerchantPaymentNo(), 64);
         if (value.hasChannelRefundNo()) text(value.getChannelRefundNo(), 64);
-        text(value.getSourceId(), 64); text(value.getEvidenceId(), 64); timestamp(value.getSourceAt());
+        text(value.getSourceId(), 64);
+        text(value.getEvidenceId(), 64);
+        timestamp(value.getSourceAt());
     }
-    @BeforeMapping default void required(WirePaymentCaptureDTO value) {
+
+    @BeforeMapping
+    default void required(WirePaymentCaptureDTO value) {
         if (value == null) return;
         if (!value.hasCaptureId() || !value.hasChannel() || !value.hasAccountScopeHash() || !value.hasBillDate()
                 || !value.hasStatementProfile() || !value.hasSystemZone() || !value.hasState() || !value.hasVersion()
-                || !value.hasNativeTaskId() || !value.hasNativeStatus() || !value.hasAttempts() || !value.hasMaxAttempts()) invalid();
-        text(value.getCaptureId(), 64); text(value.getNativeTaskId(), 64);
+                || !value.hasNativeTaskId() || !value.hasNativeStatus() || !value.hasAttempts() || !value.hasMaxAttempts())
+            invalid();
+        text(value.getCaptureId(), 64);
+        text(value.getNativeTaskId(), 64);
         scope(value.getChannel(), value.getAccountScopeHash(), value.getBillDate(), value.getStatementProfile());
-        try { if (!java.time.ZoneId.of(value.getSystemZone()).getId().equals(value.getSystemZone())) invalid(); }
-        catch (java.time.DateTimeException malformed) { invalid(); }
+        try {
+            if (!java.time.ZoneId.of(value.getSystemZone()).getId().equals(value.getSystemZone())) invalid();
+        } catch (java.time.DateTimeException malformed) {
+            invalid();
+        }
         if (!Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.getNativeStatus())
-                || value.getAttempts() < 0 || value.getMaxAttempts() < 1 || value.getAttempts() > value.getMaxAttempts()) invalid();
-        var state = PaymentCaptureRpcFields.state(value.getState()); boolean initial = state == io.github.loadup.pay.payment.client.enums.PaymentCaptureState.INIT;
+                || value.getAttempts() < 0 || value.getMaxAttempts() < 1 || value.getAttempts() > value.getMaxAttempts())
+            invalid();
+        var state = PaymentCaptureRpcFields.state(value.getState());
+        boolean initial = state == io.github.loadup.pay.payment.client.enums.PaymentCaptureState.INIT;
         boolean sealed = state == io.github.loadup.pay.payment.client.enums.PaymentCaptureState.SEALED;
         boolean blocked = state == io.github.loadup.pay.payment.client.enums.PaymentCaptureState.BLOCKED;
         if (value.getVersion() != (initial ? 0L : 1L) || initial == value.hasStartedAt() || initial == value.hasFinishedAt()
@@ -167,8 +228,10 @@ public interface PaymentCaptureRpcMapper {
                 || sealed != value.hasRefundAmountMinor() || sealed != value.hasContentHash()
                 || blocked != value.hasBlocker() || blocked != value.hasBlockerSubjectId()) invalid();
         if (!initial) {
-            timestamp(value.getStartedAt()); timestamp(value.getFinishedAt());
-            if (GrpcScalarMapper.offset(value.getFinishedAt()).isBefore(GrpcScalarMapper.offset(value.getStartedAt()))) invalid();
+            timestamp(value.getStartedAt());
+            timestamp(value.getFinishedAt());
+            if (GrpcScalarMapper.offset(value.getFinishedAt()).isBefore(GrpcScalarMapper.offset(value.getStartedAt())))
+                invalid();
         }
         if (sealed) {
             hash(value.getContentHash());
@@ -176,11 +239,20 @@ public interface PaymentCaptureRpcMapper {
                     || value.getRefundAmountMinor() < value.getRefundCount()
                     || (value.getPaymentCount() == 0) != (value.getPaymentAmountMinor() == 0)
                     || (value.getRefundCount() == 0) != (value.getRefundAmountMinor() == 0)) invalid();
-            try { Math.addExact(value.getPaymentCount(), value.getRefundCount()); } catch (ArithmeticException overflow) { invalid(); }
+            try {
+                Math.addExact(value.getPaymentCount(), value.getRefundCount());
+            } catch (ArithmeticException overflow) {
+                invalid();
+            }
         }
-        if (blocked) { PaymentCaptureRpcFields.blocker(value.getBlocker()); text(value.getBlockerSubjectId(), 64); }
+        if (blocked) {
+            PaymentCaptureRpcFields.blocker(value.getBlocker());
+            text(value.getBlockerSubjectId(), 64);
+        }
     }
-    @BeforeMapping default void required(WirePaymentCapturePage value) {
+
+    @BeforeMapping
+    default void required(WirePaymentCapturePage value) {
         if (value == null) return;
         if (!value.hasTotalCount() || !value.hasPage() || !value.hasSize() || value.getTotalCount() < 0
                 || value.getPage() < 1 || value.getSize() < 1 || value.getSize() > 100) invalid();
@@ -189,15 +261,33 @@ public interface PaymentCaptureRpcMapper {
         if (value.getDataCount() != expected) invalid();
         for (var row : value.getDataList()) if (!row.hasOrdinal() || row.getOrdinal() != ++offset) invalid();
     }
+
     private void scope(String channel, String account, String date, String profile) {
-        PaymentCaptureRpcFields.channel(channel); hash(account); PaymentCaptureRpcFields.date(date);
+        PaymentCaptureRpcFields.channel(channel);
+        hash(account);
+        PaymentCaptureRpcFields.date(date);
         if (!"wechat-trade-all-20260116".equals(profile)) invalid();
     }
-    private void text(String value, int max) { if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl)) invalid(); }
-    private void hash(String value) { if (value == null || !value.matches("[0-9a-f]{64}")) invalid(); }
-    private void timestamp(com.google.protobuf.Timestamp value) {
-        try { com.google.protobuf.util.Timestamps.checkValid(value); if (value.getNanos() % 1000 != 0) invalid(); }
-        catch (IllegalArgumentException malformed) { invalid(); }
+
+    private void text(String value, int max) {
+        if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl))
+            invalid();
     }
-    private void invalid() { throw new CommonException(INVALID_ARGUMENT); }
+
+    private void hash(String value) {
+        if (value == null || !value.matches("[0-9a-f]{64}")) invalid();
+    }
+
+    private void timestamp(com.google.protobuf.Timestamp value) {
+        try {
+            com.google.protobuf.util.Timestamps.checkValid(value);
+            if (value.getNanos() % 1000 != 0) invalid();
+        } catch (IllegalArgumentException malformed) {
+            invalid();
+        }
+    }
+
+    private void invalid() {
+        throw new CommonException(INVALID_ARGUMENT);
+    }
 }

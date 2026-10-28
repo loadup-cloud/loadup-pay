@@ -37,13 +37,37 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.*;
+import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.PAYMENT;
+import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.REFUND;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class RecoveryInventoryCollectorTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
+
+    private static RecoveryInventoryCollector collector(RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled, String tenants) {
+        var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
+        return new RecoveryInventoryCollector(reader, transactions, clock,
+                new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class),
+                new RecoveryEscalationPolicy(900L, 86400L), enabled, tenants, 300);
+    }
+
+    private static double gauge(MeterRegistry registry, String suffix, String kind) {
+        var search = registry.get(RecoveryInventoryCollector.PREFIX + suffix);
+        if (kind != null) search.tag("kind", kind);
+        return search.gauge().value();
+    }
 
     @Test
     void completeTrustedScopePublishesOneCombinedSnapshotAndScrapesDoNotQueryTheDatabase() {
@@ -57,7 +81,7 @@ class RecoveryInventoryCollectorTest {
             return tenant.equals("tenant-a") ? List.of(new RecoveryInventoryCell(PAYMENT, 2L, 10000L, AT.minusHours(2)), RecoveryInventoryCell.empty(REFUND))
                     : List.of(new RecoveryInventoryCell(PAYMENT, 1L, 5000L, AT.minusHours(1)), new RecoveryInventoryCell(REFUND, 1L, 700L, AT.minusMinutes(10)));
         });
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var collector = collector(reader, registry, clock, true, "tenant-a,tenant-a,tenant-b");
             assertTrue(Double.isNaN(gauge(registry, ".unknown.count", "payment")));
@@ -79,7 +103,8 @@ class RecoveryInventoryCollectorTest {
             for (int i = 0; i < 5; i++) gauge(registry, ".unknown.count", "payment");
             verifyNoMoreInteractions(reader);
             assertNull(TenantUtil.getTenantId());
-        }catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     @Test
@@ -94,7 +119,7 @@ class RecoveryInventoryCollectorTest {
             long count = fail.get() ? 99L : 1L;
             return List.of(new RecoveryInventoryCell(PAYMENT, count, count * 100L, AT.minusHours(1)), RecoveryInventoryCell.empty(REFUND));
         });
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var collector = collector(reader, registry, clock, true, "tenant-a,tenant-b");
             collector.execute();
@@ -107,20 +132,22 @@ class RecoveryInventoryCollectorTest {
             assertEquals(301.0, gauge(registry, ".sample.age", null));
             assertEquals(1.0, registry.get(RecoveryInventoryCollector.PREFIX + ".refresh").tag("outcome", "failure").counter().count());
             assertEquals(1.0, registry.get(RecoveryInventoryCollector.PREFIX + ".refresh").tag("outcome", "success").counter().count());
-        }catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     @Test
     void incompleteReaderOutputCannotMasqueradeAsAZeroInventory() {
         var reader = mock(RecoveryInventoryReader.class);
         when(reader.read("tenant")).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT)));
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var collector = collector(reader, registry, new MutableClock(), true, "tenant");
             assertThrows(CommonException.class, collector::execute);
             assertTrue(Double.isNaN(gauge(registry, ".unknown.count", "refund")));
             assertEquals(0.0, gauge(registry, ".initialized", null));
-        }catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     @Test
@@ -128,7 +155,7 @@ class RecoveryInventoryCollectorTest {
         var reader = mock(RecoveryInventoryReader.class);
         when(reader.read("tenant")).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT), RecoveryInventoryCell.empty(REFUND)));
         var clock = new MutableClock();
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             var collector = collector(reader, registry, clock, true, "tenant");
             collector.execute();
@@ -138,44 +165,49 @@ class RecoveryInventoryCollectorTest {
             collector.execute();
             verify(reader, times(2)).read("tenant");
             assertEquals(0.0, gauge(registry, ".sample.age", null));
-        }catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     @Test
     void disabledOrUnobservedCollectorsDoNotReadFinancialTables() {
         var reader = mock(RecoveryInventoryReader.class);
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             collector(reader, registry, new MutableClock(), false, "").execute();
-        }catch (Exception e){}
+        } catch (Exception e) {
+        }
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
         new RecoveryInventoryCollector(reader, transactions, new MutableClock(), new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class),
                 new RecoveryEscalationPolicy(900L, 86400L), true, "tenant", 300).execute();
         verifyNoInteractions(reader);
-        try  {
+        try {
             var registry = new SimpleMeterRegistry();
             assertThrows(CommonException.class, () -> collector(reader, registry, new MutableClock(), true, ""));
-        }catch (Exception e) {}
-    }
-
-    private static RecoveryInventoryCollector collector(RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled, String tenants) {
-        var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
-        return new RecoveryInventoryCollector(reader, transactions, clock,
-                new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class),
-                new RecoveryEscalationPolicy(900L, 86400L), enabled, tenants, 300);
-    }
-
-    private static double gauge(MeterRegistry registry, String suffix, String kind) {
-        var search = registry.get(RecoveryInventoryCollector.PREFIX + suffix);
-        if (kind != null) search.tag("kind", kind);
-        return search.gauge().value();
+        } catch (Exception e) {
+        }
     }
 
     private static final class MutableClock extends Clock {
         private final AtomicReference<Instant> time = new AtomicReference<>(AT.atZone(ZoneId.systemDefault()).toInstant());
-        void advance(Duration duration) { time.updateAndGet(value -> value.plus(duration)); }
-        @Override public ZoneId getZone() { return ZoneId.systemDefault(); }
-        @Override public Clock withZone(ZoneId zone) { return Clock.fixed(time.get(), zone); }
-        @Override public Instant instant() { return time.get(); }
+
+        void advance(Duration duration) {
+            time.updateAndGet(value -> value.plus(duration));
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.systemDefault();
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(time.get(), zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return time.get();
+        }
     }
 }

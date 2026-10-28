@@ -18,12 +18,26 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import org.junit.jupiter.api.Test;
+
 import java.util.Optional;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.session;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CashierAccessTest {
     final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);
@@ -32,7 +46,8 @@ class CashierAccessTest {
     final StoredCheckoutSession active = session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5));
     final CashierActor actor = new CashierActor("tenant", "session", "order", active.session().expiresAt());
 
-    @Test void originalSessionAndOwnerMustMatchBeforeAReservation() {
+    @Test
+    void originalSessionAndOwnerMustMatchBeforeAReservation() {
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(active));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
             access.authorize(actor, OWNER, order, true);
@@ -41,7 +56,9 @@ class CashierAccessTest {
         });
         verify(sessions, atLeastOnce()).lock("tenant", "session");
     }
-    @Test void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
+
+    @Test
+    void expiredOrCancelledSessionCannotCreateButCommittedIntentsRemainBoundForCompletion() {
         var cancelled = session(CheckoutSessionState.CANCELLED, NOW.plusMinutes(5));
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(cancelled));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {
@@ -52,13 +69,16 @@ class CashierAccessTest {
         when(sessions.find("tenant", "session")).thenReturn(Optional.of(cancelled));
         assertThrows(CommonException.class, () -> access.read(actor, order, "PAYMENT_PROGRESS"));
     }
-    @Test void validCapabilityCannotChangeTheOrderOrTheStoredExpiry() {
+
+    @Test
+    void validCapabilityCannotChangeTheOrderOrTheStoredExpiry() {
         when(sessions.find("tenant", "session")).thenReturn(Optional.of(active));
         assertThrows(CommonException.class, () -> access.read(new CashierActor("tenant", "session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
         assertThrows(CommonException.class, () -> access.read(new CashierActor("tenant", "session", "order", actor.expiresAt().plusSeconds(1)), order, "ORDER_SUMMARY"));
     }
 
-    @Test void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
+    @Test
+    void revocationBlocksNewReservationsAndReadsButPreservesCommittedIntentCompletion() {
         var revoked = active.revoke(0L, NOW);
         when(sessions.lock("tenant", "session")).thenReturn(Optional.of(revoked));
         new OrderCreationTransactions(new UnitTransactions()).writeLocal("tenant", () -> {

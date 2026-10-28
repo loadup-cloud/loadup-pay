@@ -17,17 +17,25 @@ package io.github.loadup.pay.channel.alipay.protocol;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public record AlipaySignedRequest(AlipayMethod method, @DiagnosticHidden Map<String, String> parameters) {
-    public AlipaySignedRequest { parameters = Map.copyOf(parameters); }
+    public AlipaySignedRequest {
+        parameters = Map.copyOf(parameters);
+    }
+
     public String formBody() {
         return parameters.entrySet().stream().sorted(Map.Entry.comparingByKey())
                 .map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
                         + URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8)).collect(Collectors.joining("&"));
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

@@ -19,9 +19,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
-/** Immutable acknowledgement of the original operation, not a command to alter payment state. */
+/**
+ * Immutable acknowledgement of the original operation, not a command to alter payment state.
+ */
 public record CheckoutSessionRevocationDTO(
         @Schema(description = "Revocation audit receipt id") String id,
         @Schema(description = "Original session id") String sessionId,
@@ -33,5 +36,8 @@ public record CheckoutSessionRevocationDTO(
         @Schema(description = "Resulting row version") long sessionVersion,
         @Schema(description = "Permanent first-revocation time") OffsetDateTime revokedAt,
         @Schema(description = "This operation's acceptance time") OffsetDateTime acceptedAt) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

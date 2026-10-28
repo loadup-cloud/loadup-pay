@@ -20,7 +20,12 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
 import java.time.OffsetDateTime;
 
 public record AcquireRecoveryRetryCommand(
@@ -34,7 +39,12 @@ public record AcquireRecoveryRetryCommand(
         @Schema(description = "Stable operation key; retries preserve all original parameters") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Audited operational reason") @NotBlank @Size(max = 500) @DiagnosticHidden String reason) {
     public AcquireRecoveryRetryCommand {
-        if (expectedNextExecuteAt != null) expectedNextExecuteAt = expectedNextExecuteAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        if (expectedNextExecuteAt != null)
+            expectedNextExecuteAt = expectedNextExecuteAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

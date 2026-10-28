@@ -25,9 +25,15 @@ import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Replays a successful child independently of fee and realtime targets. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Replays a successful child independently of fee and realtime targets.
+ */
 @Component
 public class RefundLimitDelivery {
     private final OutboxTemplate outbox;
@@ -36,15 +42,19 @@ public class RefundLimitDelivery {
     private final RefundSettlementConverter converter;
 
     public RefundLimitDelivery(OutboxTemplate outbox, RefundProjectionEnvelopeCodec codec, PaymentLimitClient client,
-            RefundSettlementConverter converter) {
-        this.outbox = outbox; this.codec = codec; this.client = client; this.converter = converter;
+                               RefundSettlementConverter converter) {
+        this.outbox = outbox;
+        this.codec = codec;
+        this.client = client;
+        this.converter = converter;
     }
 
     public void deliver(OutboxEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (event == null || event.message() == null || event.message().version() != 1
                 || !RefundProjectionEvents.LIMIT.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+            throw new CommonException(SNAPSHOT_INVALID);
         var message = event.message();
         var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId()) || !row.type().equals(message.type())
@@ -63,7 +73,7 @@ public class RefundLimitDelivery {
                 || ack.verifiedPaymentRefundedMinor() < ack.cumulativePaymentRefundedMinor() || ack.verifiedPaymentRefundVersion() <= 0
                 || ack.restoredAmountMinor() < 0 || ack.restoredAmountMinor() > ack.verifiedPaymentRefundedMinor()
                 || ack.result() != (ack.restoredAmountMinor() > 0 || ack.restoredPaymentCount()
-                    ? LimitRestoreResult.RESTORED : LimitRestoreResult.NO_ACTION))
+                ? LimitRestoreResult.RESTORED : LimitRestoreResult.NO_ACTION))
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
     }
 }

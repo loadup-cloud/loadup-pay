@@ -16,8 +16,8 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
@@ -26,22 +26,22 @@ import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
-import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
-import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
+import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentControlReceipt;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
@@ -309,9 +309,14 @@ public class PaymentControlService implements PaymentControlFacade {
         validate(command);
         var actor = actor("pay:payment:input:expire");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            DomainChecks.id(command.inputRef()); DomainChecks.id(command.paymentId()); DomainChecks.id(command.orderId());
-            DomainChecks.id(command.allocationId()); DomainChecks.id(command.payeeMerchantId()); DomainChecks.text(command.inputKey(), 128);
-            DomainChecks.positive(command.amountMinor()); DomainChecks.cnyAmount(command.amountMinor(), command.currency());
+            DomainChecks.id(command.inputRef());
+            DomainChecks.id(command.paymentId());
+            DomainChecks.id(command.orderId());
+            DomainChecks.id(command.allocationId());
+            DomainChecks.id(command.payeeMerchantId());
+            DomainChecks.text(command.inputKey(), 128);
+            DomainChecks.positive(command.amountMinor());
+            DomainChecks.cnyAmount(command.amountMinor(), command.currency());
             var close = converter.toInputExpiryClose(command);
             var observedReceipt = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
             // Coordinate with acceptance/Y2: parent -> child gate -> payment -> input.

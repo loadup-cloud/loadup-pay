@@ -16,11 +16,13 @@
 package io.github.loadup.pay.payment.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.event.EventEnvelope;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
 import io.github.loadup.pay.payment.client.enums.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
@@ -28,10 +30,14 @@ import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -39,11 +45,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 import static io.github.loadup.pay.realtime.rpc.RealtimeRpcOperations.REALTIME_PAYMENT;
 import static io.github.loadup.pay.realtime.rpc.RealtimeRpcOperations.REALTIME_REFUND;
@@ -69,6 +70,12 @@ class PaymentRealtimeGrpcClientTest {
     Path directory;
     PaymentRealtimeGrpcClient client;
     Path file;
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     void credential(String audience) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -129,10 +136,5 @@ class PaymentRealtimeGrpcClientTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(rpc);
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

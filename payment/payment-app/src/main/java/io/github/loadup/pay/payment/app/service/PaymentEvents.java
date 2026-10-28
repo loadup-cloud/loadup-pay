@@ -16,13 +16,13 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
@@ -57,7 +57,7 @@ public class PaymentEvents {
     private final PaymentRealtimeConverter snapshots;
 
     public PaymentEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
-                               PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots) {
+                         PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots) {
         this.outbox = outbox;
         this.converter = converter;
         this.ids = ids;
@@ -80,7 +80,9 @@ public class PaymentEvents {
         sendSnapshot(tenant, payment, realtime);
     }
 
-    /** Caller invokes this only after inserting or changing the payment aggregate version. No financial delivery is emitted. */
+    /**
+     * Caller invokes this only after inserting or changing the payment aggregate version. No financial delivery is emitted.
+     */
     public void publishSnapshot(String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
         writable(tenant);
         sendSnapshot(tenant, payment, freezeSnapshot(tenant, payment, occurredAt));
@@ -94,7 +96,8 @@ public class PaymentEvents {
                 : attempts.find(tenant, payment.payment().activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (attempt != null) {
             PaymentExecutionBindings.active(payment, attempt);
-            if (payment.payment().state() == PaymentState.UNKNOWN) PaymentExecutionBindings.observable(payment, attempt);
+            if (payment.payment().state() == PaymentState.UNKNOWN)
+                PaymentExecutionBindings.observable(payment, attempt);
             if (payment.payment().state() == PaymentState.INIT) throw new CommonException(SNAPSHOT_INVALID);
             if ((payment.payment().state() == PaymentState.FAILED || payment.payment().state() == PaymentState.CLOSED)
                     && (!attempt.attempt().canSafelyReplace()
@@ -116,7 +119,9 @@ public class PaymentEvents {
         try {
             snapshot = snapshots.toSnapshot(payment, attempt == null ? null : attempt.attempt().binding().channel(),
                     attempt == null ? null : attempt.attempt().binding().accessMode(), succeededAt);
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return new EventEnvelope<>(ids.generate(), terminal ? payment.terminalEvidenceId() : ids.generate(), "payment", REALTIME, 1,
                 payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), snapshot);
     }
@@ -124,6 +129,7 @@ public class PaymentEvents {
     private void sendSnapshot(String tenant, StoredPaymentAcceptance payment, EventEnvelope<PaymentSnapshotEventDTO> envelope) {
         outbox.publish(new OutboxMessage(tenant, REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
     }
+
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly())

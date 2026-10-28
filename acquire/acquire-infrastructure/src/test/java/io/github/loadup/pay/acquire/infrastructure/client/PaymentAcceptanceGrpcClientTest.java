@@ -18,16 +18,23 @@ package io.github.loadup.pay.acquire.infrastructure.client;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.components.rpc.grpc.GrpcTransport;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -38,12 +45,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentCaptor;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -74,6 +75,12 @@ class PaymentAcceptanceGrpcClientTest {
     Path directory;
     Path tokenFile;
     PaymentAcceptanceGrpcClient client;
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     @BeforeEach
     void setup() throws Exception {
@@ -243,6 +250,7 @@ class PaymentAcceptanceGrpcClientTest {
         }
         verifyNoInteractions(rpc);
     }
+
     @Test
     void inputLookupUsesTypedRpcAndNeverTreatsTransportFailureAsInputAbsence() {
         var query = new io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery("payment", "order", "allocation", "merchant", 100L,
@@ -257,12 +265,6 @@ class PaymentAcceptanceGrpcClientTest {
         when(rpc.call(eq(operation), eq(query), any())).thenThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT"));
         assertSame(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> client.lookupInput("tenant", query)).getResultCode());
-    }
-
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 
     @Test

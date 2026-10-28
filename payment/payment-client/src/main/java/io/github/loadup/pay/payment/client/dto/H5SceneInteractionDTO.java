@@ -29,5 +29,8 @@ public record H5SceneInteractionDTO(
         @NotBlank @Size(max = 45) @DiagnosticHidden String payerClientIp,
         @Schema(description = "Payer environment", example = "WAP") @NotNull H5SceneType sceneType)
         implements PaymentInteractionDTO {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

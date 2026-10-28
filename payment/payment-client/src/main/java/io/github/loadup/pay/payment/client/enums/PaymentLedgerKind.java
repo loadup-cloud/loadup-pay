@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.payment.client.enums;
 
-public enum PaymentLedgerKind { PAYMENT, REFUND }
+public enum PaymentLedgerKind {PAYMENT, REFUND}

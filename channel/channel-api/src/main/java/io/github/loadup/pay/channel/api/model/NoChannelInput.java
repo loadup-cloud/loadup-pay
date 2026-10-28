@@ -19,6 +19,8 @@ import io.github.loadup.commons.json.ToStringAsJson;
 
 public record NoChannelInput() implements ChannelPaymentInput {
     @Override
-    public String toString() { return ToStringAsJson.reflectionToString(this); }
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }
 

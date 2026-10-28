@@ -21,9 +21,12 @@ import io.github.loadup.pay.acquire.client.command.MerchantNotificationWakeComma
 import io.github.loadup.pay.acquire.client.dto.MerchantNotificationDTO;
 import io.github.loadup.pay.acquire.client.dto.MerchantNotificationWakeDTO;
 import io.github.loadup.pay.acquire.client.query.MerchantNotificationPageQuery;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
@@ -31,7 +34,9 @@ import java.time.OffsetDateTime;
 public interface MerchantNotificationQueryConverter {
     @Mapping(target = "maxAttempts", source = "policy.retryMaxAttempts")
     MerchantNotificationDTO toDTO(MerchantNotificationDelivery value);
+
     MerchantNotificationFilter toFilter(MerchantNotificationPageQuery value);
+
     MerchantNotificationWakeDTO toDTO(MerchantNotificationWakeReceipt value);
 
     @Mapping(target = "id", source = "id")
@@ -46,8 +51,13 @@ public interface MerchantNotificationQueryConverter {
     @Mapping(target = "result", source = "decision.result")
     @Mapping(target = "nativeTaskId", source = "decision.nativeTaskId")
     MerchantNotificationWakeReceipt toReceipt(String id, MerchantNotificationWakeCommand command, MerchantNotificationDelivery delivery,
-            MerchantNotificationActor actor, MerchantNotificationWakeDecision decision, String callerScopeHash, String requestDigest, LocalDateTime acceptedAt);
+                                              MerchantNotificationActor actor, MerchantNotificationWakeDecision decision, String callerScopeHash, String requestDigest, LocalDateTime acceptedAt);
 
-    default OffsetDateTime external(LocalDateTime value) { return value == null ? null : BusinessTime.external(value); }
-    default LocalDateTime local(OffsetDateTime value) { return value == null ? null : BusinessTime.local(value); }
+    default OffsetDateTime external(LocalDateTime value) {
+        return value == null ? null : BusinessTime.external(value);
+    }
+
+    default LocalDateTime local(OffsetDateTime value) {
+        return value == null ? null : BusinessTime.local(value);
+    }
 }

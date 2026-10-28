@@ -167,7 +167,9 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                     || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.merchantOrderNo().equals(value.merchantOrderNo()))
                 throw new CommonException(SNAPSHOT_INVALID);
             return value;
-        } catch (RuntimeException failure) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException failure) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

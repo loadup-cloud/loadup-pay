@@ -17,16 +17,26 @@ package io.github.loadup.pay.reconciliation.infrastructure.repository;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.reconciliation.domain.model.*;
-import io.github.loadup.pay.reconciliation.domain.gateway.*;
+import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
-import io.github.loadup.pay.reconciliation.infrastructure.dataobject.*;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.*;
-import org.springframework.stereotype.Repository;
-import java.util.*;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
-import static io.github.loadup.pay.reconciliation.infrastructure.dataobject.table.Tables.*;
+import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationInputDO;
+import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationEntryDOMapper;
+import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationInputDOMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_NOT_SEALED;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.reconciliation.infrastructure.dataobject.table.Tables.RECONCILIATION_ENTRY_DO;
+import static io.github.loadup.pay.reconciliation.infrastructure.dataobject.table.Tables.RECONCILIATION_INPUT_DO;
 
 @Repository
 public class ReconciliationInputGatewayImpl implements ReconciliationInputGateway {
@@ -34,17 +44,25 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     private final ReconciliationEntryDOMapper entries;
     private final ReconciliationStorageConverter converter;
     private final int maxRecords;
+
     public ReconciliationInputGatewayImpl(ReconciliationInputDOMapper inputs, ReconciliationEntryDOMapper entries,
-            ReconciliationStorageConverter converter, @Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords) {
+                                          ReconciliationStorageConverter converter, @Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords) {
         if (maxRecords < 1 || maxRecords > 1000000) throw new CommonException(INVALID_ARGUMENT);
-        this.inputs = inputs; this.entries = entries; this.converter = converter; this.maxRecords = maxRecords;
+        this.inputs = inputs;
+        this.entries = entries;
+        this.converter = converter;
+        this.maxRecords = maxRecords;
     }
-    @Override public Optional<ReconciliationManifest> sealedManifest(String tenant, String artifactId) {
+
+    @Override
+    public Optional<ReconciliationManifest> sealedManifest(String tenant, String artifactId) {
         ReconciliationStoreContext.readable(tenant);
         var row = inputs.selectOneByQuery(key(tenant, artifactId));
         return row == null || !"SEALED".equals(row.getState()) ? Optional.empty() : Optional.of(manifest(row));
     }
-    @Override public ReconciliationDataset loadSealed(String tenant, String artifactId) {
+
+    @Override
+    public ReconciliationDataset loadSealed(String tenant, String artifactId) {
         ReconciliationStoreContext.readable(tenant);
         var row = inputs.selectOneByQuery(key(tenant, artifactId));
         if (row == null || !"SEALED".equals(row.getState())) throw new CommonException(INPUT_NOT_SEALED);
@@ -56,13 +74,18 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         try {
             var lines = rows.stream().map(entry -> {
                 var line = converter.toLine(entry);
-                if (!line.key().fingerprint().equals(entry.getMatchKeyHash())) throw new CommonException(SNAPSHOT_INVALID);
+                if (!line.key().fingerprint().equals(entry.getMatchKeyHash()))
+                    throw new CommonException(SNAPSHOT_INVALID);
                 return line;
             }).toList();
             return new ReconciliationDataset(manifest, lines);
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
-    @Override public void insertSealed(String tenant, String fileId, ReconciliationDataset dataset) {
+
+    @Override
+    public void insertSealed(String tenant, String fileId, ReconciliationDataset dataset) {
         ReconciliationStoreContext.writable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(fileId);
         if (dataset == null || dataset.records().size() > maxRecords) throw new CommonException(INPUT_INVALID);
@@ -72,17 +95,24 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             return;
         }
-        if (inputs.insert(converter.toInput(tenant, fileId, dataset.manifest())) != 1) throw new CommonException(CONCURRENT_UPDATE);
-        for (var line : dataset.records()) if (entries.insert(converter.toEntry(tenant, dataset.manifest().artifactId(), line)) != 1)
+        if (inputs.insert(converter.toInput(tenant, fileId, dataset.manifest())) != 1)
             throw new CommonException(CONCURRENT_UPDATE);
+        for (var line : dataset.records())
+            if (entries.insert(converter.toEntry(tenant, dataset.manifest().artifactId(), line)) != 1)
+                throw new CommonException(CONCURRENT_UPDATE);
     }
+
     private ReconciliationManifest manifest(ReconciliationInputDO row) {
         try {
             if (row.getPaymentCount() == null || row.getPaymentAmountMinor() == null || row.getRefundCount() == null
-                    || row.getRefundAmountMinor() == null || row.getRejectionCode() != null) throw new CommonException(SNAPSHOT_INVALID);
+                    || row.getRefundAmountMinor() == null || row.getRejectionCode() != null)
+                throw new CommonException(SNAPSHOT_INVALID);
             return converter.toManifest(row);
-        } catch (RuntimeException invalid) { throw new CommonException(SNAPSHOT_INVALID); }
+        } catch (RuntimeException invalid) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
+
     private QueryWrapper key(String tenant, String id) {
         io.github.loadup.commons.validation.DomainChecks.id(id);
         return QueryWrapper.create().where(RECONCILIATION_INPUT_DO.TENANT_ID.eq(tenant)).and(RECONCILIATION_INPUT_DO.DELETED.eq(0))

@@ -15,6 +15,12 @@
  */
 package io.github.loadup.pay.acquire.app.service;
 
+import io.github.loadup.commons.contract.ContractReference;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
@@ -25,12 +31,6 @@ import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.commons.payment.AccessMode;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.contract.ContractReference;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;

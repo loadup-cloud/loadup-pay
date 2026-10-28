@@ -64,7 +64,7 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
 
     @Override
     public Optional<StoredPaymentAttempt> findChannelRequest(String tenant, String bindingRevisionId,
-            String channelRequestNo) {
+                                                             String channelRequestNo) {
         var rows = attempts.selectListByQuery(scope(tenant)
                 .and(PAYMENT_ATTEMPT_DO.BINDING_REVISION_ID.eq(bindingRevisionId))
                 .and(PAYMENT_ATTEMPT_DO.CHANNEL_REQUEST_NO.eq(channelRequestNo)).limit(2));

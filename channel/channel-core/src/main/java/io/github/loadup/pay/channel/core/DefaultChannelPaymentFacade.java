@@ -18,14 +18,32 @@ package io.github.loadup.pay.channel.core;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentValidation;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.Collection;
 
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
-/** Immutable strategy registry; routing does not contain provider-specific branches. */
+/**
+ * Immutable strategy registry; routing does not contain provider-specific branches.
+ */
 public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     private final ChannelStrategyRegistry<ChannelProvider> providers;
     private final ChannelRecoveryConcurrency recovery;
@@ -119,7 +137,8 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         var result = checked(refund, recovery.execute(refund.original().channel(), () -> provider.recoverRefund(context, refund)));
         if (result.source() != RefundObservation.Source.QUERY_RESPONSE && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
                 || result.source() == RefundObservation.Source.SUBMIT_RESPONSE && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
-                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN)
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
         return result;
     }
 

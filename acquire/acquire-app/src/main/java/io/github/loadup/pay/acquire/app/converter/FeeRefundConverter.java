@@ -20,7 +20,9 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
-import org.mapstruct.*;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
 import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
@@ -28,7 +30,8 @@ public interface FeeRefundConverter {
     @Mapping(target = "orderId", source = "event.data.orderId")
     @Mapping(target = "sourceVersion", source = "event.aggregateVersion")
     FeeRefundReceipt toReceipt(String id, EventEnvelope<OrderRefundSummaryEventDTO> event, long appliedVersion,
-            String requestDigest, String callerServiceId, LocalDateTime acceptedAt);
+                               String requestDigest, String callerServiceId, LocalDateTime acceptedAt);
+
     @Mapping(target = "accepted", constant = "true")
     FeeRefundAckDTO toAck(FeeRefundReceipt value);
 }

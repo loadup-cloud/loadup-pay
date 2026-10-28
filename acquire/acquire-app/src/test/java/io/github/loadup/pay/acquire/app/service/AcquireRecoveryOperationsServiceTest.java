@@ -20,25 +20,77 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskResultCodeEnum;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.app.converter.AcquireRecoveryConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
 import io.github.loadup.pay.acquire.client.command.AcquireRecoveryRetryCommand;
 import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
 import io.github.loadup.pay.acquire.client.query.AcquireRecoveryTaskQuery;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.AcquireRecoveryRetryGateway;
+import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
+import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryRetryReceipt;
+import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
+import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.*;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AcquireRecoveryOperationsServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AcquireRecoveryConverter.class.getPackageName());
@@ -66,6 +118,11 @@ class AcquireRecoveryOperationsServiceTest {
     final AcquireRecoveryOperationsService service = new AcquireRecoveryOperationsService(actor::get, receipts, orders, extensions, closes,
             allocations, cursors, paymentRecovery, closure, tasks, context.getBean(AcquireRecoveryConverter.class), transactions,
             () -> "retry-receipt", validation.getValidator(), clock(NOW), "pay-ops");
+
+    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
+        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(), original.admittedAt(),
+                original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
+    }
 
     @BeforeEach
     void setup() {
@@ -111,13 +168,22 @@ class AcquireRecoveryOperationsServiceTest {
         }).when(receipts).insert(eq("tenant"), any());
         put(AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW, DelayedTaskStatus.FAILED);
     }
-    @AfterEach void close() { context.close(); validation.close(); }
+
+    @AfterEach
+    void close() {
+        context.close();
+        validation.close();
+    }
 
     AcquireRecoveryRetryCommand command(AcquireRecoveryKind kind, String subject, long generation, String expectedId, int attempts,
-            LocalDateTime next, String key, String reason) {
+                                        LocalDateTime next, String key, String reason) {
         return new AcquireRecoveryRetryCommand(kind, subject, generation, expectedId, attempts, BusinessTime.external(next), key, reason);
     }
-    AcquireRecoveryRetryCommand command() { return command(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L, "native-task", 5, NOW, "operation", "Dependency restored"); }
+
+    AcquireRecoveryRetryCommand command() {
+        return command(AcquireRecoveryKind.PAYMENT_ALLOCATION, "payment", 0L, "native-task", 5, NOW, "operation", "Dependency restored");
+    }
+
     void put(String type, String biz, LocalDateTime due, LocalDateTime next, DelayedTaskStatus status) {
         nativeTasks.put(type + "/" + biz, new DelayedTask("native-task", "tenant", type, biz, due, next, status, 5, 5, null, "secret-channel-error"));
     }
@@ -271,8 +337,11 @@ class AcquireRecoveryOperationsServiceTest {
         assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode());
         actor.set(new AcquireServiceActor("tenant", "pay-ops", Set.of("pay:acquire:recovery:retry")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        try { assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode()); }
-        finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        try {
+            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(command())).getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(receipts, orders, tasks);
     }
 
@@ -283,10 +352,5 @@ class AcquireRecoveryOperationsServiceTest {
         assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.retry(command(AcquireRecoveryKind.PAYMENT_ALLOCATION,
                 "payment", 0L, "native-task", 5, NOW.plusNanos(1), "operation", "Reason"))).getResultCode());
         verifyNoInteractions(receipts, orders, tasks);
-    }
-
-    static StoredAcquireOrder withOrder(StoredAcquireOrder original, AcquireOrder changed) {
-        return new StoredAcquireOrder(changed, original.merchantOrderNo(), original.subject(), original.admission(), original.admittedAt(),
-                original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
     }
 }

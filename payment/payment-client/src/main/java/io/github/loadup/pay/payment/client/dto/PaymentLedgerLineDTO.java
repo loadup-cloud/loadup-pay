@@ -17,8 +17,10 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.client.enums.*;
+import io.github.loadup.pay.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.pay.payment.client.enums.PaymentLedgerStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 @Schema(description = "One immutable line from a source-owned capture; gross payments and refunds stay separate")
@@ -35,5 +37,8 @@ public record PaymentLedgerLineDTO(
         @Schema(description = "Original payment or child-refund id") String sourceId,
         @Schema(description = "Winning payment receipt or first refund acceptance receipt") String evidenceId,
         @Schema(description = "Financial row version observed in the source RR snapshot") long sourceVersion) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

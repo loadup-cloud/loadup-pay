@@ -17,18 +17,27 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.pay.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash;
 import io.github.loadup.pay.payment.domain.gateway.PaymentCaptureGateway;
-import io.github.loadup.pay.payment.domain.model.*;
-import org.springframework.beans.factory.annotation.*;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.time.*;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Objects;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Service
 public class PaymentCaptureExecutionService {
@@ -41,13 +50,22 @@ public class PaymentCaptureExecutionService {
     private final Clock clock;
     private final int timeoutSeconds;
     private final String reconciliationService;
+
     public PaymentCaptureExecutionService(PaymentCaptureGateway captures, PaymentCaptureReader reader, PaymentAcceptanceTransactions transactions,
-            PaymentCaptureConverter converter, DelayedTaskTemplate tasks, @Qualifier("paymentClock") Clock clock,
-            @Value("${loadup.modules.payment.reconciliation.source-read-timeout-seconds:10}") int timeoutSeconds,
-            @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
+                                          PaymentCaptureConverter converter, DelayedTaskTemplate tasks, @Qualifier("paymentClock") Clock clock,
+                                          @Value("${loadup.modules.payment.reconciliation.source-read-timeout-seconds:10}") int timeoutSeconds,
+                                          @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
         if (timeoutSeconds < 1 || timeoutSeconds > 60) throw new CommonException(INVALID_ARGUMENT);
-        this.captures = captures; this.reader = reader; this.transactions = transactions; this.converter = converter; this.tasks = tasks; this.clock = clock; this.timeoutSeconds = timeoutSeconds; this.reconciliationService = io.github.loadup.commons.validation.DomainChecks.id(reconciliationService);
+        this.captures = captures;
+        this.reader = reader;
+        this.transactions = transactions;
+        this.converter = converter;
+        this.tasks = tasks;
+        this.clock = clock;
+        this.timeoutSeconds = timeoutSeconds;
+        this.reconciliationService = io.github.loadup.commons.validation.DomainChecks.id(reconciliationService);
     }
+
     public void handle(DelayedTask task) {
         if (TransactionSynchronizationManager.isActualTransactionActive() || task == null || task.tenantId() == null || !task.tenantId().equals(TenantUtil.getTenantId())
                 || !TYPE.equals(task.taskType()) || task.status() != DelayedTaskStatus.RUNNING || task.bizId() == null || task.id() == null || task.attempts() < 1)
@@ -57,7 +75,8 @@ public class PaymentCaptureExecutionService {
                 || !Objects.equals(actual.bizId(), task.bizId()) || actual.status() != DelayedTaskStatus.RUNNING || actual.attempts() != task.attempts()
                 || actual.maxAttempts() != task.maxAttempts() || actual.maxAttempts() < actual.attempts() || actual.executeAt() == null
                 || !Objects.equals(actual.executeAt(), task.executeAt()) || actual.nextExecuteAt() == null || !Objects.equals(actual.nextExecuteAt(), task.nextExecuteAt())
-                || actual.nextExecuteAt().isAfter(LocalDateTime.now(clock)) || actual.leaseUntil() == null || !actual.leaseUntil().isAfter(LocalDateTime.now(clock))) throw new CommonException(INVALID_STATE);
+                || actual.nextExecuteAt().isAfter(LocalDateTime.now(clock)) || actual.leaseUntil() == null || !actual.leaseUntil().isAfter(LocalDateTime.now(clock)))
+            throw new CommonException(INVALID_STATE);
         var original = transactions.readSnapshot(task.tenantId(), () -> captures.find(task.tenantId(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         if (!reconciliationService.equals(original.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
         if (original.state() != PaymentCaptureState.INIT) return;

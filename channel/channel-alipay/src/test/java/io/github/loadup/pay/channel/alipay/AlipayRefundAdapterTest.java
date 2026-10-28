@@ -26,22 +26,41 @@ import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolTime;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 class AlipayRefundAdapterTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-23T10:11:12Z"), ZoneOffset.UTC);
@@ -58,6 +77,45 @@ class AlipayRefundAdapterTest {
     private final ChannelExecutionContext direct = context("tenant", "revision-1", HASH, AccessMode.DIRECT,
             new AlipayAccountIdentity("app", "seller", null, null, null));
     private final PreparedChannelRefund refund = refund(REFUND_NO, identity("revision-1", HASH), TRADE_NO);
+
+    private static String successPayload(String trade, String outTrade, String outRequest,
+                                         String refundAmount, String totalAmount, String time) {
+        return "{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":\"" + trade
+                + "\",\"out_trade_no\":\"" + outTrade + "\",\"out_request_no\":\"" + outRequest
+                + "\",\"refund_amount\":\"" + refundAmount + "\",\"total_amount\":\"" + totalAmount
+                + "\",\"gmt_refund_pay\":\"" + time + "\"}";
+    }
+
+    private static String recoveryPayload(String code, String status, String trade, String outTrade, String outRequest,
+                                          String refundAmount, String totalAmount) {
+        var payload = new StringBuilder("{\"code\":\"").append(code).append('"');
+        if (status != null) payload.append(",\"refund_status\":\"").append(status).append('"');
+        if (trade != null) payload.append(",\"trade_no\":\"").append(trade).append('"');
+        if (outTrade != null) payload.append(",\"out_trade_no\":\"").append(outTrade).append('"');
+        if (outRequest != null) payload.append(",\"out_request_no\":\"").append(outRequest).append('"');
+        if (refundAmount != null) payload.append(",\"refund_amount\":\"").append(refundAmount).append('"');
+        if (totalAmount != null) payload.append(",\"total_amount\":\"").append(totalAmount).append('"');
+        return payload.append('}').toString();
+    }
+
+    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
+        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
+    }
+
+    private static ChannelExecutionContext context(String tenant, String revision, String hash, AccessMode mode,
+                                                   AlipayAccountIdentity account) {
+        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
+                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
+        return new ChannelExecutionContext(tenant, binding);
+    }
+
+    private static ChannelPaymentIdentity identity(String revision, String hash) {
+        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, revision, hash, OUT_TRADE_NO);
+    }
+
+    private static PreparedChannelRefund refund(String refundNo, ChannelPaymentIdentity identity, String tradeNo) {
+        return new PreparedChannelRefund(identity, "refund-id-1", refundNo, REFUND_AMOUNT, ORIGINAL_AMOUNT, tradeNo);
+    }
 
     @Test
     void submitsExactOriginalTradeAndRefundFieldsAndKeepsAcceptedStatusNonterminal() throws Exception {
@@ -184,7 +242,8 @@ class AlipayRefundAdapterTest {
                     .thenReturn(response);
             var result = TenantUtil.callWithTenant("tenant", () -> adapter.recover(direct, refund));
             assertEquals(RefundObservation.Source.QUERY_RESPONSE, result.source());
-            if (response.payload().contains("REFUND_SUCCESS")) assertEquals(ChannelRefundOutcome.Kind.SUCCEEDED, result.kind());
+            if (response.payload().contains("REFUND_SUCCESS"))
+                assertEquals(ChannelRefundOutcome.Kind.SUCCEEDED, result.kind());
             else assertEquals(ChannelRefundOutcome.Kind.UNKNOWN, result.kind());
             verify(client, times(1)).call(eq("tenant"), eq(direct.binding()), eq(AlipayMethod.REFUND_QUERY), anyString(), eq(Map.of()));
             verifyNoMoreInteractions(client);
@@ -324,44 +383,5 @@ class AlipayRefundAdapterTest {
         var captor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
-    }
-
-    private static String successPayload(String trade, String outTrade, String outRequest,
-            String refundAmount, String totalAmount, String time) {
-        return "{\"code\":\"10000\",\"refund_status\":\"REFUND_SUCCESS\",\"trade_no\":\"" + trade
-                + "\",\"out_trade_no\":\"" + outTrade + "\",\"out_request_no\":\"" + outRequest
-                + "\",\"refund_amount\":\"" + refundAmount + "\",\"total_amount\":\"" + totalAmount
-                + "\",\"gmt_refund_pay\":\"" + time + "\"}";
-    }
-
-    private static String recoveryPayload(String code, String status, String trade, String outTrade, String outRequest,
-            String refundAmount, String totalAmount) {
-        var payload = new StringBuilder("{\"code\":\"").append(code).append('"');
-        if (status != null) payload.append(",\"refund_status\":\"").append(status).append('"');
-        if (trade != null) payload.append(",\"trade_no\":\"").append(trade).append('"');
-        if (outTrade != null) payload.append(",\"out_trade_no\":\"").append(outTrade).append('"');
-        if (outRequest != null) payload.append(",\"out_request_no\":\"").append(outRequest).append('"');
-        if (refundAmount != null) payload.append(",\"refund_amount\":\"").append(refundAmount).append('"');
-        if (totalAmount != null) payload.append(",\"total_amount\":\"").append(totalAmount).append('"');
-        return payload.append('}').toString();
-    }
-
-    private static AlipayVerifiedResponse verified(AlipayMethod method, String payload) {
-        return new AlipayVerifiedResponse(method, payload, DigestUtils.sha256(payload));
-    }
-
-    private static ChannelExecutionContext context(String tenant, String revision, String hash, AccessMode mode,
-            AlipayAccountIdentity account) {
-        var binding = new ChannelBindingRevision(revision, "merchant-1", Channel.ALIPAY, mode, hash,
-                "credential-ref", "1", account, Set.of(PaymentMethod.PAYMENT_CODE));
-        return new ChannelExecutionContext(tenant, binding);
-    }
-
-    private static ChannelPaymentIdentity identity(String revision, String hash) {
-        return new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, revision, hash, OUT_TRADE_NO);
-    }
-
-    private static PreparedChannelRefund refund(String refundNo, ChannelPaymentIdentity identity, String tradeNo) {
-        return new PreparedChannelRefund(identity, "refund-id-1", refundNo, REFUND_AMOUNT, ORIGINAL_AMOUNT, tradeNo);
     }
 }

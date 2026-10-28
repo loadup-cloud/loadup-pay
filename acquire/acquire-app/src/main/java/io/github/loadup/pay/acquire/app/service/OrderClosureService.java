@@ -22,9 +22,13 @@ import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderClosureFacade;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Authenticated merchant entry point; background continuation uses the persisted original ownership. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+
+/**
+ * Authenticated merchant entry point; background continuation uses the persisted original ownership.
+ */
 @Service
 public class OrderClosureService implements AcquireOrderClosureFacade {
     private final AcquireActorProvider actors;

@@ -24,14 +24,21 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/payment/operations/recovery/unknown")
 @Tag(name = "Payment UNKNOWN investigations")
 public class PaymentUnknownRecoveryController {
     private final PaymentUnknownRecoveryFacade facade;
-    public PaymentUnknownRecoveryController(PaymentUnknownRecoveryFacade facade) { this.facade = facade; }
+
+    public PaymentUnknownRecoveryController(PaymentUnknownRecoveryFacade facade) {
+        this.facade = facade;
+    }
+
     @PostMapping("/list")
     @Operation(summary = "List tenant-scoped UNKNOWN payment/child-refund cases; operations SERVICE with recovery read permission only")
     public ResponseEntity<SuccessResponse<PaymentUnknownRecoveryPageDTO>> list(@Valid @RequestBody PaymentUnknownRecoveryQuery query) {

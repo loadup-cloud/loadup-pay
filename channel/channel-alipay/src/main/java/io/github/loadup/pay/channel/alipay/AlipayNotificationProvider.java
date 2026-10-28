@@ -17,30 +17,60 @@ package io.github.loadup.pay.channel.alipay;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayNotificationCodec;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
+import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import io.github.loadup.pay.channel.api.model.ChannelRefundNotificationHint;
+import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
+import io.github.loadup.pay.channel.api.model.VerifiedChannelRefundNotification;
+import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
+
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
-/** Alipay trade notification strategy; acknowledgements are fixed protocol values. */
+/**
+ * Alipay trade notification strategy; acknowledgements are fixed protocol values.
+ */
 public final class AlipayNotificationProvider implements ChannelNotificationProvider {
     private final AlipayNotificationCodec codec;
-    public AlipayNotificationProvider(AlipayNotificationCodec codec) { this.codec = codec; }
-    @Override public Channel channel() { return Channel.ALIPAY; }
-    @Override public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
+
+    public AlipayNotificationProvider(AlipayNotificationCodec codec) {
+        this.codec = codec;
+    }
+
+    @Override
+    public Channel channel() {
+        return Channel.ALIPAY;
+    }
+
+    @Override
+    public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
         if (context == null || context.binding().channel() != channel()) throw new CommonException(INVALID_ARGUMENT);
         return codec.identify(input);
     }
-    @Override public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target,
-            ChannelNotificationInput input) { return codec.verify(context, target, input); }
-    @Override public ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input) {
+
+    @Override
+    public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target,
+                                              ChannelNotificationInput input) {
+        return codec.verify(context, target, input);
+    }
+
+    @Override
+    public ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input) {
         throw new CommonException(UNSUPPORTED_CAPABILITY);
     }
-    @Override public VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input) {
+
+    @Override
+    public VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input) {
         throw new CommonException(UNSUPPORTED_CAPABILITY);
     }
-    @Override public ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted) {
+
+    @Override
+    public ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted) {
         if (channel != channel()) throw new CommonException(INVALID_ARGUMENT);
         return new ChannelNotificationAcknowledgement(200, "text/plain;charset=UTF-8", accepted ? "success" : "failure");
     }

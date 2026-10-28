@@ -20,20 +20,30 @@ import io.github.loadup.components.http.HttpCall;
 import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Map;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.*;
 
-/** Uses only named loadup HTTP operations. No automatic retries, redirects or SDK-owned transport. */
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+
+/**
+ * Uses only named loadup HTTP operations. No automatic retries, redirects or SDK-owned transport.
+ */
 public class WechatProtocolClient {
     private final HttpTemplate http;
     private final WechatCredentialReader credentials;
     private final WechatProtocolCodec codec;
+
     public WechatProtocolClient(HttpTemplate http, WechatCredentialReader credentials, WechatProtocolCodec codec) {
-        this.http = http; this.credentials = credentials; this.codec = codec;
+        this.http = http;
+        this.credentials = credentials;
+        this.codec = codec;
     }
+
     public WechatVerifiedResponse call(String tenant, ChannelBindingRevision binding, WechatMethod method,
-            Map<String, String> path, Map<String, List<String>> query, String body) {
+                                       Map<String, String> path, Map<String, List<String>> query, String body) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (method == null) throw new CommonException(INVALID_ARGUMENT);
         var original = credentials.read(tenant, binding);
@@ -43,7 +53,10 @@ public class WechatProtocolClient {
                     (verb, uri, bytes) -> codec.sign(method, original, verb, uri, bytes));
             // Error responses also require the original platform pin; unsigned errors cannot become financial evidence.
             return codec.verify(method, original, response);
-        } catch (CommonException failure) { throw failure; }
-        catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (CommonException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

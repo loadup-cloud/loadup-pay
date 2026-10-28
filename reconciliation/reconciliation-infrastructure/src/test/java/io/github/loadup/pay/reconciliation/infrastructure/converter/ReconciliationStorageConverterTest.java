@@ -18,35 +18,61 @@ package io.github.loadup.pay.reconciliation.infrastructure.converter;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationBatch;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationEntryStatus;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
+import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import java.time.LocalDate;
 import java.util.List;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ReconciliationStorageConverterTest {
     private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ReconciliationStorageConverter.class.getPackageName());
     private final ReconciliationStorageConverter values = context.getBean(ReconciliationStorageConverter.class);
     private final ReconciliationDifferenceStorageConverter differences = context.getBean(ReconciliationDifferenceStorageConverter.class);
     private final ReconciliationScope scope = new ReconciliationScope(Channel.ALIPAY, "a".repeat(64), LocalDate.of(2026, 10, 26), "trade-v1");
-    @AfterEach void close() { context.close(); }
-    @Test void persistedIndependentRefundRetainsExactAmountKeyAndProcessingState() {
+
+    @AfterEach
+    void close() {
+        context.close();
+    }
+
+    @Test
+    void persistedIndependentRefundRetainsExactAmountKeyAndProcessingState() {
         var line = line(9_007_199_254_740_993L, "request", ReconciliationEntryStatus.PROCESSING);
         var row = values.toEntry("tenant", "input", line);
         assertEquals(line.key().fingerprint(), row.getMatchKeyHash());
         assertEquals(line, values.toLine(row));
         var input = manifest(ReconciliationSide.CHANNEL, line);
         var header = values.toInput("tenant", "file", input);
-        assertEquals(Long.valueOf(0L), header.getRowVersion()); assertEquals("SEALED", header.getState());
+        assertEquals(Long.valueOf(0L), header.getRowVersion());
+        assertEquals("SEALED", header.getState());
         assertEquals(input, values.toManifest(header));
     }
-    @Test void batchStorageRetainsAbsentInputsThenOriginalRunAndResult() {
+
+    @Test
+    void batchStorageRetainsAbsentInputsThenOriginalRunAndResult() {
         var initial = ReconciliationBatch.init("batch", scope);
         var stored = new StoredReconciliationBatch(initial, "ops", "request", "b".repeat(64), "account");
         var row = values.toDO("tenant", stored);
-        assertNull(row.getMatchedCount()); assertNull(row.getDifferenceCount()); assertNull(row.getRunId());
+        assertNull(row.getMatchedCount());
+        assertNull(row.getDifferenceCount());
+        assertNull(row.getRunId());
         assertEquals(initial, values.toBatch(row, null, null, null));
         var line = line(100L, "request", ReconciliationEntryStatus.SUCCEEDED);
         var channel = new ReconciliationDataset(manifest(ReconciliationSide.CHANNEL, line), List.of(line));
@@ -56,7 +82,9 @@ class ReconciliationStorageConverterTest {
         assertEquals(Long.valueOf(0), row.getDifferenceCount());
         assertEquals(complete, values.toBatch(row, channel.manifest(), ledger.manifest(), values.toSummary(row)));
     }
-    @Test void allMismatchFlagsSurviveStorageAndCorruptFlagsFailClosed() {
+
+    @Test
+    void allMismatchFlagsSurviveStorageAndCorruptFlagsFailClosed() {
         var channel = line(100L, "request", ReconciliationEntryStatus.SUCCEEDED);
         var ledger = line(90L, "other-request", ReconciliationEntryStatus.PROCESSING);
         var result = new ReconciliationMatcher().compare(
@@ -68,9 +96,11 @@ class ReconciliationStorageConverterTest {
         row.setAmountMismatch(2);
         assertThrows(CommonException.class, () -> differences.toDifference(row, channel, ledger));
     }
+
     private ReconciliationLine line(long amount, String request, ReconciliationEntryStatus state) {
         return new ReconciliationLine(new ReconciliationKey(ReconciliationRecordKind.REFUND, "transaction", "child-refund"), request, Money.ofMinor(amount, "CNY"), state, 1);
     }
+
     private ReconciliationManifest manifest(ReconciliationSide side, ReconciliationLine line) {
         return new ReconciliationManifest(side, scope, side.name(), "c".repeat(64), ReconciliationDataset.normalizedHash(scope, side, "parser", List.of(line)),
                 side.name() + "-capture", "parser", ReconciliationTotals.count(List.of(line)));

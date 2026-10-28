@@ -17,16 +17,17 @@ package io.github.loadup.pay.acquire.infrastructure.client;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
 import io.grpc.Metadata;
 import io.grpc.Status;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.util.Set;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -49,6 +50,12 @@ class OrderAdmissionGrpcClientTest {
     final OrderAdmissionGrpcClient client = new OrderAdmissionGrpcClient(rpc, () -> actor);
     final OrderAdmissionAuthorizeCommand command =
             new OrderAdmissionAuthorizeCommand("order", "merchant", "scope", "b".repeat(64), 100, "CNY", null);
+
+    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
+        var trailers = new Metadata();
+        trailers.put(RpcServerSupport.RESULT_CODE, code);
+        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
+    }
 
     @Test
     void authenticationFailureIsADependencyFailureRatherThanAPersistableContractDenial() {
@@ -93,10 +100,5 @@ class OrderAdmissionGrpcClientTest {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
         verifyNoInteractions(rpc);
-    }
-    private static io.grpc.StatusRuntimeException remoteFailure(String code) {
-        var trailers = new Metadata();
-        trailers.put(RpcServerSupport.RESULT_CODE, code);
-        return Status.FAILED_PRECONDITION.asRuntimeException(trailers);
     }
 }

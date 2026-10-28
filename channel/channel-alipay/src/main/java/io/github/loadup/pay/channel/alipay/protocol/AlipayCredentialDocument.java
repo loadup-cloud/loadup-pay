@@ -18,8 +18,14 @@ package io.github.loadup.pay.channel.alipay.protocol;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-/** Mounted immutable descriptor; contains a KMS reference, never an application private key. */
+/**
+ * Mounted immutable descriptor; contains a KMS reference, never an application private key.
+ */
 public record AlipayCredentialDocument(String tenantId, String reference, String version, String appId, String sellerId,
-        String signingKeyName, int signingKeyVersion, @DiagnosticHidden String platformPublicKey) {
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+                                       String signingKeyName, int signingKeyVersion,
+                                       @DiagnosticHidden String platformPublicKey) {
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

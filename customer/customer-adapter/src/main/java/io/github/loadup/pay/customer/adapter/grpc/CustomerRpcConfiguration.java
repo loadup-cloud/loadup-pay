@@ -16,9 +16,9 @@
 package io.github.loadup.pay.customer.adapter.grpc;
 
 import io.github.loadup.components.rpc.grpc.GrpcSupportConfiguration;
-import io.github.loadup.pay.customer.rpc.CustomerRpcMapper;
-import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.components.rpc.grpc.RpcJwtInterceptor;
+import io.github.loadup.components.rpc.grpc.RpcServerSupport;
+import io.github.loadup.pay.customer.rpc.CustomerRpcMapper;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +30,7 @@ import org.springframework.context.annotation.Import;
 public class CustomerRpcConfiguration {
     @Bean
     BindableService customerRpc(RpcServerSupport support, RpcJwtInterceptor authentication,
-            io.github.loadup.pay.customer.client.facade.MerchantEligibilityFacade facade0) {
+                                io.github.loadup.pay.customer.client.facade.MerchantEligibilityFacade facade0) {
         var service = new io.github.loadup.pay.customer.rpc.proto.CustomerRpcGrpc.CustomerRpcImplBase() {
             @Override
             public void authorize(io.github.loadup.pay.customer.rpc.proto.WireMerchantActionAuthorizeCommand request, io.grpc.stub.StreamObserver<io.github.loadup.pay.customer.rpc.proto.WireMerchantEligibilityDTO> observer) {

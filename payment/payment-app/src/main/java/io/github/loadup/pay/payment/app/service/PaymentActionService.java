@@ -17,8 +17,12 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.*;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentExecution;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.model.LockedPayment;
@@ -26,16 +30,28 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentActionSource;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Persist original actions under execution locks; local preparations never fabricate channel receipts. */
+/**
+ * Persist original actions under execution locks; local preparations never fabricate channel receipts.
+ */
 @Service
 public class PaymentActionService {
     private final PaymentActionGateway actions;
@@ -47,7 +63,7 @@ public class PaymentActionService {
     private final ChannelActionCodec actionCodec;
 
     public PaymentActionService(PaymentActionGateway actions, PaymentAttemptGateway attempts, PaymentAcceptanceCodec codec,
-            PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, @Qualifier("paymentClock") Clock clock, ChannelActionCodec actionCodec) {
+                                PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, @Qualifier("paymentClock") Clock clock, ChannelActionCodec actionCodec) {
         this.actions = actions;
         this.attempts = attempts;
         this.codec = codec;
@@ -58,7 +74,7 @@ public class PaymentActionService {
     }
 
     public void record(String tenant, LockedPayment locked, ChannelPaymentExecution original,
-            ChannelPaymentSubmission result, String receiptId) {
+                       ChannelPaymentSubmission result, String receiptId) {
         writable(tenant);
         if (original == null || result == null || !original.identity().equals(result.identity())
                 || !original.amount().equals(result.amount())) throw new CommonException(INVALID_ARGUMENT);
@@ -68,7 +84,8 @@ public class PaymentActionService {
                 || !(original instanceof PreparedChannelPayment)
                 : receiptId == null || result.observation().kind() != ChannelPaymentOutcome.Kind.ACCEPTED)
             throw new CommonException(INVALID_ARGUMENT);
-        if (!active(locked) || !original.identity().attemptId().equals(locked.payment().payment().activeAttemptId())) return;
+        if (!active(locked) || !original.identity().attemptId().equals(locked.payment().payment().activeAttemptId()))
+            return;
         var attempt = attempts.find(tenant, original.identity().attemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         validate(locked, attempt);
         if (!attempt.attempt().identity().equals(original.identity())
@@ -131,7 +148,7 @@ public class PaymentActionService {
         var attempt = stored.attempt();
         if (attempt.executionEpoch() <= 0
                 || (attempt.state() != PaymentAttemptState.SUBMITTING && attempt.state() != PaymentAttemptState.PENDING
-                    && attempt.state() != PaymentAttemptState.UNKNOWN))
+                && attempt.state() != PaymentAttemptState.UNKNOWN))
             throw new CommonException(SNAPSHOT_INVALID);
     }
 

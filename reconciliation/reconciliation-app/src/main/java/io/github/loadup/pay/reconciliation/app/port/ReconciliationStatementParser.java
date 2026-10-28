@@ -15,10 +15,14 @@
  */
 package io.github.loadup.pay.reconciliation.app.port;
 
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+
 import java.io.InputStream;
 
 public interface ReconciliationStatementParser {
     boolean supports(ReconciliationScope scope);
+
     ReconciliationDataset parse(InputStream content, ReconciliationImportRequest request);
 }

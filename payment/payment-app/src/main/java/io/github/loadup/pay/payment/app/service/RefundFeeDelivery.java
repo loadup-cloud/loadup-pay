@@ -29,7 +29,9 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
-/** Independent financial target; a successful realtime delivery cannot acknowledge this target. */
+/**
+ * Independent financial target; a successful realtime delivery cannot acknowledge this target.
+ */
 @Component
 public class RefundFeeDelivery {
     private final OutboxTemplate outbox;

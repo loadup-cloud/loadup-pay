@@ -24,19 +24,33 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.app.converter.MerchantNotificationConverter;
-import io.github.loadup.pay.acquire.app.model.*;
+import io.github.loadup.pay.acquire.app.model.MerchantNotificationBody;
+import io.github.loadup.pay.acquire.app.model.MerchantNotificationRegistration;
+import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
-import io.github.loadup.pay.acquire.domain.gateway.*;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Optional;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
 
-/** Frozen merchant events and their first native wake-up join the source financial transaction. */
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * Frozen merchant events and their first native wake-up join the source financial transaction.
+ */
 @Component
 public class MerchantNotificationEvents {
     private final OrderCreationGateway orders;
@@ -46,11 +60,18 @@ public class MerchantNotificationEvents {
     private final MerchantNotificationGateway deliveries;
     private final DelayedTaskTemplate tasks;
     private final IdGenerator ids;
+
     public MerchantNotificationEvents(OrderCreationGateway orders, OrderCreationCodec admissions, OrderSnapshotReader facts,
-            MerchantNotificationConverter converter, MerchantNotificationGateway deliveries, DelayedTaskTemplate tasks, IdGenerator ids) {
-        this.orders = orders; this.admissions = admissions; this.facts = facts; this.converter = converter;
-        this.deliveries = deliveries; this.tasks = tasks; this.ids = ids;
+                                      MerchantNotificationConverter converter, MerchantNotificationGateway deliveries, DelayedTaskTemplate tasks, IdGenerator ids) {
+        this.orders = orders;
+        this.admissions = admissions;
+        this.facts = facts;
+        this.converter = converter;
+        this.deliveries = deliveries;
+        this.tasks = tasks;
+        this.ids = ids;
     }
+
     public void order(String tenant, OrderSnapshotFacts header) {
         writable(tenant);
         String type = switch (header.state()) {
@@ -58,8 +79,10 @@ public class MerchantNotificationEvents {
             case "CLOSED" -> "OrderClosed";
             default -> null;
         };
-        if (type != null) publish(tenant, header, type, "AcquireOrder", header.orderId(), header.sourceVersion(), null, header.amount().getCent());
+        if (type != null)
+            publish(tenant, header, type, "AcquireOrder", header.orderId(), header.sourceVersion(), null, header.amount().getCent());
     }
+
     public void payment(String tenant, String orderId, VerifiedPaymentOutcome payment) {
         writable(tenant);
         if (payment.kind() != VerifiedPaymentOutcome.Kind.SUCCEEDED) return;
@@ -91,7 +114,7 @@ public class MerchantNotificationEvents {
     }
 
     private void publish(String tenant, OrderSnapshotFacts header, String type, String aggregateType, String aggregate,
-            long version, String paymentId, long amount) {
+                         long version, String paymentId, long amount) {
         var stored = orders.lockOrder(tenant, header.orderId());
         if (stored.order().version() != header.sourceVersion() || !stored.order().payeeMerchantId().equals(header.payeeMerchantId())
                 || !stored.order().amount().equals(header.amount()) || stored.order().paidAmountMinor() != header.paidMinor()
@@ -122,7 +145,7 @@ public class MerchantNotificationEvents {
     }
 
     private void enqueue(String tenant, String orderId, String merchantId, String type, String aggregate, long version,
-            String eventId, String body, MerchantNotificationPolicy policy, java.time.LocalDateTime occurredAt) {
+                         String eventId, String body, MerchantNotificationPolicy policy, java.time.LocalDateTime occurredAt) {
         String digest = DigestUtils.sha256(body);
         var prior = deliveries.findEvent(tenant, eventId, policy.targetRef());
         if (prior.isPresent()) {
@@ -137,6 +160,7 @@ public class MerchantNotificationEvents {
         deliveries.insert(tenant, delivery);
         tasks.register(MerchantNotificationService.TYPE, new MerchantNotificationKey(delivery.id(), 0).bizId(), delivery.nextAttemptAt());
     }
+
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);

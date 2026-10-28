@@ -15,14 +15,14 @@
  */
 package io.github.loadup.pay.acquire.domain;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundPolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

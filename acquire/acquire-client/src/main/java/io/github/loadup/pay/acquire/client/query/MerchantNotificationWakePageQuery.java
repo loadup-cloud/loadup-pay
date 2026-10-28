@@ -28,7 +28,12 @@ public record MerchantNotificationWakePageQuery(
         @Schema(description = "Page size, up to 100") Integer size) {
     public MerchantNotificationWakePageQuery {
         var bounds = PageQuery.normalized(page, size, AcquireResultCodeEnum.INVALID_PAGE);
-        page = bounds.page(); size = bounds.size();
+        page = bounds.page();
+        size = bounds.size();
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
 }

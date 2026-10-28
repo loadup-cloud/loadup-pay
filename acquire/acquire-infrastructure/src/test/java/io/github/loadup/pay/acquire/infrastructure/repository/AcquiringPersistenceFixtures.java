@@ -17,26 +17,50 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.commons.payment.*;
+import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
-import io.github.loadup.pay.acquire.client.command.*;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
-import io.github.loadup.pay.acquire.domain.model.*;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFee;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.product.client.dto.*;
+import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
+import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
+import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
+import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
+import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-/** Complete synthetic A1 evidence; creation intents, snapshots, headers and fee rows use actual gateways. */
+/**
+ * Complete synthetic A1 evidence; creation intents, snapshots, headers and fee rows use actual gateways.
+ */
 final class AcquiringPersistenceFixtures {
     static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
     static final String OWNER = "a".repeat(64);
-    static String id(String prefix) { return prefix + "-" + UUID.randomUUID(); }
+
+    static String id(String prefix) {
+        return prefix + "-" + UUID.randomUUID();
+    }
+
     static Fixture order(OrderCreationCodec codec, AcquireOrderConverter converter, String mode) {
         String tenant = id("tenant"), orderId = id("order"), merchant = id("merchant"), merchantNo = id("merchant-no");
         var command = new AcquireOrderCreateCommand(merchant, merchantNo, "scope", 10000L, "CNY", "Synthetic acquiring order", null);
@@ -45,9 +69,11 @@ final class AcquiringPersistenceFixtures {
         if ("DIRECT_PAY".equals(mode)) {
             var direct = new DirectPayRecoverCommand(merchant, merchantNo, "scope", 10000L, "CNY", command.subject(), null,
                     "original-first", 10000L, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), PaymentInteractionKind.NONE);
-            payload = codec.encodeDirectPay(direct); digest = codec.directPayDigest(tenant, OWNER, direct);
+            payload = codec.encodeDirectPay(direct);
+            digest = codec.directPayDigest(tenant, OWNER, direct);
         } else {
-            payload = codec.encodeIntent(command); digest = codec.requestDigest(tenant, OWNER, command);
+            payload = codec.encodeIntent(command);
+            digest = codec.requestDigest(tenant, OWNER, command);
         }
         var intent = new OrderCreateIntent(id("intent"), orderId, merchant, merchantNo, digest, OWNER, mode, null, payload,
                 "INIT", null, null, null, 0L);
@@ -77,7 +103,11 @@ final class AcquiringPersistenceFixtures {
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))), "routing-v1", "return-v1");
     }
 
-    record Fixture(String tenant, OrderCreateIntent intent, StoredAcquireOrder stored, OrderFee fee, String feePayload, OrderAdmissionDTO admission) {
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+    record Fixture(String tenant, OrderCreateIntent intent, StoredAcquireOrder stored, OrderFee fee, String feePayload,
+                   OrderAdmissionDTO admission) {
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
 }

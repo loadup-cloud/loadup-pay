@@ -21,10 +21,12 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.acquire.app.converter.CashierPaymentConverter;
 import io.github.loadup.pay.acquire.app.port.CashierInteractionProvider;
 import io.github.loadup.pay.acquire.app.security.CashierActorProvider;
-import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentRecoverCommand;
+import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
-import io.github.loadup.pay.acquire.client.dto.*;
+import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
+import io.github.loadup.pay.acquire.client.dto.CashierPaymentDTO;
+import io.github.loadup.pay.acquire.client.dto.CashierPaymentRecoveryDTO;
 import io.github.loadup.pay.acquire.client.facade.CashierFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
@@ -32,9 +34,14 @@ import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.*;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 @Service
 public class CashierService implements CashierFacade {
@@ -51,17 +58,35 @@ public class CashierService implements CashierFacade {
     private final OrderCreationTransactions transactions;
     private final Validator validator;
     private final Clock clock;
+
     public CashierService(CashierActorProvider actors, CashierAccess access, CashierChoices choices, CashierInteractionProvider inputs,
-            OrderCreationGateway orders, PaymentOutcomeGateway allocations, PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
-            CashierSummaryService summaries, CashierPaymentConverter converter, OrderCreationTransactions transactions, Validator validator,
-            @Qualifier("acquireClock") Clock clock) {
-        this.actors = actors; this.access = access; this.choices = choices; this.inputs = inputs; this.orders = orders; this.allocations = allocations;
-        this.initiation = initiation; this.outcomes = outcomes; this.summaries = summaries; this.converter = converter;
-        this.transactions = transactions; this.validator = validator; this.clock = clock;
+                          OrderCreationGateway orders, PaymentOutcomeGateway allocations, PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
+                          CashierSummaryService summaries, CashierPaymentConverter converter, OrderCreationTransactions transactions, Validator validator,
+                          @Qualifier("acquireClock") Clock clock) {
+        this.actors = actors;
+        this.access = access;
+        this.choices = choices;
+        this.inputs = inputs;
+        this.orders = orders;
+        this.allocations = allocations;
+        this.initiation = initiation;
+        this.outcomes = outcomes;
+        this.summaries = summaries;
+        this.converter = converter;
+        this.transactions = transactions;
+        this.validator = validator;
+        this.clock = clock;
     }
-    @Override public CashierOrderDTO summary(IdQuery query) { return summaries.summary(query); }
-    @Override public CashierPaymentDTO startPayment(CashierPaymentStartCommand command) {
-        validate(command); noTransaction();
+
+    @Override
+    public CashierOrderDTO summary(IdQuery query) {
+        return summaries.summary(query);
+    }
+
+    @Override
+    public CashierPaymentDTO startPayment(CashierPaymentStartCommand command) {
+        validate(command);
+        noTransaction();
         var actor = actors.current();
         if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
         String owner = transactions.withTenantContext(actor.tenantId(), () -> {
@@ -77,8 +102,11 @@ public class CashierService implements CashierFacade {
         }), converter.toStart(command, interaction));
         return converter.toCashier(result, summary(new IdQuery(actor.orderId())));
     }
-    @Override public CashierPaymentDTO paymentProgress(IdQuery query) {
-        validate(query); noTransaction();
+
+    @Override
+    public CashierPaymentDTO paymentProgress(IdQuery query) {
+        validate(query);
+        noTransaction();
         var actor = actors.current();
         String owner = transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
@@ -86,14 +114,18 @@ public class CashierService implements CashierFacade {
             access.read(actor, order, "PAYMENT_PROGRESS");
             var allocation = allocations.findPayment(actor.tenantId(), actor.orderId(), query.id()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             if (!allocation.allocation().actorScope().equals("checkout/" + actor.sessionId())
-                    || !allocation.callerScopeHash().equals(order.callerScopeHash())) throw new CommonException(SESSION_UNAUTHORIZED);
+                    || !allocation.callerScopeHash().equals(order.callerScopeHash()))
+                throw new CommonException(SESSION_UNAUTHORIZED);
             return order.callerScopeHash();
         });
         var progress = outcomes.refresh(new OrderPaymentScope(actor.tenantId(), owner), new PaymentProgressRefreshCommand(actor.orderId(), query.id()));
         return converter.toCashier(progress, query.id(), summary(new IdQuery(actor.orderId())));
     }
-    @Override public CashierPaymentRecoveryDTO recoverPayment(CashierPaymentRecoverCommand command) {
-        validate(command); noTransaction();
+
+    @Override
+    public CashierPaymentRecoveryDTO recoverPayment(CashierPaymentRecoverCommand command) {
+        validate(command);
+        noTransaction();
         var actor = actors.current();
         if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
         var owner = transactions.withTenantContext(actor.tenantId(), () -> {
@@ -102,7 +134,7 @@ public class CashierService implements CashierFacade {
             return order.callerScopeHash();
         });
         var original = initiation.recover(new PaymentInitiationPrincipal(actor.tenantId(), owner, "checkout/" + actor.sessionId(),
-                (order, creating) -> access.authorize(actor, owner, order, false)), command.orderId(), command.actionKey(),
+                        (order, creating) -> access.authorize(actor, owner, order, false)), command.orderId(), command.actionKey(),
                 command.amountMinor(), command.choice());
         CashierPaymentDTO result = null;
         if (original.state() == PaymentIntentRecovery.State.RESOLVED) {
@@ -113,6 +145,12 @@ public class CashierService implements CashierFacade {
         }
         return converter.toRecovery(command, converter.toRecoveryState(original.state()), result);
     }
-    private void validate(Object value) { if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT); }
-    private void noTransaction() { if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE); }
+
+    private void validate(Object value) {
+        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+    }
+
+    private void noTransaction() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+    }
 }
