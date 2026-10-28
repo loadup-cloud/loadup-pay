@@ -17,7 +17,7 @@ package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationBatchState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -28,14 +28,16 @@ public record ReconciliationBatchDTO(
         @Schema(description = "Actual collecting-account scope hash") String accountScopeHash,
         @Schema(description = "Channel statement date", format = "date") LocalDate billDate,
         @Schema(description = "Trusted statement and date-basis profile revision") String statementProfile,
-        @Schema(description = "Batch lifecycle state") ReconciliationBatchState state,
+        @Schema(description = "Batch lifecycle state") ReconciliationState state,
         @Schema(description = "Frozen channel input; null until sealed") ReconciliationInputDTO channelInput,
         @Schema(description = "Frozen authoritative local input; null until sealed") ReconciliationInputDTO ledgerInput,
         @Schema(description = "Original durable run id; not execution permission") String runId,
         @Schema(description = "Matched count; null before completion") Long matchedCount,
         @Schema(description = "Difference count; null before completion") Long differenceCount,
         @Schema(description = "Deterministic result SHA-256; null before completion") String resultHash,
-        @Schema(description = "Batch aggregate version") long version) {
+        @Schema(description = "Batch aggregate version") long version,
+        @Schema(description = "Native task id; populated in detail after start") String taskId,
+        @Schema(description = "Native task status; populated in detail after start") String nativeStatus) {
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

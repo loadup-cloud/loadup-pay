@@ -53,7 +53,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Local metadata decisions only; generated SQL, lock ownership and real rollback are covered by MySQL IT sources.
+ * Local metadata decisions only; generated SQL, lock ownership and real rollback are covered by PostgreSQL IT sources.
  */
 class RefundAcceptanceGatewayImplTest {
     private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundStorageConverter.class.getPackageName());

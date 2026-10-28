@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial submission.
  */
 @SpringBootTest(classes = RecoveryPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class RecoveryPersistenceIT {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 26, 12, 0);
     private static final String AUDIT_TYPE = "pay.review.native-retry";

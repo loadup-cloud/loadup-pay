@@ -29,7 +29,7 @@ import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -675,6 +675,6 @@ class PaymentControlServiceTest {
                         .getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock ports do not prove that MySQL rolls back gate and payment rows.
+        // Mock ports do not prove that PostgreSQL rolls back gate and payment rows.
     }
 }

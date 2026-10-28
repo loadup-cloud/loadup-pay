@@ -22,7 +22,7 @@ import io.github.loadup.components.globalunique.model.GlobalUniqueRecord;
 import io.github.loadup.pay.customer.app.security.CustomerActor;
 import io.github.loadup.pay.customer.client.command.MerchantRelationshipCreateCommand;
 import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
-import io.github.loadup.pay.customer.client.enums.GrantState;
+import io.github.loadup.pay.customer.domain.model.GrantState;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
 import org.junit.jupiter.api.Test;

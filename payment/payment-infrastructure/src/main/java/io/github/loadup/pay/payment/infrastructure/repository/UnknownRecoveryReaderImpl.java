@@ -21,7 +21,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
 import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.infrastructure.converter.UnknownRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
 import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;

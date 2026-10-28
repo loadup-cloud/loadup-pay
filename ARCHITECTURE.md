@@ -1,5 +1,7 @@
 # 外部渠道收单系统架构设计
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+
 版本：v1.4 语义基线 ｜ 实现状态更新：2026-10-27 ｜ 状态：持续实施，业务验收未完成
 
 本文规划 acquire、payment、realtime、customer、product、limitcenter 六个核心服务及后置 reconciliation

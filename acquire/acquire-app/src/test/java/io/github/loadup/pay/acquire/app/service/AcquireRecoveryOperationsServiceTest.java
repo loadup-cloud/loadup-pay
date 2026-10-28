@@ -27,7 +27,7 @@ import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.app.converter.AcquireRecoveryConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
 import io.github.loadup.pay.acquire.client.command.AcquireRecoveryRetryCommand;
-import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
+import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryKind;
 import io.github.loadup.pay.acquire.client.query.AcquireRecoveryTaskQuery;
 import io.github.loadup.pay.acquire.domain.gateway.AcquireRecoveryRetryGateway;
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;

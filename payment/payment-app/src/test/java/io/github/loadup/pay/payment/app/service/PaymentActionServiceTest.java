@@ -188,7 +188,7 @@ class PaymentActionServiceTest {
 
     private static PaymentExecutionDTO dto(PaymentActionDTO action) {
         return new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
-                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt", action, null, 1,
+                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING, "attempt", action, null, 1,
                 BusinessTime.external(AttemptFixtures.NOW));
     }
 
@@ -234,7 +234,7 @@ class PaymentActionServiceTest {
         var stored = new StoredPaymentAction(fixture.original().identity(), fixture.original().amount(), 1, action,
                 io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED, null, HASH, AttemptFixtures.NOW);
         var base = dto(null);
-        var actionDto = new PaymentActionDTO(io.github.loadup.pay.payment.client.enums.PaymentActionType.REDIRECT, EXPIRES_AT,
+        var actionDto = new PaymentActionDTO(io.github.loadup.pay.payment.domain.model.PaymentActionType.REDIRECT, EXPIRES_AT,
                 new io.github.loadup.pay.payment.client.dto.RedirectActionDTO(action.redirectUrl()));
         var decorated = dto(actionDto);
         when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(stored));
@@ -354,7 +354,7 @@ class PaymentActionServiceTest {
     void presentReturnsTheCurrentUnexpiredActionAndHidesExpiredOrStaleActions() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var base = dto(null);
-        var actionDto = new PaymentActionDTO(io.github.loadup.pay.payment.client.enums.PaymentActionType.INVOKE_JSAPI,
+        var actionDto = new PaymentActionDTO(io.github.loadup.pay.payment.domain.model.PaymentActionType.INVOKE_JSAPI,
                 EXPIRES_AT, null);
         var decorated = dto(actionDto);
         when(views.toDTO(fixture.acceptance())).thenReturn(base);

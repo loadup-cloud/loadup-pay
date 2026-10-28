@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>product-rpc</artifactId>
+            <artifactId>product-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -24,10 +24,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>product-app</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>product-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

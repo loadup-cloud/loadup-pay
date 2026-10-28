@@ -21,24 +21,20 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>product-rpc</artifactId>
+            <artifactId>product-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>payment-rpc</artifactId>
+            <artifactId>payment-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-rpc</artifactId>
+            <artifactId>realtime-client</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-outbox</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -56,10 +52,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>acquire-domain</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>product-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -123,12 +115,12 @@
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
+            <artifactId>flyway-database-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -164,7 +156,7 @@
     </build>
     <profiles>
         <profile>
-            <id>mysql-it</id>
+            <id>postgresql-it</id>
             <build>
                 <plugins>
                     <plugin>

@@ -18,7 +18,7 @@ package io.github.loadup.pay.realtime.client.query;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

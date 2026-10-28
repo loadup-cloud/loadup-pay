@@ -21,7 +21,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.acquire.infrastructure.config.AcquireRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;

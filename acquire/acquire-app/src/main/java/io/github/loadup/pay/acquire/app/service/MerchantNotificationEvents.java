@@ -130,7 +130,7 @@ public class MerchantNotificationEvents {
 
     private Optional<MerchantNotificationPolicy> policy(StoredAcquireOrder stored) {
         var admitted = admissions.decodeAdmission(stored.admissionPayload(), stored.payloadHash());
-        if (admitted == null || admitted.decision() != io.github.loadup.pay.product.client.enums.AdmissionDecision.ADMITTED
+        if (admitted == null || admitted.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED
                 || !stored.admission().admissionId().equals(admitted.admissionId()) || !stored.order().id().equals(admitted.orderId())
                 || !stored.order().payeeMerchantId().equals(admitted.payeeMerchantId())
                 || !stored.admission().requestDigest().equals(admitted.requestDigest()) || admitted.terms() == null)

@@ -36,7 +36,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentActionType;
+import io.github.loadup.pay.payment.domain.model.PaymentActionType;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
@@ -298,7 +298,7 @@ class PaymentResultServiceTest {
         var submission = jsapiSubmission(original, "trade-1");
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
-                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
+                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING, "attempt",
                 new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
                 null, 1, BusinessTime.external(AttemptFixtures.NOW));
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
@@ -329,7 +329,7 @@ class PaymentResultServiceTest {
         var submission = jsapiRecoverySubmission(original, "trade-recovered", PaymentObservation.Source.QUERY_RESPONSE);
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         var presented = new PaymentExecutionDTO("payment", "order", "allocation", 4000, "CNY",
-                io.github.loadup.pay.payment.client.enums.PaymentState.PROCESSING, "attempt",
+                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING, "attempt",
                 new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
                 null, 1, BusinessTime.external(AttemptFixtures.NOW));
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
@@ -585,7 +585,7 @@ class PaymentResultServiceTest {
         assertThrows(CommonException.class, () -> service.record("tenant", success()));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock maps do not model database rollback; actual persistence is a separate MySQL acceptance gate.
+        // Mock maps do not model database rollback; actual persistence is a separate PostgreSQL acceptance gate.
     }
 
     @Test

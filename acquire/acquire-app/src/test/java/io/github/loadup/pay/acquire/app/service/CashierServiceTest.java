@@ -29,7 +29,7 @@ import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
-import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
+import io.github.loadup.pay.acquire.domain.model.PaymentRecoveryState;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -42,7 +42,7 @@ import io.github.loadup.pay.channel.api.model.H5SceneType;
 import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -93,7 +93,7 @@ class CashierServiceTest {
     final StoredAcquireOrder stored = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final PaymentChoiceDTO choice = new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5);
     final CashierOrderDTO summary = new CashierOrderDTO("order", null, "subject", "CNY", 10000, 2000, 0, 8000, 1, 100000, true, null,
-            io.github.loadup.pay.acquire.client.enums.AcquireOrderState.PENDING, null, Set.of(choice), null);
+            io.github.loadup.pay.acquire.domain.model.AcquireOrderState.PENDING, null, Set.of(choice), null);
 
     @BeforeEach
     void setup() {

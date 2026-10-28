@@ -34,7 +34,7 @@ public interface PaymentControlConverter {
     @Mapping(target = "closed", source = "closed")
     io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO toInputExpiry(
             io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command,
-            io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition disposition,
+            io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition disposition,
             PaymentCloseDTO closed);
 
     @Mapping(target = "requestKey", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REQUEST_KEY_PREFIX + command.allocationId())")

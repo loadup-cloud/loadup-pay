@@ -252,7 +252,7 @@ class ReconciliationReviewServiceTest {
     @Test
     void onlyTheExactApprovedNeedsVerificationProposalCanSupplyAnOwnerConsultationScope() {
         var command = new ReconciliationReviewProposeCommand("batch", "difference", "needs-verification", 0L,
-                io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION, "consult original owner", null);
+                io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION, "consult original owner", null);
         var pending = service.propose(command);
         actor.set(actor("checker"));
         var approved = service.decide(new ReconciliationReviewDecideCommand("batch", "difference", pending.proposalId(), "approve", 1L, true, "independent check"));
@@ -273,7 +273,7 @@ class ReconciliationReviewServiceTest {
     }
 
     ReconciliationReviewProposeCommand command(String key, long version, String file) {
-        return new ReconciliationReviewProposeCommand("batch", "difference", key, version, io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewConclusion.TIMING_DIFFERENCE, "private rationale", file);
+        return new ReconciliationReviewProposeCommand("batch", "difference", key, version, io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion.TIMING_DIFFERENCE, "private rationale", file);
     }
 
     StoredReconciliationBatch batch() {

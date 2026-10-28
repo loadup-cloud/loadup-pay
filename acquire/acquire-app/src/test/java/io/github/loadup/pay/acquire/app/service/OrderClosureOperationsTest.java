@@ -152,7 +152,7 @@ class OrderClosureOperationsTest {
     void c0AndEveryCursorAdvanceRegisterANativeContinuationInTheirTransaction() {
         var first = operations.close(scope, command);
         var second = operations.close(scope, command);
-        assertEquals(io.github.loadup.pay.acquire.client.enums.AcquireOrderState.CLOSING, first.state());
+        assertEquals(io.github.loadup.pay.acquire.domain.model.AcquireOrderState.CLOSING, first.state());
         assertEquals(first.orderId(), second.orderId());
         assertEquals(1, ids.get());
         assertEquals(2L, intent.get().rowVersion());
@@ -187,7 +187,7 @@ class OrderClosureOperationsTest {
         when(payment.parentFenceStatus(eq("tenant"), any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
         when(store.allAllocationsSettled("tenant", "order")).thenReturn(true);
         var result = operations.close(scope, command);
-        assertEquals(io.github.loadup.pay.acquire.client.enums.AcquireOrderState.CLOSED, result.state());
+        assertEquals(io.github.loadup.pay.acquire.domain.model.AcquireOrderState.CLOSED, result.state());
         assertEquals(AcquireOrderState.CLOSED, order.get().order().state());
         TenantUtil.runWithTenant("tenant", () -> transactions.writeLocal("tenant", () -> {
             assertFalse(operations.isCurrent(scope, order.get(), intent.get(), intent.get().rowVersion()));

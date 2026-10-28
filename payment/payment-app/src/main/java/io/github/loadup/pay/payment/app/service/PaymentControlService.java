@@ -29,7 +29,7 @@ import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;

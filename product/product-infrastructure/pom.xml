@@ -14,11 +14,11 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>customer-rpc</artifactId>
+            <artifactId>customer-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-rpc</artifactId>
+            <artifactId>limitcenter-client</artifactId>
         </dependency>
 
         <dependency>
@@ -35,10 +35,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>loadup-components-outbox</artifactId>
         </dependency>
 
@@ -49,10 +45,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>product-domain</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>customer-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

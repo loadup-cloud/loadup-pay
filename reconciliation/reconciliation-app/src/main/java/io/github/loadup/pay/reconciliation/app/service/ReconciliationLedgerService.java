@@ -20,7 +20,7 @@ import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentCaptureState;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationConverter;

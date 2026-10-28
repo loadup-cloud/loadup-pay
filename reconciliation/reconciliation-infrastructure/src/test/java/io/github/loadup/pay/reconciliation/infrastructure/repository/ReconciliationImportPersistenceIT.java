@@ -94,10 +94,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Real MySQL business/File/Transfer metadata; only external object bytes and trusted actor are supplied by the test.
+ * Real PostgreSQL business/File/Transfer metadata; only external object bytes and trusted actor are supplied by the test.
  */
 @SpringBootTest(classes = ReconciliationImportPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class ReconciliationImportPersistenceIT {
     private final ReconciliationService batches;
     private final ReconciliationImportService imports;
@@ -122,7 +122,7 @@ class ReconciliationImportPersistenceIT {
     @Test
     void registrationFailureRollsBackNativeTaskBothReferencesAndBusinessIntent() {
         var fixture = fixture(validFile());
-        persistence.failInsertBatch.set(fixture.batchId());
+        persistence.failInsertFor(fixture.batchId());
         assertThrows(IllegalStateException.class, () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
         assertEquals(0L, count("reconciliation_import", fixture.tenant()));
         assertEquals(0L, count("transfer_task", fixture.tenant()));
@@ -142,7 +142,7 @@ class ReconciliationImportPersistenceIT {
     void sealFailureRollsBackAllRowsBatchReferenceAndLogicalOutcomeThenOriginalTaskRetries() {
         var fixture = fixture(validFile());
         var accepted = actors.call(fixture.tenant(), () -> imports.submit(fixture.command()));
-        persistence.failSealBatch.set(fixture.batchId());
+        persistence.failSealFor(fixture.batchId());
         assertFalse(scanner.executeQueuedTasks());
         assertEquals(0L, count("reconciliation_input", fixture.tenant()));
         assertEquals(0L, count("reconciliation_entry", fixture.tenant()));
@@ -253,7 +253,7 @@ class ReconciliationImportPersistenceIT {
         }
 
         <T> T call(String tenant, Supplier<T> action) {
-            current.set(new ReconciliationActor(tenant, "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:read", "pay:reconciliation:import:upload",
+            current.set(new ReconciliationActor(tenant, "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:read", "pay:reconciliation:batch:attach", "pay:reconciliation:batch:start", "pay:reconciliation:batch:retry", "pay:reconciliation:import:upload",
                     "pay:reconciliation:import:submit", "pay:reconciliation:import:read", "pay:reconciliation:import:retry")));
             try {
                 return action.get();
@@ -263,11 +263,19 @@ class ReconciliationImportPersistenceIT {
         }
     }
 
-    static final class FaultingImports extends ReconciliationImportGatewayImpl {
+    static class FaultingImports extends ReconciliationImportGatewayImpl {
         final AtomicReference<String> failInsertBatch = new AtomicReference<>(), failSealBatch = new AtomicReference<>();
 
         FaultingImports(ReconciliationImportDOMapper mapper, ReconciliationImportStorageConverter converter) {
             super(mapper, converter);
+        }
+
+        public void failInsertFor(String batchId) {
+            failInsertBatch.set(batchId);
+        }
+
+        public void failSealFor(String batchId) {
+            failSealBatch.set(batchId);
         }
 
         @Override

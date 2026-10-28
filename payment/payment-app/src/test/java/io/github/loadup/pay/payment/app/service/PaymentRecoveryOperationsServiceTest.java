@@ -26,7 +26,7 @@ import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.payment.app.converter.PaymentRecoveryOperationsConverter;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentRecoveryRetryCommand;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.client.query.PaymentRecoveryTaskQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;

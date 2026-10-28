@@ -16,7 +16,7 @@
 package io.github.loadup.pay.acquire.infrastructure.codec;
 
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.junit.jupiter.api.Test;
 

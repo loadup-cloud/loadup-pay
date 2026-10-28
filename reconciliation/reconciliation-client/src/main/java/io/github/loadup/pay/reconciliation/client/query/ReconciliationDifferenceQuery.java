@@ -17,8 +17,8 @@ package io.github.loadup.pay.reconciliation.client.query;
 
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationDifferenceReason;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

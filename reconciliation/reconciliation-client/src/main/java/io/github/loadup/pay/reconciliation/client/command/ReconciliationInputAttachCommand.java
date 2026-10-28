@@ -16,7 +16,7 @@
 package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

@@ -20,8 +20,10 @@ import io.github.loadup.commons.result.PageResponse;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationDifferenceDTO;
 import io.github.loadup.pay.reconciliation.client.facade.ReconciliationFacade;
 import io.github.loadup.pay.reconciliation.client.query.ReconciliationDifferenceQuery;
@@ -61,10 +63,22 @@ public class ReconciliationController {
         return SuccessResponse.of(facade.start(command));
     }
 
+    @PostMapping("/retry")
+    @Operation(summary = "Retry a failed original comparison task")
+    public SuccessResponse<ReconciliationBatchDTO> retry(@Valid @RequestBody ReconciliationBatchRetryCommand command) {
+        return SuccessResponse.of(facade.retry(command));
+    }
+
     @PostMapping("/detail")
     @Operation(summary = "Read the original inputs, execution and result summary")
     public SuccessResponse<ReconciliationBatchDTO> detail(@Valid @RequestBody IdQuery query) {
         return SuccessResponse.of(facade.detail(query));
+    }
+
+    @PostMapping("/task")
+    @Operation(summary = "Read the native comparison task status")
+    public SuccessResponse<ReconciliationBatchTaskDTO> task(@Valid @RequestBody IdQuery query) {
+        return SuccessResponse.of(facade.task(query));
     }
 
     @PostMapping("/differences")

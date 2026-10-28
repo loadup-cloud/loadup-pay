@@ -32,7 +32,7 @@ import io.github.loadup.pay.acquire.app.security.AcquireServiceActorProvider;
 import io.github.loadup.pay.acquire.client.command.AcquireRecoveryRetryCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryRetryDTO;
 import io.github.loadup.pay.acquire.client.dto.AcquireRecoveryTaskDTO;
-import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
+import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryKind;
 import io.github.loadup.pay.acquire.client.facade.AcquireRecoveryOperationsFacade;
 import io.github.loadup.pay.acquire.client.query.AcquireRecoveryTaskQuery;
 import io.github.loadup.pay.acquire.domain.gateway.AcquireRecoveryRetryGateway;

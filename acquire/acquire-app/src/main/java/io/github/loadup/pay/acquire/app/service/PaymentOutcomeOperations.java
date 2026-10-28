@@ -39,7 +39,7 @@ import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;

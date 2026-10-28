@@ -38,7 +38,7 @@ import io.github.loadup.pay.acquire.domain.model.OrderFee;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;

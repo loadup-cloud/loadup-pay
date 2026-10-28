@@ -40,7 +40,7 @@ import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -129,7 +129,7 @@ final class CheckoutFixtures {
         return new AcquiringTermsDTO(
                 1,
                 new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
+                        600, 3600, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
                 new FeeTermsDTO(
                         new BigDecimal("0.003"),
@@ -137,9 +137,9 @@ final class CheckoutFixtures {
                         RoundingMode.HALF_UP,
                         0,
                         null,
-                        io.github.loadup.pay.product.client.enums.FeeRefundPolicy.NO_RETURN),
+                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
                 new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.client.enums.RefundAllocationPolicy.FIFO),
+                        true, true, 86400, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO(
                         "policy",
@@ -147,8 +147,8 @@ final class CheckoutFixtures {
                         "e".repeat(64),
                         false,
                         null,
-                        io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
+                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
+                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");

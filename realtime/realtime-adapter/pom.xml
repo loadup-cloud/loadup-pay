@@ -13,7 +13,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-rpc</artifactId>
+            <artifactId>realtime-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -22,10 +22,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>payment-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

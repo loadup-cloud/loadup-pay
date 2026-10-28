@@ -25,7 +25,7 @@ import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
-import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
+import io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFee;
@@ -41,7 +41,7 @@ import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -91,15 +91,15 @@ final class AcquiringPersistenceFixtures {
 
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(1,
-                new OrderTermsDTO(600L, 3600L, io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, false, 0L, 300L),
+                new OrderTermsDTO(600L, 3600L, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0L, 300L),
                 new PaymentTermsDTO(1, 100000, null, true),
                 new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null,
-                        io.github.loadup.pay.product.client.enums.FeeRefundPolicy.NO_RETURN),
-                new RefundTermsDTO(true, true, 86400L, io.github.loadup.pay.product.client.enums.RefundAllocationPolicy.FIFO),
+                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
+                new RefundTermsDTO(true, true, 86400L, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO("policy", 1, "e".repeat(64), false, null,
-                        io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
+                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
+                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))), "routing-v1", "return-v1");
     }
 

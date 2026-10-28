@@ -14,7 +14,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>acquire-client</module>
-        <module>acquire-rpc</module>
         <module>acquire-domain</module>
         <module>acquire-app</module>
         <module>acquire-infrastructure</module>

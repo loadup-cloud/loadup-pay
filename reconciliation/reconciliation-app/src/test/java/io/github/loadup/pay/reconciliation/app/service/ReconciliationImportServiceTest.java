@@ -84,6 +84,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -215,10 +216,11 @@ class ReconciliationImportServiceTest {
         var execution = execution();
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream())));
         assertEquals(ReconciliationImportState.INIT, stored.get().state());
-        when(parser.parse(any(), any())).thenReturn(data("d".repeat(64)));
+        doReturn(data("d".repeat(64))).when(parser).parse(any(), any());
         assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()))).getResultCode());
         assertEquals(ReconciliationImportState.REJECTED, stored.get().state());
         assertNull(batch.get().batch().channel());
+        verify(parser, times(2)).parse(any(), any());
         verify(inputs, never()).insertSealed(anyString(), anyString(), any());
     }
 

@@ -21,11 +21,11 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.pay.product.client.enums.FeeRefundPolicy;
-import io.github.loadup.pay.product.client.enums.RefundAllocationPolicy;
-import io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy;
-import io.github.loadup.pay.product.client.enums.UnpaidOrderAction;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

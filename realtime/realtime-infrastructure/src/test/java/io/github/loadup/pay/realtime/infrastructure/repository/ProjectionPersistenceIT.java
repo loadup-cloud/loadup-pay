@@ -22,10 +22,10 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
@@ -78,7 +78,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Actual projection and receipt persistence; no transport, storage or transaction substitutes.
  */
 @SpringBootTest(classes = ProjectionPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class ProjectionPersistenceIT {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
     private final TradeProjectionService service;

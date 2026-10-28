@@ -69,7 +69,7 @@ class OrderCreationCodecImplTest {
     }
 
     io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct(String action, long first,
-                                                                               io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
+                                                                               io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
         return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null,
                 action, first, choice, kind);
     }
@@ -78,7 +78,7 @@ class OrderCreationCodecImplTest {
     void directPayMetadataRoundTripBindsFirstActionAndRejectsOtherEntryModes() {
         var choice = new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.WECHAT,
                 io.github.loadup.commons.payment.PaymentMethod.H5);
-        var value = direct("first", 4000L, io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.H5_SCENE, choice);
+        var value = direct("first", 4000L, io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE, choice);
         var payload = codec.encodeDirectPay(value);
         var record = new OrderCreateIntent("intent", "order", "merchant", "M001", "a".repeat(64), "b".repeat(64), "DIRECT_PAY", null,
                 payload, "INIT", null, null, null, 0L);
@@ -92,7 +92,7 @@ class OrderCreationCodecImplTest {
         assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("changed", 4000L, value.interactionKind(), choice)));
         assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4001L, value.interactionKind(), choice)));
         assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L,
-                io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.NONE, choice)));
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE, choice)));
         assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L, value.interactionKind(),
                 new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.ALIPAY,
                         io.github.loadup.commons.payment.PaymentMethod.H5))));

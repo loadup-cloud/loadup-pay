@@ -19,7 +19,7 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;

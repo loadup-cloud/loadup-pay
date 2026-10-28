@@ -25,7 +25,7 @@ import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
@@ -82,6 +82,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -125,7 +126,7 @@ import static org.mockito.Mockito.when;
  * Real local Y2/plan/capacity boundaries. Risk, limitcenter, channel IO and unused terminal events are controlled test doubles.
  */
 @SpringBootTest(classes = FinancialPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class FinancialPersistenceIT {
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentSubmissionPreparation preparation;

@@ -90,9 +90,9 @@ public class PaymentOutcomeDeliverySupport {
                 || !envelope.businessEventId().equals(envelope.data().evidenceId()))
             throw new CommonException(SNAPSHOT_INVALID);
         var data = envelope.data();
-        if (!Set.of(io.github.loadup.pay.payment.client.enums.PaymentState.SUCCEEDED,
-                io.github.loadup.pay.payment.client.enums.PaymentState.FAILED,
-                io.github.loadup.pay.payment.client.enums.PaymentState.CLOSED).contains(data.state()))
+        if (!Set.of(io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED,
+                io.github.loadup.pay.payment.domain.model.PaymentState.FAILED,
+                io.github.loadup.pay.payment.domain.model.PaymentState.CLOSED).contains(data.state()))
             throw new CommonException(SNAPSHOT_INVALID);
         return transactions.withTenantContext(tenant, () -> {
             var original = payments.find(tenant, data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));

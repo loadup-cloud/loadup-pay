@@ -21,7 +21,7 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;

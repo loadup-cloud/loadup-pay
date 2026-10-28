@@ -18,32 +18,20 @@
 
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>acquire-rpc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-rpc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-rpc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>realtime-client</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
             <artifactId>acquire-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
+            <artifactId>limitcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-client</artifactId>
+            <artifactId>realtime-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -128,12 +116,12 @@
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
+            <artifactId>flyway-database-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -169,7 +157,7 @@
     </build>
     <profiles>
         <profile>
-            <id>mysql-it</id>
+            <id>postgresql-it</id>
             <build>
                 <plugins>
                     <plugin>

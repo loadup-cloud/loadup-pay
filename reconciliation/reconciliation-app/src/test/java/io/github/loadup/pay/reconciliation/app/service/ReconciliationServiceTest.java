@@ -28,6 +28,8 @@ import io.github.loadup.pay.reconciliation.app.port.ReconciliationDifferenceRead
 import io.github.loadup.pay.reconciliation.app.security.ReconciliationActor;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRetryCommand;
+import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
@@ -105,7 +107,7 @@ class ReconciliationServiceTest {
     private final Tx manager = new Tx();
     private final ReconciliationTransactions transactions = new ReconciliationTransactions(manager);
     private final ReconciliationScope scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "wechat-trade-v1");
-    private final ReconciliationActor actor = new ReconciliationActor("tenant", "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:attach", "pay:reconciliation:batch:start", "pay:reconciliation:batch:read"));
+    private final ReconciliationActor actor = new ReconciliationActor("tenant", "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:attach", "pay:reconciliation:batch:start", "pay:reconciliation:batch:read", "pay:reconciliation:batch:retry"));
     private final ReconciliationService service = new ReconciliationService(() -> actor, accounts, batches, inputs, differences,
             transactions, converter, tasks, () -> "id-" + ids.incrementAndGet(), validation.getValidator(), clock);
     private final ReconciliationBatchCreateCommand create = new ReconciliationBatchCreateCommand("request", "account", scope.billDate());
@@ -165,6 +167,48 @@ class ReconciliationServiceTest {
     }
 
     @Test
+    void failedComparisonCanBeRetriedOnlyWithTheOriginalRunAndTask() {
+        service.create(create);
+        ready();
+        var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
+        var failed = new DelayedTask("task", "tenant", ReconciliationExecutionService.TYPE, running.runId(),
+                AT, AT, DelayedTaskStatus.FAILED, 5, 5, null, null);
+        when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(failed));
+        var detail = service.task(new IdQuery(running.batchId()));
+        assertEquals("FAILED", detail.nativeStatus());
+        assertEquals("FAILED", service.detail(new IdQuery(running.batchId())).nativeStatus());
+        assertEquals("task", detail.taskId());
+        assertEquals(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.retry(
+                new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "stale"))).getResultCode());
+        assertEquals(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.retry(
+                new ReconciliationBatchRetryCommand(running.batchId(), "stale", "task"))).getResultCode());
+        service.retry(new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "task"));
+        verify(tasks).retryFailed(ReconciliationExecutionService.TYPE, running.runId());
+        assertEquals(running.runId(), stored.get().batch().runId());
+        when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(task(running.runId(), 1)));
+        assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(
+                new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "task"))).getResultCode());
+        verify(tasks, times(1)).retryFailed(anyString(), anyString());
+    }
+
+    @Test
+    void retryRejectsAnotherTenantAnotherCallerAndMissingPermission() {
+        service.create(create);
+        ready();
+        var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
+        var command = new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), "task");
+        var retryPermission = Set.of("pay:reconciliation:batch:retry");
+        for (var other : List.of(new ReconciliationActor("other-tenant", "ops", retryPermission),
+                new ReconciliationActor("tenant", "other-caller", retryPermission),
+                new ReconciliationActor("tenant", "ops", Set.of()))) {
+            var unauthorized = new ReconciliationService(() -> other, accounts, batches, inputs, differences,
+                    transactions, converter, tasks, () -> "unused", validation.getValidator(), clock);
+            assertThrows(CommonException.class, () -> unauthorized.retry(command));
+        }
+        verify(tasks, never()).retryFailed(anyString(), anyString());
+    }
+
+    @Test
     void durableTaskLoadsImmutableInputsThenComparesOutsideTransactionAndCommitsOriginalResultOnce() {
         service.create(create);
         ready();
@@ -185,6 +229,9 @@ class ReconciliationServiceTest {
         TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
         assertEquals(ReconciliationState.MATCHED, stored.get().batch().state());
         assertNotNull(stored.get().batch().result().resultHash());
+        assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> service.retry(
+                new ReconciliationBatchRetryCommand(running.batchId(), running.runId(), task.id()))).getResultCode());
+        verify(tasks, never()).retryFailed(anyString(), anyString());
         TenantUtil.runWithTenant("tenant", () -> execution.handle(task));
         verify(results, times(1)).insert(eq("tenant"), eq(running.batchId()), eq(running.runId()), any());
         verify(matcher, times(1)).compare(any(), any());
@@ -221,7 +268,7 @@ class ReconciliationServiceTest {
                 return dataset;
             });
             service.attach(new ReconciliationInputAttachCommand(stored.get().batch().id(),
-                    io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide.valueOf(side.name()), manifest.artifactId()));
+                    io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide.valueOf(side.name()), manifest.artifactId()));
         }
     }
 

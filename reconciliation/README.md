@@ -1,5 +1,7 @@
 # Reconciliation 后置交易对账
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
 当前已有 client/domain/app/infrastructure/adapter/rpc/bootstrap 七层源码：批次创建/封存输入引用、原运行与持久任务、
@@ -21,12 +23,13 @@ File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已�
   channel、account-scope-hash、statement-profile、实际 statement-account 与明确 service-ids。目录不存渠道密钥，不接受请求传入账户
   hash。
 - 仅已验证的 SERVICE 身份，sub 必须等于 service_id；租户来自 JWT。所需权限分别是
-  `pay:reconciliation:batch:create/attach/start/read`。
+  `pay:reconciliation:batch:create/attach/start/read/retry`。
   原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
-- HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,differences}`；start 使用
+- HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,task,retry,differences}`；start 使用
   `ReconciliationBatchStartCommand`。
-  gRPC `ReconciliationRpc/{Create,Attach,Start,Detail}`，提供方拥有 Protobuf，复用框架入站 JWT 与错误映射。
+  gRPC `ReconciliationRpc/{Create,Attach,Start,Detail,Task,Retry}`，提供方拥有 Protobuf，复用框架入站 JWT 与错误映射。
   differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
+  detail 在 run 已建立时显示任务 ID 与原生状态；retry 要求 batchId、runId、expectedTaskId，只重试原 FAILED 任务，保留两份封存输入。
 
 以下外部配置仅示意结构；hash 应由受控账户身份规范计算，不直接使用示例值：
 

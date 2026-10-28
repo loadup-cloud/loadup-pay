@@ -14,7 +14,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>payment-client</module>
-        <module>payment-rpc</module>
         <module>payment-domain</module>
         <module>payment-app</module>
         <module>payment-infrastructure</module>

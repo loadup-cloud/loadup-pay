@@ -1,6 +1,6 @@
 # Acquire 真实持久化测试
 
-`AcquiringFinancialPersistenceIT` 使用 Testify、真实 MySQL Testcontainers、实际 Flyway、生成 Mapper、实际
+`AcquiringFinancialPersistenceIT` 使用 Testify、真实 PostgreSQL Testcontainers、实际 Flyway、生成 Mapper、实际
 Gateway/Codec/MapStruct，
 并调用真实 PaymentInitiationService/Operations 与 PaymentProgressService/OutcomeOperations。只模拟跨服务 payment 的权威返回。
 没有 mock 数据源、事务管理器、业务 Gateway 或 Outbox；商户通知使用真实事件逻辑，合约配置关闭商户发送。
@@ -21,12 +21,12 @@ Outbox 后台 worker 在测试配置关闭，避免投递影响原子性观察�
 
 ## 运行与当前状态
 
-显式 `mysql-it` Failsafe profile，默认单测不启动容器。需 Docker 及当前已安装依赖；以下命令尚未执行：
+显式 `postgresql-it` Failsafe profile，默认单测不启动容器。需 Docker 及当前已安装依赖；以下命令尚未执行：
 
 ```bash
-mvnd clean verify -pl acquire/acquire-infrastructure -Pmysql-it -Dit.test=AcquiringFinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl acquire/acquire-infrastructure -Ppostgresql-it -Dit.test=AcquiringFinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
-当前仅有源码，未进行 IDEA、编译、单测、Docker 或 MySQL 运行。R1 尚无本轮通过证据。
+当前仅有源码，未进行 IDEA、编译、单测、Docker 或 PostgreSQL 运行。R1 尚无本轮通过证据。
 这些用例验证本地受理/收敛与原生持久化边界，不代表真实 payment gRPC/JWT/TLS、渠道资金、商户签名投递或多实例故障演练已通过。
 投影版本并发、其他 R1 组合故障，以及 review 全清单继续推进。

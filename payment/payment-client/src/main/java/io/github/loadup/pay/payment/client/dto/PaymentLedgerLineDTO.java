@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.payment.client.enums.PaymentLedgerKind;
-import io.github.loadup.pay.payment.client.enums.PaymentLedgerStatus;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;

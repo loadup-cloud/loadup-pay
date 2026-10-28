@@ -26,7 +26,7 @@ import io.github.loadup.pay.acquire.client.dto.CashierPaymentDTO;
 import io.github.loadup.pay.acquire.client.dto.CashierPaymentRecoveryDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
-import io.github.loadup.pay.acquire.client.enums.PaymentRecoveryState;
+import io.github.loadup.pay.acquire.domain.model.PaymentRecoveryState;
 import io.github.loadup.pay.channel.api.model.ChannelH5Input;
 import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;

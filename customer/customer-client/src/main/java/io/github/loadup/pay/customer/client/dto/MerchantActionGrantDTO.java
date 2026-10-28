@@ -17,9 +17,9 @@ package io.github.loadup.pay.customer.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.customer.client.enums.GrantState;
-import io.github.loadup.pay.customer.client.enums.MerchantAction;
-import io.github.loadup.pay.customer.client.enums.PrincipalType;
+import io.github.loadup.pay.customer.domain.model.GrantState;
+import io.github.loadup.pay.customer.domain.model.MerchantAction;
+import io.github.loadup.pay.customer.domain.model.PrincipalType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

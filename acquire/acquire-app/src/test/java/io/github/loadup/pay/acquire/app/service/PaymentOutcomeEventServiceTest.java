@@ -48,7 +48,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -372,7 +372,7 @@ class PaymentOutcomeEventServiceTest {
         assertEquals(1, manager.rollbacks);
         assertTrue(accepted.isEmpty());
         verify(events, never()).insert(anyString(), any());
-        // Financial rollback still needs real MySQL acceptance; these mocks check the transaction boundary.
+        // Financial rollback still needs real PostgreSQL acceptance; these mocks check the transaction boundary.
     }
 
     @Test
@@ -381,7 +381,7 @@ class PaymentOutcomeEventServiceTest {
         assertThrows(CommonException.class, () -> service.accept(event("delivery")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock maps are not a database rollback proof. Real MySQL acceptance remains required.
+        // Mock maps are not a database rollback proof. Real PostgreSQL acceptance remains required.
     }
 
     @Test

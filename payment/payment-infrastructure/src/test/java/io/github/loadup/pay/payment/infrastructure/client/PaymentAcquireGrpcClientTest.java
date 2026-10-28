@@ -22,7 +22,7 @@ import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;

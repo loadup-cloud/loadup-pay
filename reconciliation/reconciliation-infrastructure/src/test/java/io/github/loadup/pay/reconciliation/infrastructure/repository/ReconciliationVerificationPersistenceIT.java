@@ -30,8 +30,8 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentVerificationDisposition;
-import io.github.loadup.pay.payment.client.enums.PaymentVerificationOutcome;
+import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentVerificationOutcome;
 import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationReviewConverter;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
@@ -49,7 +49,7 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationReviewPr
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationSubmitCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationDTO;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewConclusion;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
@@ -125,7 +125,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(classes = ReconciliationVerificationPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {"loadup.outbox.worker-enabled=false", "loadup.outbox.max-attempts=1", "loadup.outbox.batch-size=1"})
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 @Execution(ExecutionMode.SAME_THREAD)
 class ReconciliationVerificationPersistenceIT {
     final ReconciliationVerificationService service;
@@ -308,7 +308,7 @@ class ReconciliationVerificationPersistenceIT {
             try {
                 assertTrue(entered.await(10, TimeUnit.SECONDS));
                 // Expire only this test claim instead of relying on wall-clock sleeps.
-                assertEquals(1, jdbc.update("UPDATE loadup_outbox_event SET lease_until = TIMESTAMPADD(SECOND, -1, CURRENT_TIMESTAMP(6)) WHERE tenant_id = ? AND id = ? AND status = 'PROCESSING'",
+                assertEquals(1, jdbc.update("UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE tenant_id = ? AND id = ? AND status = 'PROCESSING'",
                         fixture.tenant(), initial.deliveryId()));
                 assertEquals(1, secondWorker.dispatchBatch());
                 var winner = detail(fixture, initial.requestId());

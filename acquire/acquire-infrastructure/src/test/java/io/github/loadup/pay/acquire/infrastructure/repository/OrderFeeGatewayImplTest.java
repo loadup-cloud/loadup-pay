@@ -160,7 +160,7 @@ class OrderFeeGatewayImplTest {
         verify(fees, never()).updateByQuery(any(OrderFeeDO.class), anyBoolean(), any(QueryWrapper.class));
         assertEquals("INIT", row.getState());
         assertEquals(1, manager.rollbacks);
-        // This manager checks propagation only. Real ledger/CAS rollback still needs MySQL acceptance.
+        // This manager checks propagation only. Real ledger/CAS rollback still needs PostgreSQL acceptance.
     }
 
     static class UnitTransactions extends AbstractPlatformTransactionManager {

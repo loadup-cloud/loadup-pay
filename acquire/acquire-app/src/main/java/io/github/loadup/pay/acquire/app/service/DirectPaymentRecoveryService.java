@@ -23,7 +23,7 @@ import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO;
-import io.github.loadup.pay.acquire.client.enums.OrderCreationRecoveryState;
+import io.github.loadup.pay.acquire.domain.model.OrderCreationRecoveryState;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
 import io.github.loadup.pay.acquire.client.facade.DirectPaymentRecoveryFacade;
 import io.github.loadup.pay.acquire.client.facade.PaymentRecoveryFacade;

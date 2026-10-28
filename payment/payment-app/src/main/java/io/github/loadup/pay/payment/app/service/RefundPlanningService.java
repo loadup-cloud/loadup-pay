@@ -46,7 +46,7 @@ import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
-import io.github.loadup.pay.product.client.enums.RefundAllocationPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;

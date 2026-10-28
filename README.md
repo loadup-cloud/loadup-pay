@@ -1,5 +1,7 @@
 # LoadUp Pay
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。 见 [PostgreSQL 配置与验收](design/POSTGRESQL.md)。
+
 面向商户及子商户的外部渠道收单平台，采用 Java 25、Spring Boot 和 LoadUp BOM，按 COLA DDD 组织六个核心应用及独立后置对账应用。
 支持目标为付款码（商户扫码枪输入）、JSAPI、H5，以及纯 API 的 DirectPay / 创单后付款；托管收银台是可选入口。
 支持直连及服务商/子商户模型，默认 CNY。不建设消费者用户、余额、充值、提现或转账；Native 二维码和原生 APP 支付不在本次范围。
@@ -98,7 +100,7 @@ K8s 原生 Service → EndpointSlice → DNS 完成发现，gRPC 使用 `<servic
 
 ## 证据与历史
 
-当前源码、自动化运行和真实环境验收分开记录；新增 IT 使用显式 mysql-it profile，默认单测不会执行它们。
+当前源码、自动化运行和真实环境验收分开记录；新增 IT 使用显式 postgresql-it profile，默认单测不会执行它们。
 用户暂停验证期间，不运行构建/测试/DDL/部署，也不把测试文件存在当作测试通过。
 
 历史初始化、编译及 OrbStack/Headlamp 启动记录见 [IMPLEMENTATION](IMPLEMENTATION.md)

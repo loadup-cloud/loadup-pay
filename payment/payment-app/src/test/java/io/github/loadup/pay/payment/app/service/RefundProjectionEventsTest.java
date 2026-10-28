@@ -296,7 +296,7 @@ class RefundProjectionEventsTest {
         assertThrows(CommonException.class, this::plan);
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // The mock manager checks propagation only; real summary/request/capacity rollback requires MySQL acceptance.
+        // The mock manager checks propagation only; real summary/request/capacity rollback requires PostgreSQL acceptance.
     }
 
     @Test

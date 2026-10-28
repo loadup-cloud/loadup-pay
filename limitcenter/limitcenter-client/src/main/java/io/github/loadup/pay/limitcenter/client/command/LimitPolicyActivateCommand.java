@@ -17,8 +17,8 @@ package io.github.loadup.pay.limitcenter.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRuleDTO;
-import io.github.loadup.pay.limitcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.pay.limitcenter.client.enums.RefundCountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.RefundCountRestorePolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

@@ -19,7 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;

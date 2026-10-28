@@ -40,7 +40,7 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

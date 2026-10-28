@@ -22,7 +22,7 @@ import io.github.loadup.pay.limitcenter.app.converter.LimitRefundConverter;
 import io.github.loadup.pay.limitcenter.app.port.PaymentEvidenceClient;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
-import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitPolicyGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitRefundGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
@@ -150,7 +150,7 @@ class LimitRefundServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             String refund = c.getArgument(1);
             var outcome = new RefundOutcomeEventDTO(refund, "request", "payment", "order", "operation", "merchant",
-                    1000, "CNY", io.github.loadup.pay.payment.client.enums.RefundState.SUCCEEDED, 2, cumulative.get(), "proof-" + refund);
+                    1000, "CNY", io.github.loadup.pay.payment.domain.model.RefundState.SUCCEEDED, 2, cumulative.get(), "proof-" + refund);
             return new RefundSettlementFactsDTO(outcome, 10000, 3, "payment-proof", "attempt", BusinessTime.external(initiated), cumulative.get());
         });
         when(receipts.find(eq("tenant"), anyString())).thenAnswer(c -> Optional.ofNullable(accepted.get(c.<String>getArgument(1))));

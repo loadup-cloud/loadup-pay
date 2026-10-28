@@ -17,7 +17,7 @@ package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationStatementState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 
 import java.time.LocalDate;
 

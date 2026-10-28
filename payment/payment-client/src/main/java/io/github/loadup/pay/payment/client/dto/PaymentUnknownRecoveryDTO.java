@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryAttentionLevel;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;

@@ -16,7 +16,7 @@
 package io.github.loadup.pay.realtime.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.app.port.TradeProjectionCodec;
 import io.github.loadup.pay.realtime.app.security.RealtimeActor;

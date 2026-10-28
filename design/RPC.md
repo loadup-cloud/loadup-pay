@@ -4,18 +4,17 @@
 
 ## 服务所有权
 
-各服务在自己的 `*-rpc` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，各业务方法由提供方维护。消费方引用提供方契约，client/domain
-不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
+各服务在自己的 `*-client` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，各业务方法由提供方维护。消费方的 infrastructure 引用提供方 client 发起 gRPC 请求；domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
 
 | 提供方         | 协议入口                                                                                         |
 |----------------|--------------------------------------------------------------------------------------------------|
-| customer       | [customer.proto](../customer/customer-rpc/src/main/proto/customer.proto)                         |
-| product        | [product.proto](../product/product-rpc/src/main/proto/product.proto)                             |
-| limitcenter    | [limitcenter.proto](../limitcenter/limitcenter-rpc/src/main/proto/limitcenter.proto)             |
-| payment        | [payment.proto](../payment/payment-rpc/src/main/proto/payment.proto)                             |
-| acquire        | [acquire.proto](../acquire/acquire-rpc/src/main/proto/acquire.proto)                             |
-| realtime       | [realtime.proto](../realtime/realtime-rpc/src/main/proto/realtime.proto)                         |
-| reconciliation | [reconciliation.proto](../reconciliation/reconciliation-rpc/src/main/proto/reconciliation.proto) |
+| customer       | [customer.proto](../customer/customer-client/src/main/proto/customer.proto)                         |
+| product        | [product.proto](../product/product-client/src/main/proto/product.proto)                             |
+| limitcenter    | [limitcenter.proto](../limitcenter/limitcenter-client/src/main/proto/limitcenter.proto)             |
+| payment        | [payment.proto](../payment/payment-client/src/main/proto/payment.proto)                             |
+| acquire        | [acquire.proto](../acquire/acquire-client/src/main/proto/acquire.proto)                             |
+| realtime       | [realtime.proto](../realtime/realtime-client/src/main/proto/realtime.proto)                         |
+| reconciliation | [reconciliation.proto](../reconciliation/reconciliation-client/src/main/proto/reconciliation.proto) |
 
 | 调用方            | 提供方                 | 用途                                                       |
 |-------------------|------------------------|------------------------------------------------------------|
@@ -119,7 +118,7 @@ deliveryId/businessEventId/aggregateId/sourceVersion/merchantEventId，dispositi
 
 ## 原安全输入引用查询（2026-10-24）
 
-新增 `PaymentRpc/InputLookup(WirePaymentInputLookupQuery) -> WirePaymentInputLookupDTO`，消息仍归 payment-rpc。
+新增 `PaymentRpc/InputLookup(WirePaymentInputLookupQuery) -> WirePaymentInputLookupDTO`，消息仍归 payment-client。
 请求保留原付款/订单/预占/商户/金额/CNY/inputKey/choice 完整范围；响应 found 为 optional bool，必须显式存在，
 与 input 消息 presence 一致。缺请求字段、found 未设置、found/input 不匹配、缺引用/摘要/期限或未知渠道符号均拒绝。
 金额仍为 int64，期限使用 Timestamp，DTO 恢复本地时区。新消息不复用或重排已有字段号；生成类不提交。
@@ -144,7 +143,7 @@ closed 的原 order/payment、fenced、正 epoch、未受理 evidence 都须存�
 
 ## 对账批次运营契约（2026-10-27）
 
-ReconciliationRpc 定义 Create/Attach/Start/Detail，提供方消息/批次 scope/双侧封存摘要归 reconciliation-rpc；差错分页由运营
+ReconciliationRpc 定义 Create/Attach/Start/Detail/Task/Retry，提供方消息/批次 scope/双侧封存摘要归 reconciliation-client；差错分页由运营
 HTTP 提供。
 身份必须为 SERVICE，sub=service_id、可信 tenant 及对应 pay:reconciliation:batch:* 权限；当前账户目录 service-ids 和原
 caller 仍须匹配。
@@ -159,7 +158,7 @@ RPC 或部署。
 
 ## P1 payment 权威采集接口（2026-10-27）
 
-payment-rpc 自有 payment_reconciliation.proto / PaymentCaptureRpc 的 Create/Detail/Lines/Retry，不属于渠道资金授权
+payment-client 自有 payment_reconciliation.proto / PaymentCaptureRpc 的 Create/Detail/Lines/Retry，不属于渠道资金授权
 capture。
 Wire optional、int64、严格 INIT/SEALED/BLOCKED 及 summary presence、微秒 Timestamp、连续分页 ordinal/EOF；PageDTO 集合通过
 builder adders。
@@ -192,7 +191,7 @@ statement:read。新消费、任务与 File/Transfer 元数据接线均未编译
 
 ## P1 payment 原对象只读查证 RPC（2026-10-28）
 
-payment_verification.proto / PaymentVerificationRpc.Verify 属于 payment-rpc，sourceRequestId 与完整 request echo
+payment_verification.proto / PaymentVerificationRpc.Verify 属于 payment-client，sourceRequestId 与完整 request echo
 关联原查证请求；标量 optional、金额 int64/CNY，时间为微秒 Timestamp。OBSERVED 与覆盖缺口保持互斥 presence，未知符号拒绝，optional
 退款受理时间不变成成功时间或终态证据。Spring MapStruct 处理普通转换，金额 presence 通过协议边界显式处理；无静态 Mapper
 INSTANCE。

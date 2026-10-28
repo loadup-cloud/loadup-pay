@@ -14,7 +14,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>customer-client</module>
-        <module>customer-rpc</module>
         <module>customer-domain</module>
         <module>customer-app</module>
         <module>customer-infrastructure</module>

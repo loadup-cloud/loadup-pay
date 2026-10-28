@@ -20,7 +20,7 @@ import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.model.PaymentVerificationTarget;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentVerificationDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;

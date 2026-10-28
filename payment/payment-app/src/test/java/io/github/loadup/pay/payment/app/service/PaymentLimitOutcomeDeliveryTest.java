@@ -21,7 +21,7 @@ import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentOutcomeDeliveryConverter;
 import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;

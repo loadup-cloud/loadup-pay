@@ -48,7 +48,7 @@ public interface AcquireOrderConverter {
 
     OrderFeePolicy toFeePolicy(FeeTermsDTO terms);
 
-    UnpaidOrderAction toUnpaidAction(io.github.loadup.pay.product.client.enums.UnpaidOrderAction action);
+    UnpaidOrderAction toUnpaidAction(io.github.loadup.pay.product.domain.model.UnpaidOrderAction action);
 
     @Mapping(target = "contract", source = "value")
     OrderAdmissionProof toProof(OrderAdmissionDTO value);
@@ -88,12 +88,12 @@ public interface AcquireOrderConverter {
     @Mapping(target = "version", source = "value.order.version")
     AcquireOrderDTO toDTO(StoredAcquireOrder value, LocalDateTime now);
 
-    default io.github.loadup.pay.acquire.client.enums.PaymentProgress progress(AcquireOrder order) {
+    default io.github.loadup.pay.acquire.domain.model.PaymentProgress progress(AcquireOrder order) {
         return order.paidAmountMinor() == 0
-                ? io.github.loadup.pay.acquire.client.enums.PaymentProgress.UNPAID
+                ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.UNPAID
                 : order.paidAmountMinor() == order.amount().getCent()
-                ? io.github.loadup.pay.acquire.client.enums.PaymentProgress.FULL
-                : io.github.loadup.pay.acquire.client.enums.PaymentProgress.PARTIAL;
+                ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.FULL
+                : io.github.loadup.pay.acquire.domain.model.PaymentProgress.PARTIAL;
     }
 
     default OffsetDateTime external(LocalDateTime value) {

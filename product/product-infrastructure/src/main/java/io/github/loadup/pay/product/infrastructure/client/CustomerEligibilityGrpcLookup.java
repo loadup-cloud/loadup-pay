@@ -20,7 +20,7 @@ import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.components.rpc.grpc.RpcServerSupport;
 import io.github.loadup.pay.customer.client.command.MerchantActionAuthorizeCommand;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
-import io.github.loadup.pay.customer.client.enums.MerchantAction;
+import io.github.loadup.pay.customer.domain.model.MerchantAction;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.product.app.port.CustomerEligibilityLookup;
 import io.github.loadup.pay.product.app.security.ProductActorProvider;

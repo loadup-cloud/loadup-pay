@@ -25,7 +25,7 @@ import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;

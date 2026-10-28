@@ -34,7 +34,7 @@ class CustomerConverterTest {
             var model = MerchantRelationship.init("relation", "parent", "child", from, null)
                     .activate();
             var dto = converter.toDTO(model);
-            assertEquals(io.github.loadup.pay.customer.client.enums.GrantState.ACTIVE, dto.state());
+            assertEquals(io.github.loadup.pay.customer.domain.model.GrantState.ACTIVE, dto.state());
             assertEquals(1, dto.version());
             assertEquals(8 * 3600, dto.validFrom().getOffset().getTotalSeconds());
             assertEquals(from, dto.validFrom().toLocalDateTime());

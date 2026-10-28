@@ -41,7 +41,7 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

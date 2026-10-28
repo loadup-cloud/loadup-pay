@@ -90,7 +90,7 @@ class CustomerServiceTest {
 
     private MerchantActionAuthorizeCommand query() {
         return new MerchantActionAuthorizeCommand(
-                "child", io.github.loadup.pay.customer.client.enums.MerchantAction.CREATE_ORDER);
+                "child", io.github.loadup.pay.customer.domain.model.MerchantAction.CREATE_ORDER);
     }
 
     @Test

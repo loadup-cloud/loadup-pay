@@ -31,7 +31,7 @@ import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentRecoveryRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryRetryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryTaskDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.client.facade.PaymentRecoveryOperationsFacade;
 import io.github.loadup.pay.payment.client.query.PaymentRecoveryTaskQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;

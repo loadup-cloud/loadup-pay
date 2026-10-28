@@ -106,12 +106,12 @@
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
+            <artifactId>flyway-database-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -147,7 +147,7 @@
     </build>
     <profiles>
         <profile>
-            <id>mysql-it</id>
+            <id>postgresql-it</id>
             <build>
                 <plugins>
                     <plugin>

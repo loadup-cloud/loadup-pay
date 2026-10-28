@@ -25,7 +25,7 @@ import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.port.AcquireRealtimeClient;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotEnvelopeCodec;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import org.junit.jupiter.api.BeforeEach;

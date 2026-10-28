@@ -107,7 +107,7 @@ class LimitExpiryServiceTest {
         when(f.reservations.lockExistingBuckets(eq("tenant"), anyList()))
                 .thenReturn(new LimitBucketSet(Map.of(item.bucket(), new LimitBucket(item.bucket(), 10, 60, 4))));
         assertEquals(
-                io.github.loadup.pay.limitcenter.client.enums.LimitReservationState.EXPIRED,
+                io.github.loadup.pay.limitcenter.domain.model.LimitReservationState.EXPIRED,
                 service.expire(new LimitExpireCommand("operation")).state());
         verify(f.reservations)
                 .updateBuckets(
@@ -136,7 +136,7 @@ class LimitExpiryServiceTest {
         var original = reserved(f.now.minusSeconds(1));
         stored(original.transitionTo(original.reservation().beginExecution("attempt", f.now.minusSeconds(2))));
         assertEquals(
-                io.github.loadup.pay.limitcenter.client.enums.LimitReservationState.EXECUTING,
+                io.github.loadup.pay.limitcenter.domain.model.LimitReservationState.EXECUTING,
                 service.expire(new LimitExpireCommand("operation")).state());
         verify(f.reservations, never()).loadItems(anyString(), anyString());
         verify(f.reservations, never()).updateBuckets(anyString(), any(), any());
@@ -146,7 +146,7 @@ class LimitExpiryServiceTest {
     void anEarlyExpiryRequestIsAnUnchangedObservation() {
         stored(reserved(f.now.plusSeconds(1)));
         assertEquals(
-                io.github.loadup.pay.limitcenter.client.enums.LimitReservationState.RESERVED,
+                io.github.loadup.pay.limitcenter.domain.model.LimitReservationState.RESERVED,
                 service.expire(new LimitExpireCommand("operation")).state());
         verify(f.reservations, never()).updateReservation(anyString(), any(), anyLong());
     }

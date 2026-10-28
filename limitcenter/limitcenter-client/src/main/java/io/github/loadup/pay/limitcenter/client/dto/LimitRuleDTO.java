@@ -16,8 +16,8 @@
 package io.github.loadup.pay.limitcenter.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.limitcenter.client.enums.LimitMetric;
-import io.github.loadup.pay.limitcenter.client.enums.LimitWindowType;
+import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.pay.limitcenter.domain.model.LimitWindowType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;

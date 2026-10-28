@@ -17,10 +17,10 @@ package io.github.loadup.pay.limitcenter.client.support;
 
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRuleDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitMetric;
-import io.github.loadup.pay.limitcenter.client.enums.LimitWindowType;
-import io.github.loadup.pay.limitcenter.client.enums.RefundAmountRestorePolicy;
-import io.github.loadup.pay.limitcenter.client.enums.RefundCountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
+import io.github.loadup.pay.limitcenter.domain.model.LimitWindowType;
+import io.github.loadup.pay.limitcenter.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.limitcenter.domain.model.RefundCountRestorePolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

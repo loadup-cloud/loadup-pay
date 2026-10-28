@@ -17,8 +17,8 @@ package io.github.loadup.pay.payment.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.payment.client.enums.PaymentCaptureBlocker;
-import io.github.loadup.pay.payment.client.enums.PaymentCaptureState;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;

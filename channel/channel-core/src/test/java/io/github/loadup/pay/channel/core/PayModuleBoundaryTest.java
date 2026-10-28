@@ -38,10 +38,64 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PayModuleBoundaryTest {
     private static final List<String> SERVICES = List.of("acquire", "payment", "customer", "product", "limitcenter", "realtime", "reconciliation");
-    private static final List<String> LAYERS = List.of("client", "domain", "app", "infrastructure", "adapter", "rpc", "bootstrap");
+    private static final List<String> LAYERS = List.of("client", "domain", "app", "infrastructure", "adapter", "bootstrap");
     private static final Pattern PAY_REFERENCE = Pattern.compile(
             "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime|reconciliation)"
-                    + "\\.(client|domain|app|infrastructure|adapter|rpc|bootstrap)\\b(?:\\.([A-Za-z_$][\\w$]*))?");
+                    + "\\.(client|domain|app|infrastructure|adapter|rpc|bootstrap)\\b(?:\\.([A-Za-z_$][\\w$]*))?(?:\\.([A-Za-z_$][\\w$]*))?");
+    private static final Set<String> PUBLIC_DOMAIN_ENUMS = Set.of(
+            "acquire.AcquireRecoveryKind",
+            "acquire.OrderCreationRecoveryState",
+            "acquire.PaymentInteractionKind",
+            "acquire.PaymentProgress",
+            "acquire.PaymentRecoveryState",
+            "limitcenter.LimitRestoreResult",
+            "payment.PaymentActionType",
+            "payment.PaymentInputExpiryDisposition",
+            "payment.PaymentRecoveryAttentionLevel",
+            "payment.PaymentRecoveryKind",
+            "payment.PaymentVerificationDisposition",
+            "payment.PaymentVerificationOutcome",
+            "product.FeeRefundPolicy",
+            "product.RefundAllocationPolicy",
+            "product.RefundAmountRestorePolicy",
+            "product.RefundCountRestorePolicy",
+            "product.UnpaidOrderAction",
+            "realtime.ProjectionState",
+            "acquire.AcquireOrderState",
+            "acquire.CheckoutSessionState",
+            "acquire.MerchantNotificationState",
+            "customer.GrantState",
+            "customer.MerchantAction",
+            "customer.PrincipalType",
+            "limitcenter.LimitMetric",
+            "limitcenter.LimitReservationState",
+            "limitcenter.LimitWindowType",
+            "limitcenter.RefundAmountRestorePolicy",
+            "limitcenter.RefundCountRestorePolicy",
+            "payment.ChannelBindingState",
+            "payment.PaymentAttemptState",
+            "payment.PaymentCaptureBlocker",
+            "payment.PaymentCaptureState",
+            "payment.PaymentLedgerKind",
+            "payment.PaymentLedgerStatus",
+            "payment.PaymentState",
+            "payment.RefundRequestState",
+            "payment.RefundState",
+            "product.AdmissionDecision",
+            "reconciliation.ReconciliationDifferenceReason",
+            "reconciliation.ReconciliationEntryStatus",
+            "reconciliation.ReconciliationImportState",
+            "reconciliation.ReconciliationRecordKind",
+            "reconciliation.ReconciliationReviewConclusion",
+            "reconciliation.ReconciliationReviewOperation",
+            "reconciliation.ReconciliationReviewState",
+            "reconciliation.ReconciliationSide",
+            "reconciliation.ReconciliationSourceKind",
+            "reconciliation.ReconciliationState",
+            "reconciliation.ReconciliationStatementState",
+            "reconciliation.ReconciliationVerificationDisposition",
+            "reconciliation.ReconciliationVerificationOutcome",
+            "reconciliation.ReconciliationVerificationState");
     private static final Pattern CHANNEL_IMPLEMENTATION = Pattern.compile("\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\b)[A-Za-z_$][\\w$]*\\.");
     private static final Pattern TECHNICAL_IMPLEMENTATION = Pattern.compile(
             "\\b(?:org\\.springframework|com\\.mybatisflex|org\\.apache\\.ibatis|jakarta\\.persistence"
@@ -49,19 +103,22 @@ class PayModuleBoundaryTest {
 
     private static List<String> sourceViolations(Module module, String path, String source) {
         var errors = new ArrayList<String>();
-        if (Set.of("client", "domain").contains(module.layer()) && TECHNICAL_IMPLEMENTATION.matcher(source).find())
+        boolean transportContract = module.layer().equals("client") && path.replace('\\', '/').contains("/rpc/");
+        if ((module.layer().equals("domain") || module.layer().equals("client") && !transportContract) && TECHNICAL_IMPLEMENTATION.matcher(source).find())
             errors.add("TECHNICAL_IMPLEMENTATION: client/domain cannot name Spring, ORM, RPC or component implementation types");
         if (CHANNEL_IMPLEMENTATION.matcher(source).find())
             errors.add("CHANNEL_IMPLEMENTATION: business sources must use channel-api");
         var references = PAY_REFERENCE.matcher(source);
         while (references.find()) {
             String owner = references.group(1), layer = references.group(2), role = references.group(3);
+            boolean publicEnum = layer.equals("domain") && "model".equals(role)
+                    && PUBLIC_DOMAIN_ENUMS.contains(owner + "." + references.group(4));
             if (!owner.equals(module.service())) {
-                if (!Set.of("client", "rpc").contains(layer)) errors.add("CROSS_SERVICE: " + owner + "." + layer);
-                else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))
+                if (!publicEnum && !Set.of("client", "rpc").contains(layer)) errors.add("CROSS_SERVICE: " + owner + "." + layer);
+                else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()) && !transportContract)
                     errors.add("TRANSPORT_IN_BUSINESS: gRPC belongs in adapters/ports");
             } else {
-                if (!allowedOwnLayer(module.layer(), layer))
+                if (!publicEnum && !(transportContract && layer.equals("rpc")) && !allowedOwnLayer(module.layer(), layer))
                     errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
                 var normalized = "/" + path.replace('\\', '/');
                 boolean storage = List.of("repository", "converter", "codec").stream()
@@ -87,7 +144,7 @@ class PayModuleBoundaryTest {
     private static List<String> dependencyViolations(Module module, Dependency dependency) {
         if (dependency.scope().equals("test")) return List.of();
         var errors = new ArrayList<String>();
-        if (Set.of("client", "domain").contains(module.layer()) && (dependency.group().startsWith("org.springframework")
+        if (module.layer().equals("domain") && (dependency.group().startsWith("org.springframework")
                 || dependency.group().startsWith("org.mybatis") || dependency.group().startsWith("com.mybatis-flex")
                 || dependency.group().startsWith("io.grpc") || dependency.group().equals("com.google.protobuf")
                 || dependency.group().equals("jakarta.persistence") || dependency.artifact().startsWith("loadup-components-")))
@@ -100,7 +157,7 @@ class PayModuleBoundaryTest {
             for (var layer : LAYERS) {
                 if (!dependency.artifact().equals(owner + "-" + layer)) continue;
                 if (owner.equals(module.service())) {
-                    if (!allowedOwnLayer(module.layer(), layer)) errors.add("OWN_LAYER: " + dependency.artifact());
+                    if (!(module.layer().equals("client") && layer.equals("domain")) && !allowedOwnLayer(module.layer(), layer)) errors.add("OWN_LAYER: " + dependency.artifact());
                 } else if (!Set.of("client", "rpc").contains(layer))
                     errors.add("CROSS_SERVICE: " + dependency.artifact());
                 else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))
@@ -207,19 +264,21 @@ class PayModuleBoundaryTest {
         assertAllowed("acquire", "app", "service/Order.java", "io.github.loadup.pay.payment.client.facade.PaymentFacade value;");
         assertAllowed("payment", "infrastructure", "client/Remote.java", "io.github.loadup.pay.acquire.rpc.AcquireRpc value;");
         assertAllowed("payment", "domain", "model/Payment.java", "io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity value;");
+        assertAllowed("payment", "client", "dto/Payment.java", "io.github.loadup.pay.payment.domain.model.PaymentState value;");
+        assertAllowed("realtime", "client", "dto/Payment.java", "io.github.loadup.pay.payment.domain.model.PaymentState value;");
+        assertRejected("realtime", "client", "dto/Payment.java", "io.github.loadup.pay.payment.domain.model.PaymentOrder value;", "CROSS_SERVICE");
     }
 
     @Test
     void pomRulesRejectImplementationDependenciesButPreserveAssemblyAndTestAdapters() {
         assertFalse(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "")).isEmpty());
         assertFalse(dependencyViolations(module("customer", "app"), dep("product-app", "")).isEmpty());
-        assertFalse(dependencyViolations(module("payment", "app"), dep("acquire-rpc", "")).isEmpty());
         assertFalse(dependencyViolations(module("payment", "infrastructure"), dep("channel-wechat", "runtime")).isEmpty());
         assertFalse(dependencyViolations(module("payment", "domain"), dep("loadup-components-database", "")).isEmpty());
         assertTrue(dependencyViolations(module("payment", "bootstrap"), dep("channel-wechat", "runtime")).isEmpty());
         assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("payment-app", "")).isEmpty());
         assertTrue(dependencyViolations(module("acquire", "app"), dep("payment-client", "")).isEmpty());
-        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("acquire-rpc", "")).isEmpty());
+        assertTrue(dependencyViolations(module("payment", "infrastructure"), dep("acquire-client", "")).isEmpty());
         assertTrue(dependencyViolations(module("payment", "app"), dep("payment-infrastructure", "test")).isEmpty());
     }
 

@@ -27,7 +27,7 @@ import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.payment.app.port.PaymentRealtimeClient;
 import io.github.loadup.pay.payment.app.port.PaymentSnapshotEnvelopeCodec;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import org.junit.jupiter.api.BeforeEach;

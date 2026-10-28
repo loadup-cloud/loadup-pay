@@ -39,7 +39,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -268,7 +268,7 @@ public class PaymentInitiationOperations {
                     if (resolution == null || !validator.validate(resolution).isEmpty() || resolution.disposition() == null
                             || !execute.paymentId().equals(resolution.paymentId()) || !execute.orderId().equals(resolution.orderId()))
                         throw new CommonException(SNAPSHOT_INVALID);
-                    if (resolution.disposition() == io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
+                    if (resolution.disposition() == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
                         var proof = resolution.closed();
                         if (proof == null || !validator.validate(proof).isEmpty() || !proof.fenced()
                                 || proof.fenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH
@@ -278,7 +278,7 @@ public class PaymentInitiationOperations {
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), proof);
                     }
                     if (resolution.closed() != null) throw new CommonException(SNAPSHOT_INVALID);
-                    if (resolution.disposition() == io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.PAYMENT_EXISTS)
+                    if (resolution.disposition() == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.PAYMENT_EXISTS)
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
                 }
                 // Exact original idempotent acceptance; no current route, interaction or financial identity is substituted.

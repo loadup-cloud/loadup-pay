@@ -33,6 +33,8 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationConverter {
+    @Mapping(target = "taskId", ignore = true)
+    @Mapping(target = "nativeStatus", ignore = true)
     @Mapping(target = "batchId", source = "id")
     @Mapping(target = "channel", source = "scope.channel")
     @Mapping(target = "accountScopeHash", source = "scope.accountScopeHash")
@@ -73,9 +75,6 @@ public interface ReconciliationConverter {
 
     StoredReconciliationBatch toStored(ReconciliationBatch batch, String callerServiceId, String requestKey, String requestDigest, String channelAccountCode);
 
-    ReconciliationSide toSide(io.github.loadup.pay.reconciliation.client.enums.ReconciliationSide value);
 
-    ReconciliationRecordKind toKind(io.github.loadup.pay.reconciliation.client.enums.ReconciliationRecordKind value);
 
-    ReconciliationDifferenceReason toReason(io.github.loadup.pay.reconciliation.client.enums.ReconciliationDifferenceReason value);
 }

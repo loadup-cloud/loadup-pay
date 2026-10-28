@@ -201,6 +201,6 @@ class RefundNotificationServiceTest {
         assertTrue(accepted.isEmpty());
         verify(receipts, never()).insert(anyString(), any());
         assertEquals(1, manager.rollbacks);
-        // The fake manager checks propagation; database rollback still requires MySQL acceptance.
+        // The fake manager checks propagation; database rollback still requires PostgreSQL acceptance.
     }
 }

@@ -297,7 +297,7 @@ class OrderAdmissionServiceTest {
                         terms,
                         snapshot.items().get("acquiring").configuration().origins()));
         var dto = service.authorize(command(100));
-        assertEquals(io.github.loadup.pay.product.client.enums.AdmissionDecision.ADMITTED, dto.decision());
+        assertEquals(io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED, dto.decision());
         assertEquals(now.plusMinutes(5), dto.materializeBefore().toLocalDateTime());
         assertEquals("routing-v1", dto.terms().routingProfileRef());
         var saved = ArgumentCaptor.forClass(StoredOrderAdmission.class);

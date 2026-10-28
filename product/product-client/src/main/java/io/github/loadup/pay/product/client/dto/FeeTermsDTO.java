@@ -17,7 +17,7 @@ package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.product.client.enums.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;

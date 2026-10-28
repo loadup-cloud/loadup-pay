@@ -1,5 +1,7 @@
 # Reconciliation 后置交易对账
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
 当前已有 client/domain/app/infrastructure/adapter/rpc/bootstrap 七层源码：批次创建/封存输入引用、原运行与持久任务、

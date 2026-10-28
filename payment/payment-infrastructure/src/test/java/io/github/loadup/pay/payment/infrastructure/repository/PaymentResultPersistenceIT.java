@@ -54,7 +54,7 @@ import io.github.loadup.pay.payment.app.service.PaymentRecoveryService;
 import io.github.loadup.pay.payment.app.service.PaymentResultService;
 import io.github.loadup.pay.payment.app.service.PaymentSubmissionPreparation;
 import io.github.loadup.pay.payment.app.service.RecoveryExecutionMetrics;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -148,7 +148,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(classes = PaymentResultPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {"loadup.delayedtask.max-attempts=3", "loadup.delayedtask.lease=PT5S", "loadup.delayedtask.batch-size=1",
                 "loadup.modules.payment.recovery-polling.jitter-percent=0"})
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class PaymentResultPersistenceIT {
     private final PaymentAcceptanceTransactions transactions;
     private final PaymentAcceptanceGateway payments;

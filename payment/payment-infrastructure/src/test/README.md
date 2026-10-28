@@ -1,8 +1,8 @@
 # Payment 持久化集成测试
 
-`RecoveryPersistenceIT` 使用 `@EnableTestContainers(MYSQL, reuse=false)`、Testify、实际 Flyway 迁移、生成 Mapper、真实
+`RecoveryPersistenceIT` 使用 `@EnableTestContainers(POSTGRESQL, reuse=false)`、Testify、实际 Flyway 迁移、生成 Mapper、真实
 Gateway 和
-native DelayedTask。没有 mock DataSource、内存数据库或手写替代 schema。`mysql-it` 为显式 Failsafe profile，默认单测不启动该
+native DelayedTask。没有 mock DataSource、内存数据库或手写替代 schema。`postgresql-it` 为显式 Failsafe profile，默认单测不启动该
 IT。
 
 ## 当前用例
@@ -23,7 +23,7 @@ IT。
 需要 Docker 可用，并已具备当前 loadup-framework 和本项目依赖。以下命令尚未执行，遵守用户当前暂停验证要求：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=RecoveryPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
 这是单模块命令，不自行扩大为 full reactor。test/ci 配置均使用容器注入的数据源，不连接业务数据库；系统本地时区沿项目契约处理。
@@ -31,7 +31,7 @@ mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=Recove
 
 ## FinancialPersistenceIT：Y2 与退款容量边界
 
-新增同一 `mysql-it` profile 下的 5 个真实 MySQL 用例源码：
+新增同一 `postgresql-it` profile 下的 5 个真实 PostgreSQL 用例源码：
 
 | 用例             | 实际入口与断言                                                                                                                                                    |
 |------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -52,7 +52,7 @@ RefundPlanningService 的全部鉴权/准入或退款渠道执行。用例中容
 可选择两组 IT（命令尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=RecoveryPersistenceIT,FinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RecoveryPersistenceIT,FinancialPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
 当前仍是源码状态：未编译、未运行 Docker/测试。该组只覆盖上述边界，其他 R1 用例分别记录在后续章节、acquire 和 realtime
@@ -60,7 +60,7 @@ mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=Recove
 
 ## PaymentResultPersistenceIT：Y3 多表与真实 Outbox
 
-新增 10 个真实 MySQL 测试输入，使用实际 PaymentExecutionService.progress、PaymentResultService、金融锁序、Gateways、生成
+新增 10 个真实 PostgreSQL 测试输入，使用实际 PaymentExecutionService.progress、PaymentResultService、金融锁序、Gateways、生成
 Mapper、Codec、MapStruct、事务与 Outbox：
 
 | 用例                        | 实际持久化边界                                                                                                                            |
@@ -89,10 +89,10 @@ Outbox worker 在 test/ci 配置中关闭，保留实际入库而避免后台发
 选择此组的命令（尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=PaymentResultPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=PaymentResultPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
-仍未运行 IDEA、编译、单测、Docker 或 MySQL；R1 尚无本轮通过证据。后续仍需真实付款/退款恢复 handler 的租约、旧新 generation
+仍未运行 IDEA、编译、单测、Docker 或 PostgreSQL；R1 尚无本轮通过证据。后续仍需真实付款/退款恢复 handler 的租约、旧新 generation
 并发及网络故障组合。
 
 ## PaymentResultPersistenceIT：真实付款恢复 handler 与租约交错
@@ -116,11 +116,11 @@ DelayedTaskStore.claim/finish、实际游标、实际任务表和金融持久化
 用例结束取消尚未完成的测试原生任务，保留业务、回执和成功任务记录，不删除金融证据。
 
 这些用例尚未编译或执行。它们直接编排实际 claim/handler/finish，不代表实际 Scheduler、Dispatcher 扫描、跨进程停机或真实渠道网络已演练。
-退款对应组合源码见下方 RefundRecoveryHandlerPersistenceIT；R1 仍需实际 MySQL 运行结果，不能以源码完成替代验收。
+退款对应组合源码见下方 RefundRecoveryHandlerPersistenceIT；R1 仍需实际 PostgreSQL 运行结果，不能以源码完成替代验收。
 
 ## RefundRecoveryHandlerPersistenceIT：退款结果、Outbox 与真实恢复 handler
 
-新增 8 个真实 MySQL 测试输入。复用 PaymentResultPersistenceIT 的实际付款存储/结果装配、受控 Clock 与渠道端口，
+新增 8 个真实 PostgreSQL 测试输入。复用 PaymentResultPersistenceIT 的实际付款存储/结果装配、受控 Clock 与渠道端口，
 额外接入实际
 RefundGateway、ResultGateway、SummaryGateway、SnapshotReader、ProjectionEvents、RefundExecutionService、ResultService、RecoveryService、TaskHandler。
 原付款通过真实 Y3 生成成功流水和退款容量，再通过实际 FIFO/insertPlan 预占、实际 projections.planned 及 recovery.register
@@ -151,10 +151,10 @@ canRefund 仅作为本地能力检查，断言位于持锁事务内；不会载�
 选择此组的命令（尚未执行）：
 
 ```bash
-mvnd clean verify -pl payment/payment-infrastructure -Pmysql-it -Dit.test=RefundRecoveryHandlerPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=RefundRecoveryHandlerPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
-当前只有源码，未运行 IDEA、编译、单测、Docker、MySQL、DDL 或 IT。R1 的真实运行证据仍未满足。
+当前只有源码，未运行 IDEA、编译、单测、Docker、PostgreSQL、DDL 或 IT。R1 的真实运行证据仍未满足。
 本组没有覆盖 RefundPlanningService 全部鉴权/合约准入、多付款 FIFO 串行退款、实际 Dispatcher/Scheduler 扫描、真实渠道验签或跨进程停机。
 这些范围与 R3–R8 按 review 继续推进，不能以此宣称全业务或生产验收完成。
 
@@ -168,7 +168,7 @@ PaymentResultPersistenceIT 显式导入 RecoveryPollingConfiguration；付款/�
 ## Review R3 后的 handler 指标装配
 
 付款基础 IT 装配显式导入 RecoveryExecutionMetrics，退款 IT 复用同一基础装配。
-它只使用容器已有的共享 MeterRegistry，缺省不创建测试外的私有 registry；这些金融 IT 仍按原 MySQL/任务/回执/Outbox
+它只使用容器已有的共享 MeterRegistry，缺省不创建测试外的私有 registry；这些金融 IT 仍按原 PostgreSQL/任务/回执/Outbox
 边界断言，不把指标状态当金融成功证据。
 指标单位测试另在 payment-app 的 RecoveryExecutionMetricsTest 以及 infrastructure 的 RecoveryTaskHandlerMetricsTest，用测试专属
 SimpleMeterRegistry。
@@ -203,7 +203,7 @@ subjectId，验证时间游标和终态退出。
 
 ## 2026-10-27 UNKNOWN 生命周期快照
 
-PaymentResultPersistenceIT 新增一个真实 MySQL 用例源码：UNKNOWN 更新与 realtime Outbox
+PaymentResultPersistenceIT 新增一个真实 PostgreSQL 用例源码：UNKNOWN 更新与 realtime Outbox
 写后抛错，付款/attempt/first_unknown_at/receipt/Outbox 全部回滚；相同回执重放与同状态新回执不重复根版本快照，随后成功增加原四目标。已有关闭/租约交错预期同步计入
 CLOSING/UNKNOWN 快照，并区分 realtime 两份与三个财务目标各一份。事件组件内部名更新为 PaymentEvents。未运行，不增加通过证据。
 
@@ -221,4 +221,4 @@ RefundRecoveryHandlerPersistenceIT 增加提交退款缺受理日期、受理跨
 UNKNOWN→消费原确认”的用例源码；断言确认保留、Y3 金融结果回滚、不重复 close、最终原 receipt/Outbox 收敛且不产生退款容量。
 
 领域/app 同批增加不变量、先持久再应用、重复恢复、并发首份保持、错误来源/身份/epoch/网络失败及
-OPEN/终态/事务门禁测试源码。所有源码未编译/运行，未执行 MySQL/DDL；真实丢包、确认写前崩溃、签名报文留档和实际渠道验收继续待办。
+OPEN/终态/事务门禁测试源码。所有源码未编译/运行，未执行 PostgreSQL/DDL；真实丢包、确认写前崩溃、签名报文留档和实际渠道验收继续待办。

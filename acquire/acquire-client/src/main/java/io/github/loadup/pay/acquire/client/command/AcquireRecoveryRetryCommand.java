@@ -18,7 +18,7 @@ package io.github.loadup.pay.acquire.client.command;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
+import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

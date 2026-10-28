@@ -1,6 +1,6 @@
 # Realtime 真实投影持久化测试
 
-`ProjectionPersistenceIT` 使用 Testify、真实 MySQL Testcontainers、实际 Flyway、生成 Mapper、Gateway、Codec、MapStruct、事务管理器与
+`ProjectionPersistenceIT` 使用 Testify、真实 PostgreSQL Testcontainers、实际 Flyway、生成 Mapper、Gateway、Codec、MapStruct、事务管理器与
 `TradeProjectionService`。
 只由测试提供可信服务主体；没有 mock 数据源、事务、投影或 receipt 仓储，也不需要调用上游服务。
 
@@ -22,16 +22,16 @@ ACK 丢失用调用方丢弃返回值建模，不声称已验证实际 gRPC 网�
 
 ## 运行与当前状态
 
-显式 `mysql-it` Failsafe profile；默认单测不会启动这些 IT。需要 Docker 和当前依赖，以下命令尚未执行：
+显式 `postgresql-it` Failsafe profile；默认单测不会启动这些 IT。需要 Docker 和当前依赖，以下命令尚未执行：
 
 ```bash
-mvnd clean verify -pl realtime/realtime-infrastructure -Pmysql-it -Dit.test=ProjectionPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
+mvnd clean verify -pl realtime/realtime-infrastructure -Ppostgresql-it -Dit.test=ProjectionPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
-当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 MySQL。R1 仍无本轮通过证据。
+当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 PostgreSQL。R1 仍无本轮通过证据。
 这些用例不证明真实 gRPC/JWT/TLS、上游 Outbox 投递、查询负载或投影重建/检查点已经验收。
 
 ## 2026-10-27 付款生命周期用例源码
 
 新增 INIT version 0（无渠道）→ PROCESSING → UNKNOWN → CLOSING → SUCCEEDED，付款可先于订单保存；迟到 INIT 返回 STALE，新
-delivery 的同一终态返回 DUPLICATE，更高版本 UNKNOWN 不能重开成功终态。仍使用实际 MySQL/投影/receipt，尚未构建或执行。
+delivery 的同一终态返回 DUPLICATE，更高版本 UNKNOWN 不能重开成功终态。仍使用实际 PostgreSQL/投影/receipt，尚未构建或执行。

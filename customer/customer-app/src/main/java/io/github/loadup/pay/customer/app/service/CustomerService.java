@@ -97,7 +97,7 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
 
     private static LocalDateTime local(OffsetDateTime value) {
         if (value == null) return null;
-        // MySQL DATETIME(6) must preserve exactly the accepted validity boundary.
+        // The database timestamp must preserve the accepted validity boundary to microsecond precision.
         if (value.getNano() % 1000 != 0) throw new CommonException(INVALID_ARGUMENT);
         return BusinessTime.local(value);
     }

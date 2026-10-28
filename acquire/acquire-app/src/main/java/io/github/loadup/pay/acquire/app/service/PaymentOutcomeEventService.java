@@ -31,7 +31,7 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;

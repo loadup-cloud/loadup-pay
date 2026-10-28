@@ -180,7 +180,7 @@ class RefundPlanningServiceTest {
     @Test
     void freezesFifoPlanOriginalIdentitiesAndAllReservationsInOneLocalTransaction() {
         var dto = service(AttemptFixtures.NOW).create(command(6000));
-        assertEquals(io.github.loadup.pay.payment.client.enums.RefundRequestState.INIT, dto.state());
+        assertEquals(io.github.loadup.pay.payment.domain.model.RefundRequestState.INIT, dto.state());
         assertEquals(2, dto.allocations().size());
         assertEquals("z-old", dto.allocations().get(0).paymentId());
         assertEquals(3000, dto.allocations().get(0).amountMinor());

@@ -20,7 +20,7 @@ import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.components.rpc.grpc.GrpcTransport;
 import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidenceProperties;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

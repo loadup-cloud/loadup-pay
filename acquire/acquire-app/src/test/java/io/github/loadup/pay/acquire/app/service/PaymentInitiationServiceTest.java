@@ -44,7 +44,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
@@ -165,7 +165,7 @@ class PaymentInitiationServiceTest {
         when(payment.expireInput(eq("tenant"), any())).thenAnswer(call -> {
             io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand q = call.getArgument(1);
             return new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(q.paymentId(), q.orderId(),
-                    io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+                    io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         });
         when(codec.encode(any())).thenAnswer(c -> {
             PaymentExecuteCommand value = c.getArgument(0);
@@ -484,7 +484,7 @@ class PaymentInitiationServiceTest {
         var original = saved.get("expired");
         var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(original.allocation().paymentId(), "order", 1L, true, null, "expiry-proof");
         when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(
-                original.allocation().paymentId(), "order", io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED, proof));
+                original.allocation().paymentId(), "order", io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.EXPIRED_CLOSED, proof));
         clearInvocations(payment, allocations);
         var result = operations(clock(NOW.plusMinutes(3))).recover(principal, "order", "expired", 4000,
                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
@@ -508,7 +508,7 @@ class PaymentInitiationServiceTest {
         var principal = preparedCheckout("original");
         String paymentId = saved.get("original").allocation().paymentId();
         when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(paymentId, "order",
-                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.PAYMENT_EXISTS, null));
+                io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.PAYMENT_EXISTS, null));
         clearInvocations(payment);
         var result = operations(clock(NOW)).recover(principal, "order", "original", 4000, new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         assertEquals(paymentId, result.paymentId());
@@ -516,7 +516,7 @@ class PaymentInitiationServiceTest {
         verify(payment, never()).accept(anyString(), any());
         var invalid = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(paymentId, "order", 1L, false, null, "unfenced");
         when(payment.expireInput(eq("tenant"), any())).thenReturn(new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO(paymentId, "order",
-                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.EXPIRED_CLOSED, invalid));
+                io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.EXPIRED_CLOSED, invalid));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> operations(clock(NOW)).recover(principal, "order", "original", 4000,
                 new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5))).getResultCode());
         verify(payment, never()).accept(anyString(), any());

@@ -87,10 +87,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Real MySQL review/File metadata; actor identity and private object byte transport remain controlled test inputs.
+ * Real PostgreSQL review/File metadata; actor identity and private object byte transport remain controlled test inputs.
  */
 @SpringBootTest(classes = ReconciliationReviewPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class ReconciliationReviewPersistenceIT {
     final ReconciliationReviewService service;
     final ReconciliationBatchGateway batches;
@@ -228,7 +228,7 @@ class ReconciliationReviewPersistenceIT {
     }
 
     ReconciliationReviewProposeCommand propose(Fixture fixture, String request, String file) {
-        return new ReconciliationReviewProposeCommand(fixture.batchId(), fixture.differenceId(), request, 0L, io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewConclusion.TIMING_DIFFERENCE, "review rationale", file);
+        return new ReconciliationReviewProposeCommand(fixture.batchId(), fixture.differenceId(), request, 0L, io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion.TIMING_DIFFERENCE, "review rationale", file);
     }
 
     long count(String table, String tenant) {

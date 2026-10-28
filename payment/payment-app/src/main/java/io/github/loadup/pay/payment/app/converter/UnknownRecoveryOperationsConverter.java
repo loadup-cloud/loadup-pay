@@ -19,7 +19,7 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.pay.payment.client.dto.PaymentUnknownRecoveryDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryAttentionLevel;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryAttentionLevel;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

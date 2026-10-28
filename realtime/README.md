@@ -1,5 +1,7 @@
 # Realtime 独立交易投影
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+
 应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
@@ -76,7 +78,7 @@ null，来源领先时保留实际金额差和 amountsConsistent。新生产/投
 新增 [ProjectionPersistenceIT 测试说明](realtime-infrastructure/src/test/README.md)
 ，对订单、付款、退款、退款汇总四类投影复用实际入口、事务、Gateway、生成 Mapper 和 Flyway。
 覆盖并发 delivery、同版本冲突、乱序版本、receipt 插入后的原子回滚及原 ACK 重放，共 20 个参数化输入。
-测试配置由显式 mysql-it profile 启动；目前未编译或运行，不能视为 R1 的真实数据库证明，也未验证线上消息投递及重建流程。
+测试配置由显式 postgresql-it profile 启动；目前未编译或运行，不能视为 R1 的真实数据库证明，也未验证线上消息投递及重建流程。
 
 ## 2026-10-27 付款非终态来源
 

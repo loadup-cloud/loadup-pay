@@ -19,7 +19,7 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.OffsetDateTime;

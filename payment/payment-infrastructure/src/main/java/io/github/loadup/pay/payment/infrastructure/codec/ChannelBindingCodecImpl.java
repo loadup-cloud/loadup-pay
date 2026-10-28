@@ -67,7 +67,7 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
             if (identity == null || !validator.validate(identity).isEmpty())
                 throw new CommonException(SNAPSHOT_INVALID);
             var value = converter.toIdentity(identity);
-            // MySQL JSON may reorder keys or add whitespace. Hash the typed canonical representation.
+            // Hash the typed canonical representation independently of JSON formatting.
             if (!checksum(encodeIdentity(value)).equals(expectedHash)) throw new CommonException(SNAPSHOT_INVALID);
             return value;
         } catch (RuntimeException corrupt) {

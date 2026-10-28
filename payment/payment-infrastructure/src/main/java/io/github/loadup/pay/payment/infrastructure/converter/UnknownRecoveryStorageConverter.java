@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryEntry;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.infrastructure.model.UnknownRecoveryProjection;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

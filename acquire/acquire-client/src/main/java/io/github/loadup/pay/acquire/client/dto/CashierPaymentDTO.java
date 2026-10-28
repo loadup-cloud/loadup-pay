@@ -18,7 +18,7 @@ package io.github.loadup.pay.acquire.client.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 

@@ -20,8 +20,8 @@ import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
-import io.github.loadup.pay.product.client.enums.FeeRefundPolicy;
-import io.github.loadup.pay.product.client.enums.UnpaidOrderAction;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

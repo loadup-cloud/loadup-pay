@@ -19,8 +19,10 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationDifferenceDTO;
 import io.github.loadup.pay.reconciliation.client.query.ReconciliationDifferenceQuery;
 
@@ -34,7 +36,11 @@ public interface ReconciliationFacade {
 
     ReconciliationBatchDTO start(ReconciliationBatchStartCommand command);
 
+    ReconciliationBatchDTO retry(ReconciliationBatchRetryCommand command);
+
     ReconciliationBatchDTO detail(IdQuery query);
+
+    ReconciliationBatchTaskDTO task(IdQuery query);
 
     PageDTO<ReconciliationDifferenceDTO> differences(ReconciliationDifferenceQuery query);
 }

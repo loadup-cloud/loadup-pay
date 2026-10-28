@@ -19,7 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.outbox.OutboxEvent;
 import io.github.loadup.components.outbox.OutboxTemplate;
-import io.github.loadup.pay.limitcenter.client.enums.LimitRestoreResult;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;

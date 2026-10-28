@@ -17,7 +17,7 @@ package io.github.loadup.pay.payment.app.port;
 
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryEntry;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
-import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 
 import java.util.List;
 

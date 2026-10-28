@@ -16,7 +16,7 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationVerificationState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
 
 public record ReconciliationVerificationDTO(String requestId, String batchId, String differenceId, String proposalId,
                                             String approvalEventId,

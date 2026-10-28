@@ -16,7 +16,7 @@
 package io.github.loadup.pay.acquire.client.query;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.acquire.client.enums.AcquireRecoveryKind;
+import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryKind;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

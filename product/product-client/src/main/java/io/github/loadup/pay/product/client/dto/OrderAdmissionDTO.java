@@ -17,7 +17,7 @@ package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;

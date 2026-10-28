@@ -197,7 +197,7 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                     || !validator.validate(value).isEmpty()
                     || value.terms() == null
                     || value.terms().schemaVersion() != 1
-                    || value.decision() != io.github.loadup.pay.product.client.enums.AdmissionDecision.ADMITTED)
+                    || value.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED)
                 throw new CommonException(SNAPSHOT_INVALID);
             return value;
         } catch (RuntimeException failure) {

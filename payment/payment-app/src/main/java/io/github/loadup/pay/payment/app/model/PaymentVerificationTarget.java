@@ -20,7 +20,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
-import io.github.loadup.pay.payment.client.enums.PaymentVerificationDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 

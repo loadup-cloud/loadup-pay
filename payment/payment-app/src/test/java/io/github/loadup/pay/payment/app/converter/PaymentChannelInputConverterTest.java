@@ -20,7 +20,7 @@ import io.github.loadup.pay.channel.api.model.H5SceneType;
 import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.RedirectActionDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentActionType;
+import io.github.loadup.pay.payment.domain.model.PaymentActionType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;

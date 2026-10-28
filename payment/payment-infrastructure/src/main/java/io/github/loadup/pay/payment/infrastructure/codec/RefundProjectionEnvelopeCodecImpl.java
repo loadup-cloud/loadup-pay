@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.infrastructure.codec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
-import io.github.loadup.pay.payment.client.enums.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;

@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-rpc</artifactId>
+            <artifactId>limitcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -24,10 +24,6 @@
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>limitcenter-app</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>limitcenter-client</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

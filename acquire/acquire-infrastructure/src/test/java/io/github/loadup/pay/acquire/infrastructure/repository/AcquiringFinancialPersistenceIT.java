@@ -62,7 +62,7 @@ import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -118,7 +118,7 @@ import static org.mockito.Mockito.when;
  * Real A2/A3, native tasks, fee and Outbox persistence. Only the cross-service payment response is simulated.
  */
 @SpringBootTest(classes = AcquiringFinancialPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class AcquiringFinancialPersistenceIT {
     private final OrderCreationGateway orders;
     private final PaymentOutcomeGateway outcomes;

@@ -262,6 +262,6 @@ class ChannelBindingServiceTest {
                 () -> service.publish(publish("first", 0, "v1", 100))).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock ports establish the boundary; real MySQL rollback remains an integration acceptance item.
+        // Mock ports establish the boundary; real PostgreSQL rollback remains an integration acceptance item.
     }
 }

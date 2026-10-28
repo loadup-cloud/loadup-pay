@@ -46,7 +46,7 @@ final class OutcomeDeliveryFixtures {
                 original.intentPayload(), original.payloadHash(), "evidence");
         var data = new PaymentOutcomeEventDTO(payment.id(), payment.orderId(), payment.allocationId(), payment.limitOperationId(),
                 payment.payeeMerchantId(), payment.amount().getCent(), payment.amount().getCurrencyValue(),
-                io.github.loadup.pay.payment.client.enums.PaymentState.valueOf(payment.state().name()), payment.version(), "evidence", !succeeded);
+                io.github.loadup.pay.payment.domain.model.PaymentState.valueOf(payment.state().name()), payment.version(), "evidence", !succeeded);
         var envelope = new EventEnvelope<>("delivery", "evidence", "payment", type, 1, payment.id(), payment.version(),
                 BusinessTime.external(AttemptFixtures.NOW), data);
         return new PaymentDeliverySnapshot("tenant", envelope, stored, attempt, succeeded ? AttemptFixtures.NOW : null);

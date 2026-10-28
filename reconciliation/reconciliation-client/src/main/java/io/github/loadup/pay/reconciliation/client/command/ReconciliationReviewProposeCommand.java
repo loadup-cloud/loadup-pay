@@ -17,7 +17,7 @@ package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewConclusion;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

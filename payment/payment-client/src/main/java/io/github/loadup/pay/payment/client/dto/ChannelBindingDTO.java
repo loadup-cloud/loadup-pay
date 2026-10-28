@@ -19,7 +19,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.client.enums.ChannelBindingState;
+import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.Set;

@@ -73,32 +73,32 @@
 
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>realtime-rpc</artifactId>
+                <artifactId>realtime-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-rpc</artifactId>
+                <artifactId>acquire-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-rpc</artifactId>
+                <artifactId>payment-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-rpc</artifactId>
+                <artifactId>limitcenter-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-rpc</artifactId>
+                <artifactId>product-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-rpc</artifactId>
+                <artifactId>customer-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -107,11 +107,6 @@
                 <version>${loadup.framework.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>customer-client</artifactId>
-                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
@@ -140,22 +135,12 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>limitcenter-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>limitcenter-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>limitcenter-bootstrap</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>product-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -200,11 +185,6 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>payment-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>payment-domain</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -230,11 +210,6 @@
             </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>acquire-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>acquire-app</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -256,11 +231,6 @@
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>acquire-bootstrap</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>realtime-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -291,11 +261,6 @@
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>reconciliation-adapter</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.github.loadup-cloud</groupId>
-                <artifactId>reconciliation-rpc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

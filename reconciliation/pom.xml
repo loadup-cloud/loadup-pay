@@ -16,7 +16,6 @@
         <module>reconciliation-app</module>
         <module>reconciliation-infrastructure</module>
         <module>reconciliation-adapter</module>
-        <module>reconciliation-rpc</module>
         <module>reconciliation-bootstrap</module>
     </modules>
 </project>

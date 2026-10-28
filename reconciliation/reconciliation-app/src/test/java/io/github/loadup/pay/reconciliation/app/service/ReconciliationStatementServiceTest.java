@@ -99,7 +99,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit orchestration only. Actual rollback and native scanner semantics require separate MySQL acceptance.
+ * Unit orchestration only. Actual rollback and native scanner semantics require separate PostgreSQL acceptance.
  */
 class ReconciliationStatementServiceTest {
     final AnnotationConfigApplicationContext spring = new AnnotationConfigApplicationContext(ReconciliationStatementConverter.class.getPackageName());

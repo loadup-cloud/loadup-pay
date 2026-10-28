@@ -24,7 +24,7 @@ import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProper
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentState;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.grpc.Metadata;
 import io.grpc.Status;
@@ -274,7 +274,7 @@ class PaymentAcceptanceGrpcClientTest {
                 io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
         var operation = io.github.loadup.pay.payment.rpc.PaymentRpcOperations.PAYMENT_INPUT_EXPIRE;
         var active = new io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO("payment", "order",
-                io.github.loadup.pay.payment.client.enums.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+                io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         when(rpc.call(eq(operation), eq(command), any())).thenReturn(active);
         assertSame(active, client.expireInput("tenant", command));
         when(rpc.call(eq(operation), eq(command), any())).thenThrow(remoteFailure("PAYMENT_NOT_FOUND"));

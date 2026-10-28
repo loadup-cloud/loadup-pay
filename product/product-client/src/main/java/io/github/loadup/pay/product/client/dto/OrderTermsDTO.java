@@ -17,7 +17,7 @@ package io.github.loadup.pay.product.client.dto;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.product.client.enums.UnpaidOrderAction;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

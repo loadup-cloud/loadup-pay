@@ -1,5 +1,7 @@
 # Acquire 收单订单
 
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务 client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+
 应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
@@ -723,7 +725,7 @@ MapStruct 与本地事务；通过真实付款发起/进度编排并发调用。
 回执、费用确认/调整、快照共同回滚；远端成功测试事实保留，可原号再查证收敛。并发相同 actionKey 与成功事实检查只生效一次。
 
 仓储重建补齐 DIRECT_PAY 原元数据/摘要分支，避免把其 payload 交给仅接受 ORDER 的解码器；ORDER/DIRECT_PAY 均有实际仓储重建测试输入。
-`mysql-it` profile 为显式 opt-in，详细范围及命令见 `acquire-infrastructure/src/test/README.md`。没有新增业务迁移或 RPC。
+`postgresql-it` profile 为显式 opt-in，详细范围及命令见 `acquire-infrastructure/src/test/README.md`。没有新增业务迁移或 RPC。
 所有新源码未编译、未运行容器/数据库，不等价于 R1 已验收或真实跨服务/资金链路已通过。
 
 ### Review R6：付款恢复意图快照

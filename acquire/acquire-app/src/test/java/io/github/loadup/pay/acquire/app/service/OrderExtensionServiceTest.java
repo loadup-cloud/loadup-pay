@@ -26,7 +26,7 @@ import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderExtendCommand;
 import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
-import io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind;
+import io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
@@ -108,10 +108,10 @@ class OrderExtensionServiceTest {
         when(codec.directPayDigest("tenant", OWNER, direct)).thenReturn("c".repeat(64));
         var t = terms();
         var extendedTerms = new AcquiringTermsDTO(t.schemaVersion(), new OrderTermsDTO(600L, 3600L,
-                io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, true, 1200L, 300L),
+                io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, true, 1200L, 300L),
                 t.payment(), t.fee(), t.refund(), t.notification(), t.limits(), t.capabilities(), t.routingProfileRef(), t.returnTargetCode());
         when(codec.decodeAdmission(anyString(), anyString())).thenReturn(new OrderAdmissionDTO("admission", "order", "merchant",
-                io.github.loadup.pay.product.client.enums.AdmissionDecision.ADMITTED, "ALLOW", "c".repeat(64), "contract", 1, 1L,
+                io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED, "ALLOW", "c".repeat(64), "contract", 1, 1L,
                 "snapshot", "b".repeat(64), BusinessTime.external(NOW.minusMinutes(1)), BusinessTime.external(NOW.plusMinutes(5)), extendedTerms));
         doAnswer(c -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());

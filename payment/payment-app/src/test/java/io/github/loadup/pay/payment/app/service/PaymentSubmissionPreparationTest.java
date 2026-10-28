@@ -21,7 +21,7 @@ import io.github.loadup.pay.channel.api.model.NoChannelInput;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;

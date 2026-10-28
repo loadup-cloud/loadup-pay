@@ -16,7 +16,7 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.pay.reconciliation.client.enums.ReconciliationReviewState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewState;
 
 public record ReconciliationReviewDTO(String batchId, String differenceId, String runId, String resultHash,
                                       String matchKeyHash, ReconciliationReviewState state, long version,

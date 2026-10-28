@@ -19,8 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
-import io.github.loadup.pay.payment.client.enums.PaymentCaptureState;
-import io.github.loadup.pay.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

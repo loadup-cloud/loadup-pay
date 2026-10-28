@@ -71,7 +71,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SpringBootTest(classes = {PaymentResultPersistenceIT.Application.class, PaymentCapturePersistenceIT.Configuration.class},
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
+@EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class PaymentCapturePersistenceIT {
     final PaymentAcceptanceTransactions transactions;
     final PaymentAcceptanceGateway payments;

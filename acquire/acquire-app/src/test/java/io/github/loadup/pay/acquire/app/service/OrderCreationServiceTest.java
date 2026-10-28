@@ -47,7 +47,7 @@ import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
-import io.github.loadup.pay.product.client.enums.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -154,7 +154,7 @@ class OrderCreationServiceTest {
     io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct() {
         return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 10000L, "CNY", "test order", null,
                 "first-action", 4000L, new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
-                io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.H5_SCENE);
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE);
     }
 
     @Test
@@ -317,7 +317,7 @@ class OrderCreationServiceTest {
         return new AcquiringTermsDTO(
                 1,
                 new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.client.enums.UnpaidOrderAction.CLOSE, false, 0, 300),
+                        600, 3600, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
                 new FeeTermsDTO(
                         new BigDecimal("0.003"),
@@ -325,9 +325,9 @@ class OrderCreationServiceTest {
                         RoundingMode.HALF_UP,
                         0,
                         null,
-                        io.github.loadup.pay.product.client.enums.FeeRefundPolicy.NO_RETURN),
+                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
                 new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.client.enums.RefundAllocationPolicy.FIFO),
+                        true, true, 86400, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO(
                         "policy",
@@ -335,8 +335,8 @@ class OrderCreationServiceTest {
                         "e".repeat(64),
                         false,
                         null,
-                        io.github.loadup.pay.product.client.enums.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.client.enums.RefundCountRestorePolicy.NO_RESTORE),
+                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
+                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
@@ -654,7 +654,7 @@ class OrderCreationServiceTest {
         assertEquals(1, manager.commits);
         assertEquals(1, manager.rollbacks);
         verify(store, never()).updateIntent(anyString(), any(), anyLong());
-        // Mock repositories cannot prove database row rollback; real MySQL acceptance is separate.
+        // Mock repositories cannot prove database row rollback; real PostgreSQL acceptance is separate.
     }
 
     @Test

@@ -19,7 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.payment.client.enums.PaymentLedgerKind;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;

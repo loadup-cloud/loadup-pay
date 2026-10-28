@@ -17,8 +17,8 @@ package io.github.loadup.pay.acquire.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.acquire.client.enums.AcquireOrderState;
-import io.github.loadup.pay.acquire.client.enums.PaymentProgress;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.PaymentProgress;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;

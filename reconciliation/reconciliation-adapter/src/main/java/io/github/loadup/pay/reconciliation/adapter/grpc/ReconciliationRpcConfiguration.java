@@ -25,6 +25,8 @@ import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCrea
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchQuery;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStartCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchRetryCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import io.grpc.BindableService;
 import io.grpc.ServerInterceptors;
@@ -53,6 +55,16 @@ public class ReconciliationRpcConfiguration {
             @Override
             public void start(WireReconciliationBatchStartCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
                 support.invoke(request, observer, mapper::fromWire, facade::start, mapper::toWire);
+            }
+
+            @Override
+            public void retry(WireReconciliationBatchRetryCommand request, StreamObserver<WireReconciliationBatchDTO> observer) {
+                support.invoke(request, observer, mapper::fromWire, facade::retry, mapper::toWire);
+            }
+
+            @Override
+            public void task(WireReconciliationBatchQuery request, StreamObserver<WireReconciliationBatchTaskDTO> observer) {
+                support.invoke(request, observer, mapper::fromWire, facade::task, mapper::toWire);
             }
 
             @Override

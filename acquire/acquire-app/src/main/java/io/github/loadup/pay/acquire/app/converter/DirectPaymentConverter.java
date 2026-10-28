@@ -29,16 +29,16 @@ public interface DirectPaymentConverter {
     @Mapping(target = "interactionKind", source = "interaction")
     io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand toRecovery(DirectPayCommand command);
 
-    default io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind interactionKind(io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO value) {
+    default io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind interactionKind(io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO value) {
         return switch (value) {
             case io.github.loadup.pay.payment.client.dto.NoInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.NONE;
+                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE;
             case io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.PAYMENT_CODE;
+                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.PAYMENT_CODE;
             case io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.CHANNEL_IDENTITY;
+                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.CHANNEL_IDENTITY;
             case io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.client.enums.PaymentInteractionKind.H5_SCENE;
+                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE;
         };
     }
 
@@ -55,7 +55,7 @@ public interface DirectPaymentConverter {
     @Mapping(target = "payment", source = "payment")
     io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO toRecoveryDTO(
             io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command, String orderId,
-            io.github.loadup.pay.acquire.client.enums.OrderCreationRecoveryState state, String resultCode,
+            io.github.loadup.pay.acquire.domain.model.OrderCreationRecoveryState state, String resultCode,
             AcquireOrderDTO order, PaymentRecoveryDTO payment);
 
     @Mapping(target = "orderId", source = "orderId")
