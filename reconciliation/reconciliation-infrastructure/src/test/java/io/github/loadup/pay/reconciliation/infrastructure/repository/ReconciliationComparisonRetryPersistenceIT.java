@@ -73,12 +73,14 @@ class ReconciliationComparisonRetryPersistenceIT {
     private final DelayedTaskProperties properties;
     private final FaultingResults results;
     private final JdbcTemplate jdbc;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @Autowired
     ReconciliationComparisonRetryPersistenceIT(ReconciliationService batches, ReconciliationImportPersistenceIT.Actors actors,
                                               ReconciliationInputGateway inputs, ReconciliationTransactions transactions,
                                               DelayedTaskDispatcher dispatcher, DelayedTaskProperties properties,
-                                              FaultingResults results, JdbcTemplate jdbc) {
+                                              FaultingResults results, JdbcTemplate jdbc,
+                                              org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.batches = batches;
         this.actors = actors;
         this.inputs = inputs;
@@ -87,10 +89,12 @@ class ReconciliationComparisonRetryPersistenceIT {
         this.properties = properties;
         this.results = results;
         this.jdbc = jdbc;
+        this.transactionManager = transactionManager;
     }
 
     @Test
     void exhaustedOriginalRunCanBeRetriedOnceAndCommitsOneResult() throws Exception {
+        assertInstanceOf(org.springframework.jdbc.datasource.DataSourceTransactionManager.class, transactionManager);
         int previousMaxAttempts = properties.getMaxAttempts();
         properties.setMaxAttempts(1);
         try {

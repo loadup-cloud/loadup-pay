@@ -8,6 +8,8 @@ acquire、payment、customer、product、limitcenter、realtime、reconciliation
 
 每个支付服务的 infrastructure 只有一份初始 Flyway 文件。sequence、Outbox、DelayedTask、GlobalUnique，以及该服务实际引入的 merchant、contract、File 和 Transfer 迁移由各自模块拥有。安装 JAR 时应先 clean：旧构建输出可能仍含已删除的 MySQL 或增量迁移，即使源码目录已经干净也会被 Flyway 扫描。
 
+单数据源装配使用 Spring JDBC 事务管理器和 MyBatis Spring 事务工厂，让 Mapper、Outbox 和本地 JDBC 使用同一数据源；不匹配的事务管理器会在启动时拒绝。GlobalUnique 和 DelayedTask 在调用方已有事务时使用该事务绑定的 JDBC 连接设置保存点，重复键回滚到保存点后才读取已有记录。必须使用与 Mapper 相同的数据源；保存点创建、回滚或释放失败时，整个业务事务应失败并回滚。Inbox 使用指定业务唯一键的 `ON CONFLICT DO NOTHING`。这些源码设计仍需真实数据库并发和事务验收。
+
 时间字段使用 `timestamp(6) without time zone`，JVM、业务 Clock、JDBC 和数据库会话采用同一部署本地时区；显式偏移的协议时间仍表示绝对时间。字符串列使用 `C` collation；金额、版本和序列保持整数，证据 JSON 保持 TEXT。迁移不承诺与原 MySQL 的区域排序、尾空格和所有字符比较完全相同，必须在目标数据库上验证业务身份及分页语义。
 
 ## 必须留存的验收结果
