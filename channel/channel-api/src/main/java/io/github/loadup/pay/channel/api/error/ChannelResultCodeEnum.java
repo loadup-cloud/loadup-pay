@@ -31,6 +31,9 @@ public enum ChannelResultCodeEnum implements ResultCode {
     CHANNEL_CREDENTIAL_UNAVAILABLE("CHANNEL_CREDENTIAL_UNAVAILABLE", "Frozen channel credential resource is unavailable"),
     CHANNEL_SIGNATURE_INVALID("CHANNEL_SIGNATURE_INVALID", "Channel response signature is invalid"),
     ACTION_SNAPSHOT_INVALID("CHANNEL_ACTION_SNAPSHOT_INVALID", "Channel action snapshot is invalid"),
+    STATEMENT_RATE_LIMITED("CHANNEL_STATEMENT_RATE_LIMITED", "Official statement request is rate limited"),
+    STATEMENT_NOT_READY("CHANNEL_STATEMENT_NOT_READY", "Official statement is still being generated"),
+    STATEMENT_NOT_FOUND("CHANNEL_STATEMENT_NOT_FOUND", "Official statement is unavailable; no empty statement is inferred"),
     CHANNEL_RESPONSE_INVALID("CHANNEL_RESPONSE_INVALID", "Channel response violates the expected protocol");
 
     private final String code;
@@ -42,12 +45,18 @@ public enum ChannelResultCodeEnum implements ResultCode {
     }
 
     @Override
-    public String getCode() { return code; }
+    public String getCode() {
+        return code;
+    }
 
     @Override
-    public String getMessage() { return message; }
+    public String getMessage() {
+        return message;
+    }
 
     @Override
-    public String getStatus() { return ResultStatusEnum.FAIL.getCode(); }
+    public String getStatus() {
+        return ResultStatusEnum.FAIL.getCode();
+    }
 }
 

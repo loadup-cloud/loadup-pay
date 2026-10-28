@@ -16,23 +16,23 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
-import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
-import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
@@ -81,6 +81,7 @@ class PaymentInputServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentInputConverter.class.getPackageName());
     final PaymentInputGateway store = mock(PaymentInputGateway.class);
+    final PaymentInputPublication publication = mock(PaymentInputPublication.class);
     final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
     final AtomicReference<PaymentInput> persisted = new AtomicReference<>();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(new PaymentActor(
@@ -89,7 +90,7 @@ class PaymentInputServiceTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00.123456Z"), BusinessTime.zone());
     final PaymentInputPrepareCommand command = command(PaymentMethod.PAYMENT_CODE,
             new PaymentCodeInteractionDTO("synthetic-payer-code"));
-    final PaymentInputService service = new PaymentInputService(actor::get, store, cipher,
+    final PaymentInputService service = new PaymentInputService(actor::get, store, publication, cipher,
             context.getBean(PaymentInputConverter.class), context.getBean(PaymentChannelInputConverter.class),
             new PaymentAcceptanceTransactions(manager),
             validation.getValidator(), clock, "acquire");
@@ -124,6 +125,28 @@ class PaymentInputServiceTest {
     }
 
     @Test
+    void aCloseCommittedWhileKmsWasInFlightPreventsPublishingTheLateCiphertext() {
+        org.mockito.Mockito.doThrow(new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED))
+                .when(publication).requireNew(any(), any(), any());
+        assertEquals(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
+                assertThrows(CommonException.class, () -> service.prepare(command)).getResultCode());
+        assertNull(persisted.get());
+        verify(store, never()).insert(anyString(), any());
+        verify(cipher).encrypt("tenant", "acquire", "opaque-reference", command);
+    }
+
+    @Test
+    void anExistingExactInputReplaysEvenAfterPublicationHasBeenFenced() {
+        var first = service.prepare(command);
+        clearInvocations(publication, cipher);
+        org.mockito.Mockito.doThrow(new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED))
+                .when(publication).requireNew(any(), any(), any());
+        assertEquals(first, service.prepare(command));
+        verifyNoInteractions(publication);
+        verify(cipher, never()).encrypt(anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
     void preparesOnlyCiphertextOutsideLocksThenCommitsOneFixedScope() {
         var result = service.prepare(command);
         assertEquals("opaque-reference", result.inputRef());
@@ -148,7 +171,7 @@ class PaymentInputServiceTest {
     @Test
     void fingerprintRotationReplaysUsingOriginalKeyAndDoesNotRenewExpiredInput() {
         var first = service.prepare(command);
-        var later = new PaymentInputService(actor::get, store, cipher, context.getBean(PaymentInputConverter.class),
+        var later = new PaymentInputService(actor::get, store, publication, cipher, context.getBean(PaymentInputConverter.class),
                 context.getBean(PaymentChannelInputConverter.class),
                 new PaymentAcceptanceTransactions(manager), validation.getValidator(),
                 Clock.offset(clock, Duration.ofDays(1)), "acquire");
@@ -225,8 +248,8 @@ class PaymentInputServiceTest {
 
     @Test
     void invalidH5IpLiteralsAreRejectedBeforeCipherOrStorage() {
-        for (var invalidIp : new String[] { "payer.example", "203.0.113.10, 203.0.113.11", "fe80::1%en0",
-                "[2001:db8::1]", "0.0.0.0", "127.0.0.1", "224.0.0.1" }) {
+        for (var invalidIp : new String[]{"payer.example", "203.0.113.10, 203.0.113.11", "fe80::1%en0",
+                "[2001:db8::1]", "0.0.0.0", "127.0.0.1", "224.0.0.1"}) {
             var invalid = command(PaymentMethod.H5, new H5SceneInteractionDTO(invalidIp,
                     io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
             assertSame(INVALID_ARGUMENT,
@@ -297,7 +320,7 @@ class PaymentInputServiceTest {
         var prepared = service.prepare(command);
         persisted.set(persisted.get().bind("attempt", LocalDateTime.now(clock)));
         var original = persisted.get();
-        var later = new PaymentInputService(actor::get, store, cipher, context.getBean(PaymentInputConverter.class),
+        var later = new PaymentInputService(actor::get, store, publication, cipher, context.getBean(PaymentInputConverter.class),
                 context.getBean(PaymentChannelInputConverter.class), new PaymentAcceptanceTransactions(manager),
                 validation.getValidator(), Clock.offset(clock, Duration.ofDays(1)), "acquire");
         clearInvocations(cipher, store);
@@ -334,7 +357,9 @@ class PaymentInputServiceTest {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.lookup(lookupQuery())).getResultCode());
-        } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
         verifyNoInteractions(cipher, store);
     }
 

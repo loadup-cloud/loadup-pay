@@ -49,6 +49,9 @@ loadup:
           refund-create:
             method: POST
             path: /v3/refund/domestic/refunds
+          trade-bill:
+            method: GET
+            path: /v3/bill/tradebill
           refund-query:
             method: GET
             path: /v3/refund/domestic/refunds/{out_refund_no}
@@ -65,3 +68,30 @@ loadup:
           micropay:
             method: POST
             path: /pay/micropay
+
+      wechat-bill-download:
+        base-url: https://api.mch.weixin.qq.com
+        connect-timeout: 3s
+        read-timeout: 30s
+        acquire-timeout: 3s
+        max-connections: 8
+        max-connections-per-route: 4
+        max-request-bytes: 1024
+        max-response-bytes: 16777216
+        operations:
+          bill-download:
+            method: GET
+            path: /v3/billdownload/file
+      wechat-bill-download-backup:
+        base-url: https://api2.mch.weixin.qq.com
+        connect-timeout: 3s
+        read-timeout: 30s
+        acquire-timeout: 3s
+        max-connections: 8
+        max-connections-per-route: 4
+        max-request-bytes: 1024
+        max-response-bytes: 16777216
+        operations:
+          bill-download:
+            method: GET
+            path: /v3/billdownload/file

@@ -24,26 +24,40 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapsh
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import java.io.*;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.function.Supplier;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
 
-/** FileResource metadata is local; DFS byte transfer is always outside business transactions. */
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+
+/**
+ * FileResource metadata is local; DFS byte transfer is always outside business transactions.
+ */
 @Component
 public class FileResourceReconciliationSources implements ReconciliationSourceFiles {
     private static final String REFERENCE_TYPE = "reconciliation-import";
     private final FileResourceFacade files;
     private final int maxBytes;
+
     public FileResourceReconciliationSources(FileResourceFacade files,
-            @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
+                                             @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
         if (maxBytes < 1024 || maxBytes > 67108864) throw new CommonException(INVALID_ARGUMENT);
-        this.files = files; this.maxBytes = maxBytes;
+        this.files = files;
+        this.maxBytes = maxBytes;
     }
-    @Override public ReconciliationFileSnapshot upload(String tenant, String owner, String filename, String type, long size, InputStream content) {
+
+    @Override
+    public ReconciliationFileSnapshot upload(String tenant, String owner, String filename, String type, long size, InputStream content) {
         noTransaction();
         if (size <= 0 || size > maxBytes || content == null) throw new CommonException(INPUT_INVALID);
         byte[] bytes = read(content);
@@ -56,56 +70,114 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
             return new ReconciliationFileSnapshot(stored.id(), stored.storageId(), stored.size(), hash(bytes));
         });
     }
-    @Override public ReconciliationFileSnapshot inspect(String tenant, String owner, String fileId) {
+
+    @Override
+    public ReconciliationFileSnapshot inspect(String tenant, String owner, String fileId) {
         noTransaction();
         return call(tenant, () -> {
-            var stored = files.get(tenant, fileId, owner, false); metadata(stored, tenant, owner, fileId);
+            var stored = files.get(tenant, fileId, owner, false);
+            metadata(stored, tenant, owner, fileId);
             try (var response = files.download(tenant, fileId, owner, false)) {
-                if (response.contentLength() != stored.size() || !stored.storageId().equals(response.metadata().fileId())) throw new CommonException(SNAPSHOT_INVALID);
+                if (response.contentLength() != stored.size() || !stored.storageId().equals(response.metadata().fileId()))
+                    throw new CommonException(SNAPSHOT_INVALID);
                 byte[] bytes = read(response.content());
                 if (bytes.length != stored.size()) throw new CommonException(INPUT_INVALID);
                 return new ReconciliationFileSnapshot(fileId, stored.storageId(), stored.size(), hash(bytes));
-            } catch (IOException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+            } catch (IOException failure) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
         });
     }
-    @Override public void attach(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
-        transaction(tenant, true); current(tenant, owner, source);
-        if (!referenced(tenant, owner, source.fileId(), importId)) files.attach(tenant, source.fileId(), owner, false, REFERENCE_TYPE, importId);
+
+    @Override
+    public void attach(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
+        transaction(tenant, true);
+        current(tenant, owner, source);
+        if (!referenced(tenant, owner, source.fileId(), importId))
+            files.attach(tenant, source.fileId(), owner, false, REFERENCE_TYPE, importId);
     }
-    @Override public void verify(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
-        transaction(tenant, false); current(tenant, owner, source);
+
+    @Override
+    public void verify(String tenant, String owner, ReconciliationFileSnapshot source, String importId) {
+        transaction(tenant, false);
+        current(tenant, owner, source);
         if (!referenced(tenant, owner, source.fileId(), importId)) throw new CommonException(SNAPSHOT_INVALID);
     }
+
+    @Override
+    public void attachReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId) {
+        transaction(tenant, true);
+        current(tenant, owner, source);
+        if (!referenced(tenant, owner, source.fileId(), "reconciliation-review", proposalId))
+            files.attach(tenant, source.fileId(), owner, false, "reconciliation-review", proposalId);
+    }
+
+    @Override
+    public void verifyReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId) {
+        transaction(tenant, false);
+        current(tenant, owner, source);
+        if (!referenced(tenant, owner, source.fileId(), "reconciliation-review", proposalId))
+            throw new CommonException(SNAPSHOT_INVALID);
+    }
+
     private boolean referenced(String tenant, String owner, String id, String importId) {
-        return files.references(tenant, id, owner, false).stream().anyMatch(value -> REFERENCE_TYPE.equals(value.referenceType()) && importId.equals(value.referenceId()));
+        return referenced(tenant, owner, id, REFERENCE_TYPE, importId);
     }
+
+    private boolean referenced(String tenant, String owner, String id, String referenceType, String referenceId) {
+        return files.references(tenant, id, owner, false).stream().anyMatch(value -> referenceType.equals(value.referenceType()) && referenceId.equals(value.referenceId()));
+    }
+
     private void current(String tenant, String owner, ReconciliationFileSnapshot source) {
-        var stored = files.get(tenant, source.fileId(), owner, false); metadata(stored, tenant, owner, source.fileId());
-        if (!source.storageId().equals(stored.storageId()) || source.size() != stored.size()) throw new CommonException(SNAPSHOT_INVALID);
+        var stored = files.get(tenant, source.fileId(), owner, false);
+        metadata(stored, tenant, owner, source.fileId());
+        if (!source.storageId().equals(stored.storageId()) || source.size() != stored.size())
+            throw new CommonException(SNAPSHOT_INVALID);
     }
+
     private void metadata(FileResourceDTO value, String tenant, String owner, String id) {
         if (value == null || !Objects.equals(id, value.id()) || !tenant.equals(value.tenantId()) || !owner.equals(value.ownerId())
                 || !"ACTIVE".equals(value.state()) || value.size() <= 0 || value.size() > maxBytes || value.storageId() == null)
             throw new CommonException(INPUT_INVALID);
     }
+
     private byte[] read(InputStream source) {
-        try { var bytes = source.readNBytes(maxBytes + 1); if (bytes.length > maxBytes) throw new CommonException(INPUT_INVALID); return bytes; }
-        catch (IOException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        try {
+            var bytes = source.readNBytes(maxBytes + 1);
+            if (bytes.length > maxBytes) throw new CommonException(INPUT_INVALID);
+            return bytes;
+        } catch (IOException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
+
     private String hash(byte[] bytes) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
-        catch (NoSuchAlgorithmException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE, failure); }
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE, failure);
+        }
     }
-    private void noTransaction() { if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE); }
+
+    private void noTransaction() {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+    }
+
     private void transaction(String tenant, boolean write) {
         if (!Objects.equals(tenant, TenantUtil.getTenantId()) || !TransactionSynchronizationManager.isActualTransactionActive()
-                || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+                || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
     }
+
     private <T> T call(String tenant, Supplier<T> action) {
-        try { return TenantUtil.callWithTenant(tenant, action::get); }
-        catch (CommonException failure) {
-            if (failure.getResultCode() instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) throw failure;
+        try {
+            return TenantUtil.callWithTenant(tenant, action::get);
+        } catch (CommonException failure) {
+            if (failure.getResultCode() instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum)
+                throw failure;
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        } catch (RuntimeException failure) { throw new CommonException(DEPENDENCY_UNAVAILABLE); }
+        } catch (RuntimeException failure) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

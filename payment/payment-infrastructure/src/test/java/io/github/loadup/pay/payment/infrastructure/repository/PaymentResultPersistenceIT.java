@@ -17,7 +17,12 @@ package io.github.loadup.pay.payment.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.*;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskConverter;
+import io.github.loadup.components.delayedtask.DelayedTaskProperties;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskStore;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.components.delayedtask.dataobject.DelayedTaskDO;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
@@ -26,11 +31,11 @@ import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.payment.app.config.RecoveryPollingConfiguration;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
-import io.github.loadup.pay.payment.app.config.RecoveryPollingConfiguration;
 import io.github.loadup.pay.payment.app.model.PaymentResultApplication;
 import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.model.UnknownRecoveryWindow;
@@ -38,15 +43,46 @@ import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
+import io.github.loadup.pay.payment.app.service.PaymentAcceptanceTransactions;
+import io.github.loadup.pay.payment.app.service.PaymentActionService;
+import io.github.loadup.pay.payment.app.service.PaymentCloseService;
+import io.github.loadup.pay.payment.app.service.PaymentEvents;
+import io.github.loadup.pay.payment.app.service.PaymentExecutionLocks;
+import io.github.loadup.pay.payment.app.service.PaymentExecutionService;
+import io.github.loadup.pay.payment.app.service.PaymentInitialAttemptService;
+import io.github.loadup.pay.payment.app.service.PaymentRecoveryService;
+import io.github.loadup.pay.payment.app.service.PaymentResultService;
+import io.github.loadup.pay.payment.app.service.PaymentSubmissionPreparation;
+import io.github.loadup.pay.payment.app.service.RecoveryExecutionMetrics;
 import io.github.loadup.pay.payment.client.enums.PaymentRecoveryKind;
-import io.github.loadup.pay.payment.app.service.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
+import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.codec.ChannelBindingCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentAcceptanceCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentResultCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.*;
+import io.github.loadup.pay.payment.infrastructure.mapper.ChannelTransactionClaimDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentAttemptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentChannelReceiptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentResultAnomalyDOMapper;
 import io.github.loadup.pay.payment.infrastructure.task.PaymentRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -79,15 +115,36 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.Fixture;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
-/** Actual Y3 and recovery handler with native claims; the original Y2 is a persisted boundary precondition. */
+/**
+ * Actual Y3 and recovery handler with native claims; the original Y2 is a persisted boundary precondition.
+ */
 @SpringBootTest(classes = PaymentResultPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {"loadup.delayedtask.max-attempts=3", "loadup.delayedtask.lease=PT5S", "loadup.delayedtask.batch-size=1",
                 "loadup.modules.payment.recovery-polling.jitter-percent=0"})
@@ -121,19 +178,36 @@ class PaymentResultPersistenceIT {
 
     @Autowired
     PaymentResultPersistenceIT(PaymentAcceptanceTransactions transactions, PaymentAcceptanceGateway payments,
-            PaymentAttemptGateway attempts, PaymentControlGateway changes, ChannelBindingManagementGateway bindings,
-            PaymentResultGateway results, PaymentResultService resultService, PaymentExecutionService execution,
-            PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec, PaymentControlConverter updates,
-            Faults faults, RemoteChannel remote, JdbcTemplate jdbc, TestScenario scenario,
-            PaymentRecoveryService recovery, PaymentRecoveryGateway cursors, PaymentRecoveryTaskHandler handler,
-            DelayedTaskTemplate tasks, DelayedTaskStore taskStore, DelayedTaskProperties taskProperties,
-            DelayedTaskConverter taskConverter, ControlledClock clock, RecoveryInventoryReader inventory, UnknownRecoveryReader unknowns) {
-        this.transactions = transactions; this.payments = payments; this.attempts = attempts; this.changes = changes;
-        this.bindings = bindings; this.results = results; this.resultService = resultService; this.execution = execution;
-        this.codec = codec; this.bindingCodec = bindingCodec; this.updates = updates;
-        this.faults = faults; this.remote = remote; this.jdbc = jdbc; this.scenario = scenario;
-        this.recovery = recovery; this.cursors = cursors; this.handler = handler; this.tasks = tasks;
-        this.taskStore = taskStore; this.taskProperties = taskProperties; this.taskConverter = taskConverter; this.clock = clock;
+                               PaymentAttemptGateway attempts, PaymentControlGateway changes, ChannelBindingManagementGateway bindings,
+                               PaymentResultGateway results, PaymentResultService resultService, PaymentExecutionService execution,
+                               PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec, PaymentControlConverter updates,
+                               Faults faults, RemoteChannel remote, JdbcTemplate jdbc, TestScenario scenario,
+                               PaymentRecoveryService recovery, PaymentRecoveryGateway cursors, PaymentRecoveryTaskHandler handler,
+                               DelayedTaskTemplate tasks, DelayedTaskStore taskStore, DelayedTaskProperties taskProperties,
+                               DelayedTaskConverter taskConverter, ControlledClock clock, RecoveryInventoryReader inventory, UnknownRecoveryReader unknowns) {
+        this.transactions = transactions;
+        this.payments = payments;
+        this.attempts = attempts;
+        this.changes = changes;
+        this.bindings = bindings;
+        this.results = results;
+        this.resultService = resultService;
+        this.execution = execution;
+        this.codec = codec;
+        this.bindingCodec = bindingCodec;
+        this.updates = updates;
+        this.faults = faults;
+        this.remote = remote;
+        this.jdbc = jdbc;
+        this.scenario = scenario;
+        this.recovery = recovery;
+        this.cursors = cursors;
+        this.handler = handler;
+        this.tasks = tasks;
+        this.taskStore = taskStore;
+        this.taskProperties = taskProperties;
+        this.taskConverter = taskConverter;
+        this.clock = clock;
         this.inventory = inventory;
         this.unknowns = unknowns;
     }
@@ -293,6 +367,47 @@ class PaymentResultPersistenceIT {
         });
         assertCounts(fixture, 0L, 0L, 1L, 0L, 5L);
         assertTargetCounts(fixture, 2L);
+        verify(remote.channels, times(1)).close(argThat(target -> submitted.identity().equals(target.identity())));
+        verify(remote.channels, never()).recover(any());
+    }
+
+    @Test
+    void acknowledgedCloseSurvivesY3RollbackAndRecoveryDoesNotCallTheChannelAgain() {
+        var fixture = seedSubmitted();
+        transactions.writeLocal(fixture.tenant(), () -> {
+            var parent = payments.lockParent(fixture.tenant(), fixture.command().orderId()).orElseThrow();
+            changes.updateParent(fixture.tenant(), updates.withGate(parent, parent.gate().fence(1L)), parent.rowVersion());
+            return true;
+        });
+        var submitted = fixture.attempt().attempt();
+        var closed = new PaymentObservation(submitted.identity(), ChannelPaymentOutcome.Kind.NO_COLLECTION,
+                submitted.amount(), null, null, PaymentObservation.Source.CLOSE_RESPONSE, "durable-authoritative-close", "a".repeat(64));
+        remote.observations.put(submitted.id(), closed);
+        faults.next.set(FailurePoint.AFTER_RECEIPT);
+        assertThrows(IllegalStateException.class, () -> execution.progress(fixture.tenant(), fixture.command().paymentId()));
+        transactions.readSnapshot(fixture.tenant(), () -> {
+            assertEquals(PaymentState.CLOSING, payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow().payment().state());
+            assertEquals(PaymentAttemptState.SUBMITTING, attempts.find(fixture.tenant(), submitted.id()).orElseThrow().attempt().state());
+            assertEquals(1L, count("payment_close_evidence", fixture));
+            assertEquals(0L, count("payment_channel_receipt", fixture));
+            assertEquals(0L, count("payment_refund_capacity", fixture));
+            return true;
+        });
+        // The provider can now return ambiguous CLOSED/UNKNOWN. Recovery must consume the earlier acknowledged proof.
+        remote.observations.put(submitted.id(), new PaymentObservation(submitted.identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
+                submitted.amount(), null, null, PaymentObservation.Source.QUERY_RESPONSE, "ambiguous-after-close", "b".repeat(64)));
+        execution.progress(fixture.tenant(), fixture.command().paymentId());
+        execution.progress(fixture.tenant(), fixture.command().paymentId());
+        transactions.readSnapshot(fixture.tenant(), () -> {
+            var payment = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            assertEquals(PaymentState.CLOSED, payment.payment().state());
+            var receipt = results.receipt(fixture.tenant(), submitted.id(), closed.source(), closed.receiptKey()).orElseThrow();
+            assertEquals(APPLIED, receipt.disposition());
+            assertEquals(payment.terminalEvidenceId(), receipt.id());
+            assertEquals(1L, count("payment_close_evidence", fixture));
+            return true;
+        });
+        assertCounts(fixture, 0L, 0L, 1L, 0L, 5L);
         verify(remote.channels, times(1)).close(argThat(target -> submitted.identity().equals(target.identity())));
         verify(remote.channels, never()).recover(any());
     }
@@ -660,8 +775,8 @@ class PaymentResultPersistenceIT {
             for (String type : List.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.RISK, PaymentEvents.REALTIME)) {
                 assertEquals(type.equals(PaymentEvents.REALTIME) ? realtimeSnapshots : 1L,
                         jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event"
-                        + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
-                        Long.class, fixture.tenant(), fixture.command().paymentId(), type).longValue());
+                                        + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
+                                Long.class, fixture.tenant(), fixture.command().paymentId(), type).longValue());
             }
             return true;
         });
@@ -721,9 +836,11 @@ class PaymentResultPersistenceIT {
         return LocalDateTime.now(clock);
     }
 
-    enum FailurePoint { AFTER_CLAIM, AFTER_CAPACITY, AFTER_SUCCESS_STATE, AFTER_RECEIPT, AFTER_OUTBOX }
+    enum FailurePoint {AFTER_CLAIM, AFTER_CAPACITY, AFTER_SUCCESS_STATE, AFTER_RECEIPT, AFTER_OUTBOX}
 
-    /** Virtual business/native time, independent of persistence audit timestamps and the machine clock. */
+    /**
+     * Virtual business/native time, independent of persistence audit timestamps and the machine clock.
+     */
     static final class ControlledClock extends Clock {
         private final AtomicReference<Instant> instant;
         private final ZoneId zone;
@@ -738,11 +855,28 @@ class PaymentResultPersistenceIT {
             this.zone = zone;
         }
 
-        void reset() { instant.set(AT.atZone(zone).toInstant()); }
-        void advance(Duration duration) { instant.updateAndGet(value -> value.plus(duration)); }
-        @Override public ZoneId getZone() { return zone; }
-        @Override public Clock withZone(ZoneId target) { return new ControlledClock(instant, target); }
-        @Override public Instant instant() { return instant.get(); }
+        void reset() {
+            instant.set(AT.atZone(zone).toInstant());
+        }
+
+        void advance(Duration duration) {
+            instant.updateAndGet(value -> value.plus(duration));
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return zone;
+        }
+
+        @Override
+        public Clock withZone(ZoneId target) {
+            return new ControlledClock(instant, target);
+        }
+
+        @Override
+        public Instant instant() {
+            return instant.get();
+        }
     }
 
     static final class PausedQuery {
@@ -767,8 +901,8 @@ class PaymentResultPersistenceIT {
         private final Faults faults;
 
         FaultingResults(PaymentChannelReceiptDOMapper receipts, PaymentResultAnomalyDOMapper anomalies,
-                ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
-                PaymentResultStorageConverter converter, Faults faults) {
+                        ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
+                        PaymentResultStorageConverter converter, Faults faults) {
             super(receipts, anomalies, claims, capacities, payments, converter);
             this.faults = faults;
         }
@@ -802,7 +936,7 @@ class PaymentResultPersistenceIT {
         private final Faults faults;
 
         FaultingEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids, PaymentAttemptGateway attempts,
-                PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
+                       PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
             super(outbox, converter, ids, attempts, results, snapshots);
             this.faults = faults;
         }
@@ -820,7 +954,9 @@ class PaymentResultPersistenceIT {
         }
     }
 
-    /** Only authenticated external facts and unreachable first-submit/action branches are test doubles. */
+    /**
+     * Only authenticated external facts and unreachable first-submit/action branches are test doubles.
+     */
     static final class RemoteChannel {
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInitialAttemptService initial = mock(PaymentInitialAttemptService.class);
@@ -863,30 +999,55 @@ class PaymentResultPersistenceIT {
     @Import({PaymentAcceptanceGatewayImpl.class, PaymentControlGatewayImpl.class, PaymentAttemptGatewayImpl.class,
             ChannelBindingGatewayImpl.class, PaymentAcceptanceCodecImpl.class, ChannelBindingCodecImpl.class,
             PaymentResultCodecImpl.class, PaymentExecutionLocks.class, PaymentAcceptanceTransactions.class,
-            PaymentResultService.class, PaymentExecutionService.class, PaymentRecoveryGatewayImpl.class,
+            PaymentResultService.class, PaymentExecutionService.class, PaymentCloseService.class, PaymentCloseEvidenceGatewayImpl.class, PaymentRecoveryGatewayImpl.class,
             PaymentRecoveryService.class, PaymentRecoveryTaskHandler.class, RecoveryPollingConfiguration.class, RecoveryExecutionMetrics.class,
             RecoveryInventoryReaderImpl.class, UnknownRecoveryReaderImpl.class})
     static class Application {
         @Bean({"paymentClock", "delayedTaskClock"})
-        ControlledClock paymentClock() { return new ControlledClock(); }
+        ControlledClock paymentClock() {
+            return new ControlledClock();
+        }
 
-        @Bean Faults faults() { return new Faults(); }
-        @Bean RemoteChannel remoteChannel() { return new RemoteChannel(); }
-        @Bean PaymentChannelGateway channels(RemoteChannel remote) { return remote.channels; }
-        @Bean PaymentInitialAttemptService initial(RemoteChannel remote) { return remote.initial; }
-        @Bean PaymentSubmissionPreparation preparation(RemoteChannel remote) { return remote.preparation; }
-        @Bean PaymentActionService actions(RemoteChannel remote) { return remote.actions; }
+        @Bean
+        Faults faults() {
+            return new Faults();
+        }
+
+        @Bean
+        RemoteChannel remoteChannel() {
+            return new RemoteChannel();
+        }
+
+        @Bean
+        PaymentChannelGateway channels(RemoteChannel remote) {
+            return remote.channels;
+        }
+
+        @Bean
+        PaymentInitialAttemptService initial(RemoteChannel remote) {
+            return remote.initial;
+        }
+
+        @Bean
+        PaymentSubmissionPreparation preparation(RemoteChannel remote) {
+            return remote.preparation;
+        }
+
+        @Bean
+        PaymentActionService actions(RemoteChannel remote) {
+            return remote.actions;
+        }
 
         @Bean
         FaultingResults results(PaymentChannelReceiptDOMapper receipts, PaymentResultAnomalyDOMapper anomalies,
-                ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
-                PaymentResultStorageConverter converter, Faults faults) {
+                                ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
+                                PaymentResultStorageConverter converter, Faults faults) {
             return new FaultingResults(receipts, anomalies, claims, capacities, payments, converter, faults);
         }
 
         @Bean
         PaymentEvents events(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
-                PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
+                             PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
             return new FaultingEvents(outbox, converter, ids, attempts, results, snapshots, faults);
         }
     }

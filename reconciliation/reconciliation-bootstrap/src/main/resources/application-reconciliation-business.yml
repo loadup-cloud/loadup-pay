@@ -8,6 +8,17 @@ spring:
           target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
           default:
             load-balancing-policy: round_robin
+        payment-statement:
+          target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
+          inbound:
+            message:
+              max-size: 20MB
+          default:
+            load-balancing-policy: round_robin
+        payment-verification:
+          target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
+          default:
+            load-balancing-policy: round_robin
   servlet:
     multipart:
       max-file-size: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}B
@@ -22,6 +33,18 @@ loadup:
       payment:
         channel: payment
         deadline: ${RECONCILIATION_PAYMENT_RPC_DEADLINE:3s}
+      payment-statement:
+        channel: payment-statement
+        deadline: ${RECONCILIATION_PAYMENT_STATEMENT_RPC_DEADLINE:60s}
+      payment-verification:
+        channel: payment-verification
+        deadline: ${RECONCILIATION_PAYMENT_VERIFICATION_RPC_DEADLINE:60s}
+  outbox:
+    worker-enabled: ${RECONCILIATION_VERIFICATION_WORKER_ENABLED:true}
+    lease: ${RECONCILIATION_VERIFICATION_DELIVERY_LEASE:PT2M}
+    retry-delay: ${RECONCILIATION_VERIFICATION_RETRY_DELAY:PT5S}
+    max-attempts: ${RECONCILIATION_VERIFICATION_MAX_ATTEMPTS:8}
+    batch-size: ${RECONCILIATION_VERIFICATION_BATCH_SIZE:10}
   dfs:
     enabled: true
     binder-type: s3
@@ -52,7 +75,7 @@ loadup:
       max-records: ${RECONCILIATION_MAX_RECORDS:10000}
       statement-max-bytes: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}
       accounts:
-        tenants: {}
+        tenants: { }
   delayedtask:
     enabled: true
     batch-size: ${RECONCILIATION_TASK_BATCH_SIZE:10}

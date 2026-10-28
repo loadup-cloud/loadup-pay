@@ -21,6 +21,9 @@ loadup:
         max-request-bytes: 262144
         max-response-bytes: 1048576
         operations:
+          bill-download-url:
+            method: POST
+            path: /gateway.do
           trade-pay:
             method: POST
             path: /gateway.do

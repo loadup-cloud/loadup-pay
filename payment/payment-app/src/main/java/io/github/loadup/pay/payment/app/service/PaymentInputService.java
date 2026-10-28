@@ -16,21 +16,21 @@
 package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
-import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
+import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
-import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.client.facade.PaymentInputFacade;
+import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import jakarta.validation.Validator;
@@ -55,6 +55,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 public class PaymentInputService implements PaymentInputFacade {
     private final PaymentActorProvider actors;
     private final PaymentInputGateway store;
+    private final PaymentInputPublication publication;
     private final PaymentInputCipher cipher;
     private final PaymentInputConverter converter;
     private final PaymentChannelInputConverter channelInputs;
@@ -63,13 +64,14 @@ public class PaymentInputService implements PaymentInputFacade {
     private final Clock clock;
     private final String acquireService;
 
-    public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputCipher cipher,
+    public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputPublication publication, PaymentInputCipher cipher,
                                PaymentInputConverter converter, PaymentChannelInputConverter channelInputs,
                                PaymentAcceptanceTransactions transactions, Validator validator,
                                @Qualifier("paymentClock") Clock clock,
                                @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.store = store;
+        this.publication = publication;
         this.cipher = cipher;
         this.converter = converter;
         this.channelInputs = channelInputs;
@@ -99,8 +101,10 @@ public class PaymentInputService implements PaymentInputFacade {
             var input = converter.toInput(command, reference, actor.serviceId(), keyId, digest, encrypted,
                     preparedAt, preparedAt.plus(cipher.lifetime()));
             return transactions.writeLocal(actor.tenantId(), () -> {
+                var parent = publication.lockParent(actor, command);
                 var winner = store.findByPayment(actor.tenantId(), command.paymentId());
                 if (winner.isPresent()) return replay(actor, command, winner.get());
+                publication.requireNew(actor, command, parent);
                 if (input.expired(now())) throw new CommonException(INPUT_EXPIRED);
                 store.insert(actor.tenantId(), input);
                 return converter.toDTO(input);
@@ -125,9 +129,13 @@ public class PaymentInputService implements PaymentInputFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            DomainChecks.id(query.paymentId()); DomainChecks.id(query.orderId()); DomainChecks.id(query.allocationId());
-            DomainChecks.id(query.payeeMerchantId()); DomainChecks.text(query.inputKey(), 128);
-            DomainChecks.positive(query.amountMinor()); DomainChecks.cnyAmount(query.amountMinor(), query.currency());
+            DomainChecks.id(query.paymentId());
+            DomainChecks.id(query.orderId());
+            DomainChecks.id(query.allocationId());
+            DomainChecks.id(query.payeeMerchantId());
+            DomainChecks.text(query.inputKey(), 128);
+            DomainChecks.positive(query.amountMinor());
+            DomainChecks.cnyAmount(query.amountMinor(), query.currency());
             var known = store.findByPayment(actor.tenantId(), query.paymentId());
             if (known.isEmpty()) return converter.toLookup(false, null);
             var input = known.get();

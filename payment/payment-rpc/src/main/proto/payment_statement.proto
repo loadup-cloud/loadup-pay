@@ -1,0 +1,36 @@
+syntax = "proto3";
+package loadup.pay.payment.v1;
+option java_package = "io.github.loadup.pay.payment.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+
+// Privileged read only. The consumer persists its source intent before IO and commits only one accepted artifact.
+// Up to 16 MiB content + 32 KiB private evidence. The consuming channel must allow a 20 MiB inbound message.
+service PaymentStatementRpc {
+  rpc Download(WirePaymentStatementQuery) returns (WirePaymentStatementDTO);
+}
+message WirePaymentStatementQuery {
+  optional string binding_revision_id = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string bill_date = 4;
+  optional string statement_profile = 5;
+  optional int32 max_bytes = 6;
+}
+message WirePaymentStatementDTO {
+  optional string binding_revision_id = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string bill_date = 4;
+  optional string statement_profile = 5;
+  optional string format = 6;
+  optional string request_sha256 = 7;
+  optional string evidence_sha256 = 8;
+  optional string official_hash_type = 9;
+  optional string official_hash = 10;
+  optional string content_sha256 = 11;
+  google.protobuf.Timestamp received_at = 12;
+  google.protobuf.Timestamp downloaded_at = 13;
+  optional bytes evidence = 14;
+  optional bytes content = 15;
+}

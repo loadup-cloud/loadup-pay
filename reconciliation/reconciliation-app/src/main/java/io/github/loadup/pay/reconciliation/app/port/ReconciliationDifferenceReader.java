@@ -17,11 +17,20 @@ package io.github.loadup.pay.reconciliation.app.port;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
-import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDifferenceReason;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 
-/** Page and count use this service's consistent read-only snapshot; no source-service lookup or locks. */
+import java.util.Optional;
+
+/**
+ * Page and count use this service's consistent read-only snapshot; no source-service lookup or locks.
+ */
 public interface ReconciliationDifferenceReader {
     PageResult<StoredReconciliationDifference> page(String tenant, String batchId, ReconciliationRecordKind kind,
-            ReconciliationDifferenceReason reason, int page, int size);
+                                                    ReconciliationDifferenceReason reason, int page, int size);
+
+    /**
+     * Exact local immutable evidence; caller owns batch authorization and a local read/write transaction.
+     */
+    Optional<StoredReconciliationDifference> find(String tenant, String batchId, String differenceId);
 }

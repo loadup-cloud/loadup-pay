@@ -22,11 +22,25 @@ public enum AlipayMethod {
     QUERY("alipay.trade.query", "trade-query"),
     CLOSE("alipay.trade.close", "trade-close"),
     REFUND("alipay.trade.refund", "trade-refund"),
+    BILL_DOWNLOAD_URL("alipay.data.dataservice.bill.downloadurl.query", "bill-download-url"),
     REFUND_QUERY("alipay.trade.fastpay.refund.query", "refund-query");
     private final String api;
     private final String operation;
-    AlipayMethod(String api, String operation) { this.api = api; this.operation = operation; }
-    public String api() { return api; }
-    public String operation() { return operation; }
-    public String responseNode() { return api.replace('.', '_') + "_response"; }
+
+    AlipayMethod(String api, String operation) {
+        this.api = api;
+        this.operation = operation;
+    }
+
+    public String api() {
+        return api;
+    }
+
+    public String operation() {
+        return operation;
+    }
+
+    public String responseNode() {
+        return api.replace('.', '_') + "_response";
+    }
 }

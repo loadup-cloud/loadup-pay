@@ -15,4 +15,4 @@
  */
 package io.github.loadup.pay.reconciliation.client.enums;
 
-public enum ReconciliationSourceKind { MANUAL_UPLOAD }
+public enum ReconciliationSourceKind {MANUAL_UPLOAD, OFFICIAL_DOWNLOAD}

@@ -12,7 +12,14 @@
     <name>LoadUp Pay Reconciliation app</name>
     <description>Authenticated reconciliation batch orchestration and durable comparison execution.</description>
     <dependencies>
-        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>payment-client</artifactId></dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-outbox</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>payment-client</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>reconciliation-client</artifactId>
@@ -73,8 +80,14 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-components-delayedtask</artifactId></dependency>
-        <dependency><groupId>io.github.loadup-cloud</groupId><artifactId>loadup-modules-transfer-client</artifactId></dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-delayedtask</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-modules-transfer-client</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

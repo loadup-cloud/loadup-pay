@@ -1,0 +1,74 @@
+/*
+ * Copyright 2026 LoadUp Cloud
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.loadup.pay.reconciliation.domain.model;
+
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+
+import java.util.Objects;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.require;
+
+/**
+ * One independent administrative review per immutable difference. Approved reviews never erase that difference.
+ */
+public record ReconciliationReview(ReconciliationReviewReference reference, ReconciliationReviewState state,
+                                   String proposalId, String lastEventId, long version) {
+    public ReconciliationReview {
+        Objects.requireNonNull(reference);
+        Objects.requireNonNull(state);
+        require(version >= 0 && (state == ReconciliationReviewState.INIT) == (version == 0L), INVALID_STATE);
+        require((state == ReconciliationReviewState.INIT) == (proposalId == null)
+                && (state == ReconciliationReviewState.INIT) == (lastEventId == null), INVALID_STATE);
+        require(state == ReconciliationReviewState.INIT || state == ReconciliationReviewState.PROPOSED && version % 2L == 1L
+                || (state == ReconciliationReviewState.APPROVED || state == ReconciliationReviewState.REJECTED) && version >= 2L && version % 2L == 0L, INVALID_STATE);
+        if (proposalId != null) {
+            DomainChecks.id(proposalId);
+            DomainChecks.id(lastEventId);
+        }
+    }
+
+    public static ReconciliationReview init(ReconciliationReviewReference reference) {
+        return new ReconciliationReview(reference, ReconciliationReviewState.INIT, null, null, 0L);
+    }
+
+    public ReconciliationReview propose(ReconciliationReviewProposal proposal, String eventId, long expectedVersion) {
+        require(version == expectedVersion, CONFLICT);
+        require(state == ReconciliationReviewState.INIT || state == ReconciliationReviewState.REJECTED, INVALID_STATE);
+        require(proposal != null && proposal.reference().equals(reference) && !proposal.id().equals(proposalId), CONFLICT);
+        DomainChecks.id(eventId);
+        require(!eventId.equals(lastEventId), CONFLICT);
+        return new ReconciliationReview(reference, ReconciliationReviewState.PROPOSED, proposal.id(), eventId, Math.incrementExact(version));
+    }
+
+    public ReconciliationReview decide(ReconciliationReviewProposal proposal, String checker, String eventId, boolean approve, long expectedVersion) {
+        require(version == expectedVersion, CONFLICT);
+        require(state == ReconciliationReviewState.PROPOSED, INVALID_STATE);
+        require(proposal != null && proposalId.equals(proposal.id()) && reference.equals(proposal.reference()), CONFLICT);
+        proposal.requireIndependentChecker(checker);
+        DomainChecks.id(eventId);
+        require(!eventId.equals(lastEventId), CONFLICT);
+        return new ReconciliationReview(reference, approve ? ReconciliationReviewState.APPROVED : ReconciliationReviewState.REJECTED,
+                proposalId, eventId, Math.incrementExact(version));
+    }
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+}

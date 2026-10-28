@@ -15,21 +15,22 @@
  */
 package io.github.loadup.pay.channel.core.config;
 
-import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
-import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
-import io.github.loadup.pay.channel.api.facade.ChannelNotificationFacade;
-import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
-import io.github.loadup.pay.channel.core.DefaultChannelNotificationFacade;
-import io.github.loadup.pay.channel.api.spi.ChannelProvider;
-import io.github.loadup.pay.channel.core.DefaultChannelPaymentFacade;
-import io.github.loadup.pay.channel.core.ChannelRecoveryConcurrency;
 import io.github.loadup.components.resilience4j.ResilienceRegistries;
+import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
+import io.github.loadup.pay.channel.api.facade.ChannelNotificationFacade;
+import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
+import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
+import io.github.loadup.pay.channel.api.spi.ChannelProvider;
+import io.github.loadup.pay.channel.core.ChannelRecoveryConcurrency;
+import io.github.loadup.pay.channel.core.DefaultChannelNotificationFacade;
+import io.github.loadup.pay.channel.core.DefaultChannelPaymentFacade;
 import io.github.loadup.pay.channel.core.codec.DefaultChannelActionCodec;
-import tools.jackson.databind.json.JsonMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Clock;
 
 @AutoConfiguration(afterName = "io.github.loadup.components.resilience4j.core.Resilience4jCoreAutoConfiguration")
@@ -38,6 +39,13 @@ public class ChannelAutoConfiguration {
     @ConditionalOnMissingBean(ChannelPaymentFacade.class)
     ChannelPaymentFacade channelPaymentFacade(ObjectProvider<ChannelProvider> providers, ChannelRecoveryConcurrency recovery) {
         return new DefaultChannelPaymentFacade(providers.orderedStream().toList(), recovery);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(io.github.loadup.pay.channel.api.facade.ChannelStatementFacade.class)
+    io.github.loadup.pay.channel.api.facade.ChannelStatementFacade channelStatementFacade(
+            ObjectProvider<io.github.loadup.pay.channel.api.spi.ChannelStatementProvider> providers) {
+        return new io.github.loadup.pay.channel.core.DefaultChannelStatementFacade(providers.orderedStream().toList());
     }
 
     @Bean

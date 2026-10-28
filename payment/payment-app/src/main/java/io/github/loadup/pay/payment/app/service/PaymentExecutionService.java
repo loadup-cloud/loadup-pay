@@ -18,21 +18,43 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
 
-/** Durable state decides query versus first submit; a task claim never grants a debit retry. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+/**
+ * Durable state decides query versus first submit; a task claim never grants a debit retry.
+ */
 @Service
 public class PaymentExecutionService {
     private final PaymentAcceptanceGateway payments;
@@ -43,6 +65,7 @@ public class PaymentExecutionService {
     private final PaymentSubmissionPreparation submission;
     private final PaymentChannelGateway channels;
     private final PaymentResultService results;
+    private final PaymentCloseService closing;
     private final PaymentAcceptanceCodec codec;
     private final PaymentControlConverter updates;
     private final PaymentEvents events;
@@ -52,24 +75,42 @@ public class PaymentExecutionService {
     private final io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions;
 
     public PaymentExecutionService(PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts,
-            PaymentControlGateway changes, PaymentExecutionLocks locks, PaymentInitialAttemptService initial,
-            PaymentSubmissionPreparation submission, PaymentChannelGateway channels, PaymentResultService results,
-            PaymentAcceptanceCodec codec, PaymentControlConverter updates, PaymentEvents events,
-            PaymentAcceptanceTransactions transactions, IdGenerator ids, @Qualifier("paymentClock") Clock clock,
-            io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
-        this.payments = payments; this.attempts = attempts; this.changes = changes; this.locks = locks;
-        this.initial = initial; this.submission = submission; this.channels = channels; this.results = results;
-        this.codec = codec; this.updates = updates; this.events = events; this.transactions = transactions;
-        this.ids = ids; this.clock = clock; this.conversions = conversions;
+                                   PaymentControlGateway changes, PaymentExecutionLocks locks, PaymentInitialAttemptService initial,
+                                   PaymentSubmissionPreparation submission, PaymentChannelGateway channels, PaymentResultService results, PaymentCloseService closing,
+                                   PaymentAcceptanceCodec codec, PaymentControlConverter updates, PaymentEvents events,
+                                   PaymentAcceptanceTransactions transactions, IdGenerator ids, @Qualifier("paymentClock") Clock clock,
+                                   io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
+        this.payments = payments;
+        this.attempts = attempts;
+        this.changes = changes;
+        this.locks = locks;
+        this.initial = initial;
+        this.submission = submission;
+        this.channels = channels;
+        this.results = results;
+        this.closing = closing;
+        this.codec = codec;
+        this.updates = updates;
+        this.events = events;
+        this.transactions = transactions;
+        this.ids = ids;
+        this.clock = clock;
+        this.conversions = conversions;
+    }
+
+    static boolean terminal(PaymentState state) {
+        return state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED;
     }
 
     public void progress(String tenant, String paymentId) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        DomainChecks.id(tenant); DomainChecks.id(paymentId);
+        DomainChecks.id(tenant);
+        DomainChecks.id(paymentId);
         transactions.withTenantContext(tenant, () -> {
             final Optional<Work> pending;
-            try { pending = snapshot(tenant, paymentId, false); }
-            catch (CommonException rejected) {
+            try {
+                pending = snapshot(tenant, paymentId, false);
+            } catch (CommonException rejected) {
                 if (!initialRejection(rejected)) throw rejected;
                 snapshot(tenant, paymentId, true);
                 return true;
@@ -78,8 +119,9 @@ public class PaymentExecutionService {
             var work = pending.get();
             if (work.attempt().attempt().state() == PaymentAttemptState.INIT) {
                 final Optional<io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket> ticket;
-                try { ticket = submission.prepare(tenant, paymentId, work.attempt().attempt().id()); }
-                catch (CommonException rejected) {
+                try {
+                    ticket = submission.prepare(tenant, paymentId, work.attempt().attempt().id());
+                } catch (CommonException rejected) {
                     if (initialRejection(rejected) || rejected.getResultCode() == LIMIT_EXCEEDED
                             || rejected.getResultCode() == LIMIT_RESERVATION_EXPIRED
                             || rejected.getResultCode() == EXECUTION_FENCED
@@ -95,20 +137,21 @@ public class PaymentExecutionService {
                 // This in-memory Y2 winner is consumed exactly once, even when the response or Y3 commit is lost.
                 var prepared = ticket.get().payment();
                 var applied = results.recordSubmission(tenant, prepared, channels.submit(prepared));
-                if (applied.disposition() == PaymentReceiptDisposition.CONFLICT) throw new CommonException(OUTCOME_UNKNOWN);
+                if (applied.disposition() == PaymentReceiptDisposition.CONFLICT)
+                    throw new CommonException(OUTCOME_UNKNOWN);
             } else {
                 var attempt = work.attempt().attempt();
                 if (attempt.state() != PaymentAttemptState.SUBMITTING && attempt.state() != PaymentAttemptState.PENDING
                         && attempt.state() != PaymentAttemptState.UNKNOWN) throw new CommonException(SNAPSHOT_INVALID);
                 final io.github.loadup.pay.payment.app.model.PaymentResultApplication applied;
                 if (work.closing()) {
-                    var target = new ChannelPaymentTarget(attempt.identity(), attempt.amount());
-                    applied = results.record(tenant, channels.close(target));
+                    applied = closing.close(tenant, work.attempt());
                 } else {
                     var recovery = conversions.toRecovery(work.attempt(), work.payableUntil());
                     applied = results.recordRecovery(tenant, recovery, channels.recover(recovery));
                 }
-                if (applied.disposition() == PaymentReceiptDisposition.CONFLICT) throw new CommonException(OUTCOME_UNKNOWN);
+                if (applied.disposition() == PaymentReceiptDisposition.CONFLICT)
+                    throw new CommonException(OUTCOME_UNKNOWN);
             }
             return true;
         });
@@ -141,8 +184,10 @@ public class PaymentExecutionService {
                 String evidence = null;
                 if (neverSubmitted) {
                     evidence = ids.generate();
-                    if (stored != null) attempts.update(tenant, stored.closeBeforeSubmission(evidence, null), stored.rowVersion());
-                } else if (stored != null && stored.attempt().canSafelyReplace()) evidence = stored.attempt().noCollectionEvidenceId();
+                    if (stored != null)
+                        attempts.update(tenant, stored.closeBeforeSubmission(evidence, null), stored.rowVersion());
+                } else if (stored != null && stored.attempt().canSafelyReplace())
+                    evidence = stored.attempt().noCollectionEvidenceId();
                 if (evidence != null) {
                     var proof = new NoCollectionEvidence(evidence, paymentId, true);
                     nextOrder = closing ? nextOrder.close(proof) : nextOrder.fail(proof);
@@ -175,15 +220,14 @@ public class PaymentExecutionService {
                 || code == ROUTING_PROFILE_UNAVAILABLE || code == UNSUPPORTED_CAPABILITY;
     }
 
-    static boolean terminal(PaymentState state) {
-        return state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED;
-    }
-
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }
 
     private record Work(StoredPaymentAttempt attempt, boolean closing, java.time.OffsetDateTime payableUntil) {
-        @Override public String toString() { return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this); }
+        @Override
+        public String toString() {
+            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+        }
     }
 }

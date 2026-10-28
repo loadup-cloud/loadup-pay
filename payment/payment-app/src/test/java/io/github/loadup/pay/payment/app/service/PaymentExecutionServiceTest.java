@@ -17,16 +17,26 @@ package io.github.loadup.pay.payment.app.service;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.channel.api.model.*;
+import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
-import io.github.loadup.pay.payment.app.model.LockedPayment;
 import io.github.loadup.pay.payment.app.model.PaymentResultApplication;
 import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
-import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,8 +50,25 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PaymentExecutionServiceTest {
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentControlConverter.class.getPackageName());
@@ -53,6 +80,7 @@ class PaymentExecutionServiceTest {
     final PaymentSubmissionPreparation submission = mock(PaymentSubmissionPreparation.class);
     final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
     final PaymentResultService results = mock(PaymentResultService.class);
+    final PaymentCloseService closing = mock(PaymentCloseService.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentEvents events = mock(PaymentEvents.class);
     final PaymentAcceptanceServiceTest.UnitTransactions manager = new PaymentAcceptanceServiceTest.UnitTransactions();
@@ -62,7 +90,7 @@ class PaymentExecutionServiceTest {
     final IdGenerator ids = mock(IdGenerator.class);
     final Clock clock = Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final PaymentExecutionService service = new PaymentExecutionService(payments, attempts, changes, locks, initial,
-            submission, channels, results, codec, context.getBean(PaymentControlConverter.class), events,
+            submission, channels, results, closing, codec, context.getBean(PaymentControlConverter.class), events,
             transactions, ids, clock, context.getBean(PaymentSubmissionConverter.class));
     final PaymentSubmissionConverter conversions = context.getBean(PaymentSubmissionConverter.class);
     final PreparedChannelPayment prepared = new PreparedChannelPayment(stored.get().attempt().identity(),
@@ -81,7 +109,9 @@ class PaymentExecutionServiceTest {
     }
 
     @AfterEach
-    void close() { context.close(); }
+    void close() {
+        context.close();
+    }
 
     @Test
     void initWinnerSubmitsOnlyReturnedTicketAndRecordsOutsideLocalTransaction() {
@@ -139,7 +169,7 @@ class PaymentExecutionServiceTest {
 
     @Test
     void startedAttemptsRecoverTheirOriginalFrozenExecutionAndNeverAcquireAnotherTicket() {
-        for (var state : new PaymentAttemptState[] {PaymentAttemptState.SUBMITTING, PaymentAttemptState.PENDING, PaymentAttemptState.UNKNOWN}) {
+        for (var state : new PaymentAttemptState[]{PaymentAttemptState.SUBMITTING, PaymentAttemptState.PENDING, PaymentAttemptState.UNKNOWN}) {
             clearInvocations(channels, submission, results);
             stored.set(started(state));
             var payableUntil = AttemptFixtures.command().payableUntil();
@@ -163,26 +193,21 @@ class PaymentExecutionServiceTest {
     }
 
     @Test
-    void closingPaymentUsesTheOriginalTargetCloseAndLeavesUnknownToResultRecording() {
+    void closingPaymentDelegatesOriginalAttemptToDurableCloseRecovery() {
         var original = accepted.get();
-        var closing = new StoredPaymentAcceptance(original.payment().requestClose(), original.admissionId(),
+        var value = new StoredPaymentAcceptance(original.payment().requestClose(), original.admissionId(),
                 original.requestDigest(), original.callerServiceId(), original.intentPayload(), original.payloadHash(), null);
-        accepted.set(closing);
+        accepted.set(value);
         stored.set(started(PaymentAttemptState.UNKNOWN));
-        var target = new ChannelPaymentTarget(stored.get().attempt().identity(), stored.get().attempt().amount());
-        var unknown = new PaymentObservation(stored.get().attempt().identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
-                stored.get().attempt().amount(), null, null, PaymentObservation.Source.CLOSE_RESPONSE, "close", "f".repeat(64));
-        when(channels.close(target)).thenReturn(unknown);
-        when(results.record("tenant", unknown)).thenReturn(result());
+        when(closing.close("tenant", stored.get())).thenAnswer(call -> {
+            assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+            return result();
+        });
 
         service.progress("tenant", "payment");
 
-        verify(channels).close(target);
-        verify(channels, never()).query(any());
-        verify(channels, never()).recover(any());
-        verify(channels, never()).submit(any());
-        verify(results).record("tenant", unknown);
-        verify(submission, never()).prepare(anyString(), anyString(), anyString());
+        verify(closing).close("tenant", stored.get());
+        verifyNoInteractions(channels, results, submission);
     }
 
     @Test
@@ -194,7 +219,7 @@ class PaymentExecutionServiceTest {
 
         service.progress("tenant", "payment");
 
-        verifyNoInteractions(channels, submission, results);
+        verifyNoInteractions(channels, submission, results, closing);
         verify(attempts, never()).lock(anyString(), anyString());
     }
 
@@ -205,8 +230,14 @@ class PaymentExecutionServiceTest {
         var updateConverter = context.getBean(PaymentControlConverter.class);
         var currentGate = AttemptFixtures.gate(false);
         var fencedGate = updateConverter.withGate(currentGate, currentGate.gate().fence(1));
-        doAnswer(c -> { stored.set(c.getArgument(1)); return null; }).when(attempts).update(eq("tenant"), any(), anyLong());
-        doAnswer(c -> { accepted.set(c.getArgument(1)); return null; }).when(changes).updatePayment(eq("tenant"), any(), anyLong());
+        doAnswer(c -> {
+            stored.set(c.getArgument(1));
+            return null;
+        }).when(attempts).update(eq("tenant"), any(), anyLong());
+        doAnswer(c -> {
+            accepted.set(c.getArgument(1));
+            return null;
+        }).when(changes).updatePayment(eq("tenant"), any(), anyLong());
 
         service.progress("tenant", "payment");
 
@@ -263,7 +294,9 @@ class PaymentExecutionServiceTest {
         return new PaymentResultApplication(APPLIED, "receipt", null);
     }
 
-    /** Keeps the deadline fixture local so the test does not alter shared payment fixtures. */
+    /**
+     * Keeps the deadline fixture local so the test does not alter shared payment fixtures.
+     */
     private static final class PaymentFixturesCommandWithExpiredDeadline {
         io.github.loadup.pay.payment.client.command.PaymentExecuteCommand command() {
             var original = AttemptFixtures.command();

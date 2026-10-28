@@ -3,7 +3,8 @@
 更新：2026-10-27。用户已确认首期支付宝/微信官方交易日账单，同时核对收款和退款，按实际收款账户与账单日期分批；银联在产品确定后接入。
 
 当前已有 client/domain/app/infrastructure/adapter/rpc/bootstrap 七层源码：纯核对、批次、独立存储、原生后台任务、
-HTTP/gRPC 与独立业务装配。微信 API ALL 格式解析源码已补；File/Transfer 手工 CHANNEL 来源和 payment 微信权威快照/完整 LEDGER 导入已接源码；官方文件取得/验签来源、支付宝解析与对应源端日期仍待实现。
+HTTP/gRPC 与独立业务装配。微信 API ALL 格式解析源码已补；File/Transfer 手工 CHANNEL 来源和 payment 微信权威快照/完整
+LEDGER 导入已接源码；官方文件取得/验签来源、支付宝解析与对应源端日期仍待实现。
 **全部新增源码未构建、执行测试、应用迁移或部署。** 来源集成和查证部分仍是后续契约，不能声称已上线。
 
 ## 服务边界和依赖
@@ -16,7 +17,8 @@ reconciliation 拥有独立数据库，后置运行，不参与 acquire/payment 
 生成 Mapper/MyBatis-Flex/MapStruct 管理本服务数据、DelayedTask 负责持久执行、Outbox 负责后续证据查证请求。
 已有 Transfer 不代表核对业务已经接入；不能把 Transfer 的任务成功、最大已见事件时间或下载 404 当作对账完成证据。
 
-当前 root reactor 与源码/POM 门禁纳入 reconciliation 七层模块；构建/部署选择器、Docker 允许路径与第七组 Deployment/Service/Headless 清单已同步。
+当前 root reactor 与源码/POM 门禁纳入 reconciliation 七层模块；构建/部署选择器、Docker 允许路径与第七组
+Deployment/Service/Headless 清单已同步。
 默认启动仍为健康骨架，构建和运行都需选择 reconciliation-business 才装配业务，并提供独立数据库、JWT 与受控账户目录。
 
 ## 渠道账单与规范化
@@ -47,7 +49,8 @@ manifest 的日期表示账单范围，不要求每行的原付款日期与账�
 
 CHANNEL 输入为原渠道账单；LEDGER 输入为 payment 提供的受控权威范围快照/导出，收款与退款分别按相同 profile 选取。
 LEDGER 不接受操作者上传 CSV 充当权威源，也不以“已消费到某个成功事件”声明整日集合完整。
-源服务需生成可重放的 capture/export id、范围、完整性记录和不可变文件，证明查询窗口与截止快照一致；当前微信源端采集快照及 gRPC 完整分页导入已有源码，详见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)；未运行验收。
+源服务需生成可重放的 capture/export id、范围、完整性记录和不可变文件，证明查询窗口与截止快照一致；当前微信源端采集快照及
+gRPC 完整分页导入已有源码，详见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)；未运行验收。
 
 渠道下载经过已验签渠道 API 定位；人工上传时记录操作者和来源声明，文件哈希只证明内容没有变化，不证明文件真实性。
 无账单可能是尚未生成或查询窗口错误；不能自动转换为完整空文件。双侧空输入只在取得各自明确完整零记录证据后封存。
@@ -80,13 +83,13 @@ MATCHED 仅表示这两份已封存数据按冻结规则一致，不是额外资
 
 `ReconciliationFacade` 已定义：
 
-| 方法 | 参数 | 语义 |
-|---|---|---|
-| create | requestKey、channelAccountCode、billDate | 由可信目录解析实际账户/profile，租户/调用方来自身份上下文 |
-| attach | batchId、side、artifactId | 只引用认可导入/导出适配器签发的封存 artifact，不接受 raw URL、文件路径、complete=true 或客户端合计 |
-| start | ReconciliationBatchStartCommand(batchId) | 本地登记原运行与持久任务；远端文件/源服务 I/O 不跨本地事务 |
-| detail | batchId | 返回原输入摘要、状态、runId、版本与结果摘要 |
-| differences | batchId、kind/reason、page/size | 查询本服务差错；默认 1/20，上限 100，租户/账户权限来自身份 |
+| 方法        | 参数                                     | 语义                                                                                               |
+|-------------|------------------------------------------|----------------------------------------------------------------------------------------------------|
+| create      | requestKey、channelAccountCode、billDate | 由可信目录解析实际账户/profile，租户/调用方来自身份上下文                                          |
+| attach      | batchId、side、artifactId                | 只引用认可导入/导出适配器签发的封存 artifact，不接受 raw URL、文件路径、complete=true 或客户端合计 |
+| start       | ReconciliationBatchStartCommand(batchId) | 本地登记原运行与持久任务；远端文件/源服务 I/O 不跨本地事务                                         |
+| detail      | batchId                                  | 返回原输入摘要、状态、runId、版本与结果摘要                                                        |
+| differences | batchId、kind/reason、page/size          | 查询本服务差错；默认 1/20，上限 100，租户/账户权限来自身份                                         |
 
 app 已直接实现 Facade；HTTP POST 为 /api/reconciliation/batches/{create,attach,start,detail,differences}。
 提供方 reconciliation-rpc 定义 ReconciliationRpc 的 Create/Attach/Start/Detail；差错分页当前由运营 HTTP 提供。
@@ -96,19 +99,21 @@ MapStruct 使用 Spring 组件；Wire optional 保留未开始/未完成与显�
 差错终态查询使用通用 PageResult/PageDTO/PageResponse，count 与页在一个只读 RR 快照内；应用核对原 run 与筛选结果，不远程查交易。
 不提供 UpdatePaymentStatus、直接退款、直接改额度或客户端提交“匹配成功结果”的接口。
 手工导入的 upload/submit/detail/retry 见下文；不提供任意 Transfer handler/options 入口。
-差错复核/审批与 `SubmitEvidenceForVerification` 的实际可信源端查证、回执和授权仍需后续实施。
+差错复核/审批已有独立 head/proposal/event、运营 API 和私有证据引用源码，见 [复核设计](RECONCILIATION-REVIEW.md)
+；显式可信源端查询与观察留档源码见 [查证设计](RECONCILIATION-VERIFICATION.md)，实际验收与受控金融处置仍待继续。
 
 ## 数据库与提交边界
 
 [业务设计 SQL](sql/reconciliation-draft.sql)已对应到 infrastructure 下
-V20261027000000__reconciliation_core.sql 迁移源码；本轮没有执行 DDL。业务 profile 的 classpath:db/migration 同时包含框架 Sequence/DelayedTask 迁移。
+V20261027000000__reconciliation_core.sql 迁移源码；本轮没有执行 DDL。业务 profile 的 classpath:db/migration 同时包含框架
+Sequence/DelayedTask 迁移。
 
-| 表 | 责任与约束 |
-|---|---|
-| reconciliation_batch | 原 caller/requestKey 幂等、实际账户/账期/profile、双输入引用、原 runId、版本与结果 hash；同请求参数变化拒绝 |
-| reconciliation_input | FileResource 引用、来源 capture、原/规范化哈希、原 parser revision、总额与 INIT/SEALED/REJECTED 导入状态 |
-| reconciliation_entry | 每输入唯一业务键 hash 与唯一来源 ordinal，保存完整键防止哈希别名、原请求号、正数分/CNY 与规范化状态 |
-| reconciliation_difference | 每批次唯一业务键，引用双侧不可变行并保存全部差异标志；单边记录和双边不一致的约束分开 |
+| 表                        | 责任与约束                                                                                                  |
+|---------------------------|-------------------------------------------------------------------------------------------------------------|
+| reconciliation_batch      | 原 caller/requestKey 幂等、实际账户/账期/profile、双输入引用、原 runId、版本与结果 hash；同请求参数变化拒绝 |
+| reconciliation_input      | FileResource 引用、来源 capture、原/规范化哈希、原 parser revision、总额与 INIT/SEALED/REJECTED 导入状态    |
+| reconciliation_entry      | 每输入唯一业务键 hash 与唯一来源 ordinal，保存完整键防止哈希别名、原请求号、正数分/CNY 与规范化状态         |
+| reconciliation_difference | 每批次唯一业务键，引用双侧不可变行并保存全部差异标志；单边记录和双边不一致的约束分开                        |
 
 DO 已继承 BaseDO，Gateway 消费处理器生成 Mapper/TableDef，不手写生成类或持久 Mapper/SQL 方法。
 输入头和全部行在一个调用方写事务 insertSealed，封存后无更新入口；完整行集合加载时再次复核规范化哈希、重复与总额。
@@ -148,24 +153,31 @@ REVOKED 目前缺少独立补偿身份规范，整份拒绝并等待对应业务
 
 ## 手工 File/Transfer 来源与封存流程
 
-新增 reconciliation_import 保存来源声明、原 caller/requestKey/digest、固定实际账单账户、fileId/storageId/长度/SHA256、原 taskId、逻辑状态与拒绝码。
+新增 reconciliation_import 保存来源声明、原 caller/requestKey/digest、固定实际账单账户、fileId/storageId/长度/SHA256、原
+taskId、逻辑状态与拒绝码。
 来源固定 MANUAL_UPLOAD，import id 同时是原 artifact/capture id；不能把这类输入称为已验证的官方渠道下载。
 目前只有微信固定 ALL profile 的手工 CHANNEL 路径；LEDGER 已接 payment 微信受控快照/完整分页导入源码，不接受操作者文件。
 
 1. 受信 SERVICE 上传有界原字节至 FileResourceFacade；使用私有 S3 binder。返回 id/长度/hash，不返回存储位置或预签名 URL。
-2. submit 输入 batchId/requestKey/fileId/sourceSha256；校验原 caller/租户/当前账户，原请求先重放；事务外 inspect 实际文件并对比预期 hash。
-3. 本地写锁批次，复核作用域/账户、无原 CHANNEL 和其他 INIT 导入；文件业务引用、Transfer 任务与导入意图同库提交。Native options 只含 importId。
-4. Native Transfer 在事务外打开原文件，handler 读 RR 查证原持久任务 RUNNING/tenant/owner/handler/file，及业务文件引用与冻结账户。请求参数不授予执行权。
-5. 解析前固定完整长度与原 hash，短读/I/O 保留 INIT；完整原字节后再判断账单格式与所有汇总。确定坏文件 REJECTED，原生任务 FAILED，无封存行。
+2. submit 输入 batchId/requestKey/fileId/sourceSha256；校验原 caller/租户/当前账户，原请求先重放；事务外 inspect 实际文件并对比预期
+   hash。
+3. 本地写锁批次，复核作用域/账户、无原 CHANNEL 和其他 INIT 导入；文件业务引用、Transfer 任务与导入意图同库提交。Native
+   options 只含 importId。
+4. Native Transfer 在事务外打开原文件，handler 读 RR 查证原持久任务
+   RUNNING/tenant/owner/handler/file，及业务文件引用与冻结账户。请求参数不授予执行权。
+5. 解析前固定完整长度与原 hash，短读/I/O 保留 INIT；完整原字节后再判断账单格式与所有汇总。确定坏文件 REJECTED，原生任务
+   FAILED，无封存行。
 6. 原批次锁 → 原导入锁 → 封存输入/全部规范行 → 批次 CHANNEL 引用 → 导入 SEALED，统一本地事务。更正文件新请求，不能改变原文件或绕过终态。
 7. 任务状态独立于逻辑封存；报告/ACK 出错可出现 SEALED+FAILED，显式重试原任务后检查原 manifest 跳过解析。重复处理不能增加批次版本或换源。
 
 长期业务文件引用不随 Transfer 临时引用释放，成功和拒绝证据都保留。文件保留/清理、崩溃遗留 RUNNING 的受控恢复仍待实现；
 当前不取消/重建原任务、不自动重领 RUNNING，不把 native 失败或空文件作为资金结果。
 
-HTTP 为 /api/reconciliation/imports/{upload,submit,detail,retry}，权限 pay:reconciliation:import:upload/submit/read/retry。
+HTTP 为 /api/reconciliation/imports/{upload,submit,detail,retry}，权限 pay:reconciliation:import:
+upload/submit/read/retry。
 submit 的 sourceSha256 是期望字节身份，不是完整性/真实性声明；不接受租户、账户标识、side、parser、总额或 sourceKind 覆盖。
-配置和身份细节见 [模块说明](../reconciliation/README.md)。新增 V20261027010000__reconciliation_import.sql 源码及真实 MySQL IT 源码；未运行。
+配置和身份细节见 [模块说明](../reconciliation/README.md)。新增 V20261027010000__reconciliation_import.sql 源码及真实
+MySQL IT 源码；未运行。
 
 ## payment 退款归账时间前置证据
 
@@ -184,11 +196,18 @@ payment 的 refund_acceptance_evidence 在本服务事务内关联原 APPLIED/IG
 退款事实摘要使用 refund-facts-v2 覆盖可空 acceptedAt；开发期不兼容旧构造/摘要或推测回填旧记录。实际迁移/重建未执行。
 权威 capture 尚待实现：必须明确所有范围、日期和未定记录，不得把 acceptedAt 缺失的已提交退款简单过滤后宣称完整日数据。
 
-
 ## P1 微信 LEDGER 权威快照接线
 
 payment 独立 INIT→SEALED/BLOCKED 源采集与原 DelayedTask、真实只读 RR、永久源行、退款渠道受理日证据、RPC 与 FAILED 条件重试已有源码。
-对账 `/ledger/prepare` 按原 scope 发源请求；`/ledger/import` 只读取同范围 SEALED，校验完整分页/空 EOF/总计/hash 后保存同 hash 的原规范二进制文件。
+对账 `/ledger/prepare` 按原 scope 发源请求；`/ledger/import` 只读取同范围 SEALED，校验完整分页/空 EOF/总计/hash 后保存同
+hash 的原规范二进制文件。
 文件永久引用、输入全行和批次 LEDGER 原引用在本库同事务提交；不会同步写资金或把源 INIT/BLOCKED 当空成功。
 完整状态/身份/预算/证据保留边界见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)。测试源码与真实 MySQL 场景已补，未编译/运行。
 官方自动渠道来源、支付宝解析及差错复核仍待继续，整个 P1 未标完成。
+
+## 2026-10-28 差错独立复核
+
+复核独立于原批次/差错/资金状态，INIT/PROPOSED/APPROVED/REJECTED 与版本、不可变提案/命令审计、原 run/result/key 引用及两个
+SERVICE 身份的独立审批源码已补。File 证据 inspect 在事务外，永久引用/提案/回执/head CAS 同库提交；原命令重放保留第一次
+ACK。详情/历史只读 RR。详见 [复核设计](RECONCILIATION-REVIEW.md)。未运行构建、测试、DDL、真实权限或存储验收；获批
+NEEDS_SOURCE_VERIFICATION 不触发金融操作，显式源端只读查询/留档源码已补，实际验收仍待完成。

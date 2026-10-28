@@ -1,0 +1,39 @@
+syntax = "proto3";
+package loadup.pay.payment.v1;
+option java_package = "io.github.loadup.pay.payment.rpc.proto";
+option java_multiple_files = true;
+import "google/protobuf/timestamp.proto";
+
+// Read-only owner consult. No caller-provided financial facts or channel submit/close permission.
+service PaymentVerificationRpc {
+  rpc Verify(WirePaymentVerificationQuery) returns (WirePaymentVerificationDTO);
+}
+message WirePaymentVerificationQuery {
+  optional string source_request_id = 1;
+  optional string channel = 2;
+  optional string account_scope_hash = 3;
+  optional string kind = 4;
+  optional string merchant_payment_no = 5;
+  optional string channel_transaction_no = 6;
+  optional string channel_refund_no = 7;
+}
+message WirePaymentVerificationDTO {
+  WirePaymentVerificationQuery request = 1;
+  optional string disposition = 2;
+  optional string binding_revision_id = 3;
+  optional string payment_id = 4;
+  optional string attempt_id = 5;
+  optional string refund_id = 6;
+  optional int64 source_version = 7;
+  optional string local_state = 8;
+  optional string outcome = 9;
+  optional int64 amount_minor = 10;
+  optional string currency = 11;
+  optional string observed_channel_transaction_no = 12;
+  optional string observed_refund_transaction_no = 13;
+  google.protobuf.Timestamp succeeded_at = 14;
+  optional string source_digest = 15;
+  google.protobuf.Timestamp started_at = 16;
+  google.protobuf.Timestamp finished_at = 17;
+  google.protobuf.Timestamp accepted_at = 18;
+}

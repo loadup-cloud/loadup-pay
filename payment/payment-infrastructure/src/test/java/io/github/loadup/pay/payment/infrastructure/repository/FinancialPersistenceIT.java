@@ -18,46 +18,112 @@ package io.github.loadup.pay.payment.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
-import io.github.loadup.components.testcontainers.annotation.*;
-import io.github.loadup.pay.channel.api.model.*;
-import io.github.loadup.pay.limitcenter.client.command.*;
-import io.github.loadup.pay.limitcenter.client.dto.*;
+import io.github.loadup.components.testcontainers.annotation.ContainerType;
+import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
+import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReserveCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.client.enums.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
-import io.github.loadup.pay.payment.app.port.*;
-import io.github.loadup.pay.payment.app.service.*;
-import io.github.loadup.pay.payment.domain.gateway.*;
-import io.github.loadup.pay.payment.domain.model.*;
+import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
+import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
+import io.github.loadup.pay.payment.app.service.PaymentAcceptanceTransactions;
+import io.github.loadup.pay.payment.app.service.PaymentEvents;
+import io.github.loadup.pay.payment.app.service.PaymentExecutionLocks;
+import io.github.loadup.pay.payment.app.service.PaymentInputAccess;
+import io.github.loadup.pay.payment.app.service.PaymentSubmissionPreparation;
+import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
+import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
+import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
+import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentInputState;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
+import io.github.loadup.pay.payment.domain.model.RefundRequest;
+import io.github.loadup.pay.payment.domain.model.RefundRequestState;
+import io.github.loadup.pay.payment.domain.model.RiskDecision;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.payment.infrastructure.codec.ChannelBindingCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentAcceptanceCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.*;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentAttemptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundAllocationPlanDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
+import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.ZoneId;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.*;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.*;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
-/** Real local Y2/plan/capacity boundaries. Risk, limitcenter, channel IO and unused terminal events are controlled test doubles. */
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ATTEMPT_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ALLOCATION_PLAN_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
+import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_REQUEST_DO;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Real local Y2/plan/capacity boundaries. Risk, limitcenter, channel IO and unused terminal events are controlled test doubles.
+ */
 @SpringBootTest(classes = FinancialPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.MYSQL, reuse = false)
 class FinancialPersistenceIT {
@@ -79,25 +145,130 @@ class FinancialPersistenceIT {
     private final JsonMapper json;
     private final TestScenario scenario;
     private final RemotePorts remote;
+    private final io.github.loadup.pay.payment.app.service.PaymentInputService inputService;
+    private final PaymentInputGateway inputStore;
 
     @Autowired
     FinancialPersistenceIT(PaymentAcceptanceTransactions transactions, PaymentSubmissionPreparation preparation,
-            PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentExecutionLocks locks,
-            ChannelBindingManagementGateway bindings, PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec,
-            RefundGateway refunds, PaymentRefundCapacityDOMapper capacities, PaymentResultStorageConverter capacityConverter,
-            PaymentAttemptDOMapper attemptRows, RefundRequestDOMapper requestRows, RefundOrderDOMapper childRows,
-            RefundAllocationPlanDOMapper planRows, JsonMapper json, TestScenario scenario, RemotePorts remote) {
-        this.transactions = transactions; this.preparation = preparation; this.payments = payments; this.attempts = attempts;
-        this.locks = locks; this.bindings = bindings; this.codec = codec; this.bindingCodec = bindingCodec; this.refunds = refunds;
-        this.capacities = capacities; this.capacityConverter = capacityConverter; this.attemptRows = attemptRows;
-        this.requestRows = requestRows; this.childRows = childRows; this.planRows = planRows; this.json = json;
-        this.scenario = scenario; this.remote = remote;
+                           PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentExecutionLocks locks,
+                           ChannelBindingManagementGateway bindings, PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec,
+                           RefundGateway refunds, PaymentRefundCapacityDOMapper capacities, PaymentResultStorageConverter capacityConverter,
+                           PaymentAttemptDOMapper attemptRows, RefundRequestDOMapper requestRows, RefundOrderDOMapper childRows,
+                           RefundAllocationPlanDOMapper planRows, JsonMapper json, TestScenario scenario, RemotePorts remote,
+                           io.github.loadup.pay.payment.app.service.PaymentInputService inputService, PaymentInputGateway inputStore) {
+        this.transactions = transactions;
+        this.preparation = preparation;
+        this.payments = payments;
+        this.attempts = attempts;
+        this.locks = locks;
+        this.bindings = bindings;
+        this.codec = codec;
+        this.bindingCodec = bindingCodec;
+        this.refunds = refunds;
+        this.capacities = capacities;
+        this.capacityConverter = capacityConverter;
+        this.attemptRows = attemptRows;
+        this.requestRows = requestRows;
+        this.childRows = childRows;
+        this.planRows = planRows;
+        this.json = json;
+        this.scenario = scenario;
+        this.remote = remote;
+        this.inputService = inputService;
+        this.inputStore = inputStore;
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            assertTrue(latch.await(10, TimeUnit.SECONDS));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(interrupted);
+        }
     }
 
     @BeforeEach
     void resetRemoteObservations() {
         remote.barrier.set(null);
+        remote.inputPause.set(null);
+        remote.inputBarrier.set(null);
         clearInvocations(remote.risk, remote.limits, remote.channels, remote.cipher, remote.events);
+    }
+
+    @Test
+    void aParentFenceCommittedDuringCipherIoRejectsTheLateInputWithNoChildOrCiphertextRow() throws Exception {
+        String tenant = id("tenant");
+        var command = inputCommand();
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var released = new java.util.concurrent.CountDownLatch(1);
+        remote.inputPause.set(new java.util.concurrent.CountDownLatch[]{entered, released});
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var preparing = workers.submit(() -> prepareInput(tenant, command));
+            try {
+                assertTrue(entered.await(10, TimeUnit.SECONDS));
+                transactions.writeLocal(tenant, () -> {
+                    payments.insertParent(tenant, new StoredPaymentGate(id("parent"), command.payeeMerchantId(), "acquire",
+                            PaymentExecutionGate.init(command.orderId(), null).fence(1L), 0L));
+                    return true;
+                });
+            } finally {
+                released.countDown();
+            }
+            var failure = assertThrows(java.util.concurrent.ExecutionException.class, () -> preparing.get(20, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof io.github.loadup.commons.error.CommonException);
+            assertEquals(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
+                    ((io.github.loadup.commons.error.CommonException) failure.getCause()).getResultCode());
+        }
+        transactions.writeLocal(tenant, () -> {
+            assertTrue(inputStore.findByPayment(tenant, command.paymentId()).isEmpty());
+            assertTrue(payments.lockPayment(tenant, command.paymentId()).isEmpty());
+            assertEquals(GateState.FENCED, payments.lockParent(tenant, command.orderId()).orElseThrow().gate().state());
+            return true;
+        });
+        verify(remote.channels, never()).submit(any());
+    }
+
+    @Test
+    void simultaneousInitialInputPublicationReturnsOneOriginalReferenceWithoutCreatingAnOrphanChild() throws Exception {
+        String tenant = id("tenant");
+        var command = inputCommand();
+        remote.inputBarrier.set(new CyclicBarrier(2));
+        io.github.loadup.pay.payment.client.dto.PaymentInputDTO first;
+        try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var a = workers.submit(() -> prepareInput(tenant, command));
+            var b = workers.submit(() -> prepareInput(tenant, command));
+            first = a.get(20, TimeUnit.SECONDS);
+            assertEquals(first, b.get(20, TimeUnit.SECONDS));
+        }
+        var original = first;
+        transactions.writeLocal(tenant, () -> {
+            var stored = inputStore.findByPayment(tenant, command.paymentId()).orElseThrow();
+            assertEquals(original.inputRef(), stored.id());
+            assertEquals(0L, stored.rowVersion());
+            assertEquals(PaymentInputState.INIT, stored.state());
+            assertEquals(GateState.OPEN, payments.lockParent(tenant, command.orderId()).orElseThrow().gate().state());
+            assertTrue(payments.lockPayment(tenant, command.paymentId()).isEmpty());
+            return true;
+        });
+        verify(remote.cipher, times(2)).encrypt(eq(tenant), eq("acquire"), anyString(), eq(command));
+        verify(remote.channels, never()).submit(any());
+    }
+
+    private io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand inputCommand() {
+        return new io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand(id("payment"), id("order"), id("allocation"),
+                id("merchant"), 100L, "CNY", "action", new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE),
+                new io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO("synthetic-only-code"));
+    }
+
+    private io.github.loadup.pay.payment.client.dto.PaymentInputDTO prepareInput(String tenant,
+                                                                                 io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand command) {
+        remote.inputActor.set(new io.github.loadup.pay.payment.app.security.PaymentActor(tenant, "acquire", java.util.Set.of("pay:payment:input:prepare")));
+        try {
+            return inputService.prepare(command);
+        } finally {
+            remote.inputActor.remove();
+        }
     }
 
     @Test
@@ -109,7 +280,9 @@ class FinancialPersistenceIT {
             var second = workers.submit(() -> prepare(fixture));
             assertEquals(1L, Stream.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))
                     .filter(Optional::isPresent).count());
-        } finally { remote.barrier.set(null); }
+        } finally {
+            remote.barrier.set(null);
+        }
         transactions.readSnapshot(fixture.tenant(), () -> {
             var persisted = attempts.find(fixture.tenant(), fixture.attempt().attempt().id()).orElseThrow();
             assertEquals(PaymentAttemptState.SUBMITTING, persisted.attempt().state());
@@ -170,9 +343,13 @@ class FinancialPersistenceIT {
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             java.util.function.Function<String, Callable<Boolean>> contender = request -> () -> {
-                ready.countDown(); await(start);
+                ready.countDown();
+                await(start);
                 try {
-                    transactions.writeLocal(fixture.tenant(), () -> { insertPlan(fixture, request, 7000L); return true; });
+                    transactions.writeLocal(fixture.tenant(), () -> {
+                        insertPlan(fixture, request, 7000L);
+                        return true;
+                    });
                     return true;
                 } catch (CommonException exhausted) {
                     assertEquals(INVALID_ARGUMENT, exhausted.getResultCode());
@@ -181,10 +358,13 @@ class FinancialPersistenceIT {
             };
             var first = workers.submit(contender.apply(firstId));
             var second = workers.submit(contender.apply(secondId));
-            await(ready); start.countDown();
+            await(ready);
+            start.countDown();
             assertEquals(1L, Stream.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS))
                     .filter(Boolean::booleanValue).count());
-        } finally { start.countDown(); }
+        } finally {
+            start.countDown();
+        }
         transactions.readSnapshot(fixture.tenant(), () -> {
             var after = capacity(fixture);
             assertEquals(7000L, after.reservedMinor());
@@ -273,6 +453,7 @@ class FinancialPersistenceIT {
                 .where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(fixture.tenant()))
                 .and(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
     }
+
     private void assertPlanCounts(FinancialPersistenceFixtures.Fixture fixture, long expected) {
         assertEquals(expected, requestRows.selectCountByQuery(QueryWrapper.create().where(REFUND_REQUEST_DO.TENANT_ID.eq(fixture.tenant()))
                 .and(REFUND_REQUEST_DO.ORDER_ID.eq(fixture.command().orderId()))));
@@ -280,10 +461,6 @@ class FinancialPersistenceIT {
                 .and(REFUND_ORDER_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
         assertEquals(expected, planRows.selectCountByQuery(QueryWrapper.create().where(REFUND_ALLOCATION_PLAN_DO.TENANT_ID.eq(fixture.tenant()))
                 .and(REFUND_ALLOCATION_PLAN_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
-    }
-    private static void await(CountDownLatch latch) {
-        try { assertTrue(latch.await(10, TimeUnit.SECONDS)); }
-        catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new AssertionError(interrupted); }
     }
 
     static final class RemotePorts {
@@ -294,8 +471,28 @@ class FinancialPersistenceIT {
         final RiskConsultGateway risk = mock(RiskConsultGateway.class);
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
+        final ThreadLocal<io.github.loadup.pay.payment.app.security.PaymentActor> inputActor = new ThreadLocal<>();
+        final AtomicReference<java.util.concurrent.CountDownLatch[]> inputPause = new AtomicReference<>();
+        final AtomicReference<CyclicBarrier> inputBarrier = new AtomicReference<>();
         final PaymentEvents events = mock(PaymentEvents.class);
+
         RemotePorts() {
+            when(cipher.newReference()).thenAnswer(call -> id("input"));
+            when(cipher.activeFingerprintKeyId()).thenReturn("v1");
+            when(cipher.lifetime()).thenReturn(Duration.ofMinutes(2));
+            when(cipher.fingerprint(anyString(), anyString(), any(), eq("v1"))).thenReturn("e".repeat(64));
+            when(cipher.encrypt(anyString(), anyString(), anyString(), any())).thenAnswer(call -> {
+                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                var pause = inputPause.getAndSet(null);
+                if (pause != null) {
+                    pause[0].countDown();
+                    if (!pause[1].await(15, TimeUnit.SECONDS))
+                        throw new AssertionError("Input response was not released");
+                }
+                var contenders = inputBarrier.get();
+                if (contenders != null) contenders.await(10, TimeUnit.SECONDS);
+                return new EncryptedPaymentInput("input-key", 1, "synthetic-ciphertext");
+            });
             when(limits.supportsTenant(anyString())).thenReturn(true);
             when(limits.reserve(anyString(), any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -319,7 +516,10 @@ class FinancialPersistenceIT {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                 return RiskDecision.notConnected();
             });
-            doAnswer(c -> { assertFalse(TransactionSynchronizationManager.isActualTransactionActive()); return null; }).when(channels).validate(any());
+            doAnswer(c -> {
+                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                return null;
+            }).when(channels).validate(any());
         }
     }
 
@@ -329,14 +529,47 @@ class FinancialPersistenceIT {
     @ComponentScan(basePackageClasses = {PaymentRecoveryStorageConverter.class, PaymentSubmissionConverter.class})
     @Import({PaymentAcceptanceGatewayImpl.class, PaymentControlGatewayImpl.class, PaymentAttemptGatewayImpl.class, PaymentInputGatewayImpl.class,
             ChannelBindingGatewayImpl.class, RefundGatewayImpl.class, PaymentAcceptanceCodecImpl.class, ChannelBindingCodecImpl.class,
-            PaymentExecutionLocks.class, PaymentInputAccess.class, PaymentSubmissionPreparation.class, PaymentAcceptanceTransactions.class})
+            PaymentExecutionLocks.class, PaymentInputAccess.class, io.github.loadup.pay.payment.app.service.PaymentInputService.class,
+            io.github.loadup.pay.payment.app.service.PaymentInputPublication.class, PaymentSubmissionPreparation.class, PaymentAcceptanceTransactions.class})
     static class Application {
-        @Bean("paymentClock") Clock paymentClock() { return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()); }
-        @Bean RemotePorts remotePorts() { return new RemotePorts(); }
-        @Bean PaymentLimitClient limits(RemotePorts ports) { return ports.limits; }
-        @Bean RiskConsultGateway risk(RemotePorts ports) { return ports.risk; }
-        @Bean PaymentChannelGateway channels(RemotePorts ports) { return ports.channels; }
-        @Bean PaymentInputCipher cipher(RemotePorts ports) { return ports.cipher; }
-        @Bean PaymentEvents events(RemotePorts ports) { return ports.events; }
+        @Bean("paymentClock")
+        Clock paymentClock() {
+            return Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        }
+
+        @Bean
+        RemotePorts remotePorts() {
+            return new RemotePorts();
+        }
+
+        @Bean
+        PaymentLimitClient limits(RemotePorts ports) {
+            return ports.limits;
+        }
+
+        @Bean
+        RiskConsultGateway risk(RemotePorts ports) {
+            return ports.risk;
+        }
+
+        @Bean
+        PaymentChannelGateway channels(RemotePorts ports) {
+            return ports.channels;
+        }
+
+        @Bean
+        PaymentInputCipher cipher(RemotePorts ports) {
+            return ports.cipher;
+        }
+
+        @Bean
+        io.github.loadup.pay.payment.app.security.PaymentActorProvider inputActors(RemotePorts ports) {
+            return ports.inputActor::get;
+        }
+
+        @Bean
+        PaymentEvents events(RemotePorts ports) {
+            return ports.events;
+        }
     }
 }

@@ -18,11 +18,13 @@ package io.github.loadup.pay.reconciliation.infrastructure.config;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import java.util.Map;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
@@ -36,16 +38,28 @@ public record ReconciliationAccountsProperties(Map<String, Map<String, Account>>
             for (var account : tenant.getValue().entrySet()) DomainChecks.id(account.getKey());
         }
     }
-    public record Account(Channel channel, String accountScopeHash, String statementProfile, ReconciliationStatementAccount statementAccount, Set<String> serviceIds) {
+
+    @Override
+    public String toString() {
+        return ToStringAsJson.reflectionToString(this);
+    }
+
+    public record Account(Channel channel, String accountScopeHash, String statementProfile,
+                          ReconciliationStatementAccount statementAccount, String statementBindingRevisionId,
+                          Set<String> serviceIds) {
         public Account {
             require(channel == Channel.ALIPAY || channel == Channel.WECHAT, INVALID_ARGUMENT);
             require(accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
             DomainChecks.text(statementProfile, 64);
             java.util.Objects.requireNonNull(statementAccount);
+            if (statementBindingRevisionId != null) DomainChecks.id(statementBindingRevisionId);
             serviceIds = serviceIds == null ? Set.of() : Set.copyOf(serviceIds);
             serviceIds.forEach(DomainChecks::id);
         }
-        @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
+
+        @Override
+        public String toString() {
+            return ToStringAsJson.reflectionToString(this);
+        }
     }
-    @Override public String toString() { return ToStringAsJson.reflectionToString(this); }
 }

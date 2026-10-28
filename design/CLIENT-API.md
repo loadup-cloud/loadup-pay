@@ -1,6 +1,7 @@
 # Client API 详细设计
 
-2026-10-23传输更新：应用间统一为 Protobuf gRPC，当前6个 service/25个方法分别由各服务 `*-rpc/src/main/proto/<service>.proto` 维护，运行配置与迁移边界见 [RPC 规范](RPC.md)。下文“业务 gRPC 待接入/无协议模块”属于历史状态，其他未实现业务仍按原批次说明。
+2026-10-23传输更新：应用间统一为 Protobuf gRPC，当前6个 service/25个方法分别由各服务`*-rpc/src/main/proto/<service>.proto`
+维护，运行配置与迁移边界见 [RPC 规范](RPC.md)。下文“业务 gRPC 待接入/无协议模块”属于历史状态，其他未实现业务仍按原批次说明。
 
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 对应[详细设计](../DETAILED-DESIGN.md)与[数据库设计](DATABASE.md)
 
@@ -57,34 +58,45 @@ CashierFacade在经过会话认证的上下文执行；IdQuery只能引用该会
 public record AcquireOrderCreateCommand(
         String payeeMerchantId, String merchantOrderNo, String productScopeKey,
         long amountMinor, String currency, String subject,
-        OffsetDateTime requestedDueAt) {}
+        OffsetDateTime requestedDueAt) {
+}
 
 public record CheckoutCreateCommand(
         String payeeMerchantId, String merchantOrderNo, String productScopeKey,
         long amountMinor, String currency, String subject,
-        OffsetDateTime requestedDueAt, String returnTargetCode) {}
+        OffsetDateTime requestedDueAt, String returnTargetCode) {
+}
 
-public record PaymentChoiceDTO(Channel channel, PaymentMethod method) {}
+public record PaymentChoiceDTO(Channel channel, PaymentMethod method) {
+}
 
 public record PaymentStartCommand(
         String orderId, String actionKey, long amountMinor,
-        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {}
+        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {
+}
 
 public record CashierPaymentStartCommand(
         String orderId, String actionKey, long amountMinor,
-        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {}
+        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {
+}
 
 public record DirectPayCommand(
         String payeeMerchantId, String merchantOrderNo, String productScopeKey,
         long amountMinor, String currency, String subject,
         OffsetDateTime requestedDueAt, String actionKey, long firstPaymentAmountMinor,
-        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {}
+        PaymentChoiceDTO choice, PaymentInteractionDTO interaction) {
+}
 
-public record AcquireOrderCloseCommand(String id, String requestKey, String reasonCode) {}
+public record AcquireOrderCloseCommand(String id, String requestKey, String reasonCode) {
+}
+
 public record AcquireOrderExtendCommand(
-        String id, String requestKey, OffsetDateTime requestedDueAt, long expectedVersion) {}
+        String id, String requestKey, OffsetDateTime requestedDueAt, long expectedVersion) {
+}
+
 public record CheckoutSessionCreateCommand(
-        String orderId, String requestKey, String returnTargetCode) {}
+        String orderId, String requestKey, String returnTargetCode) {
+}
 ```
 
 `PaymentInteractionDTO`是有封闭类型集合的交互参数，不是任意Map：NONE、PAYMENT_CODE（短期付款码）、CHANNEL_IDENTITY（当前渠道要求的授权交换票据）。HTTP用
@@ -119,21 +131,26 @@ public record AcquireOrderDTO(
         long paymentReservedMinor, long outstandingAmountMinor,
         long availableToPayMinor, AcquireOrderState state,
         PaymentProgress progress, boolean canAcceptNewPayment,
-        OffsetDateTime orderDueAt, long version) {}
+        OffsetDateTime orderDueAt, long version) {
+}
 
 public record CheckoutDTO(
         AcquireOrderDTO order, String sessionId, String checkoutUrl,
-        OffsetDateTime sessionExpiresAt) {}
+        OffsetDateTime sessionExpiresAt) {
+}
 
 public record PaymentStartDTO(
         String orderId, String paymentId, String allocationId,
-        PaymentState state, PaymentActionDTO action, long version) {}
+        PaymentState state, PaymentActionDTO action, long version) {
+}
 
-public record DirectPayDTO(AcquireOrderDTO order, PaymentRecoveryDTO payment) {}
+public record DirectPayDTO(AcquireOrderDTO order, PaymentRecoveryDTO payment) {
+}
 
 public record PaymentActionDTO(
         PaymentActionType type, OffsetDateTime expiresAt,
-        PaymentActionDataDTO data) {}
+        PaymentActionDataDTO data) {
+}
 ```
 
 PaymentActionDataDTO也是封闭类型：
@@ -203,34 +220,39 @@ token类。
 `sessionId + "." + base64url_no_padding(HMAC)`
 ；入站恒定时间比较摘要、检查数据库状态和expiresAt，再建立该订单scope。sessionId可由框架IdGenerator生成，tokenNonce使用安全随机源的32字节并以Hex保存；HMAC密钥不下发浏览器或SDK。expiry对齐到秒；数据库记录确切同一值，不能每次重试重新计算到期时间。
 
-同session重放生成完全相同token/期限；会话过期或撤销后不能因重新签出token而恢复权限。旧Secret版本保留至对应会话最长有效期/重试期结束；单链接撤销使用独立 revoked_at 永久标记，保留业务终态；新签发的 session 使用当前密钥版本。
+同session重放生成完全相同token/期限；会话过期或撤销后不能因重新签出token而恢复权限。旧Secret版本保留至对应会话最长有效期/重试期结束；单链接撤销使用独立
+revoked_at 永久标记，保留业务终态；新签发的 session 使用当前密钥版本。
 
 ## 3. product与customer：准入和授权
 
 ```java
 public interface OrderAdmissionFacade {
     OrderAdmissionDTO authorize(OrderAdmissionAuthorizeCommand command);
+
     OrderAdmissionDTO detail(IdQuery query);
 }
 
 public record OrderAdmissionAuthorizeCommand(
         String orderId, String payeeMerchantId, String productScopeKey,
         String requestDigest, long amountMinor, String currency,
-        OffsetDateTime requestedDueAt) {}
+        OffsetDateTime requestedDueAt) {
+}
 
 public record OrderAdmissionDTO(
         String admissionId, String orderId, String payeeMerchantId,
         AdmissionDecision decision, String reasonCode, String requestDigest,
         String contractId, int revision, long generation, String snapshotHash, String compiledTermsHash,
         OffsetDateTime admittedAt, OffsetDateTime materializeBefore,
-        AcquiringTermsDTO terms) {}
+        AcquiringTermsDTO terms) {
+}
 
 public interface MerchantEligibilityFacade {
     MerchantEligibilityDTO authorize(MerchantActionAuthorizeCommand command);
 }
 
 public record MerchantActionAuthorizeCommand(
-        String payeeMerchantId, MerchantAction action) {}
+        String payeeMerchantId, MerchantAction action) {
+}
 ```
 
 MerchantEligibilityFacade从可信上下文取调用者，不从请求读取actorMerchantId冒充权限；跨product→customer校验“原商户调用者”时，使用经认证网关/服务端签发的委托上下文（audience/action/expiry），不能只转发一个可自填header。返回可信payee经营状态、商户资料版本、授权依据/关系版本；仅返回必要事实，不下发全部商户联系人。
@@ -248,9 +270,13 @@ policy激活，普通停单与新准入在product本地串行。DENIED结果以�
 ```java
 public interface PaymentExecutionFacade {
     PaymentExecutionDTO accept(PaymentExecuteCommand command);
+
     PaymentExecutionDTO detail(IdQuery query);
+
     PaymentCloseDTO close(PaymentCloseCommand command);
+
     ParentFenceDTO fenceParent(ParentPaymentFenceCommand command);
+
     ParentFenceDTO parentFenceStatus(ParentFenceStatusQuery query);
 }
 
@@ -258,20 +284,25 @@ public record PaymentExecuteCommand(
         String paymentId, String orderId, String allocationId, String admissionId,
         String payeeMerchantId, long amountMinor, String currency,
         String requestDigest, PaymentChoiceDTO choice, String preparedInputRef,
-        AdmittedOrderTermsDTO admittedTerms) {}
+        AdmittedOrderTermsDTO admittedTerms) {
+}
 
 public record PaymentCloseCommand(
         String paymentId, String orderId, String payeeMerchantId,
-        String requestKey, long fenceEpoch, String reasonCode) {}
+        String requestKey, long fenceEpoch, String reasonCode) {
+}
 
 public record ParentPaymentFenceCommand(
-        String orderId, String payeeMerchantId, long closeEpoch, String requestKey) {}
+        String orderId, String payeeMerchantId, long closeEpoch, String requestKey) {
+}
 
-public record ParentFenceStatusQuery(String orderId, long closeEpoch) {}
+public record ParentFenceStatusQuery(String orderId, long closeEpoch) {
+}
 
 public record ParentFenceDTO(
         String orderId, long closeEpoch, boolean fenced,
-        boolean allChildrenConverged, int unknownCount) {}
+        boolean allChildrenConverged, int unknownCount) {
+}
 ```
 
 AdmittedOrderTermsDTO含contractId/revision/原snapshotHash/compiledTermsHash、固定order总额、原退款/通知/限额配置等强类型必要子DTO，payload有schemaVersion；由可信acquire传递并校验绑定摘要，不能从公网上原样映射为已信任事实。PaymentExecutionDTO含payment/order/allocation、金额、state、activeAttempt、action、version和终结证据引用；不返回敏感input/credential。
@@ -297,37 +328,48 @@ AdmittedOrderTermsDTO含contractId/revision/原snapshotHash/compiledTermsHash、
 ```java
 public interface MerchantLimitFacade {
     LimitReservationDTO reserve(LimitReserveCommand command);
+
     LimitExecutionPermitDTO beginExecution(LimitBeginExecutionCommand command);
+
     LimitReservationDTO confirm(LimitConfirmCommand command);
+
     LimitReservationDTO release(LimitReleaseCommand command);
+
     LimitRestoreDTO restoreRefund(LimitRefundRestoreCommand command);
+
     LimitReservationDTO detail(LimitOperationQuery query);
 }
 
 public record LimitReserveCommand(
         String operationId, String paymentId, String orderId, String payeeMerchantId,
         long amountMinor, String currency, OffsetDateTime initiatedAt,
-        String policyId, int policyVersion, String policyHash, String requestDigest) {}
+        String policyId, int policyVersion, String policyHash, String requestDigest) {
+}
 
 public record LimitBeginExecutionCommand(
         String operationId, String attemptId, String requestKey,
-        String previousAttemptEvidenceId) {}
+        String previousAttemptEvidenceId) {
+}
 
 public record LimitConfirmCommand(
         String operationId, String paymentId, long paymentVersion,
         String businessEventId, String successEvidenceId,
-        long amountMinor, String currency, OffsetDateTime succeededAt) {}
+        long amountMinor, String currency, OffsetDateTime succeededAt) {
+}
 
 public record LimitReleaseCommand(
         String operationId, String paymentId, long paymentVersion,
-        String businessEventId, String noCollectionEvidenceId, String reasonCode) {}
+        String businessEventId, String noCollectionEvidenceId, String reasonCode) {
+}
 
 public record LimitRefundRestoreCommand(
         String operationId, String paymentId, String refundId,
         long refundVersion, String businessEventId, long refundAmountMinor,
-        long cumulativePaymentRefundedMinor, String currency, String refundEvidenceId) {}
+        long cumulativePaymentRefundedMinor, String currency, String refundEvidenceId) {
+}
 
-public record LimitOperationQuery(String operationId) {}
+public record LimitOperationQuery(String operationId) {
+}
 ```
 
 LimitReservationDTO返回reservationId/operationId/state/原policy/initiatedAt/version；不把全部商户额度明细默认发给浏览器。LimitExecutionPermitDTO绑定operationId/paymentId/attemptId/executionEpoch及不可伪造的permit，payment只能用于对应的本地Y2；permit不是渠道扣款参数。
@@ -352,25 +394,30 @@ ACK当成已防住迟到申请。与已确认成功矛盾的Release拒绝自动�
 ```java
 public interface RefundFacade {
     RefundRequestDTO create(RefundCreateCommand command);
+
     RefundRequestDTO detail(IdQuery query);
 }
 
 public record RefundCreateCommand(
         String orderId, String payeeMerchantId, String merchantRefundNo,
         long amountMinor, String reasonCode,
-        List<RefundExplicitAllocationDTO> explicitAllocations) {}
+        List<RefundExplicitAllocationDTO> explicitAllocations) {
+}
 
-public record RefundExplicitAllocationDTO(String paymentId, long amountMinor) {}
+public record RefundExplicitAllocationDTO(String paymentId, long amountMinor) {
+}
 
 public record RefundRequestDTO(
         String refundRequestId, String orderId, String merchantRefundNo,
         String currency, long amountMinor, RefundRequestState state,
         long succeededMinor, long failedMinor, int unknownCount,
-        int planVersion, List<RefundAllocationDTO> allocations, long version) {}
+        int planVersion, List<RefundAllocationDTO> allocations, long version) {
+}
 
 public record RefundAllocationDTO(
         int sequenceNo, String paymentId, String refundId,
-        long amountMinor, RefundState state) {}
+        long amountMinor, RefundState state) {
+}
 ```
 
 金额/币种和原商户校验由payment完成，币种继承原付款/订单，不能通过退款换汇。默认FIFO；explicitAllocations只有原合约选择且实际实现EXPLICIT时可传，金额求和必须恰等于申请额，paymentId归同一order/payee/currency。FIFO下传显式分配是参数错误；首期未实现LIFO/EXPLICIT时在发布配置时拒绝，不运行时静默降为FIFO。
@@ -384,15 +431,19 @@ public record RefundAllocationDTO(
 ```java
 public interface MerchantTradeQueryFacade {
     TradeDetailDTO detail(TradeDetailQuery query);
+
     PageDTO<TradeOrderDTO> page(TradeOrderPageQuery query);
+
     PageDTO<TradePaymentDTO> payments(TradePaymentPageQuery query);
+
     PageDTO<TradeRefundDTO> refunds(TradeRefundPageQuery query);
 }
 
 public record TradeOrderPageQuery(
         String payeeMerchantId, String merchantOrderNo,
         OffsetDateTime createdFrom, OffsetDateTime createdTo,
-        AcquireOrderState state, int page, int size) {}
+        AcquireOrderState state, int page, int size) {
+}
 ```
 
 所有查询先取授权商户范围。请求payee只是进一步缩小，不能扩大。分页使用PageQuery.normalized，订单列表稳定按orderCreatedAt、orderId排序；payments/refunds有orderId/申请筛选与独立状态，detail只读组合四类投影。
@@ -447,12 +498,24 @@ FAILED。consumer按deliveryId Inbox去重，再按aggregateVersion/业务状态
 
 ```json
 {
-  "eventId": "E1001", "eventType": "PaymentSucceeded", "schemaVersion": 1,
-  "producer": "acquire", "aggregateType": "PaymentOrder", "aggregateId": "P1001",
-  "aggregateVersion": 3, "occurredAt": "2026-10-20T12:00:00+08:00",
-  "data": {"orderId": "O1001", "paymentId": "P1001", "payeeMerchantId": "M1001",
-    "amountMinor": 3000, "currency": "CNY", "orderPaidAmountMinor": 3000,
-    "orderAmountMinor": 10000, "orderState": "PENDING"}
+  "eventId": "E1001",
+  "eventType": "PaymentSucceeded",
+  "schemaVersion": 1,
+  "producer": "acquire",
+  "aggregateType": "PaymentOrder",
+  "aggregateId": "P1001",
+  "aggregateVersion": 3,
+  "occurredAt": "2026-10-20T12:00:00+08:00",
+  "data": {
+    "orderId": "O1001",
+    "paymentId": "P1001",
+    "payeeMerchantId": "M1001",
+    "amountMinor": 3000,
+    "currency": "CNY",
+    "orderPaidAmountMinor": 3000,
+    "orderAmountMinor": 10000,
+    "orderState": "PENDING"
+  }
 }
 ```
 
@@ -514,8 +577,8 @@ message AdmittedTerms {
   bytes compiled_terms_json = 5;
   string compiled_terms_hash = 6;
 }
-message PaymentIdQuery { string id = 1; }
-message BusinessResult { string code = 1; string message = 2; }
+message PaymentIdQuery {string id = 1;}
+message BusinessResult {string code = 1; string message = 2;}
 message PaymentReply {
   BusinessResult result = 1;
   optional PaymentView data = 2;
@@ -607,8 +670,11 @@ realtime的TradeOrderDTO改为独立扁平读模型，保留原订单/商户/金
 ```java
 public interface MerchantAuthorizationFacade {
     MerchantRelationshipDTO createRelationship(MerchantRelationshipCreateCommand command);
+
     MerchantActionGrantDTO grant(MerchantActionGrantCommand command);
+
     MerchantRelationshipDTO revokeRelationship(MerchantRelationshipRevokeCommand command);
+
     MerchantActionGrantDTO revokeGrant(MerchantActionGrantRevokeCommand command);
 }
 
@@ -695,14 +761,17 @@ REJECTED/EXPIRED，之后同号重试固定拒绝。A1订单/快照/INIT整单�
 
 POST `/api/acquire/session/create` 实现 CheckoutSessionFacade.create，要求原商户主体和 pay:acquire:session；POST
 `/api/cashier/order/summary` 实现 CashierSummaryFacade.summary，依赖 Authorization 会话能力及 X-Checkout-Tenant
-定位值，IdQuery 必须属于已验证 scope。GET `/checkout` 已有 H5 手动付款/原动作恢复与进度页面源码；CashierFacade 注册 startPayment/paymentProgress，使用相同会话能力，接口见本文末尾的收银台付款接线与页面补充。
+定位值，IdQuery 必须属于已验证 scope。GET `/checkout` 已有 H5 手动付款/原动作恢复与进度页面源码；CashierFacade 注册
+startPayment/paymentProgress，使用相同会话能力，接口见本文末尾的收银台付款接线与页面补充。
 
 独立续发使用 create→session.create 两步；CheckoutCreateCommand 一步创单/A1同事务签发见第19节。签发按原订单/冻结条款进行，普通合约停单不重新判定；同
 requestKey 返回同 session/token/expiry，不因过期、取消或订单终态而重开会话；新 requestKey 只允许仍可续付订单。returnTargetCode
 为原合约默认或同一审核 code，不能指定任意 URL。
 
-scope 版本1现在冻结 ORDER_SUMMARY/PAYMENT_START/PAYMENT_PROGRESS，权限仅限原订单和本会话付款。opaque token 沿用2.5 HMAC协议，nonce/密钥引用和版本持久化，固定期限按秒对齐。恒定时间匹配原摘要并检查
-ACTIVE/COMPLETED、严格未过期、Origin 后，才建立订单scope；查询后再次检查期限。只放行摘要、付款发起与本会话进度三类 POST，其他 cashier API 拒绝；商户API仍用框架JWT。PAID/CLOSED
+scope 版本1现在冻结 ORDER_SUMMARY/PAYMENT_START/PAYMENT_PROGRESS，权限仅限原订单和本会话付款。opaque token 沿用2.5
+HMAC协议，nonce/密钥引用和版本持久化，固定期限按秒对齐。恒定时间匹配原摘要并检查
+ACTIVE/COMPLETED、严格未过期、Origin 后，才建立订单scope；查询后再次检查期限。只放行摘要、付款发起与本会话进度三类 POST，其他
+cashier API 拒绝；商户API仍用框架JWT。PAID/CLOSED
 可只读，摘要不含条款/凭证，choices 是原合约与显式启用托管能力的交集。详见[acquire运行说明](../acquire/README.md)。
 
 ## 19. Checkout 一步创单实际适配
@@ -761,11 +830,13 @@ payment:close、pay:payment:fence、pay:payment:fence:read。仅接受同受理�
 ```java
 public record PaymentCloseCommand(
         String paymentId, String orderId, String payeeMerchantId,
-        String requestKey, long fenceEpoch, String reasonCode) {}
+        String requestKey, long fenceEpoch, String reasonCode) {
+}
 
 public record PaymentCloseDTO(
         String paymentId, String orderId, long fenceEpoch, boolean fenced,
-        PaymentExecutionDTO payment, String noCollectionEvidenceId) {}
+        PaymentExecutionDTO payment, String noCollectionEvidenceId) {
+}
 ```
 
 上述为当前关闭契约；payee 必填、fenceEpoch 必须大于0。父封禁/查询沿用 ParentPaymentFenceCommand/ParentFenceStatusQuery，实际响应
@@ -788,7 +859,8 @@ gate，返回 SNAPSHOT_INVALID。相同 key 重放不补 gate、不换证据，�
 
 PaymentInitiationFacade.startPayment 已实现 POST `/api/acquire/payments/start`，输入 PaymentStartCommand，返回
 SuccessResponse<PaymentStartDTO>。原已验证商户主体还需 `pay:acquire:payment:start` 权限，只能操作自身原订单。当前支持 H5 +
-H5_SCENE（微信要求真实终端 IP 与场景）、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；NONE 只表示空输入，能否执行由渠道能力决定。敏感输入在 A2 后由 payment 加密准备并附加固定引用，不接受商户自填
+H5_SCENE（微信要求真实终端 IP 与场景）、PAYMENT_CODE + 付款码、JSAPI + 同渠道身份票据；NONE 只表示空输入，能否执行由渠道能力决定。敏感输入在
+A2 后由 payment 加密准备并附加固定引用，不接受商户自填
 preparedInputRef。
 
 A2 以 tenant/orderId/actorScope/actionKey 固定一笔付款：actorScope 当前为 merchant/原主体hash。锁订单后原子写占用及 HELD
@@ -804,11 +876,16 @@ payment 校验。cashier 的会话能力与商户 JWT 接口保持独立，付�
 ## 23. 权威结果刷新与金额收敛实际适配
 
 ```java
-public record PaymentProgressRefreshCommand(String orderId, String paymentId) {}
+public record PaymentProgressRefreshCommand(String orderId, String paymentId) {
+}
+
 public interface PaymentProgressFacade {
     PaymentProgressDTO refresh(PaymentProgressRefreshCommand query);
 }
-public record PaymentOutcomeDTO(PaymentExecutionDTO payment, boolean executionFenced) {}
+
+public record PaymentOutcomeDTO(PaymentExecutionDTO payment, boolean executionFenced) {
+}
+
 public interface PaymentOutcomeFacade {
     PaymentOutcomeDTO outcome(IdQuery query);
 }
@@ -1118,115 +1195,175 @@ STALE，失败保留独立目标重试。
 
 当前实际传输遵守 [RPC 规范](RPC.md)，本节替代前稿中费用退款内部 HTTP 占位描述。
 
-| 方法 | 入参 | 返回 | 可信身份与权限 |
-| --- | --- | --- | --- |
-| PaymentRpc/RefundSummary | IdQuery.id=orderId | OrderRefundSummaryEventDTO | 原 acquire SERVICE + pay:payment:refund-summary:read |
-| AcquireRpc/FeeRefund | EventEnvelope&lt;OrderRefundSummaryEventDTO&gt; | FeeRefundAckDTO | 配置的 payment SERVICE + pay:acquire:fee:refund |
+| 方法                     | 入参                                            | 返回                       | 可信身份与权限                                       |
+|--------------------------|-------------------------------------------------|----------------------------|------------------------------------------------------|
+| PaymentRpc/RefundSummary | IdQuery.id=orderId                              | OrderRefundSummaryEventDTO | 原 acquire SERVICE + pay:payment:refund-summary:read |
+| AcquireRpc/FeeRefund     | EventEnvelope&lt;OrderRefundSummaryEventDTO&gt; | FeeRefundAckDTO            | 配置的 payment SERVICE + pay:acquire:fee:refund      |
 
-金额消息是 orderId/payeeMerchantId/currency/refundedMinor/refundReservedMinor/refundSummaryVersion 六字段完整快照；只用 refundedMinor 作为退费基数，所有金额/版本 wire 字段为 int64。事件固定 producer=payment、eventType=pay.payment.refund.fee.v1、schemaVersion=1，aggregateId=orderId，aggregateVersion=refundSummaryVersion>0。
+金额消息是 orderId/payeeMerchantId/currency/refundedMinor/refundReservedMinor/refundSummaryVersion 六字段完整快照；只用
+refundedMinor 作为退费基数，所有金额/版本 wire 字段为 int64。事件固定
+producer=payment、eventType=pay.payment.refund.fee.v1、schemaVersion=1，aggregateId=orderId，aggregateVersion=refundSummaryVersion>
+0。
 
-ACK 六字段为 deliveryId/businessEventId/orderId/sourceVersion/appliedVersion/accepted。sourceVersion 精确对应原事件，appliedVersion 是接收方验证并接受的源金额版本，可大于 sourceVersion；费用存储也可能已更新至更高版本。投递方不要求旧消息阻塞等待精确旧版本查询。
+ACK 六字段为 deliveryId/businessEventId/orderId/sourceVersion/appliedVersion/accepted。sourceVersion
+精确对应原事件，appliedVersion 是接收方验证并接受的源金额版本，可大于 sourceVersion；费用存储也可能已更新至更高版本。投递方不要求旧消息阻塞等待精确旧版本查询。
 
-新 delivery 接收先事务外查询权威事实。相同源版本必须完整匹配消息；较新权威版本的累计成功退款不得低于原消息且不超过原固定总额，再按最新累计执行原冻结费用规则。查询与接收都校验原订单/收款商户/币种和服务所有权。接收本地事务内持原订单锁，费用基数/正差额与接收回执原子提交。退款已到、付款结果未到时仅留基数，原付款费用确认时补算。
+新 delivery
+接收先事务外查询权威事实。相同源版本必须完整匹配消息；较新权威版本的累计成功退款不得低于原消息且不超过原固定总额，再按最新累计执行原冻结费用规则。查询与接收都校验原订单/收款商户/币种和服务所有权。接收本地事务内持原订单锁，费用基数/正差额与接收回执原子提交。退款已到、付款结果未到时仅留基数，原付款费用确认时补算。
 
-tenant/deliveryId 是接收身份，同身份完整参数变化返回 IDEMPOTENCY_CONFLICT；原请求重放直接返回首次 ACK。查询不可用、新消息权威事实不符或本地落库失败均不返回 accepted ACK，交由框架 Outbox 重试。realtime 目标与费用目标的 delivery/businessEvent 独立，不相互确认。商户不能自行提交金额依据或退费成功事实。
+tenant/deliveryId 是接收身份，同身份完整参数变化返回 IDEMPOTENCY_CONFLICT；原请求重放直接返回首次
+ACK。查询不可用、新消息权威事实不符或本地落库失败均不返回 accepted ACK，交由框架 Outbox 重试。realtime 目标与费用目标的
+delivery/businessEvent 独立，不相互确认。商户不能自行提交金额依据或退费成功事实。
 
 ## 2026-10-23 成功退款额度恢复实际契约
 
-| 方法 | 入参 | 返回 | 权限 |
-| --- | --- | --- | --- |
-| PaymentRpc/RefundFacts | IdQuery.id=refundId | RefundSettlementFactsDTO | 配置的 limitcenter SERVICE + pay:payment:refund-facts |
-| LimitCenterRpc/RestoreRefund | LimitRefundRestoreCommand | LimitRestoreDTO | 原 payment SERVICE + pay:limit:refund:restore |
+| 方法                         | 入参                      | 返回                     | 权限                                                  |
+|------------------------------|---------------------------|--------------------------|-------------------------------------------------------|
+| PaymentRpc/RefundFacts       | IdQuery.id=refundId       | RefundSettlementFactsDTO | 配置的 limitcenter SERVICE + pay:payment:refund-facts |
+| LimitCenterRpc/RestoreRefund | LimitRefundRestoreCommand | LimitRestoreDTO          | 原 payment SERVICE + pay:limit:refund:restore         |
 
-`RefundSettlementFactsDTO` 七字段为 refund（RefundOutcomeEventDTO）、paymentAmountMinor/paymentVersion/paymentEvidenceId/paymentAttemptId/paymentInitiatedAt/paymentRefundVersion。refund 包含原子项/申请/付款/订单/operation/商户、金额/币种/状态/源版本、该付款当前累计已退和终结证据。只为已验证 SUCCEEDED 退款提供该事实；缺记录不伪造零。与 acquire 整单费用基数不同，额度按原单笔 payment 及其 reservation 恢复。
+`RefundSettlementFactsDTO` 七字段为
+refund（RefundOutcomeEventDTO）、paymentAmountMinor/paymentVersion/paymentEvidenceId/paymentAttemptId/paymentInitiatedAt/paymentRefundVersion。refund
+包含原子项/申请/付款/订单/operation/商户、金额/币种/状态/源版本、该付款当前累计已退和终结证据。只为已验证 SUCCEEDED
+退款提供该事实；缺记录不伪造零。与 acquire 整单费用基数不同，额度按原单笔 payment 及其 reservation 恢复。
 
-`LimitRestoreDTO` 当前十二字段：operationId/paymentId/refundId/refundVersion/businessEventId/refundEvidenceId/cumulativePaymentRefundedMinor/verifiedPaymentRefundedMinor/verifiedPaymentRefundVersion/result/restoredAmountMinor/restoredPaymentCount。前七项绑定原请求，第八/九项是权威回查累计和版本。result 为 RESTORED 或 NO_ACTION；金额/笔数为首次接收该成功退款时实际产生的逻辑恢复差额，不是跨窗口求和或当前总余额。
+`LimitRestoreDTO`
+当前十二字段：operationId/paymentId/refundId/refundVersion/businessEventId/refundEvidenceId/cumulativePaymentRefundedMinor/verifiedPaymentRefundedMinor/verifiedPaymentRefundVersion/result/restoredAmountMinor/restoredPaymentCount。前七项绑定原请求，第八/九项是权威回查累计和版本。result
+为 RESTORED 或 NO_ACTION；金额/笔数为首次接收该成功退款时实际产生的逻辑恢复差额，不是跨窗口求和或当前总余额。
 
-成功子退款的 LIMIT 事件只生产一次，重试保留原 command 身份和累计。接收先事务外查证；较新权威累计可高于消息累计，再按原冻结规则推进所有原 item 的恢复高水位。tenant/refundId 已有回执时核对完整命令摘要和可信来源，原参数回放首次 ACK，改参冲突。bucket/item/回执同事务，Confirm 未到仍重试，不能提前 NO_ACTION。合约停止或新规则变更不阻断旧成功事实处理。
+成功子退款的 LIMIT 事件只生产一次，重试保留原 command 身份和累计。接收先事务外查证；较新权威累计可高于消息累计，再按原冻结规则推进所有原
+item 的恢复高水位。tenant/refundId 已有回执时核对完整命令摘要和可信来源，原参数回放首次 ACK，改参冲突。bucket/item/回执同事务，Confirm
+未到仍重试，不能提前 NO_ACTION。合约停止或新规则变更不阻断旧成功事实处理。
 
 前稿四字段 `LimitRestoreDTO` 占位已直接替换，无兼容构造器。当前方案未执行编译、测试、迁移或真实 gRPC 验收。
 
 ## 2026-10-23 退款自动恢复调用边界
 
-商户仍使用原 RefundFacade.create/detail，不新增“任务完成即退款成功”的 API。create 新计划必须与恢复游标和首轮 DelayedTask 同事务登记；原商户请求重放既有计划，不额外排队。detail 展示实际退款事实，轮询任务或异常重试不改变状态含义。
+商户仍使用原 RefundFacade.create/detail，不新增“任务完成即退款成功”的 API。create 新计划必须与恢复游标和首轮 DelayedTask
+同事务登记；原商户请求重放既有计划，不额外排队。detail 展示实际退款事实，轮询任务或异常重试不改变状态含义。
 
-内部 RefundRecoveryService/RefundRecoveryTaskHandler 只由持久任务在可信租户执行；不依赖调度线程遗留的商户/JWT 身份。每轮使用冻结原计划和渠道退款号，渠道网络调用在本地事务外，成功/失败事实继续由 RefundResultService 验证并落账。恢复游标代次不作为付款/退款成功证据或渠道幂等键。
+内部 RefundRecoveryService/RefundRecoveryTaskHandler 只由持久任务在可信租户执行；不依赖调度线程遗留的商户/JWT
+身份。每轮使用冻结原计划和渠道退款号，渠道网络调用在本地事务外，成功/失败事实继续由 RefundResultService
+验证并落账。恢复游标代次不作为付款/退款成功证据或渠道幂等键。
 
-处理中自动登记后继，正常等待不耗尽异常次数；异常预算耗尽保留 FAILED 任务及原资金占用，不给商户返回假成功或释放额度。组件内部受控 retryFailed 可恢复同代，专门的运维权限/查询/重放 API 尚未提供。未实现退款取消；通用任务 cancel 也不是业务取消协议。真实渠道和端到端运行仍待后续实现及验收。
+处理中自动登记后继，正常等待不耗尽异常次数；异常预算耗尽保留 FAILED 任务及原资金占用，不给商户返回假成功或释放额度。组件内部受控
+retryFailed 可恢复同代，专门的运维权限/查询/重放 API 尚未提供。未实现退款取消；通用任务 cancel
+也不是业务取消协议。真实渠道和端到端运行仍待后续实现及验收。
 
 ## 进程内渠道统一 API（2026-10-23）
 
-channel-api 独立提供 ChannelPaymentFacade：validate/submit/query/recover/close/canRefund/submitRefund/queryRefund/recoverRefund。策略实现 ChannelProvider，声明唯一 Channel，由 channel-core 注册路由。调用上下文由 payment 基础设施桥接解析可信租户与原 binding revision，API 不允许任意上游网关地址或未解析凭证。该接口是应用内部插件契约，不是新增商户 HTTP/RPC 入口。详细输入、校验和未完成范围见 [渠道模块](../channel/README.md)。
+channel-api 独立提供
+ChannelPaymentFacade：validate/submit/query/recover/close/canRefund/submitRefund/queryRefund/recoverRefund。策略实现
+ChannelProvider，声明唯一 Channel，由 channel-core 注册路由。调用上下文由 payment 基础设施桥接解析可信租户与原 binding
+revision，API 不允许任意上游网关地址或未解析凭证。该接口是应用内部插件契约，不是新增商户 HTTP/RPC
+入口。详细输入、校验和未完成范围见 [渠道模块](../channel/README.md)。
 
-支付宝普通退款的 channelRefundTransactionNo 为验签后原 trade_no/out_request_no 自然键的稳定规范引用（alipay:sha256），不声称渠道颁发独立流水；原元组仍完整保存在退款/claim。只有查询核验 REFUND_SUCCESS、身份、单次金额和成功时间后允许写入；退款提交 10000 仅为 ACCEPTED。
+支付宝普通退款的 channelRefundTransactionNo 为验签后原 trade_no/out_request_no 自然键的稳定规范引用（alipay:
+sha256），不声称渠道颁发独立流水；原元组仍完整保存在退款/claim。只有查询核验 REFUND_SUCCESS、身份、单次金额和成功时间后允许写入；退款提交
+10000 仅为 ACCEPTED。
 
-进程内支付 query/close 已改为 ChannelPaymentTarget(identity, amount)，不保留旧重载；统一 Facade 校验所有支付操作返回的原身份与金额。PaymentObservation.Source 增加 CLOSE_RESPONSE，支付宝该来源代表待付款查询与关闭成功双响应组合证据；单独 TRADE_CLOSED 不构成 NO_COLLECTION。该变更不新增商户 HTTP/RPC 入口。
+进程内支付 query/close 已改为 ChannelPaymentTarget (identity, amount)，不保留旧重载；统一 Facade
+校验所有支付操作返回的原身份与金额。PaymentObservation.Source 增加 CLOSE_RESPONSE，支付宝该来源代表待付款查询与关闭成功双响应组合证据；单独
+TRADE_CLOSED 不构成 NO_COLLECTION。该变更不新增商户 HTTP/RPC 入口。
 
 ## 收款提交契约更新（2026-10-23）
 
-PaymentExecuteCommand 必须携带冻结的原订单 subject、payableUntil，gRPC WirePaymentExecuteCommand 同步为 subject(12)/payable_until(13)。原订单截止由 acquire 当前持久 orderDueAt 冻结，重放按原意图，不因受理或后台重试延长。
+PaymentExecuteCommand 必须携带冻结的原订单 subject、payableUntil，gRPC WirePaymentExecuteCommand 同步为 subject (12)
+/payable_until (13)。原订单截止由 acquire 当前持久 orderDueAt 冻结，重放按原意图，不因受理或后台重试延长。
 
-JSAPI 输入 ChannelIdentityInteractionDTO 定义为 channel、identifier（隐藏诊断，最长128）、appScope、identityType（USER_ID/OPEN_ID）。它表示已完成渠道授权后解析出的标识，不接受 OAuth 授权 code 作为买家 ID；商户自行完成所属应用授权。Wire 字段2改为 identifier，新增 identity_type(4)，不提供兼容分支。平台仍无消费者用户资源。
+JSAPI 输入 ChannelIdentityInteractionDTO 定义为
+channel、identifier（隐藏诊断，最长128）、appScope、identityType（USER_ID/OPEN_ID）。它表示已完成渠道授权后解析出的标识，不接受
+OAuth 授权 code 作为买家 ID；商户自行完成所属应用授权。Wire 字段2改为 identifier，新增 identity_type (4)
+，不提供兼容分支。平台仍无消费者用户资源。
 
-进程内 submit(context, ChannelPaymentRequest) 返回 ChannelPaymentSubmission（原身份/金额＋可空观察＋可空动作，至少一项）。AlipayJsapiChannelAction 映射 INVOKE_JSAPI + AlipayJsapiActionDTO，不构成成功；有动作的观察只能 ACCEPTED。付款码确认成功统一使用查询路径取得渠道成功时间。动作持久化及 payment 详情/outcome/受理重放的授权返回已接源码；主链自动驱动已有源码；托管 cashier 页面仍待实现。
-
+进程内 submit (context, ChannelPaymentRequest) 返回
+ChannelPaymentSubmission（原身份/金额＋可空观察＋可空动作，至少一项）。AlipayJsapiChannelAction 映射 INVOKE_JSAPI +
+AlipayJsapiActionDTO，不构成成功；有动作的观察只能 ACCEPTED。付款码确认成功统一使用查询路径取得渠道成功时间。动作持久化及
+payment 详情/outcome/受理重放的授权返回已接源码；主链自动驱动已有源码；托管 cashier 页面仍待实现。
 
 ### 动作快照读取约束
 
-不增加外部写动作或上报成功 API。内部 recordSubmission 只接收原 PreparedChannelPayment 与渠道 Facade 返回的 ChannelPaymentSubmission；有动作时必须有 ACCEPTED 观察，支付宝 JSAPI tradeNo 必须等于观察中的 channelTransactionNo。观察/动作同事务接收，快照冲突则整体失败。
+不增加外部写动作或上报成功 API。内部 recordSubmission 只接收原 PreparedChannelPayment 与渠道 Facade 返回的
+ChannelPaymentSubmission；有动作时必须有 ACCEPTED 观察，支付宝 JSAPI tradeNo 必须等于观察中的
+channelTransactionNo。观察/动作同事务接收，快照冲突则整体失败。
 
-PaymentExecutionDTO.action 由原 SERVICE 身份授权的详情/outcome 与幂等重放返回。读取在原父门禁、单付款门禁下进行，只暴露当前 active attempt/执行 epoch，支付 PROCESSING 且门禁 OPEN、动作未到期且不超过原 payableUntil；其余状态返回基础 DTO，不回传历史动作。重复受理保留首次动作，不借重放创建新交易或延长支付窗口。
+PaymentExecutionDTO.action 由原 SERVICE 身份授权的详情/outcome 与幂等重放返回。读取在原父门禁、单付款门禁下进行，只暴露当前
+active attempt/执行 epoch，支付 PROCESSING 且门禁 OPEN、动作未到期且不超过原 payableUntil；其余状态返回基础
+DTO，不回传历史动作。重复受理保留首次动作，不借重放创建新交易或延长支付窗口。
 
-ChannelActionCodec 属于 channel-api 的进程内契约，当前严格实现位于 channel-core。payment 的客户端 DTO 映射只投影动作表示，不负责渠道路由、签名或厂商协议。此接线仍待获准后的编译/事务/运行验收，自动发送已有源码，仍未执行运行验证。
-
+ChannelActionCodec 属于 channel-api 的进程内契约，当前严格实现位于 channel-core。payment 的客户端 DTO
+映射只投影动作表示，不负责渠道路由、签名或厂商协议。此接线仍待获准后的编译/事务/运行验收，自动发送已有源码，仍未执行运行验证。
 
 ### 自动执行与本地预检
 
-accept 返回已持久受理后，payment 自身恢复任务自动创建原首笔并驱动提交/查询，无需 acquire 额外调用 startAttempt 才能启动。startAttempt 保留为既有 SERVICE 入口；与自动任务共享同一首笔创建逻辑，原 active attempt 已存在时不得创建第二笔。任务不使用外部请求伪装 SERVICE 身份，不暴露执行/回执写入 HTTP API。
+accept 返回已持久受理后，payment 自身恢复任务自动创建原首笔并驱动提交/查询，无需 acquire 额外调用 startAttempt
+才能启动。startAttempt 保留为既有 SERVICE 入口；与自动任务共享同一首笔创建逻辑，原 active attempt 已存在时不得创建第二笔。任务不使用外部请求伪装
+SERVICE 身份，不暴露执行/回执写入 HTTP API。
 
-内部 ChannelPaymentValidation 不带 epoch，仅用于同一 Provider 的本地参数/能力校验；通过不代表已受理或成功。真实 submit 仍需原 Y2 ticket；重试只能原号查询或在关闭门禁下收敛。正常轮询代次及恢复游标不是支付 API 的版本或渠道重试凭证。所有新增执行、任务与 API 接线尚未编译/测试或部署。
-
+内部 ChannelPaymentValidation 不带 epoch，仅用于同一 Provider 的本地参数/能力校验；通过不代表已受理或成功。真实 submit 仍需原
+Y2 ticket；重试只能原号查询或在关闭门禁下收敛。正常轮询代次及恢复游标不是支付 API 的版本或渠道重试凭证。所有新增执行、任务与
+API 接线尚未编译/测试或部署。
 
 ### 原交易动作恢复的进程内 API
 
-`ChannelPaymentFacade.recover(context, ChannelPaymentRecovery)` 返回 ChannelPaymentSubmission，必须含 QUERY_RESPONSE 观察。请求只包含原 identity、Money、method、executionEpoch 与 payableUntil，不接收明文付款输入、任意渠道 URL、preparedInputRef 或 ticket。它通过 Provider SPI 查询同一交易并重建支持的有效动作，不是提交/重试扣款接口。
+`ChannelPaymentFacade.recover(context, ChannelPaymentRecovery)` 返回 ChannelPaymentSubmission，必须含 QUERY_RESPONSE
+观察。请求只包含原 identity、Money、method、executionEpoch 与 payableUntil，不接收明文付款输入、任意渠道 URL、preparedInputRef
+或 ticket。它通过 Provider SPI 查询同一交易并重建支持的有效动作，不是提交/重试扣款接口。
 
-`PaymentResultService.recordRecovery` 仅供内部自动恢复编排调用，拒绝非 QUERY_RESPONSE；原观察与首份动作复用 Y3 同事务记录。客户端继续用现有 PaymentExecutionDTO.action 读取，无新增商户 HTTP/gRPC 端点。recover 与 PreparedChannelPayment 共享只读元数据契约不等于可以生成 Y2 ticket；原 UNKNOWN/终态和门禁可见性规则保持不变。本批源码和测试源码尚未执行验证。
-
+`PaymentResultService.recordRecovery` 仅供内部自动恢复编排调用，拒绝非 QUERY_RESPONSE；原观察与首份动作复用 Y3
+同事务记录。客户端继续用现有 PaymentExecutionDTO.action 读取，无新增商户 HTTP/gRPC 端点。recover 与 PreparedChannelPayment
+共享只读元数据契约不等于可以生成 Y2 ticket；原 UNKNOWN/终态和门禁可见性规则保持不变。本批源码和测试源码尚未执行验证。
 
 ### 渠道原生回调 Facade
 
-PaymentChannelCallbackFacade.receive(endpointRef, ChannelNotificationInput) 是外部渠道协议入口，HTTP 为 POST /api/payment/channel-callbacks/{endpointRef}；它不提供内部 gRPC 的成功写入方法。当前只收有界 form body，不读取 query/body tenant 参数或租户请求头，返回 ChannelNotificationAcknowledgement 的原生 contentType/body。空包、超限或未登记 endpoint 不产生 success；已识别协议处理失败返回策略固定 failure。
+PaymentChannelCallbackFacade.receive (endpointRef, ChannelNotificationInput) 是外部渠道协议入口，HTTP 为 POST
+/api/payment/channel-callbacks/{endpointRef}；它不提供内部 gRPC 的成功写入方法。当前只收有界 form body，不读取 query/body
+tenant 参数或租户请求头，返回 ChannelNotificationAcknowledgement 的原生 contentType/body。空包、超限或未登记 endpoint 不产生
+success；已识别协议处理失败返回策略固定 failure。
 
-ChannelNotificationFacade.identify 返回不可信 ChannelNotificationHint；verify 使用原 ChannelExecutionContext/ChannelPaymentTarget，返回已验签且核对账户、请求号、金额的触发元数据。只有随后查询产生的资金事实能够进入 Y3，回调状态与通知金额本身不是商户可用的记账 API。服务端按可信 tenant/bindingRevision 配置 JSAPI notify_url，商户支付命令不可指定。
+ChannelNotificationFacade.identify 返回不可信 ChannelNotificationHint；verify 使用原
+ChannelExecutionContext/ChannelPaymentTarget，返回已验签且核对账户、请求号、金额的触发元数据。只有随后查询产生的资金事实能够进入
+Y3，回调状态与通知金额本身不是商户可用的记账 API。服务端按可信 tenant/bindingRevision 配置 JSAPI notify_url，商户支付命令不可指定。
 
-CALLBACK 回执复合键绑定通知 ID 和权威查询事实；成功 ACK 必须在非冲突的 Y3 返回之后，不因解析或验签通过即 ACK。新接口/配置、边界与测试源码尚未执行验证，其他通知协议仍待实现。
-
+CALLBACK 回执复合键绑定通知 ID 和权威查询事实；成功 ACK 必须在非冲突的 Y3 返回之后，不因解析或验签通过即
+ACK。新接口/配置、边界与测试源码尚未执行验证，其他通知协议仍待实现。
 
 ### 微信 JSAPI 动作实现（2026-10-24）
 
-channel-api 新增 WechatJsapiChannelAction，字段 appId/timeStamp/nonceStr/packageValue/signType/paySign/expiresAt，core 以 WECHAT_JSAPI 白名单快照保存。payment MapStruct 映射为已有 INVOKE_JSAPI/WechatJsapiActionDTO（外部字段 package）；复用现有动作查询授权和 Protobuf 分支，无新增内部 RPC。该动作只表示预支付会话可唤起，支付成功仍以原渠道查询的验签事实确定。具体能力、必需配置和未实现范围见 [微信插件](../channel/channel-wechat/README.md)。
-
+channel-api 新增 WechatJsapiChannelAction，字段 appId/timeStamp/nonceStr/packageValue/signType/paySign/expiresAt，core 以
+WECHAT_JSAPI 白名单快照保存。payment MapStruct 映射为已有 INVOKE_JSAPI/WechatJsapiActionDTO（外部字段 package）；复用现有动作查询授权和
+Protobuf 分支，无新增内部
+RPC。该动作只表示预支付会话可唤起，支付成功仍以原渠道查询的验签事实确定。具体能力、必需配置和未实现范围见 [微信插件](../channel/channel-wechat/README.md)。
 
 ### 微信普通退款执行（2026-10-24）
 
-统一 submitRefund/queryRefund 已接微信策略，PreparedChannelRefund 继续使用原身份、原交易号、原金额、本次退款金额与固定 channelRefundNo，不增加商户可注入的退款成功入口。普通退款受理不等于成功；只有查询 SUCCESS/完整原号与金额/渠道成功时间产生成功金融事实，CLOSED 的失败证明沿原结果接收流程处理。外部回调、异常退款处置及未达渠道时的原号安全重提待后续。细节见 [微信退款协议](../channel/channel-wechat/README.md)。
-
+统一 submitRefund/queryRefund 已接微信策略，PreparedChannelRefund 继续使用原身份、原交易号、原金额、本次退款金额与固定
+channelRefundNo，不增加商户可注入的退款成功入口。普通退款受理不等于成功；只有查询 SUCCESS/完整原号与金额/渠道成功时间产生成功金融事实，CLOSED
+的失败证明沿原结果接收流程处理。外部回调、异常退款处置及未达渠道时的原号安全重提待后续。细节见 [微信退款协议](../channel/channel-wechat/README.md)。
 
 ### 加密通知协议修订（2026-10-24）
 
-ChannelNotificationInput(contentType,headers,body) 保留有界多值签名头与原始字节；identify 改为接收可信原 ChannelExecutionContext，payment Gateway 传原 channel/bindingRevisionId 并按可信租户解析。ChannelNotificationAcknowledgement(httpStatus,contentType,body) 返回渠道原生状态，微信支付通知失败必须为非 2xx；支付宝保持自身 ACK 规则。删除旧构造器/参数，调用方与测试同步。该契约只供应用内渠道插件及外部回调控制器使用，不新增内部 RPC 或任意金融写入口。微信通知只触发原号查证，金融事实仍沿 Y3 接收。
-
+ChannelNotificationInput (contentType,headers,body) 保留有界多值签名头与原始字节；identify 改为接收可信原
+ChannelExecutionContext，payment Gateway 传原 channel/bindingRevisionId 并按可信租户解析。ChannelNotificationAcknowledgement
+(httpStatus,contentType,body) 返回渠道原生状态，微信支付通知失败必须为非 2xx；支付宝保持自身 ACK
+规则。删除旧构造器/参数，调用方与测试同步。该契约只供应用内渠道插件及外部回调控制器使用，不新增内部 RPC
+或任意金融写入口。微信通知只触发原号查证，金融事实仍沿 Y3 接收。
 
 ### 原生退款通知入口（2026-10-24）
 
-RefundChannelCallbackFacade.receive(endpointRef,input) 承接 /api/payment/channel-callbacks/{endpointRef}/refund 原生 JSON。统一通知 Facade 的 identifyRefund(context,input) 返回 ChannelRefundNotificationHint，verifyRefund(context,PreparedChannelRefund,input) 返回已认证的原退款触发元数据；这些都不能直接写金融终态。payment 通过原退款查询与既有 RefundResultService 接收 CALLBACK 事实，ACK 仅在非冲突事务提交后成功。微信退款 URL 使用独立可信 refund-notify-urls 目录，不从商户请求取 URL。不新增内部 HTTP/RPC 或商户成功写入口。
-
+RefundChannelCallbackFacade.receive (endpointRef,input) 承接 /api/payment/channel-callbacks/{endpointRef}/refund 原生
+JSON。统一通知 Facade 的 identifyRefund (context,input) 返回 ChannelRefundNotificationHint，verifyRefund
+(context,PreparedChannelRefund,input) 返回已认证的原退款触发元数据；这些都不能直接写金融终态。payment 通过原退款查询与既有
+RefundResultService 接收 CALLBACK 事实，ACK 仅在非冲突事务提交后成功。微信退款 URL 使用独立可信 refund-notify-urls
+目录，不从商户请求取 URL。不新增内部 HTTP/RPC 或商户成功写入口。
 
 ### 原号退款恢复 API（2026-10-24）
 
-ChannelPaymentOperations/PaymentChannelGateway 新增 recoverRefund，仍接同一 PreparedChannelRefund，不提供商户选择新退款号或重写金融参数的入口。queryRefund 保持只读，回调沿用纯查询；恢复任务明确使用 recoverRefund，渠道策略仅在各自原号幂等保证和精确验签条件下重复原请求。返回为 QUERY_RESPONSE 或非终态 SUBMIT_RESPONSE（ACCEPTED/UNKNOWN），Facade 与 app 双重拒绝 CALLBACK/终态提交来源，不把受理响应替代退款查证。无兼容重载、额外 RPC、业务表或 DDL。
-
+ChannelPaymentOperations/PaymentChannelGateway 新增 recoverRefund，仍接同一
+PreparedChannelRefund，不提供商户选择新退款号或重写金融参数的入口。queryRefund 保持只读，回调沿用纯查询；恢复任务明确使用
+recoverRefund，渠道策略仅在各自原号幂等保证和精确验签条件下重复原请求。返回为 QUERY_RESPONSE 或非终态
+SUBMIT_RESPONSE（ACCEPTED/UNKNOWN），Facade 与 app 双重拒绝 CALLBACK/终态提交来源，不把受理响应替代退款查证。无兼容重载、额外
+RPC、业务表或 DDL。
 
 ## 微信 H5 场景与统一跳转（2026-10-24）
 
@@ -1246,67 +1383,101 @@ ChannelPaymentOperations/PaymentChannelGateway 新增 recoverRefund，仍接同�
 }
 ```
 
-payerClientIp 必须由已认证商户服务端提供真实付款终端的 IPv4/IPv6 字面量，不能填商户服务器地址、转发头链或主机名。sceneType 为 WAP、IOS、ANDROID，表示付款环境，不是新增原生 APP 支付产品。公网示例地址仅为文档保留地址，实际请求必须提供真实终端 IP。拒绝回环/未指定/组播、端口、方括号和 zone id；校验无 DNS 访问。
+payerClientIp 必须由已认证商户服务端提供真实付款终端的 IPv4/IPv6 字面量，不能填商户服务器地址、转发头链或主机名。sceneType
+为 WAP、IOS、ANDROID，表示付款环境，不是新增原生 APP 支付产品。公网示例地址仅为文档保留地址，实际请求必须提供真实终端
+IP。拒绝回环/未指定/组播、端口、方括号和 zone id；校验无 DNS 访问。
 
-acquire 在原 A2 占用后调用仅限受信 SERVICE 的 PaymentInputFacade.prepare，敏感场景经 KMS 加密与 keyed 指纹固定；原意图只保存不透明引用。改变 IP、场景、金额或原付款作用域不能覆盖原输入。同 actionKey 重放仍沿用原 allocation/payment；H5 无场景的 NONE 不满足微信渠道要求。
+acquire 在原 A2 占用后调用仅限受信 SERVICE 的 PaymentInputFacade.prepare，敏感场景经 KMS 加密与 keyed 指纹固定；原意图只保存不透明引用。改变
+IP、场景、金额或原付款作用域不能覆盖原输入。同 actionKey 重放仍沿用原 allocation/payment；H5 无场景的 NONE 不满足微信渠道要求。
 
-gRPC 的 WirePaymentInteractionDTO 新增 option3=4，WireH5SceneInteractionDTO 的 payer_client_ip=1、scene_type=2 均要求存在，场景符号严格限定。输入与输出仍走既有 prepare/accept/detail API，不增加厂商专用业务入口。
+gRPC 的 WirePaymentInteractionDTO 新增 option3=4，WireH5SceneInteractionDTO 的 payer_client_ip=1、scene_type=2
+均要求存在，场景符号严格限定。输入与输出仍走既有 prepare/accept/detail API，不增加厂商专用业务入口。
 
-异步执行后，PaymentExecutionDTO.action 可返回 REDIRECT、expiresAt 与 RedirectActionDTO.redirectUrl（JSON 数据类型为既有 REDIRECT）。地址只来自微信验签响应，限定当前官方 HTTPS 跳转主机/路径，原编码与参数原样保留；商户不能自填跳转地址、附加任意参数或把页面回跳当成收款成功。期限为原订单截止与调用开始后五分钟的较早值；原 action 快照和重放不延长地址寿命，过期不展示。支付结果查询/回调沿用原渠道与原绑定，不在查询恢复中重新下单获取地址。
+异步执行后，PaymentExecutionDTO.action 可返回 REDIRECT、expiresAt 与 RedirectActionDTO.redirectUrl（JSON 数据类型为既有
+REDIRECT）。地址只来自微信验签响应，限定当前官方 HTTPS
+跳转主机/路径，原编码与参数原样保留；商户不能自填跳转地址、附加任意参数或把页面回跳当成收款成功。期限为原订单截止与调用开始后五分钟的较早值；原
+action 快照和重放不延长地址寿命，过期不展示。支付结果查询/回调沿用原渠道与原绑定，不在查询恢复中重新下单获取地址。
 
-该路径已有源码和相关测试源码；尚未运行编译、测试、DDL、H5 域名/Referer 与真实浏览器/渠道验收。托管收银台、支付宝 H5 和安全刷新/丢失响应恢复仍为后续工作。
-
+该路径已有源码和相关测试源码；尚未运行编译、测试、DDL、H5 域名/Referer 与真实浏览器/渠道验收。托管收银台、支付宝 H5
+和安全刷新/丢失响应恢复仍为后续工作。
 
 ## 商户通知 acquire 实际接线（2026-10-24）
 
-PaymentSucceeded 的 sourceVersion 为原 paymentVersion，aggregateType=PaymentOrder；OrderFullyPaid/OrderClosed 使用 AcquireOrder/orderVersion。data 固定包含 orderId、可空 paymentId、payeeMerchantId、amountMinor/CNY、orderPaidAmountMinor、orderAmountMinor、orderState。单笔成功金额为本笔金额，订单事件金额为订单总额；金额汇总是该事件时刻的快照，不保证跨聚合通知全序。
+PaymentSucceeded 的 sourceVersion 为原 paymentVersion，aggregateType=PaymentOrder；OrderFullyPaid/OrderClosed 使用
+AcquireOrder/orderVersion。data 固定包含 orderId、可空
+paymentId、payeeMerchantId、amountMinor/CNY、orderPaidAmountMinor、orderAmountMinor、orderState。单笔成功金额为本笔金额，订单事件金额为订单总额；金额汇总是该事件时刻的快照，不保证跨聚合通知全序。
 
-eventId/body/occurredAt/原策略不可变，新增投递表与首任务同源事务，不对外暴露任意事件入队或发送 URL 接口。任务和签名细节见 [acquire 通知说明](../acquire/README.md)。语义 ACK 严格为2xx及两字段 {"eventId":"原事件","result":"SUCCESS"}，每次使用新的签名 nonce/timestamp，其他参数保持原冻结值。投递未 ACK 不能回滚已提交的收款事实，也不修改付款状态。
+eventId/body/occurredAt/原策略不可变，新增投递表与首任务同源事务，不对外暴露任意事件入队或发送 URL
+接口。任务和签名细节见 [acquire 通知说明](../acquire/README.md)。语义 ACK 严格为2xx及两字段 {"eventId":"原事件","result":
+"SUCCESS"}，每次使用新的签名 nonce/timestamp，其他参数保持原冻结值。投递未 ACK 不能回滚已提交的收款事实，也不修改付款状态。
 
-目录以 tenant+不可变版本引用定位且绑定商户；实际请求只使用审核的固定 HTTPS POST operation，无 query。原应用/受众/显式 KMS key 版本、URI 和配置指纹绑定，不能由 payload 任意选密钥、目标或修改旧事件的路由。原生延迟任务的后继在发送前持久化，崩溃重放保持原事件；达到次数/窗口后 EXHAUSTED，运维审计重放接口、退款商户通知及目录发布验证后续补齐。新增源码和测试源码未执行验证或实际投递。
-
+目录以 tenant+不可变版本引用定位且绑定商户；实际请求只使用审核的固定 HTTPS POST operation，无 query。原应用/受众/显式 KMS
+key 版本、URI 和配置指纹绑定，不能由 payload 任意选密钥、目标或修改旧事件的路由。原生延迟任务的后继在发送前持久化，崩溃重放保持原事件；达到次数/窗口后
+EXHAUSTED，运维审计重放接口、退款商户通知及目录发布验证后续补齐。新增源码和测试源码未执行验证或实际投递。
 
 ## 退款商户通知实际契约（2026-10-24）
 
-| 内部方法 | 入参 | 返回 | 身份与权限 |
-| --- | --- | --- | --- |
+| 内部方法                      | 入参                                        | 返回                     | 身份与权限                                               |
+|-------------------------------|---------------------------------------------|--------------------------|----------------------------------------------------------|
 | AcquireRpc/RefundNotification | EventEnvelope&lt;RefundMerchantEventDTO&gt; | RefundNotificationAckDTO | 配置的 payment SERVICE + pay:acquire:refund:notification |
 
-payment 在原退款结果事务冻结独立 `pay.payment.refund.merchant.v1` Outbox，与费用、额度、realtime 分别投递和确认；非终态不生产商户退款事件。源数据包含 aggregateType、refundId、refundRequestId、paymentId、orderId、payeeMerchantId、merchantRefundNo、amountMinor、currency、state、succeededMinor、failedMinor、sourceVersion、succeededAt。信封 producer=payment/schemaVersion=1，aggregateId/version 必须匹配源数据。金额 CNY/int64，终态满足 succeededMinor+failedMinor=amountMinor。
+payment 在原退款结果事务冻结独立 `pay.payment.refund.merchant.v1` Outbox，与费用、额度、realtime 分别投递和确认；非终态不生产商户退款事件。源数据包含
+aggregateType、refundId、refundRequestId、paymentId、orderId、payeeMerchantId、merchantRefundNo、amountMinor、currency、state、succeededMinor、failedMinor、sourceVersion、succeededAt。信封
+producer=payment/schemaVersion=1，aggregateId/version 必须匹配源数据。金额 CNY/int64，终态满足
+succeededMinor+failedMinor=amountMinor。
 
-| 商户 eventType | aggregateType / aggregateId | 语义 |
-| --- | --- | --- |
-| RefundSucceeded | RefundOrder / refundId | 此固定子退款成功，全额为 succeededMinor，保留原渠道成功时刻 |
-| RefundFailed | RefundOrder / refundId | 此固定子退款已确定无退款，金额全计入 failedMinor；不把未知状态当失败 |
+| 商户 eventType         | aggregateType / aggregateId     | 语义                                                                                           |
+|------------------------|---------------------------------|------------------------------------------------------------------------------------------------|
+| RefundSucceeded        | RefundOrder / refundId          | 此固定子退款成功，全额为 succeededMinor，保留原渠道成功时刻                                    |
+| RefundFailed           | RefundOrder / refundId          | 此固定子退款已确定无退款，金额全计入 failedMinor；不把未知状态当失败                           |
 | RefundRequestCompleted | RefundRequest / refundRequestId | 固定分配全部完成，SUCCEEDED/FAILED/PARTIAL_SUCCEEDED；子退款与付款 ID 为空，无单一 succeededAt |
 
-商户外部信封延续 eventId/eventType/schemaVersion/producer/aggregateType/aggregateId/aggregateVersion/occurredAt/data，退款 producer=payment；由 acquire 按原订单冻结的目标、签名身份和重试条款发送。data 不包含 sourceVersion（使用外层 aggregateVersion），其余为上述最小退款业务字段。amountMinor 是此子退款额或申请固定总额，不是减去退款后的原支付金额。订单和付款成功金额保持 gross，不改生命周期。
+商户外部信封延续 eventId/eventType/schemaVersion/producer/aggregateType/aggregateId/aggregateVersion/occurredAt/data，退款
+producer=payment；由 acquire 按原订单冻结的目标、签名身份和重试条款发送。data 不包含 sourceVersion（使用外层
+aggregateVersion），其余为上述最小退款业务字段。amountMinor 是此子退款额或申请固定总额，不是减去退款后的原支付金额。订单和付款成功金额保持
+gross，不改生命周期。
 
-eventId 为原租户、商户事件类型、源聚合 ID 与版本的确定性 SHA-256；与内部 deliveryId/businessEventId 及 native task ID 分开。不同子退款不能比较版本后丢弃；请求完成和子退款事件也无全局到达顺序，商户以 eventId 去重、按各自 aggregateId/version 收敛。
+eventId 为原租户、商户事件类型、源聚合 ID 与版本的确定性 SHA-256；与内部 deliveryId/businessEventId 及 native task ID
+分开。不同子退款不能比较版本后丢弃；请求完成和子退款事件也无全局到达顺序，商户以 eventId 去重、按各自 aggregateId/version
+收敛。
 
-内部 ACK 六字段为 deliveryId/businessEventId/aggregateId/sourceVersion/merchantEventId/disposition。ENQUEUED 表示 acquire 的回执、固定通知和首轮任务已同事务登记；DISABLED 表示原订单合约禁用通知。二者都不等于已送达，实际商户仍需返回严格的 2xx 与 `{"eventId":"原事件ID","result":"SUCCESS"}`。重试不重建正文、不切换原目标/密钥版本、不延长原结果事件窗口；每次签名使用新 nonce/timestamp。
+内部 ACK 六字段为 deliveryId/businessEventId/aggregateId/sourceVersion/merchantEventId/disposition。ENQUEUED 表示 acquire
+的回执、固定通知和首轮任务已同事务登记；DISABLED 表示原订单合约禁用通知。二者都不等于已送达，实际商户仍需返回严格的 2xx 与
+`{"eventId":"原事件ID","result":"SUCCESS"}`。重试不重建正文、不切换原目标/密钥版本、不延长原结果事件窗口；每次签名使用新
+nonce/timestamp。
 
-接收侧只接受已认证源事实投影，核对原订单/商户/CNY、原 gross 支付额与子退款的 CONSUMED allocation；付款投影未到则重试。此用例不执行金融写入，也不引入同步反查的跨服务可用性依赖；退款真实性仍由 payment 原金融结果/证据事务负责。原渠道成功时间和源审计时间各自保留，不能因两个系统时钟不同伪造先后关系。退款通知没有新增商户可调用的成功写入或登记 HTTP 入口。
+接收侧只接受已认证源事实投影，核对原订单/商户/CNY、原 gross 支付额与子退款的 CONSUMED
+allocation；付款投影未到则重试。此用例不执行金融写入，也不引入同步反查的跨服务可用性依赖；退款真实性仍由 payment
+原金融结果/证据事务负责。原渠道成功时间和源审计时间各自保留，不能因两个系统时钟不同伪造先后关系。退款通知没有新增商户可调用的成功写入或登记
+HTTP 入口。
 
 生产、投递、接收、类型化正文校验与测试源码已补；未运行编译、测试、DDL、真实 RPC 或通知发送。
 
-
 ## 商户通知查询与运营唤醒（2026-10-24）
 
-| 外部 HTTP 方法 | Facade | 入参 | 返回 |
-| --- | --- | --- | --- |
-| POST /api/acquire/notifications/detail | MerchantNotificationQueryFacade.detail | IdQuery.id=deliveryId | SuccessResponse&lt;MerchantNotificationDTO&gt; |
-| POST /api/acquire/notifications/page | MerchantNotificationQueryFacade.page | MerchantNotificationPageQuery | PageResponse&lt;MerchantNotificationDTO&gt; |
-| POST /api/acquire/notifications/wake | MerchantNotificationOperationsFacade.wake | MerchantNotificationWakeCommand | SuccessResponse&lt;MerchantNotificationWakeDTO&gt; |
-| POST /api/acquire/notifications/wakes | MerchantNotificationOperationsFacade.wakes | MerchantNotificationWakePageQuery | PageResponse&lt;MerchantNotificationWakeDTO&gt; |
+| 外部 HTTP 方法                         | Facade                                     | 入参                              | 返回                                               |
+|----------------------------------------|--------------------------------------------|-----------------------------------|----------------------------------------------------|
+| POST /api/acquire/notifications/detail | MerchantNotificationQueryFacade.detail     | IdQuery.id=deliveryId             | SuccessResponse&lt;MerchantNotificationDTO&gt;     |
+| POST /api/acquire/notifications/page   | MerchantNotificationQueryFacade.page       | MerchantNotificationPageQuery     | PageResponse&lt;MerchantNotificationDTO&gt;        |
+| POST /api/acquire/notifications/wake   | MerchantNotificationOperationsFacade.wake  | MerchantNotificationWakeCommand   | SuccessResponse&lt;MerchantNotificationWakeDTO&gt; |
+| POST /api/acquire/notifications/wakes  | MerchantNotificationOperationsFacade.wakes | MerchantNotificationWakePageQuery | PageResponse&lt;MerchantNotificationWakeDTO&gt;    |
 
-这些是商户/运营 HTTP 入口，不新增内部业务 HTTP 或 gRPC 协议。Facade 分页复用 PageDTO，HTTP 分页保持顶层 data 数组和 pageInfo；响应均 no-store。商户 MERCHANT/MERCHANT_APP 凭证需 `pay:acquire:notification:read`，merchant_id 来自已验证 JWT。详情只返回同商户资源，其他商户为 NOT_FOUND；分页必须显式 payeeMerchantId 且与 JWT 匹配，不能用请求扩展商户范围。父商户跨子商户查询不隐式放开。
+这些是商户/运营 HTTP 入口，不新增内部业务 HTTP 或 gRPC 协议。Facade 分页复用 PageDTO，HTTP 分页保持顶层 data 数组和
+pageInfo；响应均 no-store。商户 MERCHANT/MERCHANT_APP 凭证需 `pay:acquire:notification:read`，merchant_id 来自已验证
+JWT。详情只返回同商户资源，其他商户为 NOT_FOUND；分页必须显式 payeeMerchantId 且与 JWT 匹配，不能用请求扩展商户范围。父商户跨子商户查询不隐式放开。
 
-运营 OPERATOR 或配置的 SERVICE（默认 pay-ops，主体须等于 service_id）需要 `pay:acquire:notification:manage`。只有这两类可信身份可唤醒和读取原因/操作者审计；普通商户即使有同名字权限也不能调用。运营查询仍限认证租户，分页按显式单商户过滤。缺失权限、非配置的 SERVICE、混合商户/运营声明均拒绝。ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID 可配置服务标识，具体令牌由现有发行方提供，本轮不签发。
+运营 OPERATOR 或配置的 SERVICE（默认 pay-ops，主体须等于 service_id）需要 `pay:acquire:notification:manage`
+。只有这两类可信身份可唤醒和读取原因/操作者审计；普通商户即使有同名字权限也不能调用。运营查询仍限认证租户，分页按显式单商户过滤。缺失权限、非配置的
+SERVICE、混合商户/运营声明均拒绝。ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID 可配置服务标识，具体令牌由现有发行方提供，本轮不签发。
 
-MerchantNotificationPageQuery 支持 payeeMerchantId、可选 orderId/eventId/state、occurredFrom（含）/occurredTo（不含）和 page/size；page 从1开始、size最多100。时间按系统本地语义查询，要求1970—9998年、最多微秒精度、from<to。按 occurredAt DESC/id DESC 排序，相同时间有稳定次序；这是查询时的普通分页，不承诺并发写入下的全库快照。
+MerchantNotificationPageQuery 支持 payeeMerchantId、可选 orderId/eventId/state、occurredFrom（含）/occurredTo（不含）和
+page/size；page 从1开始、size最多100。时间按系统本地语义查询，要求1970—9998年、最多微秒精度、from<to。按 occurredAt DESC/id
+DESC 排序，相同时间有稳定次序；这是查询时的普通分页，不承诺并发写入下的全库快照。
 
-MerchantNotificationDTO 只返回 id/eventId/orderId/payeeMerchantId/eventType/aggregateId/sourceVersion/state/attemptCount/maxAttempts/occurredAt/expiresAt/nextAttemptAt/acknowledgedAt/rowVersion。INIT/PENDING/EXHAUSTED 都不表示送达；只有严格商户 ACK 才进入 ACKED。终态保留历史 nextAttemptAt。接口不返回原通知正文、目标/签名引用、路由指纹或 native 错误。
+MerchantNotificationDTO 只返回
+id/eventId/orderId/payeeMerchantId/eventType/aggregateId/sourceVersion/state/attemptCount/maxAttempts/occurredAt/expiresAt/nextAttemptAt/acknowledgedAt/rowVersion。INIT/PENDING/EXHAUSTED
+都不表示送达；只有严格商户 ACK 才进入 ACKED。终态保留历史 nextAttemptAt。接口不返回原通知正文、目标/签名引用、路由指纹或
+native 错误。
 
 唤醒示例：
 
@@ -1319,73 +1490,104 @@ MerchantNotificationDTO 只返回 id/eventId/orderId/payeeMerchantId/eventType/a
 }
 ```
 
-expectedVersion 是详情的 rowVersion，不是 sourceVersion；必须显式提供。请求没有 URL、密钥、正文、重试次数或新截止时间。授权、完整参数绑定与首次回执重放先于当前版本检查，换令牌不改变操作身份；同运营主体内 requestKey 不得用于不同投递、版本或原因。新键版本不匹配返回 VERSION_CONFLICT；重放只返回首次操作决定，不重做调度。
+expectedVersion 是详情的 rowVersion，不是 sourceVersion；必须显式提供。请求没有
+URL、密钥、正文、重试次数或新截止时间。授权、完整参数绑定与首次回执重放先于当前版本检查，换令牌不改变操作身份；同运营主体内
+requestKey 不得用于不同投递、版本或原因。新键版本不匹配返回 VERSION_CONFLICT；重放只返回首次操作决定，不重做调度。
 
-| result | 已审计决定 |
-| --- | --- |
-| REGISTERED | 当前代次缺 native 任务，在原 nextAttemptAt 登记 |
-| RETRIED | 仅重试当前 FAILED native 任务，原 executeAt 保持不变 |
+| result      | 已审计决定                                                     |
+|-------------|----------------------------------------------------------------|
+| REGISTERED  | 当前代次缺 native 任务，在原 nextAttemptAt 登记                |
+| RETRIED     | 仅重试当前 FAILED native 任务，原 executeAt 保持不变           |
 | RESCHEDULED | 恢复当前 CANCELLED native 任务，executeAt 仍为原 nextAttemptAt |
-| PENDING | 已有等待任务，不加速或重置 |
-| RUNNING | 不抢占运行/租约；过期租约交框架回收 |
-| WAITING | 尚未到业务退避时间，不跳过退避 |
-| ACKED | 已收到商户 ACK，不再发送 |
-| EXHAUSTED | 终止或业务次数已用尽，不增加许可 |
-| EXPIRED | 原事件投递窗口结束，不延长窗口 |
+| PENDING     | 已有等待任务，不加速或重置                                     |
+| RUNNING     | 不抢占运行/租约；过期租约交框架回收                            |
+| WAITING     | 尚未到业务退避时间，不跳过退避                                 |
+| ACKED       | 已收到商户 ACK，不再发送                                       |
+| EXHAUSTED   | 终止或业务次数已用尽，不增加许可                               |
+| EXPIRED     | 原事件投递窗口结束，不延长窗口                                 |
 
-当前代次的 native 任务若已 SUCCEEDED，但业务代次仍未推进或终止，返回 SNAPSHOT_INVALID，由后续数据修复流程处理，不盲目再发。任何可发送的唤醒仍经原 DelayedTaskHandler、原始商户正文/路由指纹/签名/有限业务次数校验；API 本身不发 HTTP、不重开交易、不改金额。任务重试、登记和不可变审计回执同事务，事务失败不返回成功决定。
+当前代次的 native 任务若已 SUCCEEDED，但业务代次仍未推进或终止，返回 SNAPSHOT_INVALID，由后续数据修复流程处理，不盲目再发。任何可发送的唤醒仍经原
+DelayedTaskHandler、原始商户正文/路由指纹/签名/有限业务次数校验；API 本身不发
+HTTP、不重开交易、不改金额。任务重试、登记和不可变审计回执同事务，事务失败不返回成功决定。
 
-MerchantNotificationWakeDTO 返回审计 id、deliveryId/eventId/requestKey、可信 principalType/principalId、原因、result、观察到的 attemptCount/deliveryVersion 和 acceptedAt；不是商户送达确认。/wakes 按 deliveryId/page/size 查询运营记录，acceptedAt DESC/id DESC，原因在诊断 toString 隐藏，只有运营响应可读取。已超期或耗尽后另建人工补发窗口/预算仍需单独明确合约授权，目前明确拒绝越过原条款。
+MerchantNotificationWakeDTO 返回审计 id、deliveryId/eventId/requestKey、可信 principalType/principalId、原因、result、观察到的
+attemptCount/deliveryVersion 和 acceptedAt；不是商户送达确认。/wakes 按 deliveryId/page/size 查询运营记录，acceptedAt
+DESC/id DESC，原因在诊断 toString 隐藏，只有运营响应可读取。已超期或耗尽后另建人工补发窗口/预算仍需单独明确合约授权，目前明确拒绝越过原条款。
 
 本批仅源码与测试源码，未运行编译、测试、DDL、认证链路或真实调度/发送。
 
-
 ## 收银台会话付款后端（2026-10-24）
 
-| 外部 HTTP 方法 | Facade | 入参 | 返回 |
-| --- | --- | --- | --- |
-| POST /api/cashier/order/summary | CashierFacade.summary | IdQuery.id=orderId | SuccessResponse&lt;CashierOrderDTO&gt; |
-| POST /api/cashier/payments/start | CashierFacade.startPayment | CashierPaymentStartCommand | SuccessResponse&lt;CashierPaymentDTO&gt; |
-| POST /api/cashier/payments/progress | CashierFacade.paymentProgress | IdQuery.id=paymentId | SuccessResponse&lt;CashierPaymentDTO&gt; |
+| 外部 HTTP 方法                      | Facade                        | 入参                       | 返回                                     |
+|-------------------------------------|-------------------------------|----------------------------|------------------------------------------|
+| POST /api/cashier/order/summary     | CashierFacade.summary         | IdQuery.id=orderId         | SuccessResponse&lt;CashierOrderDTO&gt;   |
+| POST /api/cashier/payments/start    | CashierFacade.startPayment    | CashierPaymentStartCommand | SuccessResponse&lt;CashierPaymentDTO&gt; |
+| POST /api/cashier/payments/progress | CashierFacade.paymentProgress | IdQuery.id=paymentId       | SuccessResponse&lt;CashierPaymentDTO&gt; |
 
-这三类入口由每次调用的 opaque capability 校验授权，不进入商户 JWT 解码器。Authorization: Bearer 原 session token；X-Checkout-Tenant 仅为受限查找提示，不能绕过 token 摘要验证；Origin 存在时必须匹配原允许域。响应 no-store/no-referrer。只开放上述 POST，其他 cashier 方法和路径拒绝。
+这三类入口由每次调用的 opaque capability 校验授权，不进入商户 JWT 解码器。Authorization: Bearer 原 session
+token；X-Checkout-Tenant 仅为受限查找提示，不能绕过 token 摘要验证；Origin 存在时必须匹配原允许域。响应
+no-store/no-referrer。只开放上述 POST，其他 cashier 方法和路径拒绝。
 
 ```json
 {
   "orderId": "original-order",
   "actionKey": "one-fixed-user-action",
   "amountMinor": 3000,
-  "choice": { "channel": "WECHAT", "method": "H5" }
+  "choice": {
+    "channel": "WECHAT",
+    "method": "H5"
+  }
 }
 ```
 
-CashierPaymentStartCommand 不接受浏览器传 payer IP、OpenID、渠道 URL、商户号、preparedInputRef 或任意 interaction。CashierInteractionProvider 由服务端提供可信场景；当前 HTTP 实现仅 H5/WAP，使用经过服务器/受信代理策略解析的 servlet remoteAddr，并复用 ChannelH5Input 字面量校验，不读取自报 X-Forwarded-For。代理部署必须正确配置可信地址还原；不能把网关地址作为实际付款终端地址。JSAPI 等待会话绑定的渠道 OAuth 身份流，不允许浏览器自填身份冒充授权。商户纯 API 的 JSAPI/H5/付款码入口保持独立，不受托管子集限制。
+CashierPaymentStartCommand 不接受浏览器传 payer IP、OpenID、渠道 URL、商户号、preparedInputRef 或任意
+interaction。CashierInteractionProvider 由服务端提供可信场景；当前 HTTP 实现仅 H5/WAP，使用经过服务器/受信代理策略解析的
+servlet remoteAddr，并复用 ChannelH5Input 字面量校验，不读取自报 X-Forwarded-For。代理部署必须正确配置可信地址还原；不能把网关地址作为实际付款终端地址。JSAPI
+等待会话绑定的渠道 OAuth 身份流，不允许浏览器自填身份冒充授权。商户纯 API 的 JSAPI/H5/付款码入口保持独立，不受托管子集限制。
 
-可选 acquire-cashier profile 使用 ACQUIRE_CASHIER_H5_CHANNELS 显式配置已部署、已开通的托管 H5 渠道，例如已接微信 H5 的环境填 WECHAT；默认目录为空，不伪造渠道可用性。公开 choices 取该目录与原订单冻结能力的交集，PAID/CLOSED/不可续付或可用金额为0时为空。该目录不是当前渠道注册表的远程可用性证明，发布与真实开通仍需渠道验收。
+可选 acquire-cashier profile 使用 ACQUIRE_CASHIER_H5_CHANNELS 显式配置已部署、已开通的托管 H5 渠道，例如已接微信 H5 的环境填
+WECHAT；默认目录为空，不伪造渠道可用性。公开 choices
+取该目录与原订单冻结能力的交集，PAID/CLOSED/不可续付或可用金额为0时为空。该目录不是当前渠道注册表的远程可用性证明，发布与真实开通仍需渠道验收。
 
-付款共用 PaymentInitiationOperations：原订单行锁、固定金额/次数预占、不可变执行意图、原合约/币种/收款商户、输入准备及 payment 受理均沿原链路。商户与收银台只改变授权策略和幂等作用域；收银台 actorScope=checkout/sessionId，callerScopeHash 仍是原订单持久归属。相同 session/actionKey 重放原 allocation/payment；变更金额/选择冲突，不因不确定响应换新 key。新 key 才代表另一笔手动付款，仍受金额、尾款最小金额例外、累计笔数和原单终态约束。
+付款共用 PaymentInitiationOperations：原订单行锁、固定金额/次数预占、不可变执行意图、原合约/币种/收款商户、输入准备及 payment
+受理均沿原链路。商户与收银台只改变授权策略和幂等作用域；收银台 actorScope=checkout/sessionId，callerScopeHash 仍是原订单持久归属。相同
+session/actionKey 重放原 allocation/payment；变更金额/选择冲突，不因不确定响应换新 key。新 key
+才代表另一笔手动付款，仍受金额、尾款最小金额例外、累计笔数和原单终态约束。
 
-新预占按 order→session 顺序锁定并验证 ACTIVE/原订单/商户/原 owner/hash/权限/严格期限。进入 A2 后的原持久意图可继续履约，不因会话在网络调用途中到期而丢失占用；过期/取消的会话无法发起下一次 HTTP 操作。已付清或关闭仍不能新预占，已接受付款的权威结果仍可在无浏览器时由后台/事件收敛。
+新预占按 order→session 顺序锁定并验证 ACTIVE/原订单/商户/原 owner/hash/权限/严格期限。进入 A2
+后的原持久意图可继续履约，不因会话在网络调用途中到期而丢失占用；过期/取消的会话无法发起下一次 HTTP
+操作。已付清或关闭仍不能新预占，已接受付款的权威结果仍可在无浏览器时由后台/事件收敛。
 
-进度只允许原会话创建的付款，不能凭同订单 capability 查询其他会话或商户 API 付款；query.id 必须是 paymentId。应用先核对 session/order/callerScope/actorScope，再使用内部 OrderPaymentScope 执行原权威结果刷新，不构造商户身份。后台成功/关闭/费用/通知流程同样支持 checkout scope，不依赖 session 仍 ACTIVE。
+进度只允许原会话创建的付款，不能凭同订单 capability 查询其他会话或商户 API 付款；query.id 必须是 paymentId。应用先核对
+session/order/callerScope/actorScope，再使用内部 OrderPaymentScope 执行原权威结果刷新，不构造商户身份。后台成功/关闭/费用/通知流程同样支持
+checkout scope，不依赖 session 仍 ACTIVE。
 
-CashierPaymentDTO 仅包含 orderId/paymentId/state/action/version/order（安全摘要），不返回 allocationId、terminalEvidenceId、商户凭证或冻结合约。state/version/action 为空只表示可信关单回执证明从未受理，不编造付款记录；有动作也不表示资金成功，结果只以原服务查询/事件为准。
+CashierPaymentDTO 仅包含 orderId/paymentId/state/action/version/order（安全摘要），不返回
+allocationId、terminalEvidenceId、商户凭证或冻结合约。state/version/action
+为空只表示可信关单回执证明从未受理，不编造付款记录；有动作也不表示资金成功，结果只以原服务查询/事件为准。
 
-后端、H5 场景/目录、页面表单/原链接/有界轮询与测试源码已补；JSAPI OAuth、进一步恢复及真实浏览器验收继续待办；会话撤销源码见下文。未运行 IDEA、编译、测试、DDL、部署或实际调用。
-
+后端、H5 场景/目录、页面表单/原链接/有界轮询与测试源码已补；JSAPI OAuth、进一步恢复及真实浏览器验收继续待办；会话撤销源码见下文。未运行
+IDEA、编译、测试、DDL、部署或实际调用。
 
 ## 托管页面金额与响应契约补充（2026-10-24）
 
-CashierOrderDTO 新增 minimumPaymentMinor、maximumPaymentMinor、allowExactRemainderBelowMin、remainingPaymentCount，表达原冻结单笔规则和扣除已成功/预占后的可用笔数；remainingPaymentCount=null 表示不限笔数。slots=0 的 choices 为空。它们仅辅助浏览器输入，不能覆盖服务端原 OrderPaymentPolicy 或并发预占。
+CashierOrderDTO 新增
+minimumPaymentMinor、maximumPaymentMinor、allowExactRemainderBelowMin、remainingPaymentCount，表达原冻结单笔规则和扣除已成功/预占后的可用笔数；remainingPaymentCount=null
+表示不限笔数。slots=0 的 choices 为空。它们仅辅助浏览器输入，不能覆盖服务端原 OrderPaymentPolicy 或并发预占。
 
-CashierPaymentDTO 现在明确包含 accepted。start 的真实 PaymentOrder 投影固定 accepted=true；progress 只有原未受理可信回执且 payment 为空时 accepted=false，state/version/action 也为空。JSON accepted 即使为 false 也必须输出；客户端不得把缺失 accepted、丢包或任意错误当成未受理。付款身份必须匹配原操作；终态仍以原权威结果和 A3 收敛为准。
+CashierPaymentDTO 现在明确包含 accepted。start 的真实 PaymentOrder 投影固定 accepted=true；progress 只有原未受理可信回执且
+payment 为空时 accepted=false，state/version/action 也为空。JSON accepted 即使为 false 也必须输出；客户端不得把缺失
+accepted、丢包或任意错误当成未受理。付款身份必须匹配原操作；终态仍以原权威结果和 A3 收敛为准。
 
-网页先持久化不含 token/支付地址的原动作 metadata，再 POST 固定参数；恢复不从 URL 选金额/渠道，也不重新生成动作键。已知 paymentId 后调用原 progress；start 若提前看到终态仍要 progress，确认原金额贡献已收敛后才允许下一笔。未知结果或操作信息损坏不自动清除记录。没有新增金融 API、平台用户或会计账户。
+网页先持久化不含 token/支付地址的原动作 metadata，再 POST 固定参数；恢复不从 URL 选金额/渠道，也不重新生成动作键。已知
+paymentId 后调用原 progress；start 若提前看到终态仍要 progress，确认原金额贡献已收敛后才允许下一笔。未知结果或操作信息损坏不自动清除记录。没有新增金融
+API、平台用户或会计账户。
 
-网页最多三十次、每3秒查询，隐藏时暂停，随后保留手动刷新。可用金额和单笔/尾款规则使用整数分，API int64 精确处理，不能用 parseFloat/Number 四舍五入。H5 支付动作只作为可点击的已验证 HTTPS 原链接；动作过期不换单，不使用浏览器返回信号记成功。页面 GET 资源与商户 JWT 解码链分开，业务三类 POST 仍由原 capability 校验授权。
+网页最多三十次、每3秒查询，隐藏时暂停，随后保留手动刷新。可用金额和单笔/尾款规则使用整数分，API int64 精确处理，不能用
+parseFloat/Number 四舍五入。H5 支付动作只作为可点击的已验证 HTTPS 原链接；动作过期不换单，不使用浏览器返回信号记成功。页面
+GET 资源与商户 JWT 解码链分开，业务三类 POST 仍由原 capability 校验授权。
 
 本批页面、浏览器核心与测试源码已补，未运行验证。JSAPI OAuth 与页面交互、跨窗口过期/丢失响应的进一步恢复、真实浏览器/渠道验收仍未完成；会话撤销源码见下文。
-
 
 ## 收银台链接管理与永久撤销（2026-10-24）
 
@@ -1393,17 +1595,22 @@ CashierPaymentDTO 现在明确包含 accepted。start 的真实 PaymentOrder 投
 所有接口均为 POST + JSON，响应 no-store。租户和原签发主体 hash 来自已验证 JWT，不能由请求指定；
 同商户不同应用/操作主体也不能借 sessionId 管理别人的链接。
 
-| 路径 | 入参 | 权限 | data |
-|---|---|---|---|
-| `/api/acquire/session/detail` | `IdQuery(id=sessionId)` | `pay:acquire:session:read` | `CheckoutSessionStatusDTO` |
-| `/api/acquire/session/revoke` | `CheckoutSessionRevokeCommand` | `pay:acquire:session:revoke` | `CheckoutSessionRevocationDTO` |
-| `/api/acquire/session/revocations` | `CheckoutSessionRevocationPageQuery(sessionId,page,size)` | `pay:acquire:session:read` | 分页 `CheckoutSessionRevocationDTO` |
+| 路径                               | 入参                                                      | 权限                         | data                                |
+|------------------------------------|-----------------------------------------------------------|------------------------------|-------------------------------------|
+| `/api/acquire/session/detail`      | `IdQuery(id=sessionId)`                                   | `pay:acquire:session:read`   | `CheckoutSessionStatusDTO`          |
+| `/api/acquire/session/revoke`      | `CheckoutSessionRevokeCommand`                            | `pay:acquire:session:revoke` | `CheckoutSessionRevocationDTO`      |
+| `/api/acquire/session/revocations` | `CheckoutSessionRevocationPageQuery(sessionId,page,size)` | `pay:acquire:session:read`   | 分页 `CheckoutSessionRevocationDTO` |
 
 详情只返回 sessionId、原 orderId、收款商户、业务状态、原期限、明确 revoked 标记、首次 revokedAt 与 rowVersion；
 不返回 token/hash/nonce/密钥引用、scope 或支付链接。先读详情取得当前版本，再提交：
 
 ```json
-{"id":"session-1001","requestKey":"revoke-1001","expectedVersion":0,"reason":"Merchant revoked the link"}
+{
+  "id": "session-1001",
+  "requestKey": "revoke-1001",
+  "expectedVersion": 0,
+  "reason": "Merchant revoked the link"
+}
 ```
 
 首次成功写永久 revoked_at、rowVersion+1 和不可变操作回执；不改变 CheckoutSession.state、订单或付款状态。
@@ -1423,7 +1630,6 @@ requestKey 在 tenant+callerScopeHash 范围唯一，绑定 sessionId、expected
 
 本批域模型、持久化、API、鉴权/A2 门禁与测试源码已补，未运行 IDEA、构建、测试、DDL、部署或实际调用。
 
-
 ## 收银台原 actionKey 恢复（2026-10-24）
 
 POST `/api/cashier/payments/recover` 复用原订单 capability 认证，入参为
@@ -1432,11 +1638,11 @@ POST `/api/cashier/payments/recover` 复用原订单 capability 认证，入参�
 响应 `SuccessResponse<CashierPaymentRecoveryDTO>`，包含原 orderId/actionKey、state 和可空 payment。
 HTTP no-store/no-referrer；只开放此专用 POST，不能持 capability 调商户管理 API。
 
-| state | 含义 | 页面行为 |
-|---|---|---|
-| NOT_OBSERVED | 在当前原订单/会话/actionKey 范围未读到 A2 意图 | 保留原操作；只允许原键原金额重试，不能判定未收款或换键 |
-| INPUT_REQUIRED | 已提交 A2，acquire 尚未绑定且远端未观察到原安全输入引用 | 保留原操作；可以原参数重试 start，不接收替代输入或新身份 |
-| RESOLVED | 找到原意图，必要时用已绑定安全输入的固定命令恢复幂等受理，随后执行原结果收敛 | payment 必须存在，按其中明确 accepted/state/version 和订单摘要展示 |
+| state          | 含义                                                                         | 页面行为                                                           |
+|----------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| NOT_OBSERVED   | 在当前原订单/会话/actionKey 范围未读到 A2 意图                               | 保留原操作；只允许原键原金额重试，不能判定未收款或换键             |
+| INPUT_REQUIRED | 已提交 A2，acquire 尚未绑定且远端未观察到原安全输入引用                      | 保留原操作；可以原参数重试 start，不接收替代输入或新身份           |
+| RESOLVED       | 找到原意图，必要时用已绑定安全输入的固定命令恢复幂等受理，随后执行原结果收敛 | payment 必须存在，按其中明确 accepted/state/version 和订单摘要展示 |
 
 RESOLVED 不表示已支付成功。payment 仍可为 INIT/PROCESSING/UNKNOWN 等非终态；
 明确 accepted=false 只由原不可变 NOT_ACCEPTED 证据产生，不由 NOT_OBSERVED 或 HTTP/网络失败推导。
@@ -1453,7 +1659,6 @@ payment 已保存安全输入但其回复/本地引用绑定丢失时，恢复�
 这些情况不得更换付款身份、擅自释放占用或宣称失败。渠道预支付动作重建仍限原 Provider 的已实现能力，不自动重新创单。
 
 Java 与浏览器核心测试源码已补，页面恢复/重试/刷新/有界轮询已接线；未运行任何验证或真实调用。
-
 
 ## 安全输入原引用查询与绑定恢复（2026-10-24）
 
@@ -1472,12 +1677,13 @@ INIT/BOUND、有效/过期输入均返回原引用和原期限；过期不伪装
 acquire 在 A2 已提交而本地 preparedInputRef 缺失时，以存储的原执行意图和 actionKey 构造查询，事务外调用；
 只有明确 found 才沿原订单→会话锁序重新加载意图，保留原金融数据并一次性绑定引用。
 并发线程已绑定同引用则重放，绑定不同引用则冲突；已 RELEASED/终结且没有引用的意图不能重新激活。
-绑定后按原 PaymentExecuteCommand 幂等受理，继续原 A3 收敛。网络失败、非法 found/input 组合、错误参数、缺字段都不回退成 found=false，
+绑定后按原 PaymentExecuteCommand 幂等受理，继续原 A3 收敛。网络失败、非法 found/input 组合、错误参数、缺字段都不回退成
+found=false，
 不自动准备新输入或换 paymentId。先前保存的 IP/场景保持原样，浏览器网络变化不会改写已保存输入。
 
-原期限与执行门禁继续有效：查询和补绑不授予新有效期。若从未受理且原输入已过期，恢复通过 InputExpire 原子建立单笔未受理门禁/证据，随后 A3 收敛；不能因查询到期直接释放占用。首次准备还在途、查询尚未观察到记录时的精确重试竞态继续保留。
+原期限与执行门禁继续有效：查询和补绑不授予新有效期。若从未受理且原输入已过期，恢复通过 InputExpire 原子建立单笔未受理门禁/证据，随后
+A3 收敛；不能因查询到期直接释放占用。首次准备还在途、查询尚未观察到记录时的精确重试竞态继续保留。
 所有源码、RPC 映射与测试源码已补，未运行验证。
-
 
 ## 原安全输入到期的条件关闭（2026-10-26）
 
@@ -1487,10 +1693,10 @@ acquire 在 A2 已提交而本地 preparedInputRef 缺失时，以存储的原�
 
 结果 `PaymentInputExpiryDTO(paymentId,orderId,disposition,closed)` 使用三种互斥决定：
 
-| disposition | 原子条件与结果 | acquire 行为 |
-|---|---|---|
-| INPUT_ACTIVE | 尚未受理，原输入尚有效，无原到期关闭回执 | 使用原已绑定命令尝试幂等受理，不能延长输入 |
-| PAYMENT_EXISTS | 原付款已受理；原意图与输入范围精确匹配 | 不因输入到期关闭它，继续原权威进度/A3；不再次调用 accept |
+| disposition    | 原子条件与结果                             | acquire 行为                                                         |
+|----------------|--------------------------------------------|----------------------------------------------------------------------|
+| INPUT_ACTIVE   | 尚未受理，原输入尚有效，无原到期关闭回执   | 使用原已绑定命令尝试幂等受理，不能延长输入                           |
+| PAYMENT_EXISTS | 原付款已受理；原意图与输入范围精确匹配     | 不因输入到期关闭它，继续原权威进度/A3；不再次调用 accept             |
 | EXPIRED_CLOSED | 原输入已到期且从未受理，或原关闭回执已提交 | closed 必须带精确单笔持久门禁与非空未受理证明；A3 幂等释放这一笔占用 |
 
 此操作与 Y1/Y2 使用同样的 parent→child gate→payment→input 锁序。先核对已验证 SERVICE/可信租户、
@@ -1514,7 +1720,6 @@ paid gross、其他付款占用、成功笔数及订单业务状态不因此改�
 这是收银台恢复路径的源码接线；首次准备仍未提交时的地址变化竞态、买方会话过期后的商户核对与全部运行验收继续。
 SERVICE 令牌还需发行方配置 input:expire 权限，本轮没有签发令牌、执行构建/测试/DDL/部署或真实调用。
 
-
 ## 商户纯 API 原付款恢复（2026-10-26）
 
 新增 `PaymentRecoveryFacade.recover(PaymentRecoverCommand)` 与商户 JWT 的 POST
@@ -1533,11 +1738,11 @@ SERVICE 令牌还需发行方配置 input:expire 权限，本轮没有签发令�
 
 `PaymentRecoveryDTO` 返回原 orderId/actionKey、共享 `PaymentRecoveryState`、可空 paymentId、可空 accepted 和 progress：
 
-| state | paymentId / progress | accepted |
-|---|---|---|
-| NOT_OBSERVED | 均为空；本作用域暂未观察到原意图，不是未收款证明 | 明确 null |
-| INPUT_REQUIRED | 均为空；已预占但原安全输入尚未准备或尚不可观察 | 明确 null |
-| RESOLVED | 固定原 paymentId，progress 包含已收敛订单和可空付款 | true 表示原付款已受理；false 只在原未受理证明经过 A3 后返回 |
+| state          | paymentId / progress                                | accepted                                                    |
+|----------------|-----------------------------------------------------|-------------------------------------------------------------|
+| NOT_OBSERVED   | 均为空；本作用域暂未观察到原意图，不是未收款证明    | 明确 null                                                   |
+| INPUT_REQUIRED | 均为空；已预占但原安全输入尚未准备或尚不可观察      | 明确 null                                                   |
+| RESOLVED       | 固定原 paymentId，progress 包含已收敛订单和可空付款 | true 表示原付款已受理；false 只在原未受理证明经过 A3 后返回 |
 
 RESOLVED/accepted=true 不等于支付成功；继续看 progress.payment.state。未观察到、依赖异常、超时或字段缺失不能变成 false。
 原已受理付款只查原结果；到期但从未受理的原输入先获得 InputExpire 持久门禁和证明，再交 A3 释放原占用。
@@ -1554,8 +1759,8 @@ NONE 摘要的意图却出现 preparedInputRef 属于损坏，明确拒绝。没
 是否支持这种 H5 输入仍由具体 Provider 预检，恢复不绕过渠道能力。
 
 商户原调用者可在订单期限后恢复已提交意图，但新付款仍受订单/合约门禁；已到期或撤销的买方 capability 不获得商户权限。
-本入口要求原 orderId 已知。DirectPay 整体回复丢失且未知 orderId 时，使用独立 direct-pay/recover 入口，按原商户订单号及完整非敏感元数据恢复 DIRECT_PAY 意图，见下节。现有 API/共用编排/DTO/权限/测试源码已补，全部运行验证仍暂停。
-
+本入口要求原 orderId 已知。DirectPay 整体回复丢失且未知 orderId 时，使用独立 direct-pay/recover 入口，按原商户订单号及完整非敏感元数据恢复
+DIRECT_PAY 意图，见下节。现有 API/共用编排/DTO/权限/测试源码已补，全部运行验证仍暂停。
 
 ## DirectPay 独立意图与整体恢复（2026-10-26）
 
@@ -1591,12 +1796,12 @@ POST `/api/acquire/payments/direct-pay/recover`，商户 JWT，no-store；入参
 因为此命令可能续办已存在的创建意图并读取原付款；不要求 payment:start，也不会新建 A2。
 原调用主体/可信租户及 DIRECT_PAY 的完整摘要和元数据均核对，不接受调用方指定 scope 或原系统 orderId。
 
-| creationState | orderId / order / payment |
-|---|---|
-| NOT_OBSERVED | 均空；当前尚未观察到 A0，不是原请求永不会提交的证明 |
-| REJECTED | 保留原预分配 orderId 与经过白名单核验的原 resultCode，order/payment 为空 |
-| EXPIRED | 保留原预分配 orderId，resultCode=ACQUIRE_ADMISSION_EXPIRED，order/payment 为空 |
-| COMPLETED | 原固定 orderId、当前订单及原首笔 PaymentRecoveryDTO；首笔仍可能 NOT_OBSERVED/INPUT_REQUIRED |
+| creationState | orderId / order / payment                                                                   |
+|---------------|---------------------------------------------------------------------------------------------|
+| NOT_OBSERVED  | 均空；当前尚未观察到 A0，不是原请求永不会提交的证明                                         |
+| REJECTED      | 保留原预分配 orderId 与经过白名单核验的原 resultCode，order/payment 为空                    |
+| EXPIRED       | 保留原预分配 orderId，resultCode=ACQUIRE_ADMISSION_EXPIRED，order/payment 为空              |
+| COMPLETED     | 原固定 orderId、当前订单及原首笔 PaymentRecoveryDTO；首笔仍可能 NOT_OBSERVED/INPUT_REQUIRED |
 
 已存在 INIT 只续办原 A0/A1，继续用原 orderId 重放 product 决定。`resumeDirectPay` 在 A0 事务中强制已存在：
 若原行消失或尚未存在则拒绝，不调用 IdGenerator 分配另一个订单。已完成创建重放不重新准入。
@@ -1607,7 +1812,6 @@ POST `/api/acquire/payments/direct-pay/recover`，商户 JWT，no-store；入参
 新增元数据编码/摘要、mode 守卫、两种创建入口（新建/仅续办）、HTTP/Facade/DTO/MapStruct 与测试源码已补。
 已同步开发期 CHECK 迁移源码和表草案，未运行构建、测试、DDL、令牌签发、部署或实际 RPC/渠道调用。
 
-
 ## Acquire 原生任务的运维查询与失败重试（2026-10-26）
 
 `AcquireRecoveryOperationsFacade.detail(AcquireRecoveryTaskQuery)` / `retry(AcquireRecoveryRetryCommand)` 对应
@@ -1617,26 +1821,31 @@ POST `/api/acquire/operations/recovery/tasks/detail` 与 `/retry`，返回标准
 查询示例：
 
 ```json
-{"kind":"PAYMENT_ALLOCATION","subjectId":"original-payment-id","generation":0}
+{
+  "kind": "PAYMENT_ALLOCATION",
+  "subjectId": "original-payment-id",
+  "generation": 0
+}
 ```
 
 重试示例（expected 字段必须取自实际查询结果）：
 
 ```json
 {
-  "kind":"PAYMENT_ALLOCATION",
-  "subjectId":"original-payment-id",
-  "generation":0,
-  "expectedTaskId":"observed-native-task-id",
-  "expectedAttempts":5,
-  "expectedNextExecuteAt":"2026-10-26T12:00:00.123456+08:00",
-  "requestKey":"ops-retry-001",
-  "reason":"Dependency configuration corrected"
+  "kind": "PAYMENT_ALLOCATION",
+  "subjectId": "original-payment-id",
+  "generation": 0,
+  "expectedTaskId": "observed-native-task-id",
+  "expectedAttempts": 5,
+  "expectedNextExecuteAt": "2026-10-26T12:00:00.123456+08:00",
+  "requestKey": "ops-retry-001",
+  "reason": "Dependency configuration corrected"
 }
 ```
 
 kind 另允许 ORDER_DEADLINE（generation 从 1 开始）、ORDER_CLOSURE（generation 从 0 开始），subjectId 使用原 orderId。
-查询返回 nativeTaskId/nativeStatus/attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable；不返回 native 错误或敏感付款输入。
+查询返回 nativeTaskId/nativeStatus/attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable；不返回 native
+错误或敏感付款输入。
 重试精确绑定 taskId、attempts、nextExecuteAt；新 deadline/executeAt、目标渠道或付款命令均不是可提交参数。
 同一个 requestKey 的首次回执保持不变；改 reason、expected 条件或目标也视为改参。不同 key 可以表示新的显式运维决定。
 
@@ -1646,17 +1855,21 @@ TASK 的预期条件变化返回 VERSION_CONFLICT，native 状态竞争返回 CO
 缺原业务记录/代次或绑定不一致拒绝，不补建任务、不修改金融表。
 源码与测试源码已补，未执行任何真实 HTTP/JWT、数据库、任务或资金验证。
 
-
 ## Payment 付款/退款原恢复任务运维 API（2026-10-26）
 
 `PaymentRecoveryOperationsFacade.detail(PaymentRecoveryTaskQuery)` / `retry(PaymentRecoveryRetryCommand)` 对应
-POST `/api/payment/operations/recovery/tasks/detail` 与 `/retry`，仅 configured pay-ops SERVICE 配独立 recovery:read/retry 权限访问。
+POST `/api/payment/operations/recovery/tasks/detail` 与 `/retry`，仅 configured pay-ops SERVICE 配独立 recovery:
+read/retry 权限访问。
 身份不会变成原 acquire 金融调用者，也不能由商户/退款令牌权限继承。返回标准 no-store SuccessResponse。
 
 查询示例：
 
 ```json
-{"kind":"REFUND_REQUEST","subjectId":"original-refund-request-id","generation":0}
+{
+  "kind": "REFUND_REQUEST",
+  "subjectId": "original-refund-request-id",
+  "generation": 0
+}
 ```
 
 kind 另支持 COLLECTION（subjectId=原 paymentId）。查询返回与 acquire 运维 API 同形的 nativeTaskId/nativeStatus、
@@ -1669,57 +1882,121 @@ attempts/maxAttempts/executeAt/nextExecuteAt/businessCurrent/retryable，不返�
 FAILED 不等于付款或退款失败；原金融终态/过期代次只审计不唤醒。没有补建、改期、取消、运行任务或直接渠道操作接口。
 源码及测试源码已补，未进行实际 HTTP/JWT/数据库/调度或资金验收。
 
-
 ## Review R2：恢复详情是观察快照（2026-10-26）
 
 acquire/payment 运营 detail 的公开字段和鉴权保持原契约，读取改为短只读 REPEATABLE_READ 快照，使用非锁定 Gateway；
 不锁订单、付款门禁、退款计划、allocation 或恢复游标。generation/nativeTaskId/attempts/nextExecuteAt 与 retryable 是同一次快照的观察。
-响应送达前可能发生新提交；retry 重新持写锁核对当前业务与 native 原条件，过期前置条件仍返回 VERSION_CONFLICT/CONCURRENT_UPDATE。
+响应送达前可能发生新提交；retry 重新持写锁核对当前业务与 native 原条件，过期前置条件仍返回
+VERSION_CONFLICT/CONCURRENT_UPDATE。
 不能把曾经返回 retryable=true 当成下一次重试的提交权。原业务 read helper 不被静默改为事务，远端调用边界保持不变。
 源码与回归/真实数据库测试源码已补，未执行验证。
 
-
 ## Review R3：UNKNOWN 运营查证 API
 
-PaymentUnknownRecoveryFacade.list(PaymentUnknownRecoveryQuery) 对应 POST /api/payment/operations/recovery/unknown/list，响应 no-store。
+PaymentUnknownRecoveryFacade.list (PaymentUnknownRecoveryQuery) 对应 POST
+/api/payment/operations/recovery/unknown/list，响应 no-store。
 仅配置的受信运营 SERVICE 与 pay:payment:recovery:read，租户来自已验证身份；不接受 tenantId 参数。
-kind=COLLECTION/REFUND_REQUEST，minimumLevel=NORMAL/REVIEW/URGENT，limit=1..100；afterFirstUnknownAt/afterRecordId 必须成对，使用上页返回值。
-返回原付款/子退款 recordId、父 task subjectId、订单/商户、Money、首次 UNKNOWN 时间、ageSeconds/attentionLevel、rowVersion、可空的 recoveryGeneration/recoveryCompleted。
+kind=COLLECTION/REFUND_REQUEST，minimumLevel=NORMAL/REVIEW/URGENT，limit=1..100；afterFirstUnknownAt/afterRecordId
+必须成对，使用上页返回值。
+返回原付款/子退款 recordId、父 task subjectId、订单/商户、Money、首次 UNKNOWN 时间、ageSeconds/attentionLevel、rowVersion、可空的
+recoveryGeneration/recoveryCompleted。
 page 带 hasMore/下一页游标、observedAt、实际关注阈值，不提供总数；NORMAL 对回拨后的未来时间仍可见，年龄下限 0。
 该查询不是权限票据；后续仍按现有任务详情读取和 FAILED 审计重试协议操作，严禁据年龄重扣、释放或手动构造终态。
 详见 [完整查证契约](RECOVERY-ESCALATION.md)，当前仅源码，未进行接口/JWT/数据库验收。
 
 ## 2026-10-27 对账契约增量
 
-reconciliation-client 已定义 ReconciliationFacade 的 create/attach/start/detail/differences。调用只引用可信账户目录 code、账期与封存 artifact；不开放客户端上传“完整性/核对成功”声明、原资金状态修改或直接退款。当前已补应用实现、受信 SERVICE 身份适配与 HTTP/gRPC 入口源码；全部未构建或运行。
-start 使用 ReconciliationBatchStartCommand(batchId)，detail 仍复用只读 IdQuery。
-HTTP POST /api/reconciliation/batches/{create,attach,start,detail,differences}；gRPC ReconciliationRpc/{Create,Attach,Start,Detail}。
+reconciliation-client 已定义 ReconciliationFacade 的 create/attach/start/detail/differences。调用只引用可信账户目录
+code、账期与封存 artifact；不开放客户端上传“完整性/核对成功”声明、原资金状态修改或直接退款。当前已补应用实现、受信 SERVICE
+身份适配与 HTTP/gRPC 入口源码；全部未构建或运行。
+start 使用 ReconciliationBatchStartCommand (batchId)，detail 仍复用只读 IdQuery。
+HTTP POST /api/reconciliation/batches/{create,attach,start,detail,differences}；gRPC
+ReconciliationRpc/{Create,Attach,Start,Detail}。
 权限 pay:reconciliation:batch:create/attach/start/read 与目录 service-ids 双重约束，租户取已验证 JWT，原 caller 冻结。
-默认账户目录为空，商户令牌不可直接使用对账运营接口。分页复用 PageDTO/PageResponse，不提供上传规范化行或提交核对成功结果的 API。
+默认账户目录为空，商户令牌不可直接使用对账运营接口。分页复用 PageDTO/PageResponse，不提供上传规范化行或提交核对成功结果的
+API。
 字段与来源/完整性规则见 [对账设计](RECONCILIATION.md)。
-
 
 ## 2026-10-27 手工渠道账单导入 API
 
-ReconciliationImportFacade：upload 技术流上传、submit(ReconciliationChannelImportCommand)、detail(IdQuery)、retry(ReconciliationImportRetryCommand)。
-运营 HTTP /api/reconciliation/imports/{upload,submit,detail,retry}；权限分别为 pay:reconciliation:import:upload/submit/read/retry。
+ReconciliationImportFacade：upload 技术流上传、submit (ReconciliationChannelImportCommand)、detail (IdQuery)、retry
+(ReconciliationImportRetryCommand)。
+运营 HTTP /api/reconciliation/imports/{upload,submit,detail,retry}；权限分别为 pay:reconciliation:import:
+upload/submit/read/retry。
 仅 SERVICE，租户与 owner 取已验证凭证；当前账户授权和原 caller 继续约束。无通用 Transfer/options HTTP 入口，无内部 HTTP 调用。
 
-submit 字段为 batchId/requestKey/fileId/sourceSha256，sourceSha256 从 upload 返回，仅标识期望原字节；side 固定 CHANNEL、sourceKind 固定 MANUAL_UPLOAD，账户/profile 来自服务器。
-upload 返回 fileId/size/sha256；导入 DTO 返回 importId/batchId/sourceKind/fileId/sourceSha256/原 taskId/taskStatus/state/artifactId/rejectionCode/version，不含 storageId 或原异常。
+submit 字段为 batchId/requestKey/fileId/sourceSha256，sourceSha256 从 upload 返回，仅标识期望原字节；side 固定
+CHANNEL、sourceKind 固定 MANUAL_UPLOAD，账户/profile 来自服务器。
+upload 返回 fileId/size/sha256；导入 DTO 返回 importId/batchId/sourceKind/fileId/sourceSha256/原
+taskId/taskStatus/state/artifactId/rejectionCode/version，不含 storageId 或原异常。
 state 是逻辑 INIT/SEALED/REJECTED；taskStatus 独立，SEALED+FAILED 可用原 FAILED 任务重试完成 ACK，不重新解析/换源。
-同键改批次、文件或 hash 冲突；坏文件不支持原请求换源。retry 只接受 importId/expectedTaskId，不自动重领 RUNNING，不把任务状态当付款或退款结果。
+同键改批次、文件或 hash 冲突；坏文件不支持原请求换源。retry 只接受 importId/expectedTaskId，不自动重领
+RUNNING，不把任务状态当付款或退款结果。
 全部新增接口、映射与测试源码未运行，真实 JWT/上传/存储/任务及数据库验收仍待进行。
-
 
 ## P1 权威账务采集快照与 LEDGER 输入
 
 提供方 PaymentCaptureFacade / PaymentCaptureRpc 新增 Create/Detail/Lines/Retry；范围由当前服务固定 profile 与原请求冻结。
 Create 返回异步 INIT，SEALED 才能取得完整 PageDTO<PaymentLedgerLineDTO>；BLOCKED 的计数/金额/hash保持 null，不返回部分行。
-Retry 使用 PaymentCaptureRetryCommand(captureId,expectedTaskId)，只重试原任务，终态结果不刷新。
+Retry 使用 PaymentCaptureRetryCommand (captureId,expectedTaskId)，只重试原任务，终态结果不刷新。
 线金额为整数分/CNY，退款的 channelRefundNo 表示原商户子退款请求号，sourceAt 是渠道受理日期；不改原付款金额。
 
 ReconciliationLedgerFacade 与运营 HTTP `/api/reconciliation/ledger/{prepare,import,retry}`：
-prepare(batchId,requestKey) 返回原 capture/native 状态；import(batchId,captureId) 完整校验并原子挂入 LEDGER，返回原批次 DTO；
-retry(batchId,captureId,expectedTaskId) 是独立授权写命令。没有让运营调用方指定账户 hash、账期、页集合或“完整成功”的字段。
-独立权限、原 caller/当前目录授权、EOF/hash/文件证据和时间语义见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)。上述源码未编译/运行验收。
+prepare (batchId,requestKey) 返回原 capture/native 状态；import (batchId,captureId) 完整校验并原子挂入 LEDGER，返回原批次
+DTO；
+retry (batchId,captureId,expectedTaskId) 是独立授权写命令。没有让运营调用方指定账户 hash、账期、页集合或“完整成功”的字段。
+独立权限、原 caller/当前目录授权、EOF/hash/文件证据和时间语义见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)
+。上述源码未编译/运行验收。
+
+## P1 官方账单只读来源（2026-10-28）
+
+PaymentStatementFacade.download (PaymentStatementQuery) / PaymentStatementRpc.Download 接受原
+bindingRevisionId、channel、accountScopeHash、billDate、statementProfile、maxBytes。首期 WECHAT / wechat-trade-all-20260116；最多
+16 MiB 原件、32 KiB 私有来源证据。DTO 包含原范围、format、requestSha256/evidenceSha256、官方 hash 类型和值、原件
+contentSha256、接收/下载时间及隐藏的 evidence/content 字节。
+
+仅配置的 reconciliation SERVICE 和 pay:payment:reconciliation:statement:read；无商户 HTTP 入口。原 revision 短 RR
+读取后事务外下载。PAYMENT_STATEMENT_NOT_READY / PAYMENT_STATEMENT_NOT_FOUND
+不转零行成功；未知渠道失败为依赖失败。该接口只读且不服务端封存，同参数重复读取可能有独立来源凭证；消费方必须先登记不可变意图，再首次有效提交封存原件/凭证。typed
+operation payment-statement 需独立较长 deadline、20 MiB gRPC
+接收上限与服务凭证；当前消费者/配置/持久化接线源码已补，尚未运行验证。完整语义见 [官方来源设计](WECHAT-STATEMENT-SOURCE.md)
+，源码未验证。
+
+## P1 官方来源请求与 Transfer 接线
+
+ReconciliationStatementFacade.submit (batchId,requestKey)/detail (IdQuery)/retry (sourceId,expectedTaskId) 对应
+/api/reconciliation/statements。只允许原批次 caller 与 pay:reconciliation:statement:submit/read/retry
+权限；原绑定来自服务端目录，提交方不能传 URL/hash/来源类型。返回 sourceId、batchId、原
+binding/scope、INIT/READY/SUPERSEDED、READY 时的 importId、原下载 taskId/status/attempts/maxAttempts，原件与凭证不返回浏览器。
+
+INIT 先登记原请求与 DelayedTask；READY 表示两个永久文件引用、Transfer import、OFFICIAL_DOWNLOAD 已同库登记，后者仍 INIT，解析
+SEALED/核对结果独立。SUPERSEDED 不覆盖批次现有输入；重复/失败原任务重放不替换 READY 文件。内部 official:<sourceId> import
+key 为保留前缀，手工 submit 不可使用。Transfer 详情/重试继续使用 imports API 和各自
+expectedTaskId。详见 [来源生命周期](WECHAT-STATEMENT-SOURCE.md)，未运行验证。
+
+## P1 差错独立复核 API（2026-10-28）
+
+ReconciliationReviewFacade 提供 uploadEvidence、propose、decide、detail、history。运营 HTTP 为
+/api/reconciliation/reviews/evidence/propose/decide/detail/history，字段见 [复核契约](RECONCILIATION-REVIEW.md)。原
+batch/difference 在服务器关联原 run/result/key hash；客户端不能指定新结果或资金状态。
+
+propose 包含 requestKey/expectedVersion/conclusion/note/可选 evidenceFileId；decide 明确原
+proposalId/expectedVersion/approve/note。仅当前账户授权的 SERVICE 与 review 独立权限，审批服务必须不同于提案服务；不接受自报自然人身份。返回原命令的
+eventId/proposalId/state/version/可信 caller/时间，重放不换成当前 head。detail 返回当前提案/最后事件与原差错，history
+默认1/20最大100且按版本连续。所有新源码和测试未运行，真实源端查证接口仍后置。
+
+## P1 获批差错显式源端查询（2026-10-28）
+
+ReconciliationVerificationFacade.submit/detail/retry 对应 /api/reconciliation/verifications。submit 只传原差错/提案/审批事件/版本和
+requestKey；精确 APPROVED/NEEDS_SOURCE_VERIFICATION 与当前账户授权由服务核验，再同库登记不可变请求与原 Outbox。detail
+返回独立观察和原 deliveryStatus/attempts；retry 必须带原 expectedDeliveryId/审计 reason，仅重放原 FAILED。权限 pay:
+reconciliation:verification:submit/read/retry。
+
+提供方 PaymentVerificationFacade.verify / PaymentVerificationRpc.Verify 只允许配置的 reconciliation SERVICE 与 pay:
+payment:reconciliation:verify。提示为
+sourceRequestId/channel/accountScopeHash/kind/merchantPaymentNo/账单原流水/退款时子退款号；来源重建原已提交对象，事务外仅
+query/queryRefund，不写资金。回包完整关联 query，OBSERVED 可仍 UNKNOWN；NO_LOCAL_TARGET/NOT_SUBMITTED/AMBIGUOUS_TARGET
+无金额/结果/版本等虚构字段。SourceDTO 保留实际流水、正整数 CNY Money、原 sourceVersion/state、已核验渠道摘要、开始/结束/成功/可选退款受理时间。
+
+消费服务用自有领域/存储回执留档，RECORDED 不改原差错或金融状态；首次有效回包赢得记录，原 ACK
+丢失后不重复查询或覆盖。完整契约见 [查证设计](RECONCILIATION-VERIFICATION.md)，新增源码/迁移/测试未运行。

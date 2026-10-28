@@ -37,7 +37,7 @@ public interface PaymentInitiationConverter {
     @Mapping(target = "interaction", ignore = true)
     @Mapping(target = "choice", source = "choice")
     PaymentStartCommand toInputlessStart(String orderId, String actionKey, long amountMinor,
-            io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice);
+                                         io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice);
 
     @Mapping(
             target = "amount",
@@ -94,6 +94,11 @@ public interface PaymentInitiationConverter {
     @Mapping(target = "fenceEpoch", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
     @Mapping(target = "reasonCode", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
     io.github.loadup.pay.payment.client.command.PaymentCloseCommand toInputExpiryClose(PaymentExecuteCommand command);
+
+    @Mapping(target = "requestKey", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.PREPARATION_REQUEST_KEY_PREFIX + command.allocationId())")
+    @Mapping(target = "fenceEpoch", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)")
+    @Mapping(target = "reasonCode", expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.PREPARATION_REASON)")
+    io.github.loadup.pay.payment.client.command.PaymentCloseCommand toPreparationExpiryClose(PaymentExecuteCommand command);
 
     @Mapping(target = "preparedInputRef", source = "inputRef")
     PaymentExecuteCommand withPreparedInput(PaymentExecuteCommand original, String inputRef);

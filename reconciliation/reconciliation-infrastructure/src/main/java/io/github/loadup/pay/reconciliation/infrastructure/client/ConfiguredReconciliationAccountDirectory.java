@@ -18,32 +18,54 @@ package io.github.loadup.pay.reconciliation.infrastructure.client;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationAccountsProperties;
 import org.springframework.stereotype.Component;
-import java.time.LocalDate;
-import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
-import java.util.Map;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.*;
 
-/** Closed local catalog; no credential file, remote lookup or request-supplied account hash. */
+import java.time.LocalDate;
+import java.util.Map;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+
+/**
+ * Closed local catalog; no credential file, remote lookup or request-supplied account hash.
+ */
 @Component
 public class ConfiguredReconciliationAccountDirectory implements ReconciliationAccountDirectory {
     private final ReconciliationAccountsProperties properties;
-    public ConfiguredReconciliationAccountDirectory(ReconciliationAccountsProperties properties) { this.properties = properties; }
-    @Override public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
+
+    public ConfiguredReconciliationAccountDirectory(ReconciliationAccountsProperties properties) {
+        this.properties = properties;
+    }
+
+    @Override
+    public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
         var account = account(tenant, caller, code);
         return new ReconciliationScope(account.channel(), account.accountScopeHash(), date, account.statementProfile());
     }
-    @Override public void authorize(String tenant, String caller, String code, ReconciliationScope original) {
+
+    @Override
+    public void authorize(String tenant, String caller, String code, ReconciliationScope original) {
         var account = account(tenant, caller, code);
         // A parser/profile change does not rewrite old sealed inputs. Account identity and caller grants still apply.
         if (original == null || account.channel() != original.channel() || !account.accountScopeHash().equals(original.accountScopeHash()))
             throw new CommonException(ACTION_FORBIDDEN);
     }
-    @Override public ReconciliationStatementAccount statementAccount(String tenant, String caller, String code, ReconciliationScope original) {
+
+    @Override
+    public ReconciliationStatementAccount statementAccount(String tenant, String caller, String code, ReconciliationScope original) {
         authorize(tenant, caller, code, original);
         return account(tenant, caller, code).statementAccount();
     }
+
+    @Override
+    public String statementBindingRevision(String tenant, String caller, String code, ReconciliationScope original) {
+        authorize(tenant, caller, code, original);
+        var revision = account(tenant, caller, code).statementBindingRevisionId();
+        if (revision == null) throw new CommonException(ACTION_FORBIDDEN);
+        return revision;
+    }
+
     private ReconciliationAccountsProperties.Account account(String tenant, String caller, String code) {
         var account = properties.tenants().getOrDefault(tenant, Map.of()).get(code);
         if (account == null || !account.serviceIds().contains(caller)) throw new CommonException(ACTION_FORBIDDEN);

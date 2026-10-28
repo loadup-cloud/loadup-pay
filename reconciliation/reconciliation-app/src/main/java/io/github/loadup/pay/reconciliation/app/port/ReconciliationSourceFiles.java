@@ -16,13 +16,28 @@
 package io.github.loadup.pay.reconciliation.app.port;
 
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
+
 import java.io.InputStream;
 
 public interface ReconciliationSourceFiles {
-    /** No business transaction; bounded content read/upload through FileResourceFacade. */
+    /**
+     * No business transaction; bounded content read/upload through FileResourceFacade.
+     */
     ReconciliationFileSnapshot upload(String tenant, String owner, String filename, String type, long size, InputStream content);
+
     ReconciliationFileSnapshot inspect(String tenant, String owner, String fileId);
-    /** Local metadata only, on the same DataSource and existing transaction. */
+
+    /**
+     * Local metadata only, on the same DataSource and existing transaction.
+     */
     void attach(String tenant, String owner, ReconciliationFileSnapshot source, String importId);
+
     void verify(String tenant, String owner, ReconciliationFileSnapshot source, String importId);
+
+    /**
+     * Private review evidence reference, separate from statement import provenance. Local metadata only.
+     */
+    void attachReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId);
+
+    void verifyReview(String tenant, String owner, ReconciliationFileSnapshot source, String proposalId);
 }

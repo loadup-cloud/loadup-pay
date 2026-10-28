@@ -21,6 +21,8 @@ import io.github.loadup.commons.result.ResultCode;
 public enum PaymentResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("PAYMENT_INVALID_ARGUMENT", "Invalid argument"),
     DEPENDENCY_UNAVAILABLE("PAYMENT_DEPENDENCY_UNAVAILABLE", "Payment dependency is unavailable"),
+    STATEMENT_NOT_READY("PAYMENT_STATEMENT_NOT_READY", "Official statement is being generated"),
+    STATEMENT_NOT_FOUND("PAYMENT_STATEMENT_NOT_FOUND", "Official statement is unavailable; no empty source is inferred"),
     LIMIT_EXCEEDED("PAYMENT_LIMIT_EXCEEDED", "Merchant limit exceeded"),
     LIMIT_RESERVATION_EXPIRED("PAYMENT_LIMIT_RESERVATION_EXPIRED", "Merchant limit reservation expired before submission"),
     EXECUTION_PERMIT_INVALID("PAYMENT_EXECUTION_PERMIT_INVALID", "Execution permit does not match the original payment attempt"),
