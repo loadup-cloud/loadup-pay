@@ -67,7 +67,8 @@ export function parsePayload(text) {
 }
 
 export function choice(value) {
-    require(object(value) && channels.has(value.channel) && value.method === "H5", "UNSUPPORTED_CHOICE");
+    require(object(value) && channels.has(value.channel) && (value.method === "H5"
+        || value.method === "JSAPI" && ["ALIPAY", "WECHAT"].includes(value.channel)), "UNSUPPORTED_CHOICE");
     return Object.freeze({channel: value.channel, method: value.method});
 }
 
@@ -178,7 +179,11 @@ export function payment(value, operation, allowNotAccepted = false) {
         require(paymentStates.has(value.state) && typeof value.version === "bigint" && value.version >= 0n);
         if (finalStates.has(value.state) || value.state === "INIT") require(value.action == null);
     }
-    if (value.action != null) require(object(value.action) && ["REDIRECT", "WAIT", "NONE"].includes(value.action.type));
+    if (value.action != null) {
+        require(object(value.action) && ["REDIRECT", "INVOKE_JSAPI", "WAIT", "NONE"].includes(value.action.type));
+        if (value.action.type === "INVOKE_JSAPI") invocation(value.action, operation.choice);
+        if (value.action.type === "REDIRECT") require(operation.choice.method === "H5");
+    }
     return Object.freeze({...value, order: summary});
 }
 
@@ -211,4 +216,49 @@ export function redirect(action, now = Date.now()) {
     const url = new URL(target);
     require(url.protocol === "https:" && url.hostname.length > 0 && !url.username && !url.password && !url.hash);
     return target; // Preserve the verified channel URL exactly, including its original query encoding.
+}
+
+
+function actionExpiry(action) {
+    require(typeof action.expiresAt === "string" && action.expiresAt.length <= 64 && /(?:Z|[+-]\d{2}:\d{2})$/.test(action.expiresAt));
+    const value = Date.parse(action.expiresAt);
+    require(Number.isFinite(value));
+    return value;
+}
+
+function exactFields(value, fields) {
+    require(object(value) && Object.keys(value).length === fields.length
+        && fields.every(field => Object.hasOwn(value, field)));
+}
+
+function signedText(value, maximum) {
+    require(typeof value === "string" && value.length > 0 && value.length <= maximum && value.trim() === value
+        && !/[\u0000-\u001f\u007f]/.test(value));
+    return value;
+}
+
+/** Copies only the server-owned bridge parameters; no browser credentials, code exchange or financial conclusion. */
+export function invocation(action, selected, now = Date.now()) {
+    if (action == null || action.type !== "INVOKE_JSAPI") return null;
+    const checked = choice(selected);
+    require(checked.method === "JSAPI", "UNSUPPORTED_CHOICE");
+    const expiresAt = actionExpiry(action), data = action.data;
+    let parameters;
+    if (checked.channel === "WECHAT") {
+        exactFields(data, ["type", "appId", "timeStamp", "nonceStr", "package", "signType", "paySign"]);
+        require(data.type === "WECHAT_JSAPI" && data.signType === "RSA");
+        require(typeof data.timeStamp === "string" && /^[0-9]{1,20}$/.test(data.timeStamp));
+        require(typeof data.package === "string" && data.package.startsWith("prepay_id=") && data.package.length > 10);
+        require(typeof data.paySign === "string" && /^[A-Za-z0-9+/]+={0,2}$/.test(data.paySign));
+        parameters = {appId: signedText(data.appId, 64), timeStamp: data.timeStamp,
+            nonceStr: signedText(data.nonceStr, 32), package: signedText(data.package, 256),
+            signType: "RSA", paySign: signedText(data.paySign, 1024)};
+    } else if (checked.channel === "ALIPAY") {
+        exactFields(data, ["type", "tradeNo"]);
+        require(data.type === "ALIPAY_JSAPI");
+        parameters = {tradeNO: signedText(data.tradeNo, 128)};
+    } else throw new CheckoutError("UNSUPPORTED_CHOICE");
+    require(Number.isFinite(now));
+    if (expiresAt <= now) return null;
+    return Object.freeze({channel: checked.channel, expiresAt, parameters: Object.freeze(parameters)});
 }

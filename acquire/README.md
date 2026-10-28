@@ -733,3 +733,8 @@ owner 格式和固定存储 JSON 规则。
 恢复不重新执行当前 Command Bean Validation 或查询当前合约填值；仍验证快照自身、哈希及原落库索引，保留金额/期限/规则版本/输入引用。
 旧裸 Command/错误
 owner/未知格式明确失败，没有双读、回填或兼容分支。未执行编译/测试/数据库或开发数据重建，完整范围与测试源码见 [快照契约](../design/PAYMENT-INTENT-SNAPSHOTS.md)。
+
+
+## 2026-10-28 JSAPI 客户端动作桥接
+
+新增 checkout-bridge.mjs，消费既有微信/支付宝 INVOKE_JSAPI 动作，固定方法/参数白名单、就绪等待/过期/单在途/中断与超时，原生返回只促使查询原付款。托管页面增加点击按钮与原动作保护，可供纯 API 商户同源部署模块复用。托管后端仍只配置 H5，可信渠道身份/OAuth 接线和真实客户端验收继续待办。详见 [JSAPI 桥接设计](../design/CASHIER-JSAPI-BRIDGE.md)。本批仅源码和测试源码，未运行。

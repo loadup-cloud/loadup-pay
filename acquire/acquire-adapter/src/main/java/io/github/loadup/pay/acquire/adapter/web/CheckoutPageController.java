@@ -34,9 +34,14 @@ public class CheckoutPageController {
         return resource("checkout.js", MediaType.valueOf("text/javascript"));
     }
 
-    @GetMapping(value = "/checkout-core.js", produces = "text/javascript")
+    @GetMapping(value = "/checkout-core.mjs", produces = "text/javascript")
     public ResponseEntity<Resource> core() {
         return resource("checkout-core.mjs", MediaType.valueOf("text/javascript"));
+    }
+
+    @GetMapping(value = "/checkout-bridge.mjs", produces = "text/javascript")
+    public ResponseEntity<Resource> bridge() {
+        return resource("checkout-bridge.mjs", MediaType.valueOf("text/javascript"));
     }
 
     @GetMapping(value = "/checkout.css", produces = "text/css")

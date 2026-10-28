@@ -150,7 +150,7 @@ node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 ```
 
 本轮没有执行此命令。该测试只覆盖纯逻辑，不替代 Java 生成代码/事务、浏览器/CSP/标签页存储、可信代理、渠道域名及真实 H5
-跳转验收。静态页面与 /checkout.js、/checkout-core.js、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。
+跳转验收。静态页面与 /checkout.js、/checkout-core.mjs、/checkout.css 通过独立 GET 安全链公开；原金融 POST 仍使用逐次校验的会话能力。
 
 ## Reconciliation 业务镜像
 

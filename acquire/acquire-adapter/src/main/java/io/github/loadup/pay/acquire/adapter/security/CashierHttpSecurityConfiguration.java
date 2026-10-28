@@ -39,7 +39,7 @@ public class CashierHttpSecurityConfiguration {
     @Bean
     @Order(89)
     SecurityFilterChain checkoutResources(HttpSecurity http) throws Exception {
-        String[] paths = {"/checkout", "/checkout.js", "/checkout-core.js", "/checkout.css"};
+        String[] paths = {"/checkout", "/checkout.js", "/checkout-core.mjs", "/checkout-bridge.mjs", "/checkout.css"};
         http.securityMatcher(paths)
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

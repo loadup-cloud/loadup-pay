@@ -9,6 +9,7 @@ import {
     forget,
     formatAmount,
     id,
+    invocation,
     newOperation,
     order as readOrder,
     parsePayload,
@@ -19,7 +20,8 @@ import {
     restoreOperation,
     startBody,
     validateAmount
-} from "/checkout-core.js";
+} from "/checkout-core.mjs";
+import {createBridgePayments} from "/checkout-bridge.mjs";
 
 const params = new URLSearchParams(location.hash.slice(1));
 const tenant = params.get("tenant"), orderId = params.get("order"), token = params.get("token");
@@ -27,7 +29,7 @@ const node = name => document.getElementById(name);
 const message = node("message"), panel = node("order"), refreshButton = node("refresh");
 const form = node("payment-form"), amountInput = node("payment-amount"), choiceInput = node("payment-choice"),
     payButton = node("pay");
-const launch = node("launch"), operationPanel = node("payment-operation");
+const launch = node("launch"), bridgePay = node("bridge-pay"), operationPanel = node("payment-operation");
 const states = {INIT: "待付款", PENDING: "付款中", CLOSING: "关闭处理中", CLOSED: "已关闭", PAID: "已付清"};
 const paymentStates = {
     INIT: "正在准备支付", PROCESSING: "付款处理中", UNKNOWN: "等待确认付款结果", CLOSING: "正在核对关闭结果",
@@ -36,6 +38,8 @@ const paymentStates = {
 const channelNames = {ALIPAY: "支付宝", WECHAT: "微信", UNIONPAY: "银联"};
 let summary = null, operation = null, busy = false, unavailable = false, recoveryBlocked = false;
 let storage, storageKey, pollTimer, pollCount = 0, expiryTimer, action = null;
+let bridgeController = null, renderedActionKey = null;
+const bridgePayments = createBridgePayments();
 
 function notice(text) {
     message.textContent = text;
@@ -47,7 +51,7 @@ function stopPoll() {
 }
 
 function selectedName(value) {
-    return `${channelNames[value.channel]} · 网页支付`;
+    return `${channelNames[value.channel]} · ${value.method === "JSAPI" ? "客户端内支付" : "网页支付"}`;
 }
 
 function paintOrder(value) {
@@ -66,6 +70,7 @@ function paintOrder(value) {
 
 function paintControls() {
     refreshButton.disabled = busy;
+    bridgePay.disabled = busy || unavailable || recoveryBlocked;
     const payable = summary && ["INIT", "PENDING"].includes(summary.state) && summary.availableToPayMinor > 0n
         && summary.remainingPaymentCount !== 0n && summary.choices.length > 0;
     form.hidden = !summary || !operation && !payable;
@@ -94,18 +99,26 @@ function paintControls() {
 
 function paintAction(value) {
     clearTimeout(expiryTimer);
+    let href = null, native = null;
+    if (!unavailable && value != null) {
+        href = redirect(value);
+        if (value.type === "INVOKE_JSAPI") native = invocation(value, operation?.choice);
+    }
+    // Polling the same immutable action must not cancel a native interaction already in progress.
+    const identity = native == null ? null : JSON.stringify(native);
+    if (bridgeController && identity !== renderedActionKey) bridgeController.abort();
+    renderedActionKey = identity;
     action = value;
     launch.hidden = true;
     launch.removeAttribute("href");
-    if (unavailable || value == null) return;
-    const href = redirect(value);
-    if (href === null) return;
-    launch.href = href;
-    launch.hidden = false;
+    bridgePay.hidden = native === null;
+    bridgePay.disabled = busy || unavailable || recoveryBlocked;
+    if (href !== null) { launch.href = href; launch.hidden = false; }
+    if (href === null && native === null) return;
     const delay = Math.min(2147483647, Math.max(0, Date.parse(value.expiresAt) - Date.now()));
     expiryTimer = setTimeout(() => {
         paintAction(action);
-        if (launch.hidden && operation) notice("支付地址已到期，请刷新核对原付款；不要另建付款重复尝试。");
+        if (launch.hidden && bridgePay.hidden && operation) notice("支付动作已到期，请刷新核对原付款；不要另建付款重复尝试。");
     }, delay);
 }
 
@@ -181,7 +194,8 @@ function applyPayment(raw, fromProgress) {
         persist(storage, storageKey, operation);
         paintAction(finalPayment(result) ? null : result.action);
         notice(finalPayment(result) ? "正在核对付款对订单的影响，请稍候。"
-            : !launch.hidden ? "支付地址已准备好，请点击前往支付；返回后将继续核对结果。"
+            : !bridgePay.hidden ? "支付资料已准备好，请点击唤起客户端支付；返回后将继续核对结果。"
+                : !launch.hidden ? "支付地址已准备好，请点击前往支付；返回后将继续核对结果。"
                 : paymentStates[result.state] + "，请稍候或手动刷新。");
     }
 }
@@ -263,6 +277,34 @@ async function start(event) {
     }
 }
 
+bridgePay.addEventListener("click", async () => {
+    if (busy || unavailable || recoveryBlocked || !operation?.paymentId || action?.type !== "INVOKE_JSAPI") return;
+    const paymentId = operation.paymentId, selectedAction = action, selected = operation.choice;
+    const controller = new AbortController();
+    bridgeController = controller;
+    busy = true;
+    stopPoll();
+    paintControls();
+    let query = false;
+    try {
+        const result = await bridgePayments.invoke(selectedAction, selected, {signal: controller.signal});
+        if (!unavailable && operation?.paymentId === paymentId) {
+            notice(result.status === "UNAVAILABLE" ? "请在对应支付客户端打开原商户链接；本次付款信息已保留。"
+                : result.status === "EXPIRED" ? "支付动作已到期，正在核对原付款结果。"
+                    : result.status === "CANCELLED" ? "已返回收银台，正在核对原付款结果。"
+                        : "正在核对原付款结果，请勿另建付款。");
+            query = true;
+        }
+    } catch (error) { failure(error); }
+    finally {
+        if (bridgeController === controller) bridgeController = null;
+        busy = false;
+        paintControls();
+        // Native success, cancellation, exceptions and missing callbacks never change local financial state.
+        if (query && !document.hidden && !unavailable && operation?.paymentId === paymentId) await refresh(true);
+        else schedulePoll();
+    }
+});
 launch.addEventListener("click", event => {
     try {
         if (unavailable || redirect(action) === null) {
@@ -285,6 +327,7 @@ document.addEventListener("visibilitychange", () => {
     else if (operation && !busy && pollCount < 30) refresh(false);
 });
 window.addEventListener("pagehide", () => {
+    bridgeController?.abort();
     stopPoll();
     clearTimeout(expiryTimer);
 });
