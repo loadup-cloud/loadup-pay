@@ -15,10 +15,8 @@
  */
 package io.github.loadup.pay.customer.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.modules.merchant.infrastructure.dataobject.MerchantDO;
-import io.github.loadup.modules.merchant.infrastructure.mapper.MerchantDOMapper;
+import io.github.loadup.modules.merchant.client.facade.MerchantPersistenceFacade;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantFactsGateway;
 import io.github.loadup.pay.customer.domain.model.MerchantFacts;
@@ -29,32 +27,22 @@ import java.util.Optional;
 
 @Repository
 public class MerchantFactsGatewayImpl implements MerchantFactsGateway {
-    private final MerchantDOMapper mapper;
+    private final MerchantPersistenceFacade merchants;
     private final MerchantFactsConverter converter;
 
-    public MerchantFactsGatewayImpl(MerchantDOMapper mapper, MerchantFactsConverter converter) {
-        this.mapper = mapper;
+    public MerchantFactsGatewayImpl(MerchantPersistenceFacade merchants, MerchantFactsConverter converter) {
+        this.merchants = merchants;
         this.converter = converter;
-    }
-
-    private QueryWrapper scope(String tenant, String id) {
-        return QueryWrapper.create()
-                .where(MerchantDO::getTenantId)
-                .eq(tenant)
-                .and(MerchantDO::getDeleted)
-                .eq(0)
-                .and(MerchantDO::getId)
-                .eq(id);
     }
 
     @Override
     public Optional<MerchantFacts> find(String tenant, String id) {
-        return Optional.ofNullable(mapper.selectOneByQuery(scope(tenant, id))).map(converter::toFacts);
+        return merchants.find(tenant, id).map(converter::toFacts);
     }
 
     @Override
     public MerchantFacts lock(String tenant, String id) {
-        return Optional.ofNullable(mapper.selectOneByQuery(scope(tenant, id).forUpdate()))
+        return merchants.lock(tenant, id)
                 .map(converter::toFacts)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }

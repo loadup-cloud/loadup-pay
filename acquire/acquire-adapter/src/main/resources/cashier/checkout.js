@@ -113,7 +113,10 @@ function paintAction(value) {
     launch.removeAttribute("href");
     bridgePay.hidden = native === null;
     bridgePay.disabled = busy || unavailable || recoveryBlocked;
-    if (href !== null) { launch.href = href; launch.hidden = false; }
+    if (href !== null) {
+        launch.href = href;
+        launch.hidden = false;
+    }
     if (href === null && native === null) return;
     const delay = Math.min(2147483647, Math.max(0, Date.parse(value.expiresAt) - Date.now()));
     expiryTimer = setTimeout(() => {
@@ -196,7 +199,7 @@ function applyPayment(raw, fromProgress) {
         notice(finalPayment(result) ? "正在核对付款对订单的影响，请稍候。"
             : !bridgePay.hidden ? "支付资料已准备好，请点击唤起客户端支付；返回后将继续核对结果。"
                 : !launch.hidden ? "支付地址已准备好，请点击前往支付；返回后将继续核对结果。"
-                : paymentStates[result.state] + "，请稍候或手动刷新。");
+                    : paymentStates[result.state] + "，请稍候或手动刷新。");
     }
 }
 
@@ -295,8 +298,9 @@ bridgePay.addEventListener("click", async () => {
                         : "正在核对原付款结果，请勿另建付款。");
             query = true;
         }
-    } catch (error) { failure(error); }
-    finally {
+    } catch (error) {
+        failure(error);
+    } finally {
         if (bridgeController === controller) bridgeController = null;
         busy = false;
         paintControls();

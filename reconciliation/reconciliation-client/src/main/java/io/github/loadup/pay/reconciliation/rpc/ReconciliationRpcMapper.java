@@ -19,8 +19,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
-import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRetryCommand;
+import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchTaskDTO;
@@ -28,8 +28,8 @@ import io.github.loadup.pay.reconciliation.client.dto.ReconciliationInputDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchQuery;
-import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchRetryCommand;
+import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputDTO;
@@ -187,7 +187,8 @@ public interface ReconciliationRpcMapper {
         if (value.hasTaskId() != value.hasNativeStatus() || value.hasTaskId() && !value.hasRunId()) invalid();
         if (value.hasTaskId()) {
             text(value.getTaskId(), 64);
-            if (!java.util.Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.getNativeStatus())) invalid();
+            if (!java.util.Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.getNativeStatus()))
+                invalid();
         }
         var state = ReconciliationRpcFields.state(value.getState());
         boolean complete = state == io.github.loadup.pay.reconciliation.domain.model.ReconciliationState.MATCHED

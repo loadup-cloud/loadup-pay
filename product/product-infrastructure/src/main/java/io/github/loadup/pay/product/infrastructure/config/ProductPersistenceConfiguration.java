@@ -16,18 +16,12 @@
 package io.github.loadup.pay.product.infrastructure.config;
 
 import io.github.loadup.modules.contract.app.support.ContractCodec;
-import io.github.loadup.modules.contract.infrastructure.converter.ContractStorageConverterImpl;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(PolicyPublicationTransportProperties.class)
-@MapperScan({
-        "io.github.loadup.pay.product.infrastructure.mapper",
-        "io.github.loadup.modules.contract.infrastructure.mapper"
-})
-@Import({ContractCodec.class, ContractStorageConverterImpl.class})
+@Import(ContractCodec.class)
 public class ProductPersistenceConfiguration {
 }

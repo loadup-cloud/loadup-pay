@@ -16,7 +16,7 @@
 package io.github.loadup.pay.customer.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.modules.merchant.infrastructure.dataobject.MerchantDO;
+import io.github.loadup.modules.merchant.client.dto.MerchantPersistenceFacts;
 import io.github.loadup.pay.customer.domain.model.MerchantFacts;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -24,7 +24,5 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface MerchantFactsConverter {
     @Mapping(target = "merchantId", source = "id")
-    @Mapping(target = "active", expression = "java(\"ACTIVE\".equals(row.getStatus()))")
-    @Mapping(target = "version", source = "rowVersion")
-    MerchantFacts toFacts(MerchantDO row);
+    MerchantFacts toFacts(MerchantPersistenceFacts row);
 }

@@ -15,13 +15,13 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.model.ChannelBindingChangeReceipt;
@@ -30,13 +30,19 @@ import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;
 import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
 import io.github.loadup.pay.payment.infrastructure.converter.ChannelBindingStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingChangeReceiptDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingRevisionDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelMerchantBindingDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.ChannelBindingChangeReceiptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.ChannelBindingRevisionDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.ChannelMerchantBindingDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -47,46 +53,43 @@ import java.util.Set;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.CHANNEL_BINDING_CHANGE_RECEIPT_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.CHANNEL_BINDING_REVISION_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.CHANNEL_MERCHANT_BINDING_DO;
 
 @Repository
 public class ChannelBindingGatewayImpl implements ChannelBindingManagementGateway, ChannelBindingGateway {
-    private final ChannelMerchantBindingDOMapper heads;
-    private final ChannelBindingRevisionDOMapper revisions;
-    private final ChannelBindingChangeReceiptDOMapper receipts;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final ChannelBindingStorageConverter converter;
     private final ChannelBindingCodec codec;
 
-    public ChannelBindingGatewayImpl(ChannelMerchantBindingDOMapper heads, ChannelBindingRevisionDOMapper revisions,
-                                     ChannelBindingChangeReceiptDOMapper receipts, ChannelBindingStorageConverter converter, ChannelBindingCodec codec) {
-        this.heads = heads;
-        this.revisions = revisions;
-        this.receipts = receipts;
+    public ChannelBindingGatewayImpl(NamedParameterJdbcTemplate jdbc,
+                                     ChannelBindingStorageConverter converter, ChannelBindingCodec codec,
+                                     @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.codec = codec;
     }
 
-    private QueryWrapper headScope(String tenant) {
-        return QueryWrapper.create().where(CHANNEL_MERCHANT_BINDING_DO.TENANT_ID.eq(tenant))
-                .and(CHANNEL_MERCHANT_BINDING_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper headKey(String tenant, String payee, String code) {
-        return headScope(tenant).and(CHANNEL_MERCHANT_BINDING_DO.PAYEE_MERCHANT_ID.eq(payee))
-                .and(CHANNEL_MERCHANT_BINDING_DO.BINDING_CODE.eq(code));
+    private ChannelMerchantBindingDO headRow(String tenant, String payee, String code, boolean lock) {
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee).addValue("code", code);
+        return jdbc.query("""
+                        SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
+                               state, current_revision_id, current_revision, priority, row_version
+                        FROM channel_merchant_binding WHERE tenant_id = :tenant AND payee_merchant_id = :payee
+                            AND binding_code = :code AND deleted = FALSE
+                        """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ChannelMerchantBindingDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     @Override
     public Optional<ChannelMerchantBinding> find(String tenant, String payee, String code) {
-        return head(heads.selectOneByQuery(headKey(tenant, payee, code)));
+        return head(headRow(tenant, payee, code, false));
     }
 
     @Override
     public Optional<ChannelMerchantBinding> lock(String tenant, String payee, String code) {
         requireTransaction();
-        return head(heads.selectOneByQuery(headKey(tenant, payee, code).forUpdate()));
+        return head(headRow(tenant, payee, code, true));
     }
 
     private Optional<ChannelMerchantBinding> head(ChannelMerchantBindingDO row) {
@@ -100,9 +103,13 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     @Override
     public Optional<StoredChannelBindingRevision> revision(String tenant, String revisionId) {
         if (revisionId == null) throw new CommonException(SNAPSHOT_INVALID);
-        var row = revisions.selectOneByQuery(QueryWrapper.create()
-                .where(CHANNEL_BINDING_REVISION_DO.TENANT_ID.eq(tenant)).and(CHANNEL_BINDING_REVISION_DO.DELETED.eq(0))
-                .and(CHANNEL_BINDING_REVISION_DO.ID.eq(revisionId)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", revisionId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, binding_id, revision, payee_merchant_id, channel, access_mode,
+                       account_scope_hash, credential_reference, credential_version, identity_payload, identity_hash,
+                       payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at
+                FROM channel_binding_revision WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
         try {
             var identity = codec.decodeIdentity(row.getIdentityPayload(), row.getIdentityHash());
@@ -119,9 +126,9 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         }
     }
 
-    private void capability(Set<PaymentMethod> methods, PaymentMethod method, Integer enabled) {
-        if (enabled == null || enabled < 0 || enabled > 1) throw new CommonException(SNAPSHOT_INVALID);
-        if (enabled == 1) methods.add(method);
+    private void capability(Set<PaymentMethod> methods, PaymentMethod method, Boolean enabled) {
+        if (enabled == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (enabled) methods.add(method);
     }
 
     @Override
@@ -134,12 +141,15 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
                                                    Set<AccessMode> allowedModes, PaymentMethod method) {
         requireTransaction();
         if (allowedModes.isEmpty()) return List.of();
-        var rows = heads.selectListByQuery(headScope(tenant)
-                .and(CHANNEL_MERCHANT_BINDING_DO.PAYEE_MERCHANT_ID.eq(payee))
-                .and(CHANNEL_MERCHANT_BINDING_DO.CHANNEL.eq(channel.name()))
-                .and(CHANNEL_MERCHANT_BINDING_DO.ACCESS_MODE.in(allowedModes.stream().map(Enum::name).toList()))
-                .and(CHANNEL_MERCHANT_BINDING_DO.STATE.eq("ACTIVE"))
-                .orderBy(CHANNEL_MERCHANT_BINDING_DO.ID.asc()).forUpdate());
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee)
+                .addValue("channel", channel.name()).addValue("modes", allowedModes.stream().map(Enum::name).toList());
+        var rows = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
+                       state, current_revision_id, current_revision, priority, row_version
+                FROM channel_merchant_binding WHERE tenant_id = :tenant AND payee_merchant_id = :payee
+                    AND channel = :channel AND access_mode IN (:modes) AND state = 'ACTIVE' AND deleted = FALSE
+                ORDER BY id ASC FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(ChannelMerchantBindingDO.class));
         var candidates = new ArrayList<RoutableChannelBinding>();
         for (var row : rows) {
             var head = head(row).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -159,11 +169,13 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
 
     @Override
     public Optional<ChannelBindingChangeReceipt> receipt(String tenant, String bindingId, String key) {
-        var row = receipts.selectOneByQuery(QueryWrapper.create()
-                .where(CHANNEL_BINDING_CHANGE_RECEIPT_DO.TENANT_ID.eq(tenant))
-                .and(CHANNEL_BINDING_CHANGE_RECEIPT_DO.DELETED.eq(0))
-                .and(CHANNEL_BINDING_CHANGE_RECEIPT_DO.BINDING_ID.eq(bindingId))
-                .and(CHANNEL_BINDING_CHANGE_RECEIPT_DO.REQUEST_KEY.eq(key)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("binding", bindingId).addValue("key", key);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, binding_id, kind, request_key, request_digest, caller_service_id,
+                       binding_revision_id, revision, state, applied_version, applied_at
+                FROM channel_binding_change_receipt WHERE tenant_id = :tenant AND binding_id = :binding
+                    AND request_key = :key AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(ChannelBindingChangeReceiptDO.class)).stream().findFirst().orElse(null);
         try {
             return Optional.ofNullable(row).map(converter::toReceipt);
         } catch (RuntimeException corrupt) {
@@ -176,7 +188,19 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         requireTransaction();
         if (head.state() != ChannelBindingState.ACTIVE || head.rowVersion() != 1 || head.currentRevision() != 1)
             throw new CommonException(INVALID_STATE);
-        if (heads.insert(converter.toHeadDO(tenant, head)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toHeadDO(tenant, head);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO channel_merchant_binding (id, tenant_id, created_at, updated_at, deleted, payee_merchant_id,
+                    binding_code, channel, access_mode, state, current_revision_id, current_revision, priority, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :bindingCode, :channel,
+                    :accessMode, :state, :currentRevisionId, :currentRevision, :priority, :rowVersion)
+                ON CONFLICT (tenant_id, payee_merchant_id, binding_code) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Channel binding business key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -184,12 +208,19 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         requireTransaction();
         if (head.rowVersion() != Math.incrementExact(expectedVersion) || head.state() == ChannelBindingState.INIT)
             throw new CommonException(INVALID_STATE);
-        int changed = heads.updateByQuery(converter.toHeadPatch(head), true,
-                headKey(tenant, head.payeeMerchantId(), head.bindingCode())
-                        .and(CHANNEL_MERCHANT_BINDING_DO.ID.eq(head.id()))
-                        .and(CHANNEL_MERCHANT_BINDING_DO.CHANNEL.eq(head.channel().name()))
-                        .and(CHANNEL_MERCHANT_BINDING_DO.ACCESS_MODE.eq(head.accessMode().name()))
-                        .and(CHANNEL_MERCHANT_BINDING_DO.ROW_VERSION.eq(expectedVersion)));
+        var patch = converter.toHeadPatch(head);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", head.payeeMerchantId())
+                .addValue("code", head.bindingCode()).addValue("id", head.id()).addValue("channel", head.channel().name())
+                .addValue("mode", head.accessMode().name()).addValue("expectedVersion", expectedVersion)
+                .addValue("state", patch.getState()).addValue("revisionId", patch.getCurrentRevisionId())
+                .addValue("revision", patch.getCurrentRevision()).addValue("priority", patch.getPriority())
+                .addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE channel_merchant_binding SET state = :state, current_revision_id = :revisionId,
+                    current_revision = :revision, priority = :priority, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND binding_code = :code AND id = :id
+                    AND channel = :channel AND access_mode = :mode AND row_version = :expectedVersion AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
@@ -198,17 +229,45 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         requireTransaction();
         String payload = codec.encodeIdentity(value.binding().identity());
         if (!codec.checksum(payload).equals(value.identityHash())) throw new CommonException(SNAPSHOT_INVALID);
-        if (revisions.insert(converter.toRevisionDO(tenant, value, payload)) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toRevisionDO(tenant, value, payload);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO channel_binding_revision (id, tenant_id, created_at, updated_at, deleted, binding_id, revision,
+                    payee_merchant_id, channel, access_mode, account_scope_hash, credential_reference, credential_version,
+                    identity_payload, identity_hash, payment_code_enabled, jsapi_enabled, h5_enabled, caller_service_id, published_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :bindingId, :revision, :payeeMerchantId, :channel,
+                    :accessMode, :accountScopeHash, :credentialReference, :credentialVersion, :identityPayload, :identityHash,
+                    :paymentCodeEnabled, :jsapiEnabled, :h5Enabled, :callerServiceId, :publishedAt)
+                ON CONFLICT (tenant_id, binding_id, revision) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Channel binding revision already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public void insertReceipt(String tenant, ChannelBindingChangeReceipt receipt) {
         requireTransaction();
-        if (receipts.insert(converter.toReceiptDO(tenant, receipt)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toReceiptDO(tenant, receipt);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO channel_binding_change_receipt (id, tenant_id, created_at, updated_at, deleted, binding_id, kind,
+                    request_key, request_digest, caller_service_id, binding_revision_id, revision, state, applied_version, applied_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :bindingId, :kind, :requestKey, :requestDigest,
+                    :callerServiceId, :bindingRevisionId, :revision, :state, :appliedVersion, :appliedAt)
+                ON CONFLICT (tenant_id, binding_id, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Channel binding change already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 }

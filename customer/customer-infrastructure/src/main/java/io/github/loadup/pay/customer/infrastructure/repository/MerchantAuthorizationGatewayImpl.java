@@ -15,22 +15,22 @@
  */
 package io.github.loadup.pay.customer.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantAuthorizationGateway;
+import io.github.loadup.pay.customer.domain.model.GrantState;
 import io.github.loadup.pay.customer.domain.model.MerchantAction;
 import io.github.loadup.pay.customer.domain.model.MerchantActionGrant;
 import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
-import io.github.loadup.pay.customer.infrastructure.converter.AuthorizationStorageConverter;
-import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantActionGrantDO;
-import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantRelationshipDO;
-import io.github.loadup.pay.customer.infrastructure.mapper.MerchantActionGrantDOMapper;
-import io.github.loadup.pay.customer.infrastructure.mapper.MerchantRelationshipDOMapper;
-import org.springframework.dao.DuplicateKeyException;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -38,140 +38,126 @@ import java.util.Optional;
  */
 @Repository
 public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGateway {
-    private final MerchantRelationshipDOMapper relationships;
-    private final MerchantActionGrantDOMapper grants;
-    private final AuthorizationStorageConverter converter;
+    private final JdbcTemplate jdbc;
+    private final Clock clock;
 
-    public MerchantAuthorizationGatewayImpl(
-            MerchantRelationshipDOMapper relationships,
-            MerchantActionGrantDOMapper grants,
-            AuthorizationStorageConverter converter) {
-        this.relationships = relationships;
-        this.grants = grants;
-        this.converter = converter;
+    public MerchantAuthorizationGatewayImpl(JdbcTemplate jdbc, @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
     }
 
-    private QueryWrapper relationshipScope(String tenant) {
-        return QueryWrapper.create()
-                .where(MerchantRelationshipDO::getTenantId)
-                .eq(tenant)
-                .and(MerchantRelationshipDO::getDeleted)
-                .eq(0);
+    private static MerchantRelationship mapRelationship(ResultSet rs, int index) throws SQLException {
+        return new MerchantRelationship(rs.getString("id"), rs.getString("parent_merchant_id"),
+                rs.getString("child_merchant_id"), GrantState.valueOf(rs.getString("state")),
+                rs.getObject("valid_from", LocalDateTime.class), rs.getObject("valid_to", LocalDateTime.class),
+                rs.getLong("row_version"));
     }
 
-    private QueryWrapper grantScope(String tenant) {
-        return QueryWrapper.create()
-                .where(MerchantActionGrantDO::getTenantId)
-                .eq(tenant)
-                .and(MerchantActionGrantDO::getDeleted)
-                .eq(0);
+    private static MerchantActionGrant mapGrant(ResultSet rs, int index) throws SQLException {
+        return new MerchantActionGrant(rs.getString("id"), PrincipalType.valueOf(rs.getString("principal_type")),
+                rs.getString("principal_id"), rs.getString("payee_merchant_id"), rs.getString("relationship_id"),
+                MerchantAction.valueOf(rs.getString("action")), GrantState.valueOf(rs.getString("state")),
+                rs.getObject("valid_from", LocalDateTime.class), rs.getObject("valid_to", LocalDateTime.class),
+                rs.getLong("row_version"));
     }
 
     @Override
     public Optional<MerchantRelationship> findRelationship(String tenant, String id) {
-        return Optional.ofNullable(relationships.selectOneByQuery(relationshipScope(tenant)
-                        .and(MerchantRelationshipDO::getId)
-                        .eq(id)))
-                .map(converter::toRelationship);
+        return relationship("SELECT * FROM merchant_relationship WHERE tenant_id = ? AND id = ? AND deleted = FALSE", tenant, id);
     }
 
     @Override
     public Optional<MerchantRelationship> findLiveRelationship(String tenant, String parent, String child) {
-        return Optional.ofNullable(relationships.selectOneByQuery(relationshipScope(tenant)
-                        .and(MerchantRelationshipDO::getParentMerchantId)
-                        .eq(parent)
-                        .and(MerchantRelationshipDO::getChildMerchantId)
-                        .eq(child)
-                        .and(MerchantRelationshipDO::getRelationType)
-                        .eq("MANAGEMENT")
-                        .and(MerchantRelationshipDO::getState)
-                        .ne("REVOKED")))
-                .map(converter::toRelationship);
+        return relationship("""
+                SELECT * FROM merchant_relationship WHERE tenant_id = ? AND parent_merchant_id = ?
+                    AND child_merchant_id = ? AND relation_type = 'MANAGEMENT' AND state <> 'REVOKED' AND deleted = FALSE
+                """, tenant, parent, child);
     }
 
     @Override
     public MerchantRelationship lockRelationship(String tenant, String id) {
-        return Optional.ofNullable(relationships.selectOneByQuery(relationshipScope(tenant)
-                        .and(MerchantRelationshipDO::getId)
-                        .eq(id)
-                        .forUpdate()))
-                .map(converter::toRelationship)
+        return relationship("SELECT * FROM merchant_relationship WHERE tenant_id = ? AND id = ? AND deleted = FALSE FOR UPDATE", tenant, id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
 
     @Override
     public Optional<MerchantActionGrant> findGrantById(String tenant, String id) {
-        return Optional.ofNullable(grants.selectOneByQuery(
-                        grantScope(tenant).and(MerchantActionGrantDO::getId).eq(id)))
-                .map(converter::toGrant);
+        return grant("SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND id = ? AND deleted = FALSE", tenant, id);
     }
 
     @Override
     public MerchantActionGrant lockGrant(String tenant, String id) {
-        return Optional.ofNullable(grants.selectOneByQuery(grantScope(tenant)
-                        .and(MerchantActionGrantDO::getId)
-                        .eq(id)
-                        .forUpdate()))
-                .map(converter::toGrant)
+        return grant("SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND id = ? AND deleted = FALSE FOR UPDATE", tenant, id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
 
     @Override
-    public Optional<MerchantActionGrant> findGrant(
-            String tenant, PrincipalType type, String principal, String payee, MerchantAction action) {
-        return Optional.ofNullable(grants.selectOneByQuery(grantScope(tenant)
-                        .and(MerchantActionGrantDO::getPrincipalType)
-                        .eq(type.name())
-                        .and(MerchantActionGrantDO::getPrincipalId)
-                        .eq(principal)
-                        .and(MerchantActionGrantDO::getPayeeMerchantId)
-                        .eq(payee)
-                        .and(MerchantActionGrantDO::getAction)
-                        .eq(action.name())
-                        .and(MerchantActionGrantDO::getState)
-                        .ne("REVOKED")))
-                .map(converter::toGrant);
+    public Optional<MerchantActionGrant> findGrant(String tenant, PrincipalType type, String principal, String payee, MerchantAction action) {
+        return grant("""
+                SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND principal_type = ? AND principal_id = ?
+                    AND payee_merchant_id = ? AND action = ? AND state <> 'REVOKED' AND deleted = FALSE
+                """, tenant, type.name(), principal, payee, action.name());
     }
 
     @Override
     public void saveRelationship(String tenant, MerchantRelationship model, long expected) {
-        try {
-            if (expected == -1) {
-                relationships.insert(converter.toDO(tenant, model));
-            } else if (relationships.updateByQuery(
-                    converter.toDO(tenant, model),
-                    true,
-                    relationshipScope(tenant)
-                            .and(MerchantRelationshipDO::getId)
-                            .eq(model.id())
-                            .and(MerchantRelationshipDO::getRowVersion)
-                            .eq(expected))
-                    != 1) {
-                throw new CommonException(CustomerResultCodeEnum.CONFLICT);
-            }
-        } catch (DuplicateKeyException duplicate) {
-            throw new CommonException(CustomerResultCodeEnum.RELATIONSHIP_CONFLICT);
+        LocalDateTime now = LocalDateTime.now(clock);
+        int changed;
+        if (expected == -1) {
+            changed = jdbc.update("""
+                            INSERT INTO merchant_relationship (id, tenant_id, created_at, updated_at, deleted,
+                                parent_merchant_id, child_merchant_id, relation_type, state, valid_from, valid_to, row_version)
+                            VALUES (?, ?, ?, ?, FALSE, ?, ?, 'MANAGEMENT', ?, ?, ?, ?)
+                            ON CONFLICT (tenant_id, parent_merchant_id, child_merchant_id, relation_type)
+                                WHERE state IN ('INIT', 'ACTIVE') DO NOTHING
+                            """, model.id(), tenant, now, now, model.parentMerchantId(), model.childMerchantId(),
+                    model.state().name(), model.validFrom(), model.validTo(), model.version());
+            if (changed == 0) throw new CommonException(CustomerResultCodeEnum.RELATIONSHIP_CONFLICT);
+        } else {
+            changed = jdbc.update("""
+                            UPDATE merchant_relationship SET parent_merchant_id = ?, child_merchant_id = ?, state = ?,
+                                valid_from = ?, valid_to = ?, row_version = ?, updated_at = ?
+                            WHERE tenant_id = ? AND id = ? AND row_version = ? AND deleted = FALSE
+                            """, model.parentMerchantId(), model.childMerchantId(), model.state().name(), model.validFrom(),
+                    model.validTo(), model.version(), now, tenant, model.id(), expected);
+            if (changed == 0) throw new CommonException(CustomerResultCodeEnum.CONFLICT);
         }
+        if (changed != 1) throw new IllegalStateException("Unexpected relationship write count");
     }
 
     @Override
     public void saveGrant(String tenant, MerchantActionGrant model, long expected) {
-        try {
-            if (expected == -1) {
-                grants.insert(converter.toDO(tenant, model));
-            } else if (grants.updateByQuery(
-                    converter.toDO(tenant, model),
-                    true,
-                    grantScope(tenant)
-                            .and(MerchantActionGrantDO::getId)
-                            .eq(model.id())
-                            .and(MerchantActionGrantDO::getRowVersion)
-                            .eq(expected))
-                    != 1) {
-                throw new CommonException(CustomerResultCodeEnum.CONFLICT);
-            }
-        } catch (DuplicateKeyException duplicate) {
-            throw new CommonException(CustomerResultCodeEnum.GRANT_CONFLICT);
+        LocalDateTime now = LocalDateTime.now(clock);
+        int changed;
+        if (expected == -1) {
+            changed = jdbc.update("""
+                            INSERT INTO merchant_action_grant (id, tenant_id, created_at, updated_at, deleted, principal_type,
+                                principal_id, payee_merchant_id, relationship_id, action, state, valid_from, valid_to, row_version)
+                            VALUES (?, ?, ?, ?, FALSE, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT (tenant_id, principal_type, principal_id, payee_merchant_id, action)
+                                WHERE state IN ('INIT', 'ACTIVE') DO NOTHING
+                            """, model.id(), tenant, now, now, model.principalType().name(), model.principalId(),
+                    model.payeeMerchantId(), model.relationshipId(), model.action().name(), model.state().name(),
+                    model.validFrom(), model.validTo(), model.version());
+            if (changed == 0) throw new CommonException(CustomerResultCodeEnum.GRANT_CONFLICT);
+        } else {
+            changed = jdbc.update("""
+                            UPDATE merchant_action_grant SET principal_type = ?, principal_id = ?, payee_merchant_id = ?,
+                                relationship_id = ?, action = ?, state = ?, valid_from = ?, valid_to = ?, row_version = ?, updated_at = ?
+                            WHERE tenant_id = ? AND id = ? AND row_version = ? AND deleted = FALSE
+                            """, model.principalType().name(), model.principalId(), model.payeeMerchantId(), model.relationshipId(),
+                    model.action().name(), model.state().name(), model.validFrom(), model.validTo(), model.version(), now,
+                    tenant, model.id(), expected);
+            if (changed == 0) throw new CommonException(CustomerResultCodeEnum.CONFLICT);
         }
+        if (changed != 1) throw new IllegalStateException("Unexpected grant write count");
+    }
+
+    private Optional<MerchantRelationship> relationship(String sql, Object... parameters) {
+        return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapRelationship, parameters).stream().findFirst();
+    }
+
+    private Optional<MerchantActionGrant> grant(String sql, Object... parameters) {
+        return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapGrant, parameters).stream().findFirst();
     }
 }

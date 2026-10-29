@@ -22,13 +22,13 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
-import io.github.loadup.pay.payment.domain.model.PaymentState;
-import io.github.loadup.pay.payment.domain.model.RefundState;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.realtime.app.converter.TradeProjectionConverter;
 import io.github.loadup.pay.realtime.app.security.RealtimeActor;
 import io.github.loadup.pay.realtime.app.security.RealtimeActorProvider;
@@ -38,14 +38,12 @@ import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.pay.realtime.infrastructure.codec.TradeProjectionCodecImpl;
 import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConverter;
-import io.github.loadup.pay.realtime.infrastructure.mapper.ProjectionReceiptDOMapper;
-import io.github.loadup.pay.realtime.infrastructure.mapper.TradePaymentDOMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -53,6 +51,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
@@ -351,13 +350,13 @@ class ProjectionPersistenceIT {
     }
 
     /**
-     * Injects failure only after the actual generated Mapper inserted the receipt.
+     * Injects failure only after the actual JDBC insert of the receipt.
      */
     static final class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
-        FaultingReceipts(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) {
-            super(mapper, converter);
+        FaultingReceipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter, Clock clock) {
+            super(jdbc, converter, clock);
         }
 
         @Override
@@ -370,7 +369,6 @@ class ProjectionPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = TradePaymentDOMapper.class)
     @ComponentScan(basePackageClasses = {TradeStorageConverter.class, TradeProjectionConverter.class})
     @Import({TradeProjectionGatewayImpl.class, TradeProjectionCodecImpl.class, RealtimeTransactions.class, TradeProjectionService.class})
     static class Application {
@@ -380,8 +378,9 @@ class ProjectionPersistenceIT {
         }
 
         @Bean
-        FaultingReceipts receipts(ProjectionReceiptDOMapper mapper, TradeStorageConverter converter) {
-            return new FaultingReceipts(mapper, converter);
+        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter,
+                                  @Qualifier("databaseClock") Clock clock) {
+            return new FaultingReceipts(jdbc, converter, clock);
         }
 
         @Bean("realtimeClock")

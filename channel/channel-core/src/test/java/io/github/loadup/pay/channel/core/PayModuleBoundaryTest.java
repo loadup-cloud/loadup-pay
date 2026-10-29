@@ -114,7 +114,8 @@ class PayModuleBoundaryTest {
             boolean publicEnum = layer.equals("domain") && "model".equals(role)
                     && PUBLIC_DOMAIN_ENUMS.contains(owner + "." + references.group(4));
             if (!owner.equals(module.service())) {
-                if (!publicEnum && !Set.of("client", "rpc").contains(layer)) errors.add("CROSS_SERVICE: " + owner + "." + layer);
+                if (!publicEnum && !Set.of("client", "rpc").contains(layer))
+                    errors.add("CROSS_SERVICE: " + owner + "." + layer);
                 else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()) && !transportContract)
                     errors.add("TRANSPORT_IN_BUSINESS: gRPC belongs in adapters/ports");
             } else {
@@ -157,7 +158,8 @@ class PayModuleBoundaryTest {
             for (var layer : LAYERS) {
                 if (!dependency.artifact().equals(owner + "-" + layer)) continue;
                 if (owner.equals(module.service())) {
-                    if (!(module.layer().equals("client") && layer.equals("domain")) && !allowedOwnLayer(module.layer(), layer)) errors.add("OWN_LAYER: " + dependency.artifact());
+                    if (!(module.layer().equals("client") && layer.equals("domain")) && !allowedOwnLayer(module.layer(), layer))
+                        errors.add("OWN_LAYER: " + dependency.artifact());
                 } else if (!Set.of("client", "rpc").contains(layer))
                     errors.add("CROSS_SERVICE: " + dependency.artifact());
                 else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))

@@ -4,10 +4,12 @@
 
 ## 服务所有权
 
-各服务在自己的 `*-client` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，各业务方法由提供方维护。消费方的 infrastructure 引用提供方 client 发起 gRPC 请求；domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto import 引用源类型。
+各服务在自己的 `*-client` 模块维护 `.proto`、MapStruct mapper 和类型化方法定义，各业务方法由提供方维护。消费方的
+infrastructure 引用提供方 client 发起 gRPC 请求；domain 不引入 gRPC。源事件类型归生产方；消费方的信封与 RPC 方法通过 proto
+import 引用源类型。
 
-| 提供方         | 协议入口                                                                                         |
-|----------------|--------------------------------------------------------------------------------------------------|
+| 提供方         | 协议入口                                                                                            |
+|----------------|-----------------------------------------------------------------------------------------------------|
 | customer       | [customer.proto](../customer/customer-client/src/main/proto/customer.proto)                         |
 | product        | [product.proto](../product/product-client/src/main/proto/product.proto)                             |
 | limitcenter    | [limitcenter.proto](../limitcenter/limitcenter-client/src/main/proto/limitcenter.proto)             |
@@ -143,7 +145,8 @@ closed 的原 order/payment、fenced、正 epoch、未受理 evidence 都须存�
 
 ## 对账批次运营契约（2026-10-27）
 
-ReconciliationRpc 定义 Create/Attach/Start/Detail/Task/Retry，提供方消息/批次 scope/双侧封存摘要归 reconciliation-client；差错分页由运营
+ReconciliationRpc 定义 Create/Attach/Start/Detail/Task/Retry，提供方消息/批次 scope/双侧封存摘要归
+reconciliation-client；差错分页由运营
 HTTP 提供。
 身份必须为 SERVICE，sub=service_id、可信 tenant 及对应 pay:reconciliation:batch:* 权限；当前账户目录 service-ids 和原
 caller 仍须匹配。

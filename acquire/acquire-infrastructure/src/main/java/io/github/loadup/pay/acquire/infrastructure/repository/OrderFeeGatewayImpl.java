@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -29,13 +28,17 @@ import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeAdjustmentStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderFeeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
-import io.github.loadup.pay.acquire.infrastructure.mapper.FeeAdjustmentDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderFeeDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
@@ -43,21 +46,20 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CO
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_FEE_DO;
 
 @Repository
 public class OrderFeeGatewayImpl implements OrderFeeGateway {
-    private final OrderFeeDOMapper fees;
-    private final FeeAdjustmentDOMapper adjustments;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final OrderFeeStorageConverter converter;
     private final FeeAdjustmentStorageConverter adjustmentConverter;
     private final IdGenerator ids;
     private final JsonMapper mapper;
 
-    public OrderFeeGatewayImpl(OrderFeeDOMapper fees, FeeAdjustmentDOMapper adjustments, OrderFeeStorageConverter converter,
-                               FeeAdjustmentStorageConverter adjustmentConverter, IdGenerator ids, JsonMapper mapper) {
-        this.fees = fees;
-        this.adjustments = adjustments;
+    public OrderFeeGatewayImpl(NamedParameterJdbcTemplate jdbc, OrderFeeStorageConverter converter,
+                               FeeAdjustmentStorageConverter adjustmentConverter, IdGenerator ids, JsonMapper mapper, @Qualifier("acquireClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.adjustmentConverter = adjustmentConverter;
         this.ids = ids;
@@ -92,8 +94,12 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     }
 
     private OrderFeeDO lock(String tenant, String order) {
-        var row = fees.selectOneByQuery(QueryWrapper.create().where(ORDER_FEE_DO.TENANT_ID.eq(tenant)).and(ORDER_FEE_DO.DELETED.eq(0))
-                .and(ORDER_FEE_DO.ORDER_ID.eq(order)).and(ORDER_FEE_DO.FEE_TYPE.eq("ORDER_AMOUNT")).forUpdate());
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", order);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
+                       fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
+                FROM order_fee WHERE tenant_id = :tenant AND order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(OrderFeeDO.class)).stream().findFirst().orElse(null);
         if (row == null) throw new CommonException(SNAPSHOT_INVALID);
         return row;
     }
@@ -115,20 +121,36 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     private void adjust(String tenant, OrderFeeDO row, OrderFee based, String trigger, String eventId, LocalDateTime at) {
         if (based.adjustmentDueMinor() == 0) return;
         var adjustment = adjustmentConverter.toAdjustment(ids.generate(), based, trigger);
-        if (adjustments.insert(adjustmentConverter.toDO(tenant, adjustment, eventId, based.refundBasisMinor(), row.getFeeRuleSnapshot(), at)) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        var record = adjustmentConverter.toDO(tenant, adjustment, eventId, based.refundBasisMinor(), row.getFeeRuleSnapshot(), at);
+        var now = LocalDateTime.now(clock);
+        record.setCreatedAt(now);
+        record.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO fee_adjustment (id, tenant_id, created_at, updated_at, deleted, order_id, fee_id, trigger_key,
+                    source_event_id, source_version, adjustment_minor, currency, cumulative_refunded_minor, rule_snapshot, applied_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
+                    :sourceVersion, :adjustmentMinor, :currency, :cumulativeRefundedMinor, :ruleSnapshot, :appliedAt)
+                """, new BeanPropertySqlParameterSource(record));
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     private void save(String tenant, OrderFeeDO before, OrderFee next, LocalDateTime confirmedAt) {
-        if (fees.updateByQuery(converter.toProgressPatch(next, Math.incrementExact(before.getRowVersion()), confirmedAt), true,
-                QueryWrapper.create().where(ORDER_FEE_DO.TENANT_ID.eq(tenant)).and(ORDER_FEE_DO.DELETED.eq(0))
-                        .and(ORDER_FEE_DO.ID.eq(before.getId())).and(ORDER_FEE_DO.STATE.eq(before.getState()))
-                        .and(ORDER_FEE_DO.ROW_VERSION.eq(before.getRowVersion()))) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        var patch = converter.toProgressPatch(next, Math.incrementExact(before.getRowVersion()), confirmedAt);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.getId()).addValue("oldState", before.getState())
+                .addValue("expected", before.getRowVersion()).addValue("state", patch.getState()).addValue("basisVersion", patch.getRefundBasisVersion())
+                .addValue("basis", patch.getRefundBasisMinor()).addValue("adjusted", patch.getAdjustedAmountMinor())
+                .addValue("version", patch.getRowVersion()).addValue("confirmed", patch.getConfirmedAt()).addValue("updated", LocalDateTime.now(clock));
+        if (jdbc.update("""
+                UPDATE order_fee SET state = :state, refund_basis_version = :basisVersion, refund_basis_minor = :basis,
+                    adjusted_amount_minor = :adjusted, row_version = :version, confirmed_at = COALESCE(:confirmed, confirmed_at), updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
+                """, args) != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
         if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentInitiationGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
@@ -24,33 +24,35 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentAllocationDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_ALLOCATION_DO;
 
 @Repository
 public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
-    private final OrderPaymentAllocationDOMapper allocations;
-    private final AcquireOrderDOMapper orders;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final PaymentInitiationStorageConverter converter;
     private final PaymentInitiationCodec codec;
 
     public PaymentInitiationGatewayImpl(
-            OrderPaymentAllocationDOMapper allocations,
-            AcquireOrderDOMapper orders,
             PaymentInitiationStorageConverter converter,
-            PaymentInitiationCodec codec) {
-        this.allocations = allocations;
-        this.orders = orders;
+            PaymentInitiationCodec codec, NamedParameterJdbcTemplate jdbc, @Qualifier("acquireClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.codec = codec;
     }
@@ -58,12 +60,14 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
     @Override
     public Optional<StoredPaymentAllocation> findAction(
             String tenant, String orderId, String actorScope, String actionKey) {
-        var row = allocations.selectOneByQuery(QueryWrapper.create()
-                .where(ORDER_PAYMENT_ALLOCATION_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.DELETED.eq(0))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ORDER_ID.eq(orderId))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ACTOR_SCOPE.eq(actorScope))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ACTION_KEY.eq(actionKey)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId)
+                .addValue("actor", actorScope).addValue("key", actionKey);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
+                       caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
+                FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND actor_scope = :actor
+                    AND action_key = :key AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
         try {
             var value = converter.toStored(row, converter.toAllocation(row));
@@ -84,15 +88,18 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 || prepared.rowVersion() != Math.incrementExact(original.rowVersion())
                 || codec.decode(original).preparedInputRef() != null
                 || codec.decode(prepared).preparedInputRef() == null) throw new CommonException(SNAPSHOT_INVALID);
-        int changed = allocations.updateByQuery(converter.toInputPatch(prepared), true, QueryWrapper.create()
-                .where(ORDER_PAYMENT_ALLOCATION_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.DELETED.eq(0))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ID.eq(original.allocation().id()))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.PAYMENT_ID.eq(original.allocation().paymentId()))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.STATE.eq("HELD"))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.PAYMENT_SOURCE_VERSION.eq(0))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ROW_VERSION.eq(original.rowVersion()))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.PAYLOAD_HASH.eq(original.payloadHash())));
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", original.allocation().id())
+                .addValue("payment", original.allocation().paymentId()).addValue("expected", original.rowVersion())
+                .addValue("oldHash", original.payloadHash()).addValue("payload", prepared.intentPayload())
+                .addValue("hash", prepared.payloadHash()).addValue("version", prepared.rowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE order_payment_allocation SET intent_payload = :payload, payload_hash = :hash, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND payment_id = :payment AND state = 'HELD' AND payment_source_version = 0
+                    AND row_version = :expected AND payload_hash = :oldHash AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
@@ -108,16 +115,32 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 .getCurrencyValue()
                 .equals(value.allocation().amount().getCurrencyValue()))
             throw new CommonException(SNAPSHOT_INVALID);
-        int changed = orders.updateByQuery(
-                converter.toReservationPatch(updated),
-                true,
-                QueryWrapper.create()
-                        .where(ACQUIRE_ORDER_DO.TENANT_ID.eq(tenant))
-                        .and(ACQUIRE_ORDER_DO.DELETED.eq(0))
-                        .and(ACQUIRE_ORDER_DO.ID.eq(updated.id()))
-                        .and(ACQUIRE_ORDER_DO.ROW_VERSION.eq(expectedOrderVersion))
-                        .and(ACQUIRE_ORDER_DO.STATE.in("INIT", "PENDING")));
-        if (changed != 1 || allocations.insert(converter.toAllocationDO(tenant, value)) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
+        var patch = converter.toReservationPatch(updated);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", updated.id()).addValue("expected", expectedOrderVersion)
+                .addValue("reserved", patch.getPaymentReservedMinor()).addValue("count", patch.getReservedPaymentCount())
+                .addValue("state", patch.getState()).addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE acquire_order SET payment_reserved_minor = :reserved, reserved_payment_count = :count,
+                    state = :state, row_version = :version, updated_at = :updated WHERE tenant_id = :tenant AND id = :id
+                    AND row_version = :expected AND state IN ('INIT', 'PENDING') AND deleted = FALSE
+                """, args);
+        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toAllocationDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO order_payment_allocation (id, tenant_id, created_at, updated_at, deleted, order_id, payment_id,
+                    actor_scope, action_key, request_digest, caller_scope_hash, amount_minor, currency, state, payment_source_version,
+                    intent_payload, payload_hash, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :actorScope, :actionKey, :requestDigest,
+                    :callerScopeHash, :amountMinor, :currency, :state, :paymentSourceVersion, :intentPayload, :payloadHash, :rowVersion)
+                ON CONFLICT (tenant_id, order_id, actor_scope, action_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new AcquireWriteConflictException("Payment allocation action already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 }

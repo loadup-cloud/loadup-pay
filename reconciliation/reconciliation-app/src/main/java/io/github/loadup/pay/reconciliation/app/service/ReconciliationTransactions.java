@@ -18,7 +18,7 @@ package io.github.loadup.pay.reconciliation.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import org.springframework.dao.DuplicateKeyException;
+import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -56,7 +56,7 @@ public class ReconciliationTransactions {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return writes.execute(status -> work.get());
-                } catch (DuplicateKeyException | TransientDataAccessException conflict) {
+                } catch (ReconciliationWriteConflictException | TransientDataAccessException conflict) {
                     if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
                 }
             }

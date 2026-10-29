@@ -15,17 +15,23 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.domain.gateway.PaymentCloseEvidenceGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentCloseEvidence;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentCloseEvidenceStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCloseEvidenceDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCloseEvidenceDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
@@ -33,24 +39,31 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CO
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_CLOSE_EVIDENCE_DO;
 
 @Repository
 public class PaymentCloseEvidenceGatewayImpl implements PaymentCloseEvidenceGateway {
-    private final PaymentCloseEvidenceDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCloseEvidenceStorageConverter converter;
+    private final Clock clock;
 
-    public PaymentCloseEvidenceGatewayImpl(PaymentCloseEvidenceDOMapper mapper, PaymentCloseEvidenceStorageConverter converter) {
-        this.mapper = mapper;
+    public PaymentCloseEvidenceGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentCloseEvidenceStorageConverter converter,
+                                           @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
+        this.clock = clock;
     }
 
     @Override
     public Optional<PaymentCloseEvidence> find(String tenant, String attemptId) {
         tenant(tenant);
         DomainChecks.id(attemptId);
-        var row = mapper.selectOneByQuery(QueryWrapper.create().where(PAYMENT_CLOSE_EVIDENCE_DO.TENANT_ID.eq(tenant))
-                .and(PAYMENT_CLOSE_EVIDENCE_DO.ID.eq(attemptId)).and(PAYMENT_CLOSE_EVIDENCE_DO.DELETED.eq(0)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("attempt", attemptId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
+                       account_scope_hash, channel_request_no, amount_minor, currency, channel_transaction_no,
+                       receipt_key, source_digest, execution_epoch, recorded_at
+                FROM payment_close_evidence WHERE tenant_id = :tenant AND id = :attempt AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentCloseEvidenceDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
         try {
             if (!attemptId.equals(row.getAttemptId()) || row.getAmountMinor() == null || row.getExecutionEpoch() == null)
@@ -64,10 +77,24 @@ public class PaymentCloseEvidenceGatewayImpl implements PaymentCloseEvidenceGate
     @Override
     public void insert(String tenant, PaymentCloseEvidence value) {
         tenant(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
         if (value == null) throw new CommonException(INVALID_ARGUMENT);
-        if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_close_evidence (id, tenant_id, created_at, updated_at, deleted, payment_id, attempt_id,
+                    channel, binding_revision_id, account_scope_hash, channel_request_no, amount_minor, currency,
+                    channel_transaction_no, receipt_key, source_digest, execution_epoch, recorded_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :paymentId, :attemptId, :channel, :bindingRevisionId,
+                    :accountScopeHash, :channelRequestNo, :amountMinor, :currency, :channelTransactionNo, :receiptKey,
+                    :sourceDigest, :executionEpoch, :recordedAt)
+                """, new BeanPropertySqlParameterSource(row));
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     private void tenant(String tenant) {

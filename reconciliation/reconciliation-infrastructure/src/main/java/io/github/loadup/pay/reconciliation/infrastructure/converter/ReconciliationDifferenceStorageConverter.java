@@ -57,9 +57,9 @@ public interface ReconciliationDifferenceStorageConverter {
         return Set.copyOf(result);
     }
 
-    private void flag(Set<ReconciliationDifferenceReason> result, Integer flag, ReconciliationDifferenceReason reason) {
-        if (flag == null || flag < 0 || flag > 1) throw new CommonException(SNAPSHOT_INVALID);
-        if (flag == 1) result.add(reason);
+    private void flag(Set<ReconciliationDifferenceReason> result, Boolean flag, ReconciliationDifferenceReason reason) {
+        if (flag == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (flag) result.add(reason);
     }
 
     @Mapping(target = "id", ignore = true)
@@ -72,11 +72,11 @@ public interface ReconciliationDifferenceStorageConverter {
     @Mapping(target = "channelRefundNo", source = "value.key.channelRefundNo")
     @Mapping(target = "channelEntryId", source = "channelEntryId")
     @Mapping(target = "ledgerEntryId", source = "ledgerEntryId")
-    @Mapping(target = "channelOnly", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.CHANNEL_ONLY) ? 1 : 0)")
-    @Mapping(target = "ledgerOnly", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.LEDGER_ONLY) ? 1 : 0)")
-    @Mapping(target = "amountMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.AMOUNT_MISMATCH) ? 1 : 0)")
-    @Mapping(target = "requestMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.REQUEST_MISMATCH) ? 1 : 0)")
-    @Mapping(target = "stateMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.STATE_MISMATCH) ? 1 : 0)")
+    @Mapping(target = "channelOnly", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.CHANNEL_ONLY))")
+    @Mapping(target = "ledgerOnly", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.LEDGER_ONLY))")
+    @Mapping(target = "amountMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.AMOUNT_MISMATCH))")
+    @Mapping(target = "requestMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.REQUEST_MISMATCH))")
+    @Mapping(target = "stateMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.STATE_MISMATCH))")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "0")

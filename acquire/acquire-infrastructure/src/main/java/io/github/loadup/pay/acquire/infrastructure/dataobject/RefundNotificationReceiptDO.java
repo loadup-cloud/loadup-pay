@@ -15,11 +15,9 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("refund_notification_receipt")
 public class RefundNotificationReceiptDO extends BaseDO {
     private String deliveryId;
     private String businessEventId;

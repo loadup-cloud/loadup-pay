@@ -87,12 +87,7 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-database-processor</artifactId>
-            <scope>provided</scope>
-            <optional>true</optional>
-        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -135,20 +130,12 @@
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                         </path>
-                        <path>
-                            <groupId>com.mybatis-flex</groupId>
-                            <artifactId>mybatis-flex-processor</artifactId>
-                        </path>
-                        <path>
-                            <groupId>io.github.loadup-cloud</groupId>
-                            <artifactId>loadup-components-database-processor</artifactId>
-                            <version>${loadup.framework.version}</version>
-                        </path>
+
+
                     </annotationProcessorPaths>
                     <annotationProcessors>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
-                        <annotationProcessor>io.github.loadup.components.database.processor.LoadUpMyBatisFlexProcessor
-                        </annotationProcessor>
+
                     </annotationProcessors>
                 </configuration>
             </plugin>

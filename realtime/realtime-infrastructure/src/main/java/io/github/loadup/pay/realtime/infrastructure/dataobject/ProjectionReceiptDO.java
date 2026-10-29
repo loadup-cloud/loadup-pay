@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.realtime.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("trade_projection_receipt")
 public class ProjectionReceiptDO extends BaseDO {
     private String deliveryId;
     private String businessEventId;

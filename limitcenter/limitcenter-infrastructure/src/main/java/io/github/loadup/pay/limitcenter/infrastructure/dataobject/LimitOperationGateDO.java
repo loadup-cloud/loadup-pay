@@ -15,11 +15,9 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("limit_operation_gate")
 public class LimitOperationGateDO extends BaseDO {
     private String operationId;
     private String paymentId;

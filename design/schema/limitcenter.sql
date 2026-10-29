@@ -85,8 +85,8 @@ CREATE TABLE limit_bucket
     row_version   BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_limit_bucket (tenant_id, rule_scope_id, merchant_id, metric, currency, window_type, window_start,
-                                window_end),
-    KEY ix_bucket_merchant (tenant_id, merchant_id, window_type, window_start),
+        window_end),
+    KEY           ix_bucket_merchant(tenant_id, merchant_id, window_type, window_start),
     CHECK (used_value >= 0 AND held_value >= 0),
     CHECK (window_start < window_end)
 ) ENGINE = InnoDB
@@ -141,7 +141,7 @@ CREATE TABLE limit_reservation
     PRIMARY KEY (id),
     UNIQUE KEY uk_limit_operation (tenant_id, operation_id),
     UNIQUE KEY uk_limit_payment (tenant_id, payment_id),
-    KEY ix_reservation_expire (tenant_id, state, reserve_expires_at, id),
+    KEY                    ix_reservation_expire(tenant_id, state, reserve_expires_at, id),
     CHECK (amount_minor > 0 AND currency = 'CNY' AND policy_version > 0 AND reserve_expires_at > initiated_at),
     CHECK (execution_epoch >= 0 AND payment_source_version >= 0 AND row_version >= 0)
 ) ENGINE = InnoDB
@@ -225,7 +225,7 @@ CREATE TABLE limit_operation_history
     facts_digest    CHAR(64)     NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_limit_history_transition (tenant_id, operation_id, transition_key),
-    KEY ix_limit_history (tenant_id, operation_id, created_at, id)
+    KEY             ix_limit_history(tenant_id, operation_id, created_at, id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -253,7 +253,7 @@ CREATE TABLE limit_refund_receipt
     restored_payment_count            TINYINT     NOT NULL,
     accepted_at                       DATETIME(6) NOT NULL,
     UNIQUE KEY uk_limit_refund_receipt_refund (tenant_id, refund_id),
-    KEY ix_limit_refund_receipt_operation (tenant_id, operation_id),
+    KEY                               ix_limit_refund_receipt_operation(tenant_id, operation_id),
     CHECK (
         deleted = 0
             AND refund_version > 0

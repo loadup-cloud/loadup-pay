@@ -26,7 +26,7 @@ CREATE TABLE order_create_intent
     UNIQUE KEY uk_intent_merchant (tenant_id, payee_merchant_id, merchant_order_no),
     UNIQUE KEY uk_intent_order (tenant_id, order_id),
     UNIQUE KEY uk_intent_initial_session (tenant_id, initial_session_id),
-    KEY ix_intent_recovery (tenant_id, state, updated_at),
+    KEY                ix_intent_recovery(tenant_id, state, updated_at),
     CONSTRAINT ck_intent_entry_state CHECK (entry_mode IN ('ORDER', 'CHECKOUT', 'DIRECT_PAY') AND
                                             state IN ('INIT', 'COMPLETED', 'REJECTED', 'EXPIRED')),
     CONSTRAINT ck_intent_initial_session CHECK ((entry_mode IN ('ORDER', 'DIRECT_PAY') AND initial_session_id IS NULL)
@@ -64,8 +64,8 @@ CREATE TABLE acquire_order
     PRIMARY KEY (id),
     UNIQUE KEY uk_order_merchant (tenant_id, payee_merchant_id, merchant_order_no),
     UNIQUE KEY uk_order_admission (tenant_id, admission_id),
-    KEY ix_order_payee_page (tenant_id, payee_merchant_id, created_at, id),
-    KEY ix_order_due (tenant_id, state, order_due_at, id),
+    KEY                      ix_order_payee_page(tenant_id, payee_merchant_id, created_at, id),
+    KEY                      ix_order_due(tenant_id, state, order_due_at, id),
     CHECK (amount_minor > 0),
     CHECK (paid_amount_minor >= 0 AND payment_reserved_minor >= 0),
     CHECK (paid_amount_minor <= amount_minor AND payment_reserved_minor <= amount_minor - paid_amount_minor),
@@ -123,7 +123,7 @@ CREATE TABLE order_payment_allocation
     PRIMARY KEY (id),
     UNIQUE KEY uk_allocation_payment (tenant_id, payment_id),
     UNIQUE KEY uk_allocation_action (tenant_id, order_id, actor_scope, action_key),
-    KEY ix_allocation_order (tenant_id, order_id, state, payment_id),
+    KEY                    ix_allocation_order(tenant_id, order_id, state, payment_id),
     CHECK (amount_minor > 0),
     CHECK (state IN ('INIT', 'HELD', 'CONSUMED', 'RELEASED'))
 ) ENGINE = InnoDB
@@ -176,7 +176,7 @@ CREATE TABLE fee_adjustment
     rule_snapshot             LONGTEXT     NOT NULL,
     applied_at                DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_fee_adjust_trigger (tenant_id, fee_id, trigger_key),
-    KEY ix_fee_adjust_order (tenant_id, order_id, created_at, id),
+    KEY                       ix_fee_adjust_order(tenant_id, order_id, created_at, id),
     CHECK (deleted = 0 AND adjustment_minor > 0 AND currency = 'CNY' AND source_version > 0 AND
            cumulative_refunded_minor > 0),
     CHECK (JSON_VALID(rule_snapshot) AND OCTET_LENGTH(rule_snapshot) <= 32768)
@@ -200,7 +200,7 @@ CREATE TABLE fee_refund_receipt
     caller_service_id VARCHAR(64) NOT NULL,
     accepted_at       DATETIME(6) NOT NULL,
     UNIQUE KEY uk_fee_refund_delivery (tenant_id, delivery_id),
-    KEY ix_fee_refund_order (tenant_id, order_id, applied_version),
+    KEY               ix_fee_refund_order(tenant_id, order_id, applied_version),
     CHECK (deleted = 0 AND source_version > 0 AND applied_version >= source_version)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -230,7 +230,7 @@ CREATE TABLE checkout_session
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_request (tenant_id, order_id, request_key),
     UNIQUE KEY uk_session_token (token_hash),
-    KEY ix_session_order (tenant_id, order_id, state),
+    KEY               ix_session_order(tenant_id, order_id, state),
     CONSTRAINT ck_checkout_revocation_version CHECK (revoked_at IS NULL OR row_version > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -287,9 +287,9 @@ CREATE TABLE merchant_notification_delivery
     row_version           BIGINT          NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_notification_event_target (tenant_id, event_id, target_ref),
-    KEY ix_notification_order (tenant_id, order_id, occurred_at, id),
-    KEY ix_notification_merchant (tenant_id, payee_merchant_id, occurred_at, id),
-    KEY ix_notification_pending (tenant_id, state, next_attempt_at, id),
+    KEY                   ix_notification_order(tenant_id, order_id, occurred_at, id),
+    KEY                   ix_notification_merchant(tenant_id, payee_merchant_id, occurred_at, id),
+    KEY                   ix_notification_pending(tenant_id, state, next_attempt_at, id),
     CHECK (source_version > 0 AND row_version >= 0),
     CHECK (attempt_count >= 0 AND attempt_count <= retry_max_attempts AND retry_max_attempts > 0),
     CHECK (timeout_millis > 0 AND retry_initial_seconds > 0 AND retry_multiplier >= 1
@@ -323,7 +323,7 @@ CREATE TABLE refund_notification_receipt
     accepted_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_notification_delivery (tenant_id, delivery_id),
-    KEY ix_refund_notification_order (tenant_id, order_id, accepted_at, id),
+    KEY               ix_refund_notification_order(tenant_id, order_id, accepted_at, id),
     CHECK (source_version > 0),
     CHECK (disposition IN ('ENQUEUED', 'DISABLED'))
 ) ENGINE = InnoDB
@@ -354,7 +354,7 @@ CREATE TABLE merchant_notification_wake_receipt
     accepted_at       DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_notification_wake_request (tenant_id, caller_scope_hash, request_key),
-    KEY ix_notification_wake_delivery (tenant_id, delivery_id, accepted_at, id),
+    KEY               ix_notification_wake_delivery(tenant_id, delivery_id, accepted_at, id),
     CHECK (principal_type IN ('OPERATOR', 'SERVICE')),
     CHECK (attempt_count >= 0 AND delivery_version >= 0),
     CHECK (result IN
@@ -383,7 +383,7 @@ CREATE TABLE checkout_session_revocation_receipt
     accepted_at       DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_revocation_request (tenant_id, caller_scope_hash, request_key),
-    KEY ix_session_revocation_history (tenant_id, session_id, accepted_at, id),
+    KEY               ix_session_revocation_history(tenant_id, session_id, accepted_at, id),
     CHECK (newly_revoked IN (0, 1)),
     CHECK (before_version >= 0 AND session_version > 0),
     CHECK ((newly_revoked = 1 AND session_version - before_version = 1)
@@ -403,7 +403,7 @@ CREATE TABLE allocation_recovery_cursor
     generation BIGINT      NOT NULL,
     due_at     DATETIME(6) NOT NULL,
     completed  TINYINT     NOT NULL DEFAULT 0,
-    KEY ix_allocation_recovery_order (tenant_id, order_id),
+    KEY        ix_allocation_recovery_order(tenant_id, order_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -431,7 +431,7 @@ CREATE TABLE acquire_recovery_retry_receipt
     result                   VARCHAR(32)  NOT NULL,
     accepted_at              DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_acquire_recovery_retry (tenant_id, caller_scope_hash, request_key),
-    KEY ix_acquire_recovery_retry_order (tenant_id, order_id, accepted_at),
+    KEY                      ix_acquire_recovery_retry_order(tenant_id, order_id, accepted_at),
     CHECK (deleted = 0 AND generation >= 0 AND expected_attempts > 0),
     CHECK (kind IN ('PAYMENT_ALLOCATION', 'ORDER_DEADLINE', 'ORDER_CLOSURE')),
     CHECK (kind <> 'ORDER_DEADLINE' OR generation > 0),

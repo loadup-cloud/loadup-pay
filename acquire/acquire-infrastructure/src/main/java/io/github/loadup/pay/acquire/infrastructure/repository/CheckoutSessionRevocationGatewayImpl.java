@@ -15,19 +15,25 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutSessionRevocationReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionRevocationReceiptDO;
-import io.github.loadup.pay.acquire.infrastructure.mapper.CheckoutSessionRevocationReceiptDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
@@ -35,22 +41,28 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CO
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_PAGE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.CHECKOUT_SESSION_REVOCATION_RECEIPT_DO;
 
 @Repository
 public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevocationGateway {
-    private final CheckoutSessionRevocationReceiptDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final CheckoutSessionRevocationReceiptStorageConverter converter;
 
-    public CheckoutSessionRevocationGatewayImpl(CheckoutSessionRevocationReceiptDOMapper mapper, CheckoutSessionRevocationReceiptStorageConverter converter) {
-        this.mapper = mapper;
+    public CheckoutSessionRevocationGatewayImpl(NamedParameterJdbcTemplate jdbc, CheckoutSessionRevocationReceiptStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
     }
 
     @Override
     public Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey) {
-        var row = mapper.selectOneByQuery(scope(tenant).and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.CALLER_SCOPE_HASH.eq(callerScopeHash))
-                .and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.REQUEST_KEY.eq(requestKey)));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
+                FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant AND deleted = FALSE
+                    AND caller_scope_hash = :caller AND request_key = :key
+                """, args, BeanPropertyRowMapper.newInstance(CheckoutSessionRevocationReceiptDO.class)).stream().findFirst().orElse(null);
         return Optional.ofNullable(row).map(this::decode);
     }
 
@@ -59,23 +71,41 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
             throw new CommonException(INVALID_STATE);
-        if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO checkout_session_revocation_receipt (id, tenant_id, created_at, updated_at, deleted, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :sessionId, :orderId, :requestKey, :callerScopeHash, :requestDigest, :reason, :newlyRevoked, :beforeVersion, :sessionVersion, :revokedAt, :acceptedAt)
+                ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0)
+            throw new AcquireWriteConflictException("checkout_session_revocation_receipt business key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
-        var query = scope(tenant).and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.SESSION_ID.eq(sessionId));
-        long total = mapper.selectCountByQuery(query);
-        query.orderBy(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.ACCEPTED_AT.desc(), CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.ID.desc())
-                .limit(size).offset((long) (page - 1) * size);
-        return PageResult.of(mapper.selectListByQuery(query).stream().map(this::decode).toList(), total, page, size);
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("subject", sessionId)
+                .addValue("limit", size).addValue("offset", (long) (page - 1) * size);
+        var total = jdbc.queryForObject("SELECT COUNT(*) FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant "
+                + "AND deleted = FALSE AND session_id = :subject", args, Long.class);
+        var rows = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
+                FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND session_id = :subject
+                ORDER BY accepted_at DESC, id DESC LIMIT :limit OFFSET :offset
+                """, args, BeanPropertyRowMapper.newInstance(CheckoutSessionRevocationReceiptDO.class));
+        return PageResult.of(rows.stream().map(this::decode).toList(), total, page, size);
     }
 
-    private QueryWrapper scope(String tenant) {
+    private void scope(String tenant) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return QueryWrapper.create().where(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.TENANT_ID.eq(tenant))
-                .and(CHECKOUT_SESSION_REVOCATION_RECEIPT_DO.DELETED.eq(0));
     }
 
     private CheckoutSessionRevocationReceipt decode(CheckoutSessionRevocationReceiptDO row) {

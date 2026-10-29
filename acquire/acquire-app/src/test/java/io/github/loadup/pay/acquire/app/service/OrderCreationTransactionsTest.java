@@ -88,7 +88,8 @@ class OrderCreationTransactionsTest {
                 assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
                 int attempt = calls.incrementAndGet();
                 assertEquals(attempt - 1, manager.rollbacks);
-                if (attempt < 3) throw new org.springframework.dao.DuplicateKeyException("Synthetic local race");
+                if (attempt < 3)
+                    throw new io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException("Synthetic local race");
                 return "committed";
             }));
             assertEquals("outer", TenantUtil.getTenantId());
@@ -99,6 +100,19 @@ class OrderCreationTransactionsTest {
         assertEquals(3, manager.begins);
         assertEquals(2, manager.rollbacks);
         assertEquals(1, manager.commits);
+    }
+
+    @Test
+    void unexpectedUniqueViolationIsNotRetried() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var failure = new org.springframework.dao.DuplicateKeyException("Unexpected primary-key collision");
+        assertSame(failure, assertThrows(org.springframework.dao.DuplicateKeyException.class,
+                () -> transactions.writeLocal("tenant", () -> {
+                    calls.incrementAndGet();
+                    throw failure;
+                })));
+        assertEquals(1, calls.get());
+        assertEquals(1, manager.rollbacks);
     }
 
     @Test

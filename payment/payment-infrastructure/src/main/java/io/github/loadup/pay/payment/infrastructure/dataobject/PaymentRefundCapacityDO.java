@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("payment_refund_capacity")
 public class PaymentRefundCapacityDO extends BaseDO {
     private String paymentId;
     private String orderId;

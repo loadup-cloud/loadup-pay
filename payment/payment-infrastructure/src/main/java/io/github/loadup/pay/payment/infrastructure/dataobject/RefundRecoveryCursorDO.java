@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("refund_recovery_cursor")
 public class RefundRecoveryCursorDO extends BaseDO {
     private Long generation;
     private LocalDateTime dueAt;

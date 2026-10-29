@@ -15,59 +15,71 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentGateDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentGateDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentParentGateDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_GATE_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ORDER_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_PARENT_GATE_DO;
 
 @Repository
 public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
-    private final PaymentOrderDOMapper payments;
-    private final PaymentParentGateDOMapper parents;
-    private final PaymentGateDOMapper gates;
+    private static final String PAYMENT_COLUMNS = "id, tenant_id, created_at, updated_at, order_id, allocation_id, admission_id, "
+            + "payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state, active_attempt_id, "
+            + "successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at, terminal_evidence_id, "
+            + "intent_payload, payload_hash, row_version";
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final PaymentAcceptanceStorageConverter converter;
     private final PaymentAcceptanceCodec codec;
 
-    public PaymentAcceptanceGatewayImpl(PaymentOrderDOMapper payments, PaymentParentGateDOMapper parents,
-                                        PaymentGateDOMapper gates, PaymentAcceptanceStorageConverter converter, PaymentAcceptanceCodec codec) {
-        this.payments = payments;
-        this.parents = parents;
-        this.gates = gates;
+    public PaymentAcceptanceGatewayImpl(NamedParameterJdbcTemplate jdbc,
+                                        PaymentAcceptanceStorageConverter converter, PaymentAcceptanceCodec codec,
+                                        @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.codec = codec;
     }
 
-    private QueryWrapper paymentScope(String tenant) {
-        return QueryWrapper.create().where(PAYMENT_ORDER_DO.TENANT_ID.eq(tenant)).and(PAYMENT_ORDER_DO.DELETED.eq(0));
-    }
-
     @Override
     public Optional<StoredPaymentAcceptance> find(String tenant, String id) {
-        return stored(payments.selectOneByQuery(paymentScope(tenant).and(PAYMENT_ORDER_DO.ID.eq(id))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE tenant_id = :tenant "
+                        + "AND id = :id AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                .stream().findFirst().orElse(null));
     }
 
     @Override
     public Optional<StoredPaymentAcceptance> findAllocation(String tenant, String id) {
-        return stored(payments.selectOneByQuery(paymentScope(tenant).and(PAYMENT_ORDER_DO.ALLOCATION_ID.eq(id))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("allocation", id);
+        return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE tenant_id = :tenant "
+                        + "AND allocation_id = :allocation AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                .stream().findFirst().orElse(null));
     }
 
     private Optional<StoredPaymentAcceptance> stored(PaymentOrderDO row) {
@@ -83,10 +95,13 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
 
     @Override
     public Optional<StoredPaymentGate> lockParent(String tenant, String orderId) {
-        requireTransaction();
-        var row = parents.selectOneByQuery(QueryWrapper.create()
-                .where(PAYMENT_PARENT_GATE_DO.TENANT_ID.eq(tenant)).and(PAYMENT_PARENT_GATE_DO.DELETED.eq(0))
-                .and(PAYMENT_PARENT_GATE_DO.ORDER_ID.eq(orderId)).forUpdate());
+        gateTransaction(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", orderId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
+                       state, close_epoch, row_version FROM payment_parent_gate
+                WHERE tenant_id = :tenant AND order_id = :orderId AND deleted = FALSE FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentParentGateDO.class)).stream().findFirst().orElse(null);
         try {
             return Optional.ofNullable(row).map(value -> converter.toStoredParent(value, converter.toParentGate(value)));
         } catch (RuntimeException invalid) {
@@ -96,10 +111,13 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
 
     @Override
     public Optional<StoredPaymentGate> lockPayment(String tenant, String paymentId) {
-        requireTransaction();
-        var row = gates.selectOneByQuery(QueryWrapper.create()
-                .where(PAYMENT_GATE_DO.TENANT_ID.eq(tenant)).and(PAYMENT_GATE_DO.DELETED.eq(0))
-                .and(PAYMENT_GATE_DO.PAYMENT_ID.eq(paymentId)).forUpdate());
+        gateTransaction(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", paymentId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
+                       state, fence_epoch, reason_code, row_version FROM payment_gate
+                WHERE tenant_id = :tenant AND payment_id = :payment AND deleted = FALSE FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentGateDO.class)).stream().findFirst().orElse(null);
         try {
             return Optional.ofNullable(row).map(value -> converter.toStoredGate(value, converter.toPaymentGate(value)));
         } catch (RuntimeException invalid) {
@@ -109,25 +127,73 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
 
     @Override
     public void insertParent(String tenant, StoredPaymentGate gate) {
-        requireTransaction();
+        gateTransaction(tenant);
         if (gate.gate().paymentId() != null) throw new CommonException(INVALID_ARGUMENT);
-        if (parents.insert(converter.toParentDO(tenant, gate)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toParentDO(tenant, gate);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_parent_gate (id, tenant_id, created_at, updated_at, deleted, order_id,
+                    payee_merchant_id, caller_service_id, state, close_epoch, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId,
+                    :callerServiceId, :state, :closeEpoch, :rowVersion)
+                ON CONFLICT (tenant_id, order_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Payment parent gate already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public void insertPaymentGate(String tenant, StoredPaymentGate gate) {
-        requireTransaction();
+        gateTransaction(tenant);
         if (gate.gate().paymentId() == null) throw new CommonException(INVALID_ARGUMENT);
-        if (gates.insert(converter.toGateDO(tenant, gate)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toGateDO(tenant, gate);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_gate (id, tenant_id, created_at, updated_at, deleted, order_id, payment_id,
+                    payee_merchant_id, caller_service_id, state, fence_epoch, reason_code, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :paymentId, :payeeMerchantId,
+                    :callerServiceId, :state, :fenceEpoch, :reasonCode, :rowVersion)
+                ON CONFLICT (tenant_id, payment_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Payment gate already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public void insert(String tenant, StoredPaymentAcceptance value) {
-        requireTransaction();
-        if (payments.insert(converter.toPaymentDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        gateTransaction(tenant);
+        var row = converter.toPaymentDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_order (id, tenant_id, created_at, updated_at, deleted, order_id, allocation_id,
+                    admission_id, payee_merchant_id, amount_minor, currency, request_digest, caller_service_id, state,
+                    active_attempt_id, successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at,
+                    terminal_evidence_id, intent_payload, payload_hash, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :allocationId, :admissionId,
+                    :payeeMerchantId, :amountMinor, :currency, :requestDigest, :callerServiceId, :state, :activeAttemptId,
+                    :successfulAttemptId, :limitOperationId, :initiatedAt, :firstUnknownAt, :succeededAt,
+                    :terminalEvidenceId, :intentPayload, :payloadHash, :rowVersion)
+                ON CONFLICT (tenant_id, allocation_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Payment allocation already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+    private void scope(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+    }
+
+    private void gateTransaction(String tenant) {
+        scope(tenant);
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 }

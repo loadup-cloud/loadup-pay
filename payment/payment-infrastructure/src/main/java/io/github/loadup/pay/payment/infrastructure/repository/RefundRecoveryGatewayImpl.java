@@ -15,38 +15,46 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundRecoveryStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundRecoveryCursorDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRecoveryCursorDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_RECOVERY_CURSOR_DO;
 
 @Repository
 public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
-    private final RefundRecoveryCursorDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
     private final RefundRecoveryStorageConverter converter;
+    private final Clock clock;
 
-    public RefundRecoveryGatewayImpl(RefundRecoveryCursorDOMapper mapper, RefundRecoveryStorageConverter converter) {
-        this.mapper = mapper;
+    public RefundRecoveryGatewayImpl(NamedParameterJdbcTemplate jdbc, RefundRecoveryStorageConverter converter,
+                                     @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
+        this.clock = clock;
     }
 
     @Override
     public Optional<RefundRecoveryCursor> find(String tenant, String requestId) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        var row = mapper.selectOneByQuery(scope(tenant, requestId));
+        var row = row(tenant, requestId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -57,7 +65,7 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     @Override
     public Optional<RefundRecoveryCursor> lock(String tenant, String requestId) {
         writable(tenant);
-        var row = mapper.selectOneByQuery(scope(tenant, requestId).forUpdate());
+        var row = row(tenant, requestId, true);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -68,7 +76,15 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
     @Override
     public void insert(String tenant, RefundRecoveryCursor value) {
         writable(tenant);
-        if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO refund_recovery_cursor (id, tenant_id, created_at, updated_at, deleted, generation, due_at, completed)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :generation, :dueAt, :completed)
+                """, new BeanPropertySqlParameterSource(row));
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -81,20 +97,30 @@ public class RefundRecoveryGatewayImpl implements RefundRecoveryGateway {
         if (!before.requestId().equals(after.requestId()) || (!completed && !rescheduled))
             throw new CommonException(INVALID_STATE);
 
-        int changed = mapper.updateByQuery(converter.toPatch(after), true,
-                scope(tenant, before.requestId()).and(REFUND_RECOVERY_CURSOR_DO.GENERATION.eq(before.generation()))
-                        .and(REFUND_RECOVERY_CURSOR_DO.COMPLETED.eq(false)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.requestId())
+                .addValue("expected", before.generation()).addValue("generation", after.generation())
+                .addValue("due", after.dueAt()).addValue("completed", after.completed()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE refund_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed,
+                    updated_at = :updated WHERE tenant_id = :tenant AND id = :id AND generation = :expected
+                    AND completed = FALSE AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private QueryWrapper scope(String tenant, String requestId) {
-        return QueryWrapper.create().where(REFUND_RECOVERY_CURSOR_DO.TENANT_ID.eq(tenant))
-                .and(REFUND_RECOVERY_CURSOR_DO.DELETED.eq(0)).and(REFUND_RECOVERY_CURSOR_DO.ID.eq(requestId));
+    private RefundRecoveryCursorDO row(String tenant, String requestId, boolean lock) {
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", requestId);
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, generation, due_at, completed "
+                        + "FROM refund_recovery_cursor WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(RefundRecoveryCursorDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 }

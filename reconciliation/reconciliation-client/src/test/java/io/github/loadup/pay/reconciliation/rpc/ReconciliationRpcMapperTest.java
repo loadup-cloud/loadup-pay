@@ -20,8 +20,8 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationInputDTO;
-import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import org.junit.jupiter.api.AfterEach;
@@ -31,9 +31,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReconciliationRpcMapperTest {
     private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ReconciliationRpcMapper.class.getPackageName());

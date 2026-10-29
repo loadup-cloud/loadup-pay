@@ -20,9 +20,10 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
@@ -31,34 +32,38 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class RefundCallbackTargetGatewayImplTest {
-    private final RefundOrderDOMapper children = mock(RefundOrderDOMapper.class);
-    private final PaymentRefundCapacityDOMapper capacities = mock(PaymentRefundCapacityDOMapper.class);
+    private final NamedParameterJdbcTemplate capacities = mock(NamedParameterJdbcTemplate.class);
     private final RefundCallbackStorageConverter converter = mock(RefundCallbackStorageConverter.class);
-    private final RefundCallbackTargetGatewayImpl gateway = new RefundCallbackTargetGatewayImpl(children, capacities, converter);
+    private final RefundCallbackTargetGatewayImpl gateway = new RefundCallbackTargetGatewayImpl(capacities, converter);
 
     @Test
     void missingTargetReturnsEmptyAndAmbiguityCannotSelectAnArbitraryRefund() {
-        when(children.selectListByQuery(any())).thenReturn(List.of());
+        when(capacities.query(contains("FROM refund_order"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any())).thenReturn(List.of());
         assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.find("tenant", "original-revision", "order", "refund")).isEmpty());
-        when(children.selectListByQuery(any())).thenReturn(List.of(new RefundOrderDO(), new RefundOrderDO()));
+        when(capacities.query(contains("FROM refund_order"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any())).thenReturn(List.of(new RefundOrderDO(), new RefundOrderDO()));
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> gateway.find("tenant", "original-revision", "order", "refund")));
-        verifyNoInteractions(capacities, converter);
+        verify(capacities, never()).query(contains("FROM payment_refund_capacity"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
+        verifyNoInteractions(converter);
     }
 
     @Test
     void unsubmittedRefundCannotBeActivatedByAnExternalNotification() {
         var row = new RefundOrderDO();
         row.setState("INIT");
-        when(children.selectListByQuery(any())).thenReturn(List.of(row));
+        when(capacities.query(contains("FROM refund_order"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any())).thenReturn(List.of(row));
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> gateway.find("tenant", "original-revision", "order", "refund")));
-        verifyNoInteractions(capacities, converter);
+        verify(capacities, never()).query(contains("FROM payment_refund_capacity"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
+        verifyNoInteractions(converter);
     }
 
     @Test
@@ -72,8 +77,9 @@ class RefundCallbackTargetGatewayImplTest {
         var capacity = new PaymentRefundCapacityDO();
         capacity.setCurrency("CNY");
         capacity.setSucceededAt(row.getOriginalSucceededAt().minusSeconds(1));
-        when(children.selectListByQuery(any())).thenReturn(List.of(row));
-        when(capacities.selectOneByQuery(any())).thenReturn(capacity);
+        when(capacities.query(contains("FROM refund_order"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any())).thenReturn(List.of(row));
+        when(capacities.query(contains("FROM payment_refund_capacity"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any()))
+                .thenReturn(List.of(capacity));
         TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
                 () -> gateway.find("tenant", "original-revision", "order", "refund")));
         capacity.setSucceededAt(row.getOriginalSucceededAt());
@@ -94,6 +100,6 @@ class RefundCallbackTargetGatewayImplTest {
         } finally {
             TransactionSynchronizationManager.clear();
         }
-        verifyNoInteractions(children, capacities, converter);
+        verifyNoInteractions(capacities, converter);
     }
 }

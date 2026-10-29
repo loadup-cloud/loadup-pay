@@ -15,84 +15,105 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.MerchantNotificationDeliveryDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.MERCHANT_NOTIFICATION_DELIVERY_DO;
 
 @Repository
 public class MerchantNotificationGatewayImpl implements MerchantNotificationGateway {
-    private final MerchantNotificationDeliveryDOMapper mapper;
+    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, event_id, order_id, payee_merchant_id, "
+            + "event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref, timeout_millis, "
+            + "retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts, retry_window_seconds, "
+            + "occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version";
+    private final Clock clock;
+    private final NamedParameterJdbcTemplate jdbc;
     private final MerchantNotificationStorageConverter converter;
 
-    public MerchantNotificationGatewayImpl(MerchantNotificationDeliveryDOMapper mapper,
-                                           MerchantNotificationStorageConverter converter) {
-        this.mapper = mapper;
+    public MerchantNotificationGatewayImpl(MerchantNotificationStorageConverter converter, NamedParameterJdbcTemplate jdbc,
+                                           @Qualifier("acquireClock") Clock clock) {
+        this.clock = clock;
+        this.jdbc = jdbc;
         this.converter = converter;
     }
 
     @Override
     public Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId) {
         tenant(tenant);
-        var row = mapper.selectOneByQuery(QueryWrapper.create()
-                .where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.ID.eq(deliveryId)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", deliveryId);
+        var row = read("id = :id", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
     @Override
     public PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter) {
         tenant(tenant);
-        var query = QueryWrapper.create().where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
-        if (filter.orderId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.ORDER_ID.eq(filter.orderId()));
-        if (filter.eventId() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.EVENT_ID.eq(filter.eventId()));
-        if (filter.state() != null) query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.STATE.eq(filter.state().name()));
-        if (filter.occurredFrom() != null)
-            query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.ge(filter.occurredFrom()));
-        if (filter.occurredTo() != null)
-            query.and(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.lt(filter.occurredTo()));
-        long total = mapper.selectCountByQuery(query);
-        query.orderBy(MERCHANT_NOTIFICATION_DELIVERY_DO.OCCURRED_AT.desc(), MERCHANT_NOTIFICATION_DELIVERY_DO.ID.desc())
-                .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
-        return PageResult.of(mapper.selectListByQuery(query).stream().map(this::decode).toList(), total, filter.page(), filter.size());
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+                .addValue("limit", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var where = new StringBuilder("tenant_id = :tenant AND deleted = FALSE AND payee_merchant_id = :payee");
+        if (filter.orderId() != null) {
+            where.append(" AND order_id = :orderId");
+            args.addValue("orderId", filter.orderId());
+        }
+        if (filter.eventId() != null) {
+            where.append(" AND event_id = :eventId");
+            args.addValue("eventId", filter.eventId());
+        }
+        if (filter.state() != null) {
+            where.append(" AND state = :state");
+            args.addValue("state", filter.state().name());
+        }
+        if (filter.occurredFrom() != null) {
+            where.append(" AND occurred_at >= :fromTime");
+            args.addValue("fromTime", filter.occurredFrom());
+        }
+        if (filter.occurredTo() != null) {
+            where.append(" AND occurred_at < :toTime");
+            args.addValue("toTime", filter.occurredTo());
+        }
+        long total = jdbc.queryForObject("SELECT COUNT(*) FROM merchant_notification_delivery WHERE " + where, args, Long.class);
+        var rows = jdbc.query("SELECT " + COLUMNS + " FROM merchant_notification_delivery WHERE " + where
+                + " ORDER BY occurred_at DESC, id DESC LIMIT :limit OFFSET :offset", args, BeanPropertyRowMapper.newInstance(MerchantNotificationDeliveryDO.class));
+        return PageResult.of(rows.stream().map(this::decode).toList(), total, filter.page(), filter.size());
     }
 
     @Override
     public Optional<MerchantNotificationDelivery> findEvent(String tenant, String eventId, String targetRef) {
         tenant(tenant);
-        var row = mapper.selectOneByQuery(QueryWrapper.create()
-                .where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.EVENT_ID.eq(eventId))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.TARGET_REF.eq(targetRef)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("event", eventId).addValue("target", targetRef);
+        var row = read("event_id = :event AND target_ref = :target", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
     @Override
     public Optional<MerchantNotificationDelivery> lock(String tenant, String deliveryId) {
         writable(tenant);
-        var row = mapper.selectOneByQuery(QueryWrapper.create()
-                .where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.ID.eq(deliveryId)).forUpdate());
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", deliveryId);
+        var row = read("id = :id", args, true);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
 
@@ -100,7 +121,23 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     public void insert(String tenant, MerchantNotificationDelivery delivery) {
         writable(tenant);
         if (delivery.rowVersion() != 0) throw new CommonException(SNAPSHOT_INVALID);
-        if (mapper.insert(converter.toDO(tenant, delivery)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, delivery);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO merchant_notification_delivery (id, tenant_id, created_at, updated_at, deleted, event_id, order_id,
+                    payee_merchant_id, event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref,
+                    timeout_millis, retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts,
+                    retry_window_seconds, occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :eventId, :orderId, :payeeMerchantId, :eventType, :aggregateId,
+                    :sourceVersion, :body, :bodyDigest, :targetRef, :signingIdentityRef, :timeoutMillis, :retryInitialSeconds,
+                    :retryMultiplier, :retryMaximumSeconds, :retryMaxAttempts, :retryWindowSeconds, :occurredAt, :expiresAt,
+                    :nextAttemptAt, :attemptCount, :state, :routeFingerprint, :acknowledgedAt, :rowVersion)
+                ON CONFLICT (tenant_id, event_id, target_ref) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new AcquireWriteConflictException("Notification event target already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -109,12 +146,24 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         if (!sameIdentity(before, after) || after.rowVersion() != increment(before.rowVersion())
                 || before.routeFingerprint() != null && !before.routeFingerprint().equals(after.routeFingerprint()))
             throw new CommonException(SNAPSHOT_INVALID);
-        int changed = mapper.updateByQuery(converter.toPatch(after), true, QueryWrapper.create()
-                .where(MERCHANT_NOTIFICATION_DELIVERY_DO.TENANT_ID.eq(tenant))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.DELETED.eq(0))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.ID.eq(before.id()))
-                .and(MERCHANT_NOTIFICATION_DELIVERY_DO.ROW_VERSION.eq(before.rowVersion())));
+        var patch = converter.toPatch(after);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.id()).addValue("expected", before.rowVersion())
+                .addValue("next", patch.getNextAttemptAt()).addValue("attempts", patch.getAttemptCount()).addValue("state", patch.getState())
+                .addValue("fingerprint", patch.getRouteFingerprint()).addValue("acknowledged", patch.getAcknowledgedAt())
+                .addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE merchant_notification_delivery SET next_attempt_at = :next, attempt_count = :attempts, state = :state,
+                    route_fingerprint = COALESCE(:fingerprint, route_fingerprint), acknowledged_at = COALESCE(:acknowledged, acknowledged_at),
+                    row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+    }
+
+    private MerchantNotificationDeliveryDO read(String predicate, MapSqlParameterSource args, boolean lock) {
+        return jdbc.query("SELECT " + COLUMNS + " FROM merchant_notification_delivery WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(MerchantNotificationDeliveryDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private MerchantNotificationDelivery decode(io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO row) {
@@ -155,7 +204,8 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     private void writable(String tenant) {
         tenant(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
     }
 }

@@ -15,11 +15,9 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("reconciliation_difference")
 public class ReconciliationDifferenceDO extends BaseDO {
     private String batchId;
     private String runId;
@@ -31,11 +29,11 @@ public class ReconciliationDifferenceDO extends BaseDO {
     private String channelRefundNo;
     private String channelEntryId;
     private String ledgerEntryId;
-    private Integer channelOnly;
-    private Integer ledgerOnly;
-    private Integer amountMismatch;
-    private Integer requestMismatch;
-    private Integer stateMismatch;
+    private Boolean channelOnly;
+    private Boolean ledgerOnly;
+    private Boolean amountMismatch;
+    private Boolean requestMismatch;
+    private Boolean stateMismatch;
 
     public String getBatchId() {
         return batchId;
@@ -101,43 +99,43 @@ public class ReconciliationDifferenceDO extends BaseDO {
         ledgerEntryId = value;
     }
 
-    public Integer getChannelOnly() {
+    public Boolean getChannelOnly() {
         return channelOnly;
     }
 
-    public void setChannelOnly(Integer value) {
+    public void setChannelOnly(Boolean value) {
         channelOnly = value;
     }
 
-    public Integer getLedgerOnly() {
+    public Boolean getLedgerOnly() {
         return ledgerOnly;
     }
 
-    public void setLedgerOnly(Integer value) {
+    public void setLedgerOnly(Boolean value) {
         ledgerOnly = value;
     }
 
-    public Integer getAmountMismatch() {
+    public Boolean getAmountMismatch() {
         return amountMismatch;
     }
 
-    public void setAmountMismatch(Integer value) {
+    public void setAmountMismatch(Boolean value) {
         amountMismatch = value;
     }
 
-    public Integer getRequestMismatch() {
+    public Boolean getRequestMismatch() {
         return requestMismatch;
     }
 
-    public void setRequestMismatch(Integer value) {
+    public void setRequestMismatch(Boolean value) {
         requestMismatch = value;
     }
 
-    public Integer getStateMismatch() {
+    public Boolean getStateMismatch() {
         return stateMismatch;
     }
 
-    public void setStateMismatch(Integer value) {
+    public void setStateMismatch(Boolean value) {
         stateMismatch = value;
     }
 

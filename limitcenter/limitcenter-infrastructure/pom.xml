@@ -59,10 +59,8 @@
             <artifactId>loadup-components-database</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-database-processor</artifactId>
-            <scope>provided</scope>
-            <optional>true</optional>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
         </dependency>
         <dependency>
             <groupId>org.mapstruct</groupId>
@@ -90,21 +88,9 @@
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                         </path>
-                        <!-- The wrapper's provided upstream dependency must be on its isolated processor path. -->
-                        <path>
-                            <groupId>com.mybatis-flex</groupId>
-                            <artifactId>mybatis-flex-processor</artifactId>
-                        </path>
-                        <path>
-                            <groupId>io.github.loadup-cloud</groupId>
-                            <artifactId>loadup-components-database-processor</artifactId>
-                            <version>${loadup.framework.version}</version>
-                        </path>
                     </annotationProcessorPaths>
                     <annotationProcessors>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>
-                        <annotationProcessor>io.github.loadup.components.database.processor.LoadUpMyBatisFlexProcessor
-                        </annotationProcessor>
                     </annotationProcessors>
                 </configuration>
             </plugin>

@@ -18,7 +18,7 @@ package io.github.loadup.pay.acquire.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import org.springframework.dao.DuplicateKeyException;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -58,7 +58,7 @@ public class OrderCreationTransactions {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
-                } catch (DuplicateKeyException | TransientDataAccessException conflict) {
+                } catch (AcquireWriteConflictException | TransientDataAccessException conflict) {
                     if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
                 }
             }

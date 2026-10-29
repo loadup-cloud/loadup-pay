@@ -55,7 +55,6 @@ import io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy;
 import jakarta.validation.Validator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -189,7 +188,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     return decision;
                 }));
                 return present(stored);
-            } catch (DuplicateKeyException collision) {
+            } catch (Exception collision) {
                 // TransactionTemplate has rolled back the losing insert before this fresh primary read.
                 return replay(
                         admissions

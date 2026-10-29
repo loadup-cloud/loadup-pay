@@ -15,67 +15,92 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentAttemptStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentAttemptDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentAttemptDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ATTEMPT_DO;
 
 @Repository
 public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
-    private final PaymentAttemptDOMapper attempts;
+    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, payment_id, attempt_no, amount_minor, currency, "
+            + "binding_revision_id, channel, access_mode, account_scope_hash, method, channel_request_no, state, execution_epoch, "
+            + "no_collection_evidence_id, limit_operation_id, caller_service_id, request_key, request_digest, payment_request_digest, "
+            + "prepared_input_ref, risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version";
+    private final NamedParameterJdbcTemplate jdbc;
     private final ChannelBindingGateway bindings;
     private final PaymentAttemptStorageConverter converter;
+    private final Clock clock;
 
-    public PaymentAttemptGatewayImpl(PaymentAttemptDOMapper attempts, ChannelBindingGateway bindings,
-                                     PaymentAttemptStorageConverter converter) {
-        this.attempts = attempts;
+    public PaymentAttemptGatewayImpl(NamedParameterJdbcTemplate jdbc, ChannelBindingGateway bindings,
+                                     PaymentAttemptStorageConverter converter, @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.bindings = bindings;
         this.converter = converter;
+        this.clock = clock;
     }
 
-    private QueryWrapper scope(String tenant) {
-        return QueryWrapper.create().where(PAYMENT_ATTEMPT_DO.TENANT_ID.eq(tenant)).and(PAYMENT_ATTEMPT_DO.DELETED.eq(0));
+    private void scope(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 
     @Override
     public Optional<StoredPaymentAttempt> find(String tenant, String id) {
-        return read(tenant, attempts.selectOneByQuery(scope(tenant).and(PAYMENT_ATTEMPT_DO.ID.eq(id))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        return read(tenant, one("id = :id", args, false));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> findRequest(String tenant, String payment, String key) {
-        return read(tenant, attempts.selectOneByQuery(scope(tenant).and(PAYMENT_ATTEMPT_DO.PAYMENT_ID.eq(payment))
-                .and(PAYMENT_ATTEMPT_DO.REQUEST_KEY.eq(key))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", payment).addValue("key", key);
+        return read(tenant, one("payment_id = :payment AND request_key = :key", args, false));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> findChannelRequest(String tenant, String bindingRevisionId,
                                                              String channelRequestNo) {
-        var rows = attempts.selectListByQuery(scope(tenant)
-                .and(PAYMENT_ATTEMPT_DO.BINDING_REVISION_ID.eq(bindingRevisionId))
-                .and(PAYMENT_ATTEMPT_DO.CHANNEL_REQUEST_NO.eq(channelRequestNo)).limit(2));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("binding", bindingRevisionId).addValue("request", channelRequestNo);
+        var rows = jdbc.query("SELECT " + COLUMNS + " FROM payment_attempt WHERE tenant_id = :tenant AND deleted = FALSE "
+                        + "AND binding_revision_id = :binding AND channel_request_no = :request LIMIT 2", args,
+                BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class));
         if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
         return rows.isEmpty() ? Optional.empty() : read(tenant, rows.get(0));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> lock(String tenant, String id) {
-        requireTransaction();
-        return read(tenant, attempts.selectOneByQuery(scope(tenant).and(PAYMENT_ATTEMPT_DO.ID.eq(id)).forUpdate()));
+        requireTransaction(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        return read(tenant, one("id = :id", args, true));
+    }
+
+    private PaymentAttemptDO one(String condition, MapSqlParameterSource args, boolean lock) {
+        return jdbc.query("SELECT " + COLUMNS + " FROM payment_attempt WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        + condition + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private Optional<StoredPaymentAttempt> read(String tenant, PaymentAttemptDO row) {
@@ -96,24 +121,57 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
 
     @Override
     public void insert(String tenant, StoredPaymentAttempt value) {
-        requireTransaction();
+        requireTransaction(tenant);
         if (value.attempt().state() != PaymentAttemptState.INIT || value.rowVersion() != 0)
             throw new CommonException(INVALID_STATE);
-        if (attempts.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_attempt (id, tenant_id, created_at, updated_at, deleted, payment_id, attempt_no,
+                    amount_minor, currency, binding_revision_id, channel, access_mode, account_scope_hash, method,
+                    channel_request_no, state, execution_epoch, no_collection_evidence_id, limit_operation_id,
+                    caller_service_id, request_key, request_digest, payment_request_digest, prepared_input_ref,
+                    risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :paymentId, :attemptNo, :amountMinor, :currency,
+                    :bindingRevisionId, :channel, :accessMode, :accountScopeHash, :method, :channelRequestNo, :state,
+                    :executionEpoch, :noCollectionEvidenceId, :limitOperationId, :callerServiceId, :requestKey, :requestDigest,
+                    :paymentRequestDigest, :preparedInputRef, :riskDecision, :riskReason, :riskConsultationRef,
+                    :executionPermitHash, :preparedAt, :submissionStartedAt, :rowVersion)
+                ON CONFLICT (tenant_id, payment_id, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Payment attempt request key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public void update(String tenant, StoredPaymentAttempt value, long expectedVersion) {
-        requireTransaction();
+        requireTransaction(tenant);
         if (value.rowVersion() != Math.incrementExact(expectedVersion)) throw new CommonException(INVALID_STATE);
-        int changed = attempts.updateByQuery(converter.toTransitionPatch(value), true,
-                scope(tenant).and(PAYMENT_ATTEMPT_DO.ID.eq(value.attempt().id()))
-                        .and(PAYMENT_ATTEMPT_DO.PAYMENT_ID.eq(value.attempt().paymentId()))
-                        .and(PAYMENT_ATTEMPT_DO.ROW_VERSION.eq(expectedVersion)));
+        var row = converter.toTransitionPatch(value);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.attempt().id())
+                .addValue("payment", value.attempt().paymentId()).addValue("expected", expectedVersion)
+                .addValue("state", row.getState()).addValue("epoch", row.getExecutionEpoch())
+                .addValue("evidence", row.getNoCollectionEvidenceId()).addValue("decision", row.getRiskDecision())
+                .addValue("reason", row.getRiskReason()).addValue("consultation", row.getRiskConsultationRef())
+                .addValue("permit", row.getExecutionPermitHash()).addValue("started", row.getSubmissionStartedAt())
+                .addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE payment_attempt SET state = :state, execution_epoch = :epoch, no_collection_evidence_id = :evidence,
+                    risk_decision = :decision, risk_reason = :reason, risk_consultation_ref = :consultation,
+                    execution_permit_hash = :permit, submission_started_at = :started, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+    private void requireTransaction(String tenant) {
+        scope(tenant);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 }

@@ -19,10 +19,10 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
+import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationOutcome;
-import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationQuery;
 import org.junit.jupiter.api.AfterEach;
@@ -32,10 +32,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import java.time.OffsetDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaymentVerificationRpcMapperTest {
     final AnnotationConfigApplicationContext spring = new AnnotationConfigApplicationContext(PaymentVerificationRpcMapper.class.getPackageName());

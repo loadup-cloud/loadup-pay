@@ -15,38 +15,45 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.pay.acquire.infrastructure.converter.AllocationRecoveryStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.AllocationRecoveryCursorDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.AllocationRecoveryCursorDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ALLOCATION_RECOVERY_CURSOR_DO;
 
 @Repository
 public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway {
-    private final AllocationRecoveryCursorDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final AllocationRecoveryStorageConverter converter;
 
-    public AllocationRecoveryGatewayImpl(AllocationRecoveryCursorDOMapper mapper, AllocationRecoveryStorageConverter converter) {
-        this.mapper = mapper;
+    public AllocationRecoveryGatewayImpl(NamedParameterJdbcTemplate jdbc, AllocationRecoveryStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
     }
 
     @Override
     public Optional<AllocationRecoveryCursor> find(String tenant, String paymentId) {
         trustedTenant(tenant);
-        var row = mapper.selectOneByQuery(scope(tenant, paymentId));
+        var row = row(tenant, paymentId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -57,7 +64,7 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     @Override
     public Optional<AllocationRecoveryCursor> lock(String tenant, String paymentId) {
         writable(tenant);
-        var row = mapper.selectOneByQuery(scope(tenant, paymentId).forUpdate());
+        var row = row(tenant, paymentId, true);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -68,7 +75,15 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     @Override
     public void insert(String tenant, AllocationRecoveryCursor value) {
         writable(tenant);
-        if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO allocation_recovery_cursor (id, tenant_id, created_at, updated_at, deleted, order_id, generation, due_at, completed)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :generation, :dueAt, :completed)
+                """, new BeanPropertySqlParameterSource(row));
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -81,22 +96,32 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         if (!before.paymentId().equals(after.paymentId()) || !before.orderId().equals(after.orderId()) || (!completed && !rescheduled))
             throw new CommonException(INVALID_STATE);
 
-        int changed = mapper.updateByQuery(converter.toPatch(after), true,
-                scope(tenant, before.paymentId()).and(ALLOCATION_RECOVERY_CURSOR_DO.GENERATION.eq(before.generation()))
-                        .and(ALLOCATION_RECOVERY_CURSOR_DO.COMPLETED.eq(false))
-                        .and(ALLOCATION_RECOVERY_CURSOR_DO.ORDER_ID.eq(before.orderId()))
-                        .and(ALLOCATION_RECOVERY_CURSOR_DO.DUE_AT.eq(before.dueAt())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.paymentId())
+                .addValue("order", before.orderId()).addValue("oldGeneration", before.generation()).addValue("oldDue", before.dueAt())
+                .addValue("generation", after.generation()).addValue("due", after.dueAt()).addValue("completed", after.completed())
+                .addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE allocation_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND order_id = :order
+                    AND generation = :oldGeneration AND due_at = :oldDue AND completed = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private QueryWrapper scope(String tenant, String paymentId) {
-        return QueryWrapper.create().where(ALLOCATION_RECOVERY_CURSOR_DO.TENANT_ID.eq(tenant))
-                .and(ALLOCATION_RECOVERY_CURSOR_DO.DELETED.eq(0)).and(ALLOCATION_RECOVERY_CURSOR_DO.ID.eq(paymentId));
+    private AllocationRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", paymentId);
+        return jdbc.query("""
+                        SELECT id, tenant_id, created_at, updated_at, order_id, generation, due_at, completed
+                        FROM allocation_recovery_cursor WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                        """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(AllocationRecoveryCursorDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
         trustedTenant(tenant);
     }

@@ -250,9 +250,11 @@ export function invocation(action, selected, now = Date.now()) {
         require(typeof data.timeStamp === "string" && /^[0-9]{1,20}$/.test(data.timeStamp));
         require(typeof data.package === "string" && data.package.startsWith("prepay_id=") && data.package.length > 10);
         require(typeof data.paySign === "string" && /^[A-Za-z0-9+/]+={0,2}$/.test(data.paySign));
-        parameters = {appId: signedText(data.appId, 64), timeStamp: data.timeStamp,
+        parameters = {
+            appId: signedText(data.appId, 64), timeStamp: data.timeStamp,
             nonceStr: signedText(data.nonceStr, 32), package: signedText(data.package, 256),
-            signType: "RSA", paySign: signedText(data.paySign, 1024)};
+            signType: "RSA", paySign: signedText(data.paySign, 1024)
+        };
     } else if (checked.channel === "ALIPAY") {
         exactFields(data, ["type", "tradeNo"]);
         require(data.type === "ALIPAY_JSAPI");

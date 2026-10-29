@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("order_close_intent")
 public class OrderCloseIntentDO extends BaseDO {
     private String orderId;
     private String payeeMerchantId;

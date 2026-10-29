@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
@@ -62,15 +61,9 @@ import io.github.loadup.pay.payment.infrastructure.codec.ChannelBindingCodecImpl
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentAcceptanceCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentAttemptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundAllocationPlanDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -98,11 +91,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_ATTEMPT_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ALLOCATION_PLAN_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_REQUEST_DO;
 import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
 import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -137,12 +125,8 @@ class FinancialPersistenceIT {
     private final PaymentAcceptanceCodec codec;
     private final ChannelBindingCodec bindingCodec;
     private final RefundGateway refunds;
-    private final PaymentRefundCapacityDOMapper capacities;
     private final PaymentResultStorageConverter capacityConverter;
-    private final PaymentAttemptDOMapper attemptRows;
-    private final RefundRequestDOMapper requestRows;
-    private final RefundOrderDOMapper childRows;
-    private final RefundAllocationPlanDOMapper planRows;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final JsonMapper json;
     private final TestScenario scenario;
     private final RemotePorts remote;
@@ -153,9 +137,9 @@ class FinancialPersistenceIT {
     FinancialPersistenceIT(PaymentAcceptanceTransactions transactions, PaymentSubmissionPreparation preparation,
                            PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentExecutionLocks locks,
                            ChannelBindingManagementGateway bindings, PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec,
-                           RefundGateway refunds, PaymentRefundCapacityDOMapper capacities, PaymentResultStorageConverter capacityConverter,
-                           PaymentAttemptDOMapper attemptRows, RefundRequestDOMapper requestRows, RefundOrderDOMapper childRows,
-                           RefundAllocationPlanDOMapper planRows, JsonMapper json, TestScenario scenario, RemotePorts remote,
+                           RefundGateway refunds, PaymentResultStorageConverter capacityConverter,
+                           org.springframework.jdbc.core.JdbcTemplate jdbc,
+                           JsonMapper json, TestScenario scenario, RemotePorts remote,
                            io.github.loadup.pay.payment.app.service.PaymentInputService inputService, PaymentInputGateway inputStore) {
         this.transactions = transactions;
         this.preparation = preparation;
@@ -166,12 +150,8 @@ class FinancialPersistenceIT {
         this.codec = codec;
         this.bindingCodec = bindingCodec;
         this.refunds = refunds;
-        this.capacities = capacities;
         this.capacityConverter = capacityConverter;
-        this.attemptRows = attemptRows;
-        this.requestRows = requestRows;
-        this.childRows = childRows;
-        this.planRows = planRows;
+        this.jdbc = jdbc;
         this.json = json;
         this.scenario = scenario;
         this.remote = remote;
@@ -291,8 +271,8 @@ class FinancialPersistenceIT {
             assertEquals(1L, persisted.rowVersion());
             assertEquals(fixture.attempt().attempt().channelRequestNo(), persisted.attempt().channelRequestNo());
             assertEquals(codec.checksum(RemotePorts.PERMIT), persisted.executionPermitHash());
-            assertEquals(1L, attemptRows.selectCountByQuery(QueryWrapper.create().where(PAYMENT_ATTEMPT_DO.TENANT_ID.eq(fixture.tenant()))
-                    .and(PAYMENT_ATTEMPT_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
+            assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM payment_attempt WHERE tenant_id = ? AND payment_id = ?",
+                    Long.class, fixture.tenant(), fixture.command().paymentId()));
             return true;
         });
         verifyNoInteractions(remote.cipher, remote.events);
@@ -422,7 +402,12 @@ class FinancialPersistenceIT {
         var capacity = new PaymentRefundCapacity(fixture.command().paymentId(), fixture.command().orderId(), fixture.command().payeeMerchantId(),
                 AT.minusHours(1), Money.ofMinor(10000L, "CNY"), 0L, 0L, 0L);
         transactions.writeLocal(fixture.tenant(), () -> {
-            assertEquals(1, capacities.insert(capacityConverter.toCapacityDO(fixture.tenant(), id("capacity"), capacity)));
+            assertEquals(1, jdbc.update("""
+                            INSERT INTO payment_refund_capacity (id, tenant_id, created_at, updated_at, deleted, payment_id,
+                                order_id, payee_merchant_id, succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version)
+                            VALUES (?, ?, ?, ?, FALSE, ?, ?, ?, ?, ?, 'CNY', 0, 0, 0)
+                            """, id("capacity"), fixture.tenant(), AT, AT, capacity.paymentId(), capacity.orderId(),
+                    capacity.payeeMerchantId(), capacity.succeededAt(), capacity.succeededAmount().getCent()));
             return true;
         });
         return fixture;
@@ -450,18 +435,23 @@ class FinancialPersistenceIT {
     }
 
     private PaymentRefundCapacity capacity(FinancialPersistenceFixtures.Fixture fixture) {
-        return capacityConverter.toCapacity(capacities.selectOneByQuery(QueryWrapper.create()
-                .where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(fixture.tenant()))
-                .and(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
+        var row = jdbc.queryForObject("""
+                        SELECT id, tenant_id, payment_id, order_id, payee_merchant_id, succeeded_at, succeeded_minor,
+                               currency, refunded_minor, reserved_minor, row_version FROM payment_refund_capacity
+                        WHERE tenant_id = ? AND payment_id = ? AND deleted = FALSE
+                        """, org.springframework.jdbc.core.BeanPropertyRowMapper.newInstance(
+                        io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO.class),
+                fixture.tenant(), fixture.command().paymentId());
+        return capacityConverter.toCapacity(row);
     }
 
     private void assertPlanCounts(FinancialPersistenceFixtures.Fixture fixture, long expected) {
-        assertEquals(expected, requestRows.selectCountByQuery(QueryWrapper.create().where(REFUND_REQUEST_DO.TENANT_ID.eq(fixture.tenant()))
-                .and(REFUND_REQUEST_DO.ORDER_ID.eq(fixture.command().orderId()))));
-        assertEquals(expected, childRows.selectCountByQuery(QueryWrapper.create().where(REFUND_ORDER_DO.TENANT_ID.eq(fixture.tenant()))
-                .and(REFUND_ORDER_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
-        assertEquals(expected, planRows.selectCountByQuery(QueryWrapper.create().where(REFUND_ALLOCATION_PLAN_DO.TENANT_ID.eq(fixture.tenant()))
-                .and(REFUND_ALLOCATION_PLAN_DO.PAYMENT_ID.eq(fixture.command().paymentId()))));
+        assertEquals(expected, jdbc.queryForObject("SELECT COUNT(*) FROM refund_request WHERE tenant_id = ? AND order_id = ?",
+                Long.class, fixture.tenant(), fixture.command().orderId()));
+        assertEquals(expected, jdbc.queryForObject("SELECT COUNT(*) FROM refund_order WHERE tenant_id = ? AND payment_id = ? AND deleted = FALSE",
+                Long.class, fixture.tenant(), fixture.command().paymentId()));
+        assertEquals(expected, jdbc.queryForObject("SELECT COUNT(*) FROM refund_allocation_plan WHERE tenant_id = ? AND payment_id = ?",
+                Long.class, fixture.tenant(), fixture.command().paymentId()));
     }
 
     static final class RemotePorts {
@@ -526,7 +516,6 @@ class FinancialPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = PaymentAttemptDOMapper.class)
     @ComponentScan(basePackageClasses = {PaymentRecoveryStorageConverter.class, PaymentSubmissionConverter.class})
     @Import({PaymentAcceptanceGatewayImpl.class, PaymentControlGatewayImpl.class, PaymentAttemptGatewayImpl.class, PaymentInputGatewayImpl.class,
             ChannelBindingGatewayImpl.class, RefundGatewayImpl.class, PaymentAcceptanceCodecImpl.class, ChannelBindingCodecImpl.class,

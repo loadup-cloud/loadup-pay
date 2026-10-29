@@ -15,51 +15,57 @@
  */
 package io.github.loadup.pay.product.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
 import io.github.loadup.pay.product.domain.gateway.OrderAdmissionGateway;
 import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
 import io.github.loadup.pay.product.infrastructure.converter.AdmissionStorageConverter;
 import io.github.loadup.pay.product.infrastructure.dataobject.OrderAdmissionDO;
-import io.github.loadup.pay.product.infrastructure.mapper.OrderAdmissionDOMapper;
+import io.github.loadup.pay.product.infrastructure.exception.AdmissionOrderConflictException;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
 public class OrderAdmissionGatewayImpl implements OrderAdmissionGateway {
-    private final OrderAdmissionDOMapper mapper;
+    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, "
+            + "product_scope_key, request_digest, amount_minor, currency, requested_due_at, caller_scope_hash, "
+            + "contract_id, contract_revision, contract_generation, merchant_fact_version, authorization_version, "
+            + "state, reason_code, admitted_at, materialize_before, snapshot_hash, compiled_terms_hash, compiled_terms";
+    private final NamedParameterJdbcTemplate jdbc;
     private final AdmissionStorageConverter converter;
+    private final Clock clock;
+    private final BeanPropertyRowMapper<OrderAdmissionDO> rowMapper = BeanPropertyRowMapper.newInstance(OrderAdmissionDO.class);
 
-    public OrderAdmissionGatewayImpl(OrderAdmissionDOMapper mapper, AdmissionStorageConverter converter) {
-        this.mapper = mapper;
+    public OrderAdmissionGatewayImpl(NamedParameterJdbcTemplate jdbc, AdmissionStorageConverter converter,
+                                     @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
-    }
-
-    private QueryWrapper scope(String tenant) {
-        return QueryWrapper.create()
-                .where(OrderAdmissionDO::getTenantId)
-                .eq(tenant)
-                .and(OrderAdmissionDO::getDeleted)
-                .eq(0);
+        this.clock = clock;
     }
 
     @Override
     public Optional<StoredOrderAdmission> findByOrder(String tenant, String order) {
-        return stored(mapper.selectOneByQuery(
-                scope(tenant).and(OrderAdmissionDO::getOrderId).eq(order)));
+        return read("order_id = :value", tenant, order);
     }
 
     @Override
     public Optional<StoredOrderAdmission> findById(String tenant, String id) {
-        return stored(mapper.selectOneByQuery(
-                scope(tenant).and(OrderAdmissionDO::getId).eq(id)));
+        return read("id = :value", tenant, id);
     }
 
-    private Optional<StoredOrderAdmission> stored(OrderAdmissionDO row) {
+    private Optional<StoredOrderAdmission> read(String condition, String tenant, String value) {
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("value", value);
         try {
-            return Optional.ofNullable(row).map(converter::toStored);
+            return jdbc.query("SELECT " + COLUMNS + " FROM order_admission WHERE tenant_id = :tenant "
+                    + "AND deleted = FALSE AND " + condition, args, rowMapper).stream().findFirst().map(converter::toStored);
         } catch (IllegalArgumentException | NullPointerException corrupted) {
             throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
         }
@@ -67,7 +73,22 @@ public class OrderAdmissionGatewayImpl implements OrderAdmissionGateway {
 
     @Override
     public void insert(String tenant, StoredOrderAdmission value) {
-        // DuplicateKeyException must escape the transaction; the application reads the winner after rollback.
-        mapper.insert(converter.toDO(tenant, value));
+        OrderAdmissionDO row = converter.toDO(tenant, value);
+        LocalDateTime now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO order_admission (id, tenant_id, created_at, updated_at, deleted, order_id, payee_merchant_id,
+                    product_scope_key, request_digest, amount_minor, currency, requested_due_at, caller_scope_hash,
+                    contract_id, contract_revision, contract_generation, merchant_fact_version, authorization_version,
+                    state, reason_code, admitted_at, materialize_before, snapshot_hash, compiled_terms_hash, compiled_terms)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :productScopeKey,
+                    :requestDigest, :amountMinor, :currency, :requestedDueAt, :callerScopeHash, :contractId,
+                    :contractRevision, :contractGeneration, :merchantFactVersion, :authorizationVersion, :state,
+                    :reasonCode, :admittedAt, :materializeBefore, :snapshotHash, :compiledTermsHash, :compiledTerms)
+                ON CONFLICT (tenant_id, order_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new AdmissionOrderConflictException();
+        if (count != 1) throw new IllegalStateException("Unexpected admission insert count");
     }
 }

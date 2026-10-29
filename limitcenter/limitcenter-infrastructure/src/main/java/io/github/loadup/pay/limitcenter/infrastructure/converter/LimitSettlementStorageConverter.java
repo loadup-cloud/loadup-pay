@@ -16,13 +16,8 @@
 package io.github.loadup.pay.limitcenter.infrastructure.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
-import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
-import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitOperationGateDO;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitReservationItemDO;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
-import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -36,15 +31,4 @@ public interface LimitSettlementStorageConverter {
     @Mapping(target = "deleted", constant = "0")
     LimitSettlementReceiptDO toDO(String tenant, LimitSettlementReceipt value);
 
-    @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "consumedValue", source = "consumed")
-    @Mapping(target = "restoredValue", source = "restored")
-    LimitReservationItemDO toItemPatch(LimitReservationItem item);
-
-    @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "state", source = "gate.state")
-    @Mapping(target = "paymentSourceVersion", source = "gate.paymentSourceVersion")
-    @Mapping(target = "noCollectionEvidenceId", source = "gate.noCollectionEvidenceId")
-    @Mapping(target = "rowVersion", source = "rowVersion")
-    LimitOperationGateDO toGatePatch(LimitOperationGate gate, long rowVersion);
 }

@@ -52,11 +52,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import io.github.loadup.pay.reconciliation.infrastructure.client.FileResourceReconciliationSources;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationReviewStorageConverter;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationReviewDOMapper;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationReviewEventDOMapper;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationReviewProposalDOMapper;
 import org.junit.jupiter.api.Test;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -261,8 +257,8 @@ class ReconciliationReviewPersistenceIT {
     static class FaultingReviews extends ReconciliationReviewGatewayImpl {
         final AtomicReference<String> failRequest = new AtomicReference<>();
 
-        FaultingReviews(ReconciliationReviewDOMapper heads, ReconciliationReviewProposalDOMapper proposals, ReconciliationReviewEventDOMapper events, ReconciliationReviewStorageConverter converter) {
-            super(heads, proposals, events, converter);
+        FaultingReviews(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, Clock clock) {
+            super(jdbc, converter, clock);
         }
 
         @Override
@@ -276,7 +272,6 @@ class ReconciliationReviewPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = ReconciliationReviewDOMapper.class)
     @ComponentScan(basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
     @Import({ReconciliationReviewService.class, ReconciliationTransactions.class, ReconciliationBatchGatewayImpl.class,
             ReconciliationInputGatewayImpl.class, ReconciliationResultGatewayImpl.class, FileResourceReconciliationSources.class})
@@ -287,8 +282,8 @@ class ReconciliationReviewPersistenceIT {
         }
 
         @Bean
-        FaultingReviews reviews(ReconciliationReviewDOMapper heads, ReconciliationReviewProposalDOMapper proposals, ReconciliationReviewEventDOMapper events, ReconciliationReviewStorageConverter converter) {
-            return new FaultingReviews(heads, proposals, events, converter);
+        FaultingReviews reviews(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, @org.springframework.beans.factory.annotation.Qualifier("reconciliationClock") Clock clock) {
+            return new FaultingReviews(jdbc, converter, clock);
         }
 
         @Bean("reconciliationClock")

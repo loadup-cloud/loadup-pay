@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.reconciliation.client.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationBatchTaskDTO(
         @Schema(description = "Original run id") String runId,

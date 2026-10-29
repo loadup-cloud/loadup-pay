@@ -24,18 +24,19 @@ import io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAcceptanceDO;
-import io.github.loadup.pay.payment.infrastructure.dataobject.RefundChannelReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundChannelReceiptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -45,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,10 +60,11 @@ import static org.mockito.Mockito.when;
 class RefundAcceptanceGatewayImplTest {
     private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundStorageConverter.class.getPackageName());
     private final RefundAcceptanceStorageConverter converter = context.getBean(RefundAcceptanceStorageConverter.class);
-    private final RefundAcceptanceDOMapper accepted = mock(RefundAcceptanceDOMapper.class);
-    private final RefundOrderDOMapper children = mock(RefundOrderDOMapper.class);
-    private final RefundChannelReceiptDOMapper receipts = mock(RefundChannelReceiptDOMapper.class);
-    private final RefundAcceptanceGatewayImpl gateway = new RefundAcceptanceGatewayImpl(accepted, children, receipts, converter, context.getBean(RefundStorageConverter.class));
+    private final NamedParameterJdbcTemplate receipts = mock(NamedParameterJdbcTemplate.class);
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate = mock(org.springframework.jdbc.core.JdbcTemplate.class);
+    private final javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
+    private final RefundAcceptanceGatewayImpl gateway = new RefundAcceptanceGatewayImpl(receipts, converter,
+            context.getBean(RefundStorageConverter.class), Clock.systemDefaultZone());
     private final LocalDateTime at = LocalDateTime.of(2026, 10, 26, 23, 59);
     private final ChannelPaymentIdentity identity = new ChannelPaymentIdentity("payment", "attempt", Channel.WECHAT, "revision", "a".repeat(64), "payment-request");
     private final RefundAcceptanceEvidence first = evidence(at, "receipt");
@@ -69,6 +72,9 @@ class RefundAcceptanceGatewayImplTest {
     @BeforeEach
     void setup() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
+        TransactionSynchronizationManager.bindResource(dataSource, new Object());
+        when(receipts.getJdbcTemplate()).thenReturn(jdbcTemplate);
+        when(jdbcTemplate.getDataSource()).thenReturn(dataSource);
         var child = new RefundOrderDO();
         child.setId("refund");
         child.setPaymentId("payment");
@@ -84,16 +90,19 @@ class RefundAcceptanceGatewayImplTest {
         child.setSubmissionStartedAt(at.minusMinutes(1));
         child.setOriginalSucceededAt(at.minusHours(1));
         child.setRowVersion(2L);
-        when(children.selectOneByQuery(any())).thenReturn(child);
-        var receipt = new RefundChannelReceiptDO();
-        receipt.setDisposition("APPLIED");
-        when(receipts.selectOneByQuery(any())).thenReturn(receipt);
-        when(accepted.insert(any(RefundAcceptanceDO.class))).thenReturn(1);
+        when(receipts.query(contains("FROM refund_order"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                .thenReturn(List.of(child));
+        when(receipts.query(contains("FROM refund_channel_receipt"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<String>>any()))
+                .thenReturn(List.of("APPLIED"));
+        when(receipts.query(contains("FROM refund_acceptance_evidence"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
+                .thenReturn(List.of());
+        when(receipts.update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class))).thenReturn(1);
     }
 
     @AfterEach
     void close() {
         context.close();
+        TransactionSynchronizationManager.unbindResource(dataSource);
         TransactionSynchronizationManager.clear();
     }
 
@@ -102,10 +111,11 @@ class RefundAcceptanceGatewayImplTest {
         assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L)));
         var stored = converter.toDO("tenant", first);
         assertEquals(first, converter.toModel(stored));
-        when(accepted.selectOneByQuery(any())).thenReturn(stored);
+        when(receipts.query(contains("FROM refund_acceptance_evidence"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
+                .thenReturn(List.of(stored));
         assertTrue(TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", evidence(at, "later-receipt"), 2L)));
         assertFalse(TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", evidence(at.plusMinutes(1), "later-receipt"), 2L)));
-        verify(accepted, times(1)).insert(any(RefundAcceptanceDO.class));
+        verify(receipts, times(1)).update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
         assertEquals("receipt", TenantUtil.callWithTenant("tenant", () -> gateway.find("tenant", "refund")).orElseThrow().receiptId());
         assertEquals(at, stored.getAcceptedAt());
     }
@@ -114,9 +124,10 @@ class RefundAcceptanceGatewayImplTest {
     void missingReceiptWrongVersionOrTimeBeforePaymentCannotCreateMetadata() {
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 1L))).getResultCode());
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", evidence(at.minusDays(1), "receipt"), 2L)));
-        when(receipts.selectOneByQuery(any())).thenReturn(null);
+        when(receipts.query(contains("FROM refund_channel_receipt"), any(SqlParameterSource.class), org.mockito.ArgumentMatchers.<RowMapper<String>>any()))
+                .thenReturn(List.of());
         assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L)));
-        verify(accepted, never()).insert(any(RefundAcceptanceDO.class));
+        verify(receipts, never()).update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class));
     }
 
     @Test
@@ -124,7 +135,7 @@ class RefundAcceptanceGatewayImplTest {
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
         assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant", () -> gateway.remember("tenant", first, 2L))).getResultCode());
         assertEquals(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("other", () -> gateway.find("tenant", "refund"))).getResultCode());
-        verifyNoInteractions(accepted, children, receipts);
+        verifyNoInteractions(receipts);
     }
 
     private RefundAcceptanceEvidence evidence(LocalDateTime value, String receipt) {

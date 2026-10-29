@@ -24,6 +24,7 @@ import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO;
@@ -43,7 +44,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
@@ -194,7 +194,7 @@ class PaymentInputServiceTest {
     void concurrentWinnerIsReplayedOnlyAfterTheLosingInsertRollsBack() {
         doAnswer(call -> {
             persisted.set(call.getArgument(1));
-            throw new DuplicateKeyException("Synthetic input race");
+            throw new PaymentWriteConflictException("Synthetic input race");
         }).when(store).insert(eq("tenant"), any());
         assertEquals("opaque-reference", service.prepare(command).inputRef());
         assertEquals(1, manager.rollbacks);

@@ -15,10 +15,8 @@
  */
 package io.github.loadup.pay.realtime.infrastructure.config;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@MapperScan("io.github.loadup.pay.realtime.infrastructure.mapper")
 public class RealtimePersistenceConfiguration {
 }

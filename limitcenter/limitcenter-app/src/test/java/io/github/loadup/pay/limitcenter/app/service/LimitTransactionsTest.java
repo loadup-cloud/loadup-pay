@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ class LimitTransactionsTest {
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
             int attempt = calls.incrementAndGet();
             assertEquals(attempt - 1, manager.rollbacks);
-            if (attempt < 3) throw new org.springframework.dao.DuplicateKeyException("Synthetic reservation race");
+            if (attempt < 3) throw new LimitWriteRaceException("Synthetic reservation race");
             return "reserved";
         }));
         assertEquals(3, calls.get());
@@ -112,6 +113,19 @@ class LimitTransactionsTest {
         assertEquals(3, manager.begins);
         assertEquals(1, manager.commits);
         assertNull(TenantUtil.getTenantId());
+    }
+
+    @Test
+    void unexpectedUniqueConstraintFailureIsNotRetried() {
+        var failure = new org.springframework.dao.DuplicateKeyException("unexpected constraint");
+        var calls = new AtomicInteger();
+        assertSame(failure, assertThrows(org.springframework.dao.DuplicateKeyException.class,
+                () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
+                    calls.incrementAndGet();
+                    throw failure;
+                })));
+        assertEquals(1, calls.get());
+        assertEquals(1, manager.rollbacks);
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {

@@ -17,11 +17,11 @@ package io.github.loadup.pay.payment.client;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.pay.payment.domain.model.PaymentState;
-import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;

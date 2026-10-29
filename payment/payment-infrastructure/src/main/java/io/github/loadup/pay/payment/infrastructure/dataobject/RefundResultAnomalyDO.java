@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("refund_result_anomaly")
 public class RefundResultAnomalyDO extends BaseDO {
     private String refundId;
     private String receiptId;

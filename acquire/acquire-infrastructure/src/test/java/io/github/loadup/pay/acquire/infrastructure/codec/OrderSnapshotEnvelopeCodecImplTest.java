@@ -18,8 +18,8 @@ package io.github.loadup.pay.acquire.infrastructure.codec;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 

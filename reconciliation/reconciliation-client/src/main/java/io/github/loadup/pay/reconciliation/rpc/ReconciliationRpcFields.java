@@ -17,8 +17,8 @@ package io.github.loadup.pay.reconciliation.rpc;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;

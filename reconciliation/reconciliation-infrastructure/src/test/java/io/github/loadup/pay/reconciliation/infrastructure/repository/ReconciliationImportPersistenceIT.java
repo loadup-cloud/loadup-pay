@@ -48,12 +48,10 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.infrastructure.client.FileResourceReconciliationSources;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationImportStorageConverter;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationImportDOMapper;
 import io.github.loadup.pay.reconciliation.infrastructure.statement.ReconciliationStatementParserAdapter;
 import io.github.loadup.pay.reconciliation.infrastructure.statement.WechatTradeStatementParser;
 import io.github.loadup.pay.reconciliation.infrastructure.task.ReconciliationImportTaskHandler;
 import org.junit.jupiter.api.Test;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -266,8 +264,8 @@ class ReconciliationImportPersistenceIT {
     static class FaultingImports extends ReconciliationImportGatewayImpl {
         final AtomicReference<String> failInsertBatch = new AtomicReference<>(), failSealBatch = new AtomicReference<>();
 
-        FaultingImports(ReconciliationImportDOMapper mapper, ReconciliationImportStorageConverter converter) {
-            super(mapper, converter);
+        FaultingImports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
+            super(jdbc, converter, clock);
         }
 
         public void failInsertFor(String batchId) {
@@ -297,7 +295,6 @@ class ReconciliationImportPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = ReconciliationImportDOMapper.class)
     @ComponentScan(basePackageClasses = {ReconciliationImportStorageConverter.class, ReconciliationConverter.class})
     @Import({ReconciliationService.class, ReconciliationImportService.class, ReconciliationImportExecutionService.class, ReconciliationTransactions.class,
             ReconciliationOfficialImports.class, ReconciliationStatementGatewayImpl.class,
@@ -310,8 +307,8 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Bean
-        FaultingImports imports(ReconciliationImportDOMapper mapper, ReconciliationImportStorageConverter converter) {
-            return new FaultingImports(mapper, converter);
+        FaultingImports imports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, @org.springframework.beans.factory.annotation.Qualifier("reconciliationClock") Clock clock) {
+            return new FaultingImports(jdbc, converter, clock);
         }
 
         @Bean

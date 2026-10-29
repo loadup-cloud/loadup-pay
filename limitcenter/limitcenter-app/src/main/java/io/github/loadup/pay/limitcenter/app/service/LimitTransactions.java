@@ -21,8 +21,8 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.app.security.LimitActorProvider;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import jakarta.validation.Validator;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,6 +32,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.DateTimeException;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
@@ -70,9 +72,11 @@ public class LimitTransactions {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
-                } catch (DuplicateKeyException | TransientDataAccessException race) {
+                } catch (LimitWriteRaceException | TransientDataAccessException race) {
                     // Every retry starts a fresh transaction, after the previous attempt has fully rolled back.
                     if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
+                    LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(1_000_000L, 4_000_000L << attempt));
+                    if (Thread.currentThread().isInterrupted()) throw new CommonException(CONCURRENT_UPDATE, race);
                 }
             }
             throw new AssertionError("Unreachable retry state");

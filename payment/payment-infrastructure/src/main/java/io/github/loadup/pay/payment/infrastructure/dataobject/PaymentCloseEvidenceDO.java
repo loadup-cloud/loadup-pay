@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("payment_close_evidence")
 public class PaymentCloseEvidenceDO extends BaseDO {
     private String paymentId;
     private String attemptId;

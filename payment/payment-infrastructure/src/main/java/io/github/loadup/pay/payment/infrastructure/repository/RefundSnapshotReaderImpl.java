@@ -15,49 +15,53 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.pay.payment.app.model.RefundSummaryFacts;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.OrderRefundSummaryDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.ORDER_REFUND_SUMMARY_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_REQUEST_DO;
 
 @Repository
 public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
-    private final RefundOrderDOMapper children;
-    private final RefundRequestDOMapper requests;
-    private final OrderRefundSummaryDOMapper summaries;
+    private final NamedParameterJdbcTemplate jdbc;
     private final RefundProjectionStorageConverter converter;
 
-    public RefundSnapshotReaderImpl(RefundOrderDOMapper children, RefundRequestDOMapper requests, OrderRefundSummaryDOMapper summaries,
+    public RefundSnapshotReaderImpl(NamedParameterJdbcTemplate jdbc,
                                     RefundProjectionStorageConverter converter) {
-        this.children = children;
-        this.requests = requests;
-        this.summaries = summaries;
+        this.jdbc = jdbc;
         this.converter = converter;
     }
 
     @Override
     public RefundSnapshotFacts child(String tenant, String refundId) {
         writable(tenant);
-        var row = children.selectOneByQuery(QueryWrapper.create().where(REFUND_ORDER_DO.TENANT_ID.eq(tenant))
-                .and(REFUND_ORDER_DO.DELETED.eq(0)).and(REFUND_ORDER_DO.ID.eq(refundId)).forUpdate());
+        var childArgs = new MapSqlParameterSource("tenant", tenant).addValue("id", refundId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
+                       binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
+                       original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
+                       currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version
+                FROM refund_order WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE
+                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream().findFirst().orElse(null);
         if (row == null) throw new CommonException(SNAPSHOT_INVALID);
-        var header = requests.selectOneByQuery(QueryWrapper.create().where(REFUND_REQUEST_DO.TENANT_ID.eq(tenant))
-                .and(REFUND_REQUEST_DO.DELETED.eq(0)).and(REFUND_REQUEST_DO.ID.eq(row.getRefundRequestId())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", row.getRefundRequestId());
+        var header = jdbc.query("""
+                SELECT id, order_id, payee_merchant_id, currency FROM refund_request
+                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(RefundRequestDO.class)).stream().findFirst().orElse(null);
         if (header == null || !header.getCurrency().equals(row.getCurrency()))
             throw new CommonException(SNAPSHOT_INVALID);
         try {
@@ -70,8 +74,12 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     @Override
     public RefundSummaryFacts summary(String tenant, String orderId) {
         writable(tenant);
-        var row = summaries.selectOneByQuery(QueryWrapper.create().where(ORDER_REFUND_SUMMARY_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_REFUND_SUMMARY_DO.DELETED.eq(0)).and(ORDER_REFUND_SUMMARY_DO.ORDER_ID.eq(orderId)).forUpdate());
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
+                       currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
+                WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream().findFirst().orElse(null);
         if (row == null) throw new CommonException(SNAPSHOT_INVALID);
         try {
             return converter.toFacts(row, converter.toSummary(row));
@@ -81,8 +89,10 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 }

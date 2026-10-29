@@ -30,10 +30,8 @@ import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRecoveryCursorDOMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.Test;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -260,7 +258,6 @@ class RecoveryPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = PaymentRecoveryCursorDOMapper.class)
     @ComponentScan(basePackageClasses = PaymentRecoveryStorageConverter.class)
     @Import({PaymentRecoveryGatewayImpl.class, PaymentRecoveryRetryGatewayImpl.class, PaymentAcceptanceTransactions.class})
     static class Application {

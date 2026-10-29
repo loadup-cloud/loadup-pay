@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("reconciliation_review_event")
 public class ReconciliationReviewEventDO extends BaseDO {
     private String differenceId;
     private String batchId;

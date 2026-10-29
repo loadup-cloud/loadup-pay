@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("channel_binding_revision")
 public class ChannelBindingRevisionDO extends BaseDO {
     private String bindingId;
     private Integer revision;
@@ -37,9 +35,9 @@ public class ChannelBindingRevisionDO extends BaseDO {
     @DiagnosticHidden
     private String identityPayload;
     private String identityHash;
-    private Integer paymentCodeEnabled;
-    private Integer jsapiEnabled;
-    private Integer h5Enabled;
+    private Boolean paymentCodeEnabled;
+    private Boolean jsapiEnabled;
+    private Boolean h5Enabled;
     private String callerServiceId;
     private LocalDateTime publishedAt;
 
@@ -123,27 +121,27 @@ public class ChannelBindingRevisionDO extends BaseDO {
         identityHash = value;
     }
 
-    public Integer getPaymentCodeEnabled() {
+    public Boolean getPaymentCodeEnabled() {
         return paymentCodeEnabled;
     }
 
-    public void setPaymentCodeEnabled(Integer value) {
+    public void setPaymentCodeEnabled(Boolean value) {
         paymentCodeEnabled = value;
     }
 
-    public Integer getJsapiEnabled() {
+    public Boolean getJsapiEnabled() {
         return jsapiEnabled;
     }
 
-    public void setJsapiEnabled(Integer value) {
+    public void setJsapiEnabled(Boolean value) {
         jsapiEnabled = value;
     }
 
-    public Integer getH5Enabled() {
+    public Boolean getH5Enabled() {
         return h5Enabled;
     }
 
-    public void setH5Enabled(Integer value) {
+    public void setH5Enabled(Boolean value) {
         h5Enabled = value;
     }
 

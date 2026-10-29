@@ -23,11 +23,11 @@ import io.github.loadup.modules.contract.domain.model.TypedValue;
 import io.github.loadup.modules.contract.domain.model.ValueType;
 import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitRuleDTO;
+import io.github.loadup.pay.limitcenter.client.support.LimitPolicyHash;
 import io.github.loadup.pay.limitcenter.domain.model.LimitMetric;
 import io.github.loadup.pay.limitcenter.domain.model.LimitWindowType;
 import io.github.loadup.pay.limitcenter.domain.model.RefundAmountRestorePolicy;
 import io.github.loadup.pay.limitcenter.domain.model.RefundCountRestorePolicy;
-import io.github.loadup.pay.limitcenter.client.support.LimitPolicyHash;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import org.springframework.stereotype.Component;
 

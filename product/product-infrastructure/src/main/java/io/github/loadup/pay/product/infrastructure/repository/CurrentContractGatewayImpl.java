@@ -15,23 +15,21 @@
  */
 package io.github.loadup.pay.product.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
+import io.github.loadup.modules.contract.client.facade.ContractPersistenceFacade;
 import io.github.loadup.modules.contract.domain.model.ContractRecord;
+import io.github.loadup.modules.contract.domain.model.ContractStatus;
 import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
-import io.github.loadup.modules.contract.infrastructure.converter.ContractStorageConverter;
-import io.github.loadup.modules.contract.infrastructure.dataobject.ContractRevisionDO;
-import io.github.loadup.modules.contract.infrastructure.dataobject.MerchantContractDO;
-import io.github.loadup.modules.contract.infrastructure.mapper.ContractRevisionDOMapper;
-import io.github.loadup.modules.contract.infrastructure.mapper.MerchantContractDOMapper;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.product.app.port.CurrentContractGateway;
 import io.github.loadup.pay.product.app.port.PolicyPublicationCodec;
 import io.github.loadup.pay.product.infrastructure.converter.AdmissionStorageConverter;
 import io.github.loadup.pay.product.infrastructure.converter.PolicyPublicationStorageConverter;
 import io.github.loadup.pay.product.infrastructure.dataobject.ContractLimitPublicationDO;
-import io.github.loadup.pay.product.infrastructure.mapper.ContractLimitPublicationDOMapper;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -40,28 +38,22 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SN
 
 @Repository
 public class CurrentContractGatewayImpl implements CurrentContractGateway {
-    private final MerchantContractDOMapper contracts;
-    private final ContractRevisionDOMapper revisions;
-    private final ContractLimitPublicationDOMapper publications;
-    private final ContractStorageConverter storage;
+    private final ContractPersistenceFacade contracts;
+    private final NamedParameterJdbcTemplate jdbc;
     private final AdmissionStorageConverter converter;
     private final ContractCodec codec;
     private final PolicyPublicationStorageConverter publicationStorage;
     private final PolicyPublicationCodec publicationCodec;
 
     public CurrentContractGatewayImpl(
-            MerchantContractDOMapper contracts,
-            ContractRevisionDOMapper revisions,
-            ContractLimitPublicationDOMapper publications,
-            ContractStorageConverter storage,
+            ContractPersistenceFacade contracts,
+            NamedParameterJdbcTemplate jdbc,
             AdmissionStorageConverter converter,
             ContractCodec codec,
             PolicyPublicationStorageConverter publicationStorage,
             PolicyPublicationCodec publicationCodec) {
         this.contracts = contracts;
-        this.revisions = revisions;
-        this.publications = publications;
-        this.storage = storage;
+        this.jdbc = jdbc;
         this.converter = converter;
         this.codec = codec;
         this.publicationStorage = publicationStorage;
@@ -70,40 +62,25 @@ public class CurrentContractGatewayImpl implements CurrentContractGateway {
 
     @Override
     public Optional<ContractRecord> lockByScope(String tenant, String merchant, String scope) {
-        var query = QueryWrapper.create()
-                .where(MerchantContractDO::getTenantId)
-                .eq(tenant)
-                .and(MerchantContractDO::getDeleted)
-                .eq(0)
-                .and(MerchantContractDO::getMerchantId)
-                .eq(merchant)
-                .and(MerchantContractDO::getScopeKey)
-                .eq(scope)
-                .forUpdate();
-        return Optional.ofNullable(contracts.selectOneByQuery(query)).map(storage::toContract);
+        return contracts.lockByScope(tenant, merchant, scope).map(row -> new ContractRecord(
+                row.id(), row.tenantId(), row.merchantId(), row.scopeKey(), row.planVersionId(),
+                ContractStatus.valueOf(row.status()), row.generation(), row.requestKey(), row.requestDigest(),
+                row.createdBy(), row.createdAt(), row.updatedAt()));
     }
 
     @Override
     public MerchantContractRevision snapshot(ContractRecord header) {
         // The reused framework currently signs immutable revision 1; reject inconsistent storage explicitly.
-        var row = revisions.selectOneByQuery(QueryWrapper.create()
-                .where(ContractRevisionDO::getTenantId)
-                .eq(header.tenantId())
-                .and(ContractRevisionDO::getDeleted)
-                .eq(0)
-                .and(ContractRevisionDO::getContractId)
-                .eq(header.id())
-                .and(ContractRevisionDO::getRevision)
-                .eq(1));
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
+        var row = contracts.revision(header.tenantId(), header.id(), 1)
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         try {
-            var snapshot = codec.read(row.getSnapshot(), MerchantContractRevision.class);
+            var snapshot = codec.read(row.snapshot(), MerchantContractRevision.class);
             if (!snapshot.tenantId().equals(header.tenantId())
                     || !snapshot.merchantId().equals(header.merchantId())
                     || !snapshot.scopeKey().equals(header.scopeKey())
                     || !snapshot.contractId().equals(header.id())
-                    || snapshot.revision() != row.getRevision()
-                    || !snapshot.snapshotHash().equals(row.getSnapshotHash()))
+                    || snapshot.revision() != row.revision()
+                    || !snapshot.snapshotHash().equals(row.snapshotHash()))
                 throw new CommonException(SNAPSHOT_INVALID);
             return snapshot;
         } catch (RuntimeException invalid) {
@@ -113,15 +90,11 @@ public class CurrentContractGatewayImpl implements CurrentContractGateway {
 
     @Override
     public Optional<ActivatedLimitPolicy> publication(String tenant, String contract, int revision) {
-        var row = publications.selectOneByQuery(QueryWrapper.create()
-                .where(ContractLimitPublicationDO::getTenantId)
-                .eq(tenant)
-                .and(ContractLimitPublicationDO::getDeleted)
-                .eq(0)
-                .and(ContractLimitPublicationDO::getContractId)
-                .eq(contract)
-                .and(ContractLimitPublicationDO::getContractRevision)
-                .eq(revision));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("contract", contract).addValue("revision", revision);
+        var row = jdbc.query("SELECT " + PolicyPublicationGatewayImpl.COLUMNS
+                        + " FROM contract_limit_publication WHERE tenant_id = :tenant AND contract_id = :contract "
+                        + "AND contract_revision = :revision AND deleted = FALSE", args,
+                BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class)).stream().findFirst().orElse(null);
         // Legacy rows without a frozen v1 source/Outbox binding are not trusted activation receipts.
         if (row == null
                 || !Integer.valueOf(1).equals(row.getPublicationSchemaVersion())

@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.database.id.IdGenerator;
-import io.github.loadup.components.delayedtask.mapper.DelayedTaskDOMapper;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
@@ -51,12 +49,6 @@ import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.infrastructure.codec.OrderCreationCodecImpl;
 import io.github.loadup.pay.acquire.infrastructure.codec.PaymentInitiationCodecImpl;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderCreationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.AllocationRecoveryCursorDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.FeeAdjustmentDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderFeeDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentAllocationDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentOutcomeDOMapper;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
@@ -68,7 +60,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -93,11 +84,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ALLOCATION_RECOVERY_CURSOR_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.FEE_ADJUSTMENT_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_FEE_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_ALLOCATION_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_OUTCOME_DO;
 import static io.github.loadup.pay.acquire.infrastructure.repository.AcquiringPersistenceFixtures.AT;
 import static io.github.loadup.pay.acquire.infrastructure.repository.AcquiringPersistenceFixtures.OWNER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -127,12 +113,6 @@ class AcquiringFinancialPersistenceIT {
     private final OrderCreationTransactions transactions;
     private final PaymentInitiationService starts;
     private final PaymentProgressService progress;
-    private final OrderPaymentAllocationDOMapper allocations;
-    private final OrderPaymentOutcomeDOMapper receipts;
-    private final AllocationRecoveryCursorDOMapper cursors;
-    private final DelayedTaskDOMapper nativeTasks;
-    private final OrderFeeDOMapper fees;
-    private final FeeAdjustmentDOMapper adjustments;
     private final JdbcTemplate jdbc;
     private final TestScenario scenario;
     private final RemotePayment remote;
@@ -140,9 +120,8 @@ class AcquiringFinancialPersistenceIT {
     @Autowired
     AcquiringFinancialPersistenceIT(OrderCreationGateway orders, PaymentOutcomeGateway outcomes, OrderCreationCodec codec,
                                     AcquireOrderConverter converter, OrderCreationTransactions transactions, PaymentInitiationService starts,
-                                    PaymentProgressService progress, OrderPaymentAllocationDOMapper allocations, OrderPaymentOutcomeDOMapper receipts,
-                                    AllocationRecoveryCursorDOMapper cursors, DelayedTaskDOMapper nativeTasks, OrderFeeDOMapper fees,
-                                    FeeAdjustmentDOMapper adjustments, JdbcTemplate jdbc, TestScenario scenario, RemotePayment remote) {
+                                    PaymentProgressService progress,
+                                    JdbcTemplate jdbc, TestScenario scenario, RemotePayment remote) {
         this.orders = orders;
         this.outcomes = outcomes;
         this.codec = codec;
@@ -150,12 +129,6 @@ class AcquiringFinancialPersistenceIT {
         this.transactions = transactions;
         this.starts = starts;
         this.progress = progress;
-        this.allocations = allocations;
-        this.receipts = receipts;
-        this.cursors = cursors;
-        this.nativeTasks = nativeTasks;
-        this.fees = fees;
-        this.adjustments = adjustments;
         this.jdbc = jdbc;
         this.scenario = scenario;
         this.remote = remote;
@@ -344,23 +317,22 @@ class AcquiringFinancialPersistenceIT {
     }
 
     private long allocationCount(AcquiringPersistenceFixtures.Fixture f) {
-        return allocations.selectCountByQuery(QueryWrapper.create().where(ORDER_PAYMENT_ALLOCATION_DO.TENANT_ID.eq(f.tenant()))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.ORDER_ID.eq(f.stored().order().id())));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                Long.class, f.tenant(), f.stored().order().id());
     }
 
     private long receiptCount(AcquiringPersistenceFixtures.Fixture f) {
-        return receipts.selectCountByQuery(QueryWrapper.create().where(ORDER_PAYMENT_OUTCOME_DO.TENANT_ID.eq(f.tenant()))
-                .and(ORDER_PAYMENT_OUTCOME_DO.ORDER_ID.eq(f.stored().order().id())));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM order_payment_outcome WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                Long.class, f.tenant(), f.stored().order().id());
     }
 
     private long cursorCount(AcquiringPersistenceFixtures.Fixture f) {
-        return cursors.selectCountByQuery(QueryWrapper.create().where(ALLOCATION_RECOVERY_CURSOR_DO.TENANT_ID.eq(f.tenant()))
-                .and(ALLOCATION_RECOVERY_CURSOR_DO.ORDER_ID.eq(f.stored().order().id())));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM allocation_recovery_cursor WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                Long.class, f.tenant(), f.stored().order().id());
     }
 
     private long nativeCount(AcquiringPersistenceFixtures.Fixture f) {
-        return nativeTasks.selectCountByQuery(QueryWrapper.create().where(
-                io.github.loadup.components.delayedtask.dataobject.table.Tables.DELAYED_TASK_DO.TENANT_ID.eq(f.tenant())));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM delayed_task WHERE tenant_id = ?", Long.class, f.tenant());
     }
 
     private long outboxCount(AcquiringPersistenceFixtures.Fixture f) {
@@ -369,13 +341,13 @@ class AcquiringFinancialPersistenceIT {
     }
 
     private String feeState(AcquiringPersistenceFixtures.Fixture f) {
-        return fees.selectOneByQuery(QueryWrapper.create().where(ORDER_FEE_DO.TENANT_ID.eq(f.tenant()))
-                .and(ORDER_FEE_DO.ORDER_ID.eq(f.stored().order().id()))).getState();
+        return jdbc.queryForObject("SELECT state FROM order_fee WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                String.class, f.tenant(), f.stored().order().id());
     }
 
     private long adjustmentCount(AcquiringPersistenceFixtures.Fixture f) {
-        return adjustments.selectCountByQuery(QueryWrapper.create().where(FEE_ADJUSTMENT_DO.TENANT_ID.eq(f.tenant()))
-                .and(FEE_ADJUSTMENT_DO.ORDER_ID.eq(f.stored().order().id())));
+        return jdbc.queryForObject("SELECT COUNT(*) FROM fee_adjustment WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                Long.class, f.tenant(), f.stored().order().id());
     }
 
     static final class RemotePayment {
@@ -437,7 +409,6 @@ class AcquiringFinancialPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = AcquireOrderDOMapper.class)
     @ComponentScan(basePackageClasses = {OrderCreationStorageConverter.class, AcquireOrderConverter.class})
     @Import({OrderCreationGatewayImpl.class, PaymentInitiationGatewayImpl.class, PaymentOutcomeGatewayImpl.class,
             AllocationRecoveryGatewayImpl.class, OrderSnapshotReaderImpl.class, OrderFeeGatewayImpl.class, MerchantNotificationGatewayImpl.class,

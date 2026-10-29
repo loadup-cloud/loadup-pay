@@ -30,9 +30,9 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
+import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationOutcome;
-import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationReviewConverter;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentVerification;
@@ -49,7 +49,6 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationReviewPr
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationSubmitCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationDTO;
-import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
@@ -62,6 +61,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
@@ -71,14 +71,13 @@ import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatc
 import io.github.loadup.pay.reconciliation.infrastructure.client.FileResourceReconciliationSources;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationReviewStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationVerificationStorageConverter;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationVerificationDOMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -143,6 +142,7 @@ class ReconciliationVerificationPersistenceIT {
     final OutboxDispatcher dispatcher;
     final Handler handler;
     final DataSource dataSource;
+    final org.springframework.transaction.PlatformTransactionManager transactionManager;
     final Set<String> tenants = new HashSet<>();
 
     @Autowired
@@ -150,7 +150,8 @@ class ReconciliationVerificationPersistenceIT {
                                             ReconciliationBatchGateway batches, ReconciliationInputGateway inputs, ReconciliationResultGateway results,
                                             ReconciliationTransactions transactions, ReconciliationSourceFiles files, FaultingVerifications requests,
                                             JdbcTemplate jdbc, Actors actors, Payment payment, OutboxTemplate outbox, OutboxDispatcher dispatcher,
-                                            Handler handler, DataSource dataSource) {
+                                            Handler handler, DataSource dataSource,
+                                            org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.service = service;
         this.reviews = reviews;
         this.batches = batches;
@@ -166,6 +167,7 @@ class ReconciliationVerificationPersistenceIT {
         this.dispatcher = dispatcher;
         this.handler = handler;
         this.dataSource = dataSource;
+        this.transactionManager = transactionManager;
     }
 
     private static void await(CountDownLatch gate) {
@@ -302,7 +304,7 @@ class ReconciliationVerificationPersistenceIT {
         properties.setWorkerEnabled(false);
         properties.setBatchSize(1);
         properties.setMaxAttempts(3);
-        var secondWorker = new OutboxDispatcher(new JdbcOutboxRepository(dataSource, properties), properties, List.of(handler), null);
+        var secondWorker = new OutboxDispatcher(new JdbcOutboxRepository(dataSource, transactionManager, properties), properties, List.of(handler), null);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var oldWorker = executor.submit(dispatcher::dispatchBatch);
             try {
@@ -480,8 +482,8 @@ class ReconciliationVerificationPersistenceIT {
     static class FaultingVerifications extends ReconciliationVerificationGatewayImpl {
         final AtomicReference<String> failure = new AtomicReference<>();
 
-        FaultingVerifications(ReconciliationVerificationDOMapper mapper, ReconciliationVerificationStorageConverter converter) {
-            super(mapper, converter);
+        FaultingVerifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, Clock clock) {
+            super(converter, jdbc, clock);
         }
 
         @Override
@@ -522,7 +524,6 @@ class ReconciliationVerificationPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = ReconciliationVerificationDOMapper.class)
     @ComponentScan(basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
     @Import({ReconciliationVerificationService.class, ReconciliationVerificationDelivery.class, ReconciliationReviewService.class,
             ReconciliationTransactions.class, ReconciliationReviewGatewayImpl.class, ReconciliationBatchGatewayImpl.class,
@@ -544,8 +545,8 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Bean
-        FaultingVerifications verifications(ReconciliationVerificationDOMapper mapper, ReconciliationVerificationStorageConverter converter) {
-            return new FaultingVerifications(mapper, converter);
+        FaultingVerifications verifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, @Qualifier("reconciliationClock") Clock clock) {
+            return new FaultingVerifications(converter, jdbc, clock);
         }
 
         @Bean("reconciliationClock")

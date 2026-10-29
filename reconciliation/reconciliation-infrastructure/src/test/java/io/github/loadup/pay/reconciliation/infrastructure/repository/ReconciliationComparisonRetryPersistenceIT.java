@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
 import io.github.loadup.components.delayedtask.DelayedTaskProperties;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
@@ -31,12 +32,19 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRet
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
-import io.github.loadup.pay.reconciliation.domain.model.*;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationEntryStatus;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationKey;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationLine;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationResult;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationDifferenceStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationBatchDOMapper;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationDifferenceDOMapper;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationEntryDOMapper;
 import io.github.loadup.pay.reconciliation.infrastructure.statement.WechatTradeStatementParser;
 import io.github.loadup.pay.reconciliation.infrastructure.task.ReconciliationTaskHandler;
 import org.junit.jupiter.api.Test;
@@ -58,9 +66,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** PostgreSQL proof of rollback, exhausted-task recovery and concurrent retry fencing. */
+/**
+ * PostgreSQL proof of rollback, exhausted-task recovery and concurrent retry fencing.
+ */
 @SpringBootTest(classes = {ReconciliationImportPersistenceIT.Application.class, ReconciliationComparisonRetryPersistenceIT.Config.class},
         webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
@@ -77,10 +91,10 @@ class ReconciliationComparisonRetryPersistenceIT {
 
     @Autowired
     ReconciliationComparisonRetryPersistenceIT(ReconciliationService batches, ReconciliationImportPersistenceIT.Actors actors,
-                                              ReconciliationInputGateway inputs, ReconciliationTransactions transactions,
-                                              DelayedTaskDispatcher dispatcher, DelayedTaskProperties properties,
-                                              FaultingResults results, JdbcTemplate jdbc,
-                                              org.springframework.transaction.PlatformTransactionManager transactionManager) {
+                                               ReconciliationInputGateway inputs, ReconciliationTransactions transactions,
+                                               DelayedTaskDispatcher dispatcher, DelayedTaskProperties properties,
+                                               FaultingResults results, JdbcTemplate jdbc,
+                                               org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.batches = batches;
         this.actors = actors;
         this.inputs = inputs;
@@ -174,10 +188,10 @@ class ReconciliationComparisonRetryPersistenceIT {
     static class FaultingResults extends ReconciliationResultGatewayImpl {
         final AtomicReference<String> failBatch = new AtomicReference<>();
 
-        FaultingResults(ReconciliationDifferenceDOMapper differences, ReconciliationEntryDOMapper entries,
-                        ReconciliationBatchDOMapper batches, ReconciliationStorageConverter values,
-                        ReconciliationDifferenceStorageConverter converter) {
-            super(differences, entries, batches, values, converter);
+        FaultingResults(IdGenerator ids,
+                        org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationStorageConverter values,
+                        ReconciliationDifferenceStorageConverter converter, Clock clock) {
+            super(ids, jdbc, values, converter, clock);
         }
 
         public void failOnceFor(String batchId) {
@@ -198,10 +212,10 @@ class ReconciliationComparisonRetryPersistenceIT {
     static class Config {
         @Bean
         @Primary
-        FaultingResults faultingResults(ReconciliationDifferenceDOMapper differences, ReconciliationEntryDOMapper entries,
-                                        ReconciliationBatchDOMapper batches, ReconciliationStorageConverter values,
-                                        ReconciliationDifferenceStorageConverter converter) {
-            return new FaultingResults(differences, entries, batches, values, converter);
+        FaultingResults faultingResults(IdGenerator ids,
+                                        org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationStorageConverter values,
+                                        ReconciliationDifferenceStorageConverter converter, @Qualifier("reconciliationClock") Clock clock) {
+            return new FaultingResults(ids, jdbc, values, converter, clock);
         }
 
         @Bean("delayedTaskClock")

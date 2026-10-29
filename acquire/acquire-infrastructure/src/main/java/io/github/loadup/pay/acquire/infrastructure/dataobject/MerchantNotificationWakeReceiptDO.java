@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("merchant_notification_wake_receipt")
 public class MerchantNotificationWakeReceiptDO extends BaseDO {
     private String deliveryId;
     private String eventId;

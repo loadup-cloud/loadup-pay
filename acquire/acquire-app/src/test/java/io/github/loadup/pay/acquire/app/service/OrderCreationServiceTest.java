@@ -23,6 +23,7 @@ import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
 import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
 import io.github.loadup.pay.acquire.app.port.OrderAdmissionClient;
@@ -54,7 +55,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -524,7 +524,7 @@ class OrderCreationServiceTest {
     void aCompetingA0InsertIsRereadAfterRollbackWithTheWinningOrderId() {
         doAnswer(call -> {
             intent.set(call.getArgument(1));
-            throw new DuplicateKeyException("synthetic competing insert");
+            throw new AcquireWriteConflictException("synthetic competing insert");
         })
                 .when(store)
                 .insertIntent(eq("tenant"), any());

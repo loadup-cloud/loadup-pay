@@ -15,50 +15,70 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
 import io.github.loadup.pay.payment.domain.model.RoutingProfile;
 import io.github.loadup.pay.payment.infrastructure.converter.RoutingProfileStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RoutingProfileDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.RoutingProfileDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.ROUTING_PROFILE_DO;
 
 @Repository
 public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
-    private final RoutingProfileDOMapper mapper;
+    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, profile_ref, payee_merchant_id, "
+            + "spec_payload, content_hash, caller_service_id, request_key, request_digest, published_at";
+    private final NamedParameterJdbcTemplate jdbc;
     private final RoutingProfileStorageConverter converter;
     private final RoutingProfileCodec codec;
+    private final Clock clock;
 
-    public RoutingProfileGatewayImpl(RoutingProfileDOMapper mapper, RoutingProfileStorageConverter converter,
-                                     RoutingProfileCodec codec) {
-        this.mapper = mapper;
+    public RoutingProfileGatewayImpl(NamedParameterJdbcTemplate jdbc, RoutingProfileStorageConverter converter,
+                                     RoutingProfileCodec codec, @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
         this.codec = codec;
+        this.clock = clock;
     }
 
-    private QueryWrapper scope(String tenant) {
-        return QueryWrapper.create().where(ROUTING_PROFILE_DO.TENANT_ID.eq(tenant)).and(ROUTING_PROFILE_DO.DELETED.eq(0));
+    private void scope(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 
     @Override
     public Optional<RoutingProfile> find(String tenant, String ref) {
-        return decode(mapper.selectOneByQuery(scope(tenant).and(ROUTING_PROFILE_DO.PROFILE_REF.eq(ref))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("ref", ref);
+        var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE tenant_id = :tenant "
+                        + "AND profile_ref = :ref AND deleted = FALSE", args,
+                BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);
+        return decode(row);
     }
 
     @Override
     public Optional<RoutingProfile> findRequest(String tenant, String caller, String key) {
-        return decode(mapper.selectOneByQuery(scope(tenant).and(ROUTING_PROFILE_DO.CALLER_SERVICE_ID.eq(caller))
-                .and(ROUTING_PROFILE_DO.REQUEST_KEY.eq(key))));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", key);
+        var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE tenant_id = :tenant "
+                        + "AND caller_service_id = :caller AND request_key = :key AND deleted = FALSE", args,
+                BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);
+        return decode(row);
     }
 
     private Optional<RoutingProfile> decode(RoutingProfileDO row) {
@@ -76,11 +96,28 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
 
     @Override
     public void insert(String tenant, RoutingProfile profile) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        scope(tenant);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
         String payload = codec.encode(profile.spec());
         if (!codec.checksum(payload).equals(profile.contentHash())
                 || !codec.requestDigest(tenant, profile.callerServiceId(), profile.requestKey(), profile.contentHash())
                 .equals(profile.requestDigest())) throw new CommonException(SNAPSHOT_INVALID);
-        if (mapper.insert(converter.toDO(tenant, profile, payload)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, profile, payload);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int inserted = jdbc.update("""
+                INSERT INTO routing_profile (id, tenant_id, created_at, updated_at, deleted, profile_ref,
+                    payee_merchant_id, spec_payload, content_hash, caller_service_id, request_key, request_digest, published_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :profileRef, :payeeMerchantId, :specPayload,
+                    :contentHash, :callerServiceId, :requestKey, :requestDigest, :publishedAt)
+                ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (inserted == 0) throw new PaymentWriteConflictException("Routing profile request key already exists");
+        if (inserted != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 }

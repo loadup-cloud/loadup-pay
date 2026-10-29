@@ -13,12 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.loadup.pay.customer.infrastructure.config;
+package io.github.loadup.pay.limitcenter.domain.gateway;
 
-import org.mybatis.spring.annotation.MapperScan;
-import org.springframework.context.annotation.Configuration;
+/**
+ * A recognized business-key race that requires a fresh transaction and re-evaluation.
+ */
+public class LimitWriteRaceException extends RuntimeException {
+    public LimitWriteRaceException(String message) {
+        super(message);
+    }
 
-@Configuration(proxyBeanMethods = false)
-@MapperScan("io.github.loadup.pay.customer.infrastructure.mapper")
-public class CustomerPersistenceConfiguration {
+    public LimitWriteRaceException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

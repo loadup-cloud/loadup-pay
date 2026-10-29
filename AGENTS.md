@@ -189,9 +189,9 @@ loadup-modules-{mod}/
 
 | #  | 禁止行为                                                | 正确做法                                                                                                                                                                      |
 |----|---------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1  | Java 文件头写 `/*- #%L ... #L% */` License 块           | 标准 Apache-2.0 模板：`mvnd license:update-file-header` 后执行 `mvnd spotless:apply`（模板空行含尾随空格需对齐），verify 阶段 `check-file-header` + `spotless:check` 双校验   |
+| 1  | 生成的文件包含 LICENSE 文件头                           | 所有新生成文件均不添加 LICENSE 或版权声明头部                                                                                                                                 |
 | 2  | 将 HTTP 映射直接写在业务 Service 中                     | 在可选 Web 适配模块中使用 Spring MVC Controller 调用 Service                                                                                                                  |
-| 3  | 集成测试中用 `@MockBean` 替代 DB                        | `@EnableTestContainers(ContainerType.POSTGRESQL)` 启动真实容器                                                                                                                     |
+| 3  | 集成测试中用 `@MockBean` 替代 DB                        | `@EnableTestContainers(ContainerType.POSTGRESQL)` 启动真实容器                                                                                                                |
 | 4  | `@Autowired` 字段注入                                   | 构造器注入：显式 `public XxxService(XxxGateway gw) { this.gw = gw; }`                                                                                                         |
 | 5  | 字符串拼接 SQL                                          | MyBatis-Flex `QueryWrapper`                                                                                                                                                   |
 | 6  | `@Table` 放在 domain 层                                 | DO（`XxxDO extends BaseDO`）只放在 `infrastructure.dataobject`                                                                                                                |
@@ -200,7 +200,7 @@ loadup-modules-{mod}/
 | 9  | 表主键 `BIGINT AUTO_INCREMENT`                          | 主键 `VARCHAR(64)`，默认由 database 的 `IdGenerator` 生成业务 ID；序列表元数据显式使用 UUID 防止递归                                                                          |
 | 10 | 无必要的业务模块横向依赖                                | 保持清晰依赖方向，跨模块能力优先通过公开接口集成                                                                                                                              |
 | 11 | Java 文件中写中文注释或 Javadoc                         | 注释/Javadoc 统一使用英文；中文只允许出现在 `*.md` 文档文件中                                                                                                                 |
-| 12 | `BOOLEAN`/`BOOL` 类型                                   | 统一使用 `SMALLINT`（0/1），并加 CHECK                                                                                                                                                     |
+| 12 | `BOOLEAN`/`BOOL` 类型                                   | 统一使用 `SMALLINT`（0/1），并加 CHECK                                                                                                                                        |
 | 13 | DO 中重复定义 id/createdAt/updatedAt/tenantId/deleted   | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
 | 14 | Mapper 中写额外 SQL 方法                                | 用 `QueryWrapper` 在 GatewayImpl 中操作                                                                                                                                       |
 | 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-dependencies/pom.xml`                                                                                                                                  |
@@ -355,7 +355,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 - Resilience4j **2.3.0**（容错；版本由 loadup-dependencies BOM 统一，跟随 Spring Cloud 2025.1.x）
 - JUnit **6.0.3**（由 Spring Boot BOM 管理）+ `loadup-testify-spring-boot-starter` + Testcontainers
 - SpringDoc + Scalar | Spotless (Palantir Java Format) | Maven
-- License: **Apache-2.0**（Java 文件头由 license-maven-plugin 自动维护）
+- License: **Apache-2.0**
 
 ---
 
@@ -486,8 +486,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   responsible handlers.
 - Logs contain neither raw verification codes, credentials nor raw JSON payloads. Mask email/phone explicitly. Jackson
   exceptions may contain payload fragments: log operation and exception type without the exception message or chain.
-- License header options are inherited from the root POM, including `license.useJavaNoReformatCommentStartTag=false`; do
-  not override them in child modules. ArchitectureTest checks bytecode dependencies; SourceStandardsTest checks
+- ArchitectureTest checks bytecode dependencies; SourceStandardsTest checks
   source-retained MapStruct/Lombok annotations. Run focused regression tests when changing these contracts.
 
 - Every loadup-parent declaration includes an explicit relativePath to the root pom.xml; Maven's default ../pom.xml can
@@ -544,7 +543,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 
 - LoadUp Pay 的应用间调用统一使用 Protobuf gRPC；不新增内部 HTTP 客户端、内部 REST 入口或 HTTP 回退。商户/运营
   API、收银台、渠道通知与外部系统沿用各自协议。
-- 每个提供方在自己的 `<service>-client` 模块维护 `.proto`、消息映射和类型化方法；消费方基础设施引用提供方 client 发起调用。domain 不依赖 gRPC。跨服务消息归源服务，消费方通过 proto import 引用，不复制或集中维护全部业务协议。
+- 每个提供方在自己的 `<service>-client` 模块维护 `.proto`、消息映射和类型化方法；消费方基础设施引用提供方 client
+  发起调用。domain 不依赖 gRPC。跨服务消息归源服务，消费方通过 proto import 引用，不复制或集中维护全部业务协议。
 - 通用数据契约放现有 `loadup-commons`，通用 RPC 支持放现有 `loadup-components-rpc-binder-grpc`；commons 不反向依赖
   components，不另建 pay-common/pay-rpc。
 - DTO ↔ Protobuf 使用 MapStruct，保留 `optional` 的 hasX presence、未知枚举拒绝、`oneof` 分支、Timestamp 和精确十进制语义。集合通过

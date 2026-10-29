@@ -15,14 +15,16 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -32,21 +34,17 @@ import java.util.Optional;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
 
 /**
  * Bounded immutable refund lookup; no current route selection or local locks around channel calls.
  */
 @Repository
 public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGateway {
-    private final RefundOrderDOMapper children;
-    private final PaymentRefundCapacityDOMapper capacities;
+    private final NamedParameterJdbcTemplate jdbc;
     private final RefundCallbackStorageConverter converter;
 
-    public RefundCallbackTargetGatewayImpl(RefundOrderDOMapper children, PaymentRefundCapacityDOMapper capacities, RefundCallbackStorageConverter converter) {
-        this.children = children;
-        this.capacities = capacities;
+    public RefundCallbackTargetGatewayImpl(NamedParameterJdbcTemplate jdbc, RefundCallbackStorageConverter converter) {
+        this.jdbc = jdbc;
         this.converter = converter;
     }
 
@@ -54,16 +52,26 @@ public class RefundCallbackTargetGatewayImpl implements RefundCallbackTargetGate
     public Optional<PreparedChannelRefund> find(String tenant, String revision, String orderNo, String refundNo) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        var rows = children.selectListByQuery(QueryWrapper.create().where(REFUND_ORDER_DO.TENANT_ID.eq(tenant))
-                .and(REFUND_ORDER_DO.DELETED.eq(0)).and(REFUND_ORDER_DO.BINDING_REVISION_ID.eq(revision))
-                .and(REFUND_ORDER_DO.ORIGINAL_CHANNEL_REQUEST_NO.eq(orderNo)).and(REFUND_ORDER_DO.CHANNEL_REFUND_NO.eq(refundNo)).limit(2));
+        var childArgs = new MapSqlParameterSource("tenant", tenant).addValue("revision", revision)
+                .addValue("orderNo", orderNo).addValue("refundNo", refundNo);
+        var rows = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
+                       binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
+                       original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
+                       currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
+                WHERE tenant_id = :tenant AND deleted = FALSE AND binding_revision_id = :revision
+                    AND original_channel_request_no = :orderNo AND channel_refund_no = :refundNo LIMIT 2
+                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
         if (rows.isEmpty()) return Optional.empty();
         if (rows.size() != 1) throw new CommonException(SNAPSHOT_INVALID);
         var row = rows.getFirst();
         if (row.getSubmissionStartedAt() == null || "INIT".equals(row.getState()))
             throw new CommonException(INVALID_STATE);
-        var capacity = capacities.selectOneByQuery(QueryWrapper.create().where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(tenant))
-                .and(PAYMENT_REFUND_CAPACITY_DO.DELETED.eq(0)).and(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.eq(row.getPaymentId())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", row.getPaymentId());
+        var capacity = jdbc.query("""
+                SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
+                WHERE tenant_id = :tenant AND payment_id = :payment AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream().findFirst().orElse(null);
         if (capacity == null || !Objects.equals(capacity.getSucceededAt(), row.getOriginalSucceededAt())
                 || !Objects.equals(capacity.getCurrency(), row.getCurrency()))
             throw new CommonException(SNAPSHOT_INVALID);

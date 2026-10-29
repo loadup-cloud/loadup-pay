@@ -18,7 +18,6 @@ package io.github.loadup.pay.product.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,6 +26,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 
 import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IDEMPOTENCY_CONFLICT;
@@ -53,8 +54,11 @@ public class PublicationTransactions {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
-                } catch (DuplicateKeyException | TransientDataAccessException conflict) {
+                } catch (TransientDataAccessException conflict) {
                     if (attempt == 2) throw new CommonException(POLICY_PUBLICATION_CONFLICT);
+                    LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(1_000_000L, 4_000_000L << attempt));
+                    if (Thread.currentThread().isInterrupted())
+                        throw new CommonException(POLICY_PUBLICATION_CONFLICT, conflict);
                 }
             }
             throw new AssertionError("Unreachable retry state");

@@ -50,7 +50,6 @@ import io.github.loadup.pay.payment.app.service.RefundExecutionService;
 import io.github.loadup.pay.payment.app.service.RefundProjectionEvents;
 import io.github.loadup.pay.payment.app.service.RefundRecoveryService;
 import io.github.loadup.pay.payment.app.service.RefundResultService;
-import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -60,6 +59,7 @@ import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
@@ -79,13 +79,6 @@ import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.payment.infrastructure.codec.RefundResultCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundAllocationPlanDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundChannelReceiptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundResultAnomalyDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundTransactionClaimDOMapper;
 import io.github.loadup.pay.payment.infrastructure.task.RefundRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -771,11 +764,9 @@ class RefundRecoveryHandlerPersistenceIT {
     static class FaultingRefundResults extends RefundResultGatewayImpl {
         private final RefundFaults faults;
 
-        FaultingRefundResults(RefundChannelReceiptDOMapper receipts, RefundResultAnomalyDOMapper anomalies, RefundTransactionClaimDOMapper claims,
-                              RefundOrderDOMapper children, RefundRequestDOMapper requests, RefundAllocationPlanDOMapper plans,
-                              PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter, RefundStorageConverter storage,
-                              Clock clock, RefundFaults faults) {
-            super(receipts, anomalies, claims, children, requests, plans, capacities, converter, storage, clock);
+        FaultingRefundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, RefundResultStorageConverter converter, RefundStorageConverter storage,
+                              Clock clock, Clock databaseClock, RefundFaults faults) {
+            super(jdbc, converter, storage, clock, databaseClock);
             this.faults = faults;
         }
 
@@ -817,10 +808,10 @@ class RefundRecoveryHandlerPersistenceIT {
     static final class FaultingRefundAcceptances extends RefundAcceptanceGatewayImpl {
         final AtomicReference<String> failAfterWrite = new AtomicReference<>();
 
-        FaultingRefundAcceptances(io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper mapper,
-                                  RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
-                                  io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
-            super(mapper, children, receipts, converter, storage);
+        FaultingRefundAcceptances(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                                  io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter,
+                                  RefundStorageConverter storage, Clock databaseClock) {
+            super(jdbc, converter, storage, databaseClock);
         }
 
         @Override
@@ -861,10 +852,10 @@ class RefundRecoveryHandlerPersistenceIT {
             RefundRecoveryService.class, RefundRecoveryTaskHandler.class})
     static class Configuration {
         @Bean
-        FaultingRefundAcceptances refundAcceptances(io.github.loadup.pay.payment.infrastructure.mapper.RefundAcceptanceDOMapper mapper,
-                                                    RefundOrderDOMapper children, RefundChannelReceiptDOMapper receipts,
-                                                    io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter, RefundStorageConverter storage) {
-            return new FaultingRefundAcceptances(mapper, children, receipts, converter, storage);
+        FaultingRefundAcceptances refundAcceptances(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                                                    io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter,
+                                                    RefundStorageConverter storage, @Qualifier("databaseClock") Clock databaseClock) {
+            return new FaultingRefundAcceptances(jdbc, converter, storage, databaseClock);
         }
 
         @Bean
@@ -878,11 +869,10 @@ class RefundRecoveryHandlerPersistenceIT {
         }
 
         @Bean
-        RefundResultGateway refundResults(RefundChannelReceiptDOMapper receipts, RefundResultAnomalyDOMapper anomalies,
-                                          RefundTransactionClaimDOMapper claims, RefundOrderDOMapper children, RefundRequestDOMapper requests,
-                                          RefundAllocationPlanDOMapper plans, PaymentRefundCapacityDOMapper capacities, RefundResultStorageConverter converter,
-                                          RefundStorageConverter storage, @Qualifier("paymentClock") Clock clock, RefundFaults faults) {
-            return new FaultingRefundResults(receipts, anomalies, claims, children, requests, plans, capacities, converter, storage, clock, faults);
+        RefundResultGateway refundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, RefundResultStorageConverter converter,
+                                          RefundStorageConverter storage, @Qualifier("paymentClock") Clock clock,
+                                          @Qualifier("databaseClock") Clock databaseClock, RefundFaults faults) {
+            return new FaultingRefundResults(jdbc, converter, storage, clock, databaseClock, faults);
         }
 
         @Bean

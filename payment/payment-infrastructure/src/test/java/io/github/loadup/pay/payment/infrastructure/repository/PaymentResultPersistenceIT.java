@@ -54,7 +54,6 @@ import io.github.loadup.pay.payment.app.service.PaymentRecoveryService;
 import io.github.loadup.pay.payment.app.service.PaymentResultService;
 import io.github.loadup.pay.payment.app.service.PaymentSubmissionPreparation;
 import io.github.loadup.pay.payment.app.service.RecoveryExecutionMetrics;
-import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -68,6 +67,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
@@ -77,12 +77,6 @@ import io.github.loadup.pay.payment.infrastructure.codec.ChannelBindingCodecImpl
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentAcceptanceCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentResultCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.ChannelTransactionClaimDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentAttemptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentChannelReceiptDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentResultAnomalyDOMapper;
 import io.github.loadup.pay.payment.infrastructure.task.PaymentRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -90,7 +84,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -900,10 +893,9 @@ class PaymentResultPersistenceIT {
     static class FaultingResults extends PaymentResultGatewayImpl {
         private final Faults faults;
 
-        FaultingResults(PaymentChannelReceiptDOMapper receipts, PaymentResultAnomalyDOMapper anomalies,
-                        ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
-                        PaymentResultStorageConverter converter, Faults faults) {
-            super(receipts, anomalies, claims, capacities, payments, converter);
+        FaultingResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                        PaymentResultStorageConverter converter, Clock databaseClock, Faults faults) {
+            super(jdbc, converter, databaseClock);
             this.faults = faults;
         }
 
@@ -994,7 +986,6 @@ class PaymentResultPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @MapperScan(basePackageClasses = PaymentAttemptDOMapper.class)
     @ComponentScan(basePackageClasses = {PaymentResultStorageConverter.class, PaymentAcceptanceConverter.class})
     @Import({PaymentAcceptanceGatewayImpl.class, PaymentControlGatewayImpl.class, PaymentAttemptGatewayImpl.class,
             ChannelBindingGatewayImpl.class, PaymentAcceptanceCodecImpl.class, ChannelBindingCodecImpl.class,
@@ -1039,10 +1030,10 @@ class PaymentResultPersistenceIT {
         }
 
         @Bean
-        FaultingResults results(PaymentChannelReceiptDOMapper receipts, PaymentResultAnomalyDOMapper anomalies,
-                                ChannelTransactionClaimDOMapper claims, PaymentRefundCapacityDOMapper capacities, PaymentOrderDOMapper payments,
-                                PaymentResultStorageConverter converter, Faults faults) {
-            return new FaultingResults(receipts, anomalies, claims, capacities, payments, converter, faults);
+        FaultingResults results(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                                PaymentResultStorageConverter converter,
+                                @org.springframework.beans.factory.annotation.Qualifier("databaseClock") Clock databaseClock, Faults faults) {
+            return new FaultingResults(jdbc, converter, databaseClock, faults);
         }
 
         @Bean

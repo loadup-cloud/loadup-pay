@@ -15,38 +15,54 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryRetryStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRecoveryRetryReceiptDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryRetryReceiptDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_RECOVERY_RETRY_RECEIPT_DO;
 
 @Repository
 public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGateway {
-    private final PaymentRecoveryRetryReceiptDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
     private final PaymentRecoveryRetryStorageConverter converter;
+    private final Clock clock;
 
-    public PaymentRecoveryRetryGatewayImpl(PaymentRecoveryRetryReceiptDOMapper mapper, PaymentRecoveryRetryStorageConverter converter) {
-        this.mapper = mapper;
+    public PaymentRecoveryRetryGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentRecoveryRetryStorageConverter converter,
+                                           @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
+        this.clock = clock;
     }
 
     @Override
     public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
-        var row = mapper.selectOneByQuery(scope(tenant).and(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.CALLER_SCOPE_HASH.eq(callerScopeHash))
-                .and(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.REQUEST_KEY.eq(requestKey)));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
+                       request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,
+                       expected_next_execute_at, reason, result, accepted_at
+                FROM payment_recovery_retry_receipt WHERE tenant_id = :tenant AND caller_scope_hash = :caller
+                    AND request_key = :key AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream().findFirst().orElse(null);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -57,14 +73,28 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     @Override
     public void insert(String tenant, PaymentRecoveryRetryReceipt receipt) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        if (mapper.insert(converter.toDO(tenant, receipt)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, receipt);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO payment_recovery_retry_receipt (id, tenant_id, created_at, updated_at, deleted, request_key,
+                    caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id,
+                    native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId,
+                    :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts,
+                    :expectedNextExecuteAt, :reason, :result, :acceptedAt)
+                ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Recovery retry request key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private QueryWrapper scope(String tenant) {
+    private void scope(String tenant) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        return QueryWrapper.create().where(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.TENANT_ID.eq(tenant))
-                .and(PAYMENT_RECOVERY_RETRY_RECEIPT_DO.DELETED.eq(0));
     }
 }

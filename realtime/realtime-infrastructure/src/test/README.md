@@ -1,6 +1,7 @@
 # Realtime 真实投影持久化测试
 
-`ProjectionPersistenceIT` 使用 Testify、真实 PostgreSQL Testcontainers、实际 Flyway、生成 Mapper、Gateway、Codec、MapStruct、事务管理器与
+`ProjectionPersistenceIT` 使用 Testify、真实 PostgreSQL Testcontainers、实际 Flyway、生成
+Mapper、Gateway、Codec、MapStruct、事务管理器与
 `TradeProjectionService`。
 只由测试提供可信服务主体；没有 mock 数据源、事务、投影或 receipt 仓储，也不需要调用上游服务。
 

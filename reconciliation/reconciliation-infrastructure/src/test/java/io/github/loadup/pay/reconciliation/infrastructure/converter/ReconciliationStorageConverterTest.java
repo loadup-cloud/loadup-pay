@@ -93,7 +93,7 @@ class ReconciliationStorageConverterTest {
         var value = result.differences().getFirst();
         var row = differences.toDO("tenant", "batch", "run", value, "channel-entry", "ledger-entry");
         assertEquals(value, differences.toDifference(row, channel, ledger));
-        row.setAmountMismatch(2);
+        row.setAmountMismatch(false);
         assertThrows(CommonException.class, () -> differences.toDifference(row, channel, ledger));
     }
 

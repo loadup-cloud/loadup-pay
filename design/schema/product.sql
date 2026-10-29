@@ -31,7 +31,7 @@ CREATE TABLE order_admission
     compiled_terms        LONGTEXT     NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_admission_order (tenant_id, order_id),
-    KEY ix_admission_contract (tenant_id, contract_id, created_at, id),
+    KEY                   ix_admission_contract(tenant_id, contract_id, created_at, id),
     CHECK (amount_minor > 0 AND currency = 'CNY'),
     CHECK (merchant_fact_version >= 0 AND authorization_version >= 0),
     CHECK (state IN ('INIT', 'ADMITTED', 'DENIED')),
@@ -86,9 +86,9 @@ ALTER TABLE contract_limit_publication
     ADD UNIQUE KEY uk_publication_outbox (tenant_id, outbox_event_id),
     ADD CHECK (publication_schema_version IN (0, 1)),
     ADD CHECK (publication_schema_version = 0 OR (
-        publication_schema_version = 1 AND payee_merchant_id IS NOT NULL AND product_scope_key IS NOT NULL
-            AND snapshot_hash IS NOT NULL AND activation_payload IS NOT NULL AND requested_at IS NOT NULL
-            AND contract_revision = 1 AND policy_version = 1
-            AND ((state = 'INIT' AND outbox_event_id IS NULL AND activated_at IS NULL)
-            OR (state = 'PUBLISHING' AND outbox_event_id IS NOT NULL AND activated_at IS NULL)
-            OR (state = 'ACTIVE' AND outbox_event_id IS NOT NULL AND activated_at IS NOT NULL))));
+    publication_schema_version = 1 AND payee_merchant_id IS NOT NULL AND product_scope_key IS NOT NULL
+    AND snapshot_hash IS NOT NULL AND activation_payload IS NOT NULL AND requested_at IS NOT NULL
+    AND contract_revision = 1 AND policy_version = 1
+    AND ((state = 'INIT' AND outbox_event_id IS NULL AND activated_at IS NULL)
+    OR (state = 'PUBLISHING' AND outbox_event_id IS NOT NULL AND activated_at IS NULL)
+    OR (state = 'ACTIVE' AND outbox_event_id IS NOT NULL AND activated_at IS NOT NULL))));

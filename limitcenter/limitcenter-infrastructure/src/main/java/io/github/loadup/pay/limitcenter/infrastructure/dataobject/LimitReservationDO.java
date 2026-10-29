@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("limit_reservation")
 public class LimitReservationDO extends BaseDO {
     private String operationId;
     private String paymentId;

@@ -37,7 +37,8 @@ ReconciliationVerificationStorageConverterTest 覆盖 INIT 缺失回执、覆盖
 新增原获批范围、请求/Outbox 先落、原回包关联、native attempt/ACK 丢失与不可变回执、原 deliveryId 重试与 canonical payload
 测试源码。payment app/rpc 增加只读查询/授权、覆盖缺口、optional/int64/微秒与退款受理时间测试源码。
 
-源端 PostgreSQL 账户/多候选/退款 claim 一致性、查询索引、请求/Outbox/回执实际回滚和多 worker 的专用 IT 仍待补；本轮没有执行任何构建、测试、容器、DDL
+源端 PostgreSQL 账户/多候选/退款 claim 一致性、查询索引、请求/Outbox/回执实际回滚和多 worker 的专用 IT
+仍待补；本轮没有执行任何构建、测试、容器、DDL
 或真实调用。
 
 ## 源端查询持久化与原生 Outbox IT 源码（2026-10-28）

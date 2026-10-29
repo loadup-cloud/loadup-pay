@@ -15,41 +15,55 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.OrderRefundSummaryDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.ORDER_REFUND_SUMMARY_DO;
 
 @Repository
 public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
-    private final OrderRefundSummaryDOMapper mapper;
+    private final NamedParameterJdbcTemplate jdbc;
     private final RefundProjectionStorageConverter converter;
     private final IdGenerator ids;
+    private final Clock clock;
 
-    public RefundSummaryGatewayImpl(OrderRefundSummaryDOMapper mapper, RefundProjectionStorageConverter converter, IdGenerator ids) {
-        this.mapper = mapper;
+    public RefundSummaryGatewayImpl(NamedParameterJdbcTemplate jdbc, RefundProjectionStorageConverter converter, IdGenerator ids,
+                                    @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
         this.converter = converter;
         this.ids = ids;
+        this.clock = clock;
     }
 
     @Override
     public Optional<OrderRefundSummary> lock(String tenant, String orderId) {
         writable(tenant);
-        var row = mapper.selectOneByQuery(scope(tenant, orderId).forUpdate());
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
+                       currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
+                WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
         try {
             return Optional.of(converter.toSummary(row));
@@ -63,8 +77,19 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         writable(tenant);
         if (value.version() != 1 || value.refundedMinor() != 0 || value.reservedMinor() <= 0)
             throw new CommonException(INVALID_STATE);
-        if (mapper.insert(converter.toSummaryDO(tenant, ids.generate(), value)) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toSummaryDO(tenant, ids.generate(), value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO order_refund_summary (id, tenant_id, created_at, updated_at, deleted, order_id,
+                    payee_merchant_id, order_amount_minor, currency, refunded_minor, reserved_minor, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :orderAmountMinor,
+                    :currency, :refundedMinor, :reservedMinor, :rowVersion)
+                ON CONFLICT (tenant_id, order_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new PaymentWriteConflictException("Refund summary business key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -73,20 +98,24 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         if (!before.orderId().equals(value.orderId()) || !before.payeeMerchantId().equals(value.payeeMerchantId())
                 || !before.orderAmount().equals(value.orderAmount()) || value.version() != Math.incrementExact(before.version())
                 || value.refundedMinor() < before.refundedMinor()) throw new CommonException(INVALID_STATE);
-        if (mapper.updateByQuery(converter.toPatch(value), true, scope(tenant, before.orderId())
-                .and(ORDER_REFUND_SUMMARY_DO.ROW_VERSION.eq(before.version())).and(ORDER_REFUND_SUMMARY_DO.REFUNDED_MINOR.eq(before.refundedMinor()))
-                .and(ORDER_REFUND_SUMMARY_DO.RESERVED_MINOR.eq(before.reservedMinor()))) != 1)
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", before.orderId())
+                .addValue("version", value.version()).addValue("refunded", value.refundedMinor()).addValue("reserved", value.reservedMinor())
+                .addValue("expectedVersion", before.version()).addValue("expectedRefunded", before.refundedMinor())
+                .addValue("expectedReserved", before.reservedMinor()).addValue("updated", LocalDateTime.now(clock));
+        if (jdbc.update("""
+                UPDATE order_refund_summary SET row_version = :version, refunded_minor = :refunded,
+                    reserved_minor = :reserved, updated_at = :updated WHERE tenant_id = :tenant AND order_id = :order
+                    AND row_version = :expectedVersion AND refunded_minor = :expectedRefunded
+                    AND reserved_minor = :expectedReserved AND deleted = FALSE
+                """, args) != 1)
             throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private QueryWrapper scope(String tenant, String order) {
-        return QueryWrapper.create().where(ORDER_REFUND_SUMMARY_DO.TENANT_ID.eq(tenant)).and(ORDER_REFUND_SUMMARY_DO.DELETED.eq(0))
-                .and(ORDER_REFUND_SUMMARY_DO.ORDER_ID.eq(order));
-    }
-
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 }

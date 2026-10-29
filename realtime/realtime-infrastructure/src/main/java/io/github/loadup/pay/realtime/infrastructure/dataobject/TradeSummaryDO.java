@@ -15,14 +15,12 @@
  */
 package io.github.loadup.pay.realtime.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("trade_refund_summary")
 public class TradeSummaryDO extends BaseDO {
     private String orderId;
     private String payeeMerchantId;

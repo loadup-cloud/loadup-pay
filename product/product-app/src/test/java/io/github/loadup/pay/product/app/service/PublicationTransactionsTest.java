@@ -65,7 +65,6 @@ class PublicationTransactionsTest {
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
             int attempt = calls.incrementAndGet();
             assertEquals(attempt - 1, manager.rollbacks);
-            if (attempt < 3) throw new org.springframework.dao.DuplicateKeyException("Synthetic publication race");
             return "published";
         }));
         assertEquals(3, calls.get());

@@ -15,11 +15,12 @@
  */
 package io.github.loadup.pay.realtime.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.realtime.app.port.TradeProjectionCodec;
+import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
 import io.github.loadup.pay.realtime.domain.gateway.TradeProjectionGateway;
 import io.github.loadup.pay.realtime.domain.gateway.TradeQueryGateway;
 import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
@@ -34,13 +35,16 @@ import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeOrderDO;
 import io.github.loadup.pay.realtime.infrastructure.dataobject.TradePaymentDO;
 import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeRefundDO;
 import io.github.loadup.pay.realtime.infrastructure.dataobject.TradeSummaryDO;
-import io.github.loadup.pay.realtime.infrastructure.mapper.TradeOrderDOMapper;
-import io.github.loadup.pay.realtime.infrastructure.mapper.TradePaymentDOMapper;
-import io.github.loadup.pay.realtime.infrastructure.mapper.TradeRefundDOMapper;
-import io.github.loadup.pay.realtime.infrastructure.mapper.TradeSummaryDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -49,40 +53,40 @@ import java.util.Set;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
-import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_ORDER_DO;
-import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_PAYMENT_DO;
-import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_REFUND_DO;
-import static io.github.loadup.pay.realtime.infrastructure.dataobject.table.Tables.TRADE_SUMMARY_DO;
 
 @Repository
 public class TradeProjectionGatewayImpl implements TradeProjectionGateway, TradeQueryGateway {
-    private final TradeOrderDOMapper orders;
-    private final TradePaymentDOMapper payments;
-    private final TradeRefundDOMapper refunds;
-    private final TradeSummaryDOMapper summaries;
+    private static final String ORDER_COLUMNS = "id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, "
+            + "merchant_order_no, state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private static final String PAYMENT_COLUMNS = "id, tenant_id, created_at, updated_at, payment_id, order_id, payee_merchant_id, "
+            + "state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private static final String REFUND_COLUMNS = "id, tenant_id, created_at, updated_at, refund_id, refund_request_id, payment_id, "
+            + "order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final TradeStorageConverter converter;
     private final TradeProjectionCodec codec;
     private final IdGenerator ids;
 
-    public TradeProjectionGatewayImpl(TradeOrderDOMapper orders, TradePaymentDOMapper payments, TradeRefundDOMapper refunds, TradeSummaryDOMapper summaries,
-                                      TradeStorageConverter converter, TradeProjectionCodec codec, IdGenerator ids) {
-        this.orders = orders;
-        this.payments = payments;
-        this.refunds = refunds;
-        this.summaries = summaries;
+    public TradeProjectionGatewayImpl(TradeStorageConverter converter, TradeProjectionCodec codec, IdGenerator ids,
+                                      NamedParameterJdbcTemplate jdbc, @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.codec = codec;
         this.ids = ids;
     }
 
-    private QueryWrapper orderScope(String tenant) {
-        return QueryWrapper.create().where(TRADE_ORDER_DO.TENANT_ID.eq(tenant)).and(TRADE_ORDER_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper orderKey(String tenant, String key) {
-        return orderScope(tenant).and(TRADE_ORDER_DO.ORDER_ID.eq(key));
+    private Optional<TradeOrderDO> order(String tenant, String orderId, String payee, boolean lock) {
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", orderId).addValue("payee", payee);
+        return jdbc.query("SELECT " + ORDER_COLUMNS + " FROM trade_order_projection WHERE tenant_id = :tenant "
+                        + "AND order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
+                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(TradeOrderDO.class))
+                .stream().findFirst();
     }
 
     private TradeOrderProjection read(TradeOrderDO row) {
@@ -102,13 +106,25 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     @Override
     public ProjectionAdvance applyOrderIfNewer(String tenant, TradeOrderProjection value, String factsHash) {
-        writable();
+        writableJdbc(tenant);
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
-        var row = orders.selectOneByQuery(orderKey(tenant, value.orderId()).forUpdate());
+        var row = order(tenant, value.orderId(), null, true).orElse(null);
         if (row == null) {
-            if (orders.insert(converter.toDO(ids.generate(), tenant, value, factsHash, payload)) != 1)
-                throw new CommonException(CONCURRENT_UPDATE);
+            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var now = LocalDateTime.now(clock);
+            created.setCreatedAt(now);
+            created.setUpdatedAt(now);
+            int count = jdbc.update("""
+                    INSERT INTO trade_order_projection (id, tenant_id, created_at, updated_at, deleted, order_id,
+                        payee_merchant_id, merchant_order_no, state, business_created_at, source_version,
+                        content_hash, payload, snapshot_at)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId,
+                        :merchantOrderNo, :state, :businessCreatedAt, :sourceVersion, :contentHash, :payload, :snapshotAt)
+                    ON CONFLICT (tenant_id, order_id) DO NOTHING
+                    """, new BeanPropertySqlParameterSource(created));
+            if (count == 0) throw new ProjectionWriteRaceException("Order projection business key already exists");
+            if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
             return new ProjectionAdvance("APPLIED", value.source().number());
         }
         var previous = read(row);
@@ -119,18 +135,25 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        int changed = orders.updateByQuery(converter.toPatch(value, factsHash, payload), true,
-                orderKey(tenant, value.orderId()).and(TRADE_ORDER_DO.SOURCE_VERSION.eq(row.getSourceVersion())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", value.orderId())
+                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE trade_order_projection SET state = :state, source_version = :version, content_hash = :hash,
+                    payload = :payload, snapshot_at = :snapshot, updated_at = :updated
+                WHERE tenant_id = :tenant AND order_id = :orderId AND source_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private QueryWrapper paymentScope(String tenant) {
-        return QueryWrapper.create().where(TRADE_PAYMENT_DO.TENANT_ID.eq(tenant)).and(TRADE_PAYMENT_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper paymentKey(String tenant, String key) {
-        return paymentScope(tenant).and(TRADE_PAYMENT_DO.PAYMENT_ID.eq(key));
+    private Optional<TradePaymentDO> payment(String tenant, String paymentId, boolean lock) {
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("paymentId", paymentId);
+        return jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM trade_payment_projection WHERE tenant_id = :tenant "
+                        + "AND payment_id = :paymentId AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), args,
+                BeanPropertyRowMapper.newInstance(TradePaymentDO.class)).stream().findFirst();
     }
 
     private TradePaymentProjection read(TradePaymentDO row) {
@@ -150,13 +173,24 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     @Override
     public ProjectionAdvance applyPaymentIfNewer(String tenant, TradePaymentProjection value, String factsHash) {
-        writable();
+        writableJdbc(tenant);
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
-        var row = payments.selectOneByQuery(paymentKey(tenant, value.paymentId()).forUpdate());
+        var row = payment(tenant, value.paymentId(), true).orElse(null);
         if (row == null) {
-            if (payments.insert(converter.toDO(ids.generate(), tenant, value, factsHash, payload)) != 1)
-                throw new CommonException(CONCURRENT_UPDATE);
+            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var now = LocalDateTime.now(clock);
+            created.setCreatedAt(now);
+            created.setUpdatedAt(now);
+            int count = jdbc.update("""
+                    INSERT INTO trade_payment_projection (id, tenant_id, created_at, updated_at, deleted, payment_id,
+                        order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :paymentId, :orderId, :payeeMerchantId,
+                        :state, :businessCreatedAt, :sourceVersion, :contentHash, :payload, :snapshotAt)
+                    ON CONFLICT (tenant_id, payment_id) DO NOTHING
+                    """, new BeanPropertySqlParameterSource(created));
+            if (count == 0) throw new ProjectionWriteRaceException("Payment projection business key already exists");
+            if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
             return new ProjectionAdvance("APPLIED", value.source().number());
         }
         var previous = read(row);
@@ -167,18 +201,25 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        int changed = payments.updateByQuery(converter.toPatch(value, factsHash, payload), true,
-                paymentKey(tenant, value.paymentId()).and(TRADE_PAYMENT_DO.SOURCE_VERSION.eq(row.getSourceVersion())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("paymentId", value.paymentId())
+                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE trade_payment_projection SET state = :state, source_version = :version, content_hash = :hash,
+                    payload = :payload, snapshot_at = :snapshot, updated_at = :updated
+                WHERE tenant_id = :tenant AND payment_id = :paymentId AND source_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private QueryWrapper refundScope(String tenant) {
-        return QueryWrapper.create().where(TRADE_REFUND_DO.TENANT_ID.eq(tenant)).and(TRADE_REFUND_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper refundKey(String tenant, String key) {
-        return refundScope(tenant).and(TRADE_REFUND_DO.REFUND_ID.eq(key));
+    private Optional<TradeRefundDO> refund(String tenant, String refundId, boolean lock) {
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("refundId", refundId);
+        return jdbc.query("SELECT " + REFUND_COLUMNS + " FROM trade_refund_projection WHERE tenant_id = :tenant "
+                        + "AND refund_id = :refundId AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), args,
+                BeanPropertyRowMapper.newInstance(TradeRefundDO.class)).stream().findFirst();
     }
 
     private TradeRefundProjection read(TradeRefundDO row) {
@@ -200,13 +241,25 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     @Override
     public ProjectionAdvance applyRefundIfNewer(String tenant, TradeRefundProjection value, String factsHash) {
-        writable();
+        writableJdbc(tenant);
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
-        var row = refunds.selectOneByQuery(refundKey(tenant, value.refundId()).forUpdate());
+        var row = refund(tenant, value.refundId(), true).orElse(null);
         if (row == null) {
-            if (refunds.insert(converter.toDO(ids.generate(), tenant, value, factsHash, payload)) != 1)
-                throw new CommonException(CONCURRENT_UPDATE);
+            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var now = LocalDateTime.now(clock);
+            created.setCreatedAt(now);
+            created.setUpdatedAt(now);
+            int count = jdbc.update("""
+                    INSERT INTO trade_refund_projection (id, tenant_id, created_at, updated_at, deleted, refund_id,
+                        refund_request_id, payment_id, order_id, payee_merchant_id, state, business_created_at,
+                        source_version, content_hash, payload, snapshot_at)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :refundId, :refundRequestId, :paymentId,
+                        :orderId, :payeeMerchantId, :state, :businessCreatedAt, :sourceVersion, :contentHash, :payload, :snapshotAt)
+                    ON CONFLICT (tenant_id, refund_id) DO NOTHING
+                    """, new BeanPropertySqlParameterSource(created));
+            if (count == 0) throw new ProjectionWriteRaceException("Refund projection business key already exists");
+            if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
             return new ProjectionAdvance("APPLIED", value.source().number());
         }
         var previous = read(row);
@@ -217,18 +270,27 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        int changed = refunds.updateByQuery(converter.toPatch(value, factsHash, payload), true,
-                refundKey(tenant, value.refundId()).and(TRADE_REFUND_DO.SOURCE_VERSION.eq(row.getSourceVersion())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("refundId", value.refundId())
+                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE trade_refund_projection SET state = :state, source_version = :version, content_hash = :hash,
+                    payload = :payload, snapshot_at = :snapshot, updated_at = :updated
+                WHERE tenant_id = :tenant AND refund_id = :refundId AND source_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
-    private QueryWrapper summaryScope(String tenant) {
-        return QueryWrapper.create().where(TRADE_SUMMARY_DO.TENANT_ID.eq(tenant)).and(TRADE_SUMMARY_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper summaryKey(String tenant, String key) {
-        return summaryScope(tenant).and(TRADE_SUMMARY_DO.ORDER_ID.eq(key));
+    private Optional<TradeSummaryDO> summary(String tenant, String order, String payee, boolean lock) {
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", order).addValue("payee", payee);
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, source_version, "
+                        + "content_hash, payload, snapshot_at FROM trade_refund_summary WHERE tenant_id = :tenant "
+                        + "AND order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
+                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(TradeSummaryDO.class))
+                .stream().findFirst();
     }
 
     private TradeRefundSummary read(TradeSummaryDO row) {
@@ -245,13 +307,24 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     @Override
     public ProjectionAdvance applyRefundSummaryIfNewer(String tenant, TradeRefundSummary value, String factsHash) {
-        writable();
+        writableJdbc(tenant);
         String payload = codec.encode(value);
         if (!codec.hash(payload).equals(factsHash)) throw new CommonException(SNAPSHOT_INVALID);
-        var row = summaries.selectOneByQuery(summaryKey(tenant, value.orderId()).forUpdate());
+        var row = summary(tenant, value.orderId(), null, true).orElse(null);
         if (row == null) {
-            if (summaries.insert(converter.toDO(ids.generate(), tenant, value, factsHash, payload)) != 1)
-                throw new CommonException(CONCURRENT_UPDATE);
+            var created = converter.toDO(ids.generate(), tenant, value, factsHash, payload);
+            var now = LocalDateTime.now(clock);
+            created.setCreatedAt(now);
+            created.setUpdatedAt(now);
+            int count = jdbc.update("""
+                    INSERT INTO trade_refund_summary (id, tenant_id, created_at, updated_at, deleted, order_id,
+                        payee_merchant_id, source_version, content_hash, payload, snapshot_at)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId,
+                        :sourceVersion, :contentHash, :payload, :snapshotAt)
+                    ON CONFLICT (tenant_id, order_id) DO NOTHING
+                    """, new BeanPropertySqlParameterSource(created));
+            if (count == 0) throw new ProjectionWriteRaceException("Refund summary business key already exists");
+            if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
             return new ProjectionAdvance("APPLIED", value.source().number());
         }
         var previous = read(row);
@@ -262,38 +335,50 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        int changed = summaries.updateByQuery(converter.toPatch(value, factsHash, payload), true,
-                summaryKey(tenant, value.orderId()).and(TRADE_SUMMARY_DO.SOURCE_VERSION.eq(row.getSourceVersion())));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", value.orderId())
+                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
+                .addValue("hash", factsHash).addValue("payload", payload).addValue("snapshot", value.snapshotAt())
+                .addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE trade_refund_summary SET source_version = :version, content_hash = :hash, payload = :payload,
+                    snapshot_at = :snapshot, updated_at = :updated
+                WHERE tenant_id = :tenant AND order_id = :orderId AND source_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
         return new ProjectionAdvance("APPLIED", value.source().number());
     }
 
     @Override
     public Optional<TradeOrderProjection> findOrder(String tenant, String orderId) {
-        return Optional.ofNullable(orders.selectOneByQuery(orderKey(tenant, orderId))).map(this::read);
+        return order(tenant, orderId, null, false).map(this::read);
     }
 
     @Override
     public Optional<TradeRefundSummary> findRefundSummary(String tenant, String orderId) {
-        return Optional.ofNullable(summaries.selectOneByQuery(summaryKey(tenant, orderId))).map(this::read);
+        return summary(tenant, orderId, null, false).map(this::read);
     }
 
     @Override
     public Optional<TradeOrderProjection> findOrder(String tenant, String payee, String orderId) {
-        return Optional.ofNullable(orders.selectOneByQuery(orderKey(tenant, orderId).and(TRADE_ORDER_DO.PAYEE_MERCHANT_ID.eq(payee)))).map(this::read);
+        return order(tenant, orderId, payee, false).map(this::read);
     }
 
     @Override
     public Optional<TradeRefundSummary> findRefundSummary(String tenant, String payee, String orderId) {
-        return Optional.ofNullable(summaries.selectOneByQuery(summaryKey(tenant, orderId).and(TRADE_SUMMARY_DO.PAYEE_MERCHANT_ID.eq(payee)))).map(this::read);
+        return summary(tenant, orderId, payee, false).map(this::read);
     }
 
     @Override
     public Map<String, TradeRefundSummary> refundSummaries(String tenant, String payee, Set<String> orderIds) {
+        requireTenant(tenant);
         if (orderIds.isEmpty()) return Map.of();
         if (orderIds.size() > 100) throw new CommonException(INVALID_ARGUMENT);
-        var values = summaries.selectListByQuery(summaryScope(tenant).and(TRADE_SUMMARY_DO.PAYEE_MERCHANT_ID.eq(payee))
-                .and(TRADE_SUMMARY_DO.ORDER_ID.in(orderIds)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee).addValue("orders", orderIds);
+        var values = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, source_version,
+                       content_hash, payload, snapshot_at FROM trade_refund_summary
+                WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND order_id IN (:orders) AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(TradeSummaryDO.class));
         var result = new HashMap<String, TradeRefundSummary>();
         for (var row : values) {
             var value = read(row);
@@ -304,49 +389,113 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     @Override
     public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
-        var query = orderScope(tenant).and(TRADE_ORDER_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
-        if (filter.state() != null) query.and(TRADE_ORDER_DO.STATE.eq(filter.state()));
-        if (filter.createdFrom() != null) query.and(TRADE_ORDER_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
-        if (filter.createdTo() != null) query.and(TRADE_ORDER_DO.BUSINESS_CREATED_AT.lt(filter.createdTo()));
-        if (filter.merchantOrderNo() != null) query.and(TRADE_ORDER_DO.MERCHANT_ORDER_NO.eq(filter.merchantOrderNo()));
-
-        long total = orders.selectCountByQuery(query);
-        query.orderBy(TRADE_ORDER_DO.BUSINESS_CREATED_AT.desc(), TRADE_ORDER_DO.ORDER_ID.desc())
-                .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
-        return new PageResult<>(orders.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
+        if (filter.state() != null) {
+            where.append(" AND state = :state");
+            args.addValue("state", filter.state());
+        }
+        if (filter.createdFrom() != null) {
+            where.append(" AND business_created_at >= :fromTime");
+            args.addValue("fromTime", filter.createdFrom());
+        }
+        if (filter.createdTo() != null) {
+            where.append(" AND business_created_at < :toTime");
+            args.addValue("toTime", filter.createdTo());
+        }
+        if (filter.merchantOrderNo() != null) {
+            where.append(" AND merchant_order_no = :merchantOrder");
+            args.addValue("merchantOrder", filter.merchantOrderNo());
+        }
+        String from = " FROM trade_order_projection" + where;
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
+        var rows = jdbc.query("SELECT " + ORDER_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, order_id DESC LIMIT :size OFFSET :offset", args,
+                BeanPropertyRowMapper.newInstance(TradeOrderDO.class));
+        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     @Override
     public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
-        var query = paymentScope(tenant).and(TRADE_PAYMENT_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
-        if (filter.state() != null) query.and(TRADE_PAYMENT_DO.STATE.eq(filter.state()));
-        if (filter.createdFrom() != null) query.and(TRADE_PAYMENT_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
-        if (filter.createdTo() != null) query.and(TRADE_PAYMENT_DO.BUSINESS_CREATED_AT.lt(filter.createdTo()));
-        if (filter.orderId() != null) query.and(TRADE_PAYMENT_DO.ORDER_ID.eq(filter.orderId()));
-
-        long total = payments.selectCountByQuery(query);
-        query.orderBy(TRADE_PAYMENT_DO.BUSINESS_CREATED_AT.desc(), TRADE_PAYMENT_DO.PAYMENT_ID.desc())
-                .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
-        return new PageResult<>(payments.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
+        if (filter.state() != null) {
+            where.append(" AND state = :state");
+            args.addValue("state", filter.state());
+        }
+        if (filter.createdFrom() != null) {
+            where.append(" AND business_created_at >= :fromTime");
+            args.addValue("fromTime", filter.createdFrom());
+        }
+        if (filter.createdTo() != null) {
+            where.append(" AND business_created_at < :toTime");
+            args.addValue("toTime", filter.createdTo());
+        }
+        if (filter.orderId() != null) {
+            where.append(" AND order_id = :orderId");
+            args.addValue("orderId", filter.orderId());
+        }
+        String from = " FROM trade_payment_projection" + where;
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
+        var rows = jdbc.query("SELECT " + PAYMENT_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, payment_id DESC LIMIT :size OFFSET :offset", args,
+                BeanPropertyRowMapper.newInstance(TradePaymentDO.class));
+        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     @Override
     public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
-        var query = refundScope(tenant).and(TRADE_REFUND_DO.PAYEE_MERCHANT_ID.eq(filter.payeeMerchantId()));
-        if (filter.state() != null) query.and(TRADE_REFUND_DO.STATE.eq(filter.state()));
-        if (filter.createdFrom() != null) query.and(TRADE_REFUND_DO.BUSINESS_CREATED_AT.ge(filter.createdFrom()));
-        if (filter.createdTo() != null) query.and(TRADE_REFUND_DO.BUSINESS_CREATED_AT.lt(filter.createdTo()));
-        if (filter.orderId() != null) query.and(TRADE_REFUND_DO.ORDER_ID.eq(filter.orderId()));
-        if (filter.refundRequestId() != null) query.and(TRADE_REFUND_DO.REFUND_REQUEST_ID.eq(filter.refundRequestId()));
-        long total = refunds.selectCountByQuery(query);
-        query.orderBy(TRADE_REFUND_DO.BUSINESS_CREATED_AT.desc(), TRADE_REFUND_DO.REFUND_ID.desc())
-                .limit(filter.size()).offset((long) (filter.page() - 1) * filter.size());
-        return new PageResult<>(refunds.selectListByQuery(query).stream().map(this::read).toList(), total, filter.page(), filter.size());
+        requireTenant(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
+        if (filter.state() != null) {
+            where.append(" AND state = :state");
+            args.addValue("state", filter.state());
+        }
+        if (filter.createdFrom() != null) {
+            where.append(" AND business_created_at >= :fromTime");
+            args.addValue("fromTime", filter.createdFrom());
+        }
+        if (filter.createdTo() != null) {
+            where.append(" AND business_created_at < :toTime");
+            args.addValue("toTime", filter.createdTo());
+        }
+        if (filter.orderId() != null) {
+            where.append(" AND order_id = :orderId");
+            args.addValue("orderId", filter.orderId());
+        }
+        if (filter.refundRequestId() != null) {
+            where.append(" AND refund_request_id = :requestId");
+            args.addValue("requestId", filter.refundRequestId());
+        }
+        String from = " FROM trade_refund_projection" + where;
+        Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
+        var rows = jdbc.query("SELECT " + REFUND_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, refund_id DESC LIMIT :size OFFSET :offset", args,
+                BeanPropertyRowMapper.newInstance(TradeRefundDO.class));
+        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     private void writable() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(INVALID_STATE);
+    }
+
+    private void requireTenant(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(QUERY_FORBIDDEN);
+    }
+
+    private void writableJdbc(String tenant) {
+        requireTenant(tenant);
+        writable();
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
     }
 }

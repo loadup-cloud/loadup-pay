@@ -15,10 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
@@ -29,17 +29,23 @@ import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAllocationPlanDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentRefundCapacityDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundAllocationPlanDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundOrderDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.RefundRequestDOMapper;
+import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,29 +58,27 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CO
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.PAYMENT_REFUND_CAPACITY_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ALLOCATION_PLAN_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_ORDER_DO;
-import static io.github.loadup.pay.payment.infrastructure.dataobject.table.Tables.REFUND_REQUEST_DO;
 
 @Repository
 public class RefundGatewayImpl implements RefundGateway {
-    private final RefundRequestDOMapper requests;
-    private final RefundAllocationPlanDOMapper plans;
-    private final RefundOrderDOMapper children;
-    private final PaymentRefundCapacityDOMapper capacities;
+    private static final String REQUEST_COLUMNS = "id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, merchant_refund_no, "
+            + "reason_code, request_digest, caller_subject_hash, admission_id, amount_minor, currency, allocation_policy, plan_version, "
+            + "state, succeeded_minor, failed_minor, unknown_count, refund_terms, terms_hash, planned_at, row_version";
+    private static final String CHILD_COLUMNS = "id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id, "
+            + "binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no, "
+            + "original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor, currency, "
+            + "state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version";
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final RefundStorageConverter converter;
     private final PaymentResultStorageConverter capacityConverter;
     private final PaymentAcceptanceCodec codec;
     private final JsonMapper json;
 
-    public RefundGatewayImpl(RefundRequestDOMapper requests, RefundAllocationPlanDOMapper plans, RefundOrderDOMapper children,
-                             PaymentRefundCapacityDOMapper capacities, RefundStorageConverter converter, PaymentResultStorageConverter capacityConverter,
-                             PaymentAcceptanceCodec codec, JsonMapper json) {
-        this.requests = requests;
-        this.plans = plans;
-        this.children = children;
-        this.capacities = capacities;
+    public RefundGatewayImpl(NamedParameterJdbcTemplate jdbc, RefundStorageConverter converter, PaymentResultStorageConverter capacityConverter,
+                             PaymentAcceptanceCodec codec, JsonMapper json, @Qualifier("databaseClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.capacityConverter = capacityConverter;
         this.codec = codec;
@@ -84,20 +88,25 @@ public class RefundGatewayImpl implements RefundGateway {
     @Override
     public Optional<RefundRequestReference> reference(String tenant, String id) {
         requireReadTransaction(tenant);
-        return read(() -> Optional.ofNullable(requests.selectOneByQuery(requestScope(tenant).and(REFUND_REQUEST_DO.ID.eq(id)))).map(converter::toReference));
+        requireJdbc();
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        return read(() -> Optional.ofNullable(request("id = :id", args, false)).map(converter::toReference));
     }
 
     @Override
     public Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String number) {
         requireReadTransaction(tenant);
-        return read(() -> Optional.ofNullable(requests.selectOneByQuery(requestScope(tenant)
-                .and(REFUND_REQUEST_DO.PAYEE_MERCHANT_ID.eq(merchant)).and(REFUND_REQUEST_DO.MERCHANT_REFUND_NO.eq(number)))).map(converter::toReference));
+        requireJdbc();
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("merchant", merchant).addValue("number", number);
+        return read(() -> Optional.ofNullable(request("payee_merchant_id = :merchant AND merchant_refund_no = :number", args, false)).map(converter::toReference));
     }
 
     @Override
     public StoredRefundRequest lock(String tenant, String id) {
         requireTransaction(tenant);
-        if (requests.selectOneByQuery(requestScope(tenant).and(REFUND_REQUEST_DO.ID.eq(id)).forUpdate()) == null)
+        requireJdbc();
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        if (request("id = :id", args, true) == null)
             throw new CommonException(NOT_FOUND);
         return load(tenant, id);
     }
@@ -105,8 +114,9 @@ public class RefundGatewayImpl implements RefundGateway {
     @Override
     public StoredRefundRequest load(String tenant, String id) {
         requireReadTransaction(tenant);
+        requireJdbc();
         return read(() -> {
-            var row = requests.selectOneByQuery(requestScope(tenant).and(REFUND_REQUEST_DO.ID.eq(id)));
+            var row = request("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false);
             if (row == null) throw new CommonException(NOT_FOUND);
             if (!"FIFO".equals(row.getAllocationPolicy()) || row.getPlanVersion() != 1
                     || !codec.checksum(row.getRefundTerms()).equals(row.getTermsHash()))
@@ -115,11 +125,15 @@ public class RefundGatewayImpl implements RefundGateway {
             if (!row.getAdmissionId().equals(terms.admissionId()) || !row.getOrderId().equals(terms.orderId())
                     || !row.getPayeeMerchantId().equals(terms.payeeMerchantId()) || !row.getCurrency().equals(terms.currency()))
                 throw new CommonException(SNAPSHOT_INVALID);
-            var fixed = plans.selectListByQuery(QueryWrapper.create().where(REFUND_ALLOCATION_PLAN_DO.TENANT_ID.eq(tenant))
-                    .and(REFUND_ALLOCATION_PLAN_DO.DELETED.eq(0)).and(REFUND_ALLOCATION_PLAN_DO.REFUND_REQUEST_ID.eq(id))
-                    .orderBy(REFUND_ALLOCATION_PLAN_DO.SEQUENCE_NO.asc()));
-            var rows = children.selectListByQuery(QueryWrapper.create().where(REFUND_ORDER_DO.TENANT_ID.eq(tenant))
-                    .and(REFUND_ORDER_DO.DELETED.eq(0)).and(REFUND_ORDER_DO.REFUND_REQUEST_ID.eq(id)));
+            var args = new MapSqlParameterSource("tenant", tenant).addValue("request", id);
+            var fixed = jdbc.query("""
+                    SELECT id, tenant_id, created_at, updated_at, refund_request_id, plan_version, sequence_no,
+                           payment_id, refund_id, amount_minor FROM refund_allocation_plan
+                    WHERE tenant_id = :tenant AND refund_request_id = :request AND deleted = FALSE ORDER BY sequence_no ASC
+                    """, args, BeanPropertyRowMapper.newInstance(RefundAllocationPlanDO.class));
+            var rows = jdbc.query("SELECT " + CHILD_COLUMNS + " FROM refund_order WHERE tenant_id = :tenant "
+                            + "AND refund_request_id = :request AND deleted = FALSE", args,
+                    BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
             var byId = new HashMap<String, RefundOrderDO>();
             rows.forEach(child -> byId.put(child.getId(), child));
             if (fixed.isEmpty() || fixed.size() != rows.size() || byId.size() != rows.size())
@@ -143,14 +157,20 @@ public class RefundGatewayImpl implements RefundGateway {
     @Override
     public List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId) {
         requireTransaction(tenant);
-        return read(() -> capacities.selectListByQuery(QueryWrapper.create().where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(tenant))
-                .and(PAYMENT_REFUND_CAPACITY_DO.DELETED.eq(0)).and(PAYMENT_REFUND_CAPACITY_DO.ORDER_ID.eq(orderId))
-                .orderBy(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.asc()).forUpdate()).stream().map(capacityConverter::toCapacity).toList());
+        requireJdbc();
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        return read(() -> jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
+                       succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version
+                FROM payment_refund_capacity WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                ORDER BY payment_id ASC FOR UPDATE
+                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream().map(capacityConverter::toCapacity).toList());
     }
 
     @Override
     public void insertPlan(String tenant, StoredRefundRequest value, List<RefundCapacityReservation> reservations) {
         requireTransaction(tenant);
+        requireJdbc();
         if (value.request().state() != RefundRequestState.INIT || value.request().version() != 0 || value.request().planVersion() != 1
                 || !codec.checksum(value.termsPayload()).equals(value.termsHash()))
             throw new CommonException(INVALID_STATE);
@@ -167,28 +187,71 @@ public class RefundGatewayImpl implements RefundGateway {
                     || r.reserved().reservedMinor() - r.previous().reservedMinor() != child.refund().amount().getCent())
                 throw new CommonException(INVALID_STATE);
         }
-        if (requests.insert(converter.toRequestDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var requestRow = converter.toRequestDO(tenant, value);
+        var requestNow = LocalDateTime.now(clock);
+        requestRow.setCreatedAt(requestNow);
+        requestRow.setUpdatedAt(requestNow);
+        int requestCount = jdbc.update("""
+                INSERT INTO refund_request (id, tenant_id, created_at, updated_at, deleted, order_id, payee_merchant_id,
+                    merchant_refund_no, reason_code, request_digest, caller_subject_hash, admission_id, amount_minor, currency,
+                    allocation_policy, plan_version, state, succeeded_minor, failed_minor, unknown_count, refund_terms, terms_hash, planned_at, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :merchantRefundNo,
+                    :reasonCode, :requestDigest, :callerSubjectHash, :admissionId, :amountMinor, :currency, :allocationPolicy,
+                    :planVersion, :state, :succeededMinor, :failedMinor, :unknownCount, :refundTerms, :termsHash, :plannedAt, :rowVersion)
+                ON CONFLICT (tenant_id, payee_merchant_id, merchant_refund_no) DO NOTHING
+                """, new BeanPropertySqlParameterSource(requestRow));
+        if (requestCount == 0) throw new PaymentWriteConflictException("Merchant refund request already exists");
+        if (requestCount != 1) throw new CommonException(CONCURRENT_UPDATE);
         for (var child : value.allocations()) {
-            if (plans.insert(converter.toPlanDO(tenant, child)) != 1 || children.insert(converter.toChildDO(tenant, child)) != 1)
+            var plan = converter.toPlanDO(tenant, child);
+            var now = LocalDateTime.now(clock);
+            plan.setCreatedAt(now);
+            plan.setUpdatedAt(now);
+            int count = jdbc.update("""
+                    INSERT INTO refund_allocation_plan (id, tenant_id, created_at, updated_at, deleted, refund_request_id,
+                        plan_version, sequence_no, payment_id, refund_id, amount_minor)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :refundRequestId, :planVersion, :sequenceNo,
+                        :paymentId, :refundId, :amountMinor)
+                    """, new BeanPropertySqlParameterSource(plan));
+            var childRow = converter.toChildDO(tenant, child);
+            childRow.setCreatedAt(now);
+            childRow.setUpdatedAt(now);
+            int childCount = jdbc.update("""
+                    INSERT INTO refund_order (id, tenant_id, created_at, updated_at, deleted, refund_request_id, payment_id,
+                        original_attempt_id, binding_revision_id, channel, account_scope_hash, original_channel_request_no,
+                        original_channel_transaction_no, original_succeeded_at, submission_started_at, channel_refund_no,
+                        channel_refund_transaction_no, amount_minor, currency, state, first_unknown_at, terminal_evidence_id,
+                        next_query_at, query_sequence, succeeded_at, row_version)
+                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :refundRequestId, :paymentId, :originalAttemptId,
+                        :bindingRevisionId, :channel, :accountScopeHash, :originalChannelRequestNo, :originalChannelTransactionNo,
+                        :originalSucceededAt, :submissionStartedAt, :channelRefundNo, :channelRefundTransactionNo, :amountMinor,
+                        :currency, :state, :firstUnknownAt, :terminalEvidenceId, :nextQueryAt, :querySequence, :succeededAt, :rowVersion)
+                    """, new BeanPropertySqlParameterSource(childRow));
+            if (count != 1 || childCount != 1)
                 throw new CommonException(CONCURRENT_UPDATE);
         }
         for (var r : changes.values()) {
             var before = r.previous();
-            int changed = capacities.updateByQuery(converter.toReservationPatch(r.reserved()), true,
-                    QueryWrapper.create().where(PAYMENT_REFUND_CAPACITY_DO.TENANT_ID.eq(tenant))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.DELETED.eq(0)).and(PAYMENT_REFUND_CAPACITY_DO.PAYMENT_ID.eq(before.paymentId()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.ORDER_ID.eq(before.orderId())).and(PAYMENT_REFUND_CAPACITY_DO.PAYEE_MERCHANT_ID.eq(before.payeeMerchantId()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.ROW_VERSION.eq(before.version()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.RESERVED_MINOR.eq(before.reservedMinor()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.REFUNDED_MINOR.eq(before.refundedMinor()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.SUCCEEDED_MINOR.eq(before.succeededAmount().getCent()))
-                            .and(PAYMENT_REFUND_CAPACITY_DO.SUCCEEDED_AT.eq(before.succeededAt())));
+            var next = r.reserved();
+            var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", before.paymentId()).addValue("order", before.orderId())
+                    .addValue("payee", before.payeeMerchantId()).addValue("expectedVersion", before.version())
+                    .addValue("expectedReserved", before.reservedMinor()).addValue("expectedRefunded", before.refundedMinor())
+                    .addValue("succeeded", before.succeededAmount().getCent()).addValue("succeededAt", before.succeededAt())
+                    .addValue("reserved", next.reservedMinor()).addValue("version", next.version()).addValue("updated", LocalDateTime.now(clock));
+            int changed = jdbc.update("""
+                    UPDATE payment_refund_capacity SET reserved_minor = :reserved, row_version = :version, updated_at = :updated
+                    WHERE tenant_id = :tenant AND payment_id = :payment AND order_id = :order AND payee_merchant_id = :payee
+                        AND row_version = :expectedVersion AND reserved_minor = :expectedReserved AND refunded_minor = :expectedRefunded
+                        AND succeeded_minor = :succeeded AND succeeded_at = :succeededAt AND deleted = FALSE
+                    """, args);
             if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
         }
     }
 
-    private QueryWrapper requestScope(String tenant) {
-        return QueryWrapper.create().where(REFUND_REQUEST_DO.TENANT_ID.eq(tenant)).and(REFUND_REQUEST_DO.DELETED.eq(0));
+    private RefundRequestDO request(String predicate, MapSqlParameterSource args, boolean lock) {
+        return jdbc.query("SELECT " + REQUEST_COLUMNS + " FROM refund_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(RefundRequestDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private void requireTransaction(String tenant) {
@@ -199,6 +262,12 @@ public class RefundGatewayImpl implements RefundGateway {
     private void requireReadTransaction(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+    }
+
+    private void requireJdbc() {
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 
     private <T> T read(Supplier<T> action) {

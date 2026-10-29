@@ -15,8 +15,9 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
@@ -25,44 +26,40 @@ import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderClosureStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
-import io.github.loadup.pay.acquire.infrastructure.mapper.AcquireOrderDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderCloseIntentDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentAllocationDOMapper;
-import io.github.loadup.pay.acquire.infrastructure.mapper.OrderPaymentOutcomeDOMapper;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCloseIntentDO;
+import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ACQUIRE_ORDER_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_CLOSE_INTENT_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_ALLOCATION_DO;
-import static io.github.loadup.pay.acquire.infrastructure.dataobject.table.Tables.ORDER_PAYMENT_OUTCOME_DO;
 
 @Repository
 public class OrderClosureGatewayImpl implements OrderClosureGateway {
-    private final OrderCloseIntentDOMapper intents;
-    private final AcquireOrderDOMapper orders;
-    private final OrderPaymentAllocationDOMapper allocations;
-    private final OrderPaymentOutcomeDOMapper receipts;
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
     private final OrderClosureStorageConverter converter;
     private final PaymentInitiationStorageConverter allocationConverter;
     private final PaymentInitiationCodec codec;
 
-    public OrderClosureGatewayImpl(OrderCloseIntentDOMapper intents, AcquireOrderDOMapper orders,
-                                   OrderPaymentAllocationDOMapper allocations, OrderPaymentOutcomeDOMapper receipts,
+    public OrderClosureGatewayImpl(NamedParameterJdbcTemplate jdbc,
                                    OrderClosureStorageConverter converter, PaymentInitiationStorageConverter allocationConverter,
-                                   PaymentInitiationCodec codec) {
-        this.intents = intents;
-        this.orders = orders;
-        this.allocations = allocations;
-        this.receipts = receipts;
+                                   PaymentInitiationCodec codec, @Qualifier("acquireClock") Clock clock) {
+        this.jdbc = jdbc;
+        this.clock = clock;
         this.converter = converter;
         this.allocationConverter = allocationConverter;
         this.codec = codec;
@@ -70,10 +67,13 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
 
     @Override
     public Optional<OrderCloseIntent> findIntent(String tenant, String orderId) {
-        var row = intents.selectOneByQuery(QueryWrapper.create()
-                .where(ORDER_CLOSE_INTENT_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_CLOSE_INTENT_DO.DELETED.eq(0))
-                .and(ORDER_CLOSE_INTENT_DO.ORDER_ID.eq(orderId)));
+        scope(tenant);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var row = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, caller_scope_hash, request_key,
+                       request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version
+                FROM order_close_intent WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                """, args, BeanPropertyRowMapper.newInstance(OrderCloseIntentDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
         try {
             return Optional.of(converter.toIntent(row));
@@ -84,39 +84,69 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
 
     @Override
     public void keepPending(String tenant, AcquireOrder before, AcquireOrder after) {
+        scope(tenant);
         requireTransaction();
-        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
-            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN);
         if (before.state() != AcquireOrderState.INIT
                 || before.unpaidAction() != io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction.KEEP_PENDING
                 || !after.equals(before.checkDue(before.orderDueAt()))) throw new CommonException(SNAPSHOT_INVALID);
-        int changed = orders.updateByQuery(converter.toClosingPatch(after), true, orderScope(tenant, before.id())
-                .and(ACQUIRE_ORDER_DO.STATE.eq("INIT")).and(ACQUIRE_ORDER_DO.ROW_VERSION.eq(before.version()))
-                .and(ACQUIRE_ORDER_DO.ORDER_DUE_AT.eq(before.orderDueAt()))
-                .and(ACQUIRE_ORDER_DO.CLOSE_EPOCH.eq(before.closeEpoch())));
+        var patch = converter.toClosingPatch(after);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.id()).addValue("expected", before.version())
+                .addValue("due", before.orderDueAt()).addValue("oldEpoch", before.closeEpoch()).addValue("state", patch.getState())
+                .addValue("epoch", patch.getCloseEpoch()).addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE acquire_order SET state = :state, close_epoch = :epoch, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'INIT' AND row_version = :expected
+                    AND order_due_at = :due AND close_epoch = :oldEpoch
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public void start(String tenant, AcquireOrder closing, OrderCloseIntent intent, long expectedOrderVersion) {
+        scope(tenant);
         requireTransaction();
         if (closing.state() != AcquireOrderState.CLOSING || !closing.id().equals(intent.orderId())
                 || !closing.payeeMerchantId().equals(intent.payeeMerchantId()) || closing.closeEpoch() != intent.closeEpoch()
                 || closing.version() != Math.incrementExact(expectedOrderVersion) || intent.rowVersion() != 0
                 || !intent.cursorPaymentId().isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
-        int changed = orders.updateByQuery(converter.toClosingPatch(closing), true, orderScope(tenant, closing.id())
-                .and(ACQUIRE_ORDER_DO.ROW_VERSION.eq(expectedOrderVersion))
-                .and(ACQUIRE_ORDER_DO.STATE.in("INIT", "PENDING")));
-        if (changed != 1 || intents.insert(converter.toDO(tenant, intent)) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        var patch = converter.toClosingPatch(closing);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", closing.id()).addValue("expected", expectedOrderVersion)
+                .addValue("state", patch.getState()).addValue("epoch", patch.getCloseEpoch()).addValue("version", patch.getRowVersion())
+                .addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE acquire_order SET state = :state, close_epoch = :epoch, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND row_version = :expected AND state IN ('INIT', 'PENDING')
+                """, args);
+        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        var row = converter.toDO(tenant, intent);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO order_close_intent (id, tenant_id, created_at, updated_at, deleted, order_id, payee_merchant_id,
+                    caller_scope_hash, request_key, request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :callerScopeHash, :requestKey,
+                    :requestDigest, :reasonCode, :closeEpoch, :requestedAt, :cursorPaymentId, :rowVersion)
+                ON CONFLICT (tenant_id, order_id) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0) throw new AcquireWriteConflictException("Order close intent already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit) {
+        scope(tenant);
         if (limit < 1 || limit > 16 || afterPaymentId == null) throw new CommonException(INVALID_ARGUMENT);
-        var query = allocationScope(tenant, orderId).and(ORDER_PAYMENT_ALLOCATION_DO.STATE.eq("HELD"));
-        if (!afterPaymentId.isEmpty()) query.and(ORDER_PAYMENT_ALLOCATION_DO.PAYMENT_ID.gt(afterPaymentId));
-        var rows = allocations.selectListByQuery(query.orderBy(ORDER_PAYMENT_ALLOCATION_DO.PAYMENT_ID.asc()).limit(limit));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId)
+                .addValue("after", afterPaymentId).addValue("limit", limit);
+        var rows = jdbc.query("""
+                SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key,
+                       request_digest, caller_scope_hash, amount_minor, currency, state, payment_source_version,
+                       intent_payload, payload_hash, row_version
+                FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                    AND state = 'HELD' AND (:after = '' OR payment_id > :after)
+                ORDER BY payment_id ASC LIMIT :limit
+                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class));
         try {
             return rows.stream().map(row -> {
                 var value = allocationConverter.toStored(row, allocationConverter.toAllocation(row));
@@ -130,56 +160,65 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
 
     @Override
     public void advanceCursor(String tenant, OrderCloseIntent updated, long expectedVersion) {
+        scope(tenant);
         requireTransaction();
         if (updated.rowVersion() != Math.incrementExact(expectedVersion)) throw new CommonException(SNAPSHOT_INVALID);
         // Empty string starts a new pass; it is a real value, never an ignored-null clear operation.
-        int changed = intents.updateByQuery(converter.toCursorPatch(updated), true, QueryWrapper.create()
-                .where(ORDER_CLOSE_INTENT_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_CLOSE_INTENT_DO.DELETED.eq(0))
-                .and(ORDER_CLOSE_INTENT_DO.ID.eq(updated.id()))
-                .and(ORDER_CLOSE_INTENT_DO.ORDER_ID.eq(updated.orderId()))
-                .and(ORDER_CLOSE_INTENT_DO.ROW_VERSION.eq(expectedVersion)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", updated.id()).addValue("order", updated.orderId())
+                .addValue("expected", expectedVersion).addValue("cursor", updated.cursorPaymentId())
+                .addValue("version", updated.rowVersion()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE order_close_intent SET cursor_payment_id = :cursor, row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND row_version = :expected AND deleted = FALSE
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
     public boolean allAllocationsSettled(String tenant, String orderId) {
+        scope(tenant);
         requireTransaction();
-        if (allocations.selectCountByQuery(allocationScope(tenant, orderId)
-                .and(ORDER_PAYMENT_ALLOCATION_DO.STATE.in("INIT", "HELD"))) != 0) return false;
-        long count = allocations.selectCountByQuery(allocationScope(tenant, orderId));
-        long proofs = receipts.selectCountByQuery(QueryWrapper.create()
-                .where(ORDER_PAYMENT_OUTCOME_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_PAYMENT_OUTCOME_DO.DELETED.eq(0))
-                .and(ORDER_PAYMENT_OUTCOME_DO.ORDER_ID.eq(orderId)));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        long pending = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order
+                    AND deleted = FALSE AND state IN ('INIT', 'HELD')
+                """, args, Long.class);
+        if (pending != 0) return false;
+        long count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                """, args, Long.class);
+        long proofs = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM order_payment_outcome WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                """, args, Long.class);
         return count == proofs;
     }
 
     @Override
     public void finish(String tenant, AcquireOrder closed, long expectedOrderVersion, LocalDateTime closedAt) {
+        scope(tenant);
         requireTransaction();
         if (closed.state() != AcquireOrderState.CLOSED || closed.version() != Math.incrementExact(expectedOrderVersion)
                 || closed.closeEpoch() <= 0 || closedAt == null) throw new CommonException(SNAPSHOT_INVALID);
-        int changed = orders.updateByQuery(converter.toClosedPatch(closed, closedAt), true, orderScope(tenant, closed.id())
-                .and(ACQUIRE_ORDER_DO.STATE.eq("CLOSING"))
-                .and(ACQUIRE_ORDER_DO.CLOSE_EPOCH.eq(closed.closeEpoch()))
-                .and(ACQUIRE_ORDER_DO.ROW_VERSION.eq(expectedOrderVersion))
-                .and(ACQUIRE_ORDER_DO.PAYMENT_RESERVED_MINOR.eq(0))
-                .and(ACQUIRE_ORDER_DO.RESERVED_PAYMENT_COUNT.eq(0)));
+        var patch = converter.toClosedPatch(closed, closedAt);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", closed.id()).addValue("expected", expectedOrderVersion)
+                .addValue("epoch", closed.closeEpoch()).addValue("state", patch.getState()).addValue("version", patch.getRowVersion())
+                .addValue("closedAt", patch.getClosedAt()).addValue("updated", LocalDateTime.now(clock));
+        int changed = jdbc.update("""
+                UPDATE acquire_order SET state = :state, row_version = :version, closed_at = :closedAt, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'CLOSING' AND close_epoch = :epoch
+                    AND row_version = :expected AND payment_reserved_minor = 0 AND reserved_payment_count = 0
+                """, args);
         if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
-    private QueryWrapper orderScope(String tenant, String orderId) {
-        return QueryWrapper.create().where(ACQUIRE_ORDER_DO.TENANT_ID.eq(tenant))
-                .and(ACQUIRE_ORDER_DO.DELETED.eq(0)).and(ACQUIRE_ORDER_DO.ID.eq(orderId));
-    }
-
-    private QueryWrapper allocationScope(String tenant, String orderId) {
-        return QueryWrapper.create().where(ORDER_PAYMENT_ALLOCATION_DO.TENANT_ID.eq(tenant))
-                .and(ORDER_PAYMENT_ALLOCATION_DO.DELETED.eq(0)).and(ORDER_PAYMENT_ALLOCATION_DO.ORDER_ID.eq(orderId));
+    private void scope(String tenant) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 }

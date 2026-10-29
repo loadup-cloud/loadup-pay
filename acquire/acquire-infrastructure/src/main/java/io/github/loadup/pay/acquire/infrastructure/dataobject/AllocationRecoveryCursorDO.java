@@ -15,13 +15,11 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 import java.time.LocalDateTime;
 
-@Table("allocation_recovery_cursor")
 public class AllocationRecoveryCursorDO extends BaseDO {
     private String orderId;
     private Long generation;

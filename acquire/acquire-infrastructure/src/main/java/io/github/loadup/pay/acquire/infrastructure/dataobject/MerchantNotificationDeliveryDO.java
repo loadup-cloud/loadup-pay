@@ -15,7 +15,6 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
@@ -23,7 +22,6 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Table("merchant_notification_delivery")
 public class MerchantNotificationDeliveryDO extends BaseDO {
     private String eventId;
     private String orderId;

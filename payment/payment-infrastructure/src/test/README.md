@@ -92,7 +92,8 @@ Outbox worker 在 test/ci 配置中关闭，保留实际入库而避免后台发
 mvnd clean verify -pl payment/payment-infrastructure -Ppostgresql-it -Dit.test=PaymentResultPersistenceIT -Dskip.spotless=true -Dskip.spotbugs=true
 ```
 
-仍未运行 IDEA、编译、单测、Docker 或 PostgreSQL；R1 尚无本轮通过证据。后续仍需真实付款/退款恢复 handler 的租约、旧新 generation
+仍未运行 IDEA、编译、单测、Docker 或 PostgreSQL；R1 尚无本轮通过证据。后续仍需真实付款/退款恢复 handler 的租约、旧新
+generation
 并发及网络故障组合。
 
 ## PaymentResultPersistenceIT：真实付款恢复 handler 与租约交错

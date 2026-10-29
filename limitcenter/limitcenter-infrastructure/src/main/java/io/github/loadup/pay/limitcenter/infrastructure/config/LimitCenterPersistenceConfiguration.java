@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.config;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({LimitPermitProperties.class, PaymentEvidenceProperties.class})
-@MapperScan("io.github.loadup.pay.limitcenter.infrastructure.mapper")
 public class LimitCenterPersistenceConfiguration {
 }

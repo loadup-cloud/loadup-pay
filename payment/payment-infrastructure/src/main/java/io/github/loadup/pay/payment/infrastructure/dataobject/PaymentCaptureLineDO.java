@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("payment_reconciliation_line")
 public class PaymentCaptureLineDO extends BaseDO {
     private String captureId;
     private Long ordinal;

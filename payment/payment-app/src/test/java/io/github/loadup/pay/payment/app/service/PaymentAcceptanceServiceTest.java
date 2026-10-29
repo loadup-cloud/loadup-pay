@@ -21,6 +21,7 @@ import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
@@ -36,7 +37,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -392,7 +392,7 @@ class PaymentAcceptanceServiceTest {
                     "payload",
                     "c".repeat(64),
                     null));
-            throw new DuplicateKeyException("synthetic concurrent winner");
+            throw new PaymentWriteConflictException("synthetic concurrent winner");
         })
                 .when(store)
                 .insertParent(eq("tenant"), any());

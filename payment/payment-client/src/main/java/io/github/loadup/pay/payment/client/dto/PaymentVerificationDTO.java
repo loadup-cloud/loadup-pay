@@ -19,10 +19,10 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationOutcome;
-import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 
 import java.time.OffsetDateTime;
 import java.util.Set;

@@ -1,0 +1,815 @@
+# Spring Data JDBC 迁移盘点（进行中）
+
+本文件记录迁移初期的静态搜索快照，不代表 P0 盘点已完成；后续已删除的引用仍可能列在快照中。搜索工作空间的非 Markdown 源码、POM
+与配置，排除 target 和 .git；依赖树、外部消费者及动态生成产物尚未核实。
+
+## 当前核查补充（覆盖下方历史快照）
+
+- Framework 与 Pay 生产 Java 中已静态搜索不到 Flex API、生成 Mapper 或 TableDef 引用；Pay 的边界测试保留禁止依赖规则。已清理
+  Framework 的 Flex BOM、注解处理器、旧监听器与相关自动配置引用。
+- Framework UPMS 六个 Gateway、Gotone JDBC store 和相关初始表结构已改为 JDBC/PostgreSQL；UPMS
+  的用户、角色和部门关系写入与删除增加事务内锁定及引用检查。默认租户及缺失租户行为由数据库组件的 DatabaseTenant 明确解析。
+- 数据库核心配置提供数据库时钟和 JDBC 事务管理；审计事件追加使用 Spring Data JDBC 显式 insert，字典父子记录创建与类型删除使用同事务锁和复核。
+- 此项仅是源码变更和静态搜索结果，不表示所有模块的租户、Clock、状态围栏和关联治理已经审查完成。未执行构建、测试或数据库运行验证；历史快照及逐入口清单仍需逐项更新。
+
+## 历史状态记录
+
+- 已将 sequence 分配入口改为 Spring JDBC，并删除该入口的 Flex 数据对象和 Mapper 扫描。启动装配、并发及回滚未运行验证。
+- GlobalUnique 已使用 Spring JDBC、按业务唯一键指定冲突目标，并删除自身 Flex 数据对象和注解处理器配置；实际事务、并发和约束行为未运行验证。公共
+  ID 生成器与数据库自动配置仍依赖 Flex，属于后续迁移范围。
+- DelayedTask 的注册、领取、确认和重排路径已改为 Spring JDBC，领取使用短事务和 `FOR UPDATE SKIP LOCKED`；其数据对象暂时继承仍有
+  Flex 耦合的 BaseDO。迁移后的装配、数据库并发、回滚与锁行为尚未运行验证。
+- Customer 的商户关系和操作授权读写已改为 Spring JDBC，保留租户过滤、行锁、版本条件与部分唯一索引；商户资料改经 Framework
+  Merchant 的本地 client 接口读取与锁定。Merchant 持久化已改为 Spring JDBC，但共享 BaseDO 仍有 Flex
+  耦合；新库脚本使用布尔删除标记。相关并发、事务与装配未运行验证。
+- Framework File 的资源和引用访问已改为 Spring JDBC；删除外键后，创建引用与请求删除均在事务内锁定父文件并检查状态或引用。实际锁竞争、补偿和自动装配尚未运行验证。
+- Framework Transfer 已改为 Spring JDBC，任务与选项同事务写入，领取和状态更新显式限制租户与当前状态；后台队列扫描和按 ID
+  启动查询仍是内部跨租户入口。移除选项外键及 Flex 类型后，装配、并发和回滚尚未运行验证。
+- Framework Contract 的目录、合约和修订已改为 Spring JDBC；合约及修订在调用方事务内写入，请求键与业务范围冲突分别识别。Product
+  的合约锁与修订读取改经本地 client 接口；装配、约束和并发重放未运行验证。
+- Product 准入记录及策略发布已改为 Spring JDBC，业务唯一键冲突与其他数据库错误分开处理，策略发布保留租户、版本围栏与事务外有限重试。数据对象仍继承带
+  Flex 耦合的共享 BaseDO；真实并发、事务、重试及 Outbox 联动未运行验证。
+- Limitcenter 的策略、额度桶、操作门闩、预留及明细、执行授权、退款和结算持久化已改为 Spring
+  JDBC，保留租户、行锁、版本及原值围栏；适用的幂等插入使用目标业务唯一键的 `ON CONFLICT`
+  。事务仅重试明确识别的业务键竞争与暂时性数据库异常，支付门闩的唯一键竞争按 PostgreSQL 约束名识别。共享 BaseDO 仍有 Flex
+  耦合，对应表、事务及并发行为均未运行验证。
+- Realtime 投影回执、退款汇总及订单、支付、退款投影与分页已改为 Spring
+  JDBC，保留来源版本围栏、商户过滤和业务键竞争处理；事务仅重试明确识别的业务键竞争及暂时性数据库异常。初始脚本中的 JSON
+  检查已改为 PostgreSQL JSON 类型校验，软删除改为布尔列；共享 BaseDO 仍有 Flex 耦合，真实数据库、并发和分页行为未验证。
+- Payment 路由配置、支付输入、支付动作及关闭证据、退款汇总、支付与退款恢复游标、恢复重试回执以及待恢复事项查询已改为 Spring
+  JDBC，保留租户、业务键、退款汇总原值和版本围栏、输入绑定状态版本条件、游标 generation 围栏和重复读下的时间/ID 翻页；支付其他
+  Gateway 仍使用 Flex，其共享事务重试仍会捕获所有重复键。支付初始脚本的 JSON 校验改为 PostgreSQL
+  类型检查，已迁移表的布尔语义字段改为布尔列；未运行数据库验证。
+- Payment 尝试的 Gateway、渠道核验查询及对账读取中对应的尝试查询已改为 Spring
+  JDBC，保留请求键、渠道请求查询、版本条件更新及受限批量读取；尝试表的软删除已改为布尔列。对账读取的其他表仍使用
+  Flex，尝试表的多个独立唯一约束仍受共享事务的宽泛重复键重试影响。
+- Payment 对账采集头及明细已改为 Spring JDBC，采集封存保留行锁、状态和版本条件，明细按 256
+  条分批写入并检查批处理结果；分页仍在重复读事务中核对总数、序号及内容键。批量回滚、驱动返回计数及数据库并发尚未运行验证。
+- Payment 退款容量的创建、锁定、预留、结果更新和回调/核验读取已改为 Spring JDBC，保留支付 ID
+  锁顺序以及版本、已退款和已预留金额围栏；对应软删除改为布尔列。退款请求和结果的其他表仍使用 Flex，资金并发及事务回滚未运行验证。
+- Payment 退款请求、退款分配计划、退款渠道回执、退款受理证据、退款结果异常和退款交易声明已改为 Spring
+  JDBC，对账中的受理证据、回执和声明读取也已同步；退款请求保留商户退款号唯一键和状态/版本条件，分配计划保持有序读取及子单/支付/金额校验，渠道退款交易号保留跨租户精确查重。退款订单等仍使用
+  Flex，结果重试和真实数据库行为未验证。
+- Payment 父门闩、支付门闩、控制回执、支付渠道回执、结果异常、渠道交易声明和支付订单的受理、控制、结果更新、对账及恢复读取已改为
+  Spring JDBC，保留租户、行锁、业务唯一键、版本/fence epoch 条件和首次未知时间；渠道交易声明按渠道、账户范围和交易号执行跨租户精确查询。已迁移表软删除改为布尔列，退款结果等其他表仍使用
+  Flex，共享事务的重复键分类仍待收紧。
+- Outbox 和 Inbox 已使用同一注入的 JDBC 事务管理器，领取使用 `SKIP LOCKED`，确认及失败处理检查 token
+  和租约；迁移后的装配、并发、回滚与恢复尚未运行验证。
+- Framework 数据库模块已声明 Spring JDBC 与由 Boot 管理版本的 Spring Data JDBC starter；ID 接口和共享 Clock 配置已从 Flex
+  类型与配置中拆开，但 BaseDO、租户、审计、事务及 Repository 回调等完整替代方案尚未落地。尚未迁移的 Flex 路径仍有过渡配置。新增
+  starter 的自动装配尚未运行验证。
+- 迁移前须逐个入口记录表、事务、租户、锁、幂等、异常、分页与软删除；下列命中只是待审查线索，不表示已完成行为审查。
+
+## Flex/MyBatis 相关文件（252）
+
+- `loadup-application/src/test/java/io/github/loadup/application/arch/ArchitectureTest.java`
+- `loadup-framework/config/quality/spotbugs-exclude.xml`
+- `loadup-framework/loadup-commons/loadup-commons-dto/pom.xml`
+- `loadup-framework/loadup-commons/loadup-commons-dto/src/main/java/io/github/loadup/commons/dataobject/BaseDO.java`
+- `loadup-framework/loadup-components/data/loadup-components-database-processor/pom.xml`
+-
+`loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/java/io/github/loadup/components/database/processor/LoadUpMyBatisFlexProcessor.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/resources/META-INF/services/javax.annotation.processing.Processor`
+-
+`loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/resources/io/github/loadup/components/database/processor/mybatis-flex.config`
+-
+`loadup-framework/loadup-components/data/loadup-components-database-processor/src/test/java/io/github/loadup/components/database/processor/LoadUpMyBatisFlexProcessorTest.java`
+- `loadup-framework/loadup-components/data/loadup-components-database/pom.xml`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/autoconfigure/JdbcTransactionAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/autoconfigure/MyBatisFlexAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/autoconfigure/SequenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/id/IdGenerator.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/listener/BaseEntityListener.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/sequence/dataobject/SequenceAllocationDO.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/autoconfigure/JdbcTransactionAutoConfigurationTest.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/autoconfigure/MyBatisFlexAutoConfigurationTest.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/autoconfigure/PersistenceConventionGuardTest.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/listener/BaseEntityListenerTest.java`
+- `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/pom.xml`
+-
+`loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/DatabaseDfsProvider.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/autoconfigure/DatabaseDfsAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/dataobject/FileStorageDO.java`
+-
+`loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-test/src/test/java/io/github/loadup/components/dfs/test/TestApplication.java`
+- `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/pom.xml`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/config/GotoneStoreJdbcAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/config/JdbcChannelConfigProvider.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/config/JdbcServiceConfigProvider.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/dataobject/NotificationRecordDO.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/dataobject/NotificationServiceDO.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/dataobject/ServiceChannelDO.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-test/src/test/java/io/github/loadup/components/gotone/test/store/JdbcStoreBoundaryTest.java`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-test/src/test/java/io/github/loadup/components/gotone/test/store/JdbcStoreIT.java`
+- `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/pom.xml`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskStore.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskTemplate.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/dataobject/DelayedTaskDO.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/test/java/io/github/loadup/components/delayedtask/DelayedTaskBoundaryTest.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/test/java/io/github/loadup/components/delayedtask/DelayedTaskIT.java`
+- `loadup-framework/loadup-components/reliability/loadup-components-globalunique/pom.xml`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/DefaultGlobalUniqueTemplate.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/autoconfigure/GlobalUniqueAutoConfiguration.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/dataobject/GlobalUniqueDO.java`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/test/java/io/github/loadup/components/globalunique/GlobalUniqueContractTest.java`
+- `loadup-framework/loadup-dependencies/pom.xml`
+- `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/autoconfigure/AuditPersistenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/dataobject/AuditEventDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/repository/AuditGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-app/src/main/java/io/github/loadup/modules/contract/app/autoconfigure/ContractAutoConfiguration.java`
+- `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/dataobject/CatalogVersionDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/dataobject/ContractRevisionDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/dataobject/MerchantContractDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/repository/CatalogGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/repository/MerchantContractGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-test/src/test/resources/application-ci.yml`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-test/src/test/resources/application-test.yml`
+- `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/autoconfigure/DictionaryPersistenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/dataobject/DictionaryItemDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/dataobject/DictionaryTypeDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/repository/DictionaryGatewayImpl.java`
+- `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/autoconfigure/FilePersistenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/dataobject/FileReferenceDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/dataobject/FileResourceDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/repository/FileResourceGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-app/src/main/java/io/github/loadup/modules/merchant/app/autoconfigure/MerchantAutoConfiguration.java`
+- `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/java/io/github/loadup/modules/merchant/infrastructure/dataobject/MerchantDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/java/io/github/loadup/modules/merchant/infrastructure/repository/MerchantGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-test/src/test/resources/application-ci.yml`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-test/src/test/resources/application-test.yml`
+- `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/autoconfigure/NotificationPersistenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/dataobject/InboxMessageDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/repository/InboxGatewayImpl.java`
+- `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/autoconfigure/TransferPersistenceAutoConfiguration.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/dataobject/TransferTaskDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/dataobject/TransferTaskOptionDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/repository/TransferGatewayImpl.java`
+- `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/pom.xml`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/DepartmentDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/LoginLogDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/PermissionDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/RoleDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/RoleDepartmentDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/RolePermissionDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/UserDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/UserOAuthBindingDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/UserRoleDO.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/DepartmentGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/LoginLogGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/PermissionGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/RoleGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/UserGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/UserOAuthBindingGatewayImpl.java`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/resources/META-INF/services/javax.annotation.processing.Processor`
+-
+`loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/java/io/github/loadup/modules/upms/MyBatisTestConfig.java`
+- `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/resources/application-ci.yml`
+- `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/resources/application-test.yml`
+- `loadup-framework/pom.xml`
+- `loadup-pay/acquire/acquire-infrastructure/pom.xml`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/AcquireOrderDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/AcquireRecoveryRetryReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/AllocationRecoveryCursorDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/CheckoutSessionDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/CheckoutSessionRevocationReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/FeeAdjustmentDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/FeeRefundReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/MerchantNotificationDeliveryDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/MerchantNotificationWakeReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderCloseIntentDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderContractSnapshotDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderCreateIntentDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderExtensionReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderFeeDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderPaymentAllocationDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/OrderPaymentOutcomeDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/PaymentEventReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/RefundNotificationReceiptDO.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/AcquireRecoveryRetryGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/AllocationRecoveryGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/CheckoutSessionGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/CheckoutSessionRevocationGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/FeeRefundReceiptGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/MerchantNotificationGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/MerchantNotificationWakeGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderClosureGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderCreationGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderExtensionGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderFeeGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderSnapshotReaderImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentEventReceiptGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentInitiationGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentOutcomeGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/RefundNotificationReceiptGatewayImpl.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/test/java/io/github/loadup/pay/acquire/infrastructure/repository/AcquiringFinancialPersistenceIT.java`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/test/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderFeeGatewayImplTest.java`
+- `loadup-pay/channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/PayModuleBoundaryTest.java`
+- `loadup-pay/customer/customer-infrastructure/pom.xml`
+-
+`loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/dataobject/MerchantActionGrantDO.java`
+-
+`loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/dataobject/MerchantRelationshipDO.java`
+-
+`loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantAuthorizationGatewayImpl.java`
+-
+`loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantFactsGatewayImpl.java`
+- `loadup-pay/limitcenter/limitcenter-infrastructure/pom.xml`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitBucketDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitExecutionGrantDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitOperationGateDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitPolicyHeadDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitPolicyRevisionDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitRefundReceiptDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitReservationDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitReservationItemDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitRuleRuntimeDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitSettlementReceiptDO.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitPolicyGatewayImpl.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitRefundGatewayImpl.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitSettlementGatewayImpl.java`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/MerchantLimitGatewayImpl.java`
+- `loadup-pay/payment/payment-app/src/test/java/io/github/loadup/pay/payment/app/service/RoutingProfileServiceTest.java`
+- `loadup-pay/payment/payment-infrastructure/pom.xml`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelBindingChangeReceiptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelBindingRevisionDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelMerchantBindingDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelTransactionClaimDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/OrderRefundSummaryDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentActionDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentAttemptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentCaptureDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentCaptureLineDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentChannelReceiptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentCloseEvidenceDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentControlReceiptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentGateDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentInputDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentOrderDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentParentGateDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentRecoveryCursorDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentRecoveryRetryReceiptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentRefundCapacityDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/PaymentResultAnomalyDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundAcceptanceDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundAllocationPlanDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundChannelReceiptDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundOrderDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundRecoveryCursorDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundRequestDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundResultAnomalyDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RefundTransactionClaimDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/RoutingProfileDO.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/ChannelBindingGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentAcceptanceGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentActionGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentAttemptGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCaptureGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCaptureReaderImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCloseEvidenceGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentControlGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentInputGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentRecoveryGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentRecoveryRetryGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentResultGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentVerificationTargetReaderImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RecoveryInventoryReaderImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundAcceptanceGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundCallbackTargetGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundRecoveryGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundResultGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundSnapshotReaderImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundSummaryGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RoutingProfileGatewayImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/UnknownRecoveryReaderImpl.java`
+-
+`loadup-pay/payment/payment-infrastructure/src/test/java/io/github/loadup/pay/payment/infrastructure/repository/FinancialPersistenceIT.java`
+- `loadup-pay/product/product-infrastructure/pom.xml`
+-
+`loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/dataobject/ContractLimitPublicationDO.java`
+-
+`loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/dataobject/OrderAdmissionDO.java`
+-
+`loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/CurrentContractGatewayImpl.java`
+-
+`loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/OrderAdmissionGatewayImpl.java`
+-
+`loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/PolicyPublicationGatewayImpl.java`
+- `loadup-pay/realtime/realtime-infrastructure/pom.xml`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/ProjectionReceiptDO.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/TradeOrderDO.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/TradePaymentDO.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/TradeRefundDO.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/TradeSummaryDO.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/ProjectionReceiptGatewayImpl.java`
+-
+`loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/TradeProjectionGatewayImpl.java`
+- `loadup-pay/reconciliation/reconciliation-infrastructure/pom.xml`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationBatchDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationDifferenceDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationEntryDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationImportDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationInputDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationReviewDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationReviewEventDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationReviewProposalDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationStatementDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationVerificationDO.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationBatchGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationImportGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationInputGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationResultGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationReviewGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationStatementGatewayImpl.java`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationVerificationGatewayImpl.java`
+
+## 待审查持久化入口候选（81）
+
+文件名搜索仅提供入口候选，可能遗漏不同命名或非 Java 实现；各项行为尚未逐一核实。
+
+- [ ] 
+  `loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/src/main/java/io/github/loadup/components/rpc/grpc/GrpcScalarMapper.java`
+- [ ] 
+  `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskStore.java`
+- [ ] 
+  `loadup-framework/loadup-components/security/loadup-components-signature/src/main/java/io/github/loadup/components/signature/request/RedisRequestNonceStore.java`
+- [ ] 
+  `loadup-framework/loadup-components/security/loadup-components-signature/src/main/java/io/github/loadup/components/signature/request/RequestNonceStore.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/repository/AuditGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/repository/CatalogGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/repository/MerchantContractGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/repository/DictionaryGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/repository/FileResourceGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/java/io/github/loadup/modules/merchant/infrastructure/repository/MerchantGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/repository/InboxGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/repository/TransferGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/DepartmentGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/LoginLogGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/PermissionGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/RoleGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/UserGatewayImpl.java`
+- [ ] 
+  `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/repository/UserOAuthBindingGatewayImpl.java`
+- [ ] `loadup-pay/acquire/acquire-client/src/main/java/io/github/loadup/pay/acquire/rpc/AcquireRpcMapper.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/AcquireRecoveryRetryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/AllocationRecoveryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/CheckoutSessionGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/CheckoutSessionRevocationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/FeeRefundReceiptGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/MerchantNotificationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/MerchantNotificationWakeGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderClosureGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderCreationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderExtensionGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderFeeGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentEventReceiptGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentInitiationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/PaymentOutcomeGatewayImpl.java`
+- [ ] 
+  `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/repository/RefundNotificationReceiptGatewayImpl.java`
+- [ ] `loadup-pay/customer/customer-client/src/main/java/io/github/loadup/pay/customer/rpc/CustomerRpcMapper.java`
+- [ ] 
+  `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantAuthorizationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantFactsGatewayImpl.java`
+- [ ] 
+  `loadup-pay/limitcenter/limitcenter-client/src/main/java/io/github/loadup/pay/limitcenter/rpc/LimitCenterRpcMapper.java`
+- [ ] 
+  `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitPolicyGatewayImpl.java`
+- [ ] 
+  `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitRefundGatewayImpl.java`
+- [ ] 
+  `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitSettlementGatewayImpl.java`
+- [ ] 
+  `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/MerchantLimitGatewayImpl.java`
+- [ ] `loadup-pay/payment/payment-client/src/main/java/io/github/loadup/pay/payment/rpc/PaymentCaptureRpcMapper.java`
+- [ ] `loadup-pay/payment/payment-client/src/main/java/io/github/loadup/pay/payment/rpc/PaymentRpcMapper.java`
+- [ ] `loadup-pay/payment/payment-client/src/main/java/io/github/loadup/pay/payment/rpc/PaymentStatementRpcMapper.java`
+- [ ] 
+  `loadup-pay/payment/payment-client/src/main/java/io/github/loadup/pay/payment/rpc/PaymentVerificationRpcMapper.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/channel/PaymentChannelGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/channel/PaymentChannelNotificationGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/ChannelBindingGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentAcceptanceGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentActionGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentAttemptGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCaptureGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentCloseEvidenceGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentControlGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentInputGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentRecoveryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentRecoveryRetryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/PaymentResultGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundAcceptanceGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundCallbackTargetGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundRecoveryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundResultGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RefundSummaryGatewayImpl.java`
+- [ ] 
+  `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/RoutingProfileGatewayImpl.java`
+- [ ] `loadup-pay/product/product-client/src/main/java/io/github/loadup/pay/product/rpc/ProductRpcMapper.java`
+- [ ] 
+  `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/CurrentContractGatewayImpl.java`
+- [ ] 
+  `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/OrderAdmissionGatewayImpl.java`
+- [ ] 
+  `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/PolicyPublicationGatewayImpl.java`
+- [ ] `loadup-pay/realtime/realtime-client/src/main/java/io/github/loadup/pay/realtime/rpc/RealtimeRpcMapper.java`
+- [ ] 
+  `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/ProjectionReceiptGatewayImpl.java`
+- [ ] 
+  `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/TradeProjectionGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-client/src/main/java/io/github/loadup/pay/reconciliation/rpc/ReconciliationRpcMapper.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationBatchGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationImportGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationInputGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationResultGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationReviewGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationStatementGatewayImpl.java`
+- [ ] 
+  `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/repository/ReconciliationVerificationGatewayImpl.java`
+
+## 主资源 Flyway 脚本（22）
+
+-
+`loadup-framework/loadup-components/data/loadup-components-database/src/main/resources/db/migration/V2026101201__sequence_allocation.sql`
+-
+`loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/resources/db/migration/V1__create_file_storage.sql`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/resources/db/migration/V1__gotone_store.sql`
+-
+`loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/resources/db/migration/V2__add_notification_record_trace_id.sql`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/resources/db/migration/V20261019000001__create_delayed_task.sql`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/resources/db/migration/V20260225000001__create_global_unique_postgresql.sql`
+-
+`loadup-framework/loadup-components/reliability/loadup-components-outbox/src/main/resources/db/migration/V20261008000001__create_outbox.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/resources/db/migration/V20261002000001__create_audit_event.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/resources/db/migration/V20261009000001__create_contract_catalog.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/resources/db/migration/V20261002000002__create_data_dictionary.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/resources/db/migration/V20261002000003__create_file_resource.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/resources/db/migration/V20261010000001__create_merchant_profile.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/resources/db/migration/V20261003000001__create_notification_inbox.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/resources/db/migration/V202610100102__inbox_common_persistence_fields.sql`
+-
+`loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/resources/db/migration/V20261003000002__create_transfer_task.sql`
+-
+`loadup-pay/acquire/acquire-infrastructure/src/main/resources/db/migration/V20261021210000__acquire_order_creation.sql`
+-
+`loadup-pay/customer/customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql`
+-
+`loadup-pay/limitcenter/limitcenter-infrastructure/src/main/resources/db/migration/V20261021180000__limitcenter_policy_and_reservation.sql`
+- `loadup-pay/payment/payment-infrastructure/src/main/resources/db/migration/V20261022020000__payment_acceptance.sql`
+-
+`loadup-pay/product/product-infrastructure/src/main/resources/db/migration/V20261021170000__create_product_admission.sql`
+- `loadup-pay/realtime/realtime-infrastructure/src/main/resources/db/migration/V20261023020000__trade_projections.sql`
+-
+`loadup-pay/reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/V20261027000000__reconciliation_core.sql`
+
+## 未完成与证据边界
+
+- 修复 reconciliation 对账单及导入 SQL 中的 SHA-256 字段映射；请求键竞争使用明确冲突目标和专用重试异常。审核请求键和主记录
+  ID 竞争使用明确冲突目标；其他唯一约束错误继续透传。
+
+- reconciliation 审核主记录、提案和事件读写已切换 JDBC。
+
+- reconciliation 差异记录读写已切换 JDBC，批量插入显式生成 ID，差异标志与软删除改为布尔。
+
+- reconciliation 输入清单与明细读写已切换 JDBC，明细插入分批执行。
+
+- reconciliation 批次网关与结果网关的批次读写已切换 JDBC，软删除改为布尔。
+
+- reconciliation 导入请求读写已切换 JDBC，软删除改为布尔；相关持久化验证尚未运行。
+
+- reconciliation 对账单请求读写已切换 JDBC，软删除改为布尔；尚需数据库验证。
+
+- reconciliation 验证请求读写已切换 JDBC，软删除改为布尔类型；尚需数据库验证。
+
+- acquire 事务重试已收窄到显式业务键竞争和暂态异常；额外唯一约束错误不再被当成幂等竞争。
+
+- acquire 商户通知投递写入已切换 JDBC，acquire 源码的 Flex Mapper 引用已清理；仍需完整构建和数据库验证。
+
+- acquire 商户通知投递查询、分页和锁定读取已切换 JDBC；插入与更新仍使用 Flex。
+
+- acquire 费用主记录和调整记录已切换 JDBC；相关测试桩已更新，尚未运行。
+
+- acquire 费用调整记录已切换 JDBC，费用主记录更新仍使用 Flex；测试桩已同步修改，尚未运行。
+
+- acquire 订单关闭网关所有入口均显式校验当前租户；费用调整记录的迁移仍待完成。
+
+- acquire 订单创建流程中的初始费用插入已切换 JDBC；费用锁定和后续调整仍使用 Flex。
+
+- acquire 订单创建意图读写已切换 JDBC；订单费用等表仍待迁移。
+
+- acquire 订单合同快照已切换 JDBC；创建意图和订单费用仍待迁移。
+
+- acquire 订单主表读写已切换 JDBC，软删除改为布尔；创建意图、合同快照与费用等相关表仍需迁移。
+
+- acquire 订单快照锁定读取已切换 JDBC；订单主表其余创建与读取入口仍待迁移。
+
+- acquire 支付发起及结果处理的订单条件更新已切换 JDBC；订单创建和查询等入口仍待迁移。
+
+- acquire 关闭流程的订单状态条件更新已切换 JDBC；订单主表其他入口仍使用 Flex。
+
+- acquire 付款分配的创建、查询与结果更新已切换 JDBC，表软删除已改为布尔；关联订单仍待迁移。
+
+- acquire 付款分配的操作键读取和输入绑定更新已切换 JDBC；分配创建及其他入口仍需迁移。
+
+- acquire 关闭流程中的付款分配扫描与结清核对已切换 JDBC；付款分配的其他入口仍使用 Flex，软删除暂为数值类型。
+
+- acquire 付款结果回执已切换 JDBC，关闭流程核对结果数也使用 JDBC；关联订单与付款分配仍需迁移。
+
+- acquire 订单关闭意图的读取、插入与游标更新已切换 JDBC；关闭流程中的订单与付款分配仍依赖 Flex。
+
+- acquire 收银台会话已切换 JDBC；初始化脚本的时间精度和 JSON 检查已改为 PostgreSQL 表达式。跨组件集成测试中已移除被淘汰的延迟任务
+  Mapper 引用，尚未运行验证。
+
+- acquire 订单延期回执和分配恢复游标已切换 JDBC；订单延期对主表的条件更新仍使用主表现有的数值软删除字段，待主表全部入口迁移时统一修改。
+
+- `acquire` 的支付事件、退款通知、退款手续费、恢复重试、通知唤醒和会话撤销回执已切换 JDBC；其余订单、会话及通知等表仍需迁移，整个
+  acquire 事务重试范围仍需收窄。
+
+- `payment` 源码的 Flex 和 MyBatis 引用已清理；本地事务仅重试特定业务键冲突及暂态数据访问异常。该结论来自静态搜索，尚未验证构建、约束和并发行为。
+
+- `payment` 渠道绑定主记录、修订和变更回执已改为 JDBC，软删除与能力标志使用布尔类型；尚未执行数据库验证。
+
+- `payment.refund_order` 的创建、结果更新、快照、受理证据、回调定位和对账采集入口已改为 JDBC；`deleted` 已改为布尔类型，仍需数据库与并发验证。
+
+- 逐入口行为清单、跨模块引用、约束与索引盘点尚未完成；不能据此认为方案批次 0 已完成。
+- 外部 SDK 消费者及 Maven 实际依赖图未知；本工作空间搜索不证明外部无引用。
+- 未运行构建、测试或数据库验证；回滚行为及并发安全需要后续环境验证。

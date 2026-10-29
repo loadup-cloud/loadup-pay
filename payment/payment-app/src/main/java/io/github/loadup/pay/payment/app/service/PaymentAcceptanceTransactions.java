@@ -18,7 +18,7 @@ package io.github.loadup.pay.payment.app.service;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
-import org.springframework.dao.DuplicateKeyException;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -58,7 +58,7 @@ public class PaymentAcceptanceTransactions {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
-                } catch (DuplicateKeyException | TransientDataAccessException conflict) {
+                } catch (PaymentWriteConflictException | TransientDataAccessException conflict) {
                     if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
                 }
             }
@@ -75,7 +75,7 @@ public class PaymentAcceptanceTransactions {
     }
 
     /**
-     * Dedicated bounded RR read. The transaction deadline is propagated by Spring/MyBatis to JDBC statements.
+     * Dedicated bounded RR read. The transaction deadline is propagated by Spring to JDBC statements.
      */
     public <T> T readSnapshot(String tenant, int timeoutSeconds, Supplier<T> work) {
         if (timeoutSeconds < 1 || timeoutSeconds > 60) throw new CommonException(INVALID_ARGUMENT);

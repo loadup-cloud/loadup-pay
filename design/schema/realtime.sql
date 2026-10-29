@@ -24,7 +24,7 @@ CREATE TABLE trade_order_projection
     PRIMARY KEY (id),
     UNIQUE KEY uk_trade_order (tenant_id, order_id),
     UNIQUE KEY uk_trade_merchant_order (tenant_id, payee_merchant_id, merchant_order_no),
-    KEY ix_trade_order_page (tenant_id, payee_merchant_id, order_created_at, order_id)
+    KEY                    ix_trade_order_page(tenant_id, payee_merchant_id, order_created_at, order_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -49,8 +49,8 @@ CREATE TABLE trade_payment_projection
     snapshot_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_trade_payment (tenant_id, payment_id),
-    KEY ix_trade_payment_order (tenant_id, order_id, payment_id),
-    KEY ix_trade_payment_page (tenant_id, payee_merchant_id, created_at, payment_id)
+    KEY               ix_trade_payment_order(tenant_id, order_id, payment_id),
+    KEY               ix_trade_payment_page(tenant_id, payee_merchant_id, created_at, payment_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -75,8 +75,8 @@ CREATE TABLE trade_refund_projection
     snapshot_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_trade_refund (tenant_id, refund_id),
-    KEY ix_trade_refund_order (tenant_id, order_id, refund_id),
-    KEY ix_trade_refund_request (tenant_id, refund_request_id, refund_id)
+    KEY               ix_trade_refund_order(tenant_id, order_id, refund_id),
+    KEY               ix_trade_refund_request(tenant_id, refund_request_id, refund_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;

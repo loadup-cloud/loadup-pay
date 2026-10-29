@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({PaymentInputProperties.class, PaymentLimitProperties.class, PaymentAcquireProperties.class, PaymentRealtimeProperties.class})
-@MapperScan("io.github.loadup.pay.payment.infrastructure.mapper")
 public class PaymentPersistenceConfiguration {
 }

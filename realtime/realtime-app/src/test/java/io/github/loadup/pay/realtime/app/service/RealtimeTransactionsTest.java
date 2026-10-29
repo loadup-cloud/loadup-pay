@@ -104,7 +104,7 @@ class RealtimeTransactionsTest {
     @Test
     void exhaustedLocalContentionHasTheExistingRealtimeErrorCodeAndThreeAttempts() {
         var exhausted = assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
-            throw new org.springframework.dao.DuplicateKeyException("Synthetic repeated local race");
+            throw new io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException("Synthetic repeated local race");
         }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
         assertEquals(3, manager.begins);
@@ -112,6 +112,19 @@ class RealtimeTransactionsTest {
         assertEquals(0, manager.commits);
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         assertNull(TenantUtil.getTenantId());
+    }
+
+    @Test
+    void unexpectedUniqueConstraintFailureIsNotRetried() {
+        var original = new org.springframework.dao.DuplicateKeyException("unexpected unique constraint");
+        var calls = new AtomicInteger();
+        assertSame(original, assertThrows(org.springframework.dao.DuplicateKeyException.class,
+                () -> transactions.writeLocal("tenant", () -> {
+                    calls.incrementAndGet();
+                    throw original;
+                })));
+        assertEquals(1, calls.get());
+        assertEquals(1, manager.rollbacks);
     }
 
     static final class Manager extends AbstractPlatformTransactionManager {

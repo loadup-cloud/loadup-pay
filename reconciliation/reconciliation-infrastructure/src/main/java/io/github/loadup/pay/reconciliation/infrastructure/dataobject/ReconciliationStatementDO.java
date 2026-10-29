@@ -15,12 +15,10 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("reconciliation_statement_request")
 public class ReconciliationStatementDO extends BaseDO {
     private String batchId;
     private String callerServiceId;

@@ -37,7 +37,7 @@ CREATE TABLE payment_gate
     row_version BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_payment_gate (tenant_id, payment_id),
-    KEY ix_payment_gate_order (tenant_id, order_id)
+    KEY         ix_payment_gate_order(tenant_id, order_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -68,8 +68,8 @@ CREATE TABLE payment_order
     PRIMARY KEY (id),
     UNIQUE KEY uk_payment_allocation (tenant_id, allocation_id),
     UNIQUE KEY uk_payment_limit_op (tenant_id, limit_operation_id),
-    KEY ix_payment_order (tenant_id, order_id, id),
-    KEY ix_payment_payee_page (tenant_id, payee_merchant_id, created_at, id),
+    KEY                   ix_payment_order(tenant_id, order_id, id),
+    KEY                   ix_payment_payee_page(tenant_id, payee_merchant_id, created_at, id),
     CHECK (amount_minor > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -107,8 +107,8 @@ CREATE TABLE payment_attempt
     PRIMARY KEY (id),
     UNIQUE KEY uk_attempt_no (tenant_id, payment_id, attempt_no),
     UNIQUE KEY uk_attempt_request (channel, account_scope_hash, channel_request_no),
-    KEY ix_attempt_callback_request (tenant_id, binding_revision_id, channel_request_no),
-    KEY ix_attempt_query (tenant_id, state, next_query_at, id),
+    KEY                    ix_attempt_callback_request(tenant_id, binding_revision_id, channel_request_no),
+    KEY                    ix_attempt_query(tenant_id, state, next_query_at, id),
     CHECK (attempt_no > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -149,7 +149,7 @@ CREATE TABLE channel_merchant_binding
     row_version         BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_binding_code (tenant_id, payee_merchant_id, binding_code),
-    KEY ix_binding_route (tenant_id, payee_merchant_id, channel, access_mode, state)
+    KEY                 ix_binding_route(tenant_id, payee_merchant_id, channel, access_mode, state)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -193,7 +193,7 @@ CREATE TABLE payment_input_secret
     state        VARCHAR(24)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_input_key (tenant_id, payment_id, input_key),
-    KEY ix_input_expiry (tenant_id, state, expires_at, id)
+    KEY          ix_input_expiry(tenant_id, state, expires_at, id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -219,8 +219,8 @@ CREATE TABLE channel_receipt
     received_at            DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_receipt (tenant_id, channel, account_scope_hash, receipt_key),
-    KEY ix_receipt_payment (tenant_id, payment_id, received_at, id),
-    KEY ix_receipt_refund (tenant_id, refund_id, received_at, id)
+    KEY                    ix_receipt_payment(tenant_id, payment_id, received_at, id),
+    KEY                    ix_receipt_refund(tenant_id, refund_id, received_at, id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -241,7 +241,7 @@ CREATE TABLE payment_anomaly
     row_version    BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_anomaly_receipt_type (tenant_id, receipt_id, anomaly_type),
-    KEY ix_anomaly_pending (tenant_id, state, created_at, id)
+    KEY            ix_anomaly_pending(tenant_id, state, created_at, id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -263,7 +263,7 @@ CREATE TABLE payment_refund_capacity
     row_version            BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_capacity_payment (tenant_id, payment_id),
-    KEY ix_refund_capacity_fifo (tenant_id, order_id, succeeded_at, payment_id),
+    KEY                    ix_refund_capacity_fifo(tenant_id, order_id, succeeded_at, payment_id),
     CHECK (succeeded_amount_minor > 0 AND refunded_minor >= 0 AND reserved_minor >= 0),
     CHECK (refunded_minor <= succeeded_amount_minor AND reserved_minor <= succeeded_amount_minor - refunded_minor)
 ) ENGINE = InnoDB
@@ -293,7 +293,7 @@ CREATE TABLE refund_request
     row_version        BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_merchant (tenant_id, payee_merchant_id, merchant_refund_no),
-    KEY ix_refund_request_order (tenant_id, order_id, created_at, id),
+    KEY                ix_refund_request_order(tenant_id, order_id, created_at, id),
     CHECK (amount_minor > 0 AND succeeded_minor >= 0 AND failed_minor >= 0),
     CHECK (succeeded_minor <= amount_minor AND failed_minor <= amount_minor - succeeded_minor)
 ) ENGINE = InnoDB
@@ -347,9 +347,9 @@ CREATE TABLE refund_order
     row_version                   BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY uk_refund_channel_no (channel, account_scope_hash, channel_refund_no),
-    KEY ix_refund_child_request (tenant_id, refund_request_id, id),
-    KEY ix_refund_callback_lookup (tenant_id, binding_revision_id, channel_refund_no),
-    KEY ix_refund_query (tenant_id, state, next_query_at, id),
+    KEY                           ix_refund_child_request(tenant_id, refund_request_id, id),
+    KEY                           ix_refund_callback_lookup(tenant_id, binding_revision_id, channel_refund_no),
+    KEY                           ix_refund_query(tenant_id, state, next_query_at, id),
     CHECK (amount_minor > 0)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -368,7 +368,7 @@ CREATE TABLE refund_recovery_cursor
     generation BIGINT      NOT NULL,
     due_at     DATETIME(6) NOT NULL,
     completed  TINYINT     NOT NULL DEFAULT 0,
-    KEY ix_refund_recovery_cursor_tenant (tenant_id),
+    KEY        ix_refund_recovery_cursor_tenant(tenant_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -396,7 +396,7 @@ CREATE TABLE payment_action
     action_kind         VARCHAR(32) NOT NULL,
     action_payload      LONGTEXT    NOT NULL,
     payload_hash        VARCHAR(64) NOT NULL,
-    KEY ix_payment_action_owner (tenant_id, payment_id),
+    KEY                 ix_payment_action_owner(tenant_id, payment_id),
     UNIQUE KEY uk_payment_action_receipt (tenant_id, receipt_id),
     CHECK (deleted = 0 AND amount_minor > 0 AND execution_epoch > 0 AND currency = 'CNY')
 ) ENGINE = InnoDB
@@ -414,7 +414,7 @@ CREATE TABLE payment_recovery_cursor
     generation BIGINT      NOT NULL,
     due_at     DATETIME(6) NOT NULL,
     completed  TINYINT     NOT NULL DEFAULT 0,
-    KEY ix_payment_recovery_cursor_tenant (tenant_id),
+    KEY        ix_payment_recovery_cursor_tenant(tenant_id),
     CHECK (deleted = 0 AND generation >= 0 AND completed IN (0, 1))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
@@ -442,7 +442,7 @@ CREATE TABLE payment_recovery_retry_receipt
     result                   VARCHAR(32)  NOT NULL,
     accepted_at              DATETIME(6)  NOT NULL,
     UNIQUE KEY uk_payment_recovery_retry (tenant_id, caller_scope_hash, request_key),
-    KEY ix_payment_recovery_retry_order (tenant_id, order_id, accepted_at),
+    KEY                      ix_payment_recovery_retry_order(tenant_id, order_id, accepted_at),
     CHECK (deleted = 0 AND generation >= 0 AND expected_attempts > 0),
     CHECK (kind IN ('COLLECTION', 'REFUND_REQUEST')),
     CHECK (result IN ('RETRIED', 'NO_LONGER_NEEDED'))

@@ -15,11 +15,9 @@
  */
 package io.github.loadup.pay.payment.infrastructure.dataobject;
 
-import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
 
-@Table("channel_merchant_binding")
 public class ChannelMerchantBindingDO extends BaseDO {
     private String payeeMerchantId;
     private String bindingCode;

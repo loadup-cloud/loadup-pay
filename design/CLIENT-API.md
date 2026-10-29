@@ -191,9 +191,13 @@ Checkout请求：
 
 ```json
 {
-  "payeeMerchantId": "M1001", "merchantOrderNo": "SHOP-20261020-001",
-  "productScopeKey": "ACQUIRING", "amountMinor": 10000,
-  "currency": "CNY", "subject": "门店收款", "returnTargetCode": "SHOP_RESULT"
+  "payeeMerchantId": "M1001",
+  "merchantOrderNo": "SHOP-20261020-001",
+  "productScopeKey": "ACQUIRING",
+  "amountMinor": 10000,
+  "currency": "CNY",
+  "subject": "门店收款",
+  "returnTargetCode": "SHOP_RESULT"
 }
 ```
 
@@ -201,10 +205,16 @@ Checkout请求：
 
 ```json
 {
-  "orderId": "O1001", "actionKey": "d3aa12a6-1",
+  "orderId": "O1001",
+  "actionKey": "d3aa12a6-1",
   "amountMinor": 3000,
-  "choice": {"channel": "WECHAT", "method": "QR"},
-  "interaction": {"type": "NONE"}
+  "choice": {
+    "channel": "WECHAT",
+    "method": "QR"
+  },
+  "interaction": {
+    "type": "NONE"
+  }
 }
 ```
 
@@ -1374,7 +1384,10 @@ RPC、业务表或 DDL。
   "orderId": "order-001",
   "actionKey": "pay-001",
   "amountMinor": 1000,
-  "choice": { "channel": "WECHAT", "method": "H5" },
+  "choice": {
+    "channel": "WECHAT",
+    "method": "H5"
+  },
   "interaction": {
     "type": "H5_SCENE",
     "payerClientIp": "203.0.113.10",
@@ -1728,7 +1741,15 @@ SERVICE 令牌还需发行方配置 input:expire 权限，本轮没有签发令�
 命令只带第一次明确付款时的原 orderId/actionKey/amountMinor/choice，不携带付款码、OpenID、IP、输入引用或渠道绑定。
 
 ```json
-{"orderId":"O1001","actionKey":"pay-0001","amountMinor":3000,"choice":{"channel":"WECHAT","method":"H5"}}
+{
+  "orderId": "O1001",
+  "actionKey": "pay-0001",
+  "amountMinor": 3000,
+  "choice": {
+    "channel": "WECHAT",
+    "method": "H5"
+  }
+}
 ```
 
 恢复始终绑定可信 JWT 的 tenant/callerScopeHash 和 `merchant/{callerScopeHash}`：
@@ -1784,10 +1805,19 @@ POST `/api/acquire/payments/direct-pay/recover`，商户 JWT，no-store；入参
 
 ```json
 {
-  "payeeMerchantId":"merchant-1001", "merchantOrderNo":"M1001", "productScopeKey":"acquiring",
-  "amountMinor":10000, "currency":"CNY", "subject":"Original subject",
-  "actionKey":"first-action-1001", "firstPaymentAmountMinor":3000,
-  "choice":{"channel":"WECHAT","method":"H5"}, "interactionKind":"H5_SCENE"
+  "payeeMerchantId": "merchant-1001",
+  "merchantOrderNo": "M1001",
+  "productScopeKey": "acquiring",
+  "amountMinor": 10000,
+  "currency": "CNY",
+  "subject": "Original subject",
+  "actionKey": "first-action-1001",
+  "firstPaymentAmountMinor": 3000,
+  "choice": {
+    "channel": "WECHAT",
+    "method": "H5"
+  },
+  "interactionKind": "H5_SCENE"
 }
 ```
 

@@ -1,6 +1,7 @@
 # RPC contracts
 
-本 client 由 acquire 服务维护，包含本服务的 [Protobuf 契约](src/main/proto/acquire.proto)、`AcquireRpcMapper` MapStruct 消息映射和
+本 client 由 acquire 服务维护，包含本服务的 [Protobuf 契约](src/main/proto/acquire.proto)、`AcquireRpcMapper` MapStruct
+消息映射和
 `AcquireRpcOperations` 类型化方法定义。契约和消息映射由 client 持有，domain 不依赖传输协议。
 
 方法：`PaymentOutcome`。

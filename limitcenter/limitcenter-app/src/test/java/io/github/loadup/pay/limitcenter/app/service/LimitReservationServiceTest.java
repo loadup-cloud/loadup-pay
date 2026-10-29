@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.pay.limitcenter.client.query.LimitOperationQuery;
+import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucket;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucketKey;
 import io.github.loadup.pay.limitcenter.domain.model.LimitBucketSet;
@@ -29,7 +30,6 @@ import io.github.loadup.pay.limitcenter.domain.model.RuntimeLimitRule;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.HashMap;
@@ -159,7 +159,7 @@ class LimitReservationServiceTest {
     void aUniquenessRaceRollsBackBeforeStartingTheRetry() {
         AtomicInteger calls = new AtomicInteger();
         String result = f.transactions.writeLocal(f.actor, LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
-            if (calls.incrementAndGet() == 1) throw new DuplicateKeyException("synthetic collision");
+            if (calls.incrementAndGet() == 1) throw new LimitWriteRaceException("synthetic collision");
             assertEquals(1, f.manager.rollbacks);
             assertEquals(2, f.manager.begins);
             return "winner";
@@ -173,7 +173,7 @@ class LimitReservationServiceTest {
         var error = assertThrows(
                 CommonException.class,
                 () -> f.transactions.writeLocal(f.actor, LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
-                    throw new DuplicateKeyException("synthetic collision");
+                    throw new LimitWriteRaceException("synthetic collision");
                 }));
         assertSame(LimitCenterResultCodeEnum.CONCURRENT_UPDATE, error.getResultCode());
         assertEquals(3, f.manager.rollbacks);

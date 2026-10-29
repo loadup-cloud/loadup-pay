@@ -40,17 +40,18 @@ import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentCaptureStorageConverter;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCaptureDOMapper;
-import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCaptureLineDOMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.util.concurrent.Executors;
@@ -245,16 +246,17 @@ class PaymentCapturePersistenceIT {
     @Import(PaymentCaptureReaderImpl.class)
     static class Configuration {
         @Bean
-        FaultingCaptures captures(PaymentCaptureDOMapper captures, PaymentCaptureLineDOMapper lines, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views) {
-            return new FaultingCaptures(captures, lines, storage, views);
+        FaultingCaptures captures(NamedParameterJdbcTemplate jdbc, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views,
+                                  @Qualifier("databaseClock") Clock clock) {
+            return new FaultingCaptures(jdbc, storage, views, clock);
         }
     }
 
     static final class FaultingCaptures extends PaymentCaptureGatewayImpl {
         final AtomicBoolean failAfterSeal = new AtomicBoolean();
 
-        FaultingCaptures(PaymentCaptureDOMapper captures, PaymentCaptureLineDOMapper lines, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views) {
-            super(captures, lines, storage, views);
+        FaultingCaptures(NamedParameterJdbcTemplate jdbc, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views, Clock clock) {
+            super(jdbc, storage, views, clock);
         }
 
         @Override

@@ -15,8 +15,8 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
 
-import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationResultSummary;
@@ -24,25 +24,33 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationBatchDO;
-import io.github.loadup.pay.reconciliation.infrastructure.mapper.ReconciliationBatchDOMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.reconciliation.infrastructure.dataobject.table.Tables.RECONCILIATION_BATCH_DO;
 
 @Repository
 public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGateway {
-    private final ReconciliationBatchDOMapper mapper;
+    private final Clock clock;
+    private final NamedParameterJdbcTemplate jdbc;
     private final ReconciliationInputGateway inputs;
     private final ReconciliationStorageConverter converter;
 
-    public ReconciliationBatchGatewayImpl(ReconciliationBatchDOMapper mapper, ReconciliationInputGateway inputs, ReconciliationStorageConverter converter) {
-        this.mapper = mapper;
+    public ReconciliationBatchGatewayImpl(ReconciliationInputGateway inputs, ReconciliationStorageConverter converter, NamedParameterJdbcTemplate jdbc, @Qualifier("reconciliationClock") Clock clock) {
+        this.clock = clock;
+        this.jdbc = jdbc;
         this.inputs = inputs;
         this.converter = converter;
     }
@@ -52,27 +60,29 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(caller);
         io.github.loadup.commons.validation.DomainChecks.text(requestKey, 128);
-        return optional(tenant, mapper.selectOneByQuery(scope(tenant).and(RECONCILIATION_BATCH_DO.CALLER_SERVICE_ID.eq(caller))
-                .and(RECONCILIATION_BATCH_DO.REQUEST_KEY.eq(requestKey))));
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        return optional(tenant, row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
     @Override
     public Optional<StoredReconciliationBatch> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
-        return optional(tenant, mapper.selectOneByQuery(key(tenant, id)));
+        io.github.loadup.commons.validation.DomainChecks.id(id);
+        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false));
     }
 
     @Override
     public Optional<StoredReconciliationBatch> findRun(String tenant, String runId) {
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(runId);
-        return optional(tenant, mapper.selectOneByQuery(scope(tenant).and(RECONCILIATION_BATCH_DO.RUN_ID.eq(runId))));
+        return optional(tenant, row("run_id = :run", new MapSqlParameterSource("tenant", tenant).addValue("run", runId), false));
     }
 
     @Override
     public Optional<StoredReconciliationBatch> lock(String tenant, String id) {
         ReconciliationStoreContext.writable(tenant);
-        return optional(tenant, mapper.selectOneByQuery(key(tenant, id).forUpdate()));
+        io.github.loadup.commons.validation.DomainChecks.id(id);
+        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true));
     }
 
     @Override
@@ -81,7 +91,23 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         if (value == null || value.batch().state() != ReconciliationState.INIT || value.batch().version() != 0
                 || value.batch().channel() != null || value.batch().ledger() != null)
             throw new CommonException(INVALID_STATE);
-        if (mapper.insert(converter.toDO(tenant, value)) != 1) throw new CommonException(CONCURRENT_UPDATE);
+        requireJdbc();
+        var row = converter.toDO(tenant, value);
+        var now = LocalDateTime.now(clock);
+        row.setCreatedAt(now);
+        row.setUpdatedAt(now);
+        int count = jdbc.update("""
+                INSERT INTO reconciliation_batch (id, tenant_id, created_at, updated_at, deleted, caller_service_id, request_key,
+                    request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state,
+                    channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version)
+                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :callerServiceId, :requestKey, :requestDigest, :channelAccountCode,
+                    :channel, :accountScopeHash, :billDate, :statementProfile, :state, :channelInputId, :ledgerInputId, :runId,
+                    :matchedCount, :differenceCount, :resultHash, :rowVersion)
+                ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
+                """, new BeanPropertySqlParameterSource(row));
+        if (count == 0)
+            throw new ReconciliationWriteConflictException("reconciliation_batch business key already exists");
+        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
     }
 
     @Override
@@ -89,7 +115,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         ReconciliationStoreContext.writable(tenant);
         if (value == null || value.batch().version() != Math.incrementExact(expectedVersion))
             throw new CommonException(INVALID_STATE);
-        var before = optional(tenant, mapper.selectOneByQuery(key(tenant, value.batch().id()).forUpdate()))
+        var before = optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", value.batch().id()), true))
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
         if (before.batch().version() != expectedVersion) throw new CommonException(CONCURRENT_UPDATE);
         if (!before.batch().scope().equals(value.batch().scope()) || !before.callerServiceId().equals(value.callerServiceId())
@@ -110,9 +136,28 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
             default -> false;
         };
         if (!allowed) throw new CommonException(INVALID_STATE);
-        if (mapper.updateByQuery(converter.toDO(tenant, value), true,
-                key(tenant, value.batch().id()).and(RECONCILIATION_BATCH_DO.ROW_VERSION.eq(expectedVersion))) != 1)
-            throw new CommonException(CONCURRENT_UPDATE);
+        requireJdbc();
+        var row = converter.toDO(tenant, value);
+        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.batch().id()).addValue("expected", expectedVersion)
+                .addValue("state", row.getState()).addValue("channelInput", row.getChannelInputId()).addValue("ledgerInput", row.getLedgerInputId())
+                .addValue("run", row.getRunId()).addValue("matched", row.getMatchedCount()).addValue("differences", row.getDifferenceCount())
+                .addValue("hash", row.getResultHash()).addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        if (jdbc.update("""
+                UPDATE reconciliation_batch SET state = :state, channel_input_id = COALESCE(:channelInput, channel_input_id),
+                    ledger_input_id = COALESCE(:ledgerInput, ledger_input_id), run_id = COALESCE(:run, run_id),
+                    matched_count = COALESCE(:matched, matched_count), difference_count = COALESCE(:differences, difference_count),
+                    result_hash = COALESCE(:hash, result_hash), row_version = :version, updated_at = :updated
+                WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND deleted = FALSE
+                """, args) != 1) throw new CommonException(CONCURRENT_UPDATE);
+    }
+
+    private ReconciliationBatchDO row(String predicate, MapSqlParameterSource args, boolean lock) {
+        if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
+            throw new CommonException(INVALID_STATE);
+        return jdbc.query("SELECT * FROM reconciliation_batch WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))
+                .stream().findFirst().orElse(null);
     }
 
     private Optional<StoredReconciliationBatch> optional(String tenant, ReconciliationBatchDO row) {
@@ -133,12 +178,9 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         }
     }
 
-    private QueryWrapper scope(String tenant) {
-        return QueryWrapper.create().where(RECONCILIATION_BATCH_DO.TENANT_ID.eq(tenant)).and(RECONCILIATION_BATCH_DO.DELETED.eq(0));
-    }
-
-    private QueryWrapper key(String tenant, String id) {
-        io.github.loadup.commons.validation.DomainChecks.id(id);
-        return scope(tenant).and(RECONCILIATION_BATCH_DO.ID.eq(id));
+    private void requireJdbc() {
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(INVALID_STATE);
     }
 }
