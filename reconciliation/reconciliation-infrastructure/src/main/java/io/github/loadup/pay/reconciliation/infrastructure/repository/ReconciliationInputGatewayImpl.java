@@ -78,7 +78,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         var manifest = manifest(row);
         if (manifest.totals().recordCount() > maxRecords) throw new CommonException(INPUT_INVALID);
         var args = new MapSqlParameterSource("tenant", tenant).addValue("input", artifactId).addValue("limit", maxRecords + 1);
-        var rows = jdbc.query("SELECT * FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
+        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
                 + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit", args, BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class));
         try {
             var lines = rows.stream().map(entry -> {
@@ -98,6 +98,9 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         ReconciliationStoreContext.writable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(fileId);
         if (dataset == null || dataset.records().size() > maxRecords) throw new CommonException(INPUT_INVALID);
+        if (jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+            throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
         var original = input(tenant, dataset.manifest().artifactId(), true);
         if (original != null) {
             if (!fileId.equals(original.getFileId()) || !dataset.equals(loadSealed(tenant, dataset.manifest().artifactId())))
@@ -120,9 +123,6 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         if (inputCount == 0)
             throw new ReconciliationWriteConflictException("reconciliation_input business key already exists");
         if (inputCount != 1) throw new CommonException(CONCURRENT_UPDATE);
-        if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
-            throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
         var now = LocalDateTime.now(clock);
         var records = dataset.records();
         for (int offset = 0; offset < records.size(); offset += 500) {
@@ -162,7 +162,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
             throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
         var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
-        return jdbc.query("SELECT * FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationInputDO.class))
                 .stream().findFirst().orElse(null);
     }

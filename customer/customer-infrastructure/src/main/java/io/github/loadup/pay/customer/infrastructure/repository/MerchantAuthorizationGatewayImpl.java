@@ -76,6 +76,7 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public MerchantRelationship lockRelationship(String tenant, String id) {
+        writable(tenant);
         return relationship("SELECT * FROM merchant_relationship WHERE tenant_id = ? AND id = ? AND deleted = FALSE FOR UPDATE", tenant, id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
@@ -87,6 +88,7 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public MerchantActionGrant lockGrant(String tenant, String id) {
+        writable(tenant);
         return grant("SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND id = ? AND deleted = FALSE FOR UPDATE", tenant, id)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }
@@ -101,6 +103,10 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public void saveRelationship(String tenant, MerchantRelationship model, long expected) {
+        writable(tenant);
+        if (model == null || (expected == -1 ? model.version() != 0
+                : expected < 0 || expected == Long.MAX_VALUE || model.version() != expected + 1))
+            throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         LocalDateTime now = LocalDateTime.now(clock);
         int changed;
         if (expected == -1) {
@@ -127,6 +133,10 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public void saveGrant(String tenant, MerchantActionGrant model, long expected) {
+        writable(tenant);
+        if (model == null || (expected == -1 ? model.version() != 0
+                : expected < 0 || expected == Long.MAX_VALUE || model.version() != expected + 1))
+            throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         LocalDateTime now = LocalDateTime.now(clock);
         int changed;
         if (expected == -1) {
@@ -153,11 +163,28 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
         if (changed != 1) throw new IllegalStateException("Unexpected grant write count");
     }
 
+    private static void tenant(String tenant) {
+        if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+            throw new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
+    }
+
+    private void writable(String tenant) {
+        tenant(tenant);
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                || org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
+        var source = jdbc.getDataSource();
+        if (source == null || !org.springframework.transaction.support.TransactionSynchronizationManager.hasResource(source))
+            throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
+    }
+
     private Optional<MerchantRelationship> relationship(String sql, Object... parameters) {
+        tenant((String) parameters[0]);
         return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapRelationship, parameters).stream().findFirst();
     }
 
     private Optional<MerchantActionGrant> grant(String sql, Object... parameters) {
+        tenant((String) parameters[0]);
         return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapGrant, parameters).stream().findFirst();
     }
 }

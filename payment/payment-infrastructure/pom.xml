@@ -29,9 +29,11 @@
             <artifactId>realtime-client</artifactId>
         </dependency>
 
+        <!-- Dubbo Triple Provider dependency -->
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo-spring-boot-starter</artifactId>
+            <version>3.3.6</version>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

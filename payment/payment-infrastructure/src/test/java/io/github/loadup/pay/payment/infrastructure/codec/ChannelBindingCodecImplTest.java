@@ -52,7 +52,7 @@ class ChannelBindingCodecImplTest {
     }
 
     @Test
-    void readsMysqlJsonWhitespaceAndKeyOrderWithoutWeakeningTypedHashVerification() {
+    void readsJsonWhitespaceAndKeyOrderWithoutWeakeningTypedHashVerification() {
         var identity = new AlipayAccountIdentity("app", "seller", null, null, null);
         String expectedHash = codec.checksum(codec.encodeIdentity(identity));
         String reordered = """

@@ -74,17 +74,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
     private final OrderSnapshotEvents snapshots;
     private final OrderDeadlineTasks deadlineTasks;
 
-    public OrderCreationService(
-            AcquireActorProvider actors,
-            OrderCreationGateway store,
-            OrderAdmissionClient product,
-            OrderCreationCodec codec,
-            AcquireOrderConverter converter,
-            OrderCreationTransactions transactions,
-            CheckoutSessionOperations sessions,
-            IdGenerator ids,
-            Validator validator,
-            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
+    public OrderCreationService(AcquireActorProvider actors, OrderCreationGateway store, OrderAdmissionClient product, OrderCreationCodec codec, AcquireOrderConverter converter, OrderCreationTransactions transactions, CheckoutSessionOperations sessions, IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
         this.actors = actors;
         this.store = store;
         this.product = product;
@@ -104,8 +94,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         validate(command);
         var actor = actor("pay:acquire:create");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.withTenantContext(
-                actor.tenantId(), () -> converter.toDTO(result(actor, createIntent(actor, command, null, null, true)), now()));
+        return transactions.withTenantContext(actor.tenantId(), () -> converter.toDTO(result(actor, createIntent(actor, command, null, null, true)), now()));
     }
 
     @Override
@@ -136,13 +125,10 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             throw new CommonException(INVALID_ARGUMENT);
         var actor = actor("pay:acquire:create");
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        return transactions.withTenantContext(actor.tenantId(), () -> converter.toDTO(result(actor,
-                createIntent(actor, converter.toOrderCreate(command), null, command, allowCreate)), now()));
+        return transactions.withTenantContext(actor.tenantId(), () -> converter.toDTO(result(actor, createIntent(actor, converter.toOrderCreate(command), null, command, allowCreate)), now()));
     }
 
-    private OrderCreateIntent createIntent(
-            AcquireActor actor, AcquireOrderCreateCommand command, CheckoutCreateCommand checkout,
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay, boolean allowCreate) {
+    private OrderCreateIntent createIntent(AcquireActor actor, AcquireOrderCreateCommand command, CheckoutCreateCommand checkout, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay, boolean allowCreate) {
         DomainChecks.id(command.payeeMerchantId());
         DomainChecks.id(command.merchantOrderNo());
         DomainChecks.text(command.productScopeKey(), 128);
@@ -150,29 +136,13 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         DomainChecks.cnyAmount(command.amountMinor(), command.currency());
         if (command.requestedDueAt() != null) time(command.requestedDueAt());
         String mode = directPay != null ? "DIRECT_PAY" : checkout == null ? "ORDER" : "CHECKOUT";
-        String digest = directPay != null ? codec.directPayDigest(actor.tenantId(), actor.scopeHash(), directPay) : checkout == null
-                ? codec.requestDigest(actor.tenantId(), actor.scopeHash(), command)
-                : codec.checkoutDigest(actor.tenantId(), actor.scopeHash(), checkout);
+        String digest = directPay != null ? codec.directPayDigest(actor.tenantId(), actor.scopeHash(), directPay) : checkout == null ? codec.requestDigest(actor.tenantId(), actor.scopeHash(), command) : codec.checkoutDigest(actor.tenantId(), actor.scopeHash(), checkout);
         // A0 commits before any network call. A losing unique insert rolls back before retry/read.
         var intent = transactions.writeLocal(actor.tenantId(), () -> {
             var previous = store.findIntent(actor.tenantId(), command.payeeMerchantId(), command.merchantOrderNo());
             if (previous.isPresent()) return checked(previous.get(), actor, command, checkout, directPay, digest);
             if (!allowCreate) throw new CommonException(NOT_FOUND);
-            var created = new OrderCreateIntent(
-                    ids.generate(),
-                    ids.generate(),
-                    command.payeeMerchantId(),
-                    command.merchantOrderNo(),
-                    digest,
-                    actor.scopeHash(),
-                    mode,
-                    checkout == null ? null : ids.generate(),
-                    directPay != null ? codec.encodeDirectPay(directPay) : checkout == null ? codec.encodeIntent(command) : codec.encodeCheckout(checkout),
-                    "INIT",
-                    null,
-                    null,
-                    null,
-                    0);
+            var created = new OrderCreateIntent(ids.generate(), ids.generate(), command.payeeMerchantId(), command.merchantOrderNo(), digest, actor.scopeHash(), mode, checkout == null ? null : ids.generate(), directPay != null ? codec.encodeDirectPay(directPay) : checkout == null ? codec.encodeIntent(command) : codec.encodeCheckout(checkout), "INIT", null, null, null, 0);
             store.insertIntent(actor.tenantId(), created);
             return created;
         });
@@ -198,42 +168,20 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
                 return expired;
             }
             var terms = admission.terms();
-            var due = command.requestedDueAt() == null
-                    ? admittedAt.plusSeconds(terms.order().waitSeconds())
-                    : time(command.requestedDueAt());
-            if (!due.isAfter(admittedAt)
-                    || due.isAfter(admittedAt.plusSeconds(terms.order().maxWaitSeconds())))
+            var due = command.requestedDueAt() == null ? admittedAt.plusSeconds(terms.order().waitSeconds()) : time(command.requestedDueAt());
+            if (!due.isAfter(admittedAt) || due.isAfter(admittedAt.plusSeconds(terms.order().maxWaitSeconds())))
                 throw new CommonException(SNAPSHOT_INVALID);
-            var order = AcquireOrder.init(
-                    locked.orderId(),
-                    locked.payeeMerchantId(),
-                    DomainChecks.cnyAmount(command.amountMinor(), command.currency()),
-                    due,
-                    converter.toUnpaidAction(terms.order().unpaidAction()),
-                    converter.toPaymentPolicy(terms.payment()));
-            var stored = converter.toStored(
-                    order,
-                    command,
-                    converter.toProof(admission),
-                    admittedAt,
-                    actor.scopeHash(),
-                    ids.generate(),
-                    payload,
-                    checksum);
+            var order = AcquireOrder.init(locked.orderId(), locked.payeeMerchantId(), DomainChecks.cnyAmount(command.amountMinor(), command.currency()), due, converter.toUnpaidAction(terms.order().unpaidAction()), converter.toPaymentPolicy(terms.payment()));
+            var stored = converter.toStored(order, command, converter.toProof(admission), admittedAt, actor.scopeHash(), ids.generate(), payload, checksum);
             var fee = OrderFee.init(ids.generate(), order.id(), order.amount(), converter.toFeePolicy(terms.fee()));
             StoredCheckoutSession initial = null;
             if (checkout != null) {
                 try {
-                    initial = sessions.prepareInitial(
-                            actor, stored, locked.initialSessionId(), checkout.returnTargetCode());
+                    initial = sessions.prepareInitial(actor, stored, locked.initialSessionId(), checkout.returnTargetCode());
                 } catch (CommonException failure) {
                     if (failure.getResultCode() != ACTION_FORBIDDEN && failure.getResultCode() != ORDER_NOT_PAYABLE)
                         throw failure;
-                    var rejected = locked.finish(
-                            "REJECTED",
-                            admission.admissionId(),
-                            before,
-                            failure.getResultCode().getCode());
+                    var rejected = locked.finish("REJECTED", admission.admissionId(), before, failure.getResultCode().getCode());
                     store.updateIntent(actor.tenantId(), rejected, locked.rowVersion());
                     return rejected;
                 }
@@ -250,28 +198,16 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         return complete;
     }
 
-    private OrderCreateIntent checked(
-            OrderCreateIntent intent,
-            AcquireActor actor,
-            AcquireOrderCreateCommand command,
-            CheckoutCreateCommand checkout,
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay,
-            String digest) {
+    private OrderCreateIntent checked(OrderCreateIntent intent, AcquireActor actor, AcquireOrderCreateCommand command, CheckoutCreateCommand checkout, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay, String digest) {
         if (!intent.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!intent.entryMode().equals(directPay != null ? "DIRECT_PAY" : checkout == null ? "ORDER" : "CHECKOUT")
-                || !intent.requestDigest().equals(digest)
-                || (directPay != null ? !codec.decodeDirectPay(intent).equals(directPay) : checkout == null
-                ? !codec.decodeIntent(intent).equals(command)
-                : !codec.decodeCheckout(intent).equals(checkout)))
+        if (!intent.entryMode().equals(directPay != null ? "DIRECT_PAY" : checkout == null ? "ORDER" : "CHECKOUT") || !intent.requestDigest().equals(digest) || (directPay != null ? !codec.decodeDirectPay(intent).equals(directPay) : checkout == null ? !codec.decodeIntent(intent).equals(command) : !codec.decodeCheckout(intent).equals(checkout)))
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         return intent;
     }
 
     private StoredAcquireOrder result(AcquireActor actor, OrderCreateIntent intent) {
         if ("REJECTED".equals(intent.state())) {
-            for (var code : new io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum[]{
-                    CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE
-            })
+            for (var code : new io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum[]{CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE})
                 if (code.getCode().equals(intent.resultCode())) throw new CommonException(code);
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -281,11 +217,9 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
         }
         if (!"COMPLETED".equals(intent.state())) throw new CommonException(INVALID_STATE);
         if (!"SUCCESS".equals(intent.resultCode())) throw new CommonException(SNAPSHOT_INVALID);
-        var order = store.findOrder(actor.tenantId(), intent.orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var order = store.findOrder(actor.tenantId(), intent.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         owned(actor, order);
-        if (!order.admission().admissionId().equals(intent.admissionId())
-                || !order.admission().requestDigest().equals(intent.requestDigest()))
+        if (!order.admission().admissionId().equals(intent.admissionId()) || !order.admission().requestDigest().equals(intent.requestDigest()))
             throw new CommonException(SNAPSHOT_INVALID);
         return order;
     }
@@ -329,36 +263,17 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
 
     private void validateAdmission(OrderCreateIntent intent, OrderAdmissionDTO value) {
         try {
-            if (value == null
-                    || !validator.validate(value).isEmpty()
-                    || value.decision() == null
-                    || !intent.orderId().equals(value.orderId())
-                    || !intent.payeeMerchantId().equals(value.payeeMerchantId())
-                    || !intent.requestDigest().equals(value.requestDigest()))
+            if (value == null || !validator.validate(value).isEmpty() || value.decision() == null || !intent.orderId().equals(value.orderId()) || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.requestDigest().equals(value.requestDigest()))
                 throw new CommonException(SNAPSHOT_INVALID);
             DomainChecks.id(value.admissionId());
             DomainChecks.text(value.reasonCode(), 64);
             if (value.decision() == AdmissionDecision.DENIED) {
-                if (value.contractId() != null
-                        || value.revision() != null
-                        || value.generation() != null
-                        || value.snapshotHash() != null
-                        || value.compiledTermsHash() != null
-                        || value.admittedAt() != null
-                        || value.materializeBefore() != null
-                        || value.terms() != null) throw new CommonException(SNAPSHOT_INVALID);
+                if (value.contractId() != null || value.revision() != null || value.generation() != null || value.snapshotHash() != null || value.compiledTermsHash() != null || value.admittedAt() != null || value.materializeBefore() != null || value.terms() != null)
+                    throw new CommonException(SNAPSHOT_INVALID);
                 return;
             }
-            if (value.decision() != AdmissionDecision.ADMITTED
-                    || !"ALLOW".equals(value.reasonCode())
-                    || value.terms() == null
-                    || value.terms().schemaVersion() != 1
-                    || value.revision() == null
-                    || value.revision() < 1
-                    || value.generation() == null
-                    || value.generation() < 1
-                    || value.compiledTermsHash() == null
-                    || !value.compiledTermsHash().matches("[0-9a-f]{64}")) throw new CommonException(SNAPSHOT_INVALID);
+            if (value.decision() != AdmissionDecision.ADMITTED || !"ALLOW".equals(value.reasonCode()) || value.terms() == null || value.terms().schemaVersion() != 1 || value.revision() == null || value.revision() < 1 || value.generation() == null || value.generation() < 1 || value.compiledTermsHash() == null || !value.compiledTermsHash().matches("[0-9a-f]{64}"))
+                throw new CommonException(SNAPSHOT_INVALID);
             DomainChecks.id(value.contractId());
             DomainChecks.text(value.snapshotHash(), 128);
             var admitted = time(value.admittedAt());

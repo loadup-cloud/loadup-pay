@@ -81,7 +81,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource("tenant", tenant).addValue("batch", batchId);
-        var rows = jdbc.query("SELECT * FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE "
+        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE "
                 + "AND batch_id = :batch AND state = 'INIT' LIMIT 2", args, BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class));
         if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
         return rows.isEmpty() ? Optional.empty() : read(rows.getFirst());
@@ -137,7 +137,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
     }
 
     private ReconciliationImportDO row(String predicate, MapSqlParameterSource args, boolean lock) {
-        return jdbc.query("SELECT * FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE AND "
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE AND "
                         + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class))
                 .stream().findFirst().orElse(null);
     }

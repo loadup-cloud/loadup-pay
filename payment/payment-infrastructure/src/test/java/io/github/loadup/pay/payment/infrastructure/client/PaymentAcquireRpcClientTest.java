@@ -63,7 +63,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-class PaymentAcquireGrpcClientTest {
+class PaymentAcquireRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final GrpcTransport rpc = mock(GrpcTransport.class);
@@ -74,7 +74,7 @@ class PaymentAcquireGrpcClientTest {
     @TempDir
     Path directory;
     Path tokenFile;
-    PaymentAcquireGrpcClient client;
+    PaymentAcquireRpcClient client;
 
     private static io.grpc.StatusRuntimeException remoteFailure(String code) {
         var trailers = new Metadata();
@@ -99,7 +99,7 @@ class PaymentAcquireGrpcClientTest {
     void setup() throws Exception {
         tokenFile = directory.resolve("acquire.jwt");
         token(claims());
-        client = new PaymentAcquireGrpcClient(rpc, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
+        client = new PaymentAcquireRpcClient(rpc, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
         when(rpc.call(eq(ACQUIRE_PAYMENT_OUTCOME), any(), any())).thenReturn(new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
     }
 

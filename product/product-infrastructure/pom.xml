@@ -69,7 +69,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-rpc-binder-grpc</artifactId>
+            <artifactId>loadup-components-rpc-binder-dubbo</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

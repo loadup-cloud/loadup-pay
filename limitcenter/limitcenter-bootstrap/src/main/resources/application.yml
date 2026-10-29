@@ -1,20 +1,19 @@
 spring:
   application:
     name: limitcenter
-  grpc:
-    server:
-      port: 50051
-      inbound:
-        message:
-          max-size: 256KB
-      shutdown:
-        grace-period: 30s
-    client:
-      channel:
-        payment:
-          target: dns:///payment-headless:50051
-          default:
-            load-balancing-policy: round_robin
+server:
+  port: 50051
+server.rpc.dubbo:
+  inbound:
+    max-size: 256KB
+  shutdown:
+    grace-period: 30s
+  clients:
+    payment:
+      target: dns:///payment-headless:50051
+      default:
+        load-balancing-policy: round_robin
+  deadline: 3s
 server:
   shutdown: graceful
 management:
@@ -42,9 +41,3 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
-loadup:
-  rpc:
-    clients:
-      payment:
-        channel: payment
-        deadline: 3s

@@ -1,14 +1,13 @@
 spring:
   application:
     name: realtime
-  grpc:
-    server:
-      port: 50051
-      inbound:
-        message:
-          max-size: 256KB
-      shutdown:
-        grace-period: 30s
+server:
+  port: 50051
+server.rpc.dubbo:
+  inbound:
+    max-size: 256KB
+  shutdown:
+    grace-period: 30s
 server:
   shutdown: graceful
 management:

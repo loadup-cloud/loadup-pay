@@ -5,6 +5,62 @@
 
 ## 当前核查补充（覆盖下方历史快照）
 
+- 已将 Pay 七个服务主源码中可静态识别的 ON CONFLICT 列目标与各自初始脚本中可识别的主键和唯一索引比对，未发现不匹配；动态语句及数据库执行仍待验证。
+
+- 对账审核主记录、提案和事件 INSERT 的命名参数已与数据对象 getter 和公共字段静态比对，未发现缺失属性；驱动绑定与事务行为仍待验证。
+
+- 对账输入明细与差异记录批量 INSERT 的命名参数已与数据对象 getter 及公共字段静态比对，未发现缺失属性；驱动绑定仍待验证。
+
+- 对账导入、验证请求和批次 INSERT 的命名参数已与数据对象 getter 及继承公共字段静态比对，未发现缺失属性；驱动绑定尚未验证。
+
+- 对账单请求 INSERT 的命名参数已与数据对象 getter 及继承的公共字段静态比对，未发现缺失属性；数据库绑定行为仍未验证。
+
+- 对 Pay 七个服务中可静态识别的 INSERT 列清单与对应初始表定义进行了名称比对，未发现缺失列；动态 SQL、参数类型和约束仍需单独核查。
+
+- 对账批次更新在写事务中锁定原记录、校验状态转换及预期版本；SQL 再按租户、ID、版本和未删除条件更新，零行返回并发错误。实际锁和竞争行为尚未验证。
+
+- 对账输入明细按最多 500 行分批写入，检查结果数组长度及每行计数，仅接受 1 或 SUCCESS_NO_INFO；真实驱动返回值和失败回滚仍待验证。
+
+- 对账差异批量写入检查返回数组长度，并仅接受每行影响数为 1 或 JDBC SUCCESS_NO_INFO；失败时抛出并发错误。驱动实际返回和事务回滚尚未验证。
+
+- 对账输入清单在锁定读取与主记录写入前验证数据源事务；差异批量写入先通过批次锁定路径验证事务。实际回滚及锁行为尚未验证。
+
+- 对账导入、对账单、审核事件和验证请求的请求键冲突目标与各自的 (tenant_id, caller_service_id, request_key) 唯一索引一致；其他唯一约束和真实并发异常仍需数据库验证。
+
+- 对账差异记录的两处实体查询投影覆盖数据对象业务字段，包括全部五个 Boolean 差异标志；尚未验证驱动转换与数据库执行。
+
+- 对账批次和输入清单的数据对象业务字段已与查询投影静态比对，未发现字段遗漏；锁和事务行为仍需数据库验证。
+
+- 对账审核主记录、提案和事件的显式查询投影已与各自数据对象业务字段静态比对，未发现字段遗漏；实际数据库结果映射与并发行为尚未验证。
+
+- 对账导入与验证请求的数据对象业务字段已与各自显式查询投影静态比对，未发现字段遗漏；字段转换、数据库约束与实际运行仍待验证。
+
+- 对账单请求的两处 JDBC 查询投影已与 ReconciliationStatementDO 的业务字段比对，包含 request_sha256、source_sha256 和 proof_sha256；实际驱动映射仍待数据库验证。
+
+- 对账明细 reconciliation_entry 的查询投影已与当前数据对象的业务字段和初始表结构逐项比对；共享审计字段包含在查询中，布尔 deleted 不进入整数属性映射。其他对账表仍需逐项核查及数据库验证。
+
+- Framework 与 Pay 的 POM、properties、YAML 和自动配置 imports 中静态搜索未发现 MyBatis、iBATIS 或旧 database-processor 引用；该检查不能代替 Maven 依赖树。
+
+- UPMS 测试模块声明了 infrastructure 与 database 测试依赖；其 SQL 初始化引用的 UPMS 和 sequence 迁移文件均存在于对应模块主资源中。测试 classpath 的实际解析与脚本执行尚未验证。
+
+- UPMS 测试建表脚本包含主要用户、角色、权限、关联和 OAuth 表，但与生产迁移并不完全相同：此前生产包含 user_social、password_reset_token 和 user_config 而测试包含旧 operation_log；测试建表内容现已与生产初始迁移对齐。测试脚本不能替代生产 Flyway 验证。
+
+- Gotone 和 DFS 的初始迁移版本已分别调整为 V20261002000005 和 V20261002000006；下方旧文件名属于盘点时的历史快照。UPMS 测试配置同时关闭 Boot 与 LoadUp 的 Flyway，使用显式测试建表脚本。
+
+- 通知收件箱写入以 (tenant_id, recipient_id, request_key) 为冲突目标，返回实际插入行数；已读与归档路径区分条件更新和已存在记录。尚需验证并发和事务行为。
+
+- DelayedTask 的手写行映射未读取 deleted 布尔列；GlobalUnique 的租户解析在单租户模式使用默认租户，多租户必需模式拒绝缺失上下文。Pay 主源码静态搜索未发现对已检查布尔列使用 ResultSet.getInt。此证据不覆盖全部字段。
+
+- acquire、payment、limitcenter、product、realtime 的基础设施主源码中，未发现同一文件同时使用 BeanPropertyRowMapper 和 SELECT *；仍须逐个核对显式列、转换和 PostgreSQL 驱动行为。
+
+- 对账 Gateway 的实体查询已改用显式列清单，不再把 PostgreSQL 布尔 deleted 映射到 BaseDO 的整数属性；差异标志使用 Boolean 属性。结果读取和 SQL 列清单尚未经过数据库验证。
+
+- 跨 Framework 与 Pay 主资源目录静态核对了 Flyway 版本，未发现重复版本；自动配置 imports 中属于工作空间的类名均能在主源码中找到。此检查不覆盖依赖可解析性或运行时装配。
+
+- UPMS PostgreSQL 表结构已加入基础设施的 Flyway 初始迁移；独立 schema.sql 中的本地初始化账号和授权数据不随迁移自动写入。尚未执行 Flyway。
+
+- 当前静态核查：customer、product、limitcenter、realtime、acquire、payment、reconciliation 的主资源目录各有一份初始 SQL；这些脚本未发现 MySQL 的 ENGINE、TINYINT、DATETIME、AUTO_INCREMENT、INSERT IGNORE 或 FOREIGN KEY 语法。该检查不证明 SQL 可执行或业务约束完整。
+
 - Framework 与 Pay 生产 Java 中已静态搜索不到 Flex API、生成 Mapper 或 TableDef 引用；Pay 的边界测试保留禁止依赖规则。已清理
   Framework 的 Flex BOM、注解处理器、旧监听器与相关自动配置引用。
 - Framework UPMS 六个 Gateway、Gotone JDBC store 和相关初始表结构已改为 JDBC/PostgreSQL；UPMS

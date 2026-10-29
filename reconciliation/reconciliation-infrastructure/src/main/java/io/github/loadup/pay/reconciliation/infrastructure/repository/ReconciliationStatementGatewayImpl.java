@@ -81,7 +81,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource("tenant", tenant).addValue("batch", batchId);
-        var rows = jdbc.query("SELECT * FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
+        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
                 + "AND batch_id = :batch AND state = 'INIT' LIMIT 2", args, BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
         if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
         return rows.isEmpty() ? Optional.empty() : read(rows.getFirst());
@@ -149,7 +149,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     }
 
     private ReconciliationStatementDO row(String predicate, MapSqlParameterSource args, boolean lock) {
-        return jdbc.query("SELECT * FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
                         + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))
                 .stream().findFirst().orElse(null);
     }

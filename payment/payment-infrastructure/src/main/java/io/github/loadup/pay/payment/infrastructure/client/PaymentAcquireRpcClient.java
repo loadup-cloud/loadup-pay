@@ -43,13 +43,13 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DE
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 @Component
-public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
+public class PaymentAcquireRpcClient implements PaymentAcquireClient {
     private final GrpcTransport rpc;
     private final PaymentAcquireProperties properties;
     private final PaymentServiceTokenReader tokens;
 
-    public PaymentAcquireGrpcClient(GrpcTransport rpc, JsonMapper mapper, PaymentAcquireProperties properties,
-                                    @Qualifier("paymentClock") Clock clock) {
+    public PaymentAcquireRpcClient(GrpcTransport rpc, JsonMapper mapper, PaymentAcquireProperties properties,
+                                   @Qualifier("paymentClock") Clock clock) {
         this.rpc = rpc;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
@@ -83,7 +83,7 @@ public class PaymentAcquireGrpcClient implements PaymentAcquireClient {
             var response = rpc.call(operation, request, token);
             if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return response;
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException failure) {d
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }

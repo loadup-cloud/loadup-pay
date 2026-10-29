@@ -155,7 +155,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
             throw new CommonException(INVALID_STATE);
-        return jdbc.query("SELECT * FROM reconciliation_batch WHERE tenant_id = :tenant AND deleted = FALSE AND "
+        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, caller_service_id, request_key, request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version FROM reconciliation_batch WHERE tenant_id = :tenant AND deleted = FALSE AND "
                         + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))
                 .stream().findFirst().orElse(null);
     }

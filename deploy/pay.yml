@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: loadup-pay
 ---
+# Payment Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +28,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -48,6 +49,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# Payment ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -58,6 +60,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
+# Acquire Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -82,7 +85,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -103,6 +106,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# Acquire ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -112,8 +116,8 @@ spec:
   selector: { app: acquire }
   ports:
     - { name: http, port: 8080, targetPort: http }
-
 ---
+# Customer Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -138,7 +142,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -159,6 +163,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# Customer ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -168,64 +173,8 @@ spec:
   selector: { app: customer }
   ports:
     - { name: http, port: 8080, targetPort: http }
-
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: product
-  namespace: loadup-pay
-spec:
-  replicas: 1
-  selector:
-    matchLabels: { app: product }
-  template:
-    metadata:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /actuator/prometheus
-        prometheus.io/port: "8080"
-      labels: { app: product }
-    spec:
-      terminationGracePeriodSeconds: 45
-      containers:
-        - name: product
-          image: loadup-pay/product:bootstrap
-          imagePullPolicy: Never
-          ports:
-            - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
-          env:
-            - name: METRICS_ENABLED
-              value: "true"
-            - name: OTLP_TRACING_ENDPOINT
-              value: "http://cluster.local/v1/traces"
-          startupProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-            failureThreshold: 60
-            periodSeconds: 2
-          readinessProbe:
-            httpGet: { path: /actuator/health/readiness, port: http }
-          livenessProbe:
-            httpGet: { path: /actuator/health/liveness, port: http }
-          resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { memory: 512Mi }
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: [ ALL ] }
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: product
-  namespace: loadup-pay
-spec:
-  selector: { app: product }
-  ports:
-    - { name: http, port: 8080, targetPort: http }
-
----
+# LimitCenter Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -250,7 +199,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -271,6 +220,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# LimitCenter ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -280,8 +230,65 @@ spec:
   selector: { app: limitcenter }
   ports:
     - { name: http, port: 8080, targetPort: http }
-
 ---
+# Product Service - Headless for gRPC discovery
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: product }
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8080"
+      labels: { app: product }
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: product
+          image: loadup-pay/product:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: dubbo, containerPort: 50051 }
+          env:
+            - name: METRICS_ENABLED
+              value: "true"
+            - name: OTLP_TRACING_ENDPOINT
+              value: "http://cluster.local/v1/traces"
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 60
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+---
+# Product ClusterIP - HTTP only for client routing
+apiVersion: v1
+kind: Service
+metadata:
+  name: product
+  namespace: loadup-pay
+spec:
+  selector: { app: product }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+# Realtime Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -306,7 +313,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -327,6 +334,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# Realtime ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -336,86 +344,8 @@ spec:
   selector: { app: realtime }
   ports:
     - { name: http, port: 8080, targetPort: http }
-
 ---
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: customer-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: customer }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: product-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: product }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: limitcenter-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: limitcenter }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: payment-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: payment }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: acquire-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: acquire }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
-# Internal gRPC discovery for the corresponding business-profile application.
-apiVersion: v1
-kind: Service
-metadata:
-  name: realtime-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: realtime }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
-
----
+# Reconciliation Service - Headless for gRPC discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -440,7 +370,7 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: grpc, containerPort: 50051 }
+            - { name: dubbo, containerPort: 50051 }
           env:
             - name: METRICS_ENABLED
               value: "true"
@@ -461,6 +391,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
 ---
+# Reconciliation ClusterIP - HTTP only for client routing
 apiVersion: v1
 kind: Service
 metadata:
@@ -470,16 +401,3 @@ spec:
   selector: { app: reconciliation }
   ports:
     - { name: http, port: 8080, targetPort: http }
-
----
-# Internal gRPC discovery for the reconciliation business profile.
-apiVersion: v1
-kind: Service
-metadata:
-  name: reconciliation-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: reconciliation }
-  ports:
-    - { name: grpc, port: 50051, targetPort: grpc, protocol: TCP }
