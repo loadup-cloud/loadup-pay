@@ -38,7 +38,7 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ChannelMerchantBindingDO toHeadDO(String tenant, ChannelMerchantBinding value);
 
     @BeanMapping(ignoreByDefault = true)
@@ -70,7 +70,7 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "h5Enabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.H5))")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ChannelBindingRevisionDO toRevisionDO(String tenant, StoredChannelBindingRevision value, String identityPayload);
 
     ChannelBindingChangeReceipt toReceipt(ChannelBindingChangeReceiptDO row);
@@ -78,6 +78,6 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ChannelBindingChangeReceiptDO toReceiptDO(String tenant, ChannelBindingChangeReceipt value);
 }

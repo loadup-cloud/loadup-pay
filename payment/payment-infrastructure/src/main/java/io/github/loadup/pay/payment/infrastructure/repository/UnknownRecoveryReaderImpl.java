@@ -23,6 +23,7 @@ import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.infrastructure.converter.UnknownRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.model.UnknownRecoveryProjection;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -57,7 +58,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
             throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
         if (kind == null || window == null) throw new CommonException(INVALID_ARGUMENT);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("limit", window.limit() + 1);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("limit", window.limit() + 1);
         String base = switch (kind) {
             case COLLECTION -> """
                     SELECT p.id AS record_id, p.id AS subject_id, p.order_id, p.payee_merchant_id,

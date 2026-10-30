@@ -38,7 +38,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.orderCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     TradeOrderDO toDO(String id, String tenant, TradeOrderProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -55,7 +55,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.initiatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     TradePaymentDO toDO(String id, String tenant, TradePaymentProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -72,7 +72,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "businessCreatedAt", source = "value.refundCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     TradeRefundDO toDO(String id, String tenant, TradeRefundProjection value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -88,7 +88,7 @@ public interface TradeStorageConverter {
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     TradeSummaryDO toDO(String id, String tenant, TradeRefundSummary value, String contentHash, String payload);
 
     @BeanMapping(ignoreByDefault = true)
@@ -103,6 +103,6 @@ public interface TradeStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ProjectionReceiptDO toDO(String tenant, ProjectionReceipt value);
 }

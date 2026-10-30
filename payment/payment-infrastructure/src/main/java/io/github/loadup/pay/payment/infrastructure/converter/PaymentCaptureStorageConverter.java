@@ -55,7 +55,7 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentCaptureDO toDO(String tenant, PaymentCapture value);
 
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
@@ -79,6 +79,6 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "sourceVersion", source = "value.sourceVersion")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentCaptureLineDO toLineDO(String tenant, String captureId, PaymentLedgerLine value);
 }

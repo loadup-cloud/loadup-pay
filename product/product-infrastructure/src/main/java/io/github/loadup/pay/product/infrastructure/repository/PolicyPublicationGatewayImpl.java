@@ -16,6 +16,7 @@
 package io.github.loadup.pay.product.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
 import io.github.loadup.pay.product.domain.gateway.PolicyPublicationGateway;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
@@ -42,13 +43,18 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
             + "policy_id, policy_version, policy_hash, state, activated_at, row_version, payee_merchant_id, "
             + "product_scope_key, snapshot_hash, activation_payload, outbox_event_id, requested_at, publication_schema_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final ContractLimitPublicationRepository publications;
     private final PolicyPublicationStorageConverter converter;
     private final Clock clock;
     private final BeanPropertyRowMapper<ContractLimitPublicationDO> mapper = BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class);
 
-    public PolicyPublicationGatewayImpl(NamedParameterJdbcTemplate jdbc, PolicyPublicationStorageConverter converter,
-                                        @Qualifier("databaseClock") Clock clock) {
+    public PolicyPublicationGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            ContractLimitPublicationRepository publications,
+            PolicyPublicationStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.publications = publications;
         this.converter = converter;
         this.clock = clock;
     }
@@ -63,11 +69,12 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
         return false;
     }
 
-    private Optional<PolicyPublication> read(String tenant, String condition, MapSqlParameterSource args) {
-        args.addValue("tenant", tenant);
+    private Optional<PolicyPublication> locked(String id) {
+        var tenant = TenantContext.tenantId();
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         try {
             return jdbc.query("SELECT " + COLUMNS + " FROM contract_limit_publication WHERE tenant_id = :tenant "
-                    + "AND deleted = FALSE AND " + condition, args, mapper).stream().findFirst().map(row -> {
+                    + "AND deleted = FALSE AND id = :id FOR UPDATE", args, mapper).stream().findFirst().map(row -> {
                 if (!tenant.equals(row.getTenantId()))
                     throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
                 return converter.toModel(row);
@@ -79,28 +86,42 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
 
     @Override
     public Optional<PolicyPublication> findById(String tenant, String id) {
-        return read(tenant, "id = :id", new MapSqlParameterSource("id", id));
+        return read(() -> publications.findPublication(id));
     }
 
     @Override
     public Optional<PolicyPublication> lockById(String tenant, String id) {
-        return read(tenant, "id = :id FOR UPDATE", new MapSqlParameterSource("id", id));
+        return locked(id);
     }
 
     @Override
     public Optional<PolicyPublication> findByContract(String tenant, String contract, int revision) {
-        return read(tenant, "contract_id = :contract AND contract_revision = :revision",
-                new MapSqlParameterSource("contract", contract).addValue("revision", revision));
+        return read(() -> publications.findPublished(contract, revision));
     }
 
     @Override
     public Optional<PolicyPublication> findByMerchant(String tenant, String merchant) {
-        return read(tenant, "payee_merchant_id = :merchant", new MapSqlParameterSource("merchant", merchant));
+        return read(() -> publications.findActiveByMerchant(merchant));
     }
 
     @Override
     public Optional<PolicyPublication> findByPolicy(String tenant, String policy) {
-        return read(tenant, "policy_id = :policy", new MapSqlParameterSource("policy", policy));
+        return read(() -> publications.findActiveByPolicy(policy));
+    }
+
+    private Optional<PolicyPublication> read(
+            java.util.function.Supplier<Optional<ContractLimitPublicationDO>> lookup) {
+        try {
+            return lookup.get().map(this::map);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
+        }
+    }
+
+    private PolicyPublication map(ContractLimitPublicationDO row) {
+        var tenant = TenantContext.tenantId();
+        if (!tenant.equals(row.getTenantId())) throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
+        return converter.toModel(row);
     }
 
     @Override

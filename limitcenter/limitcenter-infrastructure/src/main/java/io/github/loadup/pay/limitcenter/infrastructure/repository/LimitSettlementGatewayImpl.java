@@ -24,9 +24,8 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitSettlementStorageConverter;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -47,12 +46,17 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 @Repository
 public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
     private final NamedParameterJdbcTemplate jdbc;
+    private final LimitSettlementReceiptRepository receipts;
     private final Clock clock;
     private final LimitSettlementStorageConverter converter;
 
-    public LimitSettlementGatewayImpl(NamedParameterJdbcTemplate jdbc, LimitSettlementStorageConverter converter,
-                                      @Qualifier("databaseClock") Clock clock) {
+    public LimitSettlementGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            LimitSettlementReceiptRepository receipts,
+            LimitSettlementStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.receipts = receipts;
         this.clock = clock;
         this.converter = converter;
     }
@@ -60,11 +64,9 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
     @Override
     public Optional<LimitSettlementReceipt> findReceipt(String tenant, String operation) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", operation);
-        var row = jdbc.query("SELECT id, tenant_id, created_at, updated_at, operation_id, payment_id, kind, "
-                        + "business_event_id, request_digest, payment_version, evidence_id FROM limit_settlement_receipt "
-                        + "WHERE tenant_id = :tenant AND operation_id = :operation AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(LimitSettlementReceiptDO.class)).stream().findFirst().orElse(null);
+        var row = receipts
+                .findReceipt(operation)
+                .orElse(null);
         if (row == null) return Optional.empty();
         try {
             return Optional.of(converter.toReceipt(row));
@@ -97,7 +99,7 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
         transaction();
         scope(tenant);
         if (gate.state() != GateState.FENCED) throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", gate.operationId());
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("operation", gate.operationId());
         var row = jdbc.query("SELECT id, payment_id, row_version FROM limit_operation_gate "
                                 + "WHERE tenant_id = :tenant AND operation_id = :operation AND deleted = FALSE", args,
                         (rs, index) -> new GateRow(rs.getString("id"), rs.getString("payment_id"), rs.getLong("row_version")))
@@ -128,7 +130,7 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
             if (next == null || !previous.reservationId().equals(next.reservationId()) || !previous.bucket().equals(next.bucket())
                     || previous.reserved() != next.reserved()) throw new CommonException(SNAPSHOT_INVALID);
             if (previous.equals(next)) continue;
-            var args = new MapSqlParameterSource("tenant", tenant).addValue("id", previous.id())
+            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", previous.id())
                     .addValue("reservation", previous.reservationId()).addValue("reserved", previous.reserved())
                     .addValue("consumed", previous.consumed()).addValue("restored", previous.restored())
                     .addValue("nextConsumed", next.consumed()).addValue("nextRestored", next.restored())

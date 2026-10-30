@@ -24,6 +24,7 @@ import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGate
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutSessionRevocationReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionRevocationReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -57,7 +58,7 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     @Override
     public Optional<CheckoutSessionRevocationReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
                 FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant AND deleted = FALSE
@@ -92,7 +93,7 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     public PageResult<CheckoutSessionRevocationReceipt> page(String tenant, String sessionId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("subject", sessionId)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("subject", sessionId)
                 .addValue("limit", size).addValue("offset", (long) (page - 1) * size);
         var total = jdbc.queryForObject("SELECT COUNT(*) FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant "
                 + "AND deleted = FALSE AND session_id = :subject", args, Long.class);

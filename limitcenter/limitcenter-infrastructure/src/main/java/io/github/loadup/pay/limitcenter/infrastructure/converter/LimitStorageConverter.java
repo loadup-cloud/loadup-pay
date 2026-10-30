@@ -52,7 +52,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     LimitPolicyHeadDO toHeadDO(String tenant, LimitPolicyHead value);
 
     @Mapping(target = "rule", source = "row")
@@ -66,7 +66,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "ownerPolicyId", source = "value.ownerPolicyId")
     @Mapping(target = "policyVersion", source = "value.policyVersion")
     @Mapping(target = "ruleScopeId", source = "value.rule.ruleScopeId")
@@ -85,7 +85,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "compiledRules", source = "payload")
     LimitPolicyRevisionDO toRevisionDO(String tenant, ActivatedLimitPolicy value, String payload);
 
@@ -110,7 +110,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "ruleScopeId", source = "value.key.ruleScopeId")
     @Mapping(target = "merchantId", source = "value.key.merchantId")
     @Mapping(target = "metric", source = "value.key.metric")
@@ -129,7 +129,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "rowVersion", source = "rowVersion")
     LimitOperationGateDO toGateDO(String tenant, LimitOperationGate gate, long rowVersion);
 
@@ -150,7 +150,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "operationId", source = "stored.reservation.operationId")
     @Mapping(target = "paymentId", source = "stored.reservation.paymentId")
     @Mapping(target = "orderId", source = "stored.reservation.orderId")
@@ -171,7 +171,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     @Mapping(target = "reservedValue", source = "item.reserved")
     @Mapping(target = "consumedValue", source = "item.consumed")
     @Mapping(target = "restoredValue", source = "item.restored")
@@ -183,7 +183,7 @@ public interface LimitStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     LimitExecutionGrantDO toExecutionGrantDO(String tenant, LimitExecutionGrant value);
 
     @Mapping(target = "bucket", source = "bucket")

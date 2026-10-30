@@ -24,6 +24,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationBatchDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -60,7 +61,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(caller);
         io.github.loadup.commons.validation.DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
         return optional(tenant, row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
@@ -68,21 +69,21 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
     public Optional<StoredReconciliationBatch> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(id);
-        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false));
+        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
     }
 
     @Override
     public Optional<StoredReconciliationBatch> findRun(String tenant, String runId) {
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(runId);
-        return optional(tenant, row("run_id = :run", new MapSqlParameterSource("tenant", tenant).addValue("run", runId), false));
+        return optional(tenant, row("run_id = :run", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("run", runId), false));
     }
 
     @Override
     public Optional<StoredReconciliationBatch> lock(String tenant, String id) {
         ReconciliationStoreContext.writable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(id);
-        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true));
+        return optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
@@ -115,7 +116,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         ReconciliationStoreContext.writable(tenant);
         if (value == null || value.batch().version() != Math.incrementExact(expectedVersion))
             throw new CommonException(INVALID_STATE);
-        var before = optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", value.batch().id()), true))
+        var before = optional(tenant, row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.batch().id()), true))
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
         if (before.batch().version() != expectedVersion) throw new CommonException(CONCURRENT_UPDATE);
         if (!before.batch().scope().equals(value.batch().scope()) || !before.callerServiceId().equals(value.callerServiceId())
@@ -138,7 +139,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
         if (!allowed) throw new CommonException(INVALID_STATE);
         requireJdbc();
         var row = converter.toDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.batch().id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.batch().id()).addValue("expected", expectedVersion)
                 .addValue("state", row.getState()).addValue("channelInput", row.getChannelInputId()).addValue("ledgerInput", row.getLedgerInputId())
                 .addValue("run", row.getRunId()).addValue("matched", row.getMatchedCount()).addValue("differences", row.getDifferenceCount())
                 .addValue("hash", row.getResultHash()).addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));

@@ -58,13 +58,13 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "channelRequestNo", source = "value.identity.channelRequestNo")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentChannelReceiptDO toReceiptDO(String tenant, PaymentChannelReceipt value);
 
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentResultAnomalyDO toAnomalyDO(String tenant, PaymentResultAnomaly value);
 
     @Mapping(target = "identity", source = "identity")
@@ -81,7 +81,7 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "currency", source = "amount.currencyValue")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ChannelTransactionClaimDO toClaimDO(ChannelTransactionClaim value);
 
     @Mapping(target = "succeededAmount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getSucceededMinor(), row.getCurrency()))")
@@ -96,6 +96,6 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentRefundCapacityDO toCapacityDO(String tenant, String id, PaymentRefundCapacity value);
 }

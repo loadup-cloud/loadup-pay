@@ -28,6 +28,7 @@ import io.github.loadup.pay.acquire.infrastructure.converter.OrderCreationStorag
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCreateIntentDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -77,7 +78,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
 
     @Override
     public Optional<OrderCreateIntent> findIntent(String tenant, String payee, String merchantOrderNo) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee).addValue("number", merchantOrderNo);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", payee).addValue("number", merchantOrderNo);
         return Optional.ofNullable(intent(tenant, "payee_merchant_id = :payee AND merchant_order_no = :number", args, false))
                 .map(converter::toIntent);
     }
@@ -85,7 +86,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     @Override
     public OrderCreateIntent lockIntent(String tenant, String id) {
         requireTransaction();
-        var row = intent(tenant, "id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true);
+        var row = intent(tenant, "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
         if (row == null) throw new CommonException(SNAPSHOT_INVALID);
         return converter.toIntent(row);
     }
@@ -114,7 +115,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     public void updateIntent(String tenant, OrderCreateIntent value, long expectedVersion) {
         requireTransaction();
         var row = converter.toIntentDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
                 .addValue("state", row.getState()).addValue("admission", row.getAdmissionId())
                 .addValue("deadline", row.getMaterializeBefore()).addValue("result", row.getResultCode())
                 .addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
@@ -132,8 +133,8 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         var row = order(tenant, id, false);
         if (row == null) return Optional.empty();
         try {
-            var intentRow = intent(tenant, "order_id = :order", new MapSqlParameterSource("tenant", tenant).addValue("order", id), false);
-            var snapshotArgs = new MapSqlParameterSource("tenant", tenant).addValue("id", row.getContractSnapshotId()).addValue("order", id);
+            var intentRow = intent(tenant, "order_id = :order", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", id), false);
+            var snapshotArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", row.getContractSnapshotId()).addValue("order", id);
             var snapshot = jdbc.query("""
                     SELECT id, tenant_id, created_at, updated_at, order_id, contract_id, contract_revision, contract_generation,
                            snapshot_hash, compiled_terms_hash, schema_version, configuration, payload_hash, admission_digest
@@ -252,7 +253,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     private AcquireOrderDO order(String tenant, String id, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc.query("""
                         SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
                                contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,

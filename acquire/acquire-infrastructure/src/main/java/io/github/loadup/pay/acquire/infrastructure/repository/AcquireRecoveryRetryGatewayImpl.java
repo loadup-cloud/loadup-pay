@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.domain.gateway.AcquireRecoveryRetryGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireRecoveryRetryReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.AcquireRecoveryRetryStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireRecoveryRetryReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -54,7 +55,7 @@ public class AcquireRecoveryRetryGatewayImpl implements AcquireRecoveryRetryGate
     @Override
     public Optional<AcquireRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at
                 FROM acquire_recovery_retry_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND caller_scope_hash = :caller AND request_key = :key

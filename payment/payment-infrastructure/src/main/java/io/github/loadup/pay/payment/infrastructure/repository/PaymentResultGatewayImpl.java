@@ -31,6 +31,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorag
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelTransactionClaimDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentChannelReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -67,7 +68,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     @Override
     public Optional<PaymentChannelReceipt> receipt(String tenant, String attempt, PaymentObservation.Source source, String key) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("attempt", attempt).addValue("source", source.name()).addValue("key", key);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("attempt", attempt).addValue("source", source.name()).addValue("key", key);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
                        account_scope_hash, channel_request_no, source, receipt_key, facts_digest, source_digest,
@@ -131,7 +132,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     @Override
     public Optional<ChannelTransactionClaim> attemptClaim(String tenant, String attempt) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("attempt", attempt);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("attempt", attempt);
         var row = jdbc.query("SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE tenant_id = :tenant "
                         + "AND attempt_id = :attempt AND deleted = FALSE", args,
                 BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class)).stream().findFirst().orElse(null);
@@ -167,7 +168,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 || payment.payment().version() != Math.incrementExact(expectedVersion))
             throw new CommonException(INVALID_STATE);
         jdbcTransaction();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", payment.payment().id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", payment.payment().id())
                 .addValue("attempt", payment.payment().successfulAttemptId()).addValue("version", payment.payment().version())
                 .addValue("expected", expectedVersion).addValue("evidence", payment.terminalEvidenceId())
                 .addValue("succeeded", succeededAt).addValue("updated", LocalDateTime.now(clock));
@@ -183,7 +184,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     @Override
     public Optional<PaymentRefundCapacity> capacity(String tenant, String payment) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", payment);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", payment);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
                        succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version

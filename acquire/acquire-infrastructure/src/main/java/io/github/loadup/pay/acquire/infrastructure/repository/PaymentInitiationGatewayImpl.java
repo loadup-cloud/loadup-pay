@@ -25,6 +25,7 @@ import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -60,7 +61,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
     @Override
     public Optional<StoredPaymentAllocation> findAction(
             String tenant, String orderId, String actorScope, String actionKey) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId)
                 .addValue("actor", actorScope).addValue("key", actionKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
@@ -91,7 +92,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
         if (TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", original.allocation().id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", original.allocation().id())
                 .addValue("payment", original.allocation().paymentId()).addValue("expected", original.rowVersion())
                 .addValue("oldHash", original.payloadHash()).addValue("payload", prepared.intentPayload())
                 .addValue("hash", prepared.payloadHash()).addValue("version", prepared.rowVersion()).addValue("updated", LocalDateTime.now(clock));
@@ -119,7 +120,7 @@ public class PaymentInitiationGatewayImpl implements PaymentInitiationGateway {
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
         var patch = converter.toReservationPatch(updated);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", updated.id()).addValue("expected", expectedOrderVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id()).addValue("expected", expectedOrderVersion)
                 .addValue("reserved", patch.getPaymentReservedMinor()).addValue("count", patch.getReservedPaymentCount())
                 .addValue("state", patch.getState()).addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""

@@ -66,14 +66,30 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     private static final String REFUND_COLUMNS = "id, tenant_id, created_at, updated_at, refund_id, refund_request_id, payment_id, "
             + "order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at";
     private final NamedParameterJdbcTemplate jdbc;
+    private final TradeOrderProjectionRepository orders;
+    private final TradePaymentProjectionRepository payments;
+    private final TradeRefundProjectionRepository refunds;
+    private final TradeRefundSummaryRepository summaries;
     private final Clock clock;
     private final TradeStorageConverter converter;
     private final TradeProjectionCodec codec;
     private final IdGenerator ids;
 
-    public TradeProjectionGatewayImpl(TradeStorageConverter converter, TradeProjectionCodec codec, IdGenerator ids,
-                                      NamedParameterJdbcTemplate jdbc, @Qualifier("databaseClock") Clock clock) {
+    public TradeProjectionGatewayImpl(
+            TradeStorageConverter converter,
+            TradeProjectionCodec codec,
+            IdGenerator ids,
+            NamedParameterJdbcTemplate jdbc,
+            TradeOrderProjectionRepository orders,
+            TradePaymentProjectionRepository payments,
+            TradeRefundProjectionRepository refunds,
+            TradeRefundSummaryRepository summaries,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.orders = orders;
+        this.payments = payments;
+        this.refunds = refunds;
+        this.summaries = summaries;
         this.clock = clock;
         this.converter = converter;
         this.codec = codec;
@@ -82,10 +98,16 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     private Optional<TradeOrderDO> order(String tenant, String orderId, String payee, boolean lock) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", orderId).addValue("payee", payee);
+        if (!lock) {
+            var row = payee == null
+                    ? orders.findOrder(orderId)
+                    : orders.findOrder(orderId, payee);
+            return row;
+        }
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("orderId", orderId).addValue("payee", payee);
         return jdbc.query("SELECT " + ORDER_COLUMNS + " FROM trade_order_projection WHERE tenant_id = :tenant "
                         + "AND order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
-                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(TradeOrderDO.class))
+                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(TradeOrderDO.class))
                 .stream().findFirst();
     }
 
@@ -135,7 +157,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", value.orderId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("orderId", value.orderId())
                 .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
                 .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
                 .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
@@ -150,9 +172,12 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     private Optional<TradePaymentDO> payment(String tenant, String paymentId, boolean lock) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("paymentId", paymentId);
+        if (!lock) {
+            return payments.findPayment(paymentId);
+        }
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("paymentId", paymentId);
         return jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM trade_payment_projection WHERE tenant_id = :tenant "
-                        + "AND payment_id = :paymentId AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), args,
+                        + "AND payment_id = :paymentId AND deleted = FALSE FOR UPDATE", args,
                 BeanPropertyRowMapper.newInstance(TradePaymentDO.class)).stream().findFirst();
     }
 
@@ -201,7 +226,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("paymentId", value.paymentId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("paymentId", value.paymentId())
                 .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
                 .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
                 .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
@@ -216,9 +241,12 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     private Optional<TradeRefundDO> refund(String tenant, String refundId, boolean lock) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("refundId", refundId);
+        if (!lock) {
+            return refunds.findRefund(refundId);
+        }
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("refundId", refundId);
         return jdbc.query("SELECT " + REFUND_COLUMNS + " FROM trade_refund_projection WHERE tenant_id = :tenant "
-                        + "AND refund_id = :refundId AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), args,
+                        + "AND refund_id = :refundId AND deleted = FALSE FOR UPDATE", args,
                 BeanPropertyRowMapper.newInstance(TradeRefundDO.class)).stream().findFirst();
     }
 
@@ -270,7 +298,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("refundId", value.refundId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("refundId", value.refundId())
                 .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
                 .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
                 .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
@@ -285,11 +313,16 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
 
     private Optional<TradeSummaryDO> summary(String tenant, String order, String payee, boolean lock) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", order).addValue("payee", payee);
+        if (!lock) {
+            return payee == null
+                    ? summaries.findSummary(order)
+                    : summaries.findSummary(order, payee);
+        }
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("orderId", order).addValue("payee", payee);
         return jdbc.query("SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, source_version, "
                         + "content_hash, payload, snapshot_at FROM trade_refund_summary WHERE tenant_id = :tenant "
                         + "AND order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
-                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(TradeSummaryDO.class))
+                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(TradeSummaryDO.class))
                 .stream().findFirst();
     }
 
@@ -335,7 +368,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
             if (!row.getContentHash().equals(factsHash)) throw new CommonException(SOURCE_CONFLICT);
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", value.orderId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("orderId", value.orderId())
                 .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
                 .addValue("hash", factsHash).addValue("payload", payload).addValue("snapshot", value.snapshotAt())
                 .addValue("updated", LocalDateTime.now(clock));
@@ -373,7 +406,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
         requireTenant(tenant);
         if (orderIds.isEmpty()) return Map.of();
         if (orderIds.size() > 100) throw new CommonException(INVALID_ARGUMENT);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee).addValue("orders", orderIds);
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("payee", payee).addValue("orders", orderIds);
         var values = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, source_version,
                        content_hash, payload, snapshot_at FROM trade_refund_summary
@@ -390,7 +423,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     @Override
     public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {
@@ -420,7 +453,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     @Override
     public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {
@@ -450,7 +483,7 @@ public class TradeProjectionGatewayImpl implements TradeProjectionGateway, Trade
     @Override
     public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+        var args = new MapSqlParameterSource("tenant", io.github.loadup.components.database.tenant.TenantContext.tenantId()).addValue("payee", filter.payeeMerchantId())
                 .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE tenant_id = :tenant AND payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {

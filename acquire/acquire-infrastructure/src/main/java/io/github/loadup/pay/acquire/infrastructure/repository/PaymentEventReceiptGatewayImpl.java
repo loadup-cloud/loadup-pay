@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentEventStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.PaymentEventReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -54,7 +55,7 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
     @Override
     public Optional<PaymentEventReceipt> find(String tenant, String deliveryId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("delivery", deliveryId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", deliveryId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, business_event_id, payment_id, order_id,
                        allocation_id, payment_version, evidence_id, request_digest, caller_service_id, order_version, accepted_at

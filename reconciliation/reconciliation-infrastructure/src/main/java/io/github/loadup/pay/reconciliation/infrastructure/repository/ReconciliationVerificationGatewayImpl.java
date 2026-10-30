@@ -23,6 +23,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificati
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationVerificationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationVerificationDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -57,7 +58,7 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
@@ -65,7 +66,7 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     public Optional<ReconciliationVerificationRequest> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
     }
 
     @Override
@@ -75,7 +76,7 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
@@ -110,7 +111,7 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         requireJdbc();
         var row = converter.toDO(tenant, value);
         row.setUpdatedAt(LocalDateTime.now(clock));
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
                 .addValue("updated", row.getUpdatedAt());
         args.addValue("state", row.getState());
         args.addValue("rowVersion", row.getRowVersion());

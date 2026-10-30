@@ -25,10 +25,8 @@ import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
 import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantRelationshipRow;
 import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantActionGrantRow;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
-import org.springframework.data.relational.core.query.Criteria;
-import org.springframework.data.relational.core.query.Query;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -44,13 +42,18 @@ import java.util.Optional;
 @Repository
 public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGateway {
     private final JdbcTemplate jdbc;
-    private final JdbcAggregateTemplate aggregates;
+    private final MerchantRelationshipRepository relationships;
+    private final MerchantActionGrantRepository grants;
     private final Clock clock;
 
-    public MerchantAuthorizationGatewayImpl(JdbcTemplate jdbc, JdbcAggregateTemplate aggregates,
+    public MerchantAuthorizationGatewayImpl(
+            JdbcTemplate jdbc,
+            MerchantRelationshipRepository relationships,
+            MerchantActionGrantRepository grants,
             @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
-        this.aggregates = aggregates;
+        this.relationships = relationships;
+        this.grants = grants;
         this.clock = clock;
     }
 
@@ -73,7 +76,7 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
     public Optional<MerchantRelationship> findRelationship(String tenant, String id) {
         tenant(tenant);
         if (id == null) return Optional.empty();
-        return aggregates.findOne(byId(tenant, id), MerchantRelationshipRow.class)
+        return relationships.findRelationship(id)
                 .map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
@@ -81,10 +84,9 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
     public Optional<MerchantRelationship> findLiveRelationship(String tenant, String parent, String child) {
         tenant(tenant);
         if (parent == null || child == null) return Optional.empty();
-        var query = Query.query(Criteria.where("tenantId").is(tenant).and("parentMerchantId").is(parent)
-                .and("childMerchantId").is(child).and("relationType").is("MANAGEMENT")
-                .and("state").in("INIT", "ACTIVE").and("deleted").is(false));
-        return aggregates.findOne(query, MerchantRelationshipRow.class).map(MerchantAuthorizationGatewayImpl::mapRelationship);
+        return relationships
+                .findLive(parent, child)
+                .map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
     @Override
@@ -98,7 +100,7 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
     public Optional<MerchantActionGrant> findGrantById(String tenant, String id) {
         tenant(tenant);
         if (id == null) return Optional.empty();
-        return aggregates.findOne(byId(tenant, id), MerchantActionGrantRow.class)
+        return grants.findGrantById(id)
                 .map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
@@ -113,10 +115,9 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
     public Optional<MerchantActionGrant> findGrant(String tenant, PrincipalType type, String principal, String payee, MerchantAction action) {
         tenant(tenant);
         if (principal == null || payee == null) return Optional.empty();
-        var query = Query.query(Criteria.where("tenantId").is(tenant).and("principalType").is(type.name())
-                .and("principalId").is(principal).and("payeeMerchantId").is(payee).and("action").is(action.name())
-                .and("state").in("INIT", "ACTIVE").and("deleted").is(false));
-        return aggregates.findOne(query, MerchantActionGrantRow.class).map(MerchantAuthorizationGatewayImpl::mapGrant);
+        return grants
+                .findGrant(type.name(), principal, payee, action.name())
+                .map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
     @Override
@@ -191,10 +192,6 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     private static boolean initialVersion(GrantState state, long version) {
         return state == GrantState.INIT && version == 0 || state == GrantState.ACTIVE && version == 1;
-    }
-
-    private static Query byId(String tenant, String id) {
-        return Query.query(Criteria.where("tenantId").is(tenant).and("id").is(id).and("deleted").is(false));
     }
 
     private static MerchantRelationship mapRelationship(MerchantRelationshipRow row) {

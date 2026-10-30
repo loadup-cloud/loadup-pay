@@ -30,6 +30,6 @@ public interface PolicyPublicationStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ContractLimitPublicationDO toDO(String tenant, PolicyPublication value);
 }

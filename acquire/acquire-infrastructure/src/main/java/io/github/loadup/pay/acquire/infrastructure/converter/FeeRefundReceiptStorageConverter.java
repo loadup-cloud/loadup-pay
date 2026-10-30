@@ -28,6 +28,6 @@ public interface FeeRefundReceiptStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     FeeRefundReceiptDO toDO(String tenant, FeeRefundReceipt value);
 }

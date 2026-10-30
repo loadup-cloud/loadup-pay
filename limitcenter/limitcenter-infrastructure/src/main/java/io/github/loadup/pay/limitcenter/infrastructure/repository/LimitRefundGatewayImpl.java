@@ -21,9 +21,7 @@ import io.github.loadup.pay.limitcenter.domain.gateway.LimitRefundGateway;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRefundReceipt;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitRefundStorageConverter;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitRefundReceiptDO;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -41,17 +39,18 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 
 @Repository
 public class LimitRefundGatewayImpl implements LimitRefundGateway {
-    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, caller_service_id, operation_id, "
-            + "payment_id, refund_id, refund_version, business_event_id, refund_evidence_id, request_digest, "
-            + "cumulative_payment_refunded_minor, verified_payment_refunded_minor, verified_payment_refund_version, "
-            + "result, restored_amount_minor, restored_payment_count, accepted_at";
     private final NamedParameterJdbcTemplate jdbc;
+    private final LimitRefundReceiptRepository receipts;
     private final LimitRefundStorageConverter converter;
     private final Clock clock;
 
-    public LimitRefundGatewayImpl(NamedParameterJdbcTemplate jdbc, LimitRefundStorageConverter converter,
-                                  @Qualifier("databaseClock") Clock clock) {
+    public LimitRefundGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            LimitRefundReceiptRepository receipts,
+            LimitRefundStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.receipts = receipts;
         this.converter = converter;
         this.clock = clock;
     }
@@ -59,11 +58,8 @@ public class LimitRefundGatewayImpl implements LimitRefundGateway {
     @Override
     public Optional<LimitRefundReceipt> find(String tenant, String refundId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("refund", refundId);
         try {
-            return jdbc.query("SELECT " + COLUMNS + " FROM limit_refund_receipt WHERE tenant_id = :tenant "
-                            + "AND deleted = FALSE AND refund_id = :refund", args,
-                    BeanPropertyRowMapper.newInstance(LimitRefundReceiptDO.class)).stream().findFirst().map(converter::toDomain);
+            return receipts.find(refundId).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
             if (corrupt instanceof org.springframework.dao.DataAccessException) throw corrupt;
             throw new CommonException(SNAPSHOT_INVALID);

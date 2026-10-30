@@ -33,6 +33,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.ChannelBindingStora
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingChangeReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingRevisionDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelMerchantBindingDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -71,7 +72,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     }
 
     private ChannelMerchantBindingDO headRow(String tenant, String payee, String code, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee).addValue("code", code);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", payee).addValue("code", code);
         return jdbc.query("""
                         SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
                                state, current_revision_id, current_revision, priority, row_version
@@ -103,7 +104,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
     @Override
     public Optional<StoredChannelBindingRevision> revision(String tenant, String revisionId) {
         if (revisionId == null) throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", revisionId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", revisionId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, binding_id, revision, payee_merchant_id, channel, access_mode,
                        account_scope_hash, credential_reference, credential_version, identity_payload, identity_hash,
@@ -141,7 +142,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
                                                    Set<AccessMode> allowedModes, PaymentMethod method) {
         requireTransaction();
         if (allowedModes.isEmpty()) return List.of();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", payee)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", payee)
                 .addValue("channel", channel.name()).addValue("modes", allowedModes.stream().map(Enum::name).toList());
         var rows = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, binding_code, channel, access_mode,
@@ -169,7 +170,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
 
     @Override
     public Optional<ChannelBindingChangeReceipt> receipt(String tenant, String bindingId, String key) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("binding", bindingId).addValue("key", key);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("binding", bindingId).addValue("key", key);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, binding_id, kind, request_key, request_digest, caller_service_id,
                        binding_revision_id, revision, state, applied_version, applied_at
@@ -209,7 +210,7 @@ public class ChannelBindingGatewayImpl implements ChannelBindingManagementGatewa
         if (head.rowVersion() != Math.incrementExact(expectedVersion) || head.state() == ChannelBindingState.INIT)
             throw new CommonException(INVALID_STATE);
         var patch = converter.toHeadPatch(head);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", head.payeeMerchantId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", head.payeeMerchantId())
                 .addValue("code", head.bindingCode()).addValue("id", head.id()).addValue("channel", head.channel().name())
                 .addValue("mode", head.accessMode().name()).addValue("expectedVersion", expectedVersion)
                 .addValue("state", patch.getState()).addValue("revisionId", patch.getCurrentRevisionId())

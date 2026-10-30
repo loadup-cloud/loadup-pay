@@ -17,7 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
+@Table("payment_control_receipt")
 public class PaymentControlReceiptDO extends BaseDO {
     private String kind;
     private String targetId;

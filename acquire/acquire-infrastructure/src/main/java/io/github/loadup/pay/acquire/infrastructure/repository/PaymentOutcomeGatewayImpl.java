@@ -29,6 +29,7 @@ import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationSt
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentOutcomeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -74,7 +75,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     }
 
     private Optional<StoredPaymentAllocation> readAllocation(String tenant, String orderId, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId).addValue("payment", paymentId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId).addValue("payment", paymentId);
         var row = jdbc.query("""
                         SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
                                caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
@@ -93,7 +94,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
 
     @Override
     public Optional<PaymentOutcomeReceipt> findReceipt(String tenant, String allocationId) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("allocation", allocationId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("allocation", allocationId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, allocation_id, order_id, payment_id, amount_minor, currency,
                        outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
@@ -125,7 +126,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 || !(order.state() == AcquireOrderState.PENDING || order.state() == AcquireOrderState.CLOSING || order.state() == AcquireOrderState.PAID))
             throw new CommonException(SNAPSHOT_INVALID);
         var orderPatch = converter.toOrderPatch(order, order.state() == AcquireOrderState.PAID ? receipt.observedAt() : null);
-        var orderArgs = new MapSqlParameterSource("tenant", tenant).addValue("id", order.id()).addValue("expected", expectedOrderVersion)
+        var orderArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id()).addValue("expected", expectedOrderVersion)
                 .addValue("paid", orderPatch.getPaidAmountMinor()).addValue("reserved", orderPatch.getPaymentReservedMinor())
                 .addValue("successCount", orderPatch.getSuccessfulPaymentCount()).addValue("reservedCount", orderPatch.getReservedPaymentCount())
                 .addValue("state", orderPatch.getState()).addValue("version", orderPatch.getRowVersion()).addValue("paidAt", orderPatch.getPaidAt())
@@ -138,7 +139,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 """, orderArgs);
         if (orderChanged != 1) throw new CommonException(CONCURRENT_UPDATE);
         var patch = converter.toAllocationPatch(allocation, Math.incrementExact(original.rowVersion()));
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", allocation.id()).addValue("order", order.id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", allocation.id()).addValue("order", order.id())
                 .addValue("payment", allocation.paymentId()).addValue("expected", original.rowVersion())
                 .addValue("source", original.allocation().paymentSourceVersion()).addValue("state", patch.getState())
                 .addValue("newSource", patch.getPaymentSourceVersion()).addValue("version", patch.getRowVersion())

@@ -24,6 +24,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionSto
 import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -48,7 +49,7 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     @Override
     public RefundSnapshotFacts child(String tenant, String refundId) {
         writable(tenant);
-        var childArgs = new MapSqlParameterSource("tenant", tenant).addValue("id", refundId);
+        var childArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", refundId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
                        binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
@@ -57,7 +58,7 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
                 FROM refund_order WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE
                 """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream().findFirst().orElse(null);
         if (row == null) throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", row.getRefundRequestId());
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", row.getRefundRequestId());
         var header = jdbc.query("""
                 SELECT id, order_id, payee_merchant_id, currency FROM refund_request
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
@@ -74,7 +75,7 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     @Override
     public RefundSummaryFacts summary(String tenant, String orderId) {
         writable(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
                        currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary

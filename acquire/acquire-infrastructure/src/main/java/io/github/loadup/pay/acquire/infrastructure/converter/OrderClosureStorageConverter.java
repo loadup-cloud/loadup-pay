@@ -34,7 +34,7 @@ public interface OrderClosureStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     OrderCloseIntentDO toDO(String tenant, OrderCloseIntent value);
 
     @BeanMapping(ignoreByDefault = true)

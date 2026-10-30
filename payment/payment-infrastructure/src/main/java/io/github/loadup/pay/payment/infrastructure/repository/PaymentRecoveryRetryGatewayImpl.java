@@ -22,6 +22,7 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryRetryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryRetryReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -55,7 +56,7 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     @Override
     public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
                        request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,

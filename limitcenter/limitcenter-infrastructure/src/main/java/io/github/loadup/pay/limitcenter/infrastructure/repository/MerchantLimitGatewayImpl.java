@@ -33,6 +33,7 @@ import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitExecution
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitOperationGateDO;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitReservationDO;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitReservationItemDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.postgresql.util.PSQLException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DuplicateKeyException;
@@ -64,9 +65,6 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     private static final String BUCKET_KEY = "tenant_id = :tenant AND rule_scope_id = :scope AND merchant_id = :merchant "
             + "AND metric = :metric AND currency = :currency AND window_type = :window "
             + "AND window_start = :start AND window_end = :end AND deleted = FALSE";
-    private static final String RESERVATION_COLUMNS = "id, tenant_id, created_at, updated_at, operation_id, payment_id, "
-            + "order_id, payee_merchant_id, amount_minor, currency, policy_id, policy_version, policy_hash, request_digest, "
-            + "caller_service_id, initiated_at, state, reserve_expires_at, active_attempt_id, execution_epoch, payment_source_version, row_version";
     private static final Comparator<LimitBucketKey> BUCKET_ORDER = Comparator.comparing(LimitBucketKey::ruleScopeId)
             .thenComparing(LimitBucketKey::merchantId)
             .thenComparing(key -> key.metric().name())
@@ -76,16 +74,28 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
             .thenComparing(key -> key.bounds().end());
     private final LimitStorageConverter converter;
     private final NamedParameterJdbcTemplate jdbc;
+    private final LimitReservationRepository reservations;
+    private final LimitReservationItemRepository reservationItems;
+    private final LimitExecutionGrantRepository executionGrants;
+    private final LimitBucketRepository buckets;
     private final IdGenerator ids;
     private final Clock clock;
 
     public MerchantLimitGatewayImpl(
             LimitStorageConverter converter,
             NamedParameterJdbcTemplate jdbc,
+            LimitReservationRepository reservations,
+            LimitReservationItemRepository reservationItems,
+            LimitExecutionGrantRepository executionGrants,
+            LimitBucketRepository buckets,
             IdGenerator ids,
             @Qualifier("databaseClock") Clock clock) {
         this.converter = converter;
         this.jdbc = jdbc;
+        this.reservations = reservations;
+        this.reservationItems = reservationItems;
+        this.executionGrants = executionGrants;
+        this.buckets = buckets;
         this.ids = ids;
         this.clock = clock;
     }
@@ -93,7 +103,7 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     @Override
     public Optional<LimitOperationGate> lockGate(String tenant, String operation) {
         requireTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", operation);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("operation", operation);
         return jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, operation_id, payment_id, state,
                        payment_source_version, no_collection_evidence_id, row_version
@@ -108,7 +118,7 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
         var existing = lockGate(tenant, operation);
         if (existing.isPresent()) return existing.get();
         // Do not endlessly retry a permanent collision with a payment bound to a different operation.
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", payment);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", payment);
         if (!jdbc.query("SELECT id FROM limit_operation_gate WHERE tenant_id = :tenant AND payment_id = :payment AND deleted = FALSE",
                 args, (rs, index) -> rs.getString(1)).isEmpty()) {
             // Another transaction may have created this same operation since the first lookup.
@@ -144,19 +154,17 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     @Override
     public Optional<StoredLimitReservation> findByOperation(String tenant, String operation) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", operation);
-        var row = jdbc.query("SELECT " + RESERVATION_COLUMNS + " FROM limit_reservation WHERE tenant_id = :tenant "
-                        + "AND operation_id = :operation AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(LimitReservationDO.class)).stream().findFirst().orElse(null);
         try {
-            return Optional.ofNullable(row).map(converter::toStored);
+            return reservations
+                    .findByOperation(operation)
+                    .map(converter::toStored);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
     private MapSqlParameterSource bucketKey(String tenant, LimitBucketKey key) {
-        return new MapSqlParameterSource("tenant", tenant).addValue("scope", key.ruleScopeId())
+        return new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("scope", key.ruleScopeId())
                 .addValue("merchant", key.merchantId()).addValue("metric", key.metric().name())
                 .addValue("currency", key.currency()).addValue("window", key.window().name())
                 .addValue("start", key.bounds().start()).addValue("end", key.bounds().end());
@@ -211,7 +219,7 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     public void saveGate(String tenant, LimitOperationGate gate) {
         requireTransaction(tenant);
         gate.requireOpen();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", gate.operationId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("operation", gate.operationId())
                 .addValue("payment", gate.paymentId()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE limit_operation_gate SET state = 'OPEN', row_version = 1, updated_at = :updated
@@ -287,7 +295,7 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     public void updateReservation(String tenant, StoredLimitReservation stored, long expectedVersion) {
         requireTransaction(tenant);
         var value = stored.reservation();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id())
                 .addValue("operation", value.operationId()).addValue("payment", value.paymentId())
                 .addValue("state", value.state().name()).addValue("attempt", value.activeAttemptId())
                 .addValue("epoch", value.executionEpoch()).addValue("source", value.paymentSourceVersion())
@@ -306,19 +314,12 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     public List<LimitReservationItem> loadItems(String tenant, String reservationId) {
         requireTenant(tenant);
         // Item mutation shares the operation gate. These reads never acquire bucket locks out of order.
-        var parameters = new MapSqlParameterSource("tenant", tenant).addValue("reservation", reservationId);
-        var rows = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, reservation_id, bucket_id, reserved_value,
-                       consumed_value, restored_value FROM limit_reservation_item
-                WHERE tenant_id = :tenant AND reservation_id = :reservation AND deleted = FALSE
-                """, parameters, BeanPropertyRowMapper.newInstance(LimitReservationItemDO.class));
-        return rows.stream()
+        return reservationItems
+                .items(reservationId)
+                .stream()
                 .map(row -> {
-                    var args = new MapSqlParameterSource("tenant", tenant).addValue("id", row.getBucketId());
-                    var bucket = jdbc.query("SELECT " + BUCKET_COLUMNS + " FROM limit_bucket WHERE tenant_id = :tenant "
-                                    + "AND id = :id AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(LimitBucketDO.class))
-                            .stream().findFirst().orElse(null);
-                    if (bucket == null) throw new CommonException(SNAPSHOT_INVALID);
+                    var bucket = buckets.findBucket(row.getBucketId())
+                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     return converter.toItem(row, converter.toKey(bucket));
                 })
                 .toList();
@@ -327,15 +328,10 @@ public class MerchantLimitGatewayImpl implements MerchantLimitGateway {
     @Override
     public Optional<LimitExecutionGrant> findExecutionGrant(String tenant, String operation, long epoch) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("operation", operation).addValue("epoch", epoch);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, operation_id, payment_id, attempt_id,
-                       execution_epoch, request_key, permit_key_id, permit_hash
-                FROM limit_execution_grant
-                WHERE tenant_id = :tenant AND operation_id = :operation AND execution_epoch = :epoch AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(LimitExecutionGrantDO.class)).stream().findFirst().orElse(null);
         try {
-            return Optional.ofNullable(row).map(converter::toExecutionGrant);
+            return executionGrants
+                    .findGrant(operation, epoch)
+                    .map(converter::toExecutionGrant);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

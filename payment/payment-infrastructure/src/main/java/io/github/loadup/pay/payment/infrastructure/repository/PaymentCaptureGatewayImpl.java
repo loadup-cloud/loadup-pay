@@ -30,6 +30,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentCaptureStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureLineDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -55,13 +56,19 @@ public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
             + "channel, account_scope_hash, bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count, "
             + "payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker, blocker_subject_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentCaptureRepository captures;
     private final PaymentCaptureStorageConverter converter;
     private final PaymentCaptureConverter views;
     private final Clock clock;
 
-    public PaymentCaptureGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentCaptureStorageConverter converter,
-                                     PaymentCaptureConverter views, @Qualifier("databaseClock") Clock clock) {
+    public PaymentCaptureGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentCaptureRepository captures,
+            PaymentCaptureStorageConverter converter,
+            PaymentCaptureConverter views,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.captures = captures;
         this.converter = converter;
         this.views = views;
         this.clock = clock;
@@ -72,10 +79,7 @@ public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
         context(tenant, false);
         DomainChecks.id(caller);
         DomainChecks.text(key, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", key);
-        return model(jdbc.query("SELECT " + CAPTURE_COLUMNS + " FROM payment_reconciliation_capture WHERE tenant_id = :tenant "
-                        + "AND caller_service_id = :caller AND request_key = :key AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(PaymentCaptureDO.class)).stream().findFirst().orElse(null));
+        return model(captures.findByRequest(caller, key).orElse(null));
     }
 
     @Override
@@ -149,7 +153,7 @@ public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
             }
         }
         var row = converter.toDO(tenant, next);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", original.id()).addValue("state", row.getState())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", original.id()).addValue("state", row.getState())
                 .addValue("started", row.getStartedAt()).addValue("finished", row.getFinishedAt())
                 .addValue("paymentCount", row.getPaymentCount()).addValue("paymentAmount", row.getPaymentAmountMinor())
                 .addValue("refundCount", row.getRefundCount()).addValue("refundAmount", row.getRefundAmountMinor())
@@ -173,7 +177,7 @@ public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
         long expected = Math.addExact(capture.paymentCount(), capture.refundCount());
         if (lineCount(tenant, capture.id()) != expected) throw new CommonException(SNAPSHOT_INVALID);
         long offset = (long) (page - 1) * size;
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("capture", capture.id()).addValue("size", size).addValue("offset", offset);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("capture", capture.id()).addValue("size", size).addValue("offset", offset);
         var rows = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, capture_id, ordinal, key_hash, kind, channel_transaction_no,
                        channel_refund_no, merchant_payment_no, amount_minor, currency, status, source_at, source_id, evidence_id, source_version
@@ -210,15 +214,18 @@ public class PaymentCaptureGatewayImpl implements PaymentCaptureGateway {
 
     private PaymentCaptureDO capture(String tenant, String id, boolean lock) {
         DomainChecks.id(id);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        if (!lock) {
+            return captures.findById(id).orElse(null);
+        }
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc.query("SELECT " + CAPTURE_COLUMNS + " FROM payment_reconciliation_capture "
-                        + "WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE" + (lock ? " FOR UPDATE" : ""), args,
+                        + "WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE", args,
                 BeanPropertyRowMapper.newInstance(PaymentCaptureDO.class)).stream().findFirst().orElse(null);
     }
 
     private long lineCount(String tenant, String id) {
         DomainChecks.id(id);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("capture", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("capture", id);
         Long count = jdbc.queryForObject("SELECT COUNT(*) FROM payment_reconciliation_line "
                 + "WHERE tenant_id = :tenant AND capture_id = :capture AND deleted = FALSE", args, Long.class);
         if (count == null) throw new CommonException(SNAPSHOT_INVALID);

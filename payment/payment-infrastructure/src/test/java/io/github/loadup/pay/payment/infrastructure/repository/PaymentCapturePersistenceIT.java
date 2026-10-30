@@ -246,17 +246,19 @@ class PaymentCapturePersistenceIT {
     @Import(PaymentCaptureReaderImpl.class)
     static class Configuration {
         @Bean
-        FaultingCaptures captures(NamedParameterJdbcTemplate jdbc, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views,
+        FaultingCaptures captures(NamedParameterJdbcTemplate jdbc, PaymentCaptureRepository captures,
+                                  PaymentCaptureStorageConverter storage, PaymentCaptureConverter views,
                                   @Qualifier("databaseClock") Clock clock) {
-            return new FaultingCaptures(jdbc, storage, views, clock);
+            return new FaultingCaptures(jdbc, captures, storage, views, clock);
         }
     }
 
     static final class FaultingCaptures extends PaymentCaptureGatewayImpl {
         final AtomicBoolean failAfterSeal = new AtomicBoolean();
 
-        FaultingCaptures(NamedParameterJdbcTemplate jdbc, PaymentCaptureStorageConverter storage, PaymentCaptureConverter views, Clock clock) {
-            super(jdbc, storage, views, clock);
+        FaultingCaptures(NamedParameterJdbcTemplate jdbc, PaymentCaptureRepository captures,
+                         PaymentCaptureStorageConverter storage, PaymentCaptureConverter views, Clock clock) {
+            super(jdbc, captures, storage, views, clock);
         }
 
         @Override

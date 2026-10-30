@@ -24,6 +24,7 @@ import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationWakeGatew
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationWakeReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationWakeReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -57,7 +58,7 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     @Override
     public Optional<MerchantNotificationWakeReceipt> find(String tenant, String scope, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", scope).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", scope).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
                 FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant AND deleted = FALSE
@@ -92,7 +93,7 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     public PageResult<MerchantNotificationWakeReceipt> page(String tenant, String deliveryId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("subject", deliveryId)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("subject", deliveryId)
                 .addValue("limit", size).addValue("offset", (long) (page - 1) * size);
         var total = jdbc.queryForObject("SELECT COUNT(*) FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant "
                 + "AND deleted = FALSE AND delivery_id = :subject", args, Long.class);

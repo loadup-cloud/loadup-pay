@@ -23,6 +23,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequ
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportState;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationImportStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationImportDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -57,7 +58,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
@@ -65,7 +66,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
     public Optional<ReconciliationImportRequest> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
     }
 
     @Override
@@ -73,14 +74,14 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(id);
         requireJdbc();
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
     public Optional<ReconciliationImportRequest> activeForBatch(String tenant, String batchId) {
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(batchId);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("batch", batchId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
         var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE "
                 + "AND batch_id = :batch AND state = 'INIT' LIMIT 2", args, BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class));
         if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
@@ -118,7 +119,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
                 || value.state() == ReconciliationImportState.INIT) throw new CommonException(SNAPSHOT_INVALID);
         requireJdbc();
         var row = converter.toDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));
         args.addValue("state", row.getState());
         args.addValue("artifactId", row.getArtifactId());

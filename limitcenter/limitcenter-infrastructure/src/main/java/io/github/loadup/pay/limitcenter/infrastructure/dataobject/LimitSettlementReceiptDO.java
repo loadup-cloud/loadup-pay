@@ -17,7 +17,9 @@ package io.github.loadup.pay.limitcenter.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
+@Table("limit_settlement_receipt")
 public class LimitSettlementReceiptDO extends BaseDO {
     private String operationId;
     private String paymentId;

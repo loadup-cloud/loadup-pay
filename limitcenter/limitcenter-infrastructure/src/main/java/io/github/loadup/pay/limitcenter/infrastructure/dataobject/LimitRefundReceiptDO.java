@@ -17,9 +17,11 @@ package io.github.loadup.pay.limitcenter.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+@Table("limit_refund_receipt")
 public class LimitRefundReceiptDO extends BaseDO {
     private String callerServiceId;
     private String operationId;

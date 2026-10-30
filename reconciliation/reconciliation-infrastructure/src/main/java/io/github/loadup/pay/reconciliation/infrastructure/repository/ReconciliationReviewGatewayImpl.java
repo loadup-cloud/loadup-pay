@@ -28,6 +28,7 @@ import io.github.loadup.pay.reconciliation.infrastructure.converter.Reconciliati
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewEventDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewProposalDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -74,7 +75,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
         return event(eventRow("caller_service_id = :caller AND request_key = :key", args));
     }
 
@@ -82,14 +83,14 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     public Optional<ReconciliationReviewEvent> event(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return event(eventRow("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id)));
+        return event(eventRow("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id)));
     }
 
     @Override
     public Optional<ReconciliationReviewProposal> proposal(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         var row = jdbc.query("SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM reconciliation_review_proposal WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE",
                 args, BeanPropertyRowMapper.newInstance(ReconciliationReviewProposalDO.class)).stream().findFirst().orElse(null);
         if (row == null) return Optional.empty();
@@ -106,7 +107,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         DomainChecks.id(differenceId);
         if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100)
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("difference", differenceId).addValue("limit", size)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("difference", differenceId).addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
         long total = jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE", args, Long.class);
         var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE "
@@ -182,7 +183,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             if (headCount == 0) throw new ReconciliationWriteConflictException("Review head already exists");
             if (headCount != 1) throw new CommonException(CONCURRENT_UPDATE);
         } else {
-            var args = new MapSqlParameterSource("tenant", tenant).addValue("id", previous.reference().differenceId())
+            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", previous.reference().differenceId())
                     .addValue("expected", previous.version()).addValue("state", row.getState()).addValue("proposal", row.getProposalId())
                     .addValue("event", row.getLastEventId()).addValue("version", row.getRowVersion()).addValue("updated", now);
             if (jdbc.update("""
@@ -195,7 +196,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
 
     private Optional<ReconciliationReview> headOrInitial(String tenant, String id, ReconciliationReviewDO row) {
         if (row == null && jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :id AND deleted = FALSE",
-                new MapSqlParameterSource("tenant", tenant).addValue("id", id), Long.class) != 0)
+                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), Long.class) != 0)
             throw new CommonException(SNAPSHOT_INVALID);
         return head(row);
     }
@@ -225,7 +226,7 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state, proposal_id, last_event_id, row_version FROM reconciliation_review WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationReviewDO.class))
                 .stream().findFirst().orElse(null);

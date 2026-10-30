@@ -28,6 +28,7 @@ import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeAdjustmentStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderFeeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -94,7 +95,7 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     }
 
     private OrderFeeDO lock(String tenant, String order) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", order);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", order);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
                        fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
@@ -136,7 +137,7 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
 
     private void save(String tenant, OrderFeeDO before, OrderFee next, LocalDateTime confirmedAt) {
         var patch = converter.toProgressPatch(next, Math.incrementExact(before.getRowVersion()), confirmedAt);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.getId()).addValue("oldState", before.getState())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.getId()).addValue("oldState", before.getState())
                 .addValue("expected", before.getRowVersion()).addValue("state", patch.getState()).addValue("basisVersion", patch.getRefundBasisVersion())
                 .addValue("basis", patch.getRefundBasisMinor()).addValue("adjusted", patch.getAdjustedAmountMinor())
                 .addValue("version", patch.getRowVersion()).addValue("confirmed", patch.getConfirmedAt()).addValue("updated", LocalDateTime.now(clock));

@@ -34,6 +34,7 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAllocationPl
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -69,15 +70,23 @@ public class RefundGatewayImpl implements RefundGateway {
             + "original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor, currency, "
             + "state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final RefundRequestRepository requests;
     private final Clock clock;
     private final RefundStorageConverter converter;
     private final PaymentResultStorageConverter capacityConverter;
     private final PaymentAcceptanceCodec codec;
     private final JsonMapper json;
 
-    public RefundGatewayImpl(NamedParameterJdbcTemplate jdbc, RefundStorageConverter converter, PaymentResultStorageConverter capacityConverter,
-                             PaymentAcceptanceCodec codec, JsonMapper json, @Qualifier("databaseClock") Clock clock) {
+    public RefundGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            RefundRequestRepository requests,
+            RefundStorageConverter converter,
+            PaymentResultStorageConverter capacityConverter,
+            PaymentAcceptanceCodec codec,
+            JsonMapper json,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.requests = requests;
         this.clock = clock;
         this.converter = converter;
         this.capacityConverter = capacityConverter;
@@ -89,23 +98,23 @@ public class RefundGatewayImpl implements RefundGateway {
     public Optional<RefundRequestReference> reference(String tenant, String id) {
         requireReadTransaction(tenant);
         requireJdbc();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
-        return read(() -> Optional.ofNullable(request("id = :id", args, false)).map(converter::toReference));
+        return read(() -> requests.findById(id).map(converter::toReference));
     }
 
     @Override
     public Optional<RefundRequestReference> merchantReference(String tenant, String merchant, String number) {
         requireReadTransaction(tenant);
         requireJdbc();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("merchant", merchant).addValue("number", number);
-        return read(() -> Optional.ofNullable(request("payee_merchant_id = :merchant AND merchant_refund_no = :number", args, false)).map(converter::toReference));
+        return read(() -> requests
+                .findByMerchantReference(merchant, number)
+                .map(converter::toReference));
     }
 
     @Override
     public StoredRefundRequest lock(String tenant, String id) {
         requireTransaction(tenant);
         requireJdbc();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         if (request("id = :id", args, true) == null)
             throw new CommonException(NOT_FOUND);
         return load(tenant, id);
@@ -116,7 +125,7 @@ public class RefundGatewayImpl implements RefundGateway {
         requireReadTransaction(tenant);
         requireJdbc();
         return read(() -> {
-            var row = request("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false);
+            var row = request("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false);
             if (row == null) throw new CommonException(NOT_FOUND);
             if (!"FIFO".equals(row.getAllocationPolicy()) || row.getPlanVersion() != 1
                     || !codec.checksum(row.getRefundTerms()).equals(row.getTermsHash()))
@@ -125,7 +134,7 @@ public class RefundGatewayImpl implements RefundGateway {
             if (!row.getAdmissionId().equals(terms.admissionId()) || !row.getOrderId().equals(terms.orderId())
                     || !row.getPayeeMerchantId().equals(terms.payeeMerchantId()) || !row.getCurrency().equals(terms.currency()))
                 throw new CommonException(SNAPSHOT_INVALID);
-            var args = new MapSqlParameterSource("tenant", tenant).addValue("request", id);
+            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("request", id);
             var fixed = jdbc.query("""
                     SELECT id, tenant_id, created_at, updated_at, refund_request_id, plan_version, sequence_no,
                            payment_id, refund_id, amount_minor FROM refund_allocation_plan
@@ -158,7 +167,7 @@ public class RefundGatewayImpl implements RefundGateway {
     public List<PaymentRefundCapacity> lockCapacities(String tenant, String orderId) {
         requireTransaction(tenant);
         requireJdbc();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         return read(() -> jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
                        succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version
@@ -233,7 +242,7 @@ public class RefundGatewayImpl implements RefundGateway {
         for (var r : changes.values()) {
             var before = r.previous();
             var next = r.reserved();
-            var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", before.paymentId()).addValue("order", before.orderId())
+            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", before.paymentId()).addValue("order", before.orderId())
                     .addValue("payee", before.payeeMerchantId()).addValue("expectedVersion", before.version())
                     .addValue("expectedReserved", before.reservedMinor()).addValue("expectedRefunded", before.refundedMinor())
                     .addValue("succeeded", before.succeededAmount().getCent()).addValue("succeededAt", before.succeededAt())

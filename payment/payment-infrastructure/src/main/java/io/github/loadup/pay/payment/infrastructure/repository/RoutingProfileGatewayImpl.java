@@ -23,6 +23,7 @@ import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
 import io.github.loadup.pay.payment.domain.model.RoutingProfile;
 import io.github.loadup.pay.payment.infrastructure.converter.RoutingProfileStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RoutingProfileDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -64,7 +65,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     @Override
     public Optional<RoutingProfile> find(String tenant, String ref) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("ref", ref);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ref", ref);
         var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE tenant_id = :tenant "
                         + "AND profile_ref = :ref AND deleted = FALSE", args,
                 BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);
@@ -74,7 +75,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     @Override
     public Optional<RoutingProfile> findRequest(String tenant, String caller, String key) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", key);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", key);
         var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE tenant_id = :tenant "
                         + "AND caller_service_id = :caller AND request_key = :key AND deleted = FALSE", args,
                 BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);

@@ -17,9 +17,11 @@ package io.github.loadup.pay.realtime.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+@Table("trade_projection_receipt")
 public class ProjectionReceiptDO extends BaseDO {
     private String deliveryId;
     private String businessEventId;

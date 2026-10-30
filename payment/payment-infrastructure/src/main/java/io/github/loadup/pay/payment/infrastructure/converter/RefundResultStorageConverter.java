@@ -44,13 +44,13 @@ public interface RefundResultStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     RefundChannelReceiptDO toReceiptDO(String tenant, RefundChannelReceipt value);
 
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     RefundResultAnomalyDO toAnomalyDO(String tenant, RefundResultAnomaly value);
 
     ChannelPaymentIdentity toIdentity(RefundTransactionClaimDO row);
@@ -69,7 +69,7 @@ public interface RefundResultStorageConverter {
     @Mapping(target = "currency", source = "amount.currencyValue")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     RefundTransactionClaimDO toClaimDO(RefundTransactionClaim value);
 
     @Mapping(target = "child", source = "child")

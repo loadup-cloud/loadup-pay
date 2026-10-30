@@ -28,6 +28,7 @@ import io.github.loadup.pay.acquire.infrastructure.converter.OrderClosureStorage
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCloseIntentDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -68,7 +69,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
     @Override
     public Optional<OrderCloseIntent> findIntent(String tenant, String orderId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, caller_scope_hash, request_key,
                        request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version
@@ -90,7 +91,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 || before.unpaidAction() != io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction.KEEP_PENDING
                 || !after.equals(before.checkDue(before.orderDueAt()))) throw new CommonException(SNAPSHOT_INVALID);
         var patch = converter.toClosingPatch(after);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.id()).addValue("expected", before.version())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.id()).addValue("expected", before.version())
                 .addValue("due", before.orderDueAt()).addValue("oldEpoch", before.closeEpoch()).addValue("state", patch.getState())
                 .addValue("epoch", patch.getCloseEpoch()).addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
@@ -110,7 +111,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 || closing.version() != Math.incrementExact(expectedOrderVersion) || intent.rowVersion() != 0
                 || !intent.cursorPaymentId().isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
         var patch = converter.toClosingPatch(closing);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", closing.id()).addValue("expected", expectedOrderVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", closing.id()).addValue("expected", expectedOrderVersion)
                 .addValue("state", patch.getState()).addValue("epoch", patch.getCloseEpoch()).addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
@@ -137,7 +138,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
     public List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit) {
         scope(tenant);
         if (limit < 1 || limit > 16 || afterPaymentId == null) throw new CommonException(INVALID_ARGUMENT);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId)
                 .addValue("after", afterPaymentId).addValue("limit", limit);
         var rows = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key,
@@ -164,7 +165,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         requireTransaction();
         if (updated.rowVersion() != Math.incrementExact(expectedVersion)) throw new CommonException(SNAPSHOT_INVALID);
         // Empty string starts a new pass; it is a real value, never an ignored-null clear operation.
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", updated.id()).addValue("order", updated.orderId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id()).addValue("order", updated.orderId())
                 .addValue("expected", expectedVersion).addValue("cursor", updated.cursorPaymentId())
                 .addValue("version", updated.rowVersion()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
@@ -178,7 +179,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
     public boolean allAllocationsSettled(String tenant, String orderId) {
         scope(tenant);
         requireTransaction();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         long pending = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order
                     AND deleted = FALSE AND state IN ('INIT', 'HELD')
@@ -200,7 +201,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         if (closed.state() != AcquireOrderState.CLOSED || closed.version() != Math.incrementExact(expectedOrderVersion)
                 || closed.closeEpoch() <= 0 || closedAt == null) throw new CommonException(SNAPSHOT_INVALID);
         var patch = converter.toClosedPatch(closed, closedAt);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", closed.id()).addValue("expected", expectedOrderVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", closed.id()).addValue("expected", expectedOrderVersion)
                 .addValue("epoch", closed.closeEpoch()).addValue("state", patch.getState()).addValue("version", patch.getRowVersion())
                 .addValue("closedAt", patch.getClosedAt()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""

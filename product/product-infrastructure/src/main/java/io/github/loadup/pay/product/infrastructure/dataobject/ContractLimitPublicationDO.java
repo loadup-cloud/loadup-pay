@@ -18,9 +18,11 @@ package io.github.loadup.pay.product.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+@Table("contract_limit_publication")
 public class ContractLimitPublicationDO extends BaseDO {
     private String contractId;
     private Integer contractRevision;

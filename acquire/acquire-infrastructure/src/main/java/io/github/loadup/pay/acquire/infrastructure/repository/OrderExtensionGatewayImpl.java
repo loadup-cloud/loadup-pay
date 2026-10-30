@@ -25,6 +25,7 @@ import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderExtensionStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -58,7 +59,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     @Override
     public Optional<OrderExtensionReceipt> findReceipt(String tenant, String orderId, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
                        original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
@@ -76,7 +77,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     public long deadlineVersion(String tenant, AcquireOrder order) {
         scope(tenant);
         requireTransaction();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", order.id());
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id());
         var row = jdbc.query("""
                 SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
@@ -96,7 +97,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 || !(updated.state() == AcquireOrderState.INIT || updated.state() == AcquireOrderState.PENDING))
             throw new CommonException(SNAPSHOT_INVALID);
         var patch = converter.toDeadlinePatch(updated, receipt.deadlineVersion());
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", updated.id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id())
                 .addValue("expectedVersion", receipt.expectedOrderVersion()).addValue("previousDeadlineVersion", receipt.deadlineVersion() - 1)
                 .addValue("previousDue", receipt.previousDueAt()).addValue("due", patch.getOrderDueAt())
                 .addValue("version", patch.getRowVersion()).addValue("deadlineVersion", patch.getDeadlineVersion())

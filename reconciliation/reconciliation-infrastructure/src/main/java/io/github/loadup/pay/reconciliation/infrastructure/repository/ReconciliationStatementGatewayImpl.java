@@ -23,6 +23,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementR
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStatementStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationStatementDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -57,7 +58,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
@@ -65,7 +66,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     public Optional<ReconciliationStatementRequest> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
     }
 
     @Override
@@ -73,14 +74,14 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(id);
         requireJdbc();
-        return read(row("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true));
+        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
     public Optional<ReconciliationStatementRequest> activeForBatch(String tenant, String batchId) {
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(batchId);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("batch", batchId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
         var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
                 + "AND batch_id = :batch AND state = 'INIT' LIMIT 2", args, BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
         if (rows.size() > 1) throw new CommonException(SNAPSHOT_INVALID);
@@ -118,7 +119,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
                 || value.state() == ReconciliationStatementState.INIT) throw new CommonException(SNAPSHOT_INVALID);
         requireJdbc();
         var row = converter.toDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));
         args.addValue("state", row.getState());
         args.addValue("rowVersion", row.getRowVersion());

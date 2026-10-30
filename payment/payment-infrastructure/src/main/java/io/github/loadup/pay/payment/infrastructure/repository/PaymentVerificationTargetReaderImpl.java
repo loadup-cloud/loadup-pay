@@ -32,6 +32,7 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -75,7 +76,7 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                 || jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("channel", query.channel().name())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", query.channel().name())
                 .addValue("scope", query.accountScopeHash()).addValue("paymentNo", query.merchantPaymentNo());
         if (query.kind() == PaymentLedgerKind.PAYMENT) {
             var rows = jdbc.query("""
@@ -115,7 +116,7 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
         observable(tenant, original);
         if (!original.attempt().identity().equals(refunds.toIdentity(row))) throw new CommonException(SNAPSHOT_INVALID);
         var claim = claims.attemptClaim(tenant, original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var capacityArgs = new MapSqlParameterSource("tenant", tenant).addValue("payment", row.getPaymentId());
+        var capacityArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", row.getPaymentId());
         var capacity = jdbc.query("""
                 SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
                 WHERE tenant_id = :tenant AND deleted = FALSE AND payment_id = :payment

@@ -47,13 +47,19 @@ public class PaymentActionGatewayImpl implements PaymentActionGateway {
     private static final int MAX_PAYLOAD_LENGTH = 8192;
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentActionRepository actions;
     private final PaymentActionStorageConverter converter;
     private final ChannelActionCodec codec;
     private final Clock clock;
 
-    public PaymentActionGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentActionStorageConverter converter,
-                                    ChannelActionCodec codec, @Qualifier("databaseClock") Clock clock) {
+    public PaymentActionGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentActionRepository actions,
+            PaymentActionStorageConverter converter,
+            ChannelActionCodec codec,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.actions = actions;
         this.converter = converter;
         this.codec = codec;
         this.clock = clock;
@@ -62,13 +68,7 @@ public class PaymentActionGatewayImpl implements PaymentActionGateway {
     @Override
     public Optional<StoredPaymentAction> find(String tenant, String attemptId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", attemptId);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, payment_id, channel, binding_revision_id,
-                       account_scope_hash, channel_request_no, amount_minor, currency, execution_epoch, source, receipt_id,
-                       source_digest, issued_at, expires_at, action_kind, action_payload, payload_hash
-                FROM payment_action WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentActionDO.class)).stream().findFirst().orElse(null);
+        var row = actions.findById(attemptId).orElse(null);
         if (row == null) return Optional.empty();
         try {
             if (row.getActionPayload() == null || row.getActionPayload().length() > MAX_PAYLOAD_LENGTH

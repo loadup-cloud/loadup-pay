@@ -23,9 +23,7 @@ import io.github.loadup.pay.product.infrastructure.converter.AdmissionStorageCon
 import io.github.loadup.pay.product.infrastructure.dataobject.OrderAdmissionDO;
 import io.github.loadup.pay.product.infrastructure.exception.AdmissionOrderConflictException;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -35,37 +33,36 @@ import java.util.Optional;
 
 @Repository
 public class OrderAdmissionGatewayImpl implements OrderAdmissionGateway {
-    private static final String COLUMNS = "id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, "
-            + "product_scope_key, request_digest, amount_minor, currency, requested_due_at, caller_scope_hash, "
-            + "contract_id, contract_revision, contract_generation, merchant_fact_version, authorization_version, "
-            + "state, reason_code, admitted_at, materialize_before, snapshot_hash, compiled_terms_hash, compiled_terms";
     private final NamedParameterJdbcTemplate jdbc;
+    private final OrderAdmissionRepository admissions;
     private final AdmissionStorageConverter converter;
     private final Clock clock;
-    private final BeanPropertyRowMapper<OrderAdmissionDO> rowMapper = BeanPropertyRowMapper.newInstance(OrderAdmissionDO.class);
 
-    public OrderAdmissionGatewayImpl(NamedParameterJdbcTemplate jdbc, AdmissionStorageConverter converter,
-                                     @Qualifier("databaseClock") Clock clock) {
+    public OrderAdmissionGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            OrderAdmissionRepository admissions,
+            AdmissionStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.admissions = admissions;
         this.converter = converter;
         this.clock = clock;
     }
 
     @Override
     public Optional<StoredOrderAdmission> findByOrder(String tenant, String order) {
-        return read("order_id = :value", tenant, order);
+        return read(() -> admissions.findByOrder(order));
     }
 
     @Override
     public Optional<StoredOrderAdmission> findById(String tenant, String id) {
-        return read("id = :value", tenant, id);
+        return read(() -> admissions.findAdmissionById(id));
     }
 
-    private Optional<StoredOrderAdmission> read(String condition, String tenant, String value) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("value", value);
+    private Optional<StoredOrderAdmission> read(
+            java.util.function.Supplier<Optional<OrderAdmissionDO>> lookup) {
         try {
-            return jdbc.query("SELECT " + COLUMNS + " FROM order_admission WHERE tenant_id = :tenant "
-                    + "AND deleted = FALSE AND " + condition, args, rowMapper).stream().findFirst().map(converter::toStored);
+            return lookup.get().map(converter::toStored);
         } catch (IllegalArgumentException | NullPointerException corrupted) {
             throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
         }

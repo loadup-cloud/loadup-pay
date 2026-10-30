@@ -355,8 +355,9 @@ class ProjectionPersistenceIT {
     static final class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
-        FaultingReceipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter, Clock clock) {
-            super(jdbc, converter, clock);
+        FaultingReceipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptRepository receipts,
+                         TradeStorageConverter converter, Clock clock) {
+            super(jdbc, receipts, converter, clock);
         }
 
         @Override
@@ -378,9 +379,10 @@ class ProjectionPersistenceIT {
         }
 
         @Bean
-        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter,
+        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptRepository receipts,
+                                  TradeStorageConverter converter,
                                   @Qualifier("databaseClock") Clock clock) {
-            return new FaultingReceipts(jdbc, converter, clock);
+            return new FaultingReceipts(jdbc, receipts, converter, clock);
         }
 
         @Bean("realtimeClock")

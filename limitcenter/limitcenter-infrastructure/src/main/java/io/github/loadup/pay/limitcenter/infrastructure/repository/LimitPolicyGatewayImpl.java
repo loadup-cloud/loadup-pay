@@ -27,8 +27,8 @@ import io.github.loadup.pay.limitcenter.domain.model.RuntimeLimitRule;
 import io.github.loadup.pay.limitcenter.infrastructure.codec.LimitPolicyCodec;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitStorageConverter;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitPolicyHeadDO;
-import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitPolicyRevisionDO;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitRuleRuntimeDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -50,17 +50,23 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 @Repository
 public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     private static final String HEAD = "id, tenant_id, created_at, updated_at, policy_id, payee_merchant_id, latest_version, row_version";
-    private static final String REVISION = "id, tenant_id, created_at, updated_at, policy_id, policy_version, policy_hash, payee_merchant_id, compiled_rules, activated_at";
     private static final String RULE = "id, tenant_id, created_at, updated_at, owner_policy_id, policy_version, rule_scope_id, merchant_id, metric, currency, window_type, week_start, timezone, current_limit, enforcement_enabled, metering_enabled, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final LimitPolicyRevisionRepository revisions;
     private final LimitStorageConverter converter;
     private final LimitPolicyCodec codec;
     private final IdGenerator ids;
     private final Clock clock;
 
-    public LimitPolicyGatewayImpl(NamedParameterJdbcTemplate jdbc, LimitStorageConverter converter,
-                                  LimitPolicyCodec codec, IdGenerator ids, @Qualifier("databaseClock") Clock clock) {
+    public LimitPolicyGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            LimitPolicyRevisionRepository revisions,
+            LimitStorageConverter converter,
+            LimitPolicyCodec codec,
+            IdGenerator ids,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.revisions = revisions;
         this.converter = converter;
         this.codec = codec;
         this.ids = ids;
@@ -68,7 +74,7 @@ public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     }
 
     private static MapSqlParameterSource ruleKey(String tenant, LimitRule rule) {
-        return new MapSqlParameterSource("tenant", tenant).addValue("scope", rule.ruleScopeId())
+        return new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("scope", rule.ruleScopeId())
                 .addValue("merchant", rule.merchantId()).addValue("metric", rule.metric().name())
                 .addValue("currency", rule.currency()).addValue("window", rule.window().name());
     }
@@ -76,7 +82,7 @@ public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     @Override
     public Optional<LimitPolicyHead> lockHead(String tenant, String policy) {
         transaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("policy", policy);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("policy", policy);
         return jdbc.query("SELECT " + HEAD + " FROM limit_policy_head WHERE tenant_id = :tenant AND policy_id = :policy "
                         + "AND deleted = FALSE FOR UPDATE", args, BeanPropertyRowMapper.newInstance(LimitPolicyHeadDO.class))
                 .stream().findFirst().map(converter::toHead);
@@ -98,10 +104,9 @@ public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     @Override
     public Optional<ActivatedLimitPolicy> findRevision(String tenant, String policy, int revision) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("policy", policy).addValue("revision", revision);
-        return jdbc.query("SELECT " + REVISION + " FROM limit_policy_revision WHERE tenant_id = :tenant "
-                        + "AND policy_id = :policy AND policy_version = :revision AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(LimitPolicyRevisionDO.class)).stream().findFirst().map(row -> codec.decode(tenant, row));
+        return revisions
+                .findRevision(policy, revision)
+                .map(row -> codec.decode(tenant, row));
     }
 
     @Override
@@ -171,7 +176,7 @@ public class LimitPolicyGatewayImpl implements LimitPolicyGateway {
     @Override
     public void updateHead(String tenant, LimitPolicyHead head, long expectedVersion) {
         transaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("policy", head.policyId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("policy", head.policyId())
                 .addValue("payee", head.payeeMerchantId()).addValue("latest", head.latestVersion())
                 .addValue("version", head.rowVersion()).addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(clock));
         int count = jdbc.update("""

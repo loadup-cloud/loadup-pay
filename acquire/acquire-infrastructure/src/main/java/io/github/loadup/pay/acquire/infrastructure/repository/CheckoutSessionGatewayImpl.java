@@ -23,6 +23,7 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -78,20 +79,20 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     @Override
     public Optional<StoredCheckoutSession> find(String tenant, String id) {
         scope(tenant);
-        return query("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), false);
+        return query("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false);
     }
 
     @Override
     public Optional<StoredCheckoutSession> lock(String tenant, String id) {
         scope(tenant);
         writable();
-        return query("id = :id", new MapSqlParameterSource("tenant", tenant).addValue("id", id), true);
+        return query("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
     }
 
     @Override
     public Optional<StoredCheckoutSession> findRequest(String tenant, String order, String key) {
         scope(tenant);
-        return query("order_id = :order AND request_key = :key", new MapSqlParameterSource("tenant", tenant)
+        return query("order_id = :order AND request_key = :key", new MapSqlParameterSource("tenant", TenantContext.tenantId())
                 .addValue("order", order).addValue("key", key), false);
     }
 
@@ -137,7 +138,7 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
         if (before == null || after == null || before.revokedAt() != null || after.revokedAt() == null
                 || !before.revoke(before.rowVersion(), after.revokedAt()).equals(after))
             throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.session().id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.session().id())
                 .addValue("expected", before.rowVersion()).addValue("version", after.rowVersion())
                 .addValue("revokedAt", after.revokedAt()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""

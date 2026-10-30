@@ -24,6 +24,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceSto
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAcceptanceDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -63,7 +64,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     public boolean remember(String tenant, RefundAcceptanceEvidence value, long expectedChildVersion) {
         transaction(tenant, true);
         if (value == null || expectedChildVersion < 0) throw new CommonException(INVALID_ARGUMENT);
-        var childArgs = new MapSqlParameterSource("tenant", tenant).addValue("id", value.refundId());
+        var childArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.refundId());
         var child = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
                        binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
@@ -126,7 +127,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     }
 
     private void proof(String tenant, String refundId, String receiptId) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", receiptId).addValue("refund", refundId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", receiptId).addValue("refund", refundId);
         var dispositions = jdbc.query("""
                 SELECT disposition FROM refund_channel_receipt WHERE tenant_id = :tenant AND id = :id
                     AND refund_id = :refund AND deleted = FALSE
@@ -137,7 +138,7 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
 
     private RefundAcceptanceDO row(String tenant, String refundId, boolean lock) {
         DomainChecks.id(refundId);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", refundId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", refundId);
         return jdbc.query("""
                         SELECT id, tenant_id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
                                account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,

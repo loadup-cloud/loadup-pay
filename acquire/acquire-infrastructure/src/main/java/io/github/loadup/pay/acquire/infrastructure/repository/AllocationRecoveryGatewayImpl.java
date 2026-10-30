@@ -21,6 +21,7 @@ import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.pay.acquire.infrastructure.converter.AllocationRecoveryStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AllocationRecoveryCursorDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -96,7 +97,7 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         if (!before.paymentId().equals(after.paymentId()) || !before.orderId().equals(after.orderId()) || (!completed && !rescheduled))
             throw new CommonException(INVALID_STATE);
 
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.paymentId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.paymentId())
                 .addValue("order", before.orderId()).addValue("oldGeneration", before.generation()).addValue("oldDue", before.dueAt())
                 .addValue("generation", after.generation()).addValue("due", after.dueAt()).addValue("completed", after.completed())
                 .addValue("updated", LocalDateTime.now(clock));
@@ -109,7 +110,7 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     }
 
     private AllocationRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", paymentId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", paymentId);
         return jdbc.query("""
                         SELECT id, tenant_id, created_at, updated_at, order_id, generation, due_at, completed
                         FROM allocation_recovery_cursor WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE

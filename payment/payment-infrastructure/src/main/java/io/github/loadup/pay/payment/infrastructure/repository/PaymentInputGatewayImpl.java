@@ -23,6 +23,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentInputStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentInputDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -46,12 +47,17 @@ public class PaymentInputGatewayImpl implements PaymentInputGateway {
             + "payee_merchant_id, amount_minor, currency, input_key, channel, method, caller_service_id, fingerprint_key_id, "
             + "input_digest, encryption_key, encryption_version, ciphertext, prepared_at, expires_at, state, bound_attempt_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentInputRepository inputs;
     private final PaymentInputStorageConverter converter;
     private final Clock clock;
 
-    public PaymentInputGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentInputStorageConverter converter,
-                                   @Qualifier("databaseClock") Clock clock) {
+    public PaymentInputGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentInputRepository inputs,
+            PaymentInputStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.inputs = inputs;
         this.converter = converter;
         this.clock = clock;
     }
@@ -63,9 +69,7 @@ public class PaymentInputGatewayImpl implements PaymentInputGateway {
     @Override
     public Optional<PaymentInput> findByPayment(String tenant, String paymentId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", paymentId);
-        return read(jdbc.query("SELECT " + COLUMNS + " FROM payment_input WHERE tenant_id = :tenant AND payment_id = :payment "
-                + "AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentInputDO.class)).stream().findFirst().orElse(null));
+        return read(inputs.findByPayment(paymentId).orElse(null));
     }
 
     @Override
@@ -81,9 +85,12 @@ public class PaymentInputGatewayImpl implements PaymentInputGateway {
 
     private Optional<PaymentInput> input(String tenant, String inputRef, boolean lock) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", inputRef);
+        if (!lock) {
+            return read(inputs.findById(inputRef).orElse(null));
+        }
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", inputRef);
         return read(jdbc.query("SELECT " + COLUMNS + " FROM payment_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
-                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(PaymentInputDO.class))
+                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(PaymentInputDO.class))
                 .stream().findFirst().orElse(null));
     }
 
@@ -124,7 +131,7 @@ public class PaymentInputGatewayImpl implements PaymentInputGateway {
         requireTransaction(tenant);
         if (expectedVersion != 0 || value.rowVersion() != 1 || value.state() != PaymentInputState.BOUND)
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("payment", value.paymentId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("payment", value.paymentId())
                 .addValue("attempt", value.boundAttemptId()).addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE payment_input SET state = 'BOUND', bound_attempt_id = :attempt, row_version = 1, updated_at = :updated

@@ -21,6 +21,7 @@ import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.pay.payment.infrastructure.converter.RecoveryInventoryConverter;
 import io.github.loadup.pay.payment.infrastructure.model.RecoveryInventoryAggregate;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -53,7 +54,7 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        var args = new MapSqlParameterSource("tenant", tenant);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId());
         var mapper = BeanPropertyRowMapper.newInstance(RecoveryInventoryAggregate.class);
         var collection = jdbc.query("""
                 SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at

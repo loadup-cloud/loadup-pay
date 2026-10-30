@@ -5,6 +5,11 @@
 
 ## 当前核查补充（覆盖下方历史快照）
 
+- 已完成 Spring Data JDBC Repository 集成：`loadup` 根包在 Boot 单次 Repository 扫描前注册为自动配置包；框架与 Pay 的简单单表读取改为 Repository 默认方法，复杂条件、行锁、批量与状态围栏仍使用显式 Spring JDBC。Pay 的 `customer`、`product`、`realtime`、`limitcenter`、`payment` 及框架的 UPMS、Merchant、Contract、Dictionary、File、Notification、Transfer、Gotone、DFS 已增加 Repository 并替换普通按键读取。主源码与测试源码已通过框架和 Pay 的 `clean test-compile`；测试用例、数据库执行与装配运行未验证。
+
+- 租户条件不再由调用方传入 Repository 查询。`TenantContext.tenantId()` 从 `DatabaseTenant` 解析可信租户；Repository 对外暴露 `findById`、`findByUsername`、`findByOrder` 等无租户参数方法，内部派生查询使用上下文租户。显式 SQL 的租户绑定也改为从 `TenantContext` 读取。调用方传入的租户参数仅保留在既有 Gateway/Facade 签名中，不再作为查询值；跨租户维护扫描（如 Transfer 后台领取、File 待清理扫描）继续使用显式跨租户查询。
+
+- `BaseDO.deleted` 已从 `Integer` 改为 `Boolean`，与 PostgreSQL `BOOLEAN` 列和 Spring Data JDBC 映射一致；MapStruct 中 `deleted` 常量同步改为 `false`。该变更尚未在数据库执行验证。
 - 已将当前九个带 `@Table` 的 Spring Data JDBC record 的显式 `@Column` 名称与对应初始表静态比对，未发现不存在的列；此检查不验证类型、映射、SQL 生成或数据库执行。
 
 - Customer 商户关系及授权的按 ID 与业务键普通读取使用 Spring Data JDBC，先校验可信租户并过滤软删除；业务键仅查询 INIT/ACTIVE，行锁及条件写入仍使用 Spring JDBC。测试源码覆盖行模型转换及租户不匹配的拒绝；测试、装配和数据库读取尚未运行验证。

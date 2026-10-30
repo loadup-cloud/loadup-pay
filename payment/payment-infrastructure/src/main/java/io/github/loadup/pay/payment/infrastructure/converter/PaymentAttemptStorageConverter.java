@@ -66,7 +66,7 @@ public interface PaymentAttemptStorageConverter {
     @Mapping(target = "riskConsultationRef", source = "value.riskDecision.consultationRef")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentAttemptDO toDO(String tenant, StoredPaymentAttempt value);
 
     @BeanMapping(ignoreByDefault = true)

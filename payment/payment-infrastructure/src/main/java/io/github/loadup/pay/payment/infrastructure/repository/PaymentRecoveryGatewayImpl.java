@@ -21,6 +21,7 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryCursorDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -97,7 +98,7 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
         if (!before.paymentId().equals(after.paymentId()) || (!completed && !rescheduled))
             throw new CommonException(INVALID_STATE);
 
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.paymentId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.paymentId())
                 .addValue("expected", before.generation()).addValue("generation", after.generation())
                 .addValue("due", after.dueAt()).addValue("completed", after.completed()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
@@ -109,7 +110,7 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     }
 
     private PaymentRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", paymentId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", paymentId);
         return jdbc.query("SELECT id, tenant_id, created_at, updated_at, generation, due_at, completed "
                         + "FROM payment_recovery_cursor WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(PaymentRecoveryCursorDO.class))

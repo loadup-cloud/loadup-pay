@@ -58,7 +58,7 @@ public interface PaymentActionStorageConverter {
     @Mapping(target = "payloadHash", source = "payloadHash")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentActionDO toDO(String tenant, StoredPaymentAction value, String kind, String payload,
                          String payloadHash, java.time.LocalDateTime expiresAt);
 }

@@ -79,7 +79,7 @@ public interface ReconciliationDifferenceStorageConverter {
     @Mapping(target = "stateMismatch", expression = "java(value.reasons().contains(ReconciliationDifferenceReason.STATE_MISMATCH))")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     ReconciliationDifferenceDO toDO(String tenant, String batchId, String runId, ReconciliationDifference value,
                                     String channelEntryId, String ledgerEntryId);
 }

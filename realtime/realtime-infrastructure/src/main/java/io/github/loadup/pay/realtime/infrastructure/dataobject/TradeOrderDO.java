@@ -18,9 +18,11 @@ package io.github.loadup.pay.realtime.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+@Table("trade_order_projection")
 public class TradeOrderDO extends BaseDO {
     private String orderId;
     private String payeeMerchantId;

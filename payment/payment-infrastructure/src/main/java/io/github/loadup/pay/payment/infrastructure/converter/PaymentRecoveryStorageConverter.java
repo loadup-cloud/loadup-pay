@@ -31,7 +31,7 @@ public interface PaymentRecoveryStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     PaymentRecoveryCursorDO toDO(String tenant, PaymentRecoveryCursor value);
 
     @BeanMapping(ignoreByDefault = true)

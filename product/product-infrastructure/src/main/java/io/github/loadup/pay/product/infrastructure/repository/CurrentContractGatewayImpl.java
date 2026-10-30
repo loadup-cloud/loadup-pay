@@ -26,10 +26,6 @@ import io.github.loadup.pay.product.app.port.CurrentContractGateway;
 import io.github.loadup.pay.product.app.port.PolicyPublicationCodec;
 import io.github.loadup.pay.product.infrastructure.converter.AdmissionStorageConverter;
 import io.github.loadup.pay.product.infrastructure.converter.PolicyPublicationStorageConverter;
-import io.github.loadup.pay.product.infrastructure.dataobject.ContractLimitPublicationDO;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -39,7 +35,7 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SN
 @Repository
 public class CurrentContractGatewayImpl implements CurrentContractGateway {
     private final ContractPersistenceFacade contracts;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final ContractLimitPublicationRepository publications;
     private final AdmissionStorageConverter converter;
     private final ContractCodec codec;
     private final PolicyPublicationStorageConverter publicationStorage;
@@ -47,13 +43,13 @@ public class CurrentContractGatewayImpl implements CurrentContractGateway {
 
     public CurrentContractGatewayImpl(
             ContractPersistenceFacade contracts,
-            NamedParameterJdbcTemplate jdbc,
+            ContractLimitPublicationRepository publications,
             AdmissionStorageConverter converter,
             ContractCodec codec,
             PolicyPublicationStorageConverter publicationStorage,
             PolicyPublicationCodec publicationCodec) {
         this.contracts = contracts;
-        this.jdbc = jdbc;
+        this.publications = publications;
         this.converter = converter;
         this.codec = codec;
         this.publicationStorage = publicationStorage;
@@ -90,11 +86,9 @@ public class CurrentContractGatewayImpl implements CurrentContractGateway {
 
     @Override
     public Optional<ActivatedLimitPolicy> publication(String tenant, String contract, int revision) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("contract", contract).addValue("revision", revision);
-        var row = jdbc.query("SELECT " + PolicyPublicationGatewayImpl.COLUMNS
-                        + " FROM contract_limit_publication WHERE tenant_id = :tenant AND contract_id = :contract "
-                        + "AND contract_revision = :revision AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class)).stream().findFirst().orElse(null);
+        var row = publications
+                .findPublished(contract, revision)
+                .orElse(null);
         // Legacy rows without a frozen v1 source/Outbox binding are not trusted activation receipts.
         if (row == null
                 || !Integer.valueOf(1).equals(row.getPublicationSchemaVersion())

@@ -3,8 +3,6 @@ package io.github.loadup.pay.customer.infrastructure.repository;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -19,37 +17,39 @@ import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantActionGra
 import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantRelationshipRow;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
-import org.springframework.data.relational.core.query.Query;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantAuthorizationGatewayImplTest {
+    private final MerchantRelationshipRepository relationships = mock(MerchantRelationshipRepository.class);
+    private final MerchantActionGrantRepository grants = mock(MerchantActionGrantRepository.class);
+
     @Test
     void rejectsReadWithDifferentTenantBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
-        var aggregates = mock(JdbcAggregateTemplate.class);
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, aggregates, Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         TenantUtil.runWithTenant("tenant-a", () ->
                 assertThrows(CommonException.class, () -> gateway.findRelationship("tenant-b", "relationship")));
         verifyNoInteractions(jdbc);
-        verifyNoInteractions(aggregates);
+        verifyNoInteractions(relationships);
+        verifyNoInteractions(grants);
     }
 
     @Test
     void mapsRelationshipAndGrantRowsToDomainModels() {
-        var aggregates = mock(JdbcAggregateTemplate.class);
-        var gateway = new MerchantAuthorizationGatewayImpl(mock(JdbcTemplate.class), aggregates, Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(
+                mock(JdbcTemplate.class), relationships, grants, Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
         var relationship = new MerchantRelationshipRow("relationship", "tenant-a", from, from, false,
                 "parent", "child", "MANAGEMENT", "ACTIVE", from, null, 1);
         var grant = new MerchantActionGrantRow("grant", "tenant-a", from, from, false, "MERCHANT", "parent",
                 "child", "relationship", "CREATE_ORDER", "ACTIVE", from, null, 1);
-        when(aggregates.findOne(any(Query.class), eq(MerchantRelationshipRow.class))).thenReturn(Optional.of(relationship));
-        when(aggregates.findOne(any(Query.class), eq(MerchantActionGrantRow.class))).thenReturn(Optional.of(grant));
+        when(relationships.findRelationship("relationship")).thenReturn(Optional.of(relationship));
+        when(grants.findGrant("MERCHANT", "parent", "child", "CREATE_ORDER")).thenReturn(Optional.of(grant));
         TenantUtil.runWithTenant("tenant-a", () -> {
             assertEquals(MerchantRelationship.init("relationship", "parent", "child", from, null).activate(),
                     gateway.findRelationship("tenant-a", "relationship").orElseThrow());
@@ -63,7 +63,7 @@ class MerchantAuthorizationGatewayImplTest {
     @Test
     void rejectsLockWithoutTransactionBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, mock(org.springframework.data.jdbc.core.JdbcAggregateTemplate.class), Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         TenantUtil.runWithTenant("tenant-a", () ->
                 assertThrows(CommonException.class, () -> gateway.lockRelationship("tenant-a", "relationship")));
         verifyNoInteractions(jdbc);
@@ -77,7 +77,7 @@ class MerchantAuthorizationGatewayImplTest {
             case "update" -> 1;
             default -> org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
         });
-        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, mock(org.springframework.data.jdbc.core.JdbcAggregateTemplate.class), Clock.systemUTC());
+        var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
         var relationship = MerchantRelationship.init("relationship", "parent", "child", from, null).activate();
         var grant = MerchantActionGrant.init("grant", PrincipalType.MERCHANT, "parent", "child",

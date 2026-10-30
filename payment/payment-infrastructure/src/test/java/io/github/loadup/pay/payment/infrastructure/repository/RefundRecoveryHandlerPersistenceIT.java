@@ -764,9 +764,11 @@ class RefundRecoveryHandlerPersistenceIT {
     static class FaultingRefundResults extends RefundResultGatewayImpl {
         private final RefundFaults faults;
 
-        FaultingRefundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, RefundResultStorageConverter converter, RefundStorageConverter storage,
+        FaultingRefundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                              RefundTransactionClaimRepository claims,
+                              RefundResultStorageConverter converter, RefundStorageConverter storage,
                               Clock clock, Clock databaseClock, RefundFaults faults) {
-            super(jdbc, converter, storage, clock, databaseClock);
+            super(jdbc, claims, converter, storage, clock, databaseClock);
             this.faults = faults;
         }
 
@@ -869,10 +871,12 @@ class RefundRecoveryHandlerPersistenceIT {
         }
 
         @Bean
-        RefundResultGateway refundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, RefundResultStorageConverter converter,
+        RefundResultGateway refundResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                                          RefundTransactionClaimRepository claims,
+                                          RefundResultStorageConverter converter,
                                           RefundStorageConverter storage, @Qualifier("paymentClock") Clock clock,
                                           @Qualifier("databaseClock") Clock databaseClock, RefundFaults faults) {
-            return new FaultingRefundResults(jdbc, converter, storage, clock, databaseClock, faults);
+            return new FaultingRefundResults(jdbc, claims, converter, storage, clock, databaseClock, faults);
         }
 
         @Bean

@@ -41,7 +41,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     OrderCreateIntentDO toIntentDO(String tenant, OrderCreateIntent value);
 
     @Mapping(
@@ -91,7 +91,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "closedAt", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     AcquireOrderDO toOrderDO(String tenant, StoredAcquireOrder value);
 
     @Mapping(target = "tenantId", source = "tenant")
@@ -107,7 +107,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "admissionDigest", source = "value.admission.requestDigest")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     OrderContractSnapshotDO toSnapshotDO(String tenant, StoredAcquireOrder value);
 
     @Mapping(target = "tenantId", source = "tenant")
@@ -121,6 +121,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "rowVersion", constant = "0L")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     OrderFeeDO toFeeDO(String tenant, OrderFee value, String payload);
 }

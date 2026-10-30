@@ -30,6 +30,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceSt
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentControlStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentControlReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -55,6 +56,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
             + "successful_attempt_id, limit_operation_id, initiated_at, first_unknown_at, succeeded_at, terminal_evidence_id, "
             + "intent_payload, payload_hash, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentControlReceiptRepository controlReceipts;
     private final Clock databaseClock;
     private final PaymentAcceptanceStorageConverter converter;
     private final PaymentControlStorageConverter receiptConverter;
@@ -63,12 +65,14 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
 
     public PaymentControlGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
+            PaymentControlReceiptRepository controlReceipts,
             PaymentAcceptanceStorageConverter converter,
             PaymentControlStorageConverter receiptConverter,
             PaymentAcceptanceCodec codec,
             @Qualifier("paymentClock") Clock clock,
             @Qualifier("databaseClock") Clock databaseClock) {
         this.jdbc = jdbc;
+        this.controlReceipts = controlReceipts;
         this.databaseClock = databaseClock;
         this.converter = converter;
         this.receiptConverter = receiptConverter;
@@ -79,7 +83,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     @Override
     public Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId) {
         gateTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", paymentId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", paymentId);
         var row = jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE tenant_id = :tenant "
                         + "AND id = :id AND deleted = FALSE FOR UPDATE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
                 .stream().findFirst().orElse(null);
@@ -100,7 +104,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
         LocalDateTime firstUnknownAt = null;
         if (value.payment().state() == PaymentState.UNKNOWN) {
             // The caller holds the financial locks; the version predicate also rejects stale patches.
-            var query = new MapSqlParameterSource("tenant", tenant).addValue("id", value.payment().id()).addValue("version", expectedVersion);
+            var query = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.payment().id()).addValue("version", expectedVersion);
             var row = jdbc.query("SELECT id, first_unknown_at FROM payment_order WHERE tenant_id = :tenant "
                             + "AND id = :id AND row_version = :version AND deleted = FALSE", query,
                     BeanPropertyRowMapper.newInstance(PaymentOrderDO.class)).stream().findFirst().orElse(null);
@@ -109,7 +113,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
                     ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS) : row.getFirstUnknownAt();
         }
         var row = converter.toPaymentPatch(tenant, value, firstUnknownAt);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.payment().id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.payment().id()).addValue("expected", expectedVersion)
                 .addValue("state", row.getState()).addValue("active", row.getActiveAttemptId()).addValue("success", row.getSuccessfulAttemptId())
                 .addValue("unknown", row.getFirstUnknownAt()).addValue("evidence", row.getTerminalEvidenceId())
                 .addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(databaseClock));
@@ -127,7 +131,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     public void updateParent(String tenant, StoredPaymentGate value, long expectedVersion) {
         gateTransaction(tenant);
         checkGateVersion(value, expectedVersion);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("orderId", value.gate().orderId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("orderId", value.gate().orderId())
                 .addValue("epoch", value.gate().fenceEpoch()).addValue("version", value.rowVersion())
                 .addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
@@ -141,7 +145,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     public void updateGate(String tenant, StoredPaymentGate value, long expectedVersion) {
         gateTransaction(tenant);
         checkGateVersion(value, expectedVersion);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.id()).addValue("payment", value.gate().paymentId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("payment", value.gate().paymentId())
                 .addValue("epoch", value.gate().fenceEpoch()).addValue("version", value.rowVersion())
                 .addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
@@ -159,27 +163,13 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     @Override
     public Optional<PaymentControlReceipt> findReceipt(String tenant, String kind, String targetId, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("kind", kind).addValue("target", targetId).addValue("key", requestKey);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, kind, target_id, order_id, payee_merchant_id,
-                       caller_service_id, request_key, request_digest, requested_epoch, reason_code, no_collection_evidence_id
-                FROM payment_control_receipt WHERE tenant_id = :tenant AND kind = :kind AND target_id = :target
-                    AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentControlReceiptDO.class)).stream().findFirst().orElse(null);
-        return receipt(row);
+        return receipt(controlReceipts.findReceipt(kind, targetId, requestKey).orElse(null));
     }
 
     @Override
     public Optional<PaymentControlReceipt> findNoCollectionReceipt(String tenant, String paymentId) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("target", paymentId);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, kind, target_id, order_id, payee_merchant_id,
-                       caller_service_id, request_key, request_digest, requested_epoch, reason_code, no_collection_evidence_id
-                FROM payment_control_receipt WHERE tenant_id = :tenant AND kind = 'PAYMENT_CLOSE' AND target_id = :target
-                    AND no_collection_evidence_id IS NOT NULL AND deleted = FALSE LIMIT 1
-                """, args, BeanPropertyRowMapper.newInstance(PaymentControlReceiptDO.class)).stream().findFirst().orElse(null);
-        return receipt(row);
+        return receipt(controlReceipts.findNoCollectionReceipt(paymentId).orElse(null));
     }
 
     private Optional<PaymentControlReceipt> receipt(PaymentControlReceiptDO row) {
@@ -212,7 +202,7 @@ public class PaymentControlGatewayImpl implements PaymentControlGateway {
     @Override
     public PaymentChildrenStatus childrenStatus(String tenant, String orderId) {
         gateTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         return jdbc.queryForObject("""
                 SELECT COUNT(*) FILTER (WHERE state IN ('INIT', 'PROCESSING', 'UNKNOWN', 'CLOSING')) AS active,
                     COUNT(*) FILTER (WHERE state IN ('SUCCEEDED', 'FAILED', 'CLOSED') AND terminal_evidence_id IS NULL) AS missing_proof,

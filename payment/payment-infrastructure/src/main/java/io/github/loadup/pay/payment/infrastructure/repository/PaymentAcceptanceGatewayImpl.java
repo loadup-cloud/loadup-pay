@@ -26,6 +26,7 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceSt
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentGateDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -67,7 +68,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     @Override
     public Optional<StoredPaymentAcceptance> find(String tenant, String id) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE tenant_id = :tenant "
                         + "AND id = :id AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
                 .stream().findFirst().orElse(null));
@@ -76,7 +77,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     @Override
     public Optional<StoredPaymentAcceptance> findAllocation(String tenant, String id) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("allocation", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("allocation", id);
         return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE tenant_id = :tenant "
                         + "AND allocation_id = :allocation AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
                 .stream().findFirst().orElse(null));
@@ -96,7 +97,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     @Override
     public Optional<StoredPaymentGate> lockParent(String tenant, String orderId) {
         gateTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("orderId", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("orderId", orderId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
                        state, close_epoch, row_version FROM payment_parent_gate
@@ -112,7 +113,7 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     @Override
     public Optional<StoredPaymentGate> lockPayment(String tenant, String paymentId) {
         gateTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", paymentId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", paymentId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
                        state, fence_epoch, reason_code, row_version FROM payment_gate

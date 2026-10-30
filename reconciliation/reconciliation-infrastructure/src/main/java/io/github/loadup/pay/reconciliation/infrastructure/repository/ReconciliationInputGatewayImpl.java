@@ -24,6 +24,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationEntryDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationInputDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -77,7 +78,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         if (row == null || !"SEALED".equals(row.getState())) throw new CommonException(INPUT_NOT_SEALED);
         var manifest = manifest(row);
         if (manifest.totals().recordCount() > maxRecords) throw new CommonException(INPUT_INVALID);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("input", artifactId).addValue("limit", maxRecords + 1);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("input", artifactId).addValue("limit", maxRecords + 1);
         var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
                 + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit", args, BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class));
         try {
@@ -161,7 +162,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
             throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc.query("SELECT id, tenant_id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationInputDO.class))
                 .stream().findFirst().orElse(null);

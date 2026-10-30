@@ -23,6 +23,7 @@ import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -58,7 +59,7 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
     @Override
     public Optional<OrderRefundSummary> lock(String tenant, String orderId) {
         writable(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", orderId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
                        currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
@@ -98,7 +99,7 @@ public class RefundSummaryGatewayImpl implements RefundSummaryGateway {
         if (!before.orderId().equals(value.orderId()) || !before.payeeMerchantId().equals(value.payeeMerchantId())
                 || !before.orderAmount().equals(value.orderAmount()) || value.version() != Math.incrementExact(before.version())
                 || value.refundedMinor() < before.refundedMinor()) throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("order", before.orderId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", before.orderId())
                 .addValue("version", value.version()).addValue("refunded", value.refundedMinor()).addValue("reserved", value.reservedMinor())
                 .addValue("expectedVersion", before.version()).addValue("expectedRefunded", before.refundedMinor())
                 .addValue("expectedReserved", before.reservedMinor()).addValue("updated", LocalDateTime.now(clock));

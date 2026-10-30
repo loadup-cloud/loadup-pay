@@ -17,7 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
+@Table("payment_reconciliation_capture")
 public class PaymentCaptureDO extends BaseDO {
     private String callerServiceId;
     private String requestKey;

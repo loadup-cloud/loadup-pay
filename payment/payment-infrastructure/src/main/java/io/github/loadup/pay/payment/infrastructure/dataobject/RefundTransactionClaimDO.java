@@ -17,9 +17,11 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+@Table("refund_transaction_claim")
 public class RefundTransactionClaimDO extends BaseDO {
     private String refundId;
     private String paymentId;

@@ -24,6 +24,7 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -61,7 +62,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     @Override
     public Optional<MerchantNotificationDelivery> find(String tenant, String deliveryId) {
         tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", deliveryId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", deliveryId);
         var row = read("id = :id", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
@@ -69,7 +70,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     @Override
     public PageResult<MerchantNotificationDelivery> page(String tenant, MerchantNotificationFilter filter) {
         tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payee", filter.payeeMerchantId())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", filter.payeeMerchantId())
                 .addValue("limit", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder("tenant_id = :tenant AND deleted = FALSE AND payee_merchant_id = :payee");
         if (filter.orderId() != null) {
@@ -101,7 +102,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     @Override
     public Optional<MerchantNotificationDelivery> findEvent(String tenant, String eventId, String targetRef) {
         tenant(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("event", eventId).addValue("target", targetRef);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("event", eventId).addValue("target", targetRef);
         var row = read("event_id = :event AND target_ref = :target", args, false);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
@@ -112,7 +113,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", deliveryId);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", deliveryId);
         var row = read("id = :id", args, true);
         return row == null ? Optional.empty() : Optional.of(decode(row));
     }
@@ -147,7 +148,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
                 || before.routeFingerprint() != null && !before.routeFingerprint().equals(after.routeFingerprint()))
             throw new CommonException(SNAPSHOT_INVALID);
         var patch = converter.toPatch(after);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", before.id()).addValue("expected", before.rowVersion())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.id()).addValue("expected", before.rowVersion())
                 .addValue("next", patch.getNextAttemptAt()).addValue("attempts", patch.getAttemptCount()).addValue("state", patch.getState())
                 .addValue("fingerprint", patch.getRouteFingerprint()).addValue("acknowledged", patch.getAcknowledgedAt())
                 .addValue("version", patch.getRowVersion()).addValue("updated", LocalDateTime.now(clock));

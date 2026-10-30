@@ -43,12 +43,17 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 @Repository
 public class PaymentCloseEvidenceGatewayImpl implements PaymentCloseEvidenceGateway {
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentCloseEvidenceRepository evidences;
     private final PaymentCloseEvidenceStorageConverter converter;
     private final Clock clock;
 
-    public PaymentCloseEvidenceGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentCloseEvidenceStorageConverter converter,
-                                           @Qualifier("databaseClock") Clock clock) {
+    public PaymentCloseEvidenceGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentCloseEvidenceRepository evidences,
+            PaymentCloseEvidenceStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.evidences = evidences;
         this.converter = converter;
         this.clock = clock;
     }
@@ -57,13 +62,7 @@ public class PaymentCloseEvidenceGatewayImpl implements PaymentCloseEvidenceGate
     public Optional<PaymentCloseEvidence> find(String tenant, String attemptId) {
         tenant(tenant);
         DomainChecks.id(attemptId);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("attempt", attemptId);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
-                       account_scope_hash, channel_request_no, amount_minor, currency, channel_transaction_no,
-                       receipt_key, source_digest, execution_epoch, recorded_at
-                FROM payment_close_evidence WHERE tenant_id = :tenant AND id = :attempt AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentCloseEvidenceDO.class)).stream().findFirst().orElse(null);
+        var row = evidences.findById(attemptId).orElse(null);
         if (row == null) return Optional.empty();
         try {
             if (!attemptId.equals(row.getAttemptId()) || row.getAmountMinor() == null || row.getExecutionEpoch() == null)

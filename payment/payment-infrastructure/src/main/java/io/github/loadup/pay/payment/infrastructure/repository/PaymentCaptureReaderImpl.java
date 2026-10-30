@@ -34,6 +34,7 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAcceptanceDO
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundChannelReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundTransactionClaimDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -91,7 +92,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 || scope == null || !scope.systemZone().equals(clock.getZone().getId()))
             throw new CommonException(INVALID_STATE);
         var started = now();
-        var scopeArgs = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name()).addValue("scope", scope.accountScopeHash());
+        var scopeArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name()).addValue("scope", scope.accountScopeHash());
         if (jdbc.query("""
                 SELECT id FROM channel_binding_revision WHERE tenant_id = :tenant AND deleted = FALSE
                     AND channel = :channel AND account_scope_hash = :scope LIMIT 1
@@ -106,7 +107,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         var conflict = refundDateConflict(tenant, scope);
         if (conflict != null)
             return blocked(scope, started, PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.getId());
-        var collectionArgs = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name())
+        var collectionArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash()).addValue("start", scope.windowStart()).addValue("end", scope.windowEnd())
                 .addValue("limit", maxRecords + 1);
         var collectionRows = jdbc.query("SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim "
@@ -115,7 +116,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 collectionArgs, BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class));
         if (collectionRows.size() > maxRecords)
             return blocked(scope, started, PaymentCaptureBlocker.RECORD_LIMIT, collectionRows.getLast().getPaymentId());
-        var refundArgs = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name())
+        var refundArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash()).addValue("start", scope.windowStart()).addValue("end", scope.windowEnd())
                 .addValue("limit", maxRecords - collectionRows.size() + 1);
         var refundRows = jdbc.query("""
@@ -150,7 +151,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     }
 
     private PaymentAttemptDO unresolvedCollection(String tenant, PaymentCaptureScope scope) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash()).addValue("end", scope.windowEnd());
         return jdbc.query("""
                 SELECT p.id FROM payment_attempt p LEFT JOIN channel_transaction_claim c
@@ -163,7 +164,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     }
 
     private RefundOrderDO missingRefundDate(String tenant, PaymentCaptureScope scope) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash()).addValue("end", scope.windowEnd());
         return jdbc.query("""
                 SELECT r.id FROM refund_order r LEFT JOIN refund_acceptance_evidence a
@@ -175,7 +176,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     }
 
     private RefundOrderDO refundDateConflict(String tenant, PaymentCaptureScope scope) {
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("channel", scope.channel().name())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", scope.channel().name())
                 .addValue("scope", scope.accountScopeHash()).addValue("end", scope.windowEnd());
         return jdbc.query("""
                 SELECT r.id FROM refund_order r JOIN refund_result_anomaly a
@@ -189,18 +190,18 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     private void addCollections(String tenant, List<ChannelTransactionClaimDO> group, List<PaymentLedgerLine> output) {
         if (group.isEmpty()) return;
         var roots = paymentMap(tenant, group.stream().map(ChannelTransactionClaimDO::getPaymentId).toList());
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("ids", group.stream().map(ChannelTransactionClaimDO::getAttemptId).toList());
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", group.stream().map(ChannelTransactionClaimDO::getAttemptId).toList());
         var attemptRows = index(jdbc.query("""
                 SELECT id, payment_id, state, binding_revision_id, channel, account_scope_hash, channel_request_no,
                        amount_minor, currency FROM payment_attempt WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)
                 """, args, BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class)));
-        var bindingArgs = new MapSqlParameterSource("tenant", tenant)
+        var bindingArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId())
                 .addValue("ids", group.stream().map(ChannelTransactionClaimDO::getBindingRevisionId).toList());
         var bindings = index(jdbc.query("""
                 SELECT id, channel, account_scope_hash, payee_merchant_id FROM channel_binding_revision
                 WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)
                 """, bindingArgs, BeanPropertyRowMapper.newInstance(ChannelBindingRevisionDO.class)));
-        var receiptArgs = new MapSqlParameterSource("tenant", tenant).addValue("ids", group.stream().map(ChannelTransactionClaimDO::getReceiptId).toList());
+        var receiptArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", group.stream().map(ChannelTransactionClaimDO::getReceiptId).toList());
         var proof = index(jdbc.query("""
                 SELECT id, payment_id, attempt_id, channel, account_scope_hash, binding_revision_id, channel_request_no, disposition
                 FROM payment_channel_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)
@@ -230,7 +231,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
     }
 
     private void addRefunds(String tenant, List<RefundAcceptanceDO> group, List<PaymentLedgerLine> output) {
-        var childArgs = new MapSqlParameterSource("tenant", tenant).addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
+        var childArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var children = index(jdbc.query("""
                 SELECT id, payment_id, original_attempt_id, channel, binding_revision_id, account_scope_hash,
                        original_channel_request_no, original_channel_transaction_no, original_succeeded_at, channel_refund_no,
@@ -238,13 +239,13 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
                 FROM refund_order WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)
                 """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)));
         var roots = paymentMap(tenant, group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
-        var originalArgs = new MapSqlParameterSource("tenant", tenant).addValue("ids", group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
+        var originalArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", group.stream().map(RefundAcceptanceDO::getPaymentId).toList());
         var originals = unique(jdbc.query("SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE tenant_id = :tenant "
                         + "AND deleted = FALSE AND payment_id IN (:ids)", originalArgs, BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class)),
                 ChannelTransactionClaimDO::getPaymentId);
         // Original collection evidence is checked with the same complete binding checks, regardless of its payment date.
         addCollections(tenant, new ArrayList<>(originals.values()), new ArrayList<>());
-        var terminalArgs = new MapSqlParameterSource("tenant", tenant).addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
+        var terminalArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", group.stream().map(RefundAcceptanceDO::getId).toList());
         var terminalClaims = unique(jdbc.query("""
                 SELECT id, tenant_id, refund_id, payment_id, attempt_id, channel, binding_revision_id, account_scope_hash,
                        channel_request_no, original_channel_transaction_no, channel_refund_no, amount_minor, currency,
@@ -256,7 +257,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
         children.values().forEach(row -> {
             if (row.getTerminalEvidenceId() != null) receiptIds.add(row.getTerminalEvidenceId());
         });
-        var receiptArgs = new MapSqlParameterSource("tenant", tenant).addValue("ids", receiptIds);
+        var receiptArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", receiptIds);
         var proof = index(jdbc.query("""
                 SELECT id, refund_id, disposition FROM refund_channel_receipt
                 WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)
@@ -304,7 +305,7 @@ public class PaymentCaptureReaderImpl implements PaymentCaptureReader {
 
     private Map<String, PaymentOrderDO> paymentMap(String tenant, List<String> ids) {
         if (ids.isEmpty()) return Map.of();
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("ids", ids);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids);
         return index(jdbc.query("""
                 SELECT id, state, row_version, successful_attempt_id, terminal_evidence_id, succeeded_at,
                        amount_minor, currency, payee_merchant_id FROM payment_order

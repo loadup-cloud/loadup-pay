@@ -21,11 +21,8 @@ import io.github.loadup.pay.realtime.domain.gateway.ProjectionReceiptGateway;
 import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConverter;
-import io.github.loadup.pay.realtime.infrastructure.dataobject.ProjectionReceiptDO;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -42,12 +39,17 @@ import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.
 @Repository
 public class ProjectionReceiptGatewayImpl implements ProjectionReceiptGateway {
     private final NamedParameterJdbcTemplate jdbc;
+    private final ProjectionReceiptRepository receipts;
     private final TradeStorageConverter converter;
     private final Clock clock;
 
-    public ProjectionReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, TradeStorageConverter converter,
-                                        @Qualifier("databaseClock") Clock clock) {
+    public ProjectionReceiptGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            ProjectionReceiptRepository receipts,
+            TradeStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.receipts = receipts;
         this.converter = converter;
         this.clock = clock;
     }
@@ -55,15 +57,10 @@ public class ProjectionReceiptGatewayImpl implements ProjectionReceiptGateway {
     @Override
     public Optional<ProjectionReceipt> find(String tenant, String producer, String delivery) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("producer", producer).addValue("delivery", delivery);
-        var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, delivery_id, business_event_id, producer, aggregate_id,
-                       source_version, projected_version, disposition, request_digest, caller_service_id, accepted_at
-                FROM trade_projection_receipt WHERE tenant_id = :tenant AND producer = :producer
-                    AND delivery_id = :delivery AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(ProjectionReceiptDO.class)).stream().findFirst().orElse(null);
         try {
-            return Optional.ofNullable(row).map(converter::toReceipt);
+            return receipts
+                    .find(producer, delivery)
+                    .map(converter::toReceipt);
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

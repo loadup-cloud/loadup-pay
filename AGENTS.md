@@ -423,6 +423,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   from public Facades.
 - Persistence stays in infrastructure. Use Spring Data JDBC for suitable simple aggregates and parameterized Spring
   JDBC for conditional writes, locking and complex queries. Keep MapStruct converters separate and Spring-managed.
+- Repository reads resolve the trusted tenant through `TenantContext.tenantId()` and expose tenant-free methods; never
+  accept a tenant identifier as a repository/query argument. Explicit SQL binds the same context value.
 - Explicit SQL maintains ID, tenant, audit and soft-delete fields; use the shared `IdGenerator` and injected `Clock`
   where applicable. Tenant-scoped reads and writes include a trusted tenant predicate. Check affected rows for state
   and version updates.

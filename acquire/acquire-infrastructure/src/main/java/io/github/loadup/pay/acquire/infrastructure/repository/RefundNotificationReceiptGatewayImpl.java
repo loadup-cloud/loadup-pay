@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.domain.gateway.RefundNotificationReceiptGate
 import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.RefundNotificationReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.RefundNotificationReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -54,7 +55,7 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
     @Override
     public Optional<RefundNotificationReceipt> find(String tenant, String id) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("delivery", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", id);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at
                 FROM refund_notification_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND delivery_id = :delivery

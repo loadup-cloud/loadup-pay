@@ -17,7 +17,9 @@ package io.github.loadup.pay.limitcenter.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
+@Table("limit_reservation_item")
 public class LimitReservationItemDO extends BaseDO {
     private String reservationId;
     private String bucketId;

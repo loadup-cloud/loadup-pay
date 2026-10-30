@@ -17,7 +17,9 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import org.springframework.data.relational.core.mapping.Table;
 
+@Table("payment_gate")
 public class PaymentGateDO extends BaseDO {
     private String orderId;
     private String paymentId;

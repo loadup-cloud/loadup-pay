@@ -22,6 +22,7 @@ import io.github.loadup.pay.acquire.domain.gateway.FeeRefundReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeRefundReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.FeeRefundReceiptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -54,7 +55,7 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
     @Override
     public Optional<FeeRefundReceipt> find(String tenant, String id) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("delivery", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", id);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, business_event_id, order_id,
                        source_version, applied_version, request_digest, caller_service_id, accepted_at

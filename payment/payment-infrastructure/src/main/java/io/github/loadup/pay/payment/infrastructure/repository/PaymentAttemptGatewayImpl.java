@@ -24,6 +24,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentAttemptStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentAttemptDO;
+import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -48,13 +49,19 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
             + "no_collection_evidence_id, limit_operation_id, caller_service_id, request_key, request_digest, payment_request_digest, "
             + "prepared_input_ref, risk_decision, risk_reason, risk_consultation_ref, execution_permit_hash, prepared_at, submission_started_at, row_version";
     private final NamedParameterJdbcTemplate jdbc;
+    private final PaymentAttemptRepository attempts;
     private final ChannelBindingGateway bindings;
     private final PaymentAttemptStorageConverter converter;
     private final Clock clock;
 
-    public PaymentAttemptGatewayImpl(NamedParameterJdbcTemplate jdbc, ChannelBindingGateway bindings,
-                                     PaymentAttemptStorageConverter converter, @Qualifier("databaseClock") Clock clock) {
+    public PaymentAttemptGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentAttemptRepository attempts,
+            ChannelBindingGateway bindings,
+            PaymentAttemptStorageConverter converter,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.attempts = attempts;
         this.bindings = bindings;
         this.converter = converter;
         this.clock = clock;
@@ -67,22 +74,23 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
     @Override
     public Optional<StoredPaymentAttempt> find(String tenant, String id) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
-        return read(tenant, one("id = :id", args, false));
+        return read(tenant, attempts.findById(id).orElse(null));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> findRequest(String tenant, String payment, String key) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("payment", payment).addValue("key", key);
-        return read(tenant, one("payment_id = :payment AND request_key = :key", args, false));
+        return read(
+                tenant,
+                attempts.findByRequest(payment, key)
+                        .orElse(null));
     }
 
     @Override
     public Optional<StoredPaymentAttempt> findChannelRequest(String tenant, String bindingRevisionId,
                                                              String channelRequestNo) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("binding", bindingRevisionId).addValue("request", channelRequestNo);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("binding", bindingRevisionId).addValue("request", channelRequestNo);
         var rows = jdbc.query("SELECT " + COLUMNS + " FROM payment_attempt WHERE tenant_id = :tenant AND deleted = FALSE "
                         + "AND binding_revision_id = :binding AND channel_request_no = :request LIMIT 2", args,
                 BeanPropertyRowMapper.newInstance(PaymentAttemptDO.class));
@@ -93,7 +101,7 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
     @Override
     public Optional<StoredPaymentAttempt> lock(String tenant, String id) {
         requireTransaction(tenant);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", id);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return read(tenant, one("id = :id", args, true));
     }
 
@@ -150,7 +158,7 @@ public class PaymentAttemptGatewayImpl implements PaymentAttemptGateway {
         requireTransaction(tenant);
         if (value.rowVersion() != Math.incrementExact(expectedVersion)) throw new CommonException(INVALID_STATE);
         var row = converter.toTransitionPatch(value);
-        var args = new MapSqlParameterSource("tenant", tenant).addValue("id", value.attempt().id())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.attempt().id())
                 .addValue("payment", value.attempt().paymentId()).addValue("expected", expectedVersion)
                 .addValue("state", row.getState()).addValue("epoch", row.getExecutionEpoch())
                 .addValue("evidence", row.getNoCollectionEvidenceId()).addValue("decision", row.getRiskDecision())

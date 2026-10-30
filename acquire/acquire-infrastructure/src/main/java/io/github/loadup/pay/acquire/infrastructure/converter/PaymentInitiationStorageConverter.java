@@ -49,7 +49,7 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(target = "paymentSourceVersion", source = "value.allocation.paymentSourceVersion")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "deleted", constant = "0")
+    @Mapping(target = "deleted", constant = "false")
     OrderPaymentAllocationDO toAllocationDO(String tenant, StoredPaymentAllocation value);
 
     @BeanMapping(ignoreByDefault = true)
