@@ -50,9 +50,9 @@ Retry 只条件重排原 FAILED 任务，核对 expectedTaskId，不换请求/�
 重复 Retry 遇到原任务已 PENDING/RUNNING/SUCCEEDED 返回当前状态，CANCELLED 明确拒绝。
 任务级失败/预算超时保留 INIT，不能制造 BLOCKED 的确定覆盖事实或零行成功。
 
-## 源端 client/gRPC
+## 源端 client
 
-PaymentCaptureFacade 归 payment-client；payment-rpc 自有 `payment_reconciliation.proto`：
+PaymentCaptureFacade 归 payment-client；跨进程由 payment-client 的 `payment_reconciliation.proto` 承载：
 
 | 方法   | 入参                                                          | 结果/权限                             |
 |--------|---------------------------------------------------------------|---------------------------------------|
@@ -67,10 +67,9 @@ Create 只允许已结束的渠道账单日。页码默认1/20、最多100；分
 源端两表为 payment_reconciliation_capture /
 payment_reconciliation_line；V20261027030000__payment_reconciliation_capture.sql 只作为待执行迁移源码。
 
-Wire scalar optional、金额/版本/ordinal int64；严格缺字段、未知枚举/日期/profile、状态 presence、微秒 Timestamp 与页码/连续
-ordinal/EOF shape。
-集合通过 protobuf builder adders 写入。Spring MapStruct 与注入的 typed RpcOperation 使用 provider-owned contract，无静态
-Mapper INSTANCE 或内部 HTTP 回退。
+DTO 直接使用 record 与 `Instant`/`BigDecimal`；严格校验缺字段、未知枚举/日期/profile、状态 presence、微秒时间与页码/连续
+ordinal/EOF shape。`payment-adapter` 用 `@DubboService(interfaceClass = PaymentCaptureRpc.class)` 实现生成的 `ImplBase`，reconciliation-infrastructure
+用 `@DubboReference(url = "tri://payment-headless:50051")` 引用生成的 `PaymentCaptureRpc`；Wire↔DTO 由 `PaymentCaptureRpcMapper` 转换，无内部 HTTP 回退。
 
 ## 对账侧导入
 
@@ -96,9 +95,9 @@ Mapper INSTANCE 或内部 HTTP 回退。
 ## 装配与待验收
 
 出站固定 reconciliation SERVICE，逐调用读取挂载 token，当前 payment transport 对应一个明确租户，其他租户拒绝；不转发运营者令牌。
-实际接收方仍做签名/issuer/audience/token_use/权限校验，本地 token claims 检查只是路由预检。
-`dns:///payment-headless:50051`、round_robin、默认每 RPC 3秒，完整分页抓取预算60秒，可配置。
-预算在每次调用间检查，单次最后 RPC 可再消耗自己的 deadline；文件上传与最后本地事务有各自负责层超时，不宣称整个 HTTP 硬截止60秒。
+入口仍做签名/issuer/audience/token_use/权限校验，本地 token claims 检查只是路由预检；内部跳转由 provider filter 重建上下文。
+`tri://payment-headless:50051`、`retries: 0`、默认每 RPC 3秒，账单下载引用 60 秒，完整分页抓取预算60秒，可配置。
+预算在每次调用间检查，单次最后 RPC 可再消耗自己的 timeout；文件上传与最后本地事务有各自负责层超时，不宣称整个 HTTP 硬截止60秒。
 
 源端配置与对账出站凭证见各模块 README；本轮未签发、读取真实密钥或部署凭证。
 测试源码包含纯模型/协议/hash/归档上限、服务身份/幂等/native 重试、预算/隔离级别、完整分页/坏页/当前授权、

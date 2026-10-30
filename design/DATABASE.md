@@ -281,7 +281,7 @@ DDL草案：[acquire.sql](schema/acquire.sql)。
 #### `merchant_notification_delivery`
 
 acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；其 DDL 与 schema/acquire.sql 已同步。公共 BaseDO
-五字段以外列如下。付款、订单与退款商户通知统一由 acquire 登记和投递；payment 通过独立 Outbox/gRPC 提供原退款事实，两个服务不共库。
+五字段以外列如下。付款、订单与退款商户通知统一由 acquire 登记和投递；payment 通过独立 Outbox/Dubbo Triple 提供原退款事实，两个服务不共库。
 
 | 列                    | 类型/约束                 | 说明                                                                                                      |
 |-----------------------|---------------------------|-----------------------------------------------------------------------------------------------------------|
@@ -672,7 +672,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 #### 退款商户通知所有权
 
 payment 不建商户投递表。RefundProgressChange 的终态结果事务冻结独立 `pay.payment.refund.merchant.v1` Outbox；acquire
-通过已认证内部 gRPC 接收，登记本服务 merchant_notification_delivery 和
+通过已认证的 Dubbo Triple 调用接收，登记本服务 merchant_notification_delivery 和
 refund_notification_receipt。此投影不写订单/付款/退款金额，不跨服务数据库事务。原 payment 侧独立投递表草案及
 schema/payment.sql 占位已删除。
 

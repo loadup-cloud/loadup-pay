@@ -79,7 +79,7 @@ FinancialPersistenceIT。
 渠道网关返回受控、已认证的合成事实，所有调用均断言位于本地事务之外。不会经过真实渠道或读取密钥。
 初始 attempt 创建、首次 submission preparation、支付 action 服务为未触达分支替身，并断言零调用；本组不覆盖 JSAPI/H5 action
 持久化。
-ACK 丢失以调用方重放建模，不声称已运行真实 gRPC 中断、回调验签或多实例任务租约故障。
+ACK 丢失以调用方重放建模，不声称已运行真实 Dubbo Triple 中断、回调验签或多实例任务租约故障。
 Outbox worker 在 test/ci 配置中关闭，保留实际入库而避免后台发送。计数用测试侧只读 SQL 和 Testify，业务仓储仍为生成 Mapper。
 
 同时修复当前开发期 schema：payment_channel_receipt 的 source CHECK 包含领域已支持的 CLOSE_RESPONSE，没有引入旧 schema

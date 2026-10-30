@@ -32,8 +32,8 @@ for resource in resources:
                 or spec.get("clusterIP") != "None"
                 or spec.get("selector") != {"app": app}
                 or spec.get("publishNotReadyAddresses", False)
-                or spec.get("ports") != [{"name": "grpc", "port": 50051,
-                                          "targetPort": "grpc", "protocol": "TCP"}]
+                or spec.get("ports") != [{"name": "dubbo", "port": 50051,
+                                          "targetPort": "dubbo", "protocol": "TCP"}]
                 or app in headless_services):
             raise SystemExit("Unexpected headless service configuration or duplicate")
         headless_services.add(app)

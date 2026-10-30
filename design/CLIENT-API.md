@@ -1,16 +1,17 @@
 # Client API 详细设计
 
-2026-10-23传输更新：应用间统一为 Protobuf gRPC，当前6个 service/25个方法分别由各服务`*-rpc/src/main/proto/<service>.proto`
-维护，运行配置与迁移边界见 [RPC 规范](RPC.md)。下文“业务 gRPC 待接入/无协议模块”属于历史状态，其他未实现业务仍按原批次说明。
+2026-10-30传输更新：应用间统一为 Dubbo Triple 的 Protobuf 纯 IDL 模式，Java Facade 留在 `*-client`，`.proto`、
+生成存根和 Wire mapper 在 `*-client`；运行配置与迁移边界见 [RPC 规范](RPC.md)。下文“业务 gRPC 待接入/无协议模块”属于
+历史状态，其他未实现业务仍按原批次说明。
 
 版本：v1.0 ｜ 日期：2026-10-20 ｜ 对应[详细设计](../DETAILED-DESIGN.md)与[数据库设计](DATABASE.md)
 
 2026-10-21：P1 Java
 Facade、Command/Query/DTO、错误码、条款校验、授权撤销和完整结果/投影事件已落源码，补充差异见第11节及[实施说明](../IMPLEMENTATION.md)
-。本文保留目标协议；HTTP/业务gRPC适配及Facade实现尚未完成，真实渠道原生Action参数后续扩展。
+。本文保留目标协议；HTTP 适配及 Facade 实现按各批次推进，真实渠道原生 Action 参数后续扩展。
 
 本文为待实现的业务契约。`client`
-指COLA公开Java业务接口；HTTP与gRPC是其适配。示例省略package/import及重复的Schema/toString，不表示已有可编译SDK。框架已有接口保持原名，下面收单平台新增接口不伪称为框架现成功能。
+指COLA公开Java业务接口；HTTP 与 Dubbo Triple 是其适配。示例省略package/import及重复的Schema/toString，不表示已有可编译SDK。框架已有接口保持原名，下面收单平台新增接口不伪称为框架现成功能。
 
 ## 1. 全局契约
 
@@ -19,7 +20,7 @@ Facade、Command/Query/DTO、错误码、条款校验、授权撤销和完整结
 - 认证层先建立可信tenant、principal、服务身份、授权动作及商户作用域；这些不是商户能在JSON里任填的字段。后台job和RPC服务以最小服务权限执行。所有payeeMerchantId仍需归属/授权校验。
 - 公共入参只表达业务意图。持久结果中的orderId/paymentId/refundId/operationId由服务生成并保持稳定；跨服务内部Command可以接收权威上游分配的稳定ID。
 - 金额：`amountMinor: long`，CNY为分；currency创建时可省略，规范化为CNY后计算幂等摘要，其余内部接口显式传币种。JSON金额用整数，浏览器使用安全整数校验/大整数方案，禁止以小数元直接提交。
-- 时间：Java OffsetDateTime，HTTP RFC3339显式`+08:00`，DB转系统默认时区的LocalDateTime；gRPC
+- 时间：Java OffsetDateTime，HTTP RFC3339显式`+08:00`，DB转系统默认时区的LocalDateTime；Dubbo Triple
   Timestamp只作绝对时间编码，业务归桶仍系统默认时区。
 - 幂等先检查已提交结果，再校验是否允许一个新的业务动作。相同key不同规范化摘要冲突；同key重试不能扩大金额/换收款人/增加子退款。
 - 详情复用框架`IdQuery`；有附加筛选的Query独立命名。分页使用`PageDTO<T>`，Controller映射`PageResponse.of(page)`，顶层`data`及
@@ -545,99 +546,38 @@ target/签名引用/超时/退避/最大窗口来自原冻结通知策略。独�
 
 通用gotone webhook若只判断HTTP 2xx不能直接作为支付通知成功判据；可复用HTTP/签名基础能力，支付的语义ACK、业务幂等和窗口由收单平台投递状态机负责。
 
-## 9. gRPC映射与错误
+## 9. Dubbo Triple + Protobuf IDL 映射与错误
 
-服务间计划采用LoadUp gRPC binder：generated BindableService Bean + GrpcChannelFactory + `spring.grpc.*`
-，DNS目标与端口在业务适配时配置。client Java
-record与proto分别维护，由MapStruct/适配器转换，不以proto取代domain模型。协议归提供方的业务适配，不向业务client添加gRPC依赖，也不预生成空协议模块。测试Ping及其协议模块已删除，当前没有RPC接口；以下业务proto示例、stub与适配仍待P2实现。
+服务间采用 Dubbo Triple 的 Protobuf 纯 IDL 模式。`*-client` 模块用 `.proto` 定义 service 和消息，
+`dubbo-maven-plugin` 生成 `<Service>Rpc` 接口与 `Dubbo<Service>RpcTriple` 存根；`*-adapter` 实现生成的
+`ImplBase` 并标注 `@DubboService(interfaceClass = ...)`，消费方在 `*-infrastructure` 用 `@DubboReference` 引用生成的
+接口。业务 Facade、Command/Query/DTO、结果码与 IDL 同属 `*-client`，IDL 代码隔离在 `rpc` 子包；domain/app 不直接引用 proto 类型。运行配置与迁移边界见
+[RPC 规范](RPC.md)。
 
-示例wire骨架（其余Command按上文同名字段类型化展开）：
+请求/响应只传 protobuf 消息，`optional` 标量用 `hasXxx()` 表达 presence，枚举以显式字符串传输并拒绝未知符号，
+`Timestamp` ↔ `OffsetDateTime`/`Instant`、`BigDecimal` ↔ 字符串由 mapper 处理。消息类型命中 Triple 的 IDL 分支，
+不产生 Wrapper 信封，因此不需要 `serialization`/`serialize-check-status` 配置。示例：
 
-```protobuf
-syntax = "proto3";
-package loadup.pay.payment.v1;
-option java_multiple_files = true;
-option java_package = "io.github.loadup.pay.payment.grpc.v1";
-import "google/protobuf/timestamp.proto";
-
-service PaymentExecution {
-  rpc Accept(PaymentExecute) returns (PaymentReply);
-  rpc Detail(PaymentIdQuery) returns (PaymentReply);
-  rpc FenceParent(ParentFenceCommand) returns (ParentFenceReply);
-}
-message PaymentExecute {
-  string payment_id = 1;
-  string order_id = 2;
-  string allocation_id = 3;
-  string admission_id = 4;
-  string payee_merchant_id = 5;
-  int64 amount_minor = 6;
-  string currency = 7;
-  string request_digest = 8;
-  string channel = 9;
-  string payment_method = 10;
-  optional string prepared_input_ref = 11;
-  AdmittedTerms admitted_terms = 12;
-}
-message AdmittedTerms {
-  string contract_id = 1;
-  int32 revision = 2;
-  string snapshot_hash = 3;
-  int32 schema_version = 4;
-  bytes compiled_terms_json = 5;
-  string compiled_terms_hash = 6;
-}
-message PaymentIdQuery {string id = 1;}
-message BusinessResult {string code = 1; string message = 2;}
-message PaymentReply {
-  BusinessResult result = 1;
-  optional PaymentView data = 2;
-}
-message PaymentView {
-  string payment_id = 1;
-  string order_id = 2;
-  string state = 3;
-  int64 amount_minor = 4;
-  string currency = 5;
-  int64 version = 6;
-  google.protobuf.Timestamp initiated_at = 7;
-}
-message ParentFenceCommand {
-  string order_id = 1;
-  string payee_merchant_id = 2;
-  int64 close_epoch = 3;
-  string request_key = 4;
-}
-message ParentFenceReply {
-  BusinessResult result = 1;
-  bool fenced = 2;
-  bool all_children_converged = 3;
-  int32 unknown_count = 4;
-  int64 close_epoch = 5;
+```java
+@DubboService(interfaceClass = PaymentRpc.class)
+public class PaymentRpcService extends DubboPaymentRpcTriple.PaymentRpcImplBase {
+    @Override
+    public WirePaymentExecutionDTO accept(WirePaymentExecuteCommand request) {
+        return PaymentRpcMapper.INSTANCE.toWirePaymentExecutionDTO(
+                paymentAcceptance.accept(PaymentRpcMapper.INSTANCE.fromWirePaymentExecuteCommand(request)));
+    }
 }
 ```
 
-JSON terms是不可变、限长、schemaVersion+hash校验的配置快照，不是开放给调用者的任意事实Map。proto
-string枚举值需显式校验；若落地使用enum，0必须UNSPECIFIED并拒绝，不能把缺省0当作INIT已受理。字段号不可复用，删除字段reserved；breaking
-change换v2 package。
+```java
+@DubboReference(url = "tri://payment-headless:50051")
+private PaymentRpc paymentRpc;
+```
 
-身份认证/授权失败映射UNAUTHENTICATED/PERMISSION_DENIED；不可解析请求INVALID_ARGUMENT；网络UNAVAILABLE/DEADLINE_EXCEEDED仍是传输错误。已处理的业务拒绝通过BusinessResult明确返回code，不让SDK把所有异常都重试扣款。HTTP成功使用框架SuccessResponse，失败FailureResponse；渠道原生回调走独立协议ACK，不能强套商户JSON
-envelope。
-
-| 业务码示例                               | 含义                                                      | 调用方动作                         |
-|------------------------------------------|-----------------------------------------------------------|------------------------------------|
-| ACQUIRE_IDEMPOTENCY_CONFLICT             | 同业务key参数变化                                         | 修正调用，不自动换key重收          |
-| ACQUIRE_CONTRACT_NOT_ADMITTING           | 新单无当前准入                                            | 拒绝新单；原单续付不使用此校验     |
-| ACQUIRE_ORDER_NOT_PAYABLE                | CLOSING/终态或原等待策略停止付款                          | 查询并展示，不能重开               |
-| ACQUIRE_AMOUNT_EXCEEDED                  | 超出未占用剩额                                            | 重新查金额，用户明确新动作才发起   |
-| PAYMENT_OUTCOME_UNKNOWN                  | 请求新尝试时旧尝试仍可能收款；普通查询UNKNOWN仍为正常data | 查原paymentId，保持占用            |
-| PAYMENT_EXECUTION_FENCED                 | 父/子持久关闭门禁                                         | 不再提交                           |
-| LIMIT_EXCEEDED / LIMIT_POLICY_NOT_ACTIVE | 额度不足/未激活                                           | 无渠道提交；原intent按可恢复性处理 |
-| LIMIT_DEPENDENCY_NOT_READY               | 退款恢复等待原Confirm                                     | 相同事实可靠重投                   |
-| PAYMENT_REFUND_AMOUNT_EXCEEDED           | 成功可退容量不足                                          | 不修改计划重试其他原付款           |
-| COMMON_DEPENDENCY_UNAVAILABLE            | 上游暂不可用且未作允许决定                                | 查原ID/同key恢复，不把超时当未扣款 |
-
-Acquire/payment业务受理后不使用短deadline取消作为释放依据。每跳设置自己的有界deadline，扣款POST禁用盲目自动重试；固定请求号查证和原key幂等重试由业务控制。服务端不持数据库锁等待RPC。
+身份认证/授权失败由 provider filter 映射为 `RpcException(AUTHORIZATION_EXCEPTION)`（传输层 UNAUTHENTICATED）；
+不可解析请求映射 INVALID_ARGUMENT/VALIDATION_EXCEPTION；网络与超时仍按依赖失败处理。已处理的业务拒绝编码为
+`RpcException(BIZ_EXCEPTION, "loadup-result-code=<CODE>")`，消费方只映射自己的白名单，不让所有异常都触发重试或扣款。
+HTTP 成功使用框架 SuccessResponse，失败 FailureResponse；渠道原生回调走独立协议 ACK，不能强套商户 JSON envelope。
 
 ## 10. 风控与对账预留
 
@@ -647,7 +587,7 @@ domain只预留`RiskConsultGateway.consult(RiskConsultation)`与`RiskOutcomeGate
 reconciliation后置消费独立事件镜像/受控权威快照。预留`SubmitEvidenceForVerification`
 用例时只允许提交来源和证据引用，由payment验证/主动查证后做自己的状态迁移；不提供UpdatePaymentStatus、直接退款或改额度接口。账单文件schema、导入和差错审批在该服务实施时另写详细设计。
 
-本稿的API示例用于契约评审，未生成SDK/proto或运行接口测试。真实渠道JSAPI/银联细节在适配材料确定后按类型扩展，不影响以上订单、付款、退款和额度契约。
+本稿的API示例用于契约评审，未生成SDK或运行接口测试。真实渠道JSAPI/银联细节在适配材料确定后按类型扩展，不影响以上订单、付款、退款和额度契约。
 
 ## 11. P1源码契约补充
 
@@ -703,7 +643,7 @@ public interface MerchantAuthorizationFacade {
 既有 MerchantAuthorizationFacade 与 MerchantEligibilityFacade 已增加 app/数据库/HTTP 实现，入口、权限、JWT
 claim、幂等和运行配置见[customer说明](../customer/README.md)。HTTP 路径统一在 `/api/customer` 下，Controller 复用本章
 Command。管理动作要求 `pay:customer:manage`；资格调用只判断可信当前主体，不接受请求体指定调用主体。Java client
-仍与HTTP/gRPC传输解耦。
+仍与HTTP/Dubbo Triple传输解耦。
 
 本批尚未执行编译、单测或真实数据库/JWT业务验收；实际Flyway仅覆盖customer新增两表，其他领域DDL仍为设计草案。
 

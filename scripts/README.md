@@ -49,7 +49,7 @@ SKIP_BUILD=1 IMAGE_TAG=release-002 ./scripts/deploy.sh all
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经kubectl本地dry-run输出的JSON：全量选择22个资源（namespace及七组Deployment/HTTP Service/gRPC Headless
+经kubectl本地dry-run输出的JSON：全量选择22个资源（namespace及七组Deployment/HTTP Service/Dubbo Triple Headless
 Service），单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为
 50051；渲染器拒绝缺失、重复或不符合约定的 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
@@ -118,24 +118,24 @@ payment）、LIMITCENTER_JWT_AUDIENCE、PAYMENT_LIMITCENTER_TOKEN_FILE、LIMITCE
 reserve/execute/verify，不能用商户 JWT。内部首笔尝试接口另要求 acquire SERVICE 的 pay:payment:attempt:start。新增
 V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像部署未运行。
 
-## 应用间 gRPC 发布
+## 应用间 Dubbo Triple 发布
 
-七应用 `application.yml` 固定 gRPC 50051、30秒优雅退出，Pod 终止窗口45秒。出站 channel 使用 `dns:///<peer>-headless:50051`
-和 `default.load-balancing-policy: round_robin`；`loadup.rpc.clients.<peer>` 配置 channel 名和3秒 deadline。Java 通过
-Spring 配置类读取，无应用间 HTTP 地址或降级路径。
+七应用 `application.yml` 固定 HTTP 8080、Triple 50051、`shutdown: graceful`，Pod 终止窗口 45 秒。消费端
+`@DubboReference` 直接使用 `tri://<peer>-headless:50051`，字段类型是生成的 Protobuf IDL 接口；`dubbo.registry.address: N/A`，
+`consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
 
 业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产
-TLS 配置。默认骨架构建不包含业务 adapter，也没有业务 gRPC 监听；只声明 Headless Service 与 containerPort 不会启动监听。
+TLS 配置。默认骨架构建不包含业务 adapter，也没有 Triple 监听；只声明 Headless Service 与 containerPort 不会启动监听。
 
-`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 gRPC Headless Service。`verify.sh` 目前仅检查
-Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 gRPC
+`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 Dubbo Triple Headless Service。`verify.sh` 目前仅检查
+Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 Triple
 调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
 
-双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 兼容通道；旧 HTTP 镜像与新 gRPC
-镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
+双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 或 gRPC 兼容通道；旧镜像与新
+Dubbo Triple 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
 
-协议与调用关系见[RPC 规范](../design/RPC.md)
-，完整发布与回滚约定见[RPC 发布规范](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/KUBERNETES.md)。
+协议与调用关系见[RPC 规范](../design/RPC.md)；binder 设计与配置见
+[Dubbo binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md)。
 
 渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的
 -am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款

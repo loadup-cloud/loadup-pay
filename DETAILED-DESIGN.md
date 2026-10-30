@@ -14,7 +14,7 @@
 |-------------------------------------------|-----------------------------------------------------------------------|
 | 本文                                      | 工程分层、聚合、不变量、事务、执行和故障恢复                          |
 | [数据库设计](design/DATABASE.md)          | 六服务数据归属、完整新增表字段/类型、唯一键/索引、锁与迁移            |
-| [Client API 设计](design/CLIENT-API.md)   | Java Facade、Command/Query/DTO、HTTP/gRPC、事件和通知协议             |
+| [Client API 设计](design/CLIENT-API.md)   | Java Facade、Command/Query/DTO、HTTP/Dubbo Triple、事件和通知协议     |
 | [合约配置设计](design/CONTRACT-SCHEMA.md) | 复用框架合约的参数路径、类型、校验、快照与发布                        |
 | [新增表 DDL 草案](design/schema/)         | 按服务分开的 MySQL 建表草案，仅用于评审，不是可直接应用的 Flyway 迁移 |
 
@@ -31,17 +31,18 @@ acquire/
   acquire-domain/          domain.model / policy / gateway / event
   acquire-app/             app.service / handler / converter
   acquire-infrastructure/  infrastructure.dataobject / repository / converter / rpc / task
-  acquire-adapter/         adapter.web / grpc / security
+  acquire-adapter/         adapter.web / security
   acquire-bootstrap/       Spring Boot 启动与装配
 ```
 
 payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选
-web 层，并同时承载未来业务 gRPC 入站。2026-10-23源码更新：应用间统一使用 gRPC，实际协议与映射归各服务 *-rpc 模块，框架现有
-gRPC binder 提供通用调用/认证支持；各业务 profile 提供 gRPC 入站，Java业务client不引入传输协议依赖。
+web 层。2026-10-30源码更新：应用间统一使用 Dubbo Triple 的 Protobuf 纯 IDL 模式，Java Facade 归各服务 *-client，
+*.proto/生成存根/Wire mapper 归 *-client，适配器用 `@DubboService` 实现生成的 `ImplBase`，消费方在 *-infrastructure 用
+`@DubboReference` 引用生成接口；框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc` 子包，domain/app 不直接引用 protobuf。
 
 ```mermaid
 flowchart LR
-  B[bootstrap] --> W[adapter: HTTP/gRPC]
+  B[bootstrap] --> W[adapter: HTTP]
   B --> I[infrastructure]
   B --> A[app]
   W --> C[client: Facade/DTO]
@@ -51,7 +52,7 @@ flowchart LR
   I --> TC[被调用服务 client / 生成的 proto]
 ```
 
-- client 表达完整用例，不暴露 Mapper、表结构、Spring、gRPC stub、HTTP envelope。app 的 `XxxService` 直接实现 Facade，不增加只透传的
+- client 表达完整用例，不暴露 Mapper、表结构、Spring、RPC 代理、HTTP envelope。app 的 `XxxService` 直接实现 Facade，不增加只透传的
   Service/Impl。
 - domain 为普通Java对象；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。复用LoadUp
   commons-dto的Money与commons-json的ToStringAsJson/DiagnosticHidden基础能力；收单层保留CNY/非负金额规则。聚合执行状态与金额规则；app
@@ -169,7 +170,7 @@ PaymentOrder 或释放 acquire allocation。成功后再收到互相矛盾的退
 ### 4.3 时间约定
 
 应用 Clock、JVM、任务、JDBC 和数据库会话采用一致的系统默认时区；业务持久化 DATETIME (6)，跨服务 DTO 用 OffsetDateTime
-携带实际偏移。区间采用 `[start,end)`。只在 gRPC Timestamp、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
+携带实际偏移。区间采用 `[start,end)`。只在 `Instant`/`OffsetDateTime`、渠道签名/epoch、Kubernetes 等要求绝对时间的协议边界转换，不改写其语义。
 
 orderDueAt 是未付清处理检查点；sessionExpiresAt 是访问凭证期限；actionExpiresAt 是渠道参数期限。KEEP_PENDING 不把
 orderDueAt 当成隐蔽停付时间，也不会延长旧二维码。延期按原条款修改检查点，不改总额或合约版本。
@@ -350,7 +351,7 @@ realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版
 | [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                        | Spring Data JDBC、Spring JDBC、IdGenerator、sequence、Flyway     | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
 | [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)                                     | OutboxTemplate/Message/Inbox/Handler及组件迁移                   | 目标类型、业务事实ID、事件内容、重投/差异流程                                                |
 | [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)                           | 事务register、handler、失败管理                                  | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务                            |
-| [gRPC binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/README.md) | 原生spring.grpc、BindableService、GrpcChannelFactory             | 生成proto/stub、身份和tenant拦截器、deadline/幂等/业务结果映射                               |
+| [Dubbo Triple binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md) | 原生 `@DubboService`/`@DubboReference`、Protobuf IDL | JWT 透传、安全上下文隔离、超时/幂等/业务结果映射 |
 | [signature](../loadup-framework/loadup-components/security/loadup-components-signature/README.md) / KMS                            | RequestSigner/Verifier、原始字节签名、nonce store、密钥引用      | 商户身份映射和通知语义ACK；渠道签名仍由各渠道adapter负责                                     |
 | resource-server / authorization / UPMS                                                                                             | 操作员与调用者令牌、动作授权                                     | payee与父子商户作用域校验；cashier订单scope，不新增付款人账号                                |
 | webmvc / springdoc / commons                                                                                                       | SuccessResponse、FailureResponse、PageDTO/PageResponse、统一异常 | 业务ResultCode及外部渠道回调专用ACK适配                                                      |
@@ -361,7 +362,7 @@ realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版
 编译，不能把一个尚不存在的JSON Schema引擎写成已复用能力。
 
 继续使用Kubernetes
-Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部gRPC生产需TLS/服务身份；不能把metadata中自报tenant等同于认证。
+Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部 Dubbo Triple 生产需限定同 Namespace 并启用 TLS/服务身份；不能把 attachment 中自报 tenant 等同于认证。
 
 ## 13. 实施顺序与验收设计
 
@@ -390,7 +391,7 @@ CLOSE_RESPONSE 组合来源。payment 主链自动驱动已有源码，关闭 AC
 丢失恢复仍为后续工作，详见 [支付宝说明](channel/channel-alipay/README.md)。
 
 收款提交现采用独立 ChannelPaymentRequest/Submission，将付款码/已解析渠道标识和唤起动作与资金事实分开；原订单标题、截止时间在
-acquire→payment 的持久意图/gRPC 中冻结。支付宝付款码/JSAPI 适配源码已补；动作快照/Y3 同事务记录/授权查询已补源码；Y2
+acquire→payment 的持久意图/Dubbo Triple 边界中冻结。支付宝付款码/JSAPI 适配源码已补；动作快照/Y3 同事务记录/授权查询已补源码；Y2
 前本地预检与自动执行已有源码；H5 仍待实现，详见 [提交契约](design/CLIENT-API.md)。
 
 ### 付款自动续行协议
@@ -430,7 +431,7 @@ payment_attempt 查找索引。CALLBACK 资金事实来自验签后原号查询�
 ## 退款商户通知实施归属（2026-10-24）
 
 退款结果归 payment，商户签名投递统一归 acquire。payment 在既有退款结果/容量事务写独立商户目标 Outbox；acquire 通过 SERVICE
-gRPC 验证源身份、原订单及子付款绑定，按原订单通知条款登记固定正文、原生任务和不可变接收回执。此接收是通知事实投影，不作金融裁决、不写交易金额，也不跨数据库事务。
+Dubbo Triple 调用验证源身份、原订单及子付款绑定，按原订单通知条款登记固定正文、原生任务和不可变接收回执。此接收是通知事实投影，不作金融裁决、不写交易金额，也不跨数据库事务。
 
 终态通知分别为 RefundSucceeded、RefundFailed、RefundRequestCompleted，整笔申请保留固定总额及成功/失败两部分，允许
 PARTIAL_SUCCEEDED。未知不通知成失败，退款不减少原付款成功金额。共用 acquire merchant_notification_delivery 引擎，移除
@@ -501,7 +502,7 @@ paymentId。
 
 ## 原安全输入引用恢复（2026-10-24）
 
-payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
+payment 的独立 InputLookup Facade 通过 Dubbo Triple 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
 只返回原 opaque 引用/摘要/期限，不解密、指纹计算、改数据或续期。found 明确存在并与可空 input 一致；
 过期/BOUND 仍回原元数据。acquire 恢复缺失引用时事务外查询，再在原订单→会话锁下 CAS 绑定原引用，继续原命令幂等受理和 A3。
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。
@@ -518,7 +519,7 @@ InputExpire 是完整原输入范围绑定的内部条件操作，要求 acquire
 
 acquire 原 actionKey 恢复据三态处理，关闭证明经通用 applyClose/A3 核对并幂等释放原 allocation。
 paid gross、其他占用和订单业务状态不改变，后续 progress 不虚构 payment 行；页面得到明确收敛结果才允许下一笔。
-控制 API/DTO/Protobuf/MapStruct/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
+控制 API/DTO/Facade/consumer、恢复接线及测试源码已补，未运行验证、令牌签发、部署或真实调用。
 首次准备并发/地址变化、JSAPI OAuth、其他渠道、通知/交易重建/风控/对账及完整目标继续。
 
 ## 商户原 actionKey 恢复入口（2026-10-26）
@@ -572,7 +573,7 @@ C0 的第 0 代任务与关闭意图同事务，后续扫描游标/rowVersion �
 原订单、关闭意图、scope、epoch 与当前代次，随后在锁外沿原父门禁/子付款关闭/结果收敛流程执行。
 最终 CLOSED 继续依赖完整权威证明，未知结果保持 CLOSING。到期处理与延期使用同一订单锁，不存在旧任务关闭新截止的路径。
 
-复用现有表及 gRPC；没有每笔作业或自建计时器。新增源码与测试源码，暂停验证仍有效；native FAILED 运维续办、真实环境证明继续待办。
+复用现有表及 Dubbo Triple；没有每笔作业或自建计时器。新增源码与测试源码，暂停验证仍有效；native FAILED 运维续办、真实环境证明继续待办。
 
 ## Payment/refund 失败唤醒的受限运营路径（2026-10-26）
 

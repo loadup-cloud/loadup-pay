@@ -18,7 +18,7 @@ IDEA、编译、测试、DDL、数据库操作或外部支付调用。报告修�
 
 [ReconciliationService.start:99](../reconciliation/reconciliation-app/src/main/java/io/github/loadup/pay/reconciliation/app/service/ReconciliationService.java#L99)
 遇到 RUNNING 批次直接返回。若比较阶段读取输入或写结果持续失败，默认 5 次后原生 DelayedTask 进入 FAILED，批次事务回滚后仍为
-RUNNING；框架不再领取 FAILED，重复 start 也不会重排原任务。当前批次 Facade/HTTP/gRPC 没有比较任务 retry 入口，已有
+RUNNING；框架不再领取 FAILED，重复 start 也不会重排原任务。当前批次 Facade/HTTP/Dubbo Triple 没有比较任务 retry 入口，已有
 import/retry 和 ledger/retry 分别操作文件导入及 payment 采集任务，无法恢复这个
 run。故障消除后，原批次会永久表现为“运行中”，只能额外开发维护手段或另建批次绕过。
 

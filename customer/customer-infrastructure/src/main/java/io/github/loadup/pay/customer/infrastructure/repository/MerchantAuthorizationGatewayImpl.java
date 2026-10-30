@@ -226,11 +226,19 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     private Optional<MerchantRelationship> relationship(String sql, Object... parameters) {
         tenant((String) parameters[0]);
-        return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapRelationship, parameters).stream().findFirst();
+        return jdbc.query(
+                        sql,
+                        (org.springframework.jdbc.core.RowMapper<MerchantRelationship>) MerchantAuthorizationGatewayImpl::mapRelationship,
+                        parameters)
+                .stream().findFirst();
     }
 
     private Optional<MerchantActionGrant> grant(String sql, Object... parameters) {
         tenant((String) parameters[0]);
-        return jdbc.query(sql, MerchantAuthorizationGatewayImpl::mapGrant, parameters).stream().findFirst();
+        return jdbc.query(
+                        sql,
+                        (org.springframework.jdbc.core.RowMapper<MerchantActionGrant>) MerchantAuthorizationGatewayImpl::mapGrant,
+                        parameters)
+                .stream().findFirst();
     }
 }

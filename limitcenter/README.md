@@ -1,14 +1,14 @@
 # LimitCenter 商户额度
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 契约位于各服务
+> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需真实 PostgreSQL 与运行验收。
 
-应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
-要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
-IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+应用间传输已统一为 Dubbo Triple，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP、gRPC 与 `*_BASE_URL`
+描述由该规范取代；商户/运营 HTTP 入口继续保留。Triple 随本应用 `*-business` 构建和运行 profile 装配，HTTP 端口 8080、
+Triple 端口 50051。本轮使用 Java 25 完成七应用及依赖的 `clean test-compile`，RPC 适配器单测通过；未启动服务或部署。
 
 本批补齐 COLA 的 app、infrastructure、adapter，以及“规则激活 → 全部桶预占 → 执行许可/校验 → 未执行预占过期”的持久化源码。复用
-LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。业务 gRPC 与付款执行生命周期继续按
+LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。Dubbo Triple 暴露与付款执行生命周期继续按
 ROADMAP 实施。
 
 ## 能力与入口

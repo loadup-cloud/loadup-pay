@@ -1,5 +1,35 @@
 # 第一阶段：应用初始化与契约层
 
+## 2026-10-30：内部传输迁移 Dubbo Triple（Protobuf 纯 IDL）
+
+本节覆盖下文各历史批次中的 gRPC/Java 接口 Wrapper 状态。删除 `loadup-components-rpc-binder-grpc` 及其 BOM 条目；
+应用间统一为 Dubbo Triple 的 Protobuf 纯 IDL 模式，不生成 gRPC `BindableService`，也不使用 Java 接口 + Wrapper
+序列化。
+
+原 10 个 `.proto`（共 25 个方法）从已安装的 client jar 恢复，并放回各服务 `*-client` 的 `rpc` 子包；由
+`dubbo-maven-plugin` 生成 protobuf 消息、`<Service>Rpc` 接口和 `Dubbo<Service>RpcTriple` 存根。原 MapStruct
+Wire mapper 一并恢复，`GrpcScalarMapper` 由框架新增的 `loadup-components-rpc-proto/RpcScalarMapper` 取代。
+
+提供方在 `*-adapter` 实现生成的 `ImplBase` 并标注 `@DubboService(interfaceClass = ...)`；消费方在
+`*-infrastructure` 用 `@DubboReference(url = "tri://<service>-headless:50051")` 引用生成的接口。
+12 个消费适配器保留原租户、事务、令牌读取和错误白名单守卫；`PaymentAcceptanceFacade` 与
+`PaymentOutcomeFacade` 由同一个 `PaymentRpc` proto service 的 `accept/detail/outcome` 方法暴露。业务 Facade 仍留在
+`*-app`，adapter 只做 Wire↔DTO 转换。
+
+框架 binder 保留 `RpcTokenContext`、`RpcIdentityProviderFilter` 和 `RpcExceptionCodes`，分别负责令牌 attachment、
+安全上下文重建/恢复和 `RpcException(BIZ_EXCEPTION, "loadup-result-code=<CODE>")` 业务结果码。内部跳转不重复验签，
+只校验 `exp`；RPC 端口仅对同 Namespace 开放。
+
+7 个 bootstrap 的应用配置改为 `server.port: 8080` + Triple `50051`、`registry.address: N/A`、
+`consumer.check: false`、`timeout: 3000`、`retries: 0` 与 32 MiB Triple 上下限。回退 channel、`deadline` 和
+`server.rpc.dubbo` 死配置一并移除；protobuf IDL 不产生 Wrapper，因此不再需要 `serialization`、
+`serialize-check-status` 或 `check-serializable`。
+
+验证：使用 Java 25 执行 `loadup-pay` 全量 `clean test-compile` 通过；7 个 client 的 proto 生成/编译通过，9 个受影响的
+RPC 适配器单测通过。未启动服务，未执行真实 JWT 透传、跨进程 protobuf 编解码、滚动发布或数据库验收。
+Dubbo 3.3.6 面向 Spring Boot 2.7/3.x，本仓库运行在 Spring Boot 4.1.1，运行时兼容性仍需真实环境证明。
+详见[当前 RPC 规范](design/RPC.md)。
+
 ## 2026-10-23：公共能力收敛与默认时区
 
 pay-common/pay-rpc 已从支付工程移除：JDK-only 的 DomainViolation 进入框架

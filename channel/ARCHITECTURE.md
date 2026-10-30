@@ -46,7 +46,7 @@ flowchart LR
 上游改为 `ALIPAY` 时走支付宝策略，payment 不增加 `if/switch` 厂商执行分支。`method` 是同一渠道内的产品选择，
 由对应插件检查支持情况；不支持时明确拒绝。策略集合的注入顺序不决定渠道，选定策略异常也不触发另一渠道提交。
 
-payment 中账户 DTO、JSAPI 唤起参数及 Protobuf 的类型映射属于公开表示契约；它们不能包含厂商 HTTP 调用、签名、
+payment 中账户 DTO、JSAPI 唤起参数及 Facade DTO 属于公开表示契约；它们不能包含厂商 HTTP 调用、签名、
 凭证读取或选路执行。源码边界测试禁止 payment 引用渠道实现包，也禁止插件反向依赖业务服务内部类型。
 已有交易的查询、关闭、退款沿原冻结身份调用相同 Facade，后续上游参数或路由配置变化不改变其原渠道。
 
@@ -71,7 +71,7 @@ payment 绑定服务中的厂商条件。
 ## 扩展方式与当前边界
 
 新增渠道时增加 `channel-{vendor}`、对应类型化契约和 Provider 自动装配，在 bootstrap 引入插件并配置。新渠道不需要修改 Facade
-的路由分支。涉及新的公开账户或动作结构时，同步更新 API/客户端 DTO/Protobuf/MapStruct 和白名单快照编码；这些属于表示契约，不承担支付选路或厂商协议执行。
+的路由分支。涉及新的公开账户或动作结构时，同步更新 API/客户端 DTO/Facade 和白名单快照编码；这些属于表示契约，不承担支付选路或厂商协议执行。
 
 bootstrap 通过 runtime 依赖装配 core 和具体插件；payment 业务模块的编译依赖只到 channel-api。付款、退款和回调均通过 Facade
 调用策略，渠道 HTTP operation、凭证解析、签名验签和原生 ACK 归各插件。

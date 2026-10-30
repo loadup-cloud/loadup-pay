@@ -5,7 +5,7 @@
 
 本轮没有编译或运行任何测试。app 的计数型事务替身不能证明真实 SQL 回滚；没有用 MapStruct 往返代替 PostgreSQL 外键/唯一键/锁竞争。
 PostgreSQL 输入封存/原生 Transfer 与业务同库/并发/租户 IT 源码已补；比较结果的差错/完成真实回滚及所有 IT 实际运行仍待完成，真实
-JWT/HTTP/gRPC/File/Transfer/S3 链路仍待验收。
+JWT/HTTP/Dubbo Triple/File/Transfer/S3 链路仍待验收。
 
 新增 ReconciliationImportPersistenceIT 源码使用真实 PostgreSQL、File/Transfer facade、生成 Mapper 与应用服务；只为外部对象字节和可信
 actor 提供测试适配。

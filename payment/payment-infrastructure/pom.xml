@@ -29,11 +29,9 @@
             <artifactId>realtime-client</artifactId>
         </dependency>
 
-        <!-- Dubbo Triple Provider dependency -->
         <dependency>
-            <groupId>org.apache.dubbo</groupId>
-            <artifactId>dubbo-spring-boot-starter</artifactId>
-            <version>3.3.6</version>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-rpc-binder-dubbo</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -133,7 +131,6 @@
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                         </path>
-
 
                     </annotationProcessorPaths>
                     <annotationProcessors>

@@ -22,7 +22,7 @@ InputLookup 只读原不可变范围。查到输入时继续附加原 opaque 引
 | 错误或无效响应 | 任意时间                            | 传播失败/拒绝回包，不能视作 missing 或释放预占                   |
 
 截止来源为 A2 冻结的原 payableUntil，不使用当前订单延期后的新时间，不增加猜测的输入超时常量。调用关闭在本地事务外，复用已有
-provider-owned gRPC 和 acquire SERVICE 的 close 权限；没有新内部 HTTP、RPC 协议或令牌签发操作。
+provider-owned Dubbo Triple 和 acquire SERVICE 的 close 权限；没有新内部 HTTP、RPC 协议或令牌签发操作。
 
 关闭请求身份固定：requestKey=`input-preparation-expiry/` + allocationId、reason=`INPUT_PREPARATION_EXPIRED`
 、fenceEpoch=1。重复恢复始终使用原 key 和原付款，不新生成关闭身份。
@@ -61,5 +61,5 @@ child 围栏，迟到的 accept 不能越过。已存在输入在关闭后的精
   child。加密和可信 actor 是测试替身，未替换业务存储。
 - AcquiringFinancialPersistenceIT：同步现有 PaymentClosureClient 装配，避免将新编排依赖留给测试上下文缺省。
 
-所有测试源码未编译或执行。真实 KMS/JWT/gRPC、多实例锁与输入保留清理仍需验收；不能将这些源码断言当成已通过的
+所有测试源码未编译或执行。真实 KMS/JWT/Dubbo Triple、多实例锁与输入保留清理仍需验收；不能将这些源码断言当成已通过的
 SQL/并发证明。首次准备时的原始场景/IP 变化如何由客户端保持幂等、完整 cashier JSAPI 授权等原目标仍继续。

@@ -1,15 +1,16 @@
 # LoadUp Pay
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 契约位于各服务
+> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需真实 PostgreSQL 与运行验收。
 > 见 [PostgreSQL 配置与验收](design/POSTGRESQL.md)。
 
 面向商户及子商户的外部渠道收单平台，采用 Java 25、Spring Boot 和 LoadUp BOM，按 COLA DDD 组织六个核心应用及独立后置对账应用。
 支持目标为付款码（商户扫码枪输入）、JSAPI、H5，以及纯 API 的 DirectPay / 创单后付款；托管收银台是可选入口。
 支持直连及服务商/子商户模型，默认 CNY。不建设消费者用户、余额、充值、提现或转账；Native 二维码和原生 APP 支付不在本次范围。
 
-当前已有应用编排、数据库适配、HTTP/gRPC 接口、渠道插件和异步任务源码，已超出初始化/契约阶段。
-最新修改仍按用户要求暂停验证：本轮没有运行 IDEA、构建、测试、数据库迁移、部署或真实金融调用。
+当前已有应用编排、数据库适配、HTTP/Dubbo Triple 接口、渠道插件和异步任务源码，已超出初始化/契约阶段。
+本轮已将内部传输迁移为 Dubbo Triple 的 Protobuf 纯 IDL 模式：Java 25 全量 `clean test-compile` 与受影响 RPC 适配器
+单测通过；未启动服务，未执行数据库迁移、部署或真实金融调用。
 
 ## 当前能力矩阵
 
@@ -33,7 +34,7 @@
 | 微信                  | JSAPI/H5、V2 付款码首提/查证、查询/关闭、普通退款及 APIv3 支付/退款通知；付款码撤销补偿待补                                                                                                                                                                                                                                                           | 协议/适配测试源码已有；本轮未运行                                                                                                   | 未验收           | [channel-wechat](channel/channel-wechat/README.md) |
 | 银联                  | 目标保留；具体产品/接入机构未定，尚无 Provider                                                                                                                                                                                                                                                                                                        | 无实现验收证据                                                                                                                      | 未验收           | channel 后续插件                                   |
 | 风控                  | 默认放行、渠道前咨询与结果后独立反馈端口；外部系统协议后置                                                                                                                                                                                                                                                                                            | 端口/默认策略测试源码已有；本轮未运行                                                                                               | 未验收           | payment / 外部适配                                 |
-| 对账                  | 七层应用、批次/封存输入、纯核对/多原因差错、独立存储/任务与 HTTP/gRPC 源码；微信 ALL 解析、手工 File/Transfer、payment 权威快照/导入及微信官方下载策略/只读 gRPC 源码已补；官方来源请求/原生任务/File/Transfer 接线源码已补，独立差错复核/审批源码已补，显式可信源端查询/观察留档源码已补，支付宝账单 grant 申请源码已补，下载/解析及受控金融处置待补 | 领域/编排/安全/映射/解析、源端快照及 File/Transfer 同库 MySQL IT 源码已有；未运行                                                   | 未验收           | [reconciliation](reconciliation/README.md)         |
+| 对账                  | 七层应用、批次/封存输入、纯核对/多原因差错、独立存储/任务与 HTTP/Dubbo Triple 源码；微信 ALL 解析、手工 File/Transfer、payment 权威快照/导入及微信官方下载策略/只读 IDL 源码已补；官方来源请求/原生任务/File/Transfer 接线源码已补，独立差错复核/审批源码已补，显式可信源端查询/观察留档源码已补，支付宝账单 grant 申请源码已补，下载/解析及受控金融处置待补 | 领域/编排/安全/映射/解析、源端快照及 File/Transfer 同库 MySQL IT 源码已有；未运行                                                   | 未验收           | [reconciliation](reconciliation/README.md)         |
 | 任务与运营恢复        | 原生任务、业务游标/generation、FAILED 受控重试及只读详情；有界退避/抖动及单 JVM 渠道恢复并发源码已补；执行计时/在途量、首次 UNKNOWN 持久时间与只读存量源码已补（库存默认未启用）；分级查证列表/告警规则源码已补；真实 held/FAILED/Outbox、首提/集群配额、通知路由/工单与保留策略待 R3                                                                 | 原生持久化与付款/退款 handler IT 源码已有；未运行                                                                                   | 未验收           | acquire / payment / LoadUp                         |
 | K8s / Headlamp        | 七应用构建/发布/就绪脚本、原生 Service/DNS 与受限 Headlamp 清单；业务配置需单独注入                                                                                                                                                                                                                                                                   | 历史记录保留；本轮未执行脚本                                                                                                        | 当前业务版未验收 | [scripts](scripts/README.md) / deploy              |
 
@@ -53,7 +54,7 @@
   写；见 [事务契约](design/TRANSACTION-BOUNDARIES.md)，源码调整未运行验收。
 - payment 的共同 [付款/attempt 绑定](design/PAYMENT-BINDING.md) 与提交/观察/关闭前置条件分开表达；绑定值不能代替原 Y2
   票据、门禁或资金证据。当前为源码切片，未运行验收。
-- 复用 LoadUp Money、ToStringAsJson/DiagnosticHidden、数据库、Outbox、DelayedTask、HTTP、KMS 和 gRPC 能力；不另建
+- 复用 LoadUp Money、ToStringAsJson/DiagnosticHidden、数据库、Outbox、DelayedTask、HTTP、KMS 和 Dubbo Triple 能力；不另建
   pay-common/pay-rpc 或注册中心。
 
 ## 构建、装配与 Kubernetes
@@ -79,8 +80,8 @@ Maven `*-business` profile 引入，运行时还需激活对应 Spring profile�
 其他集群的镜像仓库、Namespace、Secret、TLS 和业务 profile
 由部署层提供；完整变量、构建与发布步骤见 [脚本说明](scripts/README.md)。
 
-应用间协议为各服务拥有的 Protobuf gRPC，商户/运营、收银台及渠道通知保留 HTTP。
-K8s 原生 Service → EndpointSlice → DNS 完成发现，gRPC 使用 `<service>-headless:50051`；没有 Nacos/Eureka。
+应用间协议为各服务拥有的 Protobuf IDL + Dubbo Triple，商户/运营、收银台及渠道通知保留 HTTP。
+K8s 原生 Service → EndpointSlice → DNS 完成发现，Triple 使用 `<service>-headless:50051`；没有 Nacos/Eureka。
 地址、身份与调用契约见 [RPC 规范](design/RPC.md)。
 
 ## Headlamp 与时间
@@ -98,7 +99,7 @@ K8s 原生 Service → EndpointSlice → DNS 完成发现，gRPC 使用 `<servic
 部署副本数为 0 表示下线，恢复副本数表示上线；重新应用清单会按其中副本数恢复。
 
 应用、业务 Clock 和 JDBC 无偏移时间使用系统本地时区；不强制 UTC，不注入固定 TZ/user.timezone 或 JDBC SET time_zone。
-数据库会话与应用环境保持相同本地时间语义；JWT epoch 与 Protobuf Timestamp 保持绝对时间。
+数据库会话与应用环境保持相同本地时间语义；JWT epoch 与 `Instant` 保持绝对时间。
 
 ## 证据与历史
 
@@ -108,4 +109,4 @@ K8s 原生 Service → EndpointSlice → DNS 完成发现，gRPC 使用 `<servic
 历史初始化、编译及 OrbStack/Headlamp 启动记录见 [IMPLEMENTATION](IMPLEMENTATION.md)
 。业务实施日志见 [BUSINESS-IMPLEMENTATION](BUSINESS-IMPLEMENTATION.md)。
 整理前的根说明完整保存在 [历史快照](design/history/README-before-review-R8.md)，其中“当前/待实现”等词仅属于当时记录；旧
-Ping RPC 已删除，旧启动记录不证明当前 gRPC、金融事务或真实渠道通过。
+Ping RPC 已删除，旧启动记录不证明当前 Dubbo Triple、金融事务或真实渠道通过。

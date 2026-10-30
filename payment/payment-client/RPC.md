@@ -1,13 +1,23 @@
 # RPC contracts
 
-本 client 由 payment 服务维护，包含本服务的 [Protobuf 契约](src/main/proto/payment.proto)、`PaymentRpcMapper` MapStruct
-消息映射和
-`PaymentRpcOperations` 类型化方法定义。契约和消息映射由 client 持有，domain 不依赖传输协议。
+本 client 由 payment 服务维护，包含 Java Facade、Command/Query/DTO、结果码，以及 Protobuf IDL
+（`.proto`、生成存根和 Wire↔DTO mapper）。IDL 代码位于 `rpc` 子包，与业务契约隔离；domain/app 不直接引用
+rpc 类型。
 
-方法：`InputPrepare`、`Accept`、`Detail`、`Outcome`、`Facts`、`Close`、`FenceParent`、`ParentFenceStatus`、`StartAttempt`。
+- 内部业务契约：`PaymentInputFacade`、`PaymentAcceptanceFacade`、`PaymentOutcomeFacade`、
+  `PaymentSettlementFactsFacade`、`PaymentControlFacade`、`PaymentAttemptFacade`、`RefundSummaryFactsFacade`、
+  `RefundSettlementFactsFacade`、`PaymentCaptureFacade`、`PaymentStatementFacade`、
+  `PaymentVerificationFacade`。`RefundFacade`、`ChannelBindingFacade`、`RoutingProfileFacade` 和渠道回调接口
+  只用于 HTTP/渠道入口。
+- 跨进程 IDL：`payment-client/src/main/proto/` 下的 4 个文件：
+  - `payment.proto` → `PaymentRpc`（InputPrepare/InputLookup/InputExpire/Accept/Detail/Outcome/Facts/Close/
+    FenceParent/ParentFenceStatus/StartAttempt/RefundSummary/RefundFacts）
+  - `payment_reconciliation.proto` → `PaymentCaptureRpc.Create/Retry/Detail/Lines`
+  - `payment_statement.proto` → `PaymentStatementRpc.Download`
+  - `payment_verification.proto` → `PaymentVerificationRpc.Verify`
 
-引用其他提供方契约：`product-client`；通过 proto import 复用源类型。
-
-提供方 adapter 注册本模块的生成服务，消费方 infrastructure 依赖本模块调用。字段号由本服务维护，删除字段必须 reserved；普通字段使用
-MapStruct 生成，oneof/集合等协议边界保留显式转换；新增或调整消息须同步本模块映射和测试。通用 channel/JWT
-支持见 [RPC 规范](../../design/RPC.md)。
+提供方在 `payment-adapter` 为每个 proto service 提供一个 `@DubboService` 实现类；消费方在 `*-infrastructure` 用
+`@DubboReference(url = "tri://payment-headless:50051")` 引用对应生成的接口。
+`PaymentStatementRpc` 的引用超时为 60 秒，其余按全局 3 秒。Wire↔DTO 转换由 `payment-client` 的 mapper 负责。
+`payment-client` 依赖 `product-client` 以复用 AdmittedTerms 的 Wire 映射。通用 channel/JWT 支持见
+[RPC 规范](../../design/RPC.md)。

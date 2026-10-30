@@ -5,8 +5,8 @@
 
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/rpc/bootstrap 七层源码：批次创建/封存输入引用、原运行与持久任务、
-双侧完整输入核对、多原因差错、数据库适配和 HTTP/gRPC 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc` 子包）：批次创建/封存输入引用、原运行与持久任务、
+双侧完整输入核对、多原因差错、数据库适配和 HTTP/Dubbo Triple 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
 微信 ALL 交易账单解析源码按 2026-01-16 官方格式实现，独立校验账户、账期、规范化行和完整汇总；已接受信 SERVICE 的
 File/Transfer 手工来源导入；官方自动下载与验签来源仍待接入。
 
@@ -28,7 +28,7 @@ File/Transfer 手工来源导入；官方自动下载与验签来源仍待接入
   原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
 - HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,differences}`；start 使用
   `ReconciliationBatchStartCommand`。
-  gRPC `ReconciliationRpc/{Create,Attach,Start,Detail}`，提供方拥有 Protobuf，复用框架入站 JWT 与错误映射。
+  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder 的身份与错误映射。
   differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
 
 以下外部配置仅示意结构；hash 应由受控账户身份规范计算，不直接使用示例值：
@@ -103,7 +103,7 @@ IMPORT_MAX_REQUEST_SIZE。
 ## payment 权威采集快照（P1 源码）
 
 当前仅 WECHAT / `wechat-trade-all-20260116`。使用 [采集契约](../design/PAYMENT-RECONCILIATION-CAPTURE.md)，
-调用原 payment 的 gRPC；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
+调用 payment 的 Dubbo Triple；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
 
 - `POST /api/reconciliation/ledger/prepare`：batchId/requestKey；按原批次 scope 请求异步源端快照，重复 requestKey 查询原结果。
 - `POST /api/reconciliation/ledger/import`：batchId/captureId；只接受 SEALED，完整分页/空 EOF/总计/hash/冻结范围核对后，
@@ -113,9 +113,8 @@ IMPORT_MAX_REQUEST_SIZE。
 - 出站服务凭证为 `RECONCILIATION_SERVICE_ID`（默认 reconciliation），配置 `RECONCILIATION_PAYMENT_TENANT_ID`、
   `RECONCILIATION_PAYMENT_AUDIENCE`（默认 payment）和 `RECONCILIATION_PAYMENT_TOKEN_FILE`。当前凭证配置对应一个租户，其他租户显式拒绝。
   接收方需授予 `pay:payment:reconciliation:capture:create/read/retry`；逐次读取挂载凭证，未签发真实令牌。
-- 默认 `dns:///payment-headless:50051` + round_robin，每 RPC 3 秒，完整抓取预算 60 秒、分页100。
-  `RECONCILIATION_PAYMENT_GRPC_TARGET/RPC_DEADLINE` 与 `RECONCILIATION_LEDGER_FETCH_SECONDS` 可配置；TLS 沿用 Spring
-  gRPC。
+- 默认 `tri://payment-headless:50051`，每 RPC 3 秒，账单下载引用单独 60 秒，完整抓取预算 60 秒、分页100。
+  `RECONCILIATION_LEDGER_FETCH_SECONDS` 可配置；引用地址与超时固定在 `@DubboReference`，不把环境地址写进 Java。
 - INIT/BLOCKED 不能导入；BLOCKED 是覆盖阻断样本，无可导出金额/行。查证原资金后使用新 requestKey 请求新 RR，原快照永不覆盖。
 
 账务源生成和对账挂入是显式两步，当前不自动轮询/自动导入或启动核对。导入数据库失败可重放原 capture，
@@ -137,16 +136,15 @@ BLOCKED，绝不导出部分成功集合。
 
 ## 官方账单只读来源（P1，2026-10-28）
 
-PaymentStatementFacade / PaymentStatementRpc.Download 只向配置的 reconciliation SERVICE 和独立读取权限提供原绑定范围账单。短
+PaymentStatementFacade.download 只向配置的 reconciliation SERVICE 和独立读取权限提供原绑定范围账单。短
 RR 获取不可变 revision 后，在事务外调用 ChannelStatementFacade；payment 不依赖厂商插件实现、不按当前路由换账户，也不复制凭证到
 reconciliation。原件和私有来源证据有界传输且诊断隐藏，明确无账单/生成中错误，无商户 HTTP 下载入口。
 
-该接口只读，不在 payment 封存来源任务/文件；reconciliation 的先登记意图、File/Transfer 与批次 CHANNEL 导入接线源码已补，尚未运行验证。消费需独立
-deadline/20 MiB gRPC message cap。详见 [官方来源设计](../design/WECHAT-STATEMENT-SOURCE.md)。新增源码与测试未构建或执行。
+该接口只读，不在 payment 封存来源任务/文件；reconciliation 的先登记意图、File/Transfer 与批次 CHANNEL 导入接线源码已补，尚未运行验证。消费需独立超时与 20 MiB Triple body cap。详见 [官方来源设计](../design/WECHAT-STATEMENT-SOURCE.md)。新增源码与测试未构建或执行。
 
 ## reconciliation 原对象只读查证
 
-PaymentVerificationFacade / PaymentVerificationRpc.Verify 接收关联查询提示，仅允许配置的 reconciliation SERVICE 与 pay:
+PaymentVerificationFacade.verify 接收关联查询提示，仅允许配置的 reconciliation SERVICE 与 pay:
 payment:reconciliation:verify。带预算只读 RR 按租户、原账户和原业务号定位唯一已提交付款或子退款，使用其冻结绑定事务外
 query/queryRefund；不调用 Y2/Y3、提交、关闭或退款写操作。没有对象、未提交和不唯一是覆盖缺口，不能当作零金额/未收款证明。回包保留实际观察与原提示不一致、UNKNOWN
 和可选退款受理时间。接口、索引与测试源码未构建或执行，见 [查证设计](../design/RECONCILIATION-VERIFICATION.md)。

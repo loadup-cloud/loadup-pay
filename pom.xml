@@ -27,6 +27,7 @@
     <properties>
         <java.version>25</java.version>
         <loadup.framework.version>0.0.2-SNAPSHOT</loadup.framework.version>
+        <dubbo.version>3.3.6</dubbo.version>
     </properties>
     <dependencyManagement>
         <dependencies>

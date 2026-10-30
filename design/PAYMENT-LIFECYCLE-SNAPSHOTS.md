@@ -63,4 +63,4 @@ realtime 继续消费四类独立完整快照。付款 INIT/PROCESSING/UNKNOWN/C
 - ProjectionPersistenceIT：独立数据库 INIT version 0 到成功、无父订单投影、迟到 INIT 为 STALE、终态新 delivery 幂等、拒绝高版本重开。只是
   IT 源码，未运行。
 
-仍缺实际构建、MySQL 回滚与并发执行、跨进程 Outbox/gRPC/JWT/TLS、宕机重启和积压恢复证明；不把源码计作通过证据。
+仍缺实际构建、MySQL 回滚与并发执行、跨进程 Outbox/Dubbo Triple/JWT/TLS、宕机重启和积压恢复证明；不把源码计作通过证据。

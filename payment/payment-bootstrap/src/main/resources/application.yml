@@ -2,28 +2,26 @@ spring:
   application:
     name: payment
 server:
-  port: 50051
-server.rpc.dubbo:
-  inbound:
-    max-size: 256KB
-  shutdown:
-    grace-period: 30s
-  clients:
-    realtime:
-      target: dns:///realtime-headless:50051
-      default:
-        load-balancing-policy: round_robin
-    acquire:
-      target: dns:///acquire-headless:50051
-      default:
-        load-balancing-policy: round_robin
-    limitcenter:
-      target: dns:///limitcenter-headless:50051
-      default:
-        load-balancing-policy: round_robin
-  deadline: 3s
-server:
+  port: 8080
   shutdown: graceful
+dubbo:
+  application:
+    name: payment
+    qos-enable: false
+  scan:
+    base-packages: io.github.loadup.pay.payment
+  protocol:
+    name: tri
+    port: 50051
+    triple:
+      max-body-size: 33554432
+      max-response-body-size: 33554432
+  registry:
+    address: N/A
+  consumer:
+    check: false
+    timeout: 3000
+    retries: 0
 management:
   endpoints:
     web:

@@ -131,7 +131,6 @@
                             <artifactId>mapstruct-processor</artifactId>
                         </path>
 
-
                     </annotationProcessorPaths>
                     <annotationProcessors>
                         <annotationProcessor>org.mapstruct.ap.MappingProcessor</annotationProcessor>

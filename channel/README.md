@@ -162,7 +162,7 @@ CALLBACK 来源观察，再沿原 Y3 记回执/资金事实/Outbox。回执键�
 ## 微信 JSAPI 策略（2026-10-24）
 
 独立微信插件已有直连/服务商 JSAPI 下单、原号查询/恢复/关闭与 KMS 唤起签名源码。ChannelPaymentAction 新增
-WechatJsapiChannelAction，core 白名单编码与 payment MapStruct 客户端投影同步，复用既有动作持久化、可见性和 gRPC DTO。固定
+WechatJsapiChannelAction，core 白名单编码与 payment MapStruct 客户端投影同步，复用既有动作持久化、可见性和 RPC DTO。固定
 HTTP operation、原版本凭证和必填可信通知地址在插件内维护。微信 query-only recover 不重新下单，预支付 ACK
 丢失时暂不能重建动作。退款/H5/付款码/通知与实际接入继续待办，详见 [微信插件](channel-wechat/README.md)；未运行编译、测试或真实资金验收。
 
@@ -243,7 +243,7 @@ XML、独立版本密钥、命名 HTTP 配置已补；付款码/未知产品禁�
 ## 2026-10-28 官方账单来源
 
 独立 Statement Facade/Provider 复用注册表，微信按原 binding 和账户请求 ALL 账单，验签申请后限制下载目标、签名流式下载并核验原文件
-SHA1。私有凭证与原件有界传输，不暴露浏览器。payment 通过独立受权只读 gRPC 提供来源；reconciliation 已补官方来源请求/任务/File/Transfer
+SHA1。私有凭证与原件有界传输，不暴露浏览器。payment 通过独立受权只读 Facade 提供来源；reconciliation 已补官方来源请求/任务/File/Transfer
 与批次 CHANNEL 接线源码，仍待验证。该 privileged
 原版本读取不参与商户支付选路。设计及剩余项见 [官方来源](../design/WECHAT-STATEMENT-SOURCE.md)，均未运行验证。
 

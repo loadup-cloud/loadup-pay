@@ -9,26 +9,6 @@ spring:
     url: ${RECONCILIATION_JDBC_URL}
     username: ${RECONCILIATION_JDBC_USERNAME}
     password: ${RECONCILIATION_JDBC_PASSWORD}
-server.rpc.dubbo:
-  clients:
-    payment:
-      target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
-      default:
-        load-balancing-policy: round_robin
-    payment-statement:
-      target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
-      inbound:
-        message:
-          max-size: 20MB
-      default:
-        load-balancing-policy: round_robin
-    payment-verification:
-      target: ${RECONCILIATION_PAYMENT_GRPC_TARGET:dns:///payment-headless:50051}
-      default:
-        load-balancing-policy: round_robin
-  deadline: ${RECONCILIATION_PAYMENT_RPC_DEADLINE:3s}
-server:
-  shutdown: graceful
 loadup:
   outbox:
     worker-enabled: ${RECONCILIATION_VERIFICATION_WORKER_ENABLED:true}

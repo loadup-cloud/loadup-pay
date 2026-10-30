@@ -12,7 +12,7 @@
 - `PaymentStatementFacade.download(PaymentStatementQuery)` 从可信租户读取原不可变 binding revision；读取使用短只读
   RR，结束后才调用渠道。
   停用当前路由不删除历史账户的读取能力；原 revision/账户不匹配时禁止网络调用，不切换到当前路由或其他凭证。
-- `payment-rpc/payment_statement.proto` 提供 `PaymentStatementRpc/Download`，无商户 HTTP 下载入口。
+- `payment-client` 的 `PaymentStatementRpc.Download` 作为 Dubbo Triple IDL 契约，无商户 HTTP 下载入口。
   只允许配置的 reconciliation SERVICE 与 `pay:payment:reconciliation:statement:read` 权限；租户来自已验证 JWT。
   调用方不能提交 URL、渠道商户号、密钥引用或自报可信来源。
 - reconciliation 负责冻结原来源意图、实际账户授权、File/Transfer、批次输入封存；相关应用、存储与任务接线源码已补。
@@ -58,7 +58,7 @@ DiagnosticHidden 是诊断规则，不能代替 HTTP 序列化权限；当前没
 
 RPC 使用 optional 标量和 bytes、微秒 Timestamp；拒绝缺少字段、未知渠道/profile、空文件、超限、错误摘要、
 官方 SHA1 不符或时间倒置。普通映射用 Spring MapStruct，ByteString 只做复制转换。
-消费侧 typed operation 名为 `payment-statement`，应单独配置 deadline 与原生 gRPC channel，保留现有短事务 RPC 的预算。
+消费侧 `PaymentStatementFacade` 引用单独配置 60 秒超时，保留现有短事务 RPC 的预算。
 完整响应上限为 16 MiB 原件加 32 KiB 证据及少量元数据，消费 channel 需显式允许至少 20 MiB inbound message。
 消费端已配置独立 payment-statement channel 的 inbound.message.max-size=20MB 与默认 60s deadline，保留原 payment
 短调用预算。配置及实际大报文、TLS、取消传播仍未验收。
@@ -104,7 +104,7 @@ DDL。
 官方来源最大 16 MiB，配置的 statement-max-bytes 需在 32 KiB–16 MiB，以容纳独立凭证；仍有实际大小与 EOF 校验。
 消费配置 `payment-statement` 使用原 payment 地址、round_robin、独立 20MB 接收上限和可配置 60s deadline，逐次读取原挂载
 SERVICE token。
-原生配置字段依据 [Spring Boot 4.1.1 GrpcClientProperties](https://raw.githubusercontent.com/spring-projects/spring-boot/v4.1.1/module/spring-boot-grpc-client/src/main/java/org/springframework/boot/grpc/client/autoconfigure/GrpcClientProperties.java)
+配置字段依据 Dubbo Triple 的 `dubbo.protocol.triple.*` 与 `@DubboReference` 属性
 ，没有新增内部 HTTP 回退。
 
 File IO 与本地事务不能合并；原件上传后凭证上传失败、数据库回滚或过期 worker 均可能遗留无永久引用对象。

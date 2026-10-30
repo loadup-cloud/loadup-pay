@@ -13,6 +13,11 @@
     <description>Durable merchant limit policy activation and reservation.</description>
     <dependencies>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>payment-client</artifactId>
         </dependency>

@@ -1,11 +1,11 @@
 # Acquire 收单订单
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 契约位于各服务
+> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需真实 PostgreSQL 与运行验收。
 
-应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
-要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
-IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+应用间传输已统一为 Dubbo Triple，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP、gRPC 与 `*_BASE_URL`
+描述由该规范取代；商户/运营 HTTP 入口继续保留。Triple 随本应用 `*-business` 构建和运行 profile 装配，HTTP 端口 8080、
+Triple 端口 50051。本轮使用 Java 25 完成七应用及依赖的 `clean test-compile`，RPC 适配器单测通过；未启动服务或部署。
 
 已实现普通创单/原调用主体查询、原单会话签发/能力认证/收银台只读摘要，并补齐商户付款发起、金额占用及权威结果刷新落账的 COLA
 源码。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为
@@ -384,7 +384,7 @@ IDEA 检查、构建、测试、DDL 或部署；真实 MySQL 同事务回滚、O
 ## 2026-10-23 退款费用基数与独立调整持久化（新增源码）
 
 OrderFeeGateway 新增内部 applyRefundBasis，调用方必须已验证 payment 的权威累计退款事实并持有原订单锁及同库可写事务。后续
-gRPC 接线见下一节；不公开商户记账端点。
+Dubbo Triple 接线见下一节；不公开商户记账端点。
 
 同一 order_fee
 锁下核对原订单总额、冻结规则和原费用，再更新累计成功退款依据。相同源版本必须同金额；旧版本只允许不大于最新累计的事实；新版本不能减少累计，均不能超过原总额。费用未确认时仍保存基数，不提前退费。confirmPaid
@@ -400,12 +400,12 @@ appliedAt；审计字段由 BaseDO 监听器生成。插入调整或费用 CAS �
 负责持久映射，未手写业务 SQL。
 
 新增领域冲突/乱序和持久层早到基数/确认补算/差额/失败传播测试源码，未运行构建、检查、测试、DDL 或部署。实际 MySQL 回滚/竞争与
-gRPC 链路仍待验收。
+Dubbo Triple 链路仍待验收。
 
 ## 2026-10-23 退款费用 gRPC 与接收回执（新增源码）
 
 `AcquireRpc/FeeRefund` 接收 `EventEnvelope<OrderRefundSummaryEventDTO>`，要求配置的 payment SERVICE 和
-`pay:acquire:fee:refund`。acquire-rpc 通过 proto import 引用 payment 拥有的六字段金额消息，不另造金额模型。商户凭证不能调用。
+`pay:acquire:fee:refund`。acquire-client 通过 proto import 引用 payment 拥有的六字段金额消息，不另造金额模型。商户凭证不能调用。
 
 首次接收在本地事务外，经 `PaymentRpc/RefundSummary` 查询权威累计退款；查询要求原 acquire SERVICE 及
 `pay:payment:refund-summary:read`。先校验来源、订单/商户/币种、源版本和总额边界。相同版本必须完整金额一致；旧消息允许采用已验证的新版本累计值，ACK
@@ -580,7 +580,7 @@ InputExpire；首次准备并发期间网络地址变更等恢复仍需继续；
 
 ## 原安全输入引用恢复（2026-10-24）
 
-payment 的独立 InputLookup Facade/gRPC 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
+payment 的独立 InputLookup Facade 通过 Dubbo Triple 以 acquire SERVICE+input:read 校验原不可变意图的完整范围，
 只返回原 opaque 引用/摘要/期限，不解密、指纹计算、改数据或续期。found 明确存在并与可空 input 一致；
 过期/BOUND 仍回原元数据。acquire 恢复缺失引用时事务外查询，再在原订单→会话锁下 CAS 绑定原引用，继续原命令幂等受理和 A3。
 不再为已存原输入重新生成当前 IP/场景。异常不当缺失、缺失不当未收款、到期不直接释放占用，金融编号/金额/渠道不变。

@@ -627,8 +627,6 @@
 文件名搜索仅提供入口候选，可能遗漏不同命名或非 Java 实现；各项行为尚未逐一核实。
 
 - [ ] 
-  `loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/src/main/java/io/github/loadup/components/rpc/grpc/GrpcScalarMapper.java`
-- [ ] 
   `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskStore.java`
 - [ ] 
   `loadup-framework/loadup-components/security/loadup-components-signature/src/main/java/io/github/loadup/components/signature/request/RedisRequestNonceStore.java`

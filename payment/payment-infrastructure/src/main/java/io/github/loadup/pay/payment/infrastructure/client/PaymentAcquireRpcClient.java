@@ -1,56 +1,41 @@
-/*
- * Copyright 2026 LoadUp Cloud
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import com.google.protobuf.Message;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
-import io.github.loadup.components.rpc.grpc.GrpcTransport;
-import io.github.loadup.components.rpc.grpc.RpcOperation;
+import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.client.dto.RefundNotificationAckDTO;
+import io.github.loadup.pay.acquire.rpc.AcquireRpcMapper;
+import io.github.loadup.pay.acquire.rpc.proto.AcquireRpc;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
+import org.apache.dubbo.config.annotation.DubboReference;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
+import java.util.function.Supplier;
 
-import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_FEE_REFUND;
-import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_PAYMENT_OUTCOME;
-import static io.github.loadup.pay.acquire.rpc.AcquireRpcOperations.ACQUIRE_REFUND_NOTIFICATION;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 @Component
 public class PaymentAcquireRpcClient implements PaymentAcquireClient {
-    private final GrpcTransport rpc;
+    @DubboReference(url = "tri://acquire-headless:50051")
+    private AcquireRpc acquireRpc;
+
     private final PaymentAcquireProperties properties;
     private final PaymentServiceTokenReader tokens;
 
-    public PaymentAcquireRpcClient(GrpcTransport rpc, JsonMapper mapper, PaymentAcquireProperties properties,
+    public PaymentAcquireRpcClient(JsonMapper mapper, PaymentAcquireProperties properties,
                                    @Qualifier("paymentClock") Clock clock) {
-        this.rpc = rpc;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
@@ -62,28 +47,32 @@ public class PaymentAcquireRpcClient implements PaymentAcquireClient {
 
     @Override
     public PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event) {
-        return exchange(tenant, ACQUIRE_PAYMENT_OUTCOME, event);
+        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWirePaymentOutcomeAckDTO(acquireRpc.paymentOutcome(
+                AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfPaymentOutcomeEventDTO(event))));
     }
 
     @Override
     public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(tenant, ACQUIRE_FEE_REFUND, event);
+        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWireFeeRefundAckDTO(acquireRpc.feeRefund(
+                AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(event))));
     }
 
     @Override
     public RefundNotificationAckDTO acceptRefundNotification(String tenant, EventEnvelope<RefundMerchantEventDTO> event) {
-        return exchange(tenant, ACQUIRE_REFUND_NOTIFICATION, event);
+        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWireRefundNotificationAckDTO(
+                acquireRpc.refundNotification(
+                        AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfRefundMerchantEventDTO(event))));
     }
 
-    private <Q, R, P extends Message, S extends Message> R exchange(String tenant, RpcOperation<Q, R, P, S> operation, Q request) {
+    private <R> R exchange(String tenant, Supplier<R> call) {
         if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
         try {
             var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
-            var response = rpc.call(operation, request, token);
+            var response = RpcTokenContext.call(token, call);
             if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
             return response;
-        } catch (RuntimeException failure) {d
+        } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }

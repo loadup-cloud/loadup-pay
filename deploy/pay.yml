@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: loadup-pay
 ---
-# Payment Service - Headless for gRPC discovery
+# Payment Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -60,7 +60,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Acquire Service - Headless for gRPC discovery
+# Payment Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: payment }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# Acquire Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -117,7 +129,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Customer Service - Headless for gRPC discovery
+# Acquire Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: acquire-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: acquire }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# Customer Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -174,7 +198,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# LimitCenter Service - Headless for gRPC discovery
+# Customer Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: customer }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# LimitCenter Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -231,7 +267,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Product Service - Headless for gRPC discovery
+# Limitcenter Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: limitcenter-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: limitcenter }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# Product Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -288,7 +336,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Realtime Service - Headless for gRPC discovery
+# Product Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: product }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# Realtime Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -345,7 +405,19 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Reconciliation Service - Headless for gRPC discovery
+# Realtime Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: realtime }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }
+---
+# Reconciliation Service - Headless for Dubbo Triple discovery
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -401,3 +473,15 @@ spec:
   selector: { app: reconciliation }
   ports:
     - { name: http, port: 8080, targetPort: http }
+---
+# Reconciliation Headless Service - Dubbo Triple discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: reconciliation-headless
+  namespace: loadup-pay
+spec:
+  clusterIP: None
+  selector: { app: reconciliation }
+  ports:
+    - { name: dubbo, port: 50051, targetPort: dubbo }

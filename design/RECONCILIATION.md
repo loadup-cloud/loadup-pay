@@ -2,8 +2,8 @@
 
 更新：2026-10-27。用户已确认首期支付宝/微信官方交易日账单，同时核对收款和退款，按实际收款账户与账单日期分批；银联在产品确定后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/rpc/bootstrap 七层源码：纯核对、批次、独立存储、原生后台任务、
-HTTP/gRPC 与独立业务装配。微信 API ALL 格式解析源码已补；File/Transfer 手工 CHANNEL 来源和 payment 微信权威快照/完整
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc` 子包）：纯核对、批次、独立存储、原生后台任务、
+HTTP/Dubbo Triple 与独立业务装配。微信 API ALL 格式解析源码已补；File/Transfer 手工 CHANNEL 来源和 payment 微信权威快照/完整
 LEDGER 导入已接源码；官方文件取得/验签来源、支付宝解析与对应源端日期仍待实现。
 **全部新增源码未构建、执行测试、应用迁移或部署。** 来源集成和查证部分仍是后续契约，不能声称已上线。
 
@@ -50,7 +50,7 @@ manifest 的日期表示账单范围，不要求每行的原付款日期与账�
 CHANNEL 输入为原渠道账单；LEDGER 输入为 payment 提供的受控权威范围快照/导出，收款与退款分别按相同 profile 选取。
 LEDGER 不接受操作者上传 CSV 充当权威源，也不以“已消费到某个成功事件”声明整日集合完整。
 源服务需生成可重放的 capture/export id、范围、完整性记录和不可变文件，证明查询窗口与截止快照一致；当前微信源端采集快照及
-gRPC 完整分页导入已有源码，详见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)；未运行验收。
+Dubbo Triple 完整分页导入已有源码，详见 [采集契约](PAYMENT-RECONCILIATION-CAPTURE.md)；未运行验收。
 
 渠道下载经过已验签渠道 API 定位；人工上传时记录操作者和来源声明，文件哈希只证明内容没有变化，不证明文件真实性。
 无账单可能是尚未生成或查询窗口错误；不能自动转换为完整空文件。双侧空输入只在取得各自明确完整零记录证据后封存。
@@ -92,7 +92,7 @@ MATCHED 仅表示这两份已封存数据按冻结规则一致，不是额外资
 | differences | batchId、kind/reason、page/size          | 查询本服务差错；默认 1/20，上限 100，租户/账户权限来自身份                                         |
 
 app 已直接实现 Facade；HTTP POST 为 /api/reconciliation/batches/{create,attach,start,detail,differences}。
-提供方 reconciliation-rpc 定义 ReconciliationRpc 的 Create/Attach/Start/Detail；差错分页当前由运营 HTTP 提供。
+提供方 reconciliation-client 定义 ReconciliationRpc 的 Create/Attach/Start/Detail；差错分页当前由运营 HTTP 提供。
 MapStruct 使用 Spring 组件；Wire optional 保留未开始/未完成与显式零值，日期为严格 yyyy-MM-dd，int64 不经浮点数，未知枚举与不完整完成摘要拒绝。
 所有操作仅已验证 SERVICE/sub=service_id，权限分别为 pay:reconciliation:batch:create/attach/start/read；租户不从请求取值。
 当前账户目录明确 service-ids 授权，原批次还要求原 caller 匹配；目录默认空。原 profile 随批次冻结，当前账户身份或调用方授权撤销仍拒绝。

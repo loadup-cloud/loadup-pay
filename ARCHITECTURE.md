@@ -15,7 +15,7 @@ CNY。**
 
 术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)
 。六服务已有
-app/infrastructure/adapter、gRPC、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)
+app/infrastructure/adapter、Dubbo Triple、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)
 。不能将历史启动验收视为当前交易闭环通过。
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)
@@ -359,7 +359,7 @@ product 在线。
 
 每个订单保存contractId/revision/hash、合约等待/费用/退款/通知/限额引用。后续新合约不重算旧订单费用，也不把新到期时间回灌旧单。current合约准入与历史订单履约是两个接口，不复用一个“暂停即拒绝”的当前资格函数处理两种场景。
 
-product 的商户事实经 customer gRPC 提供；不复制customer仓储。订单准入、历史准入验证及配置新语义属于收单平台消费工程新增设计，不假定框架现有源码已经实现。
+product 的商户事实经 customer 的 Dubbo Triple IDL 提供；不复制customer仓储。订单准入、历史准入验证及配置新语义属于收单平台消费工程新增设计，不假定框架现有源码已经实现。
 
 ## 9. limitcenter：商户日、周、月与终生限额
 
@@ -512,7 +512,7 @@ DirectAccess 是渠道接入模式，DirectPay 是业务入口，两者不等同
 ## 11. 接口与协议契约
 
 下表表达目标业务动作；当前接口/Proto 的实现状态见根能力矩阵与各服务 rpc/client。外部商户用认证 HTTP，内部用
-gRPC；渠道通知保留原生协议。
+Dubbo Triple；渠道通知保留原生协议。
 
 | 所属                        | 接口动作                                                                              | 关键契约                                                                           |
 |-----------------------------|---------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
@@ -545,7 +545,7 @@ version；服务商接入另保存对应 bindingId/version 和实际渠道收款
 - 每个 RPC 设置 deadline。写操作不透明重试/hedging，重放需使用同一幂等键；超时不证明服务端未执行。
 - 传输失败与业务拒绝分开。稳定业务码可包括
   CONTRACT_NOT_ACTIVE、CONTRACT_EXPIRED、PAYEE_NOT_AUTHORIZED、ORDER_AMOUNT_UNAVAILABLE、PAYMENT_OUTCOME_UNKNOWN、MERCHANT_LIMIT_EXCEEDED，详细枚举后续定义。
-- UNKNOWN 是业务处理状态，不等于 gRPC UNKNOWN 错误码。JSON API 使用 LoadUp envelope，渠道 ACK 不包装为平台 JSON 业务响应。
+- UNKNOWN 是业务处理状态，不等于传输层 UNKNOWN 错误码。JSON API 使用 LoadUp envelope，渠道 ACK 不包装为平台 JSON 业务响应。
 - proto 版本化并保留删除字段号，不将 Spring Facade/DO/配置对象作为共享跨服务报文。
 
 ## 12. 事务、事件、任务与补偿
@@ -564,10 +564,10 @@ version；服务商接入另保存对应 bindingId/version 和实际渠道收款
 | payment子退款结果    | 退款事实、退款侧累计/来源版本、退款通知/额度恢复事件，不写原订单及付款成功状态               |
 | realtime             | Inbox、各来源版本和查询投影                                                                  |
 
-不跨服务分布式事务，不在持锁事务内等待 HTTP/gRPC。OrderAdmission 与 acquire
+不跨服务分布式事务，不在持锁事务内等待 HTTP/Dubbo Triple。OrderAdmission 与 acquire
 事务分开，按明确定义的准入截止点处理在途请求。订单占用、商户额度、渠道执行各有稳定关联键与可恢复状态，不能用内存回调串联后声称原子完成。
 
-先使用 LoadUp Outbox + 后台 gRPC 可靠投递，不强制新增消息代理。框架每种 eventType 一个 handler，给
+先使用 LoadUp Outbox + 后台 Dubbo Triple 可靠投递，不强制新增消息代理。框架每种 eventType 一个 handler，给
 acquire、limitcenter、realtime 以及未来风控确认/reconciliation 分别生成独立目标投递记录；不能一个 handler
 串行调用所有目标导致慢查询服务阻塞订单或额度确认。
 
@@ -642,12 +642,12 @@ channel+接入模式+渠道商户作用域定义唯一性。索引覆盖商户�
 |--------------|--------------------------------------------------------|--------------------------------------------------------------|
 | 基础栈       | Java 25、Spring Boot 4.1.1、LoadUp BOM                 | 各部署单元装配                                               |
 | 业务分层     | COLA、Spring Data JDBC、Spring JDBC、Flyway、Spring MapStruct | 订单/多笔付款/占用、事务与迁移                         |
-| gRPC         | loadup-components-rpc-binder-grpc 与生成 stub          | 身份、deadline、幂等/结果/关闭协议                           |
+| Dubbo Triple | loadup-components-rpc-binder-dubbo + Protobuf IDL     | 身份、超时、幂等/结果/关闭协议                               |
 | 商户与合约   | merchant-*、contract-*                                 | 子商户授权关系、双模式绑定、OrderAdmission、多付款与计费策略 |
 | 可靠性       | Outbox/Inbox、DelayedTask、Scheduler                   | 独立投递、查证、占用差异核对                                 |
 | 安全与观测   | 授权、资源服务、signature/KMS 按需、LogUtil/Micrometer | 实际收款身份、商户通知、敏感材料与审计                       |
 | 收银交互     | Vue/TypeScript、既有 Web 能力                          | cashier 与薄 SDK、同一订单多次合法动作                       |
-| 风控接口预留 | 现有 HTTP/gRPC 与可靠投递能力                          | 咨询/确认语义及外部协议适配，不引入厂商 SDK 作为业务公共契约 |
+| 风控接口预留 | 现有 HTTP/Dubbo Triple 与可靠投递能力                  | 咨询/确认语义及外部协议适配，不引入厂商 SDK 作为业务公共契约 |
 | 文件对账预留 | 现有文件存储/任务/数据库能力按需                       | reconciliation 独立解析、核对、差错闭环，后续再选具体适配    |
 | 商户限额     | 数据库本地事务、可靠任务                               | 日/周/月/终生全部规则原子预占及恢复                          |
 
@@ -665,9 +665,11 @@ loadup-pay/
 ```
 
 代码按职责分层，不先生成空子模块或把生产业务放入框架集成启动器；托管 cashier 当前由 acquire 提供。
-内部应用交互统一使用 gRPC。各服务的 *-rpc 模块维护自己的 Protobuf 协议、映射和类型化方法，框架现有 gRPC binder
-提供通用调用与认证支持，各应用业务 profile 接入框架binder；Java业务client不依赖gRPC，generated
-proto、身份与业务接口绑定随业务 profile 装配，当前运行验收仍待完成。
+内部应用交互统一使用 Dubbo Triple 的 Protobuf 纯 IDL 模式。各服务的 `*-client` 模块维护 Java Facade、
+Command/Query/DTO 和结果码，`*-client` 模块维护 `.proto`、`dubbo-maven-plugin` 生成的存根和 Wire↔DTO mapper；
+`*-adapter` 实现生成的 `ImplBase` 并用 `@DubboService` 暴露，`*-infrastructure` 用 `@DubboReference` 引用生成的接口。
+框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc` 子包，domain/app 不直接引用 protobuf 或 rpc 类型。
+身份与业务接口绑定随业务 profile 装配，当前运行验收仍待完成。
 
 金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不重新定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
 
@@ -678,14 +680,14 @@ Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
 RBAC/应用权限，当前 Headlamp 仅能修改 acquire/payment，不能把它当商户业务授权。
 
 容器与 JVM 沿用系统默认时区，不设置固定 TZ/user.timezone；数据库会话、Clock、JDBC/任务与日/周/月边界保持一致。业务
-DATETIME (6) 使用本地时间；跨服务 OffsetDateTime 携带实际偏移，Protobuf Timestamp 表达绝对时刻。渠道 epoch/签名时间和 K8s
+DATETIME (6) 使用本地时间；跨服务 OffsetDateTime 携带实际偏移，`Instant`/`OffsetDateTime` 表达绝对时刻。渠道 epoch/签名时间和 K8s
 标准时间戳按原协议保留绝对时间语义，不为改变显示破坏签名。
 
 技术配置使用 ConfigMap/Secret，业务策略使用 product 合约；Nacos 不作为本期注册前提。生产使用不可变镜像及可拉取策略，本地
 imagePullPolicy: Never 只是开发约定。
 
 liveness 不因 realtime/渠道失效触发重启；readiness 检查自身必要资源。新单依赖 product
-不可用时通过业务拒绝处理，不用旧资格偷偷降级。生产渠道通知与收银页需要稳定 HTTPS、对应渠道应用/域名；内部 gRPC
+不可用时通过业务拒绝处理，不用旧资格偷偷降级。生产渠道通知与收银页需要稳定 HTTPS、对应渠道应用/域名；内部 Dubbo Triple
 做认证/TLS、授权和必要网络隔离，metadata 不天然可信。
 
 ## 16. 正确性与验收条件
@@ -808,7 +810,7 @@ review 首批补了只读运营详情与金融/任务/投影 MySQL IT 源码；�
 | 退款不改原付款金额                | 固定计划、RefundExecution/ResultService、容量与独立汇总             | 多付款串行组合、真实退款幂等与金融回滚                                       |
 | 恢复 claim 不授予额外扣款权       | DelayedTask + 业务 cursor/generation + 实际 handler                 | 租约/新旧代并发运行、长期 UNKNOWN 运营策略                                   |
 | 查询投影不参与主交易裁定          | realtime 四类快照/receipt/版本 Gateway                              | 真实版本竞争、重建/检查点与新鲜度                                            |
-| 编排与存储/协议边界可维护         | COLA 分层、channel-api、provider-owned gRPC                         | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
+| 编排与存储/协议边界可维护         | COLA 分层、channel-api、provider-owned Facade                         | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
 
 银联具体产品/接入机构、支付宝 H5、微信付款码、托管 JSAPI 授权与后置对账等仍按完整目标推进。
 历史启动/Headlamp/RPC 记录不证明当前身份、数据库、渠道或业务可用性；旧测试 Ping RPC 已删除。
@@ -841,7 +843,7 @@ D01—D10的语义已确认，不再作为待业务选择的P0问题反复询问
 - [商户模块](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md)：商户基本资料和事实边界。
 - [合约架构](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md)
   ：固定版本、不可变快照、运行时判定；订单准入及多付款策略为消费应用新增设计。
-- [gRPC binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/README.md)
+- [Dubbo Triple binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md)
   ：原生 starter 与生成 stub。
 - [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)、[DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)
   ：至少一次、目标隔离、持久任务与租约边界。
@@ -853,7 +855,7 @@ D01—D10的语义已确认，不再作为待业务选择的P0问题反复询问
   ：服务商代商户调用需对应授权，不能把所有渠道的授权模型混为一体。
 - [微信 JSAPI 开发指引](https://pay.wechatpay.cn/doc/v3/merchant/4012791870)、[回调与查单](https://pay.wechatpay.cn/doc/v2/merchant/4011984682)、[撤销说明](https://pay.wechatpay.cn/doc/v2/merchant/4011937361)
   ：动作/结果、主动查询及撤销语义分别处理。
-- [gRPC 状态码](https://grpc.io/docs/guides/status-codes/)：deadline 失败不能证明写操作未完成，幂等与主动查询由业务负责。
+- 超时失败不能证明写操作未完成，幂等与主动查询由业务负责。
 
 ## 当前支付方式与接入边界（2026-10-22 修订）
 
@@ -893,7 +895,7 @@ gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道
 
 ## 退款商户通知统一投递（2026-10-24）
 
-payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 gRPC 交 acquire 登记。acquire
+payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 Dubbo Triple 调用交 acquire 登记。acquire
 统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment
 通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
 

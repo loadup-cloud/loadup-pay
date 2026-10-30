@@ -1,14 +1,14 @@
 # Customer 业务实现
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 契约位于各服务
+> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需真实 PostgreSQL 与运行验收。
 
-应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
-要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
-IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+应用间传输已统一为 Dubbo Triple，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP、gRPC 与 `*_BASE_URL`
+描述由该规范取代；商户/运营 HTTP 入口继续保留。Triple 随本应用 `*-business` 构建和运行 profile 装配，HTTP 端口 8080、
+Triple 端口 50051。本轮使用 Java 25 完成七应用及依赖的 `clean test-compile`，RPC 适配器单测通过；未启动服务或部署。
 
 商户逐项授权的 COLA 业务链路为：HTTP adapter → app Facade → domain → Spring JDBC Gateway。完整商户主档复用框架
-merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 的订单准入和业务 gRPC 仍为后续批次。
+merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 的订单准入与 Dubbo Triple 调用按后续批次实施。
 
 ## 能力与入口
 

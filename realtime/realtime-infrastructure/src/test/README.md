@@ -19,7 +19,7 @@ Mapper、Gateway、Codec、MapStruct、事务管理器与
 
 故障注入继承实际 receipt Gateway，先执行生成 Mapper 插入，再抛一次测试异常。
 测试中的 SQL 只读取固定枚举限定的投影表及 receipt 表，生产仓储继续使用生成 Mapper。
-ACK 丢失用调用方丢弃返回值建模，不声称已验证实际 gRPC 网络故障。
+ACK 丢失用调用方丢弃返回值建模，不声称已验证实际 Dubbo Triple 网络故障。
 
 ## 运行与当前状态
 
@@ -30,7 +30,7 @@ mvnd clean verify -pl realtime/realtime-infrastructure -Ppostgresql-it -Dit.test
 ```
 
 当前只有测试源码，未运行 IDEA、编译、单测、Docker 或 PostgreSQL。R1 仍无本轮通过证据。
-这些用例不证明真实 gRPC/JWT/TLS、上游 Outbox 投递、查询负载或投影重建/检查点已经验收。
+这些用例不证明真实 Dubbo Triple/JWT/TLS、上游 Outbox 投递、查询负载或投影重建/检查点已经验收。
 
 ## 2026-10-27 付款生命周期用例源码
 

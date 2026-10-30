@@ -4,7 +4,7 @@
 
 ## 目标与边界
 
-获批复核可以登记一个持久化查证请求，由 reconciliation 的 Outbox 调用 payment 自有 gRPC；payment 从自己的原始已提交对象发起只读渠道查询。
+获批复核可以登记一个持久化查证请求，由 reconciliation 的 Outbox 调用 payment 自有的 Dubbo Triple；payment 从自己的原始已提交对象发起只读渠道查询。
 返回的观察独立留档，不修改原对账输入、差错、批次结果、复核结论或任何付款/退款/费用/额度状态。
 RECORDED 表示一次查询结果已经持久化，不表示差错解决、查询证明未收款或资金修正成功。
 
@@ -75,8 +75,7 @@ attempt。
 
 ## payment 提供方契约
 
-`PaymentVerificationFacade.verify(PaymentVerificationQuery)` / `payment_verification.proto` 的
-PaymentVerificationRpc.Verify。
+`PaymentVerificationFacade.verify(PaymentVerificationQuery)`，跨进程由 `payment-client` 的 `PaymentVerificationRpc.Verify` 承载。
 只允许配置的 reconciliation SERVICE 和 `pay:payment:reconciliation:verify`；原挂载 Token 需由发行方增加该权限，当前未签发或修改凭证。
 没有商户 HTTP 入口，也没有内部 HTTP 回退。
 
@@ -126,7 +125,7 @@ worker 默认 8 次尝试、5 秒起点退避、2 分钟租约、批次10；真�
 
 ## 当前证据与后续
 
-已有源端/消费编排、gRPC presence/int64/微秒/退款受理时间、缺口不伪造金额、原 ACK 重放、原 native attempt、
+已有源端/消费编排、DTO presence/精确金额/微秒/退款受理时间、缺口不伪造金额、原 ACK 重放、原 native attempt、
 领域不可变性与存储 nullable/时刻映射测试源码。未执行任何验证。
 
 后续需要源端实际 MySQL 账户隔离/多候选/退款 claim 一致性和索引证明、请求/Outbox/回执实际原子回滚、
@@ -140,4 +139,4 @@ FAILED 重试审计、业务提交后 ACK 丢失、并发同请求，以及过�
 返回的用例。测试只替换来源查询传输及外部对象字节；没有模拟业务存储或队列表。当前仅编写源码，没有执行。
 
 过期并发用例明确允许重复只读查询，但只有首份有效本地回执保持；新 worker 已提交后旧结果不会覆盖，旧 claim 也不能 ACK 新
-claim。不将这些尚未运行的断言视为实际集群租约/事务证明。源端 payment 实际查询 SQL、真实 gRPC 授权和渠道验收继续待办。
+claim。不将这些尚未运行的断言视为实际集群租约/事务证明。源端 payment 实际查询 SQL、真实 Dubbo Triple 授权和渠道验收继续待办。

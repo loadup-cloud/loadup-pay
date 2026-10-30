@@ -28,5 +28,5 @@ mvnd clean verify -pl acquire/acquire-infrastructure -Ppostgresql-it -Dit.test=A
 ```
 
 当前仅有源码，未进行 IDEA、编译、单测、Docker 或 PostgreSQL 运行。R1 尚无本轮通过证据。
-这些用例验证本地受理/收敛与原生持久化边界，不代表真实 payment gRPC/JWT/TLS、渠道资金、商户签名投递或多实例故障演练已通过。
+这些用例验证本地受理/收敛与原生持久化边界，不代表真实 payment Dubbo Triple/JWT/TLS、渠道资金、商户签名投递或多实例故障演练已通过。
 投影版本并发、其他 R1 组合故障，以及 review 全清单继续推进。

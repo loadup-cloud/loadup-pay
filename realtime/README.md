@@ -1,11 +1,11 @@
 # Realtime 独立交易投影
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 契约位于各服务
+> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需真实 PostgreSQL 与运行验收。
 
-应用间传输已于2026-10-23统一为 gRPC，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP 描述与 `*_BASE_URL`
-要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
-IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
+应用间传输已统一为 Dubbo Triple，见[RPC 规范](../design/RPC.md)。本文件旧批次中的内部 HTTP、gRPC 与 `*_BASE_URL`
+描述由该规范取代；商户/运营 HTTP 入口继续保留。Triple 随本应用 `*-business` 构建和运行 profile 装配，HTTP 端口 8080、
+Triple 端口 50051。本轮使用 Java 25 完成七应用及依赖的 `clean test-compile`，RPC 适配器单测通过；未启动服务或部署。
 
 本服务拥有独立数据库和版本化读模型，消费受信 acquire/payment 的完整快照，不查询交易源、不参与付款提交、订单占用或额度决策。
 订单、付款、退款及退款汇总生产端均已有源码；payment 新补 INIT 0、PROCESSING、UNKNOWN、CLOSING 的已提交版本快照，终态保持原独立投递。
