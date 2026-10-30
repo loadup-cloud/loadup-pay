@@ -171,7 +171,7 @@ class ReconciliationServiceTest {
         service.create(create);
         ready();
         var running = service.start(new ReconciliationBatchStartCommand(stored.get().batch().id()));
-        var failed = new DelayedTask("task", "tenant", ReconciliationExecutionService.TYPE, running.runId(),
+        var failed = new DelayedTask("task", ReconciliationExecutionService.TYPE, running.runId(),
                 AT, AT, DelayedTaskStatus.FAILED, 5, 5, null, null);
         when(tasks.find(ReconciliationExecutionService.TYPE, running.runId())).thenReturn(Optional.of(failed));
         var detail = service.task(new IdQuery(running.batchId()));
@@ -273,7 +273,7 @@ class ReconciliationServiceTest {
     }
 
     private DelayedTask task(String run, int attempt) {
-        return new DelayedTask("task", "tenant", ReconciliationExecutionService.TYPE, run, AT, AT, DelayedTaskStatus.RUNNING, attempt, 5, AT.plusMinutes(1), null);
+        return new DelayedTask("task", ReconciliationExecutionService.TYPE, run, AT, AT, DelayedTaskStatus.RUNNING, attempt, 5, AT.plusMinutes(1), null);
     }
 
     static final class Tx extends AbstractPlatformTransactionManager {

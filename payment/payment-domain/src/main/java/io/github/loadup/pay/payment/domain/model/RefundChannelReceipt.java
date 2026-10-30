@@ -38,7 +38,9 @@ public record RefundChannelReceipt(String id, String refundId, RefundObservation
         Objects.requireNonNull(receivedAt);
         Objects.requireNonNull(disposition);
         require(factsDigest != null && factsDigest.matches("[0-9a-f]{64}") && sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
-        if (reasonCode != null) DomainChecks.text(reasonCode, 64);
+        if (reasonCode != null) {
+            DomainChecks.text(reasonCode, 64);
+        }
         require(disposition != RefundReceiptDisposition.CONFLICT || reasonCode != null, INVALID_ARGUMENT);
     }
 

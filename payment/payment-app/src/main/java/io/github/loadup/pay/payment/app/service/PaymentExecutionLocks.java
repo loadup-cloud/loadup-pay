@@ -42,17 +42,21 @@ public class PaymentExecutionLocks {
 
     public LockedPayment lock(String tenant, String paymentId, String originalService) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
         var initial = gates.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!initial.callerServiceId().equals(originalService)) throw new CommonException(ACTION_FORBIDDEN);
+        if (!initial.callerServiceId().equals(originalService)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var parent = gates.lockParent(tenant, initial.payment().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var gate = gates.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var current = payments.lockPayment(tenant, paymentId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         codec.decode(current);
         if (!paymentId.equals(initial.payment().id()) || !paymentId.equals(current.payment().id())
-                || !current.callerServiceId().equals(originalService) || !initial.payment().orderId().equals(current.payment().orderId()))
+                || !current.callerServiceId().equals(originalService) || !initial.payment().orderId().equals(current.payment().orderId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return PaymentExecutionBindings.locked(current, parent, gate);
     }
 

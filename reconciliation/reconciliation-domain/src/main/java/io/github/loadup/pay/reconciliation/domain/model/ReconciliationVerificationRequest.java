@@ -50,7 +50,9 @@ public record ReconciliationVerificationRequest(String id, ReconciliationReviewR
         require(reviewVersion >= 2L && reviewVersion % 2L == 0L && requestDigest != null && requestDigest.matches("[0-9a-f]{64}") && reference.matchKeyHash().equals(key.fingerprint()), INVALID_ARGUMENT);
         require(state != null && version == (state == ReconciliationVerificationState.INIT ? 0L : 1L)
                 && (state == ReconciliationVerificationState.RECORDED) == (receipt != null), INVALID_STATE);
-        if (receipt != null) receipt.requireKind(key.kind());
+        if (receipt != null) {
+            receipt.requireKind(key.kind());
+        }
     }
 
     public ReconciliationVerificationRequest complete(ReconciliationVerificationReceipt value) {

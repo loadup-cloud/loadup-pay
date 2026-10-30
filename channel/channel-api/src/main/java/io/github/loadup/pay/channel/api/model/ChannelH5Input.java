@@ -34,7 +34,9 @@ public record ChannelH5Input(@DiagnosticHidden String payerClientIp,
 
     private static boolean validIp(String value) {
         if (value == null || value.isBlank() || value.length() > 45 || value.indexOf('%') >= 0
-                || value.indexOf('[') >= 0 || value.indexOf(']') >= 0) return false;
+                || value.indexOf('[') >= 0 || value.indexOf(']') >= 0) {
+            return false;
+        }
         try {
             var address = InetAddress.ofLiteral(value);
             return !address.isAnyLocalAddress() && !address.isLoopbackAddress() && !address.isMulticastAddress();

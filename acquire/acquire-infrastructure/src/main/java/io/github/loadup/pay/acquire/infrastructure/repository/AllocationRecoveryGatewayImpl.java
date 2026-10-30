@@ -17,12 +17,11 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.domain.gateway.AllocationRecoveryGateway;
 import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryCursor;
 import io.github.loadup.pay.acquire.infrastructure.converter.AllocationRecoveryStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AllocationRecoveryCursorDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -45,7 +44,7 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
     private final Clock clock;
     private final AllocationRecoveryStorageConverter converter;
 
-    public AllocationRecoveryGatewayImpl(NamedParameterJdbcTemplate jdbc, AllocationRecoveryStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+    public AllocationRecoveryGatewayImpl(NamedParameterJdbcTemplate jdbc, AllocationRecoveryStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -84,7 +83,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
                 INSERT INTO allocation_recovery_cursor (id, tenant_id, created_at, updated_at, deleted, order_id, generation, due_at, completed)
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :generation, :dueAt, :completed)
                 """, new BeanPropertySqlParameterSource(row));
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -94,8 +95,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
                 && before.generation() == after.generation() && before.dueAt().equals(after.dueAt());
         boolean rescheduled = !before.completed() && !after.completed() && before.generation() != Long.MAX_VALUE
                 && after.generation() == before.generation() + 1 && after.dueAt().isAfter(before.dueAt());
-        if (!before.paymentId().equals(after.paymentId()) || !before.orderId().equals(after.orderId()) || (!completed && !rescheduled))
+        if (!before.paymentId().equals(after.paymentId()) || !before.orderId().equals(after.orderId()) || (!completed && !rescheduled)) {
             throw new CommonException(INVALID_STATE);
+        }
 
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.paymentId())
                 .addValue("order", before.orderId()).addValue("oldGeneration", before.generation()).addValue("oldDue", before.dueAt())
@@ -106,7 +108,9 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND order_id = :order
                     AND generation = :oldGeneration AND due_at = :oldDue AND completed = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private AllocationRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
@@ -122,12 +126,15 @@ public class AllocationRecoveryGatewayImpl implements AllocationRecoveryGateway 
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         trustedTenant(tenant);
     }
 
     private void trustedTenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

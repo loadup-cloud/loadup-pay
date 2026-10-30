@@ -73,11 +73,13 @@ public record OrderSnapshotEventDTO(
         Objects.requireNonNull(orderCreatedAt);
         Objects.requireNonNull(sourceUpdatedAt);
         require(!sourceUpdatedAt.isBefore(orderCreatedAt), INVALID_ARGUMENT);
-        if (orderCreatedAt != null)
+        if (orderCreatedAt != null) {
             orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (sourceUpdatedAt != null)
+        }
+        if (sourceUpdatedAt != null) {
             sourceUpdatedAt =
                     sourceUpdatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {

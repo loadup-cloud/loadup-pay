@@ -42,7 +42,9 @@ public interface ReconciliationVerificationStorageConverter {
     ReconciliationVerificationReceipt toReceipt(ReconciliationVerificationDO row);
 
     default Money amount(ReconciliationVerificationDO row) {
-        if ((row.getAmountMinor() == null) != (row.getCurrency() == null)) throw new CommonException(SNAPSHOT_INVALID);
+        if ((row.getAmountMinor() == null) != (row.getCurrency() == null)) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return row.getAmountMinor() == null ? null : Money.ofMinor(row.getAmountMinor(), row.getCurrency());
     }
 
@@ -56,12 +58,14 @@ public interface ReconciliationVerificationStorageConverter {
 
     default ReconciliationVerificationReceipt receipt(ReconciliationVerificationDO row) {
         if ("RECORDED".equals(row.getState())) {
-            if (row.getStartedEpochMicros() == null || row.getFinishedEpochMicros() == null)
+            if (row.getStartedEpochMicros() == null || row.getFinishedEpochMicros() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return toReceipt(row);
         }
-        if (row.getAcceptedEpochMicros() != null || row.getDisposition() != null || row.getBindingRevisionId() != null || row.getPaymentId() != null || row.getAttemptId() != null || row.getRefundId() != null || row.getSourceVersion() != null || row.getLocalState() != null || row.getOutcome() != null || row.getAmountMinor() != null || row.getCurrency() != null || row.getObservedChannelTransactionNo() != null || row.getObservedRefundTransactionNo() != null || row.getSucceededEpochMicros() != null || row.getSourceDigest() != null || row.getStartedEpochMicros() != null || row.getFinishedEpochMicros() != null)
+        if (row.getAcceptedEpochMicros() != null || row.getDisposition() != null || row.getBindingRevisionId() != null || row.getPaymentId() != null || row.getAttemptId() != null || row.getRefundId() != null || row.getSourceVersion() != null || row.getLocalState() != null || row.getOutcome() != null || row.getAmountMinor() != null || row.getCurrency() != null || row.getObservedChannelTransactionNo() != null || row.getObservedRefundTransactionNo() != null || row.getSucceededEpochMicros() != null || row.getSourceDigest() != null || row.getStartedEpochMicros() != null || row.getFinishedEpochMicros() != null) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return null;
     }
 
@@ -72,7 +76,7 @@ public interface ReconciliationVerificationStorageConverter {
     ReconciliationVerificationRequest toInitial(ReconciliationVerificationRequest value);
 
     @Mapping(target = "id", source = "value.id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "differenceId", source = "value.reference.differenceId")
     @Mapping(target = "batchId", source = "value.reference.batchId")
     @Mapping(target = "runId", source = "value.reference.runId")

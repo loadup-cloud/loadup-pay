@@ -12,7 +12,6 @@ import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
-import io.github.loadup.pay.payment.rpc.PaymentVerificationRpcFields;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationQuery;
 import org.mapstruct.AfterMapping;
@@ -24,21 +23,19 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-@Mapper(config=LoadUpMapStructConfig.class, componentModel="default", uses={PaymentVerificationRpcFields.class, RpcScalarMapper.class}, nullValueCheckStrategy=NullValueCheckStrategy.ALWAYS)
+@Mapper(config = LoadUpMapStructConfig.class, uses = {PaymentVerificationRpcFields.class, RpcScalarMapper.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
 public interface PaymentVerificationRpcMapper {
-    PaymentVerificationRpcMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(PaymentVerificationRpcMapper.class);
-
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="sourceRequestId", source="sourceRequestId"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="kind", source="kind"), @Mapping(target="merchantPaymentNo", source="merchantPaymentNo"), @Mapping(target="channelTransactionNo", source="channelTransactionNo"), @Mapping(target="channelRefundNo", source="channelRefundNo")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "sourceRequestId", source = "sourceRequestId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "kind", source = "kind"), @Mapping(target = "merchantPaymentNo", source = "merchantPaymentNo"), @Mapping(target = "channelTransactionNo", source = "channelTransactionNo"), @Mapping(target = "channelRefundNo", source = "channelRefundNo")})
     public WirePaymentVerificationQuery toWire(PaymentVerificationQuery value);
 
     public PaymentVerificationQuery fromWire(WirePaymentVerificationQuery value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="request", source="request"), @Mapping(target="disposition", source="disposition"), @Mapping(target="bindingRevisionId", source="bindingRevisionId"), @Mapping(target="paymentId", source="paymentId"), @Mapping(target="attemptId", source="attemptId"), @Mapping(target="refundId", source="refundId"), @Mapping(target="sourceVersion", source="sourceVersion"), @Mapping(target="localState", source="localState"), @Mapping(target="outcome", source="outcome"), @Mapping(target="observedChannelTransactionNo", source="observedChannelTransactionNo"), @Mapping(target="observedRefundTransactionNo", source="observedRefundTransactionNo"), @Mapping(target="succeededAt", source="succeededAt"), @Mapping(target="sourceDigest", source="sourceDigest"), @Mapping(target="startedAt", source="startedAt"), @Mapping(target="finishedAt", source="finishedAt"), @Mapping(target="acceptedAt", source="acceptedAt")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "request", source = "request"), @Mapping(target = "disposition", source = "disposition"), @Mapping(target = "bindingRevisionId", source = "bindingRevisionId"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "attemptId", source = "attemptId"), @Mapping(target = "refundId", source = "refundId"), @Mapping(target = "sourceVersion", source = "sourceVersion"), @Mapping(target = "localState", source = "localState"), @Mapping(target = "outcome", source = "outcome"), @Mapping(target = "observedChannelTransactionNo", source = "observedChannelTransactionNo"), @Mapping(target = "observedRefundTransactionNo", source = "observedRefundTransactionNo"), @Mapping(target = "succeededAt", source = "succeededAt"), @Mapping(target = "sourceDigest", source = "sourceDigest"), @Mapping(target = "startedAt", source = "startedAt"), @Mapping(target = "finishedAt", source = "finishedAt"), @Mapping(target = "acceptedAt", source = "acceptedAt")})
     public WirePaymentVerificationDTO toWire(PaymentVerificationDTO value);
 
-    @Mapping(target="amount", expression="java(amount(value))")
+    @Mapping(target = "amount", expression = "java(amount(value))")
     public PaymentVerificationDTO fromWire(WirePaymentVerificationDTO value);
 
     @AfterMapping
@@ -49,7 +46,7 @@ public interface PaymentVerificationRpcMapper {
     }
 
     default public Money amount(WirePaymentVerificationDTO value) {
-        return value.hasAmountMinor() ? Money.ofMinor((long)value.getAmountMinor(), (String)value.getCurrency()) : null;
+        return value.hasAmountMinor() ? Money.ofMinor((long) value.getAmountMinor(), (String) value.getCurrency()) : null;
     }
 
     @BeforeMapping
@@ -115,12 +112,11 @@ public interface PaymentVerificationRpcMapper {
 
     private void timestamp(Timestamp value) {
         try {
-            Timestamps.checkValid((Timestamp)value);
+            Timestamps.checkValid((Timestamp) value);
             if (value.getNanos() % 1000 != 0) {
                 this.invalid();
             }
-        }
-        catch (IllegalArgumentException malformed) {
+        } catch (IllegalArgumentException malformed) {
             this.invalid();
         }
     }
@@ -138,6 +134,6 @@ public interface PaymentVerificationRpcMapper {
     }
 
     private void invalid() {
-        throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+        throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
     }
 }

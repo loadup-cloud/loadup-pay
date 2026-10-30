@@ -67,7 +67,9 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
 
     @Override
     public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
         try {
@@ -76,16 +78,20 @@ public class RefundChannelCallbackService implements RefundChannelCallbackFacade
                 var target = targets.find(endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo(), hint.channelRefundNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
                 if (target.original().channel() != endpoint.channel() || !target.original().bindingRevisionId().equals(endpoint.bindingRevisionId())
-                        || !target.original().channelRequestNo().equals(hint.channelRequestNo()) || !target.channelRefundNo().equals(hint.channelRefundNo()))
+                        || !target.original().channelRequestNo().equals(hint.channelRequestNo()) || !target.channelRefundNo().equals(hint.channelRefundNo())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var verified = notifications.verifyRefund(target, input);
-                if (!target.equals(verified.refund())) throw new CommonException(SNAPSHOT_INVALID);
+                if (!target.equals(verified.refund())) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var query = channels.queryRefund(target);
                 if (query == null || query.source() != RefundObservation.Source.QUERY_RESPONSE || !target.refundId().equals(query.refundId())
                         || !target.original().equals(query.original()) || !target.channelRefundNo().equals(query.channelRefundNo())
                         || !target.originalChannelTransactionNo().equals(query.originalChannelTransactionNo()) || !target.amount().equals(query.amount())
-                        || query.channelRefundTransactionNo() != null && !verified.channelRefundTransactionNo().equals(query.channelRefundTransactionNo()))
+                        || query.channelRefundTransactionNo() != null && !verified.channelRefundTransactionNo().equals(query.channelRefundTransactionNo())) {
                     throw new CommonException(OUTCOME_UNKNOWN);
+                }
                 String notificationId = verified.notificationId();
                 String key = "refund-notification:" + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length
                         + ":" + notificationId + facts.factsDigest(query));

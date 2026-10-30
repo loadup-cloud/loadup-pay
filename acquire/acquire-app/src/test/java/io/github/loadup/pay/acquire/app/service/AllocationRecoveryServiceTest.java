@@ -106,7 +106,7 @@ class AllocationRecoveryServiceTest {
     }
 
     DelayedTask nativeTask(java.time.LocalDateTime leaseUntil) {
-        return new DelayedTask("task", "tenant", AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW,
+        return new DelayedTask("task", AllocationRecoveryQueue.TYPE, "payment.0", NOW, NOW,
                 DelayedTaskStatus.RUNNING, 1, 5, leaseUntil, null);
     }
 

@@ -58,38 +58,52 @@ public class AlipayCredentialReader {
     }
 
     public AlipayCredentials read(String tenant, ChannelBindingRevision binding) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!properties.enabled() || binding == null || binding.channel() != Channel.ALIPAY
-                || !(binding.identity() instanceof AlipayAccountIdentity identity))
+                || !(binding.identity() instanceof AlipayAccountIdentity identity)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         try {
             var document = read(properties.credentials(), binding.credentialReference(), binding.credentialVersion(), AlipayCredentialDocument.class);
             if (!tenant.equals(document.tenantId()) || !binding.credentialReference().equals(document.reference())
                     || !binding.credentialVersion().equals(document.version()) || !identity.appId().equals(document.appId())
-                    || document.signingKeyVersion() <= 0) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                    || document.signingKeyVersion() <= 0) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             var signer = new KmsKeyRef(document.signingKeyName(), document.signingKeyVersion());
             var publicKey = publicKey(document.platformPublicKey());
             String authorization = null;
             if (binding.accessMode() == AccessMode.DIRECT) {
-                if (!identity.sellerId().equals(document.sellerId()) || identity.authorizationReference() != null)
+                if (!identity.sellerId().equals(document.sellerId()) || identity.authorizationReference() != null) {
                     throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                }
             } else {
-                if (document.sellerId() != null && !identity.sellerId().equals(document.sellerId()))
+                if (document.sellerId() != null && !identity.sellerId().equals(document.sellerId())) {
                     throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                }
                 var delegated = read(properties.authorizations(), identity.authorizationReference(), identity.authorizationVersion(), AlipayAuthorizationDocument.class);
                 if (!tenant.equals(delegated.tenantId()) || !identity.authorizationReference().equals(delegated.reference())
                         || !identity.authorizationVersion().equals(delegated.version()) || !identity.appId().equals(delegated.appId())
-                        || !identity.sellerId().equals(delegated.sellerId()) || delegated.token() == null)
+                        || !identity.sellerId().equals(delegated.sellerId()) || delegated.token() == null) {
                     throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                }
                 byte[] plaintext = kms.decrypt(new KmsKeyRef(delegated.token().keyName(), delegated.token().version()), delegated.token());
-                if (plaintext == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                if (plaintext == null) {
+                    throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                }
                 try {
-                    if (plaintext.length == 0 || plaintext.length > 4096)
+                    if (plaintext.length == 0 || plaintext.length > 4096) {
                         throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                    }
                     authorization = new String(plaintext, StandardCharsets.UTF_8);
-                    if (!authorization.chars().allMatch(c -> c >= 33 && c <= 126))
+                    if (!authorization.chars().allMatch(c -> c >= 33 && c <= 126)) {
                         throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                    }
                 } finally {
                     Arrays.fill(plaintext, (byte) 0);
                 }
@@ -104,18 +118,24 @@ public class AlipayCredentialReader {
      * Verification needs only the frozen descriptor's platform key, never a signing or merchant authorization decrypt.
      */
     public PublicKey verificationKey(String tenant, ChannelBindingRevision binding) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!properties.enabled() || binding == null || binding.channel() != Channel.ALIPAY
-                || !(binding.identity() instanceof AlipayAccountIdentity identity))
+                || !(binding.identity() instanceof AlipayAccountIdentity identity)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         try {
             var document = read(properties.credentials(), binding.credentialReference(), binding.credentialVersion(), AlipayCredentialDocument.class);
             if (!tenant.equals(document.tenantId()) || !binding.credentialReference().equals(document.reference())
                     || !binding.credentialVersion().equals(document.version()) || !identity.appId().equals(document.appId())
                     || document.sellerId() != null && !identity.sellerId().equals(document.sellerId())
-                    || binding.accessMode() == AccessMode.DIRECT && !identity.sellerId().equals(document.sellerId()))
+                    || binding.accessMode() == AccessMode.DIRECT && !identity.sellerId().equals(document.sellerId())) {
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             return publicKey(document.platformPublicKey());
         } catch (RuntimeException invalid) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
@@ -123,14 +143,19 @@ public class AlipayCredentialReader {
     }
 
     private <T> T read(Map<String, Map<String, Path>> catalog, String reference, String version, Class<T> type) {
-        if (reference == null || version == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (reference == null || version == null) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         var path = catalog.getOrDefault(reference, Map.of()).get(version);
-        if (path == null || !path.isAbsolute()) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (path == null || !path.isAbsolute()) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         // Paths come exclusively from trusted configuration, never from concatenated resource references.
         try (var input = Files.newInputStream(path)) {
             byte[] payload = input.readNBytes(65537);
-            if (payload.length == 0 || payload.length > 65536)
+            if (payload.length == 0 || payload.length > 65536) {
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             return json.readValue(payload, type);
         } catch (Exception invalid) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
@@ -139,14 +164,18 @@ public class AlipayCredentialReader {
 
     private PublicKey publicKey(String value) {
         try {
-            if (value == null || value.length() > 8192) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            if (value == null || value.length() > 8192) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             String encoded = value.strip();
-            if (encoded.startsWith("-----BEGIN PUBLIC KEY-----") && encoded.endsWith("-----END PUBLIC KEY-----"))
+            if (encoded.startsWith("-----BEGIN PUBLIC KEY-----") && encoded.endsWith("-----END PUBLIC KEY-----")) {
                 encoded = encoded.substring("-----BEGIN PUBLIC KEY-----".length(),
                         encoded.length() - "-----END PUBLIC KEY-----".length());
+            }
             var key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(encoded.replaceAll("\\s", ""))));
-            if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048 || rsa.getModulus().bitLength() > 4096)
+            if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048 || rsa.getModulus().bitLength() > 4096) {
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             return key;
         } catch (Exception invalid) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);

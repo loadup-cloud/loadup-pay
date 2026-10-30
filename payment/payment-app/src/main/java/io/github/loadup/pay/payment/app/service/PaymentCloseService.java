@@ -29,7 +29,6 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentCloseEvidenceGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentCloseEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -60,7 +59,7 @@ public class PaymentCloseService {
     public PaymentCloseService(PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts, PaymentExecutionLocks locks,
                                PaymentCloseEvidenceGateway evidence, PaymentChannelGateway channels, PaymentResultService results,
                                PaymentAcceptanceTransactions transactions, PaymentCloseEvidenceConverter converter,
-                               @Qualifier("paymentClock") Clock clock) {
+                               Clock clock) {
         this.payments = payments;
         this.attempts = attempts;
         this.locks = locks;
@@ -73,9 +72,13 @@ public class PaymentCloseService {
     }
 
     public PaymentResultApplication close(String tenant, StoredPaymentAttempt original) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         DomainChecks.id(tenant);
-        if (original == null || original.attempt().executionEpoch() <= 0) throw new CommonException(INVALID_ARGUMENT);
+        if (original == null || original.attempt().executionEpoch() <= 0) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return transactions.withTenantContext(tenant, () -> closeOriginal(tenant, original));
     }
 
@@ -86,19 +89,27 @@ public class PaymentCloseService {
             PaymentExecutionBindings.observable(accepted, current);
             sameAttempt(original, current);
             var known = checked(evidence.find(tenant, current.attempt().id()), current);
-            if (known.isEmpty() && accepted.payment().state() != PaymentState.CLOSING)
+            if (known.isEmpty() && accepted.payment().state() != PaymentState.CLOSING) {
                 throw new CommonException(INVALID_STATE);
+            }
             return known;
         });
-        if (saved.isPresent()) return results.record(tenant, converter.toObservation(saved.get()));
+        if (saved.isPresent()) {
+            return results.record(tenant, converter.toObservation(saved.get()));
+        }
 
         var target = new ChannelPaymentTarget(original.attempt().identity(), original.attempt().amount());
         var observed = channels.close(target);
         if (observed == null || !target.identity().equals(observed.identity()) || !target.amount().equals(observed.amount())
-                || observed.source() != PaymentObservation.Source.QUERY_RESPONSE && observed.source() != PaymentObservation.Source.CLOSE_RESPONSE)
+                || observed.source() != PaymentObservation.Source.QUERY_RESPONSE && observed.source() != PaymentObservation.Source.CLOSE_RESPONSE) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (observed.kind() != ChannelPaymentOutcome.Kind.NO_COLLECTION) return results.record(tenant, observed);
-        if (observed.source() != PaymentObservation.Source.CLOSE_RESPONSE) throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (observed.kind() != ChannelPaymentOutcome.Kind.NO_COLLECTION) {
+            return results.record(tenant, observed);
+        }
+        if (observed.source() != PaymentObservation.Source.CLOSE_RESPONSE) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var recordedAt = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
         var proof = transactions.writeLocal(tenant, () -> {
             // The same parent -> payment gate -> payment -> attempt order as Y3; no remote IO under these locks.
@@ -107,7 +118,9 @@ public class PaymentCloseService {
             PaymentExecutionBindings.observableContext(locked, current);
             sameAttempt(original, current);
             var prior = checked(evidence.find(tenant, current.attempt().id()), current);
-            if (prior.isPresent()) return prior.get();
+            if (prior.isPresent()) {
+                return prior.get();
+            }
             var value = converter.toEvidence(observed, current.attempt().executionEpoch(), recordedAt);
             evidence.insert(tenant, value);
             return value;
@@ -119,8 +132,9 @@ public class PaymentCloseService {
     private Optional<PaymentCloseEvidence> checked(Optional<PaymentCloseEvidence> value, StoredPaymentAttempt current) {
         value.ifPresent(proof -> {
             if (!proof.identity().equals(current.attempt().identity()) || !proof.amount().equals(current.attempt().amount())
-                    || proof.executionEpoch() != current.attempt().executionEpoch())
+                    || proof.executionEpoch() != current.attempt().executionEpoch()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
         });
         return value;
     }
@@ -128,7 +142,8 @@ public class PaymentCloseService {
     private void sameAttempt(StoredPaymentAttempt original, StoredPaymentAttempt current) {
         if (!original.attempt().identity().equals(current.attempt().identity()) || !original.attempt().amount().equals(current.attempt().amount())
                 || original.attempt().method() != current.attempt().method() || original.attempt().executionEpoch() != current.attempt().executionEpoch()
-                || !original.callerServiceId().equals(current.callerServiceId()) || !original.paymentRequestDigest().equals(current.paymentRequestDigest()))
+                || !original.callerServiceId().equals(current.callerServiceId()) || !original.paymentRequestDigest().equals(current.paymentRequestDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

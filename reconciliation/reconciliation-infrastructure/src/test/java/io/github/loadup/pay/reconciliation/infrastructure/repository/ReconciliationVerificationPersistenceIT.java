@@ -77,7 +77,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -172,8 +171,9 @@ class ReconciliationVerificationPersistenceIT {
 
     private static void await(CountDownLatch gate) {
         try {
-            if (!gate.await(15, TimeUnit.SECONDS))
+            if (!gate.await(15, TimeUnit.SECONDS)) {
                 throw new AssertionError("Timed out waiting for controlled owner response");
+            }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new AssertionError(interrupted);
@@ -426,8 +426,9 @@ class ReconciliationVerificationPersistenceIT {
     }
 
     private long count(String table, String tenant) {
-        if (!Set.of("reconciliation_verification", "loadup_outbox_event", "loadup_outbox_replay", "reconciliation_difference", "reconciliation_review_event").contains(table))
+        if (!Set.of("reconciliation_verification", "loadup_outbox_event", "loadup_outbox_replay", "reconciliation_difference", "reconciliation_review_event").contains(table)) {
             throw new AssertionError("Unexpected table");
+        }
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
     }
 
@@ -489,15 +490,17 @@ class ReconciliationVerificationPersistenceIT {
         @Override
         public void insert(String tenant, ReconciliationVerificationRequest value) {
             super.insert(tenant, value);
-            if (failure.compareAndSet("insert", null))
+            if (failure.compareAndSet("insert", null)) {
                 throw new IllegalStateException("Injected after actual request INSERT");
+            }
         }
 
         @Override
         public void update(String tenant, ReconciliationVerificationRequest value, long expectedVersion) {
             super.update(tenant, value, expectedVersion);
-            if (failure.compareAndSet("update", null))
+            if (failure.compareAndSet("update", null)) {
                 throw new IllegalStateException("Injected after actual receipt UPDATE");
+            }
         }
     }
 
@@ -517,8 +520,9 @@ class ReconciliationVerificationPersistenceIT {
         @Override
         public void handle(OutboxEvent event) {
             delivery.deliver(event);
-            if (failAfterCommit.compareAndSet(true, false))
+            if (failAfterCommit.compareAndSet(true, false)) {
                 throw new IllegalStateException("Injected after receipt commit before native ACK");
+            }
         }
     }
 
@@ -545,7 +549,7 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Bean
-        FaultingVerifications verifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, @Qualifier("reconciliationClock") Clock clock) {
+        FaultingVerifications verifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, Clock clock) {
             return new FaultingVerifications(converter, jdbc, clock);
         }
 
@@ -564,8 +568,9 @@ class ReconciliationVerificationPersistenceIT {
 
                 @Override
                 public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
-                    if (!Set.of("maker", "checker", "ops").contains(caller) || !"account".equals(code))
+                    if (!Set.of("maker", "checker", "ops").contains(caller) || !"account".equals(code)) {
                         throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
+                    }
                 }
 
                 @Override

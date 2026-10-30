@@ -83,7 +83,6 @@ class LimitPolicyCodecTest {
         var at = LocalDateTime.of(2026, 10, 21, 10, 0, 5, 123456000);
         var value = converter.toPolicy(command, at);
         var row = new LimitPolicyRevisionDO();
-        row.setTenantId("tenant");
         row.setPolicyId("policy");
         row.setPolicyVersion(1);
         row.setPolicyHash(command.policyHash());

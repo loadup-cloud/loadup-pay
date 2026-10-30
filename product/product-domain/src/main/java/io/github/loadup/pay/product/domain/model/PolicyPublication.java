@@ -62,10 +62,16 @@ public record PolicyPublication(
         Objects.requireNonNull(requestedAt);
         require(requestedAt.getNano() % 1000 == 0, INVALID_ARGUMENT);
         require(java.util.Set.of("INIT", "PUBLISHING", "ACTIVE").contains(state), INVALID_STATE);
-        if ("INIT".equals(state)) require(outboxEventId == null && activatedAt == null, INVALID_STATE);
-        else DomainChecks.id(outboxEventId);
-        if ("ACTIVE".equals(state)) require(activatedAt != null && activatedAt.getNano() % 1000 == 0, INVALID_STATE);
-        else require(activatedAt == null, INVALID_STATE);
+        if ("INIT".equals(state)) {
+            require(outboxEventId == null && activatedAt == null, INVALID_STATE);
+        } else {
+            DomainChecks.id(outboxEventId);
+        }
+        if ("ACTIVE".equals(state)) {
+            require(activatedAt != null && activatedAt.getNano() % 1000 == 0, INVALID_STATE);
+        } else {
+            require(activatedAt == null, INVALID_STATE);
+        }
     }
 
     public PolicyPublication publishing(String event) {

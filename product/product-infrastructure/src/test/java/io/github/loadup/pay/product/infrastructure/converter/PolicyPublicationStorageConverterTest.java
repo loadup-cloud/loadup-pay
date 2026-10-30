@@ -52,7 +52,6 @@ class PolicyPublicationStorageConverterTest {
             var converter = context.getBean(PolicyPublicationStorageConverter.class);
             for (var model : List.of(init, publishing, active)) {
                 var row = converter.toDO("tenant", model);
-                assertEquals("tenant", row.getTenantId());
                 assertEquals(model, converter.toModel(row));
             }
         }

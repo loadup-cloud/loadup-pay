@@ -21,7 +21,6 @@ import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -35,7 +34,7 @@ public class CashierAccess {
     private final CheckoutSessionGateway sessions;
     private final Clock clock;
 
-    public CashierAccess(CheckoutSessionGateway sessions, @Qualifier("acquireClock") Clock clock) {
+    public CashierAccess(CheckoutSessionGateway sessions, Clock clock) {
         this.sessions = sessions;
         this.clock = clock;
     }
@@ -43,17 +42,21 @@ public class CashierAccess {
     public StoredCheckoutSession read(CashierActor actor, StoredAcquireOrder order, String permission) {
         var session = bound(actor, order, permission);
         if (session.revokedAt() != null || !now().isBefore(session.session().expiresAt()) || !(session.session().state() == CheckoutSessionState.ACTIVE
-                || session.session().state() == CheckoutSessionState.COMPLETED))
+                || session.session().state() == CheckoutSessionState.COMPLETED)) {
             throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         return session;
     }
 
     void authorize(CashierActor actor, String owner, StoredAcquireOrder order, boolean creating) {
-        if (!owner.equals(order.callerScopeHash())) throw new CommonException(SESSION_UNAUTHORIZED);
+        if (!owner.equals(order.callerScopeHash())) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         var stored = bound(actor, order, "PAYMENT_START");
         // A committed A2 intent may finish after capability expiry; only new reservations need a live session.
-        if (creating && (stored.revokedAt() != null || !stored.session().permits(actor.orderId(), now())))
+        if (creating && (stored.revokedAt() != null || !stored.session().permits(actor.orderId(), now()))) {
             throw new CommonException(SESSION_UNAUTHORIZED);
+        }
     }
 
     private StoredCheckoutSession bound(CashierActor actor, StoredAcquireOrder order, String permission) {
@@ -62,7 +65,9 @@ public class CashierAccess {
         if (!actor.sessionId().equals(stored.session().id()) || !actor.orderId().equals(stored.session().orderId())
                 || !actor.orderId().equals(order.order().id()) || !actor.expiresAt().equals(stored.session().expiresAt())
                 || !stored.payeeMerchantId().equals(order.order().payeeMerchantId()) || !stored.scope().callerScopeHash().equals(order.callerScopeHash())
-                || !stored.scope().permissions().contains(permission)) throw new CommonException(SESSION_UNAUTHORIZED);
+                || !stored.scope().permissions().contains(permission)) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         return stored;
     }
 

@@ -108,8 +108,9 @@ class AlipayNotificationCodecTest {
 
     private static String signatureFrom(String form) {
         for (var entry : form.split("&")) {
-            if (entry.startsWith("sign="))
+            if (entry.startsWith("sign=")) {
                 return java.net.URLDecoder.decode(entry.substring(5), StandardCharsets.UTF_8);
+            }
         }
         return "";
     }

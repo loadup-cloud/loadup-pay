@@ -167,7 +167,9 @@ class WechatTradeStatementParserTest {
 
     private String statement(List<String[]> rows, String... totals) {
         var out = new StringBuilder(WechatTradeStatementParser.HEADER).append('\n');
-        for (var row : rows) out.append(encoded(row)).append('\n');
+        for (var row : rows) {
+            out.append(encoded(row)).append('\n');
+        }
         return out.append(WechatTradeStatementParser.TOTAL_HEADER).append('\n').append(encoded(totals)).append('\n').toString();
     }
 

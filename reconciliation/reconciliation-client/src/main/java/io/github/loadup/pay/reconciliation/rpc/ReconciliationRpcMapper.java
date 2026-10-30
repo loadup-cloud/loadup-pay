@@ -13,7 +13,6 @@ import io.github.loadup.pay.reconciliation.client.dto.ReconciliationBatchTaskDTO
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationInputDTO;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
-import io.github.loadup.pay.reconciliation.rpc.ReconciliationRpcFields;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchCreateCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchQuery;
@@ -22,7 +21,6 @@ import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStar
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputDTO;
-import java.util.Set;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.BeforeMapping;
 import org.mapstruct.Mapper;
@@ -30,54 +28,54 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-@Mapper(config=LoadUpMapStructConfig.class, componentModel="default", uses={ReconciliationRpcFields.class}, nullValueCheckStrategy=NullValueCheckStrategy.ALWAYS)
-public interface ReconciliationRpcMapper {
-    ReconciliationRpcMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(ReconciliationRpcMapper.class);
+import java.util.Set;
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="requestKey", source="requestKey"), @Mapping(target="channelAccountCode", source="channelAccountCode"), @Mapping(target="billDate", source="billDate")})
+@Mapper(config = LoadUpMapStructConfig.class, uses = {ReconciliationRpcFields.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
+public interface ReconciliationRpcMapper {
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "requestKey", source = "requestKey"), @Mapping(target = "channelAccountCode", source = "channelAccountCode"), @Mapping(target = "billDate", source = "billDate")})
     public WireReconciliationBatchCreateCommand toWire(ReconciliationBatchCreateCommand value);
 
     public ReconciliationBatchCreateCommand fromWire(WireReconciliationBatchCreateCommand value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="batchId", source="batchId"), @Mapping(target="side", source="side"), @Mapping(target="artifactId", source="artifactId")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "side", source = "side"), @Mapping(target = "artifactId", source = "artifactId")})
     public WireReconciliationInputAttachCommand toWire(ReconciliationInputAttachCommand value);
 
     public ReconciliationInputAttachCommand fromWire(WireReconciliationInputAttachCommand value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mapping(target="batchId", source="batchId")
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "batchId", source = "batchId")
     public WireReconciliationBatchStartCommand toWire(ReconciliationBatchStartCommand value);
 
     public ReconciliationBatchStartCommand fromWire(WireReconciliationBatchStartCommand value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="batchId", source="batchId"), @Mapping(target="runId", source="runId"), @Mapping(target="expectedTaskId", source="expectedTaskId")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "runId", source = "runId"), @Mapping(target = "expectedTaskId", source = "expectedTaskId")})
     public WireReconciliationBatchRetryCommand toWire(ReconciliationBatchRetryCommand value);
 
     public ReconciliationBatchRetryCommand fromWire(WireReconciliationBatchRetryCommand value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="runId", source="runId"), @Mapping(target="taskId", source="taskId"), @Mapping(target="nativeStatus", source="nativeStatus")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "runId", source = "runId"), @Mapping(target = "taskId", source = "taskId"), @Mapping(target = "nativeStatus", source = "nativeStatus")})
     public WireReconciliationBatchTaskDTO toWire(ReconciliationBatchTaskDTO value);
 
     public ReconciliationBatchTaskDTO fromWire(WireReconciliationBatchTaskDTO value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="batchId", source="batchId"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="billDate", source="billDate"), @Mapping(target="statementProfile", source="statementProfile"), @Mapping(target="state", source="state"), @Mapping(target="channelInput", source="channelInput"), @Mapping(target="ledgerInput", source="ledgerInput"), @Mapping(target="runId", source="runId"), @Mapping(target="matchedCount", source="matchedCount"), @Mapping(target="differenceCount", source="differenceCount"), @Mapping(target="resultHash", source="resultHash"), @Mapping(target="version", source="version"), @Mapping(target="taskId", source="taskId"), @Mapping(target="nativeStatus", source="nativeStatus")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile"), @Mapping(target = "state", source = "state"), @Mapping(target = "channelInput", source = "channelInput"), @Mapping(target = "ledgerInput", source = "ledgerInput"), @Mapping(target = "runId", source = "runId"), @Mapping(target = "matchedCount", source = "matchedCount"), @Mapping(target = "differenceCount", source = "differenceCount"), @Mapping(target = "resultHash", source = "resultHash"), @Mapping(target = "version", source = "version"), @Mapping(target = "taskId", source = "taskId"), @Mapping(target = "nativeStatus", source = "nativeStatus")})
     public WireReconciliationBatchDTO toWire(ReconciliationBatchDTO value);
 
     public ReconciliationBatchDTO fromWire(WireReconciliationBatchDTO value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="side", source="side"), @Mapping(target="artifactId", source="artifactId"), @Mapping(target="artifactSha256", source="artifactSha256"), @Mapping(target="normalizedSha256", source="normalizedSha256"), @Mapping(target="sourceCaptureId", source="sourceCaptureId"), @Mapping(target="parserRevision", source="parserRevision"), @Mapping(target="paymentCount", source="paymentCount"), @Mapping(target="paymentAmountMinor", source="paymentAmountMinor"), @Mapping(target="refundCount", source="refundCount"), @Mapping(target="refundAmountMinor", source="refundAmountMinor")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "side", source = "side"), @Mapping(target = "artifactId", source = "artifactId"), @Mapping(target = "artifactSha256", source = "artifactSha256"), @Mapping(target = "normalizedSha256", source = "normalizedSha256"), @Mapping(target = "sourceCaptureId", source = "sourceCaptureId"), @Mapping(target = "parserRevision", source = "parserRevision"), @Mapping(target = "paymentCount", source = "paymentCount"), @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"), @Mapping(target = "refundCount", source = "refundCount"), @Mapping(target = "refundAmountMinor", source = "refundAmountMinor")})
     public WireReconciliationInputDTO toWire(ReconciliationInputDTO value);
 
     public ReconciliationInputDTO fromWire(WireReconciliationInputDTO value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mapping(target="id", source="id")
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "id")
     public WireReconciliationBatchQuery toWire(IdQuery value);
 
     public IdQuery fromWire(WireReconciliationBatchQuery value);
@@ -142,8 +140,7 @@ public interface ReconciliationRpcMapper {
         }
         try {
             Math.addExact(value.getPaymentCount(), value.getRefundCount());
-        }
-        catch (ArithmeticException overflow) {
+        } catch (ArithmeticException overflow) {
             this.invalid();
         }
     }
@@ -205,6 +202,6 @@ public interface ReconciliationRpcMapper {
     }
 
     private void invalid() {
-        throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+        throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
     }
 }

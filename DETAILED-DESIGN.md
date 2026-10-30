@@ -38,7 +38,8 @@ acquire/
 payment/customer/product/limitcenter/realtime 使用相同职责划分；模块数量可随实现阶段合并，依赖方向不变。`adapter` 对应框架可选
 web 层。2026-10-30源码更新：应用间统一使用 Dubbo Triple 的 Protobuf 纯 IDL 模式，Java Facade 归各服务 *-client，
 *.proto/生成存根/Wire mapper 归 *-client，适配器用 `@DubboService` 实现生成的 `ImplBase`，消费方在 *-infrastructure 用
-`@DubboReference` 引用生成接口；框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc` 子包，domain/app 不直接引用 protobuf。
+`@DubboReference` 引用生成接口；框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc`
+子包，domain/app 不直接引用 protobuf。
 
 ```mermaid
 flowchart LR
@@ -344,25 +345,26 @@ realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版
 
 以下已核对当前仓库README与源码。链接是设计依据，不表示收单平台已经接入。
 
-| 现有能力                                                                                                                           | 具体复用                                                         | 收单平台新增                                                                                 |
-|------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [merchant](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md)                                                   | MerchantFacade、MerchantQueryFacade、merchant_profile            | customer远程事实、关系和逐项授权；不另建重复商户主档                                         |
-| [contract](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md)                                             | catalog/contract/revision、ContractResolveFacade和强类型配置合并 | OrderAdmission持久决策、合约停单锁、收单参数编译、limit激活协议；现有resolve不能直接代替准入 |
-| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                        | Spring Data JDBC、Spring JDBC、IdGenerator、sequence、Flyway     | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
-| [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)                                     | OutboxTemplate/Message/Inbox/Handler及组件迁移                   | 目标类型、业务事实ID、事件内容、重投/差异流程                                                |
-| [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)                           | 事务register、handler、失败管理                                  | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务                            |
-| [Dubbo Triple binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md) | 原生 `@DubboService`/`@DubboReference`、Protobuf IDL | JWT 透传、安全上下文隔离、超时/幂等/业务结果映射 |
-| [signature](../loadup-framework/loadup-components/security/loadup-components-signature/README.md) / KMS                            | RequestSigner/Verifier、原始字节签名、nonce store、密钥引用      | 商户身份映射和通知语义ACK；渠道签名仍由各渠道adapter负责                                     |
-| resource-server / authorization / UPMS                                                                                             | 操作员与调用者令牌、动作授权                                     | payee与父子商户作用域校验；cashier订单scope，不新增付款人账号                                |
-| webmvc / springdoc / commons                                                                                                       | SuccessResponse、FailureResponse、PageDTO/PageResponse、统一异常 | 业务ResultCode及外部渠道回调专用ACK适配                                                      |
-| http / observability / resilience4j                                                                                                | HTTP连接、超时、Micrometer/Observation、LogUtil                  | 只对可安全重试的操作配置策略，不能给扣款POST加盲目自动重试                                   |
-| file/DFS（后置）                                                                                                                   | 对账文件存储引用、任务基础设施                                   | reconciliation完整领域后置                                                                   |
+| 现有能力                                                                                                                                    | 具体复用                                                         | 收单平台新增                                                                                 |
+|---------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [merchant](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md)                                                            | MerchantFacade、MerchantQueryFacade、merchant_profile            | customer远程事实、关系和逐项授权；不另建重复商户主档                                         |
+| [contract](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md)                                                      | catalog/contract/revision、ContractResolveFacade和强类型配置合并 | OrderAdmission持久决策、合约停单锁、收单参数编译、limit激活协议；现有resolve不能直接代替准入 |
+| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                                 | Spring Data JDBC、Spring JDBC、IdGenerator、sequence、Flyway     | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
+| [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)                                              | OutboxTemplate/Message/Inbox/Handler及组件迁移                   | 目标类型、业务事实ID、事件内容、重投/差异流程                                                |
+| [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)                                    | 事务register、handler、失败管理                                  | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务                            |
+| [Dubbo Triple binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md) | 原生 `@DubboService`/`@DubboReference`、Protobuf IDL             | JWT 透传、安全上下文隔离、超时/幂等/业务结果映射                                             |
+| [signature](../loadup-framework/loadup-components/security/loadup-components-signature/README.md) / KMS                                     | RequestSigner/Verifier、原始字节签名、nonce store、密钥引用      | 商户身份映射和通知语义ACK；渠道签名仍由各渠道adapter负责                                     |
+| resource-server / authorization / UPMS                                                                                                      | 操作员与调用者令牌、动作授权                                     | payee与父子商户作用域校验；cashier订单scope，不新增付款人账号                                |
+| webmvc / springdoc / commons                                                                                                                | SuccessResponse、FailureResponse、PageDTO/PageResponse、统一异常 | 业务ResultCode及外部渠道回调专用ACK适配                                                      |
+| http / observability / resilience4j                                                                                                         | HTTP连接、超时、Micrometer/Observation、LogUtil                  | 只对可安全重试的操作配置策略，不能给扣款POST加盲目自动重试                                   |
+| file/DFS（后置）                                                                                                                            | 对账文件存储引用、任务基础设施                                   | reconciliation完整领域后置                                                                   |
 
 框架contract阶段一是扁平字段路径和STRING/INTEGER/DECIMAL/BOOLEAN强类型值，不支持任意对象/数组Schema。收单平台按[配置设计](design/CONTRACT-SCHEMA.md)
 编译，不能把一个尚不存在的JSON Schema引擎写成已复用能力。
 
 继续使用Kubernetes
-Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部 Dubbo Triple 生产需限定同 Namespace 并启用 TLS/服务身份；不能把 attachment 中自报 tenant 等同于认证。
+Service/DNS、Headlamp和ConfigMap/Secret；不增加Nacos。业务条款存product，技术连接配置存ConfigMap，密钥使用Secret/KMS引用。内部
+Dubbo Triple 生产需限定同 Namespace 并启用 TLS/服务身份；不能把 attachment 中自报 tenant 等同于认证。
 
 ## 13. 实施顺序与验收设计
 

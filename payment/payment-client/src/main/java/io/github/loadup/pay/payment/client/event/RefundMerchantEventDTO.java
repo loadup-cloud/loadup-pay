@@ -70,7 +70,9 @@ public record RefundMerchantEventDTO(
         require(!"SUCCEEDED".equals(state) || succeededMinor == amountMinor, CONFLICT);
         require(!"FAILED".equals(state) || failedMinor == amountMinor, CONFLICT);
         require(!"PARTIAL_SUCCEEDED".equals(state) || succeededMinor > 0 && failedMinor > 0, CONFLICT);
-        if (succeededAt != null) succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        if (succeededAt != null) {
+            succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     public String aggregateId() {

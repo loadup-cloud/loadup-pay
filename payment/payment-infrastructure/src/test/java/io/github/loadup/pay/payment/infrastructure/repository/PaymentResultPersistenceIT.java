@@ -411,7 +411,7 @@ class PaymentResultPersistenceIT {
         try {
             var expired = claim(fixture, 0L);
             clock.advance(Duration.ofSeconds(6));
-            var noLease = assertThrows(CommonException.class, () -> handle(expired));
+            var noLease = assertThrows(CommonException.class, () -> handle(fixture, expired));
             assertEquals(INVALID_STATE, noLease.getResultCode());
             verifyNoInteractions(remote.channels);
 
@@ -419,10 +419,10 @@ class PaymentResultPersistenceIT {
             assertEquals(expired.getId(), current.getId());
             assertEquals(2, current.getAttempts());
             assertNotEquals(expired.getClaimToken(), current.getClaimToken());
-            var staleClaim = assertThrows(CommonException.class, () -> handle(expired));
+            var staleClaim = assertThrows(CommonException.class, () -> handle(fixture, expired));
             assertEquals(INVALID_STATE, staleClaim.getResultCode());
             verifyNoInteractions(remote.channels);
-            handle(current);
+            handle(fixture, current);
             assertTrue(taskStore.finish(current, now(), true, taskProperties));
             assertFalse(taskStore.finish(expired, now(), true, taskProperties));
             assertSettledOnce(fixture);
@@ -446,14 +446,14 @@ class PaymentResultPersistenceIT {
         remote.pause.set(paused);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             var oldClaim = claim(fixture, 0L);
-            var oldWorker = workers.submit(() -> handle(oldClaim));
+            var oldWorker = workers.submit(() -> handle(fixture, oldClaim));
             try {
                 assertTrue(paused.entered.await(10, TimeUnit.SECONDS));
                 clock.advance(Duration.ofSeconds(6));
                 var replacement = claim(fixture, 0L);
                 assertEquals(oldClaim.getId(), replacement.getId());
                 assertEquals(2, replacement.getAttempts());
-                handle(replacement);
+                handle(fixture, replacement);
                 assertTrue(taskStore.finish(replacement, now(), true, taskProperties));
                 assertCursor(fixture, 1L, false);
                 assertNativeCount(fixture, 2L);
@@ -465,7 +465,7 @@ class PaymentResultPersistenceIT {
                 clock.advance(Duration.ofSeconds(30));
                 var successor = claim(fixture, 1L);
                 assertNotEquals(oldClaim.getId(), successor.getId());
-                handle(successor);
+                handle(fixture, successor);
                 assertTrue(taskStore.finish(successor, now(), true, taskProperties));
                 assertCursor(fixture, 1L, true);
             } finally {
@@ -501,7 +501,7 @@ class PaymentResultPersistenceIT {
                 return true;
             });
             var future = claim(fixture, 1L);
-            var rejected = assertThrows(CommonException.class, () -> handle(future));
+            var rejected = assertThrows(CommonException.class, () -> handle(fixture, future));
             assertEquals(SNAPSHOT_INVALID, rejected.getResultCode());
             assertTrue(taskStore.finish(future, now(), false, taskProperties));
             verifyNoInteractions(remote.channels);
@@ -509,7 +509,7 @@ class PaymentResultPersistenceIT {
             assertUnsettled(fixture);
 
             var original = claim(fixture, 0L);
-            handle(original);
+            handle(fixture, original);
             assertTrue(taskStore.finish(original, now(), true, taskProperties));
             assertSettledOnce(fixture);
             assertCursor(fixture, 0L, true);
@@ -650,7 +650,9 @@ class PaymentResultPersistenceIT {
             assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> transactions.writeLocal(first.tenant(),
                     () -> unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION, new UnknownRecoveryWindow(AT, null, null, 10)))).getResultCode());
         } finally {
-            for (var fixture : List.of(first, second, outsider)) cancelRemainingTasks(fixture);
+            for (var fixture : List.of(first, second, outsider)) {
+                cancelRemainingTasks(fixture);
+            }
         }
     }
 
@@ -777,14 +779,13 @@ class PaymentResultPersistenceIT {
 
     private DelayedTaskDO claim(Fixture fixture, long generation) {
         var claimed = taskStore.claim(now(), taskProperties).orElseThrow();
-        assertEquals(fixture.tenant(), claimed.getTenantId());
         assertEquals(PaymentRecoveryService.TYPE, claimed.getTaskType());
         assertEquals(recoveryKey(fixture, generation), claimed.getBizId());
         return claimed;
     }
 
-    private void handle(DelayedTaskDO claimed) {
-        transactions.withTenantContext(claimed.getTenantId(), () -> {
+    private void handle(Fixture fixture, DelayedTaskDO claimed) {
+        transactions.withTenantContext(fixture.tenant(), () -> {
             handler.handle(taskConverter.toTask(claimed));
             return true;
         });
@@ -815,8 +816,9 @@ class PaymentResultPersistenceIT {
 
     private void cancelRemainingTasks(Fixture fixture) {
         transactions.writeLocal(fixture.tenant(), () -> {
-            for (long generation = 0; generation <= 2; generation++)
+            for (long generation = 0; generation <= 2; generation++) {
                 tasks.cancel(PaymentRecoveryService.TYPE, recoveryKey(fixture, generation));
+            }
             return true;
         });
     }
@@ -886,7 +888,9 @@ class PaymentResultPersistenceIT {
         final AtomicReference<FailurePoint> next = new AtomicReference<>();
 
         void after(FailurePoint point) {
-            if (next.compareAndSet(point, null)) throw new IllegalStateException("Injected after " + point);
+            if (next.compareAndSet(point, null)) {
+                throw new IllegalStateException("Injected after " + point);
+            }
         }
     }
 
@@ -970,7 +974,9 @@ class PaymentResultPersistenceIT {
                 assertEquals(fixture.command().payableUntil(), request.payableUntil());
                 var observation = observations.get(request.identity().attemptId());
                 var blocked = pause.getAndSet(null);
-                if (blocked != null) blocked.waitForRelease();
+                if (blocked != null) {
+                    blocked.waitForRelease();
+                }
                 return new ChannelPaymentSubmission(request.identity(), request.amount(), observation, null);
             });
             when(channels.close(any())).thenAnswer(call -> {
@@ -1032,7 +1038,7 @@ class PaymentResultPersistenceIT {
         @Bean
         FaultingResults results(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
                                 PaymentResultStorageConverter converter,
-                                @org.springframework.beans.factory.annotation.Qualifier("databaseClock") Clock databaseClock, Faults faults) {
+                                Clock databaseClock, Faults faults) {
             return new FaultingResults(jdbc, converter, databaseClock, faults);
         }
 

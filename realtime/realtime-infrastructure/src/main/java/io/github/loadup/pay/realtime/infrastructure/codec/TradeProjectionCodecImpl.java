@@ -102,8 +102,9 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
         try {
             bounded(payload);
             var value = mapper.readValue(payload, type);
-            if (value == null || !hash(mapper.writeValueAsString(value)).equals(expectedHash))
+            if (value == null || !hash(mapper.writeValueAsString(value)).equals(expectedHash)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -111,8 +112,9 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
     }
 
     private String bounded(String payload) {
-        if (payload == null || payload.getBytes(StandardCharsets.UTF_8).length > 1048576)
+        if (payload == null || payload.getBytes(StandardCharsets.UTF_8).length > 1048576) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
@@ -130,8 +132,9 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
         var data = new StringBuilder();
         for (var field : List.of("realtime-delivery-v1", tenant, service, event.deliveryId(), event.businessEventId(), event.producer(),
                 event.eventType(), Integer.toString(event.schemaVersion()), event.aggregateId(), Long.toString(event.aggregateVersion()),
-                event.occurredAt().toString(), factsHash))
+                event.occurredAt().toString(), factsHash)) {
             data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return hash(data.toString());
     }
 }

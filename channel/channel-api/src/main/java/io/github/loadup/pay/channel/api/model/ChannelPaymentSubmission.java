@@ -36,12 +36,18 @@ public record ChannelPaymentSubmission(ChannelPaymentIdentity identity, Money am
         require(amount.getCent() > 0 && (observation != null || action != null), INVALID_ARGUMENT);
         if (observation != null) {
             require(identity.equals(observation.identity()) && amount.equals(observation.amount()), INVALID_ARGUMENT);
-            if (action != null) require(observation.kind() == ChannelPaymentOutcome.Kind.ACCEPTED, INVALID_ARGUMENT);
+            if (action != null) {
+                require(observation.kind() == ChannelPaymentOutcome.Kind.ACCEPTED, INVALID_ARGUMENT);
+            }
         }
-        if (action != null) require(action.channel() == identity.channel(), INVALID_ARGUMENT);
+        if (action != null) {
+            require(action.channel() == identity.channel(), INVALID_ARGUMENT);
+        }
         require((observation == null) == (action instanceof AlipayH5ChannelAction), INVALID_ARGUMENT);
-        if (action instanceof AlipayJsapiChannelAction alipay) require(observation != null
-                && alipay.tradeNo().equals(observation.channelTransactionNo()), INVALID_ARGUMENT);
+        if (action instanceof AlipayJsapiChannelAction alipay) {
+            require(observation != null
+                    && alipay.tradeNo().equals(observation.channelTransactionNo()), INVALID_ARGUMENT);
+        }
     }
 
     @Override

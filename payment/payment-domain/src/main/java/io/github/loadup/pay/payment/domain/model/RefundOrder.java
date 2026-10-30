@@ -43,8 +43,11 @@ public record RefundOrder(
         DomainChecks.cnyAmount(amount);
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
-        if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(terminalEvidenceId);
-        else require(terminalEvidenceId == null, INVALID_ARGUMENT);
+        if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) {
+            DomainChecks.id(terminalEvidenceId);
+        } else {
+            require(terminalEvidenceId == null, INVALID_ARGUMENT);
+        }
     }
 
     public static RefundOrder init(String id, String request, String payment, Money amount, String channelRefundNo) {
@@ -72,11 +75,15 @@ public record RefundOrder(
             case UNKNOWN -> RefundState.UNKNOWN;
         };
         if (terminal()) {
-            if (outcome == RefundState.PROCESSING || outcome == RefundState.UNKNOWN) return this;
+            if (outcome == RefundState.PROCESSING || outcome == RefundState.UNKNOWN) {
+                return this;
+            }
             require(state == outcome, CONFLICT);
             return this;
         }
-        if (state == outcome || state == RefundState.UNKNOWN && outcome == RefundState.PROCESSING) return this;
+        if (state == outcome || state == RefundState.UNKNOWN && outcome == RefundState.PROCESSING) {
+            return this;
+        }
         return new RefundOrder(
                 id,
                 refundRequestId,

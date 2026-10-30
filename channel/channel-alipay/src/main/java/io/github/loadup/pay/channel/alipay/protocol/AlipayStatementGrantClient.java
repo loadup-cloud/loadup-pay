@@ -64,42 +64,60 @@ public final class AlipayStatementGrantClient {
 
     private static void field(ByteArrayOutputStream output, byte[] bytes) {
         output.writeBytes(ByteBuffer.allocate(4).putInt(bytes == null ? -1 : bytes.length).array());
-        if (bytes != null) output.writeBytes(bytes);
+        if (bytes != null) {
+            output.writeBytes(bytes);
+        }
     }
 
     public AlipayStatementGrant request(ChannelExecutionContext context, LocalDate billDate) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (context == null || billDate == null || billDate.getYear() < 1970 || billDate.getYear() > 9998
-                || !billDate.isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate()))
+                || !billDate.isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
             throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
-        if (binding.channel() != Channel.ALIPAY || !(binding.identity() instanceof AlipayAccountIdentity))
+        if (binding.channel() != Channel.ALIPAY || !(binding.identity() instanceof AlipayAccountIdentity)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         var started = now();
         // trade_zft_merchant/smid and platform-wide ledgers are different products and must never be inferred here.
         var exchange = client.exchangeVerified(context.tenantId(), binding, AlipayMethod.BILL_DOWNLOAD_URL,
                 json.writeValueAsString(Map.of("bill_type", "trade", "bill_date", billDate.toString())), Map.of());
-        if (exchange == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (exchange == null) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         var payload = reader.read(exchange.response(), AlipayMethod.BILL_DOWNLOAD_URL);
         String code = reader.text(payload, "code");
         if (!"10000".equals(code)) {
             String sub = reader.text(payload, "sub_code");
-            if ("40004".equals(code) && ("BILL_NOT_EXIST".equals(sub) || "NO_BILL_DATA".equals(sub)))
+            if ("40004".equals(code) && ("BILL_NOT_EXIST".equals(sub) || "NO_BILL_DATA".equals(sub))) {
                 throw new CommonException(STATEMENT_NOT_FOUND);
-            if ("SYSTEM_RATE_LIMIT".equals(sub) || "USER_RATE_LIMIT".equals(sub))
+            }
+            if ("SYSTEM_RATE_LIMIT".equals(sub) || "USER_RATE_LIMIT".equals(sub)) {
                 throw new CommonException(STATEMENT_RATE_LIMITED);
-            if ("TYPE_NOT_SUPPORTED".equals(sub)) throw new CommonException(UNSUPPORTED_CAPABILITY);
-            if ("INVAILID_ARGUMENTS".equals(sub) || "BILL_DATE_BEFORE_REGISTRATION".equals(sub))
+            }
+            if ("TYPE_NOT_SUPPORTED".equals(sub)) {
+                throw new CommonException(UNSUPPORTED_CAPABILITY);
+            }
+            if ("INVAILID_ARGUMENTS".equals(sub) || "BILL_DATE_BEFORE_REGISTRATION".equals(sub)) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         var received = now();
         var expires = started.plusSeconds(30);
-        if (!expires.isAfter(received)) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        if (!expires.isAfter(received)) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         String url = reader.text(payload, "bill_download_url");
-        if (url == null || url.length() > 2048 || url.chars().anyMatch(Character::isISOControl))
+        if (url == null || url.length() > 2048 || url.chars().anyMatch(Character::isISOControl)) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         final URI uri;
         try {
             uri = URI.create(url);
@@ -114,16 +132,21 @@ public final class AlipayStatementGrantClient {
 
     private byte[] evidence(ChannelExecutionContext context, LocalDate date, AlipayVerifiedExchange exchange, OffsetDateTime started, OffsetDateTime received) {
         byte[] envelope = exchange.responseBytes();
-        if (envelope.length > 16384) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (envelope.length > 16384) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         var binding = context.binding();
         var identity = (AlipayAccountIdentity) binding.identity();
         var output = new ByteArrayOutputStream();
         for (String value : new String[]{FORMAT, context.tenantId(), binding.id(), binding.accountScopeHash(), date.toString(), "trade", identity.appId(), identity.sellerId(),
                 identity.operatorAppId(), binding.credentialReference(), binding.credentialVersion(), identity.authorizationReference(), identity.authorizationVersion(),
-                AlipayMethod.BILL_DOWNLOAD_URL.api(), exchange.requestSha256(), started.toInstant().toString(), received.toInstant().toString()})
+                AlipayMethod.BILL_DOWNLOAD_URL.api(), exchange.requestSha256(), started.toInstant().toString(), received.toInstant().toString()}) {
             field(output, value == null ? null : value.getBytes(StandardCharsets.UTF_8));
+        }
         field(output, envelope);
-        if (output.size() > 32768) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (output.size() > 32768) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return output.toByteArray();
     }
 

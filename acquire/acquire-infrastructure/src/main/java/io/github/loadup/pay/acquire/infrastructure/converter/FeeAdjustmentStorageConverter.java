@@ -32,7 +32,7 @@ public interface FeeAdjustmentStorageConverter {
     @Mapping(target = "refundSourceVersion", source = "fee.refundBasisVersion")
     FeeAdjustment toAdjustment(String id, OrderFee fee, String triggerKey);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "sourceVersion", source = "value.refundSourceVersion")
     @Mapping(target = "adjustmentMinor", source = "value.adjustment.cent")
     @Mapping(target = "currency", source = "value.adjustment.currencyValue")

@@ -19,13 +19,12 @@ import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionRevocationGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutSessionRevocationReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionRevocationReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -49,7 +48,7 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     private final Clock clock;
     private final CheckoutSessionRevocationReceiptStorageConverter converter;
 
-    public CheckoutSessionRevocationGatewayImpl(NamedParameterJdbcTemplate jdbc, CheckoutSessionRevocationReceiptStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+    public CheckoutSessionRevocationGatewayImpl(NamedParameterJdbcTemplate jdbc, CheckoutSessionRevocationReceiptStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -70,11 +69,13 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     @Override
     public void insert(String tenant, CheckoutSessionRevocationReceipt value) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = converter.toDO(tenant, value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -84,9 +85,12 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :sessionId, :orderId, :requestKey, :callerScopeHash, :requestDigest, :reason, :newlyRevoked, :beforeVersion, :sessionVersion, :revokedAt, :acceptedAt)
                 ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0)
+        if (count == 0) {
             throw new AcquireWriteConflictException("checkout_session_revocation_receipt business key already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -106,7 +110,9 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private CheckoutSessionRevocationReceipt decode(CheckoutSessionRevocationReceiptDO row) {

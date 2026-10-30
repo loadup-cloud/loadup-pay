@@ -200,7 +200,9 @@ class AlipayStatementGrantClientTest {
             int length = frame.readInt();
             assertTrue(length == -1 || length >= 0 && length <= 16384);
             byte[] bytes = length == -1 ? null : frame.readNBytes(length);
-            if (length >= 0) assertEquals(length, bytes.length);
+            if (length >= 0) {
+                assertEquals(length, bytes.length);
+            }
             fields.add(bytes);
         }
         assertEquals(18, fields.size());

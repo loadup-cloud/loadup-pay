@@ -36,15 +36,22 @@ public final class AlipayBindingGuard {
     }
 
     public static AlipayAccountIdentity require(ChannelExecutionContext context, ChannelPaymentIdentity identity) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || identity == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || identity == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
         if (identity.channel() != Channel.ALIPAY || binding.channel() != Channel.ALIPAY
                 || !(binding.identity() instanceof AlipayAccountIdentity account)
                 || !binding.id().equals(identity.bindingRevisionId())
-                || !binding.accountScopeHash().equals(identity.accountScopeHash()))
+                || !binding.accountScopeHash().equals(identity.accountScopeHash())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         return account;
     }
 }

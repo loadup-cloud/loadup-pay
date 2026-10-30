@@ -50,8 +50,9 @@ public record PaymentExecutionDTO(
         @Schema(description = "Version") long version,
         @Schema(description = "Initiated at") OffsetDateTime initiatedAt) {
     public PaymentExecutionDTO {
-        if (initiatedAt != null)
+        if (initiatedAt != null) {
             initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

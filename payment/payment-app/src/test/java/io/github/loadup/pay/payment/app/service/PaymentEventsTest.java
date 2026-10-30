@@ -98,7 +98,6 @@ class PaymentEventsTest {
         for (var message : messages.getAllValues()) {
             Map<?, ?> envelope = mapper.readValue(message.payload(), Map.class);
             var data = (Map<?, ?>) envelope.get("data");
-            assertEquals("tenant", message.tenantId());
             assertEquals("payment", message.businessId());
             assertEquals("evidence", envelope.get("businessEventId"));
             assertEquals(message.type(), envelope.get("eventType"));
@@ -109,7 +108,9 @@ class PaymentEventsTest {
                 assertNotNull(data.get("initiatedAt"));
                 assertEquals("WECHAT", data.get("channel"));
                 assertFalse(data.containsKey("executionFenced"));
-            } else assertEquals(Boolean.TRUE, data.get("executionFenced"));
+            } else {
+                assertEquals(Boolean.TRUE, data.get("executionFenced"));
+            }
             deliveries.add((String) envelope.get("deliveryId"));
         }
         assertEquals(4, deliveries.size());
@@ -159,8 +160,11 @@ class PaymentEventsTest {
             assertNotNull(data.get("initiatedAt"));
             org.junit.jupiter.api.Assertions.assertNull(data.get("succeededAt"));
             assertFalse(data.containsKey("executionFenced"));
-            if (index == 0) org.junit.jupiter.api.Assertions.assertNull(data.get("channel"));
-            else assertEquals("WECHAT", data.get("channel"));
+            if (index == 0) {
+                org.junit.jupiter.api.Assertions.assertNull(data.get("channel"));
+            } else {
+                assertEquals("WECHAT", data.get("channel"));
+            }
             assertNotNull(envelope.get("businessEventId"));
             seenEvents.add((String) envelope.get("businessEventId"));
         }

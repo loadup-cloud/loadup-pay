@@ -46,8 +46,11 @@ public record OrderCreateIntent(
         long rowVersion) {
     public OrderCreateIntent {
         require(entryMode != null && Set.of("ORDER", "CHECKOUT", "DIRECT_PAY").contains(entryMode), INVALID_ARGUMENT);
-        if ("CHECKOUT".equals(entryMode)) DomainChecks.id(initialSessionId);
-        else require(initialSessionId == null, INVALID_ARGUMENT);
+        if ("CHECKOUT".equals(entryMode)) {
+            DomainChecks.id(initialSessionId);
+        } else {
+            require(initialSessionId == null, INVALID_ARGUMENT);
+        }
         DomainChecks.id(id);
         DomainChecks.id(orderId);
         DomainChecks.id(payeeMerchantId);
@@ -61,13 +64,15 @@ public record OrderCreateIntent(
                         && rowVersion >= 0,
                 INVALID_ARGUMENT);
         require(Set.of("INIT", "COMPLETED", "REJECTED", "EXPIRED").contains(state), INVALID_STATE);
-        if ("INIT".equals(state))
+        if ("INIT".equals(state)) {
             require(admissionId == null && materializeBefore == null && resultCode == null, INVALID_STATE);
-        else {
+        } else {
             DomainChecks.id(admissionId);
             DomainChecks.id(resultCode);
         }
-        if ("COMPLETED".equals(state) || "EXPIRED".equals(state)) require(materializeBefore != null, INVALID_STATE);
+        if ("COMPLETED".equals(state) || "EXPIRED".equals(state)) {
+            require(materializeBefore != null, INVALID_STATE);
+        }
     }
 
     public OrderCreateIntent finish(String next, String admission, LocalDateTime before, String code) {

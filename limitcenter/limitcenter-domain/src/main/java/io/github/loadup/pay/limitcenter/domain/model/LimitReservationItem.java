@@ -37,7 +37,9 @@ public record LimitReservationItem(
     }
 
     public LimitReservationItem confirm() {
-        if (consumed == reserved) return this;
+        if (consumed == reserved) {
+            return this;
+        }
         require(consumed == 0 && restored == 0, CONFLICT);
         return new LimitReservationItem(id, reservationId, bucket, reserved, reserved, 0);
     }

@@ -5,7 +5,8 @@
 
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc` 子包）：批次创建/封存输入引用、原运行与持久任务、
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc`
+子包）：批次创建/封存输入引用、原运行与持久任务、
 双侧完整输入核对、多原因差错、数据库适配和 HTTP/Dubbo Triple 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
 微信 ALL 交易账单解析源码按 2026-01-16 官方格式实现，独立校验账户、账期、规范化行和完整汇总；已接受信 SERVICE 的
 File/Transfer 手工来源导入；官方自动下载与验签来源仍待接入。
@@ -28,7 +29,8 @@ File/Transfer 手工来源导入；官方自动下载与验签来源仍待接入
   原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
 - HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,differences}`；start 使用
   `ReconciliationBatchStartCommand`。
-  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder 的身份与错误映射。
+  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder
+  的身份与错误映射。
   differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
 
 以下外部配置仅示意结构；hash 应由受控账户身份规范计算，不直接使用示例值：
@@ -140,7 +142,9 @@ PaymentStatementFacade.download 只向配置的 reconciliation SERVICE 和独立
 RR 获取不可变 revision 后，在事务外调用 ChannelStatementFacade；payment 不依赖厂商插件实现、不按当前路由换账户，也不复制凭证到
 reconciliation。原件和私有来源证据有界传输且诊断隐藏，明确无账单/生成中错误，无商户 HTTP 下载入口。
 
-该接口只读，不在 payment 封存来源任务/文件；reconciliation 的先登记意图、File/Transfer 与批次 CHANNEL 导入接线源码已补，尚未运行验证。消费需独立超时与 20 MiB Triple body cap。详见 [官方来源设计](../design/WECHAT-STATEMENT-SOURCE.md)。新增源码与测试未构建或执行。
+该接口只读，不在 payment 封存来源任务/文件；reconciliation 的先登记意图、File/Transfer 与批次 CHANNEL
+导入接线源码已补，尚未运行验证。消费需独立超时与 20 MiB Triple body
+cap。详见 [官方来源设计](../design/WECHAT-STATEMENT-SOURCE.md)。新增源码与测试未构建或执行。
 
 ## reconciliation 原对象只读查证
 

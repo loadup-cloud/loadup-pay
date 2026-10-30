@@ -43,7 +43,9 @@ public record ChannelMerchantBinding(String id, String payeeMerchantId, String b
         Objects.requireNonNull(accessMode);
         Objects.requireNonNull(state);
         require(priority >= 0 && priority <= 1000000 && rowVersion >= 0 && currentRevision >= 0, INVALID_ARGUMENT);
-        if (currentRevisionId != null) DomainChecks.id(currentRevisionId);
+        if (currentRevisionId != null) {
+            DomainChecks.id(currentRevisionId);
+        }
         require(state == ChannelBindingState.INIT
                 ? currentRevisionId == null && currentRevision == 0 && rowVersion == 0
                 : currentRevisionId != null && currentRevision > 0 && rowVersion > 0, INVALID_ARGUMENT);

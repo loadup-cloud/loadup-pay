@@ -38,10 +38,12 @@ public record MerchantRelationshipDTO(
         @Schema(description = "Valid to") OffsetDateTime validTo,
         @Schema(description = "Version") long version) {
     public MerchantRelationshipDTO {
-        if (validFrom != null)
+        if (validFrom != null) {
             validFrom = validFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (validTo != null)
+        }
+        if (validTo != null) {
             validTo = validTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

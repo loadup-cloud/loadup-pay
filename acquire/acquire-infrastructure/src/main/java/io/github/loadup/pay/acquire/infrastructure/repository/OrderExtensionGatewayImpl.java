@@ -17,6 +17,7 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
@@ -25,8 +26,6 @@ import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderExtensionStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -50,7 +49,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     private final OrderExtensionStorageConverter converter;
 
     public OrderExtensionGatewayImpl(NamedParameterJdbcTemplate jdbc, OrderExtensionStorageConverter converter,
-                                     @Qualifier("acquireClock") Clock clock) {
+                                     Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -65,7 +64,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                        original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
                 FROM order_extension_receipt WHERE tenant_id = :tenant AND order_id = :order AND request_key = :key AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream().findFirst().orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             return Optional.of(converter.toReceipt(row));
         } catch (RuntimeException corrupt) {
@@ -84,7 +85,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream().findFirst().orElse(null);
         if (row == null || row.getDeadlineVersion() == null || row.getDeadlineVersion() < 1
                 || row.getRowVersion() == null || row.getRowVersion() != order.version()
-                || !order.orderDueAt().equals(row.getOrderDueAt())) throw new CommonException(SNAPSHOT_INVALID);
+                || !order.orderDueAt().equals(row.getOrderDueAt())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return row.getDeadlineVersion();
     }
 
@@ -94,8 +97,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         requireTransaction();
         if (!updated.id().equals(receipt.orderId()) || !updated.orderDueAt().equals(receipt.requestedDueAt())
                 || updated.version() != Math.incrementExact(receipt.expectedOrderVersion())
-                || !(updated.state() == AcquireOrderState.INIT || updated.state() == AcquireOrderState.PENDING))
+                || !(updated.state() == AcquireOrderState.INIT || updated.state() == AcquireOrderState.PENDING)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var patch = converter.toDeadlinePatch(updated, receipt.deadlineVersion());
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id())
                 .addValue("expectedVersion", receipt.expectedOrderVersion()).addValue("previousDeadlineVersion", receipt.deadlineVersion() - 1)
@@ -107,7 +111,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND row_version = :expectedVersion
                     AND deadline_version = :previousDeadlineVersion AND order_due_at = :previousDue AND state IN ('INIT', 'PENDING')
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var row = converter.toDO(tenant, receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -119,18 +125,25 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                     :originalDueAt, :previousDueAt, :requestedDueAt, :expectedOrderVersion, :deadlineVersion, :appliedAt)
                 ON CONFLICT (tenant_id, order_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Order extension request already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Order extension request already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

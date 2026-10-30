@@ -59,13 +59,13 @@ class RefundMerchantDeliveryTest {
             "merchant", "R001", 1000, "CNY", "FAILED", 0, 1000, 3, null);
     final EventEnvelope<RefundMerchantEventDTO> envelope = new EventEnvelope<>("delivery", "business", "payment", RefundMerchantEventDTO.TYPE,
             1, "refund", 3, BusinessTime.external(RefundResultFixtures.NOW), data);
-    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage("tenant", RefundMerchantEventDTO.TYPE, 1, "refund", "payload"),
+    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage(RefundMerchantEventDTO.TYPE, 1, "refund", "payload"),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     final String merchantEventId = DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", "tenant", "RefundFailed", "refund", 3L)));
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", RefundMerchantEventDTO.TYPE,
+        when(outbox.find("queue")).thenReturn(Optional.of(new OutboxRecord("queue", RefundMerchantEventDTO.TYPE,
                 "refund", "PROCESSING", 1, null)));
         when(codec.merchant("payload")).thenReturn(envelope);
         when(acquire.supportsTenant("tenant")).thenReturn(true);
@@ -106,7 +106,7 @@ class RefundMerchantDeliveryTest {
     @Test
     void unclaimedQueueWrongTenantAndActiveTransactionsCannotDeliver() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.empty());
+        when(outbox.find("queue")).thenReturn(Optional.empty());
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {

@@ -53,9 +53,10 @@ public record CashierOrderDTO(
         @Schema(description = "Session expires at") OffsetDateTime sessionExpiresAt) {
     public CashierOrderDTO {
         choices = choices == null ? Set.of() : Set.copyOf(choices);
-        if (sessionExpiresAt != null)
+        if (sessionExpiresAt != null) {
             sessionExpiresAt =
                     sessionExpiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

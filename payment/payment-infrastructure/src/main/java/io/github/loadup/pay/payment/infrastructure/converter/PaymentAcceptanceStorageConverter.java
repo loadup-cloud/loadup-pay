@@ -44,7 +44,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "payment", source = "payment")
     StoredPaymentAcceptance toStored(PaymentOrderDO row, PaymentOrder payment);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")
     @Mapping(target = "allocationId", source = "value.payment.allocationId")
@@ -65,7 +65,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     PaymentOrderDO toPaymentDO(String tenant, StoredPaymentAcceptance value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")
     @Mapping(target = "allocationId", source = "value.payment.allocationId")
@@ -102,7 +102,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "gate", source = "gate")
     StoredPaymentGate toStoredGate(PaymentGateDO row, PaymentExecutionGate gate);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "orderId", source = "value.gate.orderId")
     @Mapping(target = "state", source = "value.gate.state")
     @Mapping(target = "closeEpoch", source = "value.gate.fenceEpoch")
@@ -112,7 +112,7 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     PaymentParentGateDO toParentDO(String tenant, StoredPaymentGate value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "orderId", source = "value.gate.orderId")
     @Mapping(target = "paymentId", source = "value.gate.paymentId")
     @Mapping(target = "state", source = "value.gate.state")

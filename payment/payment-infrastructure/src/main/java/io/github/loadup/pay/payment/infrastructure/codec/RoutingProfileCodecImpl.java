@@ -48,19 +48,27 @@ public class RoutingProfileCodecImpl implements RoutingProfileCodec {
     @Override
     public String encode(RoutingProfileSpec spec) {
         String payload = mapper.writerFor(RoutingProfileSpecDTO.class).writeValueAsString(converter.toSpecDTO(spec));
-        if (payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
+        if (payload.length() > 65536) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
     @Override
     public RoutingProfileSpec decode(String payload, String expectedHash) {
         try {
-            if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
+            if (payload == null || payload.length() > 65536) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var dto = mapper.readValue(payload, RoutingProfileSpecDTO.class);
-            if (dto == null || !validator.validate(dto).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+            if (dto == null || !validator.validate(dto).isEmpty()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var spec = converter.toSpec(dto);
             // Rule order is material; JSON object field order and whitespace are not.
-            if (!checksum(encode(spec)).equals(expectedHash)) throw new CommonException(SNAPSHOT_INVALID);
+            if (!checksum(encode(spec)).equals(expectedHash)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return spec;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -79,8 +87,9 @@ public class RoutingProfileCodecImpl implements RoutingProfileCodec {
     @Override
     public String requestDigest(String tenant, String caller, String key, String contentHash) {
         var framed = new StringBuilder();
-        for (String value : List.of("payment-routing-publish-v1", tenant, caller, key, contentHash))
+        for (String value : List.of("payment-routing-publish-v1", tenant, caller, key, contentHash)) {
             framed.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+        }
         return checksum(framed.toString());
     }
 }

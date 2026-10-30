@@ -36,8 +36,12 @@ public record MerchantNotificationActor(String tenantId, String principalType, S
         if ("MERCHANT".equals(principalType) || "MERCHANT_APP".equals(principalType)) {
             DomainChecks.id(merchantId);
             require(!"MERCHANT".equals(principalType) || principalId.equals(merchantId), INVALID_ARGUMENT);
-        } else require(merchantId == null, INVALID_ARGUMENT);
-        if ("SERVICE".equals(principalType)) DomainChecks.id(principalId);
+        } else {
+            require(merchantId == null, INVALID_ARGUMENT);
+        }
+        if ("SERVICE".equals(principalType)) {
+            DomainChecks.id(principalId);
+        }
     }
 
     public boolean merchant() {

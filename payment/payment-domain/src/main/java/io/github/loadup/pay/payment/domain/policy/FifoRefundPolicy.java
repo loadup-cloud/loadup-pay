@@ -59,7 +59,9 @@ public final class FifoRefundPolicy {
                             && seen.add(capacity.paymentId()),
                     CONFLICT);
             available = Math.addExact(available, capacity.availableMinor());
-            if (!partialAllowed) require(capacity.reservedMinor() == 0, CONFLICT);
+            if (!partialAllowed) {
+                require(capacity.reservedMinor() == 0, CONFLICT);
+            }
         }
         require(amount.getCent() <= available && (partialAllowed || amount.getCent() == available), AMOUNT_EXCEEDED);
         List<RefundPlanItem> result = new ArrayList<>();
@@ -73,7 +75,9 @@ public final class FifoRefundPolicy {
                         DomainChecks.cnyAmount(portion, amount.getCurrencyValue())));
                 remaining -= portion;
             }
-            if (remaining == 0) break;
+            if (remaining == 0) {
+                break;
+            }
         }
         return List.copyOf(result);
     }

@@ -65,10 +65,13 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
 
     @Override
     public RefundSettlementFactsDTO refundFacts(IdQuery query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!limitService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-facts"))
+        if (!limitService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-facts")) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var requestId = results.requestId(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
@@ -76,7 +79,9 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
             var facts = locked.child();
             var child = facts.child();
             var refund = child.refund();
-            if (refund.state() != RefundState.SUCCEEDED) throw new CommonException(INVALID_STATE);
+            if (refund.state() != RefundState.SUCCEEDED) {
+                throw new CommonException(INVALID_STATE);
+            }
             var claim = results.claim(actor.tenantId(), refund.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var global = results.transaction(claim.original().channel(), claim.original().accountScopeHash(), claim.channelRefundTransactionNo())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -86,11 +91,14 @@ public class RefundSettlementFactsService implements RefundSettlementFactsFacade
                     || !refund.terminalEvidenceId().equals(claim.receiptId())
                     || !Objects.equals(facts.channelRefundTransactionNo(), claim.channelRefundTransactionNo())
                     || !Objects.equals(facts.succeededAt(), claim.succeededAt())
-                    || !claim.equals(global) || locked.capacity().refundedMinor() < refund.amount().getCent())
+                    || !claim.equals(global) || locked.capacity().refundedMinor() < refund.amount().getCent()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var original = payments.find(actor.tenantId(), refund.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             // RefundExecutionLocks has already verified the original successful attempt and permanent collection claim.
-            if (original.terminalEvidenceId() == null) throw new CommonException(SNAPSHOT_INVALID);
+            if (original.terminalEvidenceId() == null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toFacts(converter.toOutcome(refund, locked.request().request(), original.payment(), locked.capacity()),
                     original, locked.capacity());
         });

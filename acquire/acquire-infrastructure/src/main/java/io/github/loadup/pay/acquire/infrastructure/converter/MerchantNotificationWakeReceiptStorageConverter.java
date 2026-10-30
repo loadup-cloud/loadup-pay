@@ -25,7 +25,7 @@ import org.mapstruct.Mapping;
 public interface MerchantNotificationWakeReceiptStorageConverter {
     MerchantNotificationWakeReceipt toDomain(MerchantNotificationWakeReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

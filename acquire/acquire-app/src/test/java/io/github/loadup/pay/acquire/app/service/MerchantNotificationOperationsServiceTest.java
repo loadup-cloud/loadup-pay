@@ -106,7 +106,7 @@ class MerchantNotificationOperationsServiceTest {
 
     DelayedTask task(DelayedTaskStatus status) {
         var row = current.get();
-        return new DelayedTask("native-task", "tenant", MerchantNotificationService.TYPE, new MerchantNotificationKey(row.id(), row.attemptCount()).bizId(),
+        return new DelayedTask("native-task", MerchantNotificationService.TYPE, new MerchantNotificationKey(row.id(), row.attemptCount()).bizId(),
                 row.nextAttemptAt(), row.nextAttemptAt(), status, 5, 5, status == DelayedTaskStatus.RUNNING ? NOW.plusMinutes(1) : null, null);
     }
 
@@ -213,7 +213,9 @@ class MerchantNotificationOperationsServiceTest {
         current.set(delivery(NOW.minusHours(2)));
         assertEquals("EXPIRED", service.wake(new MerchantNotificationWakeCommand("delivery", "operation-2", 0L, "Observe expiration")).result());
         var spent = original;
-        for (int i = 0; i < 3; i++) spent = spent.begin(spent.nextAttemptAt(), "b".repeat(64));
+        for (int i = 0; i < 3; i++) {
+            spent = spent.begin(spent.nextAttemptAt(), "b".repeat(64));
+        }
         current.set(spent);
         assertEquals("EXHAUSTED", service.wake(new MerchantNotificationWakeCommand("delivery", "operation-3", spent.rowVersion(), "Observe exhausted budget")).result());
         verifyNoInteractions(tasks);

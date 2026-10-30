@@ -209,7 +209,7 @@ class PaymentCaptureServiceTest {
     }
 
     DelayedTask task(DelayedTaskStatus status, int attempts) {
-        return new DelayedTask("native", "tenant", PaymentCaptureExecutionService.TYPE, "capture", at, at, status, attempts, 8, status == DelayedTaskStatus.RUNNING ? at.plusMinutes(1) : null, null);
+        return new DelayedTask("native", PaymentCaptureExecutionService.TYPE, "capture", at, at, status, attempts, 8, status == DelayedTaskStatus.RUNNING ? at.plusMinutes(1) : null, null);
     }
 
     static final class Tx extends AbstractPlatformTransactionManager {

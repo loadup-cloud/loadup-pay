@@ -10,11 +10,11 @@ rpc 类型。
   `PaymentVerificationFacade`。`RefundFacade`、`ChannelBindingFacade`、`RoutingProfileFacade` 和渠道回调接口
   只用于 HTTP/渠道入口。
 - 跨进程 IDL：`payment-client/src/main/proto/` 下的 4 个文件：
-  - `payment.proto` → `PaymentRpc`（InputPrepare/InputLookup/InputExpire/Accept/Detail/Outcome/Facts/Close/
-    FenceParent/ParentFenceStatus/StartAttempt/RefundSummary/RefundFacts）
-  - `payment_reconciliation.proto` → `PaymentCaptureRpc.Create/Retry/Detail/Lines`
-  - `payment_statement.proto` → `PaymentStatementRpc.Download`
-  - `payment_verification.proto` → `PaymentVerificationRpc.Verify`
+    - `payment.proto` → `PaymentRpc`（InputPrepare/InputLookup/InputExpire/Accept/Detail/Outcome/Facts/Close/
+      FenceParent/ParentFenceStatus/StartAttempt/RefundSummary/RefundFacts）
+    - `payment_reconciliation.proto` → `PaymentCaptureRpc.Create/Retry/Detail/Lines`
+    - `payment_statement.proto` → `PaymentStatementRpc.Download`
+    - `payment_verification.proto` → `PaymentVerificationRpc.Verify`
 
 提供方在 `payment-adapter` 为每个 proto service 提供一个 `@DubboService` 实现类；消费方在 `*-infrastructure` 用
 `@DubboReference(url = "tri://payment-headless:50051")` 引用对应生成的接口。

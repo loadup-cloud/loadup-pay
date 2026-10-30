@@ -58,7 +58,6 @@ class RefundStorageConverterTest {
         var header = converter.toRequestDO("tenant", value);
         var childRow = converter.toChildDO("tenant", child);
         var planRow = converter.toPlanDO("tenant", child);
-        assertEquals("tenant", header.getTenantId());
         assertEquals("FIFO", header.getAllocationPolicy());
         assertEquals("INIT", header.getState());
         assertEquals(0L, header.getRowVersion().longValue());

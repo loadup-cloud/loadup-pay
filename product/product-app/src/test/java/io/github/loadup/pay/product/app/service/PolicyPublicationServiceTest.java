@@ -115,7 +115,6 @@ class PolicyPublicationServiceTest {
                 Condition.always(),
                 new ValueOrigin(ConfigurationLayer.BUNDLE, "bundle", 1));
         snapshot = new MerchantContractRevision(
-                "tenant",
                 "merchant",
                 "scope",
                 "contract",
@@ -132,10 +131,9 @@ class PolicyPublicationServiceTest {
         when(codec.decode(eq("tenant"), any())).thenReturn(activation);
         when(outbox.publish(any())).thenReturn("event");
         queue("PENDING");
-        when(contracts.lockByScope("tenant", "merchant", "scope"))
+        when(contracts.lockByScope("merchant", "scope"))
                 .thenReturn(Optional.of(new ContractRecord(
                         "contract",
-                        "tenant",
                         "merchant",
                         "scope",
                         "plan",
@@ -181,9 +179,9 @@ class PolicyPublicationServiceTest {
     }
 
     void queue(String status) {
-        when(outbox.find("tenant", "event"))
+        when(outbox.find("event"))
                 .thenReturn(Optional.of(new OutboxRecord(
-                        "event", "tenant", PolicyActivationDispatch.TYPE, "publication", status, 1, null)));
+                        "event", PolicyActivationDispatch.TYPE, "publication", status, 1, null)));
     }
 
     LimitPolicyActivationDTO ack() {
@@ -297,9 +295,9 @@ class PolicyPublicationServiceTest {
     void failedDeliveryReplayUsesTheOriginalEventAndAuditsTheOperator() {
         when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
         queue("FAILED");
-        when(outbox.replay("tenant", "event", "operator", "reviewed")).thenReturn(true);
+        when(outbox.replay("event", "operator", "reviewed")).thenReturn(true);
         service.replay(new LimitPolicyReplayCommand("publication", "reviewed"));
-        verify(outbox).replay("tenant", "event", "operator", "reviewed");
+        verify(outbox).replay("event", "operator", "reviewed");
         verify(outbox, never()).publish(any());
     }
 

@@ -91,9 +91,10 @@ class DefaultChannelPaymentFacadeTest {
 
     private static ResilienceRegistries limitedRegistries() {
         var registries = ResilienceRegistries.ofDefaults();
-        for (var channel : Channel.values())
+        for (var channel : Channel.values()) {
             registries.bulkheadRegistry().bulkhead(ChannelRecoveryConcurrency.instanceName(channel),
                     BulkheadConfig.custom().maxConcurrentCalls(1).maxWaitDuration(Duration.ZERO).build());
+        }
         return registries;
     }
 

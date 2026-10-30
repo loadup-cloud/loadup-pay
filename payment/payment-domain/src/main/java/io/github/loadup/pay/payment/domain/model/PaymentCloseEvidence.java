@@ -38,7 +38,9 @@ public record PaymentCloseEvidence(ChannelPaymentIdentity identity, Money amount
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
-        if (channelTransactionNo != null) DomainChecks.text(channelTransactionNo, 128);
+        if (channelTransactionNo != null) {
+            DomainChecks.text(channelTransactionNo, 128);
+        }
         DomainChecks.text(receiptKey, 128);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         require(recordedAt != null && recordedAt.getNano() % 1000 == 0, INVALID_ARGUMENT);

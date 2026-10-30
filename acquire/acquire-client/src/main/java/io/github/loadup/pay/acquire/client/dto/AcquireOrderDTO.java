@@ -48,8 +48,9 @@ public record AcquireOrderDTO(
         @Schema(description = "Order due at") OffsetDateTime orderDueAt,
         @Schema(description = "Version") long version) {
     public AcquireOrderDTO {
-        if (orderDueAt != null)
+        if (orderDueAt != null) {
             orderDueAt = orderDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

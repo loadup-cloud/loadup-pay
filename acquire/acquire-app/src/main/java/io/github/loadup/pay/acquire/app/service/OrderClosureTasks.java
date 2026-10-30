@@ -49,21 +49,28 @@ public class OrderClosureTasks {
 
     public void register(String tenant, OrderCloseIntent intent) {
         writable(tenant);
-        if (intent.rowVersion() != 0L || !intent.cursorPaymentId().isEmpty()) throw new CommonException(INVALID_STATE);
+        if (intent.rowVersion() != 0L || !intent.cursorPaymentId().isEmpty()) {
+            throw new CommonException(INVALID_STATE);
+        }
         tasks.register(TYPE, new OrderTaskKey(intent.orderId(), intent.rowVersion()).bizId(), intent.requestedAt());
     }
 
     void schedule(String tenant, OrderCloseIntent advanced, LocalDateTime at) {
         writable(tenant);
-        if (advanced.rowVersion() < 1) throw new CommonException(INVALID_STATE);
+        if (advanced.rowVersion() < 1) {
+            throw new CommonException(INVALID_STATE);
+        }
         tasks.register(TYPE, new OrderTaskKey(advanced.orderId(), advanced.rowVersion()).bizId(),
                 at.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds));
     }
 
     private void writable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

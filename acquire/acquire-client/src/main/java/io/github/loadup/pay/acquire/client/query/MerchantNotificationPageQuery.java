@@ -39,8 +39,12 @@ public record MerchantNotificationPageQuery(
         var bounds = PageQuery.normalized(page, size, AcquireResultCodeEnum.INVALID_PAGE);
         page = bounds.page();
         size = bounds.size();
-        if (occurredFrom != null) occurredFrom = occurredFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (occurredTo != null) occurredTo = occurredTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        if (occurredFrom != null) {
+            occurredFrom = occurredFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
+        if (occurredTo != null) {
+            occurredTo = occurredTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

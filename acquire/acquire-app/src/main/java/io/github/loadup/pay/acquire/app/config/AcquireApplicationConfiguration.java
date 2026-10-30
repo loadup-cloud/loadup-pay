@@ -15,15 +15,9 @@
  */
 package io.github.loadup.pay.acquire.app.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 public class AcquireApplicationConfiguration {
-    @Bean
-    public Clock acquireClock() {
-        return Clock.systemDefaultZone();
-    }
 }

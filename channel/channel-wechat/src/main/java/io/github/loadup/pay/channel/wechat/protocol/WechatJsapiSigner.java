@@ -52,7 +52,9 @@ public final class WechatJsapiSigner {
                                          String prepayId, OffsetDateTime expiresAt) {
         var account = WechatBindingGuard.require(context, identity);
         if (prepayId == null || !prepayId.matches("[A-Za-z0-9_-]{1,128}") || expiresAt == null
-                || !expiresAt.toInstant().isAfter(clock.instant())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                || !expiresAt.toInstant().isAfter(clock.instant())) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         String appId = account.subAppId() == null ? account.appId() : account.subAppId();
         var original = credentials.read(context.tenantId(), context.binding());
         byte[] nonceBytes = new byte[16];
@@ -65,9 +67,13 @@ public final class WechatJsapiSigner {
                     (appId + "\n" + timestamp + "\n" + nonce + "\n" + packageValue + "\n").getBytes(StandardCharsets.UTF_8));
             if (signature == null || !key.name().equals(signature.keyName()) || key.version() != signature.version()
                     || signature.algorithm() != KmsSignatureAlgorithm.RSA_SHA256_PKCS1 || signature.base64() == null
-                    || signature.base64().length() > 1024) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+                    || signature.base64().length() > 1024) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             byte[] bytes = Base64.getDecoder().decode(signature.base64());
-            if (bytes.length < 256 || bytes.length > 512) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            if (bytes.length < 256 || bytes.length > 512) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             return new WechatJsapiChannelAction(appId, timestamp, nonce, packageValue, "RSA", signature.base64(), expiresAt);
         } catch (CommonException failure) {
             throw failure;

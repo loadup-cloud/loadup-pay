@@ -49,11 +49,14 @@ public class WechatV2Codec {
 
     public String encode(Map<String, String> original, byte[] key) {
         if (original == null || original.isEmpty() || original.size() > 128 || original.containsKey("sign")
-                || original.containsKey("key") || !"HMAC-SHA256".equals(original.get("sign_type")))
+                || original.containsKey("key") || !"HMAC-SHA256".equals(original.get("sign_type"))) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         var fields = new TreeMap<>(original);
         for (var field : fields.entrySet()) {
-            if (!validName(field.getKey()) || !validText(field.getValue())) throw new CommonException(INVALID_ARGUMENT);
+            if (!validName(field.getKey()) || !validText(field.getValue())) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
         }
         fields.put("sign", HexFormat.of().withUpperCase().formatHex(mac(fields, key)));
         try {
@@ -68,7 +71,9 @@ public class WechatV2Codec {
             writer.writeEndElement();
             writer.close();
             var value = output.toString();
-            if (value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) throw new CommonException(INVALID_ARGUMENT);
+            if (value.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             return value;
         } catch (CommonException failure) {
             throw failure;
@@ -78,21 +83,26 @@ public class WechatV2Codec {
     }
 
     public WechatV2VerifiedResponse verify(WechatV2Method method, byte[] response, byte[] key) {
-        if (method == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (method == null) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         var fields = parse(response);
         var signature = fields.get("sign");
         if (!"SUCCESS".equals(fields.get("return_code")) || signature == null || !signature.matches("[0-9A-F]{64}")
-                || fields.containsKey("sign_type") && !"HMAC-SHA256".equals(fields.get("sign_type")))
+                || fields.containsKey("sign_type") && !"HMAC-SHA256".equals(fields.get("sign_type"))) {
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);
-        if (!MessageDigest.isEqual(HexFormat.of().parseHex(signature), mac(fields, key)))
+        }
+        if (!MessageDigest.isEqual(HexFormat.of().parseHex(signature), mac(fields, key))) {
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        }
         return new WechatV2VerifiedResponse(method, fields,
                 DigestUtils.sha256(new String(response, StandardCharsets.UTF_8)));
     }
 
     private Map<String, String> parse(byte[] response) {
-        if (response == null || response.length == 0 || response.length > MAX_BYTES)
+        if (response == null || response.length == 0 || response.length > MAX_BYTES) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
             // Reject malformed UTF-8 before parsing; no encoding declaration can reinterpret the signed bytes.
             StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
@@ -108,8 +118,9 @@ public class WechatV2Codec {
             var reader = factory.createXMLStreamReader(new ByteArrayInputStream(response), "UTF-8");
             try {
                 if (reader.getCharacterEncodingScheme() != null
-                        && !"UTF-8".equalsIgnoreCase(reader.getCharacterEncodingScheme()))
+                        && !"UTF-8".equalsIgnoreCase(reader.getCharacterEncodingScheme())) {
                     throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                }
                 var fields = new TreeMap<String, String>();
                 int depth = 0;
                 boolean rootSeen = false, ended = false;
@@ -121,32 +132,46 @@ public class WechatV2Codec {
                         case XMLStreamConstants.START_ELEMENT -> {
                             if (ended || reader.getAttributeCount() != 0 || reader.getNamespaceCount() != 0
                                     || reader.getPrefix() != null && !reader.getPrefix().isEmpty()
-                                    || reader.getNamespaceURI() != null && !reader.getNamespaceURI().isEmpty())
+                                    || reader.getNamespaceURI() != null && !reader.getNamespaceURI().isEmpty()) {
                                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            }
                             depth++;
                             if (depth == 1) {
-                                if (rootSeen || !"xml".equals(reader.getLocalName()))
+                                if (rootSeen || !"xml".equals(reader.getLocalName())) {
                                     throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                }
                                 rootSeen = true;
                             } else if (depth == 2) {
                                 name = reader.getLocalName();
-                                if (!validName(name) || "key".equals(name) || fields.containsKey(name) || fields.size() >= 128)
+                                if (!validName(name) || "key".equals(name) || fields.containsKey(name) || fields.size() >= 128) {
                                     throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                }
                                 value.setLength(0);
-                            } else throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            } else {
+                                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            }
                         }
                         case XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA, XMLStreamConstants.SPACE -> {
                             if (depth == 2) {
                                 value.append(reader.getText());
-                                if (value.length() > 32768) throw new CommonException(CHANNEL_RESPONSE_INVALID);
-                            } else if (!reader.isWhiteSpace()) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                if (value.length() > 32768) {
+                                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                }
+                            } else if (!reader.isWhiteSpace()) {
+                                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            }
                         }
                         case XMLStreamConstants.END_ELEMENT -> {
                             if (depth == 2) {
-                                if (!validText(value.toString())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                if (!validText(value.toString())) {
+                                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                                }
                                 fields.put(name, value.toString());
-                            } else if (depth == 1) ended = true;
-                            else throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            } else if (depth == 1) {
+                                ended = true;
+                            } else {
+                                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                            }
                             depth--;
                         }
                         case XMLStreamConstants.END_DOCUMENT -> {
@@ -154,7 +179,9 @@ public class WechatV2Codec {
                         default -> throw new CommonException(CHANNEL_RESPONSE_INVALID);
                     }
                 }
-                if (!rootSeen || !ended || depth != 0) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                if (!rootSeen || !ended || depth != 0) {
+                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                }
                 return fields;
             } finally {
                 reader.close();
@@ -167,7 +194,9 @@ public class WechatV2Codec {
     }
 
     byte[] mac(Map<String, String> fields, byte[] key) {
-        if (key == null || key.length != 32) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (key == null || key.length != 32) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         byte[] prefix = fields.entrySet().stream().filter(e -> !"sign".equals(e.getKey()) && !e.getValue().isEmpty())
                 .sorted(Map.Entry.comparingByKey()).map(e -> e.getKey() + "=" + e.getValue())
                 .collect(Collectors.joining("&", "", "&key=")).getBytes(StandardCharsets.UTF_8);

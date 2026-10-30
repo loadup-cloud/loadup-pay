@@ -39,8 +39,9 @@ public record PaymentRecoveryRetryCommand(
         @Schema(description = "Stable operation key; retries preserve all original parameters") @NotBlank @Size(max = 128) String requestKey,
         @Schema(description = "Audited operational reason") @NotBlank @Size(max = 500) @DiagnosticHidden String reason) {
     public PaymentRecoveryRetryCommand {
-        if (expectedNextExecuteAt != null)
+        if (expectedNextExecuteAt != null) {
             expectedNextExecuteAt = expectedNextExecuteAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

@@ -25,7 +25,6 @@ import org.mapstruct.Mapping;
 public interface LimitRefundStorageConverter {
     LimitRefundReceipt toDomain(LimitRefundReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

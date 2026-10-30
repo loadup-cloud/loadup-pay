@@ -40,10 +40,10 @@ import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentCaptureStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCaptureMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -204,9 +204,10 @@ class PaymentCapturePersistenceIT {
             attempts.update(fixture.tenant(), fixture.attempt().beginSubmission(1L, "d".repeat(64), RiskDecision.notConnected(), AT), 0L);
             return true;
         });
-        if (success)
+        if (success) {
             results.record(fixture.tenant(), new PaymentObservation(fixture.attempt().attempt().identity(), ChannelPaymentOutcome.Kind.SUCCEEDED,
                     fixture.payment().payment().amount(), id("txn"), AT, PaymentObservation.Source.QUERY_RESPONSE, "source-success", "c".repeat(64)));
+        }
         return fixture;
     }
 
@@ -246,9 +247,9 @@ class PaymentCapturePersistenceIT {
     @Import(PaymentCaptureReaderImpl.class)
     static class Configuration {
         @Bean
-        FaultingCaptures captures(NamedParameterJdbcTemplate jdbc, PaymentCaptureRepository captures,
+        FaultingCaptures captures(NamedParameterJdbcTemplate jdbc, PaymentCaptureMapper captures,
                                   PaymentCaptureStorageConverter storage, PaymentCaptureConverter views,
-                                  @Qualifier("databaseClock") Clock clock) {
+                                  Clock clock) {
             return new FaultingCaptures(jdbc, captures, storage, views, clock);
         }
     }
@@ -256,7 +257,7 @@ class PaymentCapturePersistenceIT {
     static final class FaultingCaptures extends PaymentCaptureGatewayImpl {
         final AtomicBoolean failAfterSeal = new AtomicBoolean();
 
-        FaultingCaptures(NamedParameterJdbcTemplate jdbc, PaymentCaptureRepository captures,
+        FaultingCaptures(NamedParameterJdbcTemplate jdbc, PaymentCaptureMapper captures,
                          PaymentCaptureStorageConverter storage, PaymentCaptureConverter views, Clock clock) {
             super(jdbc, captures, storage, views, clock);
         }
@@ -264,8 +265,9 @@ class PaymentCapturePersistenceIT {
         @Override
         public void complete(String tenant, PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
             super.complete(tenant, original, next, read);
-            if (failAfterSeal.getAndSet(false))
+            if (failAfterSeal.getAndSet(false)) {
                 throw new IllegalStateException("Synthetic failure after actual capture SQL");
+            }
         }
     }
 }

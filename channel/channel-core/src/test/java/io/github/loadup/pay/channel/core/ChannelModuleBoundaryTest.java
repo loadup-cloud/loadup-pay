@@ -44,7 +44,9 @@ class ChannelModuleBoundaryTest {
     private static Path repositoryRoot() {
         var current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) return current;
+            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) {
+                return current;
+            }
             current = current.getParent();
         }
         throw new AssertionError("Run this source architecture test inside the loadup-pay checkout");
@@ -58,7 +60,9 @@ class ChannelModuleBoundaryTest {
 
     private static List<Path> productionSources(Path module) throws Exception {
         var sourceRoot = module.resolve("src/main/java");
-        if (!Files.isDirectory(sourceRoot)) return List.of();
+        if (!Files.isDirectory(sourceRoot)) {
+            return List.of();
+        }
         try (var sources = Files.walk(sourceRoot)) {
             return sources.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
@@ -110,7 +114,9 @@ class ChannelModuleBoundaryTest {
     void paymentBusinessModulesOnlyDependOnChannelApi() throws Exception {
         var root = repositoryRoot();
         for (var module : modules(root.resolve("payment"))) {
-            if (module.getFileName().toString().equals("payment-bootstrap")) continue;
+            if (module.getFileName().toString().equals("payment-bootstrap")) {
+                continue;
+            }
             for (var dependency : dependencies(module)) {
                 if (dependency.local() && dependency.artifact().startsWith("channel-")) {
                     assertEquals("channel-api", dependency.artifact(), module.toString());
@@ -127,7 +133,9 @@ class ChannelModuleBoundaryTest {
     void channelModulesCannotDependOnPaymentOrOtherImplementations() throws Exception {
         for (var module : modules(repositoryRoot().resolve("channel"))) {
             for (var dependency : dependencies(module)) {
-                if (!dependency.local()) continue;
+                if (!dependency.local()) {
+                    continue;
+                }
                 assertFalse(dependency.artifact().startsWith("payment-"), module + " -> " + dependency.artifact());
                 if (dependency.artifact().startsWith("channel-")) {
                     assertEquals("channel-api", dependency.artifact(), module.toString());

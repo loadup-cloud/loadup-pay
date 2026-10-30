@@ -114,7 +114,7 @@ class OrderAdmissionServiceTest {
                     true,
                     "ALLOWED",
                     new MerchantProfileDTO(
-                            "merchant", "tenant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                            "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                     2,
                     "grant",
                     1L);
@@ -161,11 +161,10 @@ class OrderAdmissionServiceTest {
     }
 
     private void current(ContractStatus status) {
-        when(contracts.lockByScope("tenant", "merchant", "scope")).thenAnswer(call -> {
+        when(contracts.lockByScope("merchant", "scope")).thenAnswer(call -> {
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             return Optional.of(new ContractRecord(
                     "contract",
-                    "tenant",
                     "merchant",
                     "scope",
                     "plan",
@@ -186,7 +185,6 @@ class OrderAdmissionServiceTest {
                 new ValueOrigin(ConfigurationLayer.BUNDLE, "bundle", 1));
         when(contracts.snapshot(any()))
                 .thenReturn(new MerchantContractRevision(
-                        "tenant",
                         "merchant",
                         "scope",
                         "contract",
@@ -271,10 +269,9 @@ class OrderAdmissionServiceTest {
     void validAdmissionFreezesTermsAndUsesThePlatformRecoveryWindow() {
         current(ContractStatus.NORMAL);
         var policy = new ActivatedLimitPolicy("policy", 1, "b".repeat(64), "ACTIVE", now.minusHours(1));
-        when(contracts.publication("tenant", "contract", 1)).thenReturn(Optional.of(policy));
+        when(contracts.publication("contract", 1)).thenReturn(Optional.of(policy));
         var snapshot = contracts.snapshot(new ContractRecord(
                 "contract",
-                "tenant",
                 "merchant",
                 "scope",
                 "plan",
@@ -318,7 +315,9 @@ class OrderAdmissionServiceTest {
     void duplicateInsertRollsBackBeforeReadingTheWinner() {
         AtomicInteger reads = new AtomicInteger();
         when(admissions.findByOrder("tenant", "order")).thenAnswer(call -> {
-            if (reads.incrementAndGet() < 4) return Optional.empty();
+            if (reads.incrementAndGet() < 4) {
+                return Optional.empty();
+            }
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(1, transactions.rollbacks);
             return Optional.of(denied("WINNER"));

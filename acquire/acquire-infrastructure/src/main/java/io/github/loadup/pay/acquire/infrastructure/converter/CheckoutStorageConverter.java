@@ -36,7 +36,7 @@ public interface CheckoutStorageConverter {
     @Mapping(target = "scope", source = "scope")
     StoredCheckoutSession toStored(CheckoutSessionDO row, CheckoutSessionScope scope);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.session.id")
     @Mapping(target = "orderId", source = "value.session.orderId")
     @Mapping(target = "state", source = "value.session.state")

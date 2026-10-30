@@ -17,13 +17,12 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.FeeRefundReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeRefundReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.FeeRefundReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -46,7 +45,7 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
     private final Clock clock;
     private final FeeRefundReceiptStorageConverter converter;
 
-    public FeeRefundReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, FeeRefundReceiptStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+    public FeeRefundReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, FeeRefundReceiptStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -71,11 +70,13 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
     @Override
     public void insert(String tenant, FeeRefundReceipt value) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = converter.toDO(tenant, value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -87,11 +88,17 @@ public class FeeRefundReceiptGatewayImpl implements FeeRefundReceiptGateway {
                     :sourceVersion, :appliedVersion, :requestDigest, :callerServiceId, :acceptedAt)
                 ON CONFLICT (tenant_id, delivery_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Fee refund delivery already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Fee refund delivery already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

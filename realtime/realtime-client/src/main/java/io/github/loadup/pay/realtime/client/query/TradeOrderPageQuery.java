@@ -39,10 +39,12 @@ public record TradeOrderPageQuery(
         @Schema(description = "Page") Integer page,
         @Schema(description = "Size") Integer size) {
     public TradeOrderPageQuery {
-        if (createdFrom != null)
+        if (createdFrom != null) {
             createdFrom = createdFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (createdTo != null)
+        }
+        if (createdTo != null) {
             createdTo = createdTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
         var bounds = PageQuery.normalized(page, size, RealtimeResultCodeEnum.INVALID_PAGE);
         page = bounds.page();
         size = bounds.size();

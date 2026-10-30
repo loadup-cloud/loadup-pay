@@ -39,20 +39,28 @@ public class RequestCashierActorProvider implements CashierActorProvider {
     @Override
     public CashierActor current() {
         String authorization = single("Authorization", 128, true);
-        if (!authorization.startsWith("Bearer ")) throw new CommonException(SESSION_UNAUTHORIZED);
+        if (!authorization.startsWith("Bearer ")) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         return authentication.authenticate(
                 single("X-Checkout-Tenant", 64, true), authorization.substring(7), single("Origin", 512, false));
     }
 
     private String single(String name, int maximum, boolean required) {
         var values = Collections.list(request.getHeaders(name));
-        if (values.size() > 1 || required && values.size() != 1) throw new CommonException(SESSION_UNAUTHORIZED);
-        if (values.isEmpty()) return null;
+        if (values.size() > 1 || required && values.size() != 1) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
+        if (values.isEmpty()) {
+            return null;
+        }
         String value = values.getFirst();
         if (value == null
                 || value.isBlank()
                 || value.length() > maximum
-                || value.chars().anyMatch(Character::isISOControl)) throw new CommonException(SESSION_UNAUTHORIZED);
+                || value.chars().anyMatch(Character::isISOControl)) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         return value;
     }
 }

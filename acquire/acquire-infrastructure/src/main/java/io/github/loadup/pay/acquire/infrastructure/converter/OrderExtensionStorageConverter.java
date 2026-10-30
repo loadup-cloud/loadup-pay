@@ -28,7 +28,7 @@ import org.mapstruct.Mapping;
 public interface OrderExtensionStorageConverter {
     OrderExtensionReceipt toReceipt(OrderExtensionReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

@@ -74,12 +74,19 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
 
     @Override
     public PaymentExecutionDTO startAttempt(PaymentAttemptStartCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:attempt:start"))
+        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:attempt:start")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!limits.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!limits.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.paymentId());
             DomainChecks.text(command.requestKey(), 128);
@@ -90,17 +97,28 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
             var prior = attempts.findRequest(actor.tenantId(), command.paymentId(), command.requestKey());
             if (prior.isPresent()) {
                 var attempt = prior.get();
-                if (!attempt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-                if (!attempt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                if (!attempt.callerServiceId().equals(actor.serviceId())) {
+                    throw new CommonException(ACTION_FORBIDDEN);
+                }
+                if (!attempt.requestDigest().equals(digest)) {
+                    throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 PaymentExecutionBindings.bound(accepted, attempt);
                 return views.toDTO(accepted);
             }
             locks.requireOpen(locked);
-            if (!command.choice().equals(original.choice()) || !Objects.equals(command.preparedInputRef(), original.preparedInputRef()))
+            if (!command.choice().equals(original.choice()) || !Objects.equals(command.preparedInputRef(), original.preparedInputRef())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
-            if (accepted.payment().activeAttemptId() != null) throw new CommonException(OUTCOME_UNKNOWN);
-            if (accepted.payment().state() != PaymentState.INIT) throw new CommonException(INVALID_STATE);
-            if (command.previousAttemptEvidenceId() != null) throw new CommonException(INVALID_ARGUMENT);
+            }
+            if (accepted.payment().activeAttemptId() != null) {
+                throw new CommonException(OUTCOME_UNKNOWN);
+            }
+            if (accepted.payment().state() != PaymentState.INIT) {
+                throw new CommonException(INVALID_STATE);
+            }
+            if (command.previousAttemptEvidenceId() != null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             var updated = initial.create(actor.tenantId(), accepted, command.requestKey(), digest);
             return views.toDTO(updated);
         });
@@ -111,8 +129,11 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
         for (String field : Arrays.asList("payment-attempt-start-v1", actor.tenantId(), actor.serviceId(), command.paymentId(),
                 command.requestKey(), command.choice().channel().name(), command.choice().method().name(),
                 command.preparedInputRef(), command.previousAttemptEvidenceId(), paymentDigest)) {
-            if (field == null) framed.append("-1:");
-            else framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            if (field == null) {
+                framed.append("-1:");
+            } else {
+                framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            }
         }
         return codec.checksum(framed.toString());
     }

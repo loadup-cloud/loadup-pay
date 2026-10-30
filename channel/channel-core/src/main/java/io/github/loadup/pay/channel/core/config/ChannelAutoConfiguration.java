@@ -31,7 +31,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Clock;
 
 @AutoConfiguration(afterName = "io.github.loadup.components.resilience4j.core.Resilience4jCoreAutoConfiguration")
 public class ChannelAutoConfiguration {
@@ -66,10 +65,5 @@ public class ChannelAutoConfiguration {
         return new DefaultChannelActionCodec(json);
     }
 
-    @Bean
-    @ConditionalOnMissingBean(name = "channelClock")
-    Clock channelClock() {
-        return Clock.systemDefaultZone();
-    }
 }
 

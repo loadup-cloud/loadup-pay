@@ -30,7 +30,9 @@ public record CustomerActor(
         DomainChecks.id(tenantId);
         Objects.requireNonNull(principalType);
         DomainChecks.text(principalId, 128);
-        if (merchantId != null) DomainChecks.id(merchantId);
+        if (merchantId != null) {
+            DomainChecks.id(merchantId);
+        }
     }
 
     @Override

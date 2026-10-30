@@ -153,10 +153,11 @@ class HmacCheckoutTokensTest {
                 "http://public.example/checkout",
                 "https://user:pass@pay.example/checkout",
                 "https://pay.example/checkout?return=bad",
-                "https://pay.example/checkout#bad"))
+                "https://pay.example/checkout#bad")) {
             assertThrows(
                     IllegalStateException.class,
                     () -> new CheckoutProperties(URI.create(page), "checkout", "v1", Map.of("v1", oldSecret)));
+        }
         assertThrows(IllegalStateException.class, () -> properties("v1", Map.of("v1", "short")));
     }
 }

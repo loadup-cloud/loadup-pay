@@ -2,7 +2,8 @@
 
 更新：2026-10-27。用户已确认首期支付宝/微信官方交易日账单，同时核对收款和退款，按实际收款账户与账单日期分批；银联在产品确定后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc` 子包）：纯核对、批次、独立存储、原生后台任务、
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc`
+子包）：纯核对、批次、独立存储、原生后台任务、
 HTTP/Dubbo Triple 与独立业务装配。微信 API ALL 格式解析源码已补；File/Transfer 手工 CHANNEL 来源和 payment 微信权威快照/完整
 LEDGER 导入已接源码；官方文件取得/验签来源、支付宝解析与对应源端日期仍待实现。
 **全部新增源码未构建、执行测试、应用迁移或部署。** 来源集成和查证部分仍是后续契约，不能声称已上线。

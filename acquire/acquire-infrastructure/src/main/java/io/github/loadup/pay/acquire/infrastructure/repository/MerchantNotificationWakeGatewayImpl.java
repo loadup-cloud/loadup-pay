@@ -19,13 +19,12 @@ import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.dto.PageQuery;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationWakeGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationWakeReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationWakeReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -49,7 +48,7 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     private final Clock clock;
     private final MerchantNotificationWakeReceiptStorageConverter converter;
 
-    public MerchantNotificationWakeGatewayImpl(NamedParameterJdbcTemplate jdbc, MerchantNotificationWakeReceiptStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+    public MerchantNotificationWakeGatewayImpl(NamedParameterJdbcTemplate jdbc, MerchantNotificationWakeReceiptStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -70,11 +69,13 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     @Override
     public void insert(String tenant, MerchantNotificationWakeReceipt value) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = converter.toDO(tenant, value);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -84,9 +85,12 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :deliveryId, :eventId, :requestKey, :callerScopeHash, :principalType, :principalId, :reason, :requestDigest, :result, :attemptCount, :deliveryVersion, :nativeTaskId, :acceptedAt)
                 ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0)
+        if (count == 0) {
             throw new AcquireWriteConflictException("merchant_notification_wake_receipt business key already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -106,7 +110,9 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private MerchantNotificationWakeReceipt decode(MerchantNotificationWakeReceiptDO row) {

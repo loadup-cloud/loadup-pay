@@ -27,7 +27,6 @@ import io.github.loadup.pay.channel.alipay.protocol.AlipayNotificationCodec;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolCodec;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayStatementGrantClient;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -41,7 +40,7 @@ import java.time.Clock;
 @EnableConfigurationProperties({AlipayProperties.class, AlipayNotificationProperties.class, AlipayH5Properties.class})
 public class AlipayChannelConfiguration {
     @Bean
-    AlipayStatementGrantClient alipayStatementGrantClient(AlipayProtocolClient client, JsonMapper json, @Qualifier("channelClock") Clock clock) {
+    AlipayStatementGrantClient alipayStatementGrantClient(AlipayProtocolClient client, JsonMapper json, Clock clock) {
         return new AlipayStatementGrantClient(client, json, clock);
     }
 
@@ -56,18 +55,18 @@ public class AlipayChannelConfiguration {
     }
 
     @Bean
-    AlipayRefundAdapter alipayRefundAdapter(AlipayProtocolClient client, JsonMapper json, @Qualifier("channelClock") Clock clock) {
+    AlipayRefundAdapter alipayRefundAdapter(AlipayProtocolClient client, JsonMapper json, Clock clock) {
         return new AlipayRefundAdapter(client, json, clock);
     }
 
     @Bean
-    AlipayPaymentAdapter alipayPaymentAdapter(AlipayProtocolClient client, JsonMapper json, @Qualifier("channelClock") Clock clock) {
+    AlipayPaymentAdapter alipayPaymentAdapter(AlipayProtocolClient client, JsonMapper json, Clock clock) {
         return new AlipayPaymentAdapter(client, json, clock);
     }
 
     @Bean
     AlipaySubmitAdapter alipaySubmitAdapter(AlipayProtocolClient client, AlipayPaymentAdapter queries, JsonMapper json,
-                                            @Qualifier("channelClock") Clock clock, AlipayNotificationProperties notifications, AlipayH5Properties h5) {
+                                            Clock clock, AlipayNotificationProperties notifications, AlipayH5Properties h5) {
         return new AlipaySubmitAdapter(client, queries, json, clock, notifications, h5);
     }
 
@@ -82,7 +81,7 @@ public class AlipayChannelConfiguration {
     }
 
     @Bean
-    AlipayProtocolCodec alipayProtocolCodec(JsonMapper json, KmsTemplate kms, @Qualifier("channelClock") Clock clock) {
+    AlipayProtocolCodec alipayProtocolCodec(JsonMapper json, KmsTemplate kms, Clock clock) {
         return new AlipayProtocolCodec(json, kms, clock);
     }
 

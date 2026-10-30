@@ -33,14 +33,21 @@ public final class WechatBindingGuard {
     }
 
     public static WechatAccountIdentity require(ChannelExecutionContext context, ChannelPaymentIdentity identity) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || identity == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || identity == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
         if (binding.channel() != Channel.WECHAT || identity.channel() != Channel.WECHAT
                 || !binding.id().equals(identity.bindingRevisionId()) || !binding.accountScopeHash().equals(identity.accountScopeHash())
-                || !(binding.identity() instanceof WechatAccountIdentity account))
+                || !(binding.identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         return account;
     }
 }

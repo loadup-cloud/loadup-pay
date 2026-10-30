@@ -65,7 +65,9 @@ public class CompiledTermsCodecImpl implements CompiledTermsCodec {
                     || decoded.revision() != reference.revision()
                     || !decoded.snapshotHash().equals(reference.snapshotHash())
                     || !hash(decoded).equals(reference.compiledTermsHash())
-                    || !validator.validate(decoded.terms()).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+                    || !validator.validate(decoded.terms()).isEmpty()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return decoded;
         } catch (RuntimeException corrupted) {
             throw new CommonException(SNAPSHOT_INVALID);

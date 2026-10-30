@@ -66,7 +66,9 @@ public class HmacCheckoutTokens implements CheckoutTokens {
                 || secret == null
                 || session.expiresAt().getNano() != 0
                 || !session.id().matches("[A-Za-z0-9_-]{1,64}")
-                || !nonce.matches("[0-9a-f]{64}")) throw new CommonException(SESSION_UNAVAILABLE);
+                || !nonce.matches("[0-9a-f]{64}")) {
+            throw new CommonException(SESSION_UNAVAILABLE);
+        }
         String data = "pay-checkout-v1\n" + session.id() + "\n" + session.orderId() + "\n"
                 + BusinessTime.external(session.expiresAt()).toEpochSecond() + "\n" + nonce + "\n";
         byte[] mac = HexFormat.of().parseHex(DigestUtils.hmacSha256(data, secret));
@@ -88,7 +90,9 @@ public class HmacCheckoutTokens implements CheckoutTokens {
         if (token == null
                 || token.length() > 108
                 || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}")
-                || !token.startsWith(stored.session().id() + ".")) return false;
+                || !token.startsWith(stored.session().id() + ".")) {
+            return false;
+        }
         return MessageDigest.isEqual(
                 hash(token).getBytes(StandardCharsets.US_ASCII),
                 stored.tokenHash().getBytes(StandardCharsets.US_ASCII));

@@ -58,8 +58,9 @@ public record ActivatedLimitPolicy(
                         && payeeMerchantId.equals(prior.payeeMerchantId)
                         && rules.size() == prior.rules.size(),
                 CONFLICT);
-        for (int index = 0; index < rules.size(); index++)
+        for (int index = 0; index < rules.size(); index++) {
             RuntimeLimitRule.requireSameShape(prior.rules.get(index), rules.get(index));
+        }
     }
 
     @Override

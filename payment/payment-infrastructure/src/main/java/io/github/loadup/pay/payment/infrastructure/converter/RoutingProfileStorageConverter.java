@@ -27,7 +27,7 @@ public interface RoutingProfileStorageConverter {
     @Mapping(target = "spec", source = "spec")
     RoutingProfile toDomain(RoutingProfileDO row, RoutingProfileSpec spec);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "profileRef", source = "value.spec.profileRef")
     @Mapping(target = "payeeMerchantId", source = "value.spec.payeeMerchantId")
     @Mapping(target = "specPayload", source = "payload")

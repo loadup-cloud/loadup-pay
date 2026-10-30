@@ -38,13 +38,24 @@ public final class ReconciliationMatcher {
             var fromLedger = l < ledger.records().size() ? ledger.records().get(l) : null;
             int order = fromChannel == null ? 1 : fromLedger == null ? -1 : fromChannel.key().compareTo(fromLedger.key());
             var key = order <= 0 ? fromChannel.key() : fromLedger.key();
-            if (order < 0) fromLedger = null;
-            if (order > 0) fromChannel = null;
+            if (order < 0) {
+                fromLedger = null;
+            }
+            if (order > 0) {
+                fromChannel = null;
+            }
             var reasons = ReconciliationDifference.reasons(fromChannel, fromLedger);
-            if (reasons.isEmpty()) matched++;
-            else differences.add(new ReconciliationDifference(key, fromChannel, fromLedger, reasons));
-            if (order <= 0) c++;
-            if (order >= 0) l++;
+            if (reasons.isEmpty()) {
+                matched++;
+            } else {
+                differences.add(new ReconciliationDifference(key, fromChannel, fromLedger, reasons));
+            }
+            if (order <= 0) {
+                c++;
+            }
+            if (order >= 0) {
+                l++;
+            }
         }
         return new ReconciliationResult(channel.manifest(), ledger.manifest(), matched, differences);
     }

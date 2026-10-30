@@ -68,19 +68,25 @@ public class PaymentStatementService implements PaymentStatementFacade {
 
     @Override
     public PaymentStatementDTO download(PaymentStatementQuery query) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
         if (actor == null || !reconciliationService.equals(actor.serviceId())
-                || !actor.permissions().contains("pay:payment:reconciliation:statement:read"))
+                || !actor.permissions().contains("pay:payment:reconciliation:statement:read")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             // Resolve only the original immutable revision. A disabled route must not hide historical evidence.
             var binding = transactions.readSnapshot(actor.tenantId(), () -> bindings.findRevision(actor.tenantId(), query.bindingRevisionId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (!query.bindingRevisionId().equals(binding.id()) || binding.channel() != query.channel()
-                    || !binding.accountScopeHash().equals(query.accountScopeHash()))
+                    || !binding.accountScopeHash().equals(query.accountScopeHash())) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             var request = new ChannelStatementRequest(new ChannelStatementScope(query.channel(), query.accountScopeHash(), query.billDate(), query.statementProfile()), query.maxBytes());
             final VerifiedChannelStatement source;
             try {
@@ -89,18 +95,23 @@ public class PaymentStatementService implements PaymentStatementFacade {
                 throw translate(failure);
             }
             if (source == null || !binding.id().equals(source.bindingRevisionId()) || !request.scope().equals(source.scope())
-                    || source.size() > request.maxBytes()) throw new CommonException(SNAPSHOT_INVALID);
+                    || source.size() > request.maxBytes()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toDTO(source);
         });
     }
 
     private CommonException translate(CommonException failure) {
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY.getCode().equals(failure.getResultCode().getCode()))
+        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY.getCode().equals(failure.getResultCode().getCode())) {
             return new CommonException(STATEMENT_NOT_READY);
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND.getCode().equals(failure.getResultCode().getCode()))
+        }
+        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND.getCode().equals(failure.getResultCode().getCode())) {
             return new CommonException(STATEMENT_NOT_FOUND);
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY.getCode().equals(failure.getResultCode().getCode()))
+        }
+        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY.getCode().equals(failure.getResultCode().getCode())) {
             return new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         return new CommonException(DEPENDENCY_UNAVAILABLE);
     }
 }

@@ -51,7 +51,7 @@ class PaymentRiskOutcomeDeliveryTest {
     final RiskOutcomeGateway risk = mock(RiskOutcomeGateway.class);
     final PaymentRiskOutcomeDelivery delivery = new PaymentRiskOutcomeDelivery(support, context.getBean(PaymentOutcomeDeliveryConverter.class),
             context.getBean(PaymentSubmissionConverter.class), risk);
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.RISK, 1, "payment", "{}"),
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage(PaymentEvents.RISK, 1, "payment", "{}"),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     @AfterEach

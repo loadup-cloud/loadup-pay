@@ -31,13 +31,15 @@ public class JwtAcquireServiceActorProvider implements AcquireServiceActorProvid
     @Override
     public AcquireServiceActor current() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getCredentials() instanceof Jwt jwt))
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getCredentials() instanceof Jwt jwt)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id"), service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type")) || tenant == null || service == null
-                    || !tenant.equals(tenant.trim()) || !service.equals(service.trim()) || !service.equals(jwt.getSubject()))
+                    || !tenant.equals(tenant.trim()) || !service.equals(service.trim()) || !service.equals(jwt.getSubject())) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             return new AcquireServiceActor(tenant, service, authentication.getAuthorities().stream()
                     .map(authority -> authority.getAuthority()).collect(Collectors.toUnmodifiableSet()));
         } catch (RuntimeException invalid) {

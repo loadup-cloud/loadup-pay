@@ -57,32 +57,48 @@ public class ReconciliationVerificationDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.id() == null || event.message().version() != 1
-                || !ReconciliationVerificationMessages.TYPE.equals(event.message().type()) || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !ReconciliationVerificationMessages.TYPE.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var message = event.message();
+        String tenant = TenantUtil.getTenantId();
         var id = ReconciliationVerificationMessages.decode(message.payload());
-        if (!id.equals(message.businessId())) throw new CommonException(SNAPSHOT_INVALID);
-        var original = transactions.readSnapshot(message.tenantId(), () -> requests.find(message.tenantId(), id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
-        var nativeRow = ReconciliationVerificationService.delivery(outbox, message.tenantId(), original);
-        if (!event.id().equals(original.deliveryId()) || !"PROCESSING".equals(nativeRow.status()) || nativeRow.attempts() < 1)
+        if (!id.equals(message.businessId())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (original.state() == ReconciliationVerificationState.RECORDED) return;
-        transactions.readSnapshot(message.tenantId(), () -> approved(message.tenantId(), original, false));
+        }
+        var original = transactions.readSnapshot(tenant, () -> requests.find(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+        var nativeRow = ReconciliationVerificationService.delivery(outbox, original);
+        if (!event.id().equals(original.deliveryId()) || !"PROCESSING".equals(nativeRow.status()) || nativeRow.attempts() < 1) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (original.state() == ReconciliationVerificationState.RECORDED) {
+            return;
+        }
+        transactions.readSnapshot(tenant, () -> approved(tenant, original, false));
         var query = converter.toQuery(original);
-        var result = payment.verify(message.tenantId(), query);
-        if (result == null || !query.equals(result.request())) throw new CommonException(SCOPE_MISMATCH);
+        var result = payment.verify(tenant, query);
+        if (result == null || !query.equals(result.request())) {
+            throw new CommonException(SCOPE_MISMATCH);
+        }
         var receipt = converter.toReceipt(result);
-        transactions.writeLocal(message.tenantId(), () -> {
-            approved(message.tenantId(), original, true);
-            var current = requests.lock(message.tenantId(), original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (current.state() == ReconciliationVerificationState.RECORDED) return false;
-            if (!original.equals(current)) throw new CommonException(SNAPSHOT_INVALID);
-            var actual = ReconciliationVerificationService.delivery(outbox, message.tenantId(), current);
-            if (!"PROCESSING".equals(actual.status()) || actual.attempts() != nativeRow.attempts())
+        transactions.writeLocal(tenant, () -> {
+            approved(tenant, original, true);
+            var current = requests.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (current.state() == ReconciliationVerificationState.RECORDED) {
+                return false;
+            }
+            if (!original.equals(current)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            var actual = ReconciliationVerificationService.delivery(outbox, current);
+            if (!"PROCESSING".equals(actual.status()) || actual.attempts() != nativeRow.attempts()) {
                 throw new CommonException(INVALID_STATE);
-            requests.update(message.tenantId(), current.complete(receipt), current.version());
+            }
+            requests.update(tenant, current.complete(receipt), current.version());
             return true;
         });
     }
@@ -91,8 +107,9 @@ public class ReconciliationVerificationDelivery {
         var actor = new ReconciliationActor(tenant, value.callerServiceId(), Set.of());
         var original = reviews.approvedForVerification(actor, value.reference().batchId(), value.reference().differenceId(), value.proposalId(), value.approvalEventId(), value.reviewVersion(), lock);
         if (!value.reference().equals(original.reference()) || !value.scope().equals(original.scope()) || !value.key().equals(original.key())
-                || !value.merchantPaymentNo().equals(original.merchantPaymentNo()))
+                || !value.merchantPaymentNo().equals(original.merchantPaymentNo())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return true;
     }
 }

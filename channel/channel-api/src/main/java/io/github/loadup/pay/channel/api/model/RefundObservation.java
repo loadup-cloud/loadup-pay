@@ -51,7 +51,9 @@ public record RefundObservation(String refundId, ChannelPaymentIdentity original
             DomainChecks.text(channelRefundTransactionNo, 128);
             Objects.requireNonNull(succeededAt);
             succeededAt = succeededAt.truncatedTo(ChronoUnit.MICROS);
-        } else require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
+        } else {
+            require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
+        }
         if (acceptedAt != null) {
             acceptedAt = acceptedAt.truncatedTo(ChronoUnit.MICROS);
             require(succeededAt == null || !acceptedAt.isAfter(succeededAt), INVALID_ARGUMENT);

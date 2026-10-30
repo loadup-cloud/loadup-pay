@@ -63,8 +63,9 @@ public record LimitReservation(
                         && paymentSourceVersion >= 0
                         && version >= 0,
                 INVALID_ARGUMENT);
-        if (state == LimitReservationState.EXECUTING)
+        if (state == LimitReservationState.EXECUTING) {
             require(activeAttemptId != null && executionEpoch > 0, INVALID_STATE);
+        }
     }
 
     public static LimitReservation init(
@@ -97,14 +98,18 @@ public record LimitReservation(
     }
 
     public LimitReservation reserve() {
-        if (state == LimitReservationState.RESERVED) return this;
+        if (state == LimitReservationState.RESERVED) {
+            return this;
+        }
         require(state == LimitReservationState.INIT, INVALID_STATE);
         return copy(LimitReservationState.RESERVED, null, 0, 0);
     }
 
     public LimitReservation release(LimitReleaseEvidence evidence) {
         require(paymentId.equals(evidence.paymentId()) && amount.equals(evidence.amount()), CONFLICT);
-        if (state == LimitReservationState.RELEASED) return this;
+        if (state == LimitReservationState.RELEASED) {
+            return this;
+        }
         require(state == LimitReservationState.RESERVED || state == LimitReservationState.EXECUTING, CONFLICT);
         return copy(LimitReservationState.RELEASED, activeAttemptId, executionEpoch, evidence.paymentVersion());
     }
@@ -116,7 +121,9 @@ public record LimitReservation(
     public LimitReservation beginExecution(String attemptId, LocalDateTime now, LimitAttemptEvidence previous) {
         DomainChecks.id(attemptId);
         Objects.requireNonNull(now);
-        if (state == LimitReservationState.EXECUTING && attemptId.equals(activeAttemptId)) return this;
+        if (state == LimitReservationState.EXECUTING && attemptId.equals(activeAttemptId)) {
+            return this;
+        }
         if (state == LimitReservationState.EXECUTING) {
             require(
                     previous != null
@@ -140,7 +147,9 @@ public record LimitReservation(
 
     public LimitReservation confirm(String sourcePaymentId, Money paid, long sourceVersion) {
         require(paymentId.equals(sourcePaymentId) && amount.equals(paid) && sourceVersion > 0, CONFLICT);
-        if (state == LimitReservationState.CONFIRMED) return this;
+        if (state == LimitReservationState.CONFIRMED) {
+            return this;
+        }
         require(state == LimitReservationState.EXECUTING, CONFLICT);
         return copy(LimitReservationState.CONFIRMED, activeAttemptId, executionEpoch, sourceVersion);
     }

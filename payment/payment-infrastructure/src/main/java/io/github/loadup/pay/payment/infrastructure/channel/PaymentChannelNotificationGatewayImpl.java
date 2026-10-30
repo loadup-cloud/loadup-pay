@@ -50,22 +50,36 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
 
     @Override
     public ChannelNotificationHint identify(Channel channel, String bindingRevisionId, ChannelNotificationInput input) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (channel == null || bindingRevisionId == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (channel == null || bindingRevisionId == null || input == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || tenant.isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = bindings.findRevision(tenant, bindingRevisionId)
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-        if (binding.channel() != channel) throw new CommonException(INVALID_ARGUMENT);
+        if (binding.channel() != channel) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return notifications.identify(new ChannelExecutionContext(tenant, binding), input);
     }
 
     @Override
     public VerifiedChannelNotification verify(ChannelPaymentTarget target, ChannelNotificationInput input) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (target == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (target == null || input == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || tenant.isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = bindings.findRevision(tenant, target.identity().bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         return notifications.verify(new ChannelExecutionContext(tenant, binding), target, input);
@@ -78,17 +92,27 @@ public class PaymentChannelNotificationGatewayImpl implements PaymentChannelNoti
 
     @Override
     public VerifiedChannelRefundNotification verifyRefund(PreparedChannelRefund target, ChannelNotificationInput input) {
-        if (target == null || input == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null || input == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return notifications.verifyRefund(context(target.original().channel(), target.original().bindingRevisionId()), target, input);
     }
 
     private ChannelExecutionContext context(Channel channel, String revision) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (channel == null || revision == null) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (channel == null || revision == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || tenant.isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = bindings.findRevision(tenant, revision).orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-        if (binding.channel() != channel) throw new CommonException(INVALID_ARGUMENT);
+        if (binding.channel() != channel) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return new ChannelExecutionContext(tenant, binding);
     }
 

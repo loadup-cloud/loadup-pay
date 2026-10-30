@@ -25,7 +25,6 @@ import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -42,16 +41,18 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PA
 
 @Component
 public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
+    private final PaymentTransportProperties properties;
+    private final AcquireServiceTokenReader tokens;
+    private final PaymentRpcMapper paymentRpcMapper;
     @DubboReference(url = "tri://payment-headless:50051")
     private PaymentRpc paymentRpc;
 
-    private final PaymentTransportProperties properties;
-    private final AcquireServiceTokenReader tokens;
-
     public PaymentAcceptanceRpcClient(
+            PaymentRpcMapper paymentRpcMapper,
             JsonMapper mapper,
             PaymentTransportProperties properties,
-            @Qualifier("acquireClock") Clock clock) {
+            Clock clock) {
+        this.paymentRpcMapper = paymentRpcMapper;
         this.properties = properties;
         this.tokens = new AcquireServiceTokenReader(mapper, clock);
     }
@@ -63,77 +64,83 @@ public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, Paym
 
     @Override
     public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputDTO(paymentRpc.inputPrepare(
-                PaymentRpcMapper.INSTANCE.toWirePaymentInputPrepareCommand(command))), true);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputDTO(paymentRpc.inputPrepare(
+                paymentRpcMapper.toWirePaymentInputPrepareCommand(command))), true);
     }
 
     @Override
     public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputLookupDTO(paymentRpc.inputLookup(
-                PaymentRpcMapper.INSTANCE.toWirePaymentInputLookupQuery(query))), true);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputLookupDTO(paymentRpc.inputLookup(
+                paymentRpcMapper.toWirePaymentInputLookupQuery(query))), true);
     }
 
     @Override
     public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(String tenant,
                                                                                      io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentInputExpiryDTO(paymentRpc.inputExpire(
-                PaymentRpcMapper.INSTANCE.toWirePaymentInputExpireCommand(command))), true);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputExpiryDTO(paymentRpc.inputExpire(
+                paymentRpcMapper.toWirePaymentInputExpireCommand(command))), true);
     }
 
     @Override
     public PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentExecutionDTO(paymentRpc.accept(
-                PaymentRpcMapper.INSTANCE.toWirePaymentExecuteCommand(command))), true);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentExecutionDTO(paymentRpc.accept(
+                paymentRpcMapper.toWirePaymentExecuteCommand(command))), true);
     }
 
     @Override
     public PaymentExecutionDTO detail(String tenant, String paymentId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentExecutionDTO(paymentRpc.detail(
-                PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentExecutionDTO(paymentRpc.detail(
+                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
     }
 
     @Override
     public PaymentOutcomeDTO outcome(String tenant, String paymentId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentOutcomeDTO(paymentRpc.outcome(
-                PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentOutcomeDTO(paymentRpc.outcome(
+                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
     }
 
     @Override
     public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
-                PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
+                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
     }
 
     @Override
     public OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWireOrderRefundSummaryEventDTO(
-                paymentRpc.refundSummary(PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(orderId)))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWireOrderRefundSummaryEventDTO(
+                paymentRpc.refundSummary(paymentRpcMapper.toWireIdQuery(new IdQuery(orderId)))), false);
     }
 
     @Override
     public ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWireParentFenceDTO(paymentRpc.fenceParent(
-                PaymentRpcMapper.INSTANCE.toWireParentPaymentFenceCommand(command))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWireParentFenceDTO(paymentRpc.fenceParent(
+                paymentRpcMapper.toWireParentPaymentFenceCommand(command))), false);
     }
 
     @Override
     public PaymentCloseDTO close(String tenant, PaymentCloseCommand command) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentCloseDTO(paymentRpc.close(
-                PaymentRpcMapper.INSTANCE.toWirePaymentCloseCommand(command))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentCloseDTO(paymentRpc.close(
+                paymentRpcMapper.toWirePaymentCloseCommand(command))), false);
     }
 
     @Override
     public ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWireParentFenceDTO(paymentRpc.parentFenceStatus(
-                PaymentRpcMapper.INSTANCE.toWireParentFenceStatusQuery(query))), false);
+        return exchange(tenant, () -> paymentRpcMapper.fromWireParentFenceDTO(paymentRpc.parentFenceStatus(
+                paymentRpcMapper.toWireParentFenceStatusQuery(query))), false);
     }
 
     private <R> R exchange(String tenant, Supplier<R> call, boolean guarded) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             R response = RpcTokenContext.call(credential(tenant), call);
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             if (guarded) {

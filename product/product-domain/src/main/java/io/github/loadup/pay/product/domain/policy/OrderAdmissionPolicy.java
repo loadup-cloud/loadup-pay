@@ -53,7 +53,9 @@ public final class OrderAdmissionPolicy {
         Objects.requireNonNull(merchant);
         Objects.requireNonNull(now);
         require(payee.equals(merchant.payeeMerchantId()), CONFLICT);
-        if (current != null) require(payee.equals(current.merchantId()), CONFLICT);
+        if (current != null) {
+            require(payee.equals(current.merchantId()), CONFLICT);
+        }
         String denial = !merchant.eligible()
                 ? merchant.reasonCode()
                 : current == null

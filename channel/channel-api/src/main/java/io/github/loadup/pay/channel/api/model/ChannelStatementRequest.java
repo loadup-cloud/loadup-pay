@@ -27,7 +27,9 @@ public record ChannelStatementRequest(ChannelStatementScope scope, int maxBytes)
     public static final int MAX_BYTES = 16 * 1024 * 1024;
 
     public ChannelStatementRequest {
-        if (scope == null || maxBytes < 1 || maxBytes > MAX_BYTES) throw new CommonException(INVALID_ARGUMENT);
+        if (scope == null || maxBytes < 1 || maxBytes > MAX_BYTES) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     @Override

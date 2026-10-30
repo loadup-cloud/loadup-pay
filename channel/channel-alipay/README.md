@@ -12,7 +12,7 @@
 - 参数、令牌、公钥描述与原始响应不进入诊断 toString。
 - 启用前缀为 `loadup.pay.channel.alipay.enabled`（默认关闭）；同级 credentials/authorizations 是 reference → version → 绝对
   Path 的受控映射。启用时应用需组合 channel-core、HttpTemplate、KmsTemplate 和 JsonMapper。
-- 时间源使用 channel-core 的 channelClock。运行/业务时区仍为系统本地；协议时间按支付宝官方 GMT+8 格式发送，成功时间按 GMT+8
+- 时间源使用 Spring 共享的 Clock。运行/业务时区仍为系统本地；协议时间按支付宝官方 GMT+8 格式发送，成功时间按 GMT+8
   解释后转换为业务时区，不把无时区文本当成服务器当地时间。依据：[官方 SDK 时间常量](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/AlipayConstants.java)。
 
 支付宝启用时注册 Provider，已有付款码/JSAPI submit、直连 H5 本地动作、退款提交/查询和支付 query/close

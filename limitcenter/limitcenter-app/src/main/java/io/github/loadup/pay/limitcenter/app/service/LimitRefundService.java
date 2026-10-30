@@ -42,7 +42,6 @@ import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.domain.model.RefundState;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -81,7 +80,7 @@ public class LimitRefundService implements LimitRefundFacade {
 
     public LimitRefundService(LimitTransactions transactions, MerchantLimitGateway reservations, LimitPolicyGateway policies,
                               LimitSettlementGateway settlements, LimitRefundGateway receipts, PaymentEvidenceClient payment,
-                              LimitRefundConverter converter, IdGenerator ids, @Qualifier("limitcenterClock") Clock clock,
+                              LimitRefundConverter converter, IdGenerator ids, Clock clock,
                               @Value("${loadup.modules.limitcenter.payment-service-id:payment}") String paymentService) {
         this.transactions = transactions;
         this.reservations = reservations;
@@ -98,20 +97,26 @@ public class LimitRefundService implements LimitRefundFacade {
     @Override
     public LimitRestoreDTO restoreRefund(LimitRefundRestoreCommand command) {
         var actor = transactions.authorize(command, "pay:limit:refund:restore");
-        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId()))
+        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.withTenantContext(actor, () -> {
             DomainChecks.id(command.operationId());
             DomainChecks.id(command.paymentId());
             DomainChecks.id(command.refundId());
             DomainChecks.id(command.businessEventId());
             DomainChecks.id(command.refundEvidenceId());
-            if (command.refundAmountMinor() > command.cumulativePaymentRefundedMinor())
+            if (command.refundAmountMinor() > command.cumulativePaymentRefundedMinor()) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             var digest = digest(actor, command);
             var prior = receipts.find(actor.tenantId(), command.refundId());
-            if (prior.isPresent()) return replay(actor, prior.get(), digest);
+            if (prior.isPresent()) {
+                return replay(actor, prior.get(), digest);
+            }
             var first = reservations.findByOperation(actor.tenantId(), command.operationId())
                     .orElseThrow(() -> new CommonException(DEPENDENCY_NOT_READY));
             owner(actor, first);
@@ -122,17 +127,21 @@ public class LimitRefundService implements LimitRefundFacade {
                 var gate = reservations.lockGate(actor.tenantId(), command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var known = receipts.find(actor.tenantId(), command.refundId());
-                if (known.isPresent()) return replay(actor, known.get(), digest);
+                if (known.isPresent()) {
+                    return replay(actor, known.get(), digest);
+                }
                 var stored = reservations.findByOperation(actor.tenantId(), command.operationId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 owner(actor, stored);
                 bind(command, stored, facts);
                 var value = stored.reservation();
-                if (!value.paymentId().equals(gate.paymentId()) || gate.state() != GateState.OPEN)
+                if (!value.paymentId().equals(gate.paymentId()) || gate.state() != GateState.OPEN) {
                     throw new CommonException(OUTCOME_CONFLICT);
+                }
                 if (value.state() != LimitReservationState.CONFIRMED) {
-                    if (value.state() == LimitReservationState.RESERVED || value.state() == LimitReservationState.EXECUTING)
+                    if (value.state() == LimitReservationState.RESERVED || value.state() == LimitReservationState.EXECUTING) {
                         throw new CommonException(DEPENDENCY_NOT_READY);
+                    }
                     throw new CommonException(OUTCOME_CONFLICT);
                 }
                 var confirmation = settlements.findReceipt(actor.tenantId(), command.operationId())
@@ -141,15 +150,18 @@ public class LimitRefundService implements LimitRefundFacade {
                         || confirmation.paymentVersion() != facts.paymentVersion()
                         || value.paymentSourceVersion() != facts.paymentVersion()
                         || !confirmation.evidenceId().equals(facts.paymentEvidenceId())
-                        || !Objects.equals(value.activeAttemptId(), facts.paymentAttemptId()))
+                        || !Objects.equals(value.activeAttemptId(), facts.paymentAttemptId())) {
                     throw new CommonException(OUTCOME_CONFLICT);
+                }
                 var head = policies.lockHead(actor.tenantId(), value.policyId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!head.payeeMerchantId().equals(value.payeeMerchantId()) || head.latestVersion() < value.policyVersion())
+                if (!head.payeeMerchantId().equals(value.payeeMerchantId()) || head.latestVersion() < value.policyVersion()) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var policy = policies.findRevision(actor.tenantId(), value.policyId(), value.policyVersion())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!policy.policyHash().equals(stored.policyHash()) || !policy.payeeMerchantId().equals(value.payeeMerchantId()))
+                if (!policy.policyHash().equals(stored.policyHash()) || !policy.payeeMerchantId().equals(value.payeeMerchantId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var items = items(actor, stored, policy);
                 var before = reservations.lockExistingBuckets(actor.tenantId(), items.stream().map(LimitReservationItem::bucket).toList());
                 var changes = items.stream().map(item -> item.restoreRefund(value, facts.refund().cumulativePaymentRefundedMinor(),
@@ -173,22 +185,29 @@ public class LimitRefundService implements LimitRefundFacade {
     private List<LimitReservationItem> items(LimitActor actor, StoredLimitReservation stored, ActivatedLimitPolicy policy) {
         var value = stored.reservation();
         var expected = new HashMap<LimitBucketKey, Long>();
-        for (var rule : policy.rules())
+        for (var rule : policy.rules()) {
             expected.put(new LimitBucketKey(rule.ruleScopeId(), rule.merchantId(), rule.metric(), rule.currency(), rule.window(),
                             windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
                     rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
+        }
         var items = reservations.loadItems(actor.tenantId(), value.id());
         var seen = new HashSet<LimitBucketKey>();
-        if (items.size() != expected.size() || items.isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
-        for (var item : items)
+        if (items.size() != expected.size() || items.isEmpty()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        for (var item : items) {
             if (!value.id().equals(item.reservationId()) || !seen.add(item.bucket())
-                    || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != item.reserved())
+                    || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != item.reserved()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
+        }
         return items;
     }
 
     private void bind(LimitRefundRestoreCommand command, StoredLimitReservation stored, RefundSettlementFactsDTO facts) {
-        if (facts == null || facts.refund() == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (facts == null || facts.refund() == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var refund = facts.refund();
         var value = stored.reservation();
         if (refund.state() != RefundState.SUCCEEDED || !command.refundId().equals(refund.refundId())
@@ -199,17 +218,24 @@ public class LimitRefundService implements LimitRefundFacade {
                 || !value.operationId().equals(refund.operationId()) || !value.paymentId().equals(refund.paymentId())
                 || !value.orderId().equals(refund.orderId()) || !value.payeeMerchantId().equals(refund.payeeMerchantId())
                 || !value.amount().getCurrencyValue().equals(refund.currency()) || value.amount().getCent() != facts.paymentAmountMinor()
-                || !value.initiatedAt().equals(BusinessTime.local(facts.paymentInitiatedAt())))
+                || !value.initiatedAt().equals(BusinessTime.local(facts.paymentInitiatedAt()))) {
             throw new CommonException(OUTCOME_CONFLICT);
+        }
     }
 
     private void owner(LimitActor actor, StoredLimitReservation stored) {
-        if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(stored.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private LimitRestoreDTO replay(LimitActor actor, LimitRefundReceipt receipt, String digest) {
-        if (!receipt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!receipt.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toDTO(receipt);
     }
 
@@ -217,8 +243,9 @@ public class LimitRefundService implements LimitRefundFacade {
         var canonical = new StringBuilder("limit.refund.v1/");
         for (var field : List.of(actor.tenantId(), actor.serviceId(), command.operationId(), command.paymentId(), command.refundId(),
                 Long.toString(command.refundVersion()), command.businessEventId(), Long.toString(command.refundAmountMinor()),
-                Long.toString(command.cumulativePaymentRefundedMinor()), command.currency(), command.refundEvidenceId()))
+                Long.toString(command.cumulativePaymentRefundedMinor()), command.currency(), command.refundEvidenceId())) {
             canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return DigestUtils.sha256(canonical.toString());
     }
 }

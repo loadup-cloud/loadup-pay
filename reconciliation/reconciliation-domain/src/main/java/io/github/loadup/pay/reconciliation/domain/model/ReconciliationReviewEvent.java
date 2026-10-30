@@ -51,9 +51,11 @@ public record ReconciliationReviewEvent(String id, ReconciliationReviewReference
         }, CONFLICT);
         require(operation == ReconciliationReviewOperation.PROPOSE ? version % 2L == 1L : version >= 2L && version % 2L == 0L, INVALID_STATE);
         require(occurredAt != null && occurredAt.getNano() % 1000 == 0, INVALID_ARGUMENT);
-        if (operation == ReconciliationReviewOperation.PROPOSE) require(note == null, INVALID_ARGUMENT);
-        else
+        if (operation == ReconciliationReviewOperation.PROPOSE) {
+            require(note == null, INVALID_ARGUMENT);
+        } else {
             require(note != null && !note.isBlank() && note.length() <= 1024 && note.chars().noneMatch(Character::isISOControl), INVALID_ARGUMENT);
+        }
     }
 
     public void verifyHead(ReconciliationReview value) {

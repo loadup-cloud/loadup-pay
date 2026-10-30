@@ -6,6 +6,7 @@ import io.github.loadup.commons.result.ResultCode;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
@@ -24,12 +25,11 @@ public final class ReconciliationRpcFields {
         try {
             LocalDate date = LocalDate.parse(value);
             if (!date.toString().equals(value) || date.getYear() < 1970 || date.getYear() > 9998) {
-                throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+                throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
             }
             return date;
-        }
-        catch (DateTimeParseException invalid) {
-            throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+        } catch (DateTimeParseException invalid) {
+            throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -39,14 +39,13 @@ public final class ReconciliationRpcFields {
 
     public static Channel channel(String value) {
         try {
-            Channel channel = Channel.valueOf((String)value);
+            Channel channel = Channel.valueOf((String) value);
             if (channel != Channel.ALIPAY && channel != Channel.WECHAT) {
-                throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+                throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
             }
             return channel;
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -56,10 +55,9 @@ public final class ReconciliationRpcFields {
 
     public static ReconciliationSide side(String value) {
         try {
-            return ReconciliationSide.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+            return ReconciliationSide.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -69,10 +67,9 @@ public final class ReconciliationRpcFields {
 
     public static ReconciliationState state(String value) {
         try {
-            return ReconciliationState.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)ReconciliationResultCodeEnum.INVALID_ARGUMENT);
+            return ReconciliationState.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) ReconciliationResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 }

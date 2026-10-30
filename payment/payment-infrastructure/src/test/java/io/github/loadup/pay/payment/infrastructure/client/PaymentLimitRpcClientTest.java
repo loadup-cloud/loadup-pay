@@ -12,6 +12,7 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
+import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapperImpl;
 import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import org.apache.dubbo.rpc.RpcContext;
@@ -54,6 +55,7 @@ class PaymentLimitRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final LimitCenterRpc limitCenterRpc = mock(LimitCenterRpc.class);
+    final LimitCenterRpcMapper limitCenterRpcMapper = new LimitCenterRpcMapperImpl();
     final List<String> attachments = new ArrayList<>();
     final LimitConfirmCommand confirm = new LimitConfirmCommand("operation", "payment", 2, "evidence", "evidence", 1000, "CNY",
             OffsetDateTime.now(clock));
@@ -91,15 +93,15 @@ class PaymentLimitRpcClientTest {
     void setup() throws Exception {
         tokenFile = directory.resolve("limitcenter.jwt");
         token(claims());
-        client = new PaymentLimitRpcClient(mapper, new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile), clock);
+        client = new PaymentLimitRpcClient(limitCenterRpcMapper, mapper, new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile), clock);
         ReflectionTestUtils.setField(client, "limitCenterRpc", limitCenterRpc);
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return LimitCenterRpcMapper.INSTANCE.toWireLimitReservationDTO(confirmed());
+            return limitCenterRpcMapper.toWireLimitReservationDTO(confirmed());
         }).when(limitCenterRpc).confirm(any());
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return LimitCenterRpcMapper.INSTANCE.toWireLimitReleaseDTO(
+            return limitCenterRpcMapper.toWireLimitReleaseDTO(
                     new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
         }).when(limitCenterRpc).release(any());
     }
@@ -128,7 +130,7 @@ class PaymentLimitRpcClientTest {
         doAnswer(invocation -> {
             assertEquals("Bearer " + Files.readString(tokenFile),
                     RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return LimitCenterRpcMapper.INSTANCE.toWireLimitRestoreDTO(ack);
+            return limitCenterRpcMapper.toWireLimitRestoreDTO(ack);
         }).when(limitCenterRpc).restoreRefund(any());
         assertEquals(ack, client.restoreRefund("tenant", refundRestore));
         verify(limitCenterRpc).restoreRefund(any());

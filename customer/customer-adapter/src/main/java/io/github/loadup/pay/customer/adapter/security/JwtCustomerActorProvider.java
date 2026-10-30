@@ -38,16 +38,23 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
                 || !authentication.isAuthenticated()
-                || !(authentication.getCredentials() instanceof Jwt jwt)) throw denied();
+                || !(authentication.getCredentials() instanceof Jwt jwt)) {
+            throw denied();
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id");
             String type = jwt.getClaimAsString("principal_type");
             String merchant = jwt.getClaimAsString("merchant_id");
-            if (tenant == null || !tenant.equals(tenant.trim()) || type == null || jwt.getSubject() == null)
+            if (tenant == null || !tenant.equals(tenant.trim()) || type == null || jwt.getSubject() == null) {
                 throw denied();
+            }
             PrincipalType principalType = PrincipalType.valueOf(type);
-            if (principalType != PrincipalType.OPERATOR && (merchant == null || merchant.isBlank())) throw denied();
-            if (principalType == PrincipalType.MERCHANT && !jwt.getSubject().equals(merchant)) throw denied();
+            if (principalType != PrincipalType.OPERATOR && (merchant == null || merchant.isBlank())) {
+                throw denied();
+            }
+            if (principalType == PrincipalType.MERCHANT && !jwt.getSubject().equals(merchant)) {
+                throw denied();
+            }
             boolean manage = authentication.getAuthorities().stream()
                     .anyMatch(authority -> MANAGE_PERMISSION.equals(authority.getAuthority()));
             return new CustomerActor(tenant, principalType, jwt.getSubject(), merchant, manage);

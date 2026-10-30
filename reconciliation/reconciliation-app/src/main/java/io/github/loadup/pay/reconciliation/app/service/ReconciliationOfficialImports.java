@@ -38,7 +38,9 @@ public class ReconciliationOfficialImports {
     }
 
     public void verify(String tenant, ReconciliationImportRequest request) {
-        if (request.sourceKind() == ReconciliationSourceKind.MANUAL_UPLOAD) return;
+        if (request.sourceKind() == ReconciliationSourceKind.MANUAL_UPLOAD) {
+            return;
+        }
         var source = sources.find(tenant, request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         try {
             source.verifyImport(request);

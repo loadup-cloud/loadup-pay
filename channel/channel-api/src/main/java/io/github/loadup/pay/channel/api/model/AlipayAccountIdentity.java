@@ -31,7 +31,9 @@ public record AlipayAccountIdentity(String appId, String sellerId, String operat
     public AlipayAccountIdentity {
         DomainChecks.text(appId, 32);
         DomainChecks.text(sellerId, 32);
-        if (operatorAppId != null) DomainChecks.text(operatorAppId, 32);
+        if (operatorAppId != null) {
+            DomainChecks.text(operatorAppId, 32);
+        }
         require((authorizationReference == null) == (authorizationVersion == null), INVALID_ARGUMENT);
         if (authorizationReference != null) {
             DomainChecks.text(authorizationReference, 128);

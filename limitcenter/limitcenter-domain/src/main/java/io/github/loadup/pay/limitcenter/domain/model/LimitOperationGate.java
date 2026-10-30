@@ -38,7 +38,9 @@ public record LimitOperationGate(
         DomainChecks.id(paymentId);
         Objects.requireNonNull(state);
         require(paymentSourceVersion >= 0, INVALID_ARGUMENT);
-        if (state == GateState.FENCED) DomainChecks.id(noCollectionEvidenceId);
+        if (state == GateState.FENCED) {
+            DomainChecks.id(noCollectionEvidenceId);
+        }
     }
 
     public static LimitOperationGate init(String operationId, String paymentId) {
@@ -47,7 +49,9 @@ public record LimitOperationGate(
 
     public LimitOperationGate fence(long sourceVersion, String evidenceId) {
         require(sourceVersion > 0, INVALID_ARGUMENT);
-        if (state == GateState.FENCED && sourceVersion <= paymentSourceVersion) return this;
+        if (state == GateState.FENCED && sourceVersion <= paymentSourceVersion) {
+            return this;
+        }
         return new LimitOperationGate(operationId, paymentId, GateState.FENCED, sourceVersion, evidenceId);
     }
 
@@ -56,7 +60,9 @@ public record LimitOperationGate(
     }
 
     public LimitOperationGate open() {
-        if (state == GateState.OPEN) return this;
+        if (state == GateState.OPEN) {
+            return this;
+        }
         require(state == GateState.INIT, INVALID_STATE);
         return new LimitOperationGate(operationId, paymentId, GateState.OPEN, 0, null);
     }

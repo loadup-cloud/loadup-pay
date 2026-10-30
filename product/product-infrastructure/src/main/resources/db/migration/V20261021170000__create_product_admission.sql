@@ -3,7 +3,6 @@
 CREATE TABLE order_admission
 (
     id                    VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id             VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted               BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -41,14 +40,13 @@ CREATE TABLE order_admission
             AND compiled_terms IS NULL AND admitted_at IS NULL AND materialize_before IS NULL))
 );
 
-CREATE UNIQUE INDEX uk_admission_order ON order_admission (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_admission_order ON order_admission (order_id);
 
-CREATE INDEX ix_admission_contract ON order_admission (tenant_id, contract_id, created_at, id);
+CREATE INDEX ix_admission_contract ON order_admission (contract_id, created_at, id);
 
 CREATE TABLE contract_limit_publication
 (
     id                         VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id                  VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                 TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                 TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                    BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -81,10 +79,10 @@ CREATE TABLE contract_limit_publication
             OR (state = 'ACTIVE' AND outbox_event_id IS NOT NULL AND activated_at IS NOT NULL))))
 );
 
-CREATE UNIQUE INDEX uk_contract_policy_publication ON contract_limit_publication (tenant_id, contract_id, contract_revision);
+CREATE UNIQUE INDEX uk_contract_policy_publication ON contract_limit_publication (contract_id, contract_revision);
 
-CREATE UNIQUE INDEX uk_policy_publication_version ON contract_limit_publication (tenant_id, policy_id, policy_version);
+CREATE UNIQUE INDEX uk_policy_publication_version ON contract_limit_publication (policy_id, policy_version);
 
-CREATE UNIQUE INDEX uk_initial_policy_merchant ON contract_limit_publication (tenant_id, payee_merchant_id);
+CREATE UNIQUE INDEX uk_initial_policy_merchant ON contract_limit_publication (payee_merchant_id);
 
-CREATE UNIQUE INDEX uk_publication_outbox ON contract_limit_publication (tenant_id, outbox_event_id);
+CREATE UNIQUE INDEX uk_publication_outbox ON contract_limit_publication (outbox_event_id);

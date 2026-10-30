@@ -65,7 +65,9 @@ final class AttemptFixtures {
         var command = command();
         var payment = PaymentOrder.init(command.paymentId(), command.orderId(), command.allocationId(), command.payeeMerchantId(),
                 DomainChecks.cnyAmount(command.amountMinor(), command.currency()), "operation", NOW);
-        if (attempted) payment = payment.prepareAttempt(prepared().attempt(), null);
+        if (attempted) {
+            payment = payment.prepareAttempt(prepared().attempt(), null);
+        }
         return new StoredPaymentAcceptance(payment, command.admissionId(), command.requestDigest(), "acquire", "payload", "c".repeat(64), null);
     }
 

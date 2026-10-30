@@ -47,26 +47,34 @@ public record CheckoutSession(String id, String orderId, CheckoutSessionState st
     public CheckoutSession activate(LocalDateTime now) {
         Objects.requireNonNull(now);
         require(now.isBefore(expiresAt), INVALID_STATE);
-        if (state == CheckoutSessionState.ACTIVE) return this;
+        if (state == CheckoutSessionState.ACTIVE) {
+            return this;
+        }
         require(state == CheckoutSessionState.INIT, INVALID_STATE);
         return new CheckoutSession(id, orderId, CheckoutSessionState.ACTIVE, expiresAt);
     }
 
     public CheckoutSession expire(LocalDateTime now) {
         Objects.requireNonNull(now);
-        if (terminal() || now.isBefore(expiresAt)) return this;
+        if (terminal() || now.isBefore(expiresAt)) {
+            return this;
+        }
         return new CheckoutSession(id, orderId, CheckoutSessionState.EXPIRED, expiresAt);
     }
 
     public CheckoutSession complete(AcquireOrder order) {
         require(orderId.equals(order.id()) && order.state() == AcquireOrderState.PAID, CONFLICT);
-        if (state == CheckoutSessionState.COMPLETED) return this;
+        if (state == CheckoutSessionState.COMPLETED) {
+            return this;
+        }
         require(!terminal(), INVALID_STATE);
         return new CheckoutSession(id, orderId, CheckoutSessionState.COMPLETED, expiresAt);
     }
 
     public CheckoutSession cancel() {
-        if (state == CheckoutSessionState.CANCELLED) return this;
+        if (state == CheckoutSessionState.CANCELLED) {
+            return this;
+        }
         require(!terminal(), INVALID_STATE);
         return new CheckoutSession(id, orderId, CheckoutSessionState.CANCELLED, expiresAt);
     }

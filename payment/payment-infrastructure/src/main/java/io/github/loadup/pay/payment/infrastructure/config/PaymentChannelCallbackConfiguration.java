@@ -28,7 +28,9 @@ public class PaymentChannelCallbackConfiguration {
     @Bean
     public ChannelCallbackEndpointResolver channelCallbackEndpointResolver(PaymentChannelCallbackProperties properties) {
         return endpointRef -> {
-            if (!PaymentChannelCallbackProperties.validEndpointRef(endpointRef)) return Optional.empty();
+            if (!PaymentChannelCallbackProperties.validEndpointRef(endpointRef)) {
+                return Optional.empty();
+            }
             return Optional.ofNullable(properties.endpoints().get(endpointRef));
         };
     }

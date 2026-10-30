@@ -37,8 +37,9 @@ public class PaymentEventCodecImpl implements PaymentEventCodec {
                 Long.toString(event.aggregateVersion()), event.occurredAt().toString(), value.paymentId(), value.orderId(),
                 value.allocationId(), value.operationId(), value.payeeMerchantId(), Long.toString(value.amountMinor()),
                 value.currency(), value.state().name(), Long.toString(value.paymentVersion()), value.evidenceId(),
-                Boolean.toString(value.executionFenced())))
+                Boolean.toString(value.executionFenced()))) {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(framed.toString().getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {

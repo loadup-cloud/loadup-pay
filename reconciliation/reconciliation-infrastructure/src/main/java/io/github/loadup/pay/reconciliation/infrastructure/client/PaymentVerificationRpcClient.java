@@ -9,7 +9,6 @@ import io.github.loadup.pay.payment.rpc.proto.PaymentVerificationRpc;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -22,28 +21,35 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 @Component
 public class PaymentVerificationRpcClient implements ReconciliationPaymentVerification {
+    private final ReconciliationPaymentProperties properties;
+    private final ReconciliationServiceTokenReader tokens;
+    private final PaymentVerificationRpcMapper paymentVerificationRpcMapper;
     @DubboReference(url = "tri://payment-headless:50051")
     private PaymentVerificationRpc paymentVerificationRpc;
 
-    private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
-
-    public PaymentVerificationRpcClient(ReconciliationPaymentProperties properties,
-                                        JsonMapper mapper, @Qualifier("reconciliationClock") Clock clock) {
+    public PaymentVerificationRpcClient(PaymentVerificationRpcMapper paymentVerificationRpcMapper, ReconciliationPaymentProperties properties,
+                                        JsonMapper mapper, Clock clock) {
+        this.paymentVerificationRpcMapper = paymentVerificationRpcMapper;
         this.properties = properties;
         this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
     }
 
     @Override
     public PaymentVerificationDTO verify(String tenant, PaymentVerificationQuery query) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!properties.tenantId().equals(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!properties.tenantId().equals(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             var value = RpcTokenContext.call(
                     tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
-                    () -> PaymentVerificationRpcMapper.INSTANCE.fromWire(paymentVerificationRpc.verify(
-                            PaymentVerificationRpcMapper.INSTANCE.toWire(query))));
-            if (value == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    () -> paymentVerificationRpcMapper.fromWire(paymentVerificationRpc.verify(
+                            paymentVerificationRpcMapper.toWire(query))));
+            if (value == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

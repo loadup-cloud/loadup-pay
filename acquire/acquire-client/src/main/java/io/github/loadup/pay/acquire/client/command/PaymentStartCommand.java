@@ -40,7 +40,9 @@ public record PaymentStartCommand(
         @Schema(description = "Payer input: scanner code for PAYMENT_CODE, resolved channel identity for JSAPI, H5_SCENE with actual terminal IP and scene for WeChat H5", accessMode = Schema.AccessMode.WRITE_ONLY) @Valid @DiagnosticHidden
         PaymentInteractionDTO interaction) {
     public PaymentStartCommand {
-        if (interaction == null) interaction = new NoInteractionDTO();
+        if (interaction == null) {
+            interaction = new NoInteractionDTO();
+        }
     }
 
     @Override

@@ -135,7 +135,9 @@ class LimitRefundServiceTest {
             return new LimitReservationItem("item-" + rule.ruleScopeId(), "reservation", key, quantity, quantity, 0);
         }).toList());
         var initial = new HashMap<LimitBucketKey, LimitBucket>();
-        for (var item : items.get()) initial.put(item.bucket(), new LimitBucket(item.bucket(), item.consumed(), 7, 1));
+        for (var item : items.get()) {
+            initial.put(item.bucket(), new LimitBucket(item.bucket(), item.consumed(), 7, 1));
+        }
         buckets.set(new LimitBucketSet(initial));
         when(payment.supportsTenant("tenant")).thenReturn(true);
         when(reservations.findByOperation("tenant", "operation")).thenAnswer(c -> Optional.of(stored.get()));

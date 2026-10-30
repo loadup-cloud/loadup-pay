@@ -50,9 +50,11 @@ public final class WechatChannelProvider implements ChannelProvider {
 
     @Override
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
-        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE)
+        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE) {
             codepay.validate(context, request);
-        else submissions.validate(context, request);
+        } else {
+            submissions.validate(context, request);
+        }
     }
 
     @Override

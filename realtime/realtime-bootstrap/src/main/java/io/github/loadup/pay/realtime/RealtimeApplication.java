@@ -17,9 +17,7 @@ package io.github.loadup.pay.realtime;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 
-import java.time.Clock;
 
 @SpringBootApplication
 public class RealtimeApplication {
@@ -27,8 +25,4 @@ public class RealtimeApplication {
         SpringApplication.run(RealtimeApplication.class, args);
     }
 
-    @Bean
-    Clock realtimeClock() {
-        return Clock.systemDefaultZone();
-    }
 }

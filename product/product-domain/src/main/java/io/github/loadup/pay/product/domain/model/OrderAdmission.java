@@ -43,14 +43,16 @@ public record OrderAdmission(
         DomainChecks.text(requestDigest, 64);
         Objects.requireNonNull(decision);
         DomainChecks.text(reasonCode, 64);
-        if (decision == AdmissionDecision.ADMITTED)
+        if (decision == AdmissionDecision.ADMITTED) {
             require(
                     contract != null
                             && admittedAt != null
                             && materializeBefore != null
                             && materializeBefore.isAfter(admittedAt),
                     INVALID_ARGUMENT);
-        else require(contract == null && admittedAt == null && materializeBefore == null, INVALID_ARGUMENT);
+        } else {
+            require(contract == null && admittedAt == null && materializeBefore == null, INVALID_ARGUMENT);
+        }
     }
 
     public void requireSameIntent(String order, String payee, String digest) {

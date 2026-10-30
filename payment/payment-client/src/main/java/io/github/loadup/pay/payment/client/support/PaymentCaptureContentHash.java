@@ -49,11 +49,15 @@ public final class PaymentCaptureContentHash {
      * The archive is exactly the versioned length-framed source bytes whose SHA-256 is contentHash.
      */
     public static byte[] archive(PaymentCaptureDTO capture, List<PaymentLedgerLineDTO> lines, int maxBytes) {
-        if (maxBytes < 1 || !matches(capture, lines)) throw new CommonException(INVALID_ARGUMENT);
+        if (maxBytes < 1 || !matches(capture, lines)) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var bytes = new java.io.ByteArrayOutputStream();
         var hash = frame(capture.captureId(), capture.channel(), capture.accountScopeHash(), capture.billDate(), capture.statementProfile(), capture.systemZone(),
                 capture.startedAt(), capture.finishedAt(), lines, new Frame("payment-ledger-capture-v1", bytes, maxBytes));
-        if (!capture.contentHash().equals(hash.finish())) throw new CommonException(INVALID_ARGUMENT);
+        if (!capture.contentHash().equals(hash.finish())) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return bytes.toByteArray();
     }
 
@@ -69,8 +73,9 @@ public final class PaymentCaptureContentHash {
         hash.field(finishedAt.toInstant().toString());
         long ordinal = 0, payments = 0, paymentAmount = 0, refunds = 0, refundAmount = 0;
         for (var row : lines) {
-            if (row.ordinal() != ++ordinal || row.amountMinor() <= 0 || !"CNY".equals(row.currency()) || row.sourceVersion() < 0)
+            if (row.ordinal() != ++ordinal || row.amountMinor() <= 0 || !"CNY".equals(row.currency()) || row.sourceVersion() < 0) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             hash.field(Long.toString(row.ordinal()));
             hash.field(row.kind().name());
             hash.field(row.channelTransactionNo());
@@ -102,7 +107,9 @@ public final class PaymentCaptureContentHash {
     public static boolean matches(PaymentCaptureDTO capture, List<PaymentLedgerLineDTO> lines) {
         if (capture == null || capture.state() != PaymentCaptureState.SEALED || capture.paymentCount() == null || capture.refundCount() == null
                 || capture.paymentAmountMinor() == null || capture.refundAmountMinor() == null || capture.contentHash() == null
-                || Math.addExact(capture.paymentCount(), capture.refundCount()) != lines.size()) return false;
+                || Math.addExact(capture.paymentCount(), capture.refundCount()) != lines.size()) {
+            return false;
+        }
         long paymentCount = 0, paymentAmount = 0, refundCount = 0, refundAmount = 0;
         for (var row : lines) {
             if (row.kind() == PaymentLedgerKind.PAYMENT) {
@@ -158,13 +165,18 @@ public final class PaymentCaptureContentHash {
             byte[] bytes = value == null ? null : value.getBytes(StandardCharsets.UTF_8);
             byte[] prefix = ByteBuffer.allocate(4).putInt(bytes == null ? -1 : bytes.length).array();
             if (archive != null) {
-                if ((long) archive.size() + prefix.length + (bytes == null ? 0 : bytes.length) > maxBytes)
+                if ((long) archive.size() + prefix.length + (bytes == null ? 0 : bytes.length) > maxBytes) {
                     throw new CommonException(INVALID_ARGUMENT);
+                }
                 archive.writeBytes(prefix);
-                if (bytes != null) archive.writeBytes(bytes);
+                if (bytes != null) {
+                    archive.writeBytes(bytes);
+                }
             }
             digest.update(prefix);
-            if (bytes != null) digest.update(bytes);
+            if (bytes != null) {
+                digest.update(bytes);
+            }
         }
 
         String finish() {

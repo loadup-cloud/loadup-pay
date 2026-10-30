@@ -55,7 +55,9 @@ public class AllocationRecoveryQueue {
     public void register(String tenant, StoredPaymentAllocation allocation, LocalDateTime initiatedAt) {
         writable(tenant);
         if (allocation.allocation().state() != AllocationState.HELD || allocation.allocation().paymentSourceVersion() != 0L
-                || allocation.rowVersion() != 0L) throw new CommonException(INVALID_STATE);
+                || allocation.rowVersion() != 0L) {
+            throw new CommonException(INVALID_STATE);
+        }
         var cursor = AllocationRecoveryCursor.init(allocation.allocation().paymentId(), allocation.allocation().orderId(),
                 initiatedAt.truncatedTo(ChronoUnit.MICROS).plusSeconds(pollDelaySeconds));
         cursors.insert(tenant, cursor);
@@ -72,12 +74,17 @@ public class AllocationRecoveryQueue {
 
     void finish(String tenant, AllocationRecoveryCursor before) {
         writable(tenant);
-        if (!before.completed()) cursors.update(tenant, before, before.finish());
+        if (!before.completed()) {
+            cursors.update(tenant, before, before.finish());
+        }
     }
 
     private void writable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

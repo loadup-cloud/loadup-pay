@@ -48,8 +48,9 @@ public record LimitConfirmCommand(
 
         @Schema(description = "Succeeded at") @NotNull OffsetDateTime succeededAt) {
     public LimitConfirmCommand {
-        if (succeededAt != null)
+        if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

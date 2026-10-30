@@ -16,11 +16,11 @@
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderSnapshotStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
-import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,8 +44,9 @@ public class OrderSnapshotReaderImpl implements OrderSnapshotReader {
     public OrderSnapshotFacts lockCurrent(String tenant, String orderId) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", orderId);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
@@ -54,7 +55,9 @@ public class OrderSnapshotReaderImpl implements OrderSnapshotReader {
                        close_epoch, paid_at, closed_at, row_version
                 FROM acquire_order WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE
                 """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream().findFirst().orElse(null);
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         try {
             return converter.toFacts(row);
         } catch (RuntimeException corrupt) {

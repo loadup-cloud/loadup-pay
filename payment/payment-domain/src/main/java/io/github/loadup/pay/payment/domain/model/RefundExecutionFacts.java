@@ -33,7 +33,9 @@ public record RefundExecutionFacts(StoredRefundChild child, LocalDateTime submis
             DomainChecks.text(channelRefundTransactionNo, 128);
             Objects.requireNonNull(succeededAt);
             require(!succeededAt.isBefore(child.originalSucceededAt()), INVALID_ARGUMENT);
-        } else require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
+        } else {
+            require(channelRefundTransactionNo == null && succeededAt == null, INVALID_ARGUMENT);
+        }
     }
 
     @Override

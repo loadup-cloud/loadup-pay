@@ -53,11 +53,13 @@ public record OrderAdmissionDTO(
         @Schema(description = "Materialize before") OffsetDateTime materializeBefore,
         @Schema(description = "Terms") @Valid AcquiringTermsDTO terms) {
     public OrderAdmissionDTO {
-        if (admittedAt != null)
+        if (admittedAt != null) {
             admittedAt = admittedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (materializeBefore != null)
+        }
+        if (materializeBefore != null) {
             materializeBefore =
                     materializeBefore.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

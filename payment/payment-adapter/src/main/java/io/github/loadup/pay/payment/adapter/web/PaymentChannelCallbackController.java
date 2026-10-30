@@ -59,21 +59,31 @@ public class PaymentChannelCallbackController {
     private ResponseEntity<String> receive(String endpointRef, HttpServletRequest request,
                                            java.util.function.BiFunction<String, ChannelNotificationInput, ChannelNotificationAcknowledgement> receiver) throws IOException {
         byte[] body = request.getInputStream().readNBytes(ChannelNotificationInput.MAX_BODY_BYTES + 1);
-        if (body.length > ChannelNotificationInput.MAX_BODY_BYTES) return ResponseEntity.status(413).build();
-        if (body.length == 0 || request.getQueryString() != null) return ResponseEntity.badRequest().build();
+        if (body.length > ChannelNotificationInput.MAX_BODY_BYTES) {
+            return ResponseEntity.status(413).build();
+        }
+        if (body.length == 0 || request.getQueryString() != null) {
+            return ResponseEntity.badRequest().build();
+        }
         try {
             var headers = new java.util.HashMap<String, java.util.List<String>>();
             var names = request.getHeaderNames();
             while (names != null && names.hasMoreElements()) {
-                if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES)
+                if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES) {
                     return ResponseEntity.badRequest().build();
+                }
                 String name = names.nextElement();
                 var values = request.getHeaders(name);
-                if (values == null || !values.hasMoreElements()) return ResponseEntity.badRequest().build();
+                if (values == null || !values.hasMoreElements()) {
+                    return ResponseEntity.badRequest().build();
+                }
                 var captured = new java.util.ArrayList<String>();
-                while (values.hasMoreElements() && captured.size() <= ChannelNotificationInput.MAX_HEADER_VALUES)
+                while (values.hasMoreElements() && captured.size() <= ChannelNotificationInput.MAX_HEADER_VALUES) {
                     captured.add(values.nextElement());
-                if (headers.putIfAbsent(name, captured) != null) return ResponseEntity.badRequest().build();
+                }
+                if (headers.putIfAbsent(name, captured) != null) {
+                    return ResponseEntity.badRequest().build();
+                }
             }
             var acknowledgement = receiver.apply(endpointRef, new ChannelNotificationInput(request.getContentType(), headers, body));
             return ResponseEntity.status(acknowledgement.httpStatus()).cacheControl(CacheControl.noStore())

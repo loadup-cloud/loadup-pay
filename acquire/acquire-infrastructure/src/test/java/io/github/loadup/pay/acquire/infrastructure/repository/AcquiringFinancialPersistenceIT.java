@@ -369,7 +369,9 @@ class AcquiringFinancialPersistenceIT {
                 PaymentExecuteCommand command = c.getArgument(1);
                 String key = c.getArgument(0) + "/" + command.paymentId();
                 commands.compute(key, (ignored, old) -> {
-                    if (old != null) assertEquals(old, command);
+                    if (old != null) {
+                        assertEquals(old, command);
+                    }
                     return command;
                 });
                 return response(command, false);
@@ -402,8 +404,9 @@ class AcquiringFinancialPersistenceIT {
         @Override
         public void publish(String tenant, String orderId, long expectedVersion) {
             super.publish(tenant, orderId, expectedVersion);
-            if (remote.failSnapshot.getAndSet(false))
+            if (remote.failSnapshot.getAndSet(false)) {
                 throw new IllegalStateException("Injected after real snapshot Outbox publication");
+            }
         }
     }
 

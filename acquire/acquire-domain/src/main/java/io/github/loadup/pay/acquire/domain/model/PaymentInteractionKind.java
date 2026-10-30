@@ -24,7 +24,9 @@ public enum PaymentInteractionKind {
     NONE, PAYMENT_CODE, CHANNEL_IDENTITY, H5_SCENE;
 
     public boolean supports(PaymentMethod method) {
-        if (method == null) return false;
+        if (method == null) {
+            return false;
+        }
         return switch (method) {
             case H5 -> this == NONE || this == H5_SCENE;
             case PAYMENT_CODE -> this == PAYMENT_CODE;

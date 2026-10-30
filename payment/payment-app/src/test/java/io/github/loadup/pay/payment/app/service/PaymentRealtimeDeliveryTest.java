@@ -58,12 +58,12 @@ class PaymentRealtimeDeliveryTest {
             PaymentEvents.REALTIME, 1, "payment", 2, BusinessTime.external(AttemptFixtures.NOW),
             new PaymentSnapshotEventDTO("payment", "order", "merchant", 4000, "CNY", PaymentState.SUCCEEDED, Channel.WECHAT,
                     AccessMode.DIRECT, BusinessTime.external(AttemptFixtures.NOW), BusinessTime.external(AttemptFixtures.NOW), 2));
-    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage("tenant", PaymentEvents.REALTIME, 1, "payment", "payload"),
+    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage(PaymentEvents.REALTIME, 1, "payment", "payload"),
             snapshot.occurredAt().toInstant(), null);
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", PaymentEvents.REALTIME, "payment", "PROCESSING", 1, null)));
+        when(outbox.find("queue")).thenReturn(Optional.of(new OutboxRecord("queue", PaymentEvents.REALTIME, "payment", "PROCESSING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.supportsTenant("tenant")).thenReturn(true);
         when(client.apply("tenant", snapshot)).thenAnswer(c -> {
@@ -105,7 +105,7 @@ class PaymentRealtimeDeliveryTest {
     @Test
     void tenantContextAndQueueRegistrationCannotBeBypassed() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other-tenant", () -> delivery.deliver(event)));
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.empty());
+        when(outbox.find("queue")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::send);
         verify(client, never()).apply(anyString(), any());
     }

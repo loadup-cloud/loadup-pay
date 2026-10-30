@@ -58,7 +58,9 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
                     json.writerFor(WechatJsapiChannelAction.class).writeValueAsString(wechat);
             case WechatH5ChannelAction h5 -> json.writerFor(WechatH5ChannelAction.class).writeValueAsString(h5);
         };
-        if (payload.length() > 8192) throw new CommonException(ACTION_SNAPSHOT_INVALID);
+        if (payload.length() > 8192) {
+            throw new CommonException(ACTION_SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
@@ -71,7 +73,9 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
     public ChannelPaymentAction decode(String kind, String payload, String payloadHash) {
         try {
             if (payload == null || payload.length() > 8192 || payloadHash == null || !payloadHash.equals(checksum(payload))
-                    || kind == null) throw new CommonException(ACTION_SNAPSHOT_INVALID);
+                    || kind == null) {
+                throw new CommonException(ACTION_SNAPSHOT_INVALID);
+            }
             ChannelPaymentAction result = switch (kind) {
                 case "ALIPAY_H5" -> json.readValue(payload, AlipayH5ChannelAction.class);
                 case "ALIPAY_JSAPI" -> json.readValue(payload, AlipayJsapiChannelAction.class);
@@ -79,7 +83,9 @@ public final class DefaultChannelActionCodec implements ChannelActionCodec {
                 case "WECHAT_H5" -> json.readValue(payload, WechatH5ChannelAction.class);
                 default -> throw new CommonException(ACTION_SNAPSHOT_INVALID);
             };
-            if (result == null) throw new CommonException(ACTION_SNAPSHOT_INVALID);
+            if (result == null) {
+                throw new CommonException(ACTION_SNAPSHOT_INVALID);
+            }
             return result;
         } catch (RuntimeException invalid) {
             throw new CommonException(ACTION_SNAPSHOT_INVALID);

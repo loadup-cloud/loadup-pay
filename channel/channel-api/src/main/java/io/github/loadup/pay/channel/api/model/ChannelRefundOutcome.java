@@ -26,7 +26,9 @@ public record ChannelRefundOutcome(String refundId, Kind kind, Money amount, Str
         DomainChecks.id(refundId);
         Objects.requireNonNull(kind);
         DomainChecks.cnyAmount(amount);
-        if (kind == Kind.SUCCEEDED || kind == Kind.FAILED_WITH_NO_REFUND) DomainChecks.id(evidenceId);
+        if (kind == Kind.SUCCEEDED || kind == Kind.FAILED_WITH_NO_REFUND) {
+            DomainChecks.id(evidenceId);
+        }
     }
 
     @Override

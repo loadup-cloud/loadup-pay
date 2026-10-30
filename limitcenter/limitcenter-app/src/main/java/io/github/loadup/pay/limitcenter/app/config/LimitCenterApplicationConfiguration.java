@@ -15,15 +15,9 @@
  */
 package io.github.loadup.pay.limitcenter.app.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 public class LimitCenterApplicationConfiguration {
-    @Bean
-    public Clock limitcenterClock() {
-        return Clock.systemDefaultZone();
-    }
 }

@@ -47,11 +47,14 @@ public final class PaymentServiceTokenReader {
     public String read(String tenant, String service, String audience, Path file) {
         try (var input = Files.newInputStream(file)) {
             byte[] bytes = input.readNBytes(16385);
-            if (bytes.length > 16384) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (bytes.length > 16384) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             String token = new String(bytes, StandardCharsets.US_ASCII).strip();
             String[] parts = token.split("[.]", -1);
-            if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+")))
+            if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+"))) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             var claims = mapper.readValue(Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
             });
             Object claimAudience = claims.get("aud");
@@ -60,8 +63,9 @@ public final class PaymentServiceTokenReader {
             long now = clock.instant().getEpochSecond();
             if (!tenant.equals(claims.get("tenant_id")) || !"SERVICE".equals(claims.get("principal_type"))
                     || !service.equals(claims.get("service_id")) || !service.equals(claims.get("sub")) || !expected
-                    || epoch(claims.get("exp")) <= now || claims.get("nbf") != null && epoch(claims.get("nbf")) > now)
+                    || epoch(claims.get("exp")) <= now || claims.get("nbf") != null && epoch(claims.get("nbf")) > now) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return token;
         } catch (IOException | RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -69,7 +73,9 @@ public final class PaymentServiceTokenReader {
     }
 
     private long epoch(Object value) {
-        if (!(value instanceof Number)) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        if (!(value instanceof Number)) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         return new BigDecimal(value.toString()).longValueExact();
     }
 }

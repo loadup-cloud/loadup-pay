@@ -76,7 +76,9 @@ class JwtReconciliationActorProviderTest {
     private void install(String tenant, String type, String subject, String service) {
         var builder = Jwt.withTokenValue("synthetic").header("alg", "RS256").subject(subject)
                 .claim("principal_type", type).claim("service_id", service);
-        if (tenant != null) builder.claim("tenant_id", tenant);
+        if (tenant != null) {
+            builder.claim("tenant_id", tenant);
+        }
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", builder.build(),
                 List.of(new SimpleGrantedAuthority("pay:reconciliation:batch:read"))));
     }

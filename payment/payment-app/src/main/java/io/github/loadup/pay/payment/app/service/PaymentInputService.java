@@ -34,7 +34,6 @@ import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -68,7 +67,7 @@ public class PaymentInputService implements PaymentInputFacade {
     public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputPublication publication, PaymentInputCipher cipher,
                                PaymentInputConverter converter, PaymentChannelInputConverter channelInputs,
                                PaymentAcceptanceTransactions transactions, Validator validator,
-                               @Qualifier("paymentClock") Clock clock,
+                               Clock clock,
                                @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.store = store;
@@ -84,15 +83,22 @@ public class PaymentInputService implements PaymentInputFacade {
 
     @Override
     public PaymentInputDTO prepare(PaymentInputPrepareCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:prepare"))
+        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:prepare")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             validate(command);
             var prior = store.findByPayment(actor.tenantId(), command.paymentId());
-            if (prior.isPresent()) return replay(actor, command, prior.get());
+            if (prior.isPresent()) {
+                return replay(actor, command, prior.get());
+            }
             var preparedAt = now();
             String reference = cipher.newReference();
             String keyId = cipher.activeFingerprintKeyId();
@@ -104,9 +110,13 @@ public class PaymentInputService implements PaymentInputFacade {
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var parent = publication.lockParent(actor, command);
                 var winner = store.findByPayment(actor.tenantId(), command.paymentId());
-                if (winner.isPresent()) return replay(actor, command, winner.get());
+                if (winner.isPresent()) {
+                    return replay(actor, command, winner.get());
+                }
                 publication.requireNew(actor, command, parent);
-                if (input.expired(now())) throw new CommonException(INPUT_EXPIRED);
+                if (input.expired(now())) {
+                    throw new CommonException(INPUT_EXPIRED);
+                }
                 store.insert(actor.tenantId(), input);
                 return converter.toDTO(input);
             });
@@ -114,21 +124,29 @@ public class PaymentInputService implements PaymentInputFacade {
     }
 
     private PaymentInputDTO replay(PaymentActor actor, PaymentInputPrepareCommand command, PaymentInput prior) {
-        if (!actor.serviceId().equals(prior.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(prior.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         String supplied = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, prior.fingerprintKeyId());
-        if (!MessageDigest.isEqual(supplied.getBytes(StandardCharsets.US_ASCII), prior.inputDigest().getBytes(StandardCharsets.US_ASCII)))
+        if (!MessageDigest.isEqual(supplied.getBytes(StandardCharsets.US_ASCII), prior.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         // Retain the original reference and expiry, including after expiry or attempt binding.
         return converter.toDTO(prior);
     }
 
     @Override
     public PaymentInputLookupDTO lookup(PaymentInputLookupQuery query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:read"))
+        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:input:read")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.paymentId());
             DomainChecks.id(query.orderId());
@@ -138,14 +156,20 @@ public class PaymentInputService implements PaymentInputFacade {
             DomainChecks.positive(query.amountMinor());
             DomainChecks.cnyAmount(query.amountMinor(), query.currency());
             var known = store.findByPayment(actor.tenantId(), query.paymentId());
-            if (known.isEmpty()) return converter.toLookup(false, null);
+            if (known.isEmpty()) {
+                return converter.toLookup(false, null);
+            }
             var input = known.get();
-            if (!actor.serviceId().equals(input.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!actor.serviceId().equals(input.callerServiceId())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             if (!input.paymentId().equals(query.paymentId()) || !input.orderId().equals(query.orderId())
                     || !input.allocationId().equals(query.allocationId()) || !input.payeeMerchantId().equals(query.payeeMerchantId())
                     || !input.inputKey().equals(query.inputKey()) || input.amount().getCent() != query.amountMinor()
                     || !input.amount().getCurrencyValue().equals(query.currency()) || input.channel() != query.choice().channel()
-                    || input.method() != query.choice().method()) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                    || input.method() != query.choice().method()) {
+                throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
             // This is metadata, including for bound/expired inputs. Never decrypt, fingerprint, renew or mutate it.
             return converter.toLookup(true, converter.toDTO(input));
         });
@@ -166,12 +190,16 @@ public class PaymentInputService implements PaymentInputFacade {
                 && command.interaction() instanceof ChannelIdentityInteractionDTO identity
                 && identity.channel() == command.choice().channel()) {
             DomainChecks.text(identity.identifier(), 128);
-            if (identity.identityType() == null) throw new CommonException(INVALID_ARGUMENT);
+            if (identity.identityType() == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             DomainChecks.id(identity.appScope());
         } else if (command.choice().method() == PaymentMethod.H5
                 && command.interaction() instanceof H5SceneInteractionDTO scene) {
             channelInputs.toH5(scene);
-        } else throw new CommonException(INVALID_ARGUMENT);
+        } else {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {

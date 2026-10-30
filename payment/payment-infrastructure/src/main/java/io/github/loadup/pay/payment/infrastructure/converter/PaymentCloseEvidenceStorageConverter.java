@@ -31,7 +31,7 @@ public interface PaymentCloseEvidenceStorageConverter {
     PaymentCloseEvidence toModel(PaymentCloseEvidenceDO row);
 
     @Mapping(target = "id", source = "value.identity.attemptId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "paymentId", source = "value.identity.paymentId")
     @Mapping(target = "attemptId", source = "value.identity.attemptId")
     @Mapping(target = "channel", source = "value.identity.channel")

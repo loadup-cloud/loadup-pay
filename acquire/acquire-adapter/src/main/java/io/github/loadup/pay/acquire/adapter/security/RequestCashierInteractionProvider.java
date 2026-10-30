@@ -46,7 +46,9 @@ public class RequestCashierInteractionProvider implements CashierInteractionProv
 
     @Override
     public PaymentInteractionDTO prepare(CashierActor actor, PaymentChoiceDTO choice) {
-        if (choice.method() != PaymentMethod.H5) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (choice.method() != PaymentMethod.H5) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         try {
             return converter.toInteraction(new ChannelH5Input(request.getRemoteAddr(), H5SceneType.WAP));
         } catch (DomainViolation invalid) {

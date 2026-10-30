@@ -49,11 +49,17 @@ public record PaymentControlReceipt(
                         && requestDigest != null
                         && requestDigest.matches("[0-9a-f]{64}"),
                 INVALID_ARGUMENT);
-        if (reasonCode != null) DomainChecks.text(reasonCode, 64);
-        if (noCollectionEvidenceId != null) DomainChecks.id(noCollectionEvidenceId);
-        if ("PARENT_FENCE".equals(kind))
+        if (reasonCode != null) {
+            DomainChecks.text(reasonCode, 64);
+        }
+        if (noCollectionEvidenceId != null) {
+            DomainChecks.id(noCollectionEvidenceId);
+        }
+        if ("PARENT_FENCE".equals(kind)) {
             require(targetId.equals(orderId) && reasonCode == null && noCollectionEvidenceId == null, INVALID_ARGUMENT);
-        else require(reasonCode != null, INVALID_ARGUMENT);
+        } else {
+            require(reasonCode != null, INVALID_ARGUMENT);
+        }
     }
 
     @Override

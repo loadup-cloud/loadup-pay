@@ -29,8 +29,12 @@ public record MerchantNotificationFilter(String payeeMerchantId, String orderId,
                                          LocalDateTime occurredFrom, LocalDateTime occurredTo, int page, int size) {
     public MerchantNotificationFilter {
         DomainChecks.id(payeeMerchantId);
-        if (orderId != null) DomainChecks.id(orderId);
-        if (eventId != null) DomainChecks.id(eventId);
+        if (orderId != null) {
+            DomainChecks.id(orderId);
+        }
+        if (eventId != null) {
+            DomainChecks.id(eventId);
+        }
         PageQuery.of(page, size);
         require(occurredFrom == null || occurredFrom.getYear() >= 1970 && occurredFrom.getYear() <= 9998 && occurredFrom.getNano() % 1000 == 0,
                 INVALID_ARGUMENT);

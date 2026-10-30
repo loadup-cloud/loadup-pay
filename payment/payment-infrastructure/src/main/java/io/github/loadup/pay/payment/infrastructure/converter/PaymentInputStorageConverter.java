@@ -27,7 +27,7 @@ public interface PaymentInputStorageConverter {
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     PaymentInput toInput(PaymentInputDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "amountMinor", source = "value.amount.cent")
     @Mapping(target = "currency", source = "value.amount.currencyValue")
     @Mapping(target = "createdAt", ignore = true)

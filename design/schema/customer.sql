@@ -5,7 +5,6 @@
 CREATE TABLE merchant_relationship
 (
     id                 VARCHAR(64) NOT NULL,
-    tenant_id          VARCHAR(64) NOT NULL,
     created_at         DATETIME(6) NOT NULL,
     updated_at         DATETIME(6) NOT NULL,
     deleted            TINYINT     NOT NULL DEFAULT 0,
@@ -18,8 +17,8 @@ CREATE TABLE merchant_relationship
     row_version        BIGINT      NOT NULL DEFAULT 0,
     active_slot        TINYINT GENERATED ALWAYS AS (CASE WHEN state IN ('INIT', 'ACTIVE') THEN 1 ELSE NULL END) STORED,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_merchant_relationship (tenant_id, parent_merchant_id, child_merchant_id, relation_type, active_slot),
-    KEY                ix_relationship_child(tenant_id, child_merchant_id, state),
+    UNIQUE KEY uk_merchant_relationship (parent_merchant_id, child_merchant_id, relation_type, active_slot),
+    KEY                ix_relationship_child(child_merchant_id, state),
     CHECK (parent_merchant_id <> child_merchant_id),
     CHECK (relation_type = 'MANAGEMENT'),
     CHECK (state IN ('INIT', 'ACTIVE', 'REVOKED')),
@@ -32,7 +31,6 @@ CREATE TABLE merchant_relationship
 CREATE TABLE merchant_action_grant
 (
     id                VARCHAR(64)  NOT NULL,
-    tenant_id         VARCHAR(64)  NOT NULL,
     created_at        DATETIME(6)  NOT NULL,
     updated_at        DATETIME(6)  NOT NULL,
     deleted           TINYINT      NOT NULL DEFAULT 0,
@@ -47,8 +45,8 @@ CREATE TABLE merchant_action_grant
     row_version       BIGINT       NOT NULL DEFAULT 0,
     active_slot       TINYINT GENERATED ALWAYS AS (CASE WHEN state IN ('INIT', 'ACTIVE') THEN 1 ELSE NULL END) STORED,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_merchant_action (tenant_id, principal_type, principal_id, payee_merchant_id, action, active_slot),
-    KEY               ix_grant_payee(tenant_id, payee_merchant_id, state),
+    UNIQUE KEY uk_merchant_action (principal_type, principal_id, payee_merchant_id, action, active_slot),
+    KEY               ix_grant_payee(payee_merchant_id, state),
     CHECK (state IN ('INIT', 'ACTIVE', 'REVOKED')),
     CHECK (principal_type IN ('MERCHANT_APP', 'MERCHANT', 'OPERATOR')),
     CHECK (action IN ('CREATE_ORDER', 'REFUND', 'QUERY', 'MANAGE_BINDING')),

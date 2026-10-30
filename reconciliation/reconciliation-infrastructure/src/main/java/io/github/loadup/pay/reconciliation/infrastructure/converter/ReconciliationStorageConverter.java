@@ -66,7 +66,7 @@ public interface ReconciliationStorageConverter {
     StoredReconciliationBatch toStored(ReconciliationBatchDO row, ReconciliationBatch batch);
 
     @Mapping(target = "id", source = "value.batch.id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "callerServiceId", source = "value.callerServiceId")
     @Mapping(target = "requestKey", source = "value.requestKey")
     @Mapping(target = "requestDigest", source = "value.requestDigest")
@@ -89,7 +89,7 @@ public interface ReconciliationStorageConverter {
     ReconciliationBatchDO toDO(String tenant, StoredReconciliationBatch value);
 
     @Mapping(target = "id", source = "value.artifactId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "side", source = "value.side")
     @Mapping(target = "channel", source = "value.scope.channel")
     @Mapping(target = "accountScopeHash", source = "value.scope.accountScopeHash")
@@ -122,7 +122,7 @@ public interface ReconciliationStorageConverter {
     ReconciliationKey toKey(ReconciliationDifferenceDO row);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "inputId", source = "inputId")
     @Mapping(target = "recordNumber", source = "value.recordNumber")
     @Mapping(target = "matchKeyHash", expression = "java(value.key().fingerprint())")

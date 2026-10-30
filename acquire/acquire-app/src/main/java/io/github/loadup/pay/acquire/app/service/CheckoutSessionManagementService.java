@@ -37,7 +37,6 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionRevocationReceip
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -71,7 +70,7 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
 
     public CheckoutSessionManagementService(AcquireActorProvider actors, OrderCreationGateway orders, CheckoutSessionGateway sessions,
                                             CheckoutSessionRevocationGateway receipts, CheckoutSessionManagementConverter converter, OrderCreationTransactions transactions,
-                                            IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
+                                            IdGenerator ids, Validator validator, Clock clock) {
         this.actors = actors;
         this.orders = orders;
         this.sessions = sessions;
@@ -100,7 +99,9 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
     public CheckoutSessionRevocationDTO revoke(CheckoutSessionRevokeCommand command) {
         validate(command);
         var actor = actor("pay:acquire:session:revoke");
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
@@ -108,21 +109,31 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("checkout-session-revoke-v1", actor.tenantId(), actor.scopeHash(),
                     command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
             var known = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
-            if (known.isPresent()) return replay(actor, known.get(), digest);
+            if (known.isPresent()) {
+                return replay(actor, known.get(), digest);
+            }
             var observed = sessions.find(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
-                if (existing.isPresent()) return replay(actor, existing.get(), digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), digest);
+                }
                 var order = orders.lockOrder(actor.tenantId(), observed.session().orderId());
                 var before = sessions.lock(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 owned(actor, order, before);
                 // A concurrent original request can commit while this transaction waits on the order/session locks.
                 var serialized = receipts.find(actor.tenantId(), actor.scopeHash(), command.requestKey());
-                if (serialized.isPresent()) return replay(actor, serialized.get(), digest);
-                if (before.rowVersion() != command.expectedVersion()) throw new CommonException(VERSION_CONFLICT);
+                if (serialized.isPresent()) {
+                    return replay(actor, serialized.get(), digest);
+                }
+                if (before.rowVersion() != command.expectedVersion()) {
+                    throw new CommonException(VERSION_CONFLICT);
+                }
                 var at = now();
                 var after = before.revoke(command.expectedVersion(), at);
-                if (!after.equals(before)) sessions.revoke(actor.tenantId(), before, after);
+                if (!after.equals(before)) {
+                    sessions.revoke(actor.tenantId(), before, after);
+                }
                 var receipt = converter.toReceipt(ids.generate(), command, before, after, actor.scopeHash(), digest, at);
                 receipts.insert(actor.tenantId(), receipt);
                 return converter.toDTO(receipt);
@@ -142,8 +153,9 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
             var page = receipts.page(actor.tenantId(), query.sessionId(), query.page(), query.size());
             for (var receipt : page.records()) {
                 if (!receipt.sessionId().equals(query.sessionId()) || !receipt.orderId().equals(order.order().id())
-                        || !receipt.callerScopeHash().equals(actor.scopeHash()))
+                        || !receipt.callerScopeHash().equals(actor.scopeHash())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
             }
             return PageDTO.of(page.map(converter::toDTO));
         });
@@ -151,25 +163,35 @@ public class CheckoutSessionManagementService implements CheckoutSessionManageme
 
     private AcquireActor actor(String permission) {
         var actor = actors.current();
-        if (!actor.permissions().contains(permission)) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.permissions().contains(permission)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void owned(AcquireActor actor, StoredAcquireOrder order, StoredCheckoutSession session) {
-        if (!order.callerScopeHash().equals(actor.scopeHash()) || !session.scope().callerScopeHash().equals(actor.scopeHash()))
+        if (!order.callerScopeHash().equals(actor.scopeHash()) || !session.scope().callerScopeHash().equals(actor.scopeHash())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (!session.session().orderId().equals(order.order().id()) || !session.payeeMerchantId().equals(order.order().payeeMerchantId()))
+        }
+        if (!session.session().orderId().equals(order.order().id()) || !session.payeeMerchantId().equals(order.order().payeeMerchantId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private CheckoutSessionRevocationDTO replay(AcquireActor actor, CheckoutSessionRevocationReceipt receipt, String digest) {
-        if (!receipt.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!receipt.callerScopeHash().equals(actor.scopeHash())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toDTO(receipt);
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {

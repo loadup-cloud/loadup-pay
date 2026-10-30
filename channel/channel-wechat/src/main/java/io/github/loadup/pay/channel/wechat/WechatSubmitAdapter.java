@@ -74,33 +74,45 @@ public final class WechatSubmitAdapter {
     }
 
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         validate(context, request.identity(), request.amount().getCent(), request.method(), request.subject(), request.payableUntil(), request.input());
     }
 
     private void validate(ChannelExecutionContext context, ChannelPaymentIdentity identity, long amount,
                           PaymentMethod method, String subject, OffsetDateTime until, ChannelPaymentInput input) {
         var account = WechatBindingGuard.require(context, identity);
-        if ((method != PaymentMethod.JSAPI && method != PaymentMethod.H5) || !context.binding().capabilities().contains(method))
+        if ((method != PaymentMethod.JSAPI && method != PaymentMethod.H5) || !context.binding().capabilities().contains(method)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         if (!identity.channelRequestNo().matches("[A-Za-z0-9_-]{1,32}") || amount <= 0
                 || subject == null || subject.getBytes(StandardCharsets.UTF_8).length > 127
                 || subject.isBlank() || subject.chars().anyMatch(Character::isISOControl) || until == null
-                || Duration.between(clock.instant(), until.withNano(0).toInstant()).getSeconds() < 60)
+                || Duration.between(clock.instant(), until.withNano(0).toInstant()).getSeconds() < 60) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         if (method == PaymentMethod.JSAPI) {
             if (!(input instanceof ChannelPayerIdentityInput payer) || payer.identityType() != PayerIdentityType.OPEN_ID
-                    || !payer.identifier().matches("[A-Za-z0-9_-]{1,128}")) throw new CommonException(INVALID_ARGUMENT);
+                    || !payer.identifier().matches("[A-Za-z0-9_-]{1,128}")) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             String appId = account.subAppId() == null ? account.appId() : account.subAppId();
-            if (payer.channel() != identity.channel() || !appId.equals(payer.appScope()))
+            if (payer.channel() != identity.channel() || !appId.equals(payer.appScope())) {
                 throw new CommonException(CHANNEL_BINDING_MISMATCH);
-        } else if (!(input instanceof ChannelH5Input)) throw new CommonException(INVALID_ARGUMENT);
-        if (notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id()) == null)
+            }
+        } else if (!(input instanceof ChannelH5Input)) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (notifications.notifyUrls().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id()) == null) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
     }
 
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var payment = request.payment();
         validate(context, payment.identity(), payment.amount().getCent(), payment.method(), request.subject(), request.payableUntil(), request.input());
         var account = (WechatAccountIdentity) context.binding().identity();
@@ -108,8 +120,12 @@ public final class WechatSubmitAdapter {
         boolean partner = account.subMerchantId() != null;
         body.put(partner ? "sp_appid" : "appid", account.appId());
         body.put(partner ? "sp_mchid" : "mchid", account.merchantId());
-        if (partner) body.put("sub_mchid", account.subMerchantId());
-        if (account.subAppId() != null) body.put("sub_appid", account.subAppId());
+        if (partner) {
+            body.put("sub_mchid", account.subMerchantId());
+        }
+        if (account.subAppId() != null) {
+            body.put("sub_appid", account.subAppId());
+        }
         body.put("description", request.subject());
         body.put("out_trade_no", payment.identity().channelRequestNo());
         body.put("amount", Map.of("total", payment.amount().getCent(), "currency", "CNY"));
@@ -136,11 +152,14 @@ public final class WechatSubmitAdapter {
         var kind = response.status() == 200 ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN;
         var observation = new PaymentObservation(payment.identity(), kind, payment.amount(), null, null,
                 PaymentObservation.Source.SUBMIT_RESPONSE, operation.operation() + ":" + response.sourceDigest(), response.sourceDigest());
-        if (response.status() != 200)
+        if (response.status() != 200) {
             return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, null);
+        }
         var expiry = request.payableUntil().withNano(0);
         if (payment.method() == PaymentMethod.H5) {
-            if (startedAt.plusMinutes(5).isBefore(expiry)) expiry = startedAt.plusMinutes(5);
+            if (startedAt.plusMinutes(5).isBefore(expiry)) {
+                expiry = startedAt.plusMinutes(5);
+            }
             final WechatH5ChannelAction action;
             try {
                 action = new WechatH5ChannelAction(responses.text(data, "h5_url", 4096), expiry);
@@ -151,7 +170,9 @@ public final class WechatSubmitAdapter {
                     expiry.toInstant().isAfter(clock.instant()) ? action : null);
         }
         var prepayId = responses.text(data, "prepay_id", 128);
-        if (startedAt.plusHours(2).isBefore(expiry)) expiry = startedAt.plusHours(2);
+        if (startedAt.plusHours(2).isBefore(expiry)) {
+            expiry = startedAt.plusHours(2);
+        }
         var action = expiry.toInstant().isAfter(clock.instant()) ? signer.sign(context, payment.identity(), prepayId, expiry) : null;
         return new ChannelPaymentSubmission(payment.identity(), payment.amount(), observation, action);
     }

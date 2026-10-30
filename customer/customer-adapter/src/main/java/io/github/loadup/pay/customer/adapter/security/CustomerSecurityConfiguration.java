@@ -29,7 +29,8 @@ public class CustomerSecurityConfiguration implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false))
+        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Customer business HTTP requires the verified JWT resource server");
+        }
     }
 }

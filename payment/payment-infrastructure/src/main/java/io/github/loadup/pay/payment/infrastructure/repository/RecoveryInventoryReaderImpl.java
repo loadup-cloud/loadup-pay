@@ -21,7 +21,6 @@ import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.pay.payment.infrastructure.converter.RecoveryInventoryConverter;
 import io.github.loadup.pay.payment.infrastructure.model.RecoveryInventoryAggregate;
-import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -51,26 +50,30 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
                 .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId());
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        var args = new MapSqlParameterSource();
         var mapper = BeanPropertyRowMapper.newInstance(RecoveryInventoryAggregate.class);
         var collection = jdbc.query("""
                 SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
-                FROM payment_order WHERE tenant_id = :tenant AND deleted = FALSE AND state = 'UNKNOWN'
+                FROM payment_order WHERE deleted = FALSE AND state = 'UNKNOWN'
                 """, args, mapper);
         var refund = jdbc.query("""
                 SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
-                FROM refund_order WHERE tenant_id = :tenant AND deleted = FALSE AND state = 'UNKNOWN'
+                FROM refund_order WHERE deleted = FALSE AND state = 'UNKNOWN'
                 """, args, mapper);
         return List.of(cell(RecoveryInventoryCell.Kind.PAYMENT, collection), cell(RecoveryInventoryCell.Kind.REFUND, refund));
     }
 
     private RecoveryInventoryCell cell(RecoveryInventoryCell.Kind kind, List<RecoveryInventoryAggregate> rows) {
         try {
-            if (rows == null || rows.size() != 1 || rows.getFirst().getRowCount() == null)
+            if (rows == null || rows.size() != 1 || rows.getFirst().getRowCount() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toCell(kind, rows.getFirst());
         } catch (CommonException failure) {
             throw failure;

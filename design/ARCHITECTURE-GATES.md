@@ -29,9 +29,9 @@ client/domain/app/infrastructure/adapter/bootstrap。
 
 | 范围                   | 源码/POM 规则                                                                                                                      |
 |------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| client/domain 技术纯净 | 业务包不点名 Spring、ORM、Dubbo、Protobuf 或技术组件实现；client 的 rpc 子包仅允许 Protobuf IDL/生成代码/Wire mapper                      |
+| client/domain 技术纯净 | 业务包不点名 Spring、ORM、Dubbo、Protobuf 或技术组件实现；client 的 rpc 子包仅允许 Protobuf IDL/生成代码/Wire mapper               |
 | client/domain/app 分层 | client 不引用自身 domain/实现，domain 不引用 app/实现，app 不引用 infrastructure/adapter/bootstrap；client 的 rpc 子包仅作传输契约 |
-| 跨服务边界             | 仅依赖对方 client，不引用对方 domain/app/infrastructure/adapter/bootstrap；client/domain/app 不直接引用对方 rpc 子包 |
+| 跨服务边界             | 仅依赖对方 client，不引用对方 domain/app/infrastructure/adapter/bootstrap；client/domain/app 不直接引用对方 rpc 子包               |
 | 渠道插件               | 七服务生产 Java 只命名 channel-api；POM 仅 payment-bootstrap 可用 runtime 装配 channel-core/alipay/wechat 等实现                   |
 | 存储适配器到 app       | infrastructure 下 repository/codec/converter 只能引用本服务 app.port/model/converter，不引用应用服务或安全编排                     |
 | POM 覆盖               | 检查直接依赖及 profile 依赖；test scope 不作为生产依赖违规，以保留真实 Gateway/编排集成测试                                        |

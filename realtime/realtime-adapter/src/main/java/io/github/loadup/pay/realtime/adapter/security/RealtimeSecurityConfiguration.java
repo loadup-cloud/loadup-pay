@@ -31,7 +31,8 @@ public class RealtimeSecurityConfiguration implements InitializingBean {
     public void afterPropertiesSet() {
         if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)
                 || !environment.getProperty("loadup.database.multi-tenant.enabled", Boolean.class, false)
-                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false))
+                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false)) {
             throw new IllegalStateException("Realtime business requires verified JWT and trusted tenant isolation");
+        }
     }
 }

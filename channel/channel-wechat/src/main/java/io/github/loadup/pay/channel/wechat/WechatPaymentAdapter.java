@@ -68,9 +68,10 @@ public final class WechatPaymentAdapter {
         var response = client.call(context.tenantId(), context.binding(), operation,
                 Map.of("out_trade_no", target.identity().channelRequestNo()), params, null);
         var data = responses.read(response, operation);
-        if (response.status() != 200)
+        if (response.status() != 200) {
             return new Probe(observation(target, ChannelPaymentOutcome.Kind.UNKNOWN, null, null,
                     PaymentObservation.Source.QUERY_RESPONSE, response.sourceDigest()), null);
+        }
         responses.account(data, account);
         responses.match(data, "out_trade_no", target.identity().channelRequestNo());
         responses.amount(data, target.amount().getCent());
@@ -78,7 +79,9 @@ public final class WechatPaymentAdapter {
         var tradeType = responses.optionalText(data, "trade_type", 16);
         var tradeNo = responses.optionalText(data, "transaction_id", 64);
         if ("SUCCESS".equals(state) || "REFUND".equals(state)) {
-            if (tradeNo == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (tradeNo == null) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             final LocalDateTime succeededAt;
             try {
                 succeededAt = OffsetDateTime.parse(responses.text(data, "success_time", 64)).atZoneSameInstant(clock.getZone()).toLocalDateTime();
@@ -95,7 +98,9 @@ public final class WechatPaymentAdapter {
     }
 
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var observed = query(context, new ChannelPaymentTarget(request.identity(), request.amount()));
         // Query does not return prepay_id; never create another prepay order during query recovery.
         return new ChannelPaymentSubmission(request.identity(), request.amount(), observed, null);
@@ -107,29 +112,41 @@ public final class WechatPaymentAdapter {
         var before = original.observation();
         // Micropay reversal can refund a paid transaction; it requires a separate compensation protocol and mTLS.
         // Neither the V3 unpaid close nor a fabricated no-collection fact is valid for this product.
-        if (!"JSAPI".equals(original.tradeType()) && !"MWEB".equals(original.tradeType())) return before;
+        if (!"JSAPI".equals(original.tradeType()) && !"MWEB".equals(original.tradeType())) {
+            return before;
+        }
         // A pending observation can also mean USERPAYING; only an acknowledged close establishes the stop boundary.
-        if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) return before;
+        if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) {
+            return before;
+        }
         boolean partner = account.subMerchantId() != null;
         var operation = partner ? WechatMethod.PARTNER_CLOSE : WechatMethod.DIRECT_CLOSE;
         Map<String, String> body = partner ? Map.of("sp_mchid", account.merchantId(), "sub_mchid", account.subMerchantId())
                 : Map.of("mchid", account.merchantId());
         var response = client.call(context.tenantId(), context.binding(), operation,
                 Map.of("out_trade_no", target.identity().channelRequestNo()), Map.of(), json.writeValueAsString(body));
-        if (response.method() != operation) throw new CommonException(CHANNEL_RESPONSE_INVALID);
-        if (response.status() != 204) return query(context, target);
-        if (!"".equals(response.payload()) || response.sourceDigest() == null || !response.sourceDigest().matches("[0-9a-f]{64}"))
+        if (response.method() != operation) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
+        if (response.status() != 204) {
+            return query(context, target);
+        }
+        if (!"".equals(response.payload()) || response.sourceDigest() == null || !response.sourceDigest().matches("[0-9a-f]{64}")) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         var digest = DigestUtils.sha256("wechat-unpaid-close-v1|" + before.sourceDigest() + "|" + response.sourceDigest());
         return observation(target, ChannelPaymentOutcome.Kind.NO_COLLECTION, before.channelTransactionNo(), null,
                 PaymentObservation.Source.CLOSE_RESPONSE, digest);
     }
 
     private WechatAccountIdentity original(ChannelExecutionContext context, ChannelPaymentTarget target) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
-        var account = WechatBindingGuard.require(context, target.identity());
-        if (!target.identity().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}"))
+        if (target == null) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
+        var account = WechatBindingGuard.require(context, target.identity());
+        if (!target.identity().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}")) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return account;
     }
 

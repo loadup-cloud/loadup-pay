@@ -49,8 +49,9 @@ public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refu
                 && beforeCapacity.succeededAmount().getCurrencyValue().equals(current.amount().getCurrencyValue())
                 && beforeCapacity.reservedMinor() >= current.amount().getCent(), CONFLICT);
         require(before.submissionStartedAt() == null || before.submissionStartedAt().equals(submissionStartedAt), CONFLICT);
-        if (before.submissionStartedAt() == null) require(refund.equals(current.beginSubmission()), CONFLICT);
-        else {
+        if (before.submissionStartedAt() == null) {
+            require(refund.equals(current.beginSubmission()), CONFLICT);
+        } else {
             var kind = switch (refund.state()) {
                 case PROCESSING -> ChannelRefundOutcome.Kind.ACCEPTED;
                 case UNKNOWN -> ChannelRefundOutcome.Kind.UNKNOWN;
@@ -68,7 +69,9 @@ public record RefundProgressChange(RefundExecutionFacts before, RefundOrder refu
             io.github.loadup.commons.validation.DomainChecks.text(channelRefundTransactionNo, 128);
             Objects.requireNonNull(succeededAt);
             require(!succeededAt.isBefore(before.child().originalSucceededAt()), CONFLICT);
-        } else require(channelRefundTransactionNo == null && succeededAt == null, CONFLICT);
+        } else {
+            require(channelRefundTransactionNo == null && succeededAt == null, CONFLICT);
+        }
     }
 
     @Override

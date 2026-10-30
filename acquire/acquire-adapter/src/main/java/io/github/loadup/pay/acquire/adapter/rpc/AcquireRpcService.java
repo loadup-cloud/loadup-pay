@@ -14,17 +14,23 @@ import io.github.loadup.pay.acquire.rpc.proto.WirePaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.rpc.proto.WireRefundNotificationAckDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the acquire event callbacks. */
+/**
+ * Protobuf IDL entry point for the acquire event callbacks.
+ */
 @DubboService(interfaceClass = AcquireRpc.class)
 public class AcquireRpcService extends DubboAcquireRpcTriple.AcquireRpcImplBase {
     private final PaymentOutcomeFacade paymentOutcome;
     private final FeeRefundOutcomeFacade feeRefundOutcome;
     private final RefundNotificationFacade refundNotification;
 
+    private final AcquireRpcMapper acquireRpcMapper;
+
     public AcquireRpcService(
+            AcquireRpcMapper acquireRpcMapper,
             PaymentOutcomeFacade paymentOutcome,
             FeeRefundOutcomeFacade feeRefundOutcome,
             RefundNotificationFacade refundNotification) {
+        this.acquireRpcMapper = acquireRpcMapper;
         this.paymentOutcome = paymentOutcome;
         this.feeRefundOutcome = feeRefundOutcome;
         this.refundNotification = refundNotification;
@@ -32,19 +38,19 @@ public class AcquireRpcService extends DubboAcquireRpcTriple.AcquireRpcImplBase 
 
     @Override
     public WirePaymentOutcomeAckDTO paymentOutcome(WirePayEventEnvelopeOfPaymentOutcomeEventDTO request) {
-        return AcquireRpcMapper.INSTANCE.toWirePaymentOutcomeAckDTO(paymentOutcome.accept(
-                AcquireRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfPaymentOutcomeEventDTO(request)));
+        return acquireRpcMapper.toWirePaymentOutcomeAckDTO(paymentOutcome.accept(
+                acquireRpcMapper.fromWirePayEventEnvelopeOfPaymentOutcomeEventDTO(request)));
     }
 
     @Override
     public WireFeeRefundAckDTO feeRefund(WirePayEventEnvelopeOfOrderRefundSummaryEventDTO request) {
-        return AcquireRpcMapper.INSTANCE.toWireFeeRefundAckDTO(feeRefundOutcome.accept(
-                AcquireRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(request)));
+        return acquireRpcMapper.toWireFeeRefundAckDTO(feeRefundOutcome.accept(
+                acquireRpcMapper.fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(request)));
     }
 
     @Override
     public WireRefundNotificationAckDTO refundNotification(WirePayEventEnvelopeOfRefundMerchantEventDTO request) {
-        return AcquireRpcMapper.INSTANCE.toWireRefundNotificationAckDTO(refundNotification.accept(
-                AcquireRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfRefundMerchantEventDTO(request)));
+        return acquireRpcMapper.toWireRefundNotificationAckDTO(refundNotification.accept(
+                acquireRpcMapper.fromWirePayEventEnvelopeOfRefundMerchantEventDTO(request)));
     }
 }

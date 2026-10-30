@@ -127,7 +127,9 @@ class WechatNotificationCodecTest {
     private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
         var copy = new java.util.HashMap<String, List<String>>();
         headers.forEach((key, value) -> {
-            if (!key.equalsIgnoreCase(name)) copy.put(key, value);
+            if (!key.equalsIgnoreCase(name)) {
+                copy.put(key, value);
+            }
         });
         copy.put(name, values);
         return copy;
@@ -249,7 +251,9 @@ class WechatNotificationCodecTest {
         signer.update(body);
         signer.update((byte) '\n');
         byte[] signature = signer.sign();
-        if (mutateSignature) signature[0] ^= 1;
+        if (mutateSignature) {
+            signature[0] ^= 1;
+        }
         return Map.of("Wechatpay-Serial", List.of("PUB_KEY_ID_test"),
                 "Wechatpay-Timestamp", List.of(TIMESTAMP), "Wechatpay-Nonce", List.of(NONCE),
                 "Wechatpay-Signature", List.of(Base64.getEncoder().encodeToString(signature)));
@@ -265,7 +269,9 @@ class WechatNotificationCodecTest {
         byte[] key = API_V3_KEY.getBytes(StandardCharsets.US_ASCII);
         cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"),
                 new GCMParameterSpec(128, RESOURCE_NONCE.getBytes(StandardCharsets.UTF_8)));
-        if (!omitAssociatedData) cipher.updateAAD(associated.getBytes(StandardCharsets.UTF_8));
+        if (!omitAssociatedData) {
+            cipher.updateAAD(associated.getBytes(StandardCharsets.UTF_8));
+        }
         String ciphertext = Base64.getEncoder().encodeToString(cipher.doFinal(payment.getBytes(StandardCharsets.UTF_8)));
         String resource = "{\"algorithm\":\"AEAD_AES_256_GCM\",\"original_type\":\"" + originalType
                 + "\",\"nonce\":\"" + RESOURCE_NONCE + "\",\"ciphertext\":\"" + ciphertext + "\""

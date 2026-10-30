@@ -34,8 +34,9 @@ public class MerchantNotificationAccess {
     public MerchantNotificationActor reader() {
         var actor = actors.current();
         if (actor.merchant()) {
-            if (!actor.permissions().contains("pay:acquire:notification:read"))
+            if (!actor.permissions().contains("pay:acquire:notification:read")) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             return actor;
         }
         return operator(actor);
@@ -47,8 +48,9 @@ public class MerchantNotificationAccess {
 
     private MerchantNotificationActor operator(MerchantNotificationActor actor) {
         if (!("OPERATOR".equals(actor.principalType()) || "SERVICE".equals(actor.principalType()) && operationsService.equals(actor.principalId()))
-                || !actor.permissions().contains("pay:acquire:notification:manage"))
+                || !actor.permissions().contains("pay:acquire:notification:manage")) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 }

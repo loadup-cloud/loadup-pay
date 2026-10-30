@@ -54,9 +54,13 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
     @Override
     public String encode(PaymentExecuteCommand command) {
         try {
-            if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+            if (command == null || !validator.validate(command).isEmpty()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             String payload = mapper.writeValueAsString(snapshots.toSnapshot(command));
-            if (payload.getBytes(StandardCharsets.UTF_8).length > 262144) throw new CommonException(SNAPSHOT_INVALID);
+            if (payload.getBytes(StandardCharsets.UTF_8).length > 262144) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return payload;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -67,14 +71,16 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
     public PaymentExecuteCommand decode(StoredPaymentAllocation stored) {
         try {
             if (stored.intentPayload().getBytes(StandardCharsets.UTF_8).length > 262144
-                    || !hashes.checksum(stored.intentPayload()).equals(stored.payloadHash()))
+                    || !hashes.checksum(stored.intentPayload()).equals(stored.payloadHash())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
             var allocation = stored.allocation();
             if (value == null || !allocation.id().equals(value.allocationId()) || !allocation.orderId().equals(value.orderId())
                     || !allocation.paymentId().equals(value.paymentId()) || !allocation.requestDigest().equals(value.requestDigest())
-                    || allocation.amount().getCent() != value.amountMinor() || !allocation.amount().getCurrencyValue().equals(value.currency()))
+                    || allocation.amount().getCent() != value.amountMinor() || !allocation.amount().getCurrencyValue().equals(value.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             // The owner-local format permits staged input references, without depending on current Command validation.
             return snapshots.toCommand(value);
         } catch (RuntimeException corrupt) {

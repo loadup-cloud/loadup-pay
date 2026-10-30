@@ -48,7 +48,6 @@ class PaymentControlStorageConverterTest {
                 "CANCELLED",
                 "proof");
         var row = converter.toReceiptDO("tenant", receipt);
-        assertEquals("tenant", row.getTenantId());
         assertEquals(receipt, converter.toReceipt(row));
     }
 

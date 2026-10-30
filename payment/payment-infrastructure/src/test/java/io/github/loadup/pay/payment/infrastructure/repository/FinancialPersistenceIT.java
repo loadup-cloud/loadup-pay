@@ -477,11 +477,14 @@ class FinancialPersistenceIT {
                 var pause = inputPause.getAndSet(null);
                 if (pause != null) {
                     pause[0].countDown();
-                    if (!pause[1].await(15, TimeUnit.SECONDS))
+                    if (!pause[1].await(15, TimeUnit.SECONDS)) {
                         throw new AssertionError("Input response was not released");
+                    }
                 }
                 var contenders = inputBarrier.get();
-                if (contenders != null) contenders.await(10, TimeUnit.SECONDS);
+                if (contenders != null) {
+                    contenders.await(10, TimeUnit.SECONDS);
+                }
                 return new EncryptedPaymentInput("input-key", 1, "synthetic-ciphertext");
             });
             when(limits.supportsTenant(anyString())).thenReturn(true);
@@ -500,7 +503,9 @@ class FinancialPersistenceIT {
             when(limits.verify(anyString(), any())).thenAnswer(c -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                 var gate = barrier.get();
-                if (gate != null) gate.await(10, TimeUnit.SECONDS);
+                if (gate != null) {
+                    gate.await(10, TimeUnit.SECONDS);
+                }
                 return new LimitExecutionVerificationDTO(true, "VALID");
             });
             when(risk.consult(any())).thenAnswer(c -> {

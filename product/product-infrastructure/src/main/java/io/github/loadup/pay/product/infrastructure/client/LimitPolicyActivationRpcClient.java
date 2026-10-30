@@ -22,12 +22,13 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IN
 
 @Component
 public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
+    private final PolicyPublicationTransportProperties properties;
+    private final LimitCenterRpcMapper limitCenterRpcMapper;
     @DubboReference(url = "tri://limitcenter-headless:50051")
     private LimitCenterRpc limitCenterRpc;
 
-    private final PolicyPublicationTransportProperties properties;
-
-    public LimitPolicyActivationRpcClient(PolicyPublicationTransportProperties properties) {
+    public LimitPolicyActivationRpcClient(LimitCenterRpcMapper limitCenterRpcMapper, PolicyPublicationTransportProperties properties) {
+        this.limitCenterRpcMapper = limitCenterRpcMapper;
         this.properties = properties;
     }
 
@@ -38,14 +39,20 @@ public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
 
     @Override
     public LimitPolicyActivationDTO activate(String tenant, LimitPolicyActivateCommand command) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             var response = RpcTokenContext.call(
                     credential(),
-                    () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitPolicyActivationDTO(limitCenterRpc.activate(
-                            LimitCenterRpcMapper.INSTANCE.toWireLimitPolicyActivateCommand(command))));
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    () -> limitCenterRpcMapper.fromWireLimitPolicyActivationDTO(limitCenterRpc.activate(
+                            limitCenterRpcMapper.toWireLimitPolicyActivateCommand(command))));
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException invalid) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -57,10 +64,13 @@ public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
         // credentials.
         try (var input = Files.newInputStream(properties.tokenFile())) {
             byte[] bytes = input.readNBytes(16385);
-            if (bytes.length > 16384) throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            String token = new String(bytes, StandardCharsets.US_ASCII).strip();
-            if (!token.matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"))
+            if (bytes.length > 16384) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
+            String token = new String(bytes, StandardCharsets.US_ASCII).strip();
+            if (!token.matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return token;
         } catch (IOException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

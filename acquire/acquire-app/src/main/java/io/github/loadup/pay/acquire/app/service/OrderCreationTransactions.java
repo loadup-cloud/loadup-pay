@@ -53,13 +53,17 @@ public class OrderCreationTransactions {
      * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
      */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return Objects.requireNonNull(transaction.execute(status -> work.get()));
                 } catch (AcquireWriteConflictException | TransientDataAccessException conflict) {
-                    if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
+                    if (attempt == 2) {
+                        throw new CommonException(CONCURRENT_UPDATE);
+                    }
                 }
             }
             throw new AssertionError("Unreachable retry state");
@@ -70,7 +74,9 @@ public class OrderCreationTransactions {
      * A short consistent local database snapshot. No row locks, mutations, remote IO or outer transaction.
      */
     public <T> T readSnapshot(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> Objects.requireNonNull(snapshots.execute(status -> work.get())));
     }
 

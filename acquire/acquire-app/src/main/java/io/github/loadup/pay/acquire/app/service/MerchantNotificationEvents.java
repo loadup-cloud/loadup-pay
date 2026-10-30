@@ -79,16 +79,20 @@ public class MerchantNotificationEvents {
             case "CLOSED" -> "OrderClosed";
             default -> null;
         };
-        if (type != null)
+        if (type != null) {
             publish(tenant, header, type, "AcquireOrder", header.orderId(), header.sourceVersion(), null, header.amount().getCent());
+        }
     }
 
     public void payment(String tenant, String orderId, VerifiedPaymentOutcome payment) {
         writable(tenant);
-        if (payment.kind() != VerifiedPaymentOutcome.Kind.SUCCEEDED) return;
+        if (payment.kind() != VerifiedPaymentOutcome.Kind.SUCCEEDED) {
+            return;
+        }
         var header = facts.lockCurrent(tenant, orderId);
-        if (!orderId.equals(payment.orderId()) || !orderId.equals(header.orderId()) || payment.amount().getCent() > header.paidMinor())
+        if (!orderId.equals(payment.orderId()) || !orderId.equals(header.orderId()) || payment.amount().getCent() > header.paidMinor()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         publish(tenant, header, "PaymentSucceeded", "PaymentOrder", payment.paymentId(), payment.paymentVersion(), payment.paymentId(), payment.amount().getCent());
     }
 
@@ -99,12 +103,15 @@ public class MerchantNotificationEvents {
         var stored = orders.lockOrder(tenant, data.orderId());
         var order = stored.order();
         if (!order.id().equals(data.orderId()) || !order.payeeMerchantId().equals(data.payeeMerchantId())
-                || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.paidAmountMinor())
+                || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.paidAmountMinor()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         String type = data.merchantEventType();
         String eventId = eventId(tenant, type, source.aggregateId(), source.aggregateVersion());
         var policy = policy(stored);
-        if (policy.isEmpty()) return new MerchantNotificationRegistration(eventId, "DISABLED");
+        if (policy.isEmpty()) {
+            return new MerchantNotificationRegistration(eventId, "DISABLED");
+        }
         var envelope = new MerchantNotificationBody<>(eventId, type, 1, "payment", data.aggregateType(), source.aggregateId(),
                 source.aggregateVersion(), source.occurredAt(), converter.toRefundData(data));
         var occurredAt = source.occurredAt().atZoneSameInstant(BusinessTime.zone()).toLocalDateTime();
@@ -118,9 +125,13 @@ public class MerchantNotificationEvents {
         var stored = orders.lockOrder(tenant, header.orderId());
         if (stored.order().version() != header.sourceVersion() || !stored.order().payeeMerchantId().equals(header.payeeMerchantId())
                 || !stored.order().amount().equals(header.amount()) || stored.order().paidAmountMinor() != header.paidMinor()
-                || !stored.order().state().name().equals(header.state())) throw new CommonException(SNAPSHOT_INVALID);
+                || !stored.order().state().name().equals(header.state())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var policy = policy(stored);
-        if (policy.isEmpty()) return;
+        if (policy.isEmpty()) {
+            return;
+        }
         String eventId = eventId(tenant, type, aggregate, version);
         var envelope = new MerchantNotificationBody<>(eventId, type, 1, "acquire", aggregateType, aggregate, version,
                 BusinessTime.external(header.sourceUpdatedAt()), converter.toData(header, paymentId, amount));
@@ -133,10 +144,13 @@ public class MerchantNotificationEvents {
         if (admitted == null || admitted.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED
                 || !stored.admission().admissionId().equals(admitted.admissionId()) || !stored.order().id().equals(admitted.orderId())
                 || !stored.order().payeeMerchantId().equals(admitted.payeeMerchantId())
-                || !stored.admission().requestDigest().equals(admitted.requestDigest()) || admitted.terms() == null)
+                || !stored.admission().requestDigest().equals(admitted.requestDigest()) || admitted.terms() == null) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var terms = admitted.terms().notification();
-        if (terms == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (terms == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return terms.enabled() ? Optional.of(converter.toPolicy(terms)) : Optional.empty();
     }
 
@@ -151,8 +165,9 @@ public class MerchantNotificationEvents {
         if (prior.isPresent()) {
             var existing = prior.get();
             if (!existing.body().equals(body) || !existing.bodyDigest().equals(digest) || !existing.policy().equals(policy)
-                    || !existing.orderId().equals(orderId) || !existing.payeeMerchantId().equals(merchantId))
+                    || !existing.orderId().equals(orderId) || !existing.payeeMerchantId().equals(merchantId)) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
             return;
         }
         var delivery = MerchantNotificationDelivery.init(ids.generate(), eventId, orderId, merchantId,
@@ -162,8 +177,11 @@ public class MerchantNotificationEvents {
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

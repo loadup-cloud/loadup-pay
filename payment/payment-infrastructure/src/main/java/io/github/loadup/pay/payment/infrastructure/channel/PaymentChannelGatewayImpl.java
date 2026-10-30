@@ -101,9 +101,13 @@ public class PaymentChannelGatewayImpl implements PaymentChannelGateway {
     }
 
     private ChannelExecutionContext context(ChannelPaymentIdentity identity) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var tenant = TenantUtil.getTenantId();
-        if (tenant == null || tenant.isBlank()) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || tenant.isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = bindings.findRevision(tenant, identity.bindingRevisionId())
                 .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
         return new ChannelExecutionContext(tenant, binding);

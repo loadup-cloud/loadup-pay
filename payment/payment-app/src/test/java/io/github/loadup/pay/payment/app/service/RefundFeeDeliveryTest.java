@@ -53,13 +53,13 @@ class RefundFeeDeliveryTest {
             RefundProjectionEvents.FEE, 1, "order", 3, BusinessTime.external(RefundResultFixtures.NOW),
             new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3));
     final OutboxEvent event = new OutboxEvent("queue-fee",
-            new OutboxMessage("tenant", RefundProjectionEvents.FEE, 1, "order", "fee-payload"),
+            new OutboxMessage(RefundProjectionEvents.FEE, 1, "order", "fee-payload"),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "queue-fee")).thenReturn(Optional.of(
-                new OutboxRecord("queue-fee", "tenant", RefundProjectionEvents.FEE, "order", "PROCESSING", 1, null)));
+        when(outbox.find("queue-fee")).thenReturn(Optional.of(
+                new OutboxRecord("queue-fee", RefundProjectionEvents.FEE, "order", "PROCESSING", 1, null)));
         when(codec.fee("fee-payload")).thenReturn(envelope);
         when(acquire.supportsTenant("tenant")).thenReturn(true);
         when(acquire.acceptFeeRefund("tenant", envelope)).thenReturn(new FeeRefundAckDTO("delivery-fee", "business-fee", "order", 3, 4, true));
@@ -88,10 +88,10 @@ class RefundFeeDeliveryTest {
     @Test
     void unclaimedQueueAndWrongTenantCannotCallAcquire() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
-        when(outbox.find("tenant", "queue-fee")).thenReturn(Optional.empty());
+        when(outbox.find("queue-fee")).thenReturn(Optional.empty());
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(outbox.find("tenant", "queue-fee")).thenReturn(Optional.of(
-                new OutboxRecord("queue-fee", "tenant", RefundProjectionEvents.FEE, "order", "PENDING", 1, null)));
+        when(outbox.find("queue-fee")).thenReturn(Optional.of(
+                new OutboxRecord("queue-fee", RefundProjectionEvents.FEE, "order", "PENDING", 1, null)));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
         verify(acquire, never()).acceptFeeRefund(anyString(), any());
     }

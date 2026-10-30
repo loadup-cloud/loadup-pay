@@ -40,7 +40,9 @@ public record MerchantActionGrant(
         DomainChecks.id(id);
         DomainChecks.text(principalId, 128);
         DomainChecks.id(payeeMerchantId);
-        if (relationshipId != null) DomainChecks.id(relationshipId);
+        if (relationshipId != null) {
+            DomainChecks.id(relationshipId);
+        }
         Objects.requireNonNull(principalType);
         Objects.requireNonNull(action);
         Objects.requireNonNull(state);
@@ -88,7 +90,9 @@ public record MerchantActionGrant(
     }
 
     public MerchantActionGrant activate() {
-        if (state == GrantState.ACTIVE) return this;
+        if (state == GrantState.ACTIVE) {
+            return this;
+        }
         require(state == GrantState.INIT, INVALID_STATE);
         return new MerchantActionGrant(
                 id,
@@ -104,7 +108,9 @@ public record MerchantActionGrant(
     }
 
     public MerchantActionGrant revoke() {
-        if (state == GrantState.REVOKED) return this;
+        if (state == GrantState.REVOKED) {
+            return this;
+        }
         return new MerchantActionGrant(
                 id,
                 principalType,

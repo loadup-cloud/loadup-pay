@@ -72,7 +72,9 @@ public class WechatCredentialReader {
      */
     public byte[] apiV3Key(String tenant, ChannelBindingRevision binding) {
         var encrypted = document(tenant, binding).apiV3Key();
-        if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (encrypted == null) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         final byte[] value;
         try {
             value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted);
@@ -80,7 +82,9 @@ public class WechatCredentialReader {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
         if (value == null || value.length != 32) {
-            if (value != null) Arrays.fill(value, (byte) 0);
+            if (value != null) {
+                Arrays.fill(value, (byte) 0);
+            }
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
         return value;
@@ -91,7 +95,9 @@ public class WechatCredentialReader {
      */
     public byte[] apiV2Key(String tenant, ChannelBindingRevision binding) {
         var encrypted = document(tenant, binding).apiV2Key();
-        if (encrypted == null) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (encrypted == null) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         final byte[] value;
         try {
             value = kms.decrypt(new KmsKeyRef(encrypted.keyName(), encrypted.version()), encrypted);
@@ -99,32 +105,50 @@ public class WechatCredentialReader {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
         boolean valid = value != null && value.length == 32;
-        if (valid) for (byte part : value) if (part < 33 || part > 126) valid = false;
+        if (valid) {
+            for (byte part : value) {
+                if (part < 33 || part > 126) {
+                    valid = false;
+                }
+            }
+        }
         if (!valid) {
-            if (value != null) Arrays.fill(value, (byte) 0);
+            if (value != null) {
+                Arrays.fill(value, (byte) 0);
+            }
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
         return value;
     }
 
     private WechatCredentialDocument document(String tenant, ChannelBindingRevision binding) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!properties.enabled() || binding == null || binding.channel() != Channel.WECHAT
-                || !(binding.identity() instanceof WechatAccountIdentity account))
+                || !(binding.identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         var path = properties.credentials().getOrDefault(binding.credentialReference(), Map.of()).get(binding.credentialVersion());
-        if (path == null || !path.isAbsolute()) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        if (path == null || !path.isAbsolute()) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         try (var input = Files.newInputStream(path)) {
             byte[] bytes = input.readNBytes(65537);
-            if (bytes.length == 0 || bytes.length > 65536) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            if (bytes.length == 0 || bytes.length > 65536) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             var document = json.readValue(bytes, WechatCredentialDocument.class);
             if (document == null || !tenant.equals(document.tenantId()) || !binding.credentialReference().equals(document.reference())
                     || !binding.credentialVersion().equals(document.version()) || !account.appId().equals(document.appId())
                     || !account.merchantId().equals(document.merchantId()) || document.merchantSerial() == null
                     || !document.merchantSerial().matches("[0-9A-F]{8,64}") || document.signingKeyVersion() <= 0
-                    || document.platformKeyId() == null || !document.platformKeyId().matches("(?:PUB_KEY_ID_[A-Za-z0-9]{1,116}|[0-9A-F]{8,64})"))
+                    || document.platformKeyId() == null || !document.platformKeyId().matches("(?:PUB_KEY_ID_[A-Za-z0-9]{1,116}|[0-9A-F]{8,64})")) {
                 throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             return document;
         } catch (Exception invalid) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
@@ -132,13 +156,17 @@ public class WechatCredentialReader {
     }
 
     private PublicKey publicKey(String value) throws Exception {
-        if (value == null || value.length() > 8192) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
-        var encoded = value.strip();
-        if (encoded.startsWith("-----BEGIN PUBLIC KEY-----") && encoded.endsWith("-----END PUBLIC KEY-----"))
-            encoded = encoded.substring("-----BEGIN PUBLIC KEY-----".length(), encoded.length() - "-----END PUBLIC KEY-----".length());
-        var key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(encoded.replaceAll("\\s", ""))));
-        if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048 || rsa.getModulus().bitLength() > 4096)
+        if (value == null || value.length() > 8192) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
+        var encoded = value.strip();
+        if (encoded.startsWith("-----BEGIN PUBLIC KEY-----") && encoded.endsWith("-----END PUBLIC KEY-----")) {
+            encoded = encoded.substring("-----BEGIN PUBLIC KEY-----".length(), encoded.length() - "-----END PUBLIC KEY-----".length());
+        }
+        var key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(encoded.replaceAll("\\s", ""))));
+        if (!(key instanceof RSAPublicKey rsa) || rsa.getModulus().bitLength() < 2048 || rsa.getModulus().bitLength() > 4096) {
+            throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         return key;
     }
 }

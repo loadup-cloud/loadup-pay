@@ -24,7 +24,6 @@ import io.github.loadup.pay.payment.infrastructure.converter.RefundProjectionSto
 import io.github.loadup.pay.payment.infrastructure.dataobject.OrderRefundSummaryDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
-import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -49,22 +48,25 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     @Override
     public RefundSnapshotFacts child(String tenant, String refundId) {
         writable(tenant);
-        var childArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", refundId);
+        var childArgs = new MapSqlParameterSource().addValue("id", refundId);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
+                SELECT id, created_at, updated_at, refund_request_id, payment_id, original_attempt_id,
                        binding_revision_id, channel, account_scope_hash, original_channel_request_no, original_channel_transaction_no,
                        original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
                        currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version
-                FROM refund_order WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE
+                FROM refund_order WHERE id = :id AND deleted = FALSE FOR UPDATE
                 """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream().findFirst().orElse(null);
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", row.getRefundRequestId());
+        if (row == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var args = new MapSqlParameterSource().addValue("id", row.getRefundRequestId());
         var header = jdbc.query("""
                 SELECT id, order_id, payee_merchant_id, currency FROM refund_request
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                WHERE id = :id AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(RefundRequestDO.class)).stream().findFirst().orElse(null);
-        if (header == null || !header.getCurrency().equals(row.getCurrency()))
+        if (header == null || !header.getCurrency().equals(row.getCurrency())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         try {
             return converter.toFacts(row, header);
         } catch (RuntimeException corrupt) {
@@ -75,13 +77,15 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     @Override
     public RefundSummaryFacts summary(String tenant, String orderId) {
         writable(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
+        var args = new MapSqlParameterSource().addValue("order", orderId);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
+                SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
                        currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
-                WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE FOR UPDATE
+                WHERE order_id = :order AND deleted = FALSE FOR UPDATE
                 """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream().findFirst().orElse(null);
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         try {
             return converter.toFacts(row, converter.toSummary(row));
         } catch (RuntimeException corrupt) {
@@ -92,8 +96,11 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

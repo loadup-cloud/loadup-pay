@@ -38,7 +38,9 @@ public record MerchantNotificationProperties(Map<String, Map<String, Target>> ta
     }
 
     private static <T> Map<String, Map<String, T>> immutable(Map<String, Map<String, T>> values) {
-        if (values == null) return Map.of();
+        if (values == null) {
+            return Map.of();
+        }
         return values.entrySet().stream().collect(Collectors.toUnmodifiableMap(e -> DomainChecks.id(e.getKey()), e -> {
             e.getValue().keySet().forEach(key -> DomainChecks.text(key, 128));
             return Map.copyOf(e.getValue());
@@ -57,8 +59,9 @@ public record MerchantNotificationProperties(Map<String, Map<String, Target>> ta
             DomainChecks.id(operation);
             if (uri == null || !"https".equals(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null
                     || uri.getRawFragment() != null || uri.getRawQuery() != null || uri.getRawPath().isBlank() || uri.toASCIIString().length() > 2048
-                    || (uri.getPort() != -1 && uri.getPort() != 443))
+                    || (uri.getPort() != -1 && uri.getPort() != 443)) {
                 throw new IllegalArgumentException("Invalid approved notification target");
+            }
         }
 
         @Override

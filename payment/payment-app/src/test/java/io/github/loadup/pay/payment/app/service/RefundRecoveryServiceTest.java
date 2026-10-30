@@ -71,7 +71,7 @@ class RefundRecoveryServiceTest {
     final Clock clock = Clock.fixed(NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final RefundRecoveryService recovery = new RefundRecoveryService(cursors, tasks, locks, execution, transactions, clock,
             new RecoveryPollingPolicy(30, 1800, 900, 0));
-    final DelayedTask task = new DelayedTask("task", "tenant", RefundRecoveryService.TYPE, "request.0",
+    final DelayedTask task = new DelayedTask("task", RefundRecoveryService.TYPE, "request.0",
             request.get().plannedAt(), request.get().plannedAt(), DelayedTaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
 
     @BeforeEach
@@ -216,7 +216,7 @@ class RefundRecoveryServiceTest {
         when(tasks.find(RefundRecoveryService.TYPE, "request.0")).thenReturn(Optional.empty());
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> recovery.handle(task)));
-        var expired = new DelayedTask(task.id(), task.tenantId(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
+        var expired = new DelayedTask(task.id(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
                 task.status(), task.attempts(), task.maxAttempts(), NOW, null);
         when(tasks.find(RefundRecoveryService.TYPE, "request.0")).thenReturn(Optional.of(expired));
         assertSame(INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());
@@ -228,7 +228,7 @@ class RefundRecoveryServiceTest {
         var original = request.get();
         var late = original.plannedAt().plusDays(1);
         var lateClock = Clock.fixed(late.atZone(clock.getZone()).toInstant(), clock.getZone());
-        var delayed = new DelayedTask(task.id(), task.tenantId(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
+        var delayed = new DelayedTask(task.id(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
                 task.status(), task.attempts(), task.maxAttempts(), late.plusMinutes(5), null);
         when(tasks.find(RefundRecoveryService.TYPE, task.bizId())).thenReturn(Optional.of(delayed));
         var handler = new RefundRecoveryService(cursors, tasks, locks, execution, transactions, lateClock,

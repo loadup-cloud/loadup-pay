@@ -41,7 +41,9 @@ public record ProductActor(
         DomainChecks.id(tenantId);
         DomainChecks.text(principalType, 24);
         DomainChecks.text(principalId, 128);
-        if (merchantId != null) DomainChecks.id(merchantId);
+        if (merchantId != null) {
+            DomainChecks.id(merchantId);
+        }
         permissions = Set.copyOf(permissions);
     }
 

@@ -102,31 +102,46 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
     public ReconciliationImportDTO submit(ReconciliationChannelImportCommand command) {
         validate(command);
         var actor = actor("submit");
-        if (command.requestKey().startsWith("official:")) throw new CommonException(INVALID_ARGUMENT);
+        if (command.requestKey().startsWith("official:")) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var digest = digest(actor, command);
         var existing = transactions.readSnapshot(actor.tenantId(), () -> imports.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey())
                 .map(value -> replay(actor, value, digest)));
-        if (existing.isPresent()) return existing.get();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
         var original = transactions.readSnapshot(actor.tenantId(), () -> authorizedBatch(actor, command.batchId(), false));
         available(original);
         var account = accounts.statementAccount(actor.tenantId(), actor.serviceId(), original.channelAccountCode(), original.batch().scope());
-        if (!parser.supports(original.batch().scope())) throw new CommonException(INPUT_INVALID);
+        if (!parser.supports(original.batch().scope())) {
+            throw new CommonException(INPUT_INVALID);
+        }
         var source = files.inspect(actor.tenantId(), actor.serviceId(), command.fileId());
-        if (!source.sha256().equals(command.sourceSha256())) throw new CommonException(INPUT_INVALID);
+        if (!source.sha256().equals(command.sourceSha256())) {
+            throw new CommonException(INPUT_INVALID);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             var current = authorizedBatch(actor, command.batchId(), true);
             var raced = imports.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
-            if (raced.isPresent()) return replay(actor, raced.get(), digest);
+            if (raced.isPresent()) {
+                return replay(actor, raced.get(), digest);
+            }
             available(current);
             if (!original.batch().scope().equals(current.batch().scope()) || !account.equals(accounts.statementAccount(actor.tenantId(), actor.serviceId(),
-                    current.channelAccountCode(), current.batch().scope()))) throw new CommonException(SCOPE_MISMATCH);
-            if (imports.activeForBatch(actor.tenantId(), command.batchId()).isPresent())
+                    current.channelAccountCode(), current.batch().scope()))) {
+                throw new CommonException(SCOPE_MISMATCH);
+            }
+            if (imports.activeForBatch(actor.tenantId(), command.batchId()).isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
+            }
             var id = ids.generate();
             files.attach(actor.tenantId(), actor.serviceId(), source, id);
-            var task = nativeCall(() -> tasks.submit(actor.tenantId(), actor.serviceId(), TransferKind.IMPORT,
+            var task = nativeCall(() -> tasks.submit(actor.serviceId(), TransferKind.IMPORT,
                     ReconciliationImportExecutionService.HANDLER_KEY, source.fileId(), Map.of("importId", id)));
-            if (task == null) throw new CommonException(SNAPSHOT_INVALID);
+            if (task == null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var request = ReconciliationImportRequest.init(id, command.batchId(), actor.serviceId(), command.requestKey(), digest,
                     current.batch().scope(), account, source, task.id());
             ReconciliationImportExecutionService.validateTask(task, request, TransferStatus.QUEUED);
@@ -154,15 +169,22 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         return transactions.writeLocal(actor.tenantId(), () -> {
             authorizedBatch(actor, original.batchId(), true);
             var value = checked(actor, imports.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)), false);
-            if (!value.taskId().equals(command.expectedTaskId())) throw new CommonException(IDEMPOTENCY_CONFLICT);
-            if (value.state() == ReconciliationImportState.REJECTED) throw new CommonException(INPUT_INVALID);
-            var task = nativeCall(() -> tasks.get(actor.tenantId(), value.taskId(), actor.serviceId(), false));
+            if (!value.taskId().equals(command.expectedTaskId())) {
+                throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
+            if (value.state() == ReconciliationImportState.REJECTED) {
+                throw new CommonException(INPUT_INVALID);
+            }
+            var task = nativeCall(() -> tasks.get(value.taskId(), actor.serviceId(), false));
             ReconciliationImportExecutionService.validateTask(task, value, null);
-            if (task.status() == TransferStatus.QUEUED || task.status() == TransferStatus.SUCCEEDED && value.state() == ReconciliationImportState.SEALED)
+            if (task.status() == TransferStatus.QUEUED || task.status() == TransferStatus.SUCCEEDED && value.state() == ReconciliationImportState.SEALED) {
                 return converter.toDTO(value, task.status().name());
-            if (task.status() != TransferStatus.FAILED) throw new CommonException(INVALID_STATE);
+            }
+            if (task.status() != TransferStatus.FAILED) {
+                throw new CommonException(INVALID_STATE);
+            }
             files.verify(actor.tenantId(), actor.serviceId(), value.file(), value.id());
-            task = nativeCall(() -> tasks.retry(actor.tenantId(), value.taskId(), actor.serviceId(), false));
+            task = nativeCall(() -> tasks.retry(value.taskId(), actor.serviceId(), false));
             ReconciliationImportExecutionService.validateTask(task, value, TransferStatus.QUEUED);
             return converter.toDTO(value, task.status().name());
         });
@@ -170,55 +192,71 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
 
     private ReconciliationImportDTO replay(ReconciliationActor actor, ReconciliationImportRequest value, String digest) {
         checked(actor, value, false);
-        if (!value.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!value.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return dto(actor.tenantId(), value);
     }
 
     private ReconciliationImportDTO dto(String tenant, ReconciliationImportRequest value) {
-        var task = nativeCall(() -> tasks.get(tenant, value.taskId(), value.callerServiceId(), false));
+        var task = nativeCall(() -> tasks.get(value.taskId(), value.callerServiceId(), false));
         ReconciliationImportExecutionService.validateTask(task, value, null);
-        if (task.status() == TransferStatus.SUCCEEDED && value.state() != ReconciliationImportState.SEALED)
+        if (task.status() == TransferStatus.SUCCEEDED && value.state() != ReconciliationImportState.SEALED) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toDTO(value, task.status().name());
     }
 
     private ReconciliationImportRequest checked(ReconciliationActor actor, ReconciliationImportRequest value, boolean lock) {
-        if (!value.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!value.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var batch = authorizedBatch(actor, value.batchId(), lock);
         if (!value.scope().equals(batch.batch().scope()) || !value.statementAccount().equals(accounts.statementAccount(actor.tenantId(), actor.serviceId(),
-                batch.channelAccountCode(), batch.batch().scope()))) throw new CommonException(SCOPE_MISMATCH);
+                batch.channelAccountCode(), batch.batch().scope()))) {
+            throw new CommonException(SCOPE_MISMATCH);
+        }
         official.verify(actor.tenantId(), value);
         return value;
     }
 
     private StoredReconciliationBatch authorizedBatch(ReconciliationActor actor, String id, boolean lock) {
         var value = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id)).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!value.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!value.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         accounts.authorize(actor.tenantId(), actor.serviceId(), value.channelAccountCode(), value.batch().scope());
         return value;
     }
 
     private void available(StoredReconciliationBatch value) {
-        if (value.batch().state() != ReconciliationState.INIT || value.batch().channel() != null)
+        if (value.batch().state() != ReconciliationState.INIT || value.batch().channel() != null) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 
     private ReconciliationActor actor(String operation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor == null || !actor.permissions().contains("pay:reconciliation:import:" + operation))
+        if (actor == null || !actor.permissions().contains("pay:reconciliation:import:" + operation)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private String digest(ReconciliationActor actor, ReconciliationChannelImportCommand command) {
         var framed = new StringBuilder();
-        for (var part : java.util.List.of("reconciliation-manual-import-v1", actor.tenantId(), actor.serviceId(), command.requestKey(), command.batchId(), command.fileId(), command.sourceSha256()))
+        for (var part : java.util.List.of("reconciliation-manual-import-v1", actor.tenantId(), actor.serviceId(), command.requestKey(), command.batchId(), command.fileId(), command.sourceSha256())) {
             framed.append(part.getBytes(StandardCharsets.UTF_8).length).append(':').append(part);
+        }
         return DigestUtils.sha256(framed.toString());
     }
 
@@ -226,8 +264,9 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         try {
             return action.get();
         } catch (CommonException failure) {
-            if (failure.getResultCode() instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum)
+            if (failure.getResultCode() instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) {
                 throw failure;
+            }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }

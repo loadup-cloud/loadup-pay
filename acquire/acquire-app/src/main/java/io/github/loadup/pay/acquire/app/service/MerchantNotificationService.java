@@ -25,7 +25,6 @@ import io.github.loadup.pay.acquire.app.port.MerchantNotificationTransport;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -50,7 +49,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
     private final Clock clock;
 
     public MerchantNotificationService(MerchantNotificationGateway deliveries, MerchantNotificationTransport transport,
-                                       DelayedTaskTemplate tasks, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
+                                       DelayedTaskTemplate tasks, OrderCreationTransactions transactions, Clock clock) {
         this.deliveries = deliveries;
         this.transport = transport;
         this.tasks = tasks;
@@ -65,9 +64,12 @@ public class MerchantNotificationService implements DelayedTaskHandler {
 
     @Override
     public void handle(DelayedTask task) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (task == null || task.tenantId() == null || !TYPE.equals(task.taskType()) || !task.tenantId().equals(TenantUtil.getTenantId()))
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (task == null || !TYPE.equals(task.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         final MerchantNotificationKey key;
         try {
             key = MerchantNotificationKey.parse(task.bizId());
@@ -76,47 +78,62 @@ public class MerchantNotificationService implements DelayedTaskHandler {
         }
         var nativeTask = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = now();
-        if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())
+        if (!task.id().equals(nativeTask.id())
                 || !TYPE.equals(nativeTask.taskType()) || !task.bizId().equals(nativeTask.bizId())
                 || !task.executeAt().equals(nativeTask.executeAt()) || nativeTask.status() != DelayedTaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts() || nativeTask.leaseUntil() == null
-                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt()))
+                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
-        var sending = transactions.writeLocal(task.tenantId(), () -> {
-            var before = deliveries.lock(task.tenantId(), key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (before.finished() || key.sequence() < before.attemptCount())
+        }
+        String tenant = TenantUtil.getTenantId();
+        var sending = transactions.writeLocal(tenant, () -> {
+            var before = deliveries.lock(tenant, key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (before.finished() || key.sequence() < before.attemptCount()) {
                 return java.util.Optional.<MerchantNotificationDelivery>empty();
-            if (key.sequence() != before.attemptCount() || !task.executeAt().equals(before.nextAttemptAt()))
+            }
+            if (key.sequence() != before.attemptCount() || !task.executeAt().equals(before.nextAttemptAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var startedAt = now();
             if (before.expired(startedAt) || before.attemptCount() >= before.policy().retryMaxAttempts()) {
-                deliveries.update(task.tenantId(), before, before.exhaust());
+                deliveries.update(tenant, before, before.exhaust());
                 return java.util.Optional.<MerchantNotificationDelivery>empty();
             }
             String route = null;
             try {
-                route = transport.fingerprint(task.tenantId(), before);
+                route = transport.fingerprint(tenant, before);
             } catch (RuntimeException unavailable) { /* Missing local configuration consumes no network call. */ }
             var next = before.begin(startedAt, route);
-            deliveries.update(task.tenantId(), before, next);
+            deliveries.update(tenant, before, next);
             tasks.register(TYPE, new MerchantNotificationKey(next.id(), next.attemptCount()).bizId(), next.nextAttemptAt());
             return java.util.Optional.of(next);
         }).orElse(null);
-        if (sending == null) return;
+        if (sending == null) {
+            return;
+        }
         boolean ack = false;
         try {
-            ack = transport.send(task.tenantId(), sending);
+            ack = transport.send(tenant, sending);
         } catch (RuntimeException unavailable) {
-            if (Thread.currentThread().isInterrupted()) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (Thread.currentThread().isInterrupted()) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
         }
         final boolean acknowledged = ack;
-        transactions.writeLocal(task.tenantId(), () -> {
-            var current = deliveries.lock(task.tenantId(), key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (current.finished()) return Boolean.TRUE;
+        transactions.writeLocal(tenant, () -> {
+            var current = deliveries.lock(tenant, key.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (current.finished()) {
+                return Boolean.TRUE;
+            }
             if (!current.eventId().equals(sending.eventId()) || !current.bodyDigest().equals(sending.bodyDigest())
-                    || current.attemptCount() < sending.attemptCount()) throw new CommonException(SNAPSHOT_INVALID);
-            if (current.expired(now())) deliveries.update(task.tenantId(), current, current.exhaust());
-            else if (acknowledged) deliveries.update(task.tenantId(), current, current.acknowledge(now()));
+                    || current.attemptCount() < sending.attemptCount()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            if (current.expired(now())) {
+                deliveries.update(tenant, current, current.exhaust());
+            } else if (acknowledged) {
+                deliveries.update(tenant, current, current.acknowledge(now()));
+            }
             return Boolean.TRUE;
         });
     }

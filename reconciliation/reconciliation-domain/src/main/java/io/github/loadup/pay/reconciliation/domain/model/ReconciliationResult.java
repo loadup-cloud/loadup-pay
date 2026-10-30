@@ -40,8 +40,12 @@ public record ReconciliationResult(ReconciliationManifest channel, Reconciliatio
         for (var difference : differences) {
             require(!difference.key().equals(previous), CONFLICT);
             previous = difference.key();
-            if (difference.channel() != null) channelDifferences++;
-            if (difference.ledger() != null) ledgerDifferences++;
+            if (difference.channel() != null) {
+                channelDifferences++;
+            }
+            if (difference.ledger() != null) {
+                ledgerDifferences++;
+            }
         }
         require(channelDifferences <= channel.totals().recordCount() && ledgerDifferences <= ledger.totals().recordCount()
                 && matchedCount == channel.totals().recordCount() - channelDifferences
@@ -72,7 +76,9 @@ public record ReconciliationResult(ReconciliationManifest channel, Reconciliatio
             fingerprint.field(difference.key().kind().name());
             fingerprint.field(difference.key().channelTransactionNo());
             fingerprint.field(difference.key().channelRefundNo());
-            for (var reason : difference.reasons().stream().sorted().toList()) fingerprint.field(reason.name());
+            for (var reason : difference.reasons().stream().sorted().toList()) {
+                fingerprint.field(reason.name());
+            }
             fingerprint.field("end-reasons");
             fingerprint.line(difference.channel());
             fingerprint.line(difference.ledger());

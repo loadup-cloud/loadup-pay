@@ -23,7 +23,6 @@ import io.github.loadup.pay.acquire.app.security.CashierActorProvider;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -51,7 +50,7 @@ public class CashierSummaryService {
             CheckoutConverter converter,
             OrderCreationTransactions transactions,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock, CashierAccess access, CashierChoices choices) {
+            Clock clock, CashierAccess access, CashierChoices choices) {
         this.actors = actors;
         this.orders = orders;
         this.orderConverter = orderConverter;
@@ -64,14 +63,20 @@ public class CashierSummaryService {
     }
 
     public CashierOrderDTO summary(IdQuery query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current(); // The HTTP provider always authenticates the opaque capability first.
-        if (!actor.orderId().equals(query.id())) throw new CommonException(SESSION_UNAUTHORIZED);
+        if (!actor.orderId().equals(query.id())) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var stored = orders.findOrder(actor.tenantId(), actor.orderId())
                     .orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
-            if (!now.isBefore(actor.expiresAt())) throw new CommonException(SESSION_UNAUTHORIZED);
+            if (!now.isBefore(actor.expiresAt())) {
+                throw new CommonException(SESSION_UNAUTHORIZED);
+            }
             var session = access.read(actor, stored, "ORDER_SUMMARY");
             var available = session.session().state() == io.github.loadup.pay.acquire.domain.model.CheckoutSessionState.ACTIVE
                     ? choices.choices(stored, now) : java.util.Set.<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO>of();

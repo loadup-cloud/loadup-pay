@@ -71,7 +71,7 @@ class PaymentOutcomeDeliverySupportTest {
             new PaymentAcceptanceTransactions(manager), intents, context.getBean(PaymentResultConverter.class));
     final AtomicReference<PaymentDeliverySnapshot> source = new AtomicReference<>();
     final AtomicReference<StoredPaymentGate> gate = new AtomicReference<>();
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.LIMIT, 1, "payment", "payload"),
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage(PaymentEvents.LIMIT, 1, "payment", "payload"),
             AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     void source(boolean succeeded) {
@@ -90,7 +90,7 @@ class PaymentOutcomeDeliverySupportTest {
     @BeforeEach
     void setup() {
         source(true);
-        when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
+        when(outbox.find("queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event",
                 PaymentEvents.LIMIT, "payment", "PROCESSING", 1, null)));
         when(payments.find("tenant", "payment")).thenAnswer(c -> Optional.of(source.get().payment()));
         when(locks.lock("tenant", "payment", "acquire")).thenAnswer(c -> {
@@ -146,7 +146,7 @@ class PaymentOutcomeDeliverySupportTest {
 
     @Test
     void mismatchedQueueTargetIsRejectedBeforeReadingBusinessFacts() {
-        when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
+        when(outbox.find("queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event",
                 PaymentEvents.RISK, "payment", "PROCESSING", 1, null)));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, locks, results);
@@ -154,7 +154,7 @@ class PaymentOutcomeDeliverySupportTest {
 
     @Test
     void completedOrFailedRowsCannotBeUsedAsArbitraryManualDispatchTickets() {
-        when(outbox.find("tenant", "queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event", "tenant",
+        when(outbox.find("queue-event")).thenReturn(Optional.of(new OutboxRecord("queue-event",
                 PaymentEvents.LIMIT, "payment", "FAILED", 5, "Failure")));
         assertThrows(CommonException.class, this::load);
         verifyNoInteractions(payments, results);

@@ -28,13 +28,15 @@ public record LimitPermitProperties(
         String activeKeyId, @DiagnosticHidden Map<String, String> keys) {
     public LimitPermitProperties {
         DomainChecks.id(activeKeyId);
-        if (keys == null || !keys.containsKey(activeKeyId))
+        if (keys == null || !keys.containsKey(activeKeyId)) {
             throw new IllegalStateException("Active limit permit key must be configured");
+        }
         keys = Map.copyOf(keys);
         keys.forEach((id, secret) -> {
             DomainChecks.id(id);
-            if (secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32)
+            if (secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
                 throw new IllegalStateException("Limit permit keys require at least 32 random UTF-8 bytes");
+            }
         });
     }
 

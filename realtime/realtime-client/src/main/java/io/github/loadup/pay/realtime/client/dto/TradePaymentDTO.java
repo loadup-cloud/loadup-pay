@@ -46,12 +46,15 @@ public record TradePaymentDTO(
         @Schema(description = "Source version") long sourceVersion,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradePaymentDTO {
-        if (initiatedAt != null)
+        if (initiatedAt != null) {
             initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (succeededAt != null)
+        }
+        if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (snapshotAt != null)
+        }
+        if (snapshotAt != null) {
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

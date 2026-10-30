@@ -41,16 +41,19 @@ public record ReconciliationVerificationReceipt(ReconciliationVerificationDispos
             require(text(bindingRevisionId, 64) && text(paymentId, 64) && text(attemptId, 64) && sourceVersion != null && sourceVersion >= 0
                     && text(localState, 32) && outcome != null && amount != null && amount.getCent() > 0 && "CNY".equals(amount.getCurrencyValue())
                     && sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
-            if (refundId != null) require(text(refundId, 64), INVALID_ARGUMENT);
+            if (refundId != null) {
+                require(text(refundId, 64), INVALID_ARGUMENT);
+            }
             boolean success = outcome == ReconciliationVerificationOutcome.SUCCEEDED || outcome == ReconciliationVerificationOutcome.CLOSED_WITH_FUNDS_RETURNED;
             require(success == (succeededEpochMicros != null) && (succeededEpochMicros == null || succeededEpochMicros > 0), INVALID_ARGUMENT);
             require(!success || text(observedChannelTransactionNo, 128), INVALID_ARGUMENT);
             require(observedChannelTransactionNo == null || text(observedChannelTransactionNo, 128), INVALID_ARGUMENT);
             require(observedRefundTransactionNo == null || text(observedRefundTransactionNo, 128), INVALID_ARGUMENT);
-        } else
+        } else {
             require(bindingRevisionId == null && paymentId == null && attemptId == null && refundId == null && sourceVersion == null && localState == null
                     && outcome == null && amount == null && observedChannelTransactionNo == null && observedRefundTransactionNo == null
                     && succeededEpochMicros == null && sourceDigest == null && acceptedEpochMicros == null, INVALID_ARGUMENT);
+        }
     }
 
     private static boolean text(String value, int max) {
@@ -58,16 +61,20 @@ public record ReconciliationVerificationReceipt(ReconciliationVerificationDispos
     }
 
     public void requireKind(ReconciliationRecordKind kind) {
-        if (disposition != ReconciliationVerificationDisposition.OBSERVED) return;
+        if (disposition != ReconciliationVerificationDisposition.OBSERVED) {
+            return;
+        }
         boolean refund = kind == ReconciliationRecordKind.REFUND;
         require(refund == (refundId != null), INVALID_ARGUMENT);
-        if (acceptedEpochMicros != null)
+        if (acceptedEpochMicros != null) {
             require(refund && acceptedEpochMicros > 0 && (succeededEpochMicros == null || acceptedEpochMicros <= succeededEpochMicros), INVALID_ARGUMENT);
-        if (refund)
+        }
+        if (refund) {
             require(Set.of(ReconciliationVerificationOutcome.ACCEPTED, ReconciliationVerificationOutcome.SUCCEEDED, ReconciliationVerificationOutcome.FAILED_WITH_NO_REFUND, ReconciliationVerificationOutcome.UNKNOWN).contains(outcome)
                     && text(observedChannelTransactionNo, 128) && (outcome == ReconciliationVerificationOutcome.SUCCEEDED) == (observedRefundTransactionNo != null), INVALID_ARGUMENT);
-        else
+        } else {
             require(outcome != ReconciliationVerificationOutcome.FAILED_WITH_NO_REFUND && observedRefundTransactionNo == null, INVALID_ARGUMENT);
+        }
     }
 
     @Override

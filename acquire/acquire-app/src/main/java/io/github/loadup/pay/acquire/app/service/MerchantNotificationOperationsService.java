@@ -36,7 +36,6 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -71,7 +70,7 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
 
     public MerchantNotificationOperationsService(MerchantNotificationAccess access, MerchantNotificationGateway deliveries,
                                                  MerchantNotificationWakeGateway receipts, DelayedTaskTemplate tasks, MerchantNotificationQueryConverter converter,
-                                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock) {
+                                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator, Clock clock) {
         this.access = access;
         this.deliveries = deliveries;
         this.receipts = receipts;
@@ -87,7 +86,9 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     public MerchantNotificationWakeDTO wake(MerchantNotificationWakeCommand command) {
         var actor = access.operator();
         validate(command);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-operator-v1", actor.tenantId(), actor.principalType(), actor.principalId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-wake-v1", actor.tenantId(), scope,
                 command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
@@ -96,12 +97,18 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
             DomainChecks.text(command.requestKey(), 128);
             DomainChecks.text(command.reason(), 500);
             var known = receipts.find(actor.tenantId(), scope, command.requestKey());
-            if (known.isPresent()) return replay(known.get(), actor, scope, digest);
+            if (known.isPresent()) {
+                return replay(known.get(), actor, scope, digest);
+            }
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
-                if (existing.isPresent()) return replay(existing.get(), actor, scope, digest);
+                if (existing.isPresent()) {
+                    return replay(existing.get(), actor, scope, digest);
+                }
                 var delivery = deliveries.lock(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-                if (delivery.rowVersion() != command.expectedVersion()) throw new CommonException(VERSION_CONFLICT);
+                if (delivery.rowVersion() != command.expectedVersion()) {
+                    throw new CommonException(VERSION_CONFLICT);
+                }
                 var at = now();
                 var decision = resume(actor.tenantId(), delivery, at);
                 var receipt = converter.toReceipt(ids.generate(), command, delivery, actor, decision, scope, digest, at);
@@ -126,28 +133,39 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         try {
             return schedule(tenant, delivery, at);
         } catch (CommonException failure) {
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE)
+            if (failure.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) {
                 throw new CommonException(CONCURRENT_UPDATE);
-            if (failure.getResultCode() == DelayedTaskResultCodeEnum.CONFLICT)
+            }
+            if (failure.getResultCode() == DelayedTaskResultCodeEnum.CONFLICT) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             throw failure;
         }
     }
 
     private MerchantNotificationWakeDecision schedule(String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
-        if (delivery.state() == MerchantNotificationState.ACKED)
+        if (delivery.state() == MerchantNotificationState.ACKED) {
             return new MerchantNotificationWakeDecision("ACKED", null);
-        if (delivery.expired(at)) return new MerchantNotificationWakeDecision("EXPIRED", null);
-        if (delivery.finished() || delivery.attemptCount() >= delivery.policy().retryMaxAttempts())
+        }
+        if (delivery.expired(at)) {
+            return new MerchantNotificationWakeDecision("EXPIRED", null);
+        }
+        if (delivery.finished() || delivery.attemptCount() >= delivery.policy().retryMaxAttempts()) {
             return new MerchantNotificationWakeDecision("EXHAUSTED", null);
-        if (at.isBefore(delivery.nextAttemptAt())) return new MerchantNotificationWakeDecision("WAITING", null);
+        }
+        if (at.isBefore(delivery.nextAttemptAt())) {
+            return new MerchantNotificationWakeDecision("WAITING", null);
+        }
         String key = new MerchantNotificationKey(delivery.id(), delivery.attemptCount()).bizId();
         var task = tasks.find(MerchantNotificationService.TYPE, key).orElse(null);
         boolean missing = task == null;
-        if (missing) task = tasks.register(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
-        if (task == null || task.status() == null || !tenant.equals(task.tenantId()) || !MerchantNotificationService.TYPE.equals(task.taskType())
-                || !key.equals(task.bizId()) || !delivery.nextAttemptAt().equals(task.executeAt()))
+        if (missing) {
+            task = tasks.register(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
+        }
+        if (task == null || task.status() == null || !MerchantNotificationService.TYPE.equals(task.taskType())
+                || !key.equals(task.bizId()) || !delivery.nextAttemptAt().equals(task.executeAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         String result;
         switch (task.status()) {
             case PENDING -> result = missing ? "REGISTERED" : "PENDING";
@@ -168,13 +186,19 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
 
     private MerchantNotificationWakeDTO replay(MerchantNotificationWakeReceipt receipt, MerchantNotificationActor actor, String scope, String digest) {
         if (!scope.equals(receipt.callerScopeHash()) || !actor.principalType().equals(receipt.principalType())
-                || !actor.principalId().equals(receipt.principalId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                || !actor.principalId().equals(receipt.principalId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toDTO(receipt);
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {

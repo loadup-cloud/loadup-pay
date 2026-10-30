@@ -43,7 +43,7 @@ class PaymentAcquireOutcomeDeliveryTest {
     final PaymentOutcomeDeliverySupport support = mock(PaymentOutcomeDeliverySupport.class);
     final PaymentAcquireClient acquire = mock(PaymentAcquireClient.class);
     final PaymentAcquireOutcomeDelivery delivery = new PaymentAcquireOutcomeDelivery(support, acquire);
-    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage("tenant", PaymentEvents.ACQUIRE, 1, "payment", "{}"),
+    final OutboxEvent event = new OutboxEvent("queue-event", new OutboxMessage(PaymentEvents.ACQUIRE, 1, "payment", "{}"),
             OutcomeDeliveryFixtures.snapshot(true, true, PaymentEvents.ACQUIRE).envelope().occurredAt().toInstant(), null);
 
     @BeforeEach

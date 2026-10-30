@@ -35,7 +35,7 @@ import java.util.Set;
 public interface ChannelBindingStorageConverter {
     ChannelMerchantBinding toHead(ChannelMerchantBindingDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -56,7 +56,7 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "binding", source = "binding")
     StoredChannelBindingRevision toRevision(ChannelBindingRevisionDO row, ChannelBindingRevision binding);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.binding.id")
     @Mapping(target = "payeeMerchantId", source = "value.binding.payeeMerchantId")
     @Mapping(target = "channel", source = "value.binding.channel")
@@ -75,7 +75,7 @@ public interface ChannelBindingStorageConverter {
 
     ChannelBindingChangeReceipt toReceipt(ChannelBindingChangeReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

@@ -43,8 +43,9 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
                 || value.rules().size() != 8
                 || value.rules().stream()
                 .anyMatch(rule -> !value.payeeMerchantId().equals(rule.merchantId()))
-                || !value.policyHash().equals(LimitPolicyHash.compute(tenant, value)))
+                || !value.policyHash().equals(LimitPolicyHash.compute(tenant, value))) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override
@@ -61,8 +62,9 @@ public class PolicyPublicationCodecImpl implements PolicyPublicationCodec {
             if (!value.policyId().equals(publication.policyId())
                     || value.policyVersion() != publication.policyVersion()
                     || !value.policyHash().equals(publication.policyHash())
-                    || !value.payeeMerchantId().equals(publication.payeeMerchantId()))
+                    || !value.payeeMerchantId().equals(publication.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (CommonException known) {
             throw known;

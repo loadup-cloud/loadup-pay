@@ -38,7 +38,9 @@ public record RecoveryPosition(String subjectId, long generation, LocalDateTime 
     public boolean current(RecoveryTaskKey key, LocalDateTime originalExecuteAt) {
         Objects.requireNonNull(key);
         require(subjectId.equals(key.subjectId()) && key.generation() <= generation, CONFLICT);
-        if (completed || key.generation() < generation) return false;
+        if (completed || key.generation() < generation) {
+            return false;
+        }
         require(dueAt.equals(originalExecuteAt), CONFLICT);
         return true;
     }

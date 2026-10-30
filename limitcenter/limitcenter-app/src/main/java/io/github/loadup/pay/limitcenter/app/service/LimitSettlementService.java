@@ -105,8 +105,9 @@ public class LimitSettlementService implements LimitSettlementFacade {
             if (source.state() != PaymentState.SUCCEEDED || source.version() != command.paymentVersion()
                     || !command.successEvidenceId().equals(source.terminalEvidenceId())
                     || source.activeAttemptId() == null || source.activeAttemptId().isBlank()
-                    || source.amountMinor() != command.amountMinor() || !source.currency().equals(command.currency()))
+                    || source.amountMinor() != command.amountMinor() || !source.currency().equals(command.currency())) {
                 throw new CommonException(OUTCOME_CONFLICT);
+            }
             String digest = digest("CONFIRM", actor, command.operationId(), command.paymentId(),
                     Long.toString(command.paymentVersion()), command.successEvidenceId(), Long.toString(command.amountMinor()),
                     command.currency(), BusinessTime.local(command.succeededAt()).toString());
@@ -121,16 +122,19 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 if (prior.isPresent()) {
                     prior.get().requireSame(command.paymentId(), "CONFIRM", digest, command.paymentVersion(), command.successEvidenceId());
                     if (current.reservation().state() != LimitReservationState.CONFIRMED
-                            || current.reservation().paymentSourceVersion() != command.paymentVersion())
+                            || current.reservation().paymentSourceVersion() != command.paymentVersion()) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     return converter.toDTO(current.reservation());
                 }
                 var value = current.reservation();
-                if (!gate.paymentId().equals(value.paymentId()) || gate.state() != GateState.OPEN)
+                if (!gate.paymentId().equals(value.paymentId()) || gate.state() != GateState.OPEN) {
                     throw new CommonException(EXECUTION_FENCED);
+                }
                 if (value.state() != LimitReservationState.EXECUTING
-                        || !Objects.equals(value.activeAttemptId(), source.activeAttemptId()))
+                        || !Objects.equals(value.activeAttemptId(), source.activeAttemptId())) {
                     throw new CommonException(OUTCOME_CONFLICT);
+                }
                 var items = items(actor, current);
                 var before = reservations.lockExistingBuckets(actor.tenantId(), items.stream().map(LimitReservationItem::bucket).toList());
                 var after = before.confirm(items);
@@ -157,13 +161,16 @@ public class LimitSettlementService implements LimitSettlementFacade {
             var source = facts.payment();
             if (!(source.state() == PaymentState.CLOSED || source.state() == PaymentState.FAILED)
                     || !facts.executionFenced() || source.version() != command.paymentVersion()
-                    || !command.noCollectionEvidenceId().equals(source.terminalEvidenceId()))
+                    || !command.noCollectionEvidenceId().equals(source.terminalEvidenceId())) {
                 throw new CommonException(OUTCOME_CONFLICT);
+            }
             String digest = digest("RELEASE", actor, command.operationId(), command.paymentId(),
                     Long.toString(command.paymentVersion()), command.noCollectionEvidenceId(), command.reasonCode());
             return transactions.writeLocal(actor, OUTCOME_CONFLICT, () -> {
                 var gate = reservations.lockOrCreateGate(actor.tenantId(), command.operationId(), command.paymentId());
-                if (!gate.paymentId().equals(command.paymentId())) throw new CommonException(OUTCOME_CONFLICT);
+                if (!gate.paymentId().equals(command.paymentId())) {
+                    throw new CommonException(OUTCOME_CONFLICT);
+                }
                 var current = reservations.findByOperation(actor.tenantId(), command.operationId());
                 current.ifPresent(value -> {
                     owner(actor, value);
@@ -173,12 +180,15 @@ public class LimitSettlementService implements LimitSettlementFacade {
                 if (prior.isPresent()) {
                     prior.get().requireSame(command.paymentId(), "RELEASE", digest, command.paymentVersion(), command.noCollectionEvidenceId());
                     if (gate.state() != GateState.FENCED || gate.paymentSourceVersion() != command.paymentVersion()
-                            || !command.noCollectionEvidenceId().equals(gate.noCollectionEvidenceId()))
+                            || !command.noCollectionEvidenceId().equals(gate.noCollectionEvidenceId())) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     return mapping.toRelease(command.operationId(), command.paymentId(), current.map(v -> converter.toDTO(v.reservation())).orElse(null),
                             command.paymentVersion(), command.noCollectionEvidenceId());
                 }
-                if (gate.state() == GateState.FENCED) throw new CommonException(SNAPSHOT_INVALID);
+                if (gate.state() == GateState.FENCED) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 StoredLimitReservation changed = current.orElse(null);
                 if (current.isPresent()) {
                     var stored = current.get();
@@ -191,8 +201,9 @@ public class LimitSettlementService implements LimitSettlementFacade {
                                 command.paymentVersion(), command.noCollectionEvidenceId(), true)));
                         reservations.updateBuckets(actor.tenantId(), before, after);
                         reservations.updateReservation(actor.tenantId(), changed, value.version());
-                    } else if (value.state() != LimitReservationState.EXPIRED)
+                    } else if (value.state() != LimitReservationState.EXPIRED) {
                         throw new CommonException(OUTCOME_CONFLICT);
+                    }
                 }
                 settlements.fenceGate(actor.tenantId(), gate.fence(command.paymentVersion(), command.noCollectionEvidenceId()));
                 settlements.insertReceipt(actor.tenantId(), mapping.toReceipt(ids.generate(), command.operationId(), command.paymentId(),
@@ -205,21 +216,27 @@ public class LimitSettlementService implements LimitSettlementFacade {
 
     private LimitActor actor(Object command, String permission) {
         var actor = transactions.authorize(command, permission);
-        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId()))
+        if (!paymentService.equals(actor.serviceId()) || !payment.supportsTenant(actor.tenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return actor;
     }
 
     private PaymentSettlementFactsDTO facts(LimitActor actor, String operation, String paymentId) {
         var result = payment.paymentFacts(actor.tenantId(), paymentId);
-        if (result == null || !validator.validate(result).isEmpty() || !operation.equals(result.limitOperationId()))
+        if (result == null || !validator.validate(result).isEmpty() || !operation.equals(result.limitOperationId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var value = result.payment();
         if (value == null || value.state() == null || !paymentId.equals(value.paymentId()) || value.amountMinor() <= 0
                 || !"CNY".equals(value.currency()) || value.orderId() == null || value.orderId().isBlank()
                 || value.version() <= 0 || value.terminalEvidenceId() == null || value.terminalEvidenceId().isBlank()
-                || value.action() != null || value.initiatedAt() == null) throw new CommonException(OUTCOME_CONFLICT);
+                || value.action() != null || value.initiatedAt() == null) {
+            throw new CommonException(OUTCOME_CONFLICT);
+        }
         return result;
     }
 
@@ -229,36 +246,46 @@ public class LimitSettlementService implements LimitSettlementFacade {
         if (!value.operationId().equals(facts.limitOperationId()) || !value.paymentId().equals(source.paymentId())
                 || !value.orderId().equals(source.orderId()) || !value.payeeMerchantId().equals(facts.payeeMerchantId())
                 || value.amount().getCent() != source.amountMinor() || !value.amount().getCurrencyValue().equals(source.currency())
-                || !value.initiatedAt().equals(BusinessTime.local(source.initiatedAt())))
+                || !value.initiatedAt().equals(BusinessTime.local(source.initiatedAt()))) {
             throw new CommonException(OUTCOME_CONFLICT);
+        }
     }
 
     private List<LimitReservationItem> items(LimitActor actor, StoredLimitReservation stored) {
         var value = stored.reservation();
         var head = policies.lockHead(actor.tenantId(), value.policyId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!head.payeeMerchantId().equals(value.payeeMerchantId()) || head.latestVersion() < value.policyVersion())
+        if (!head.payeeMerchantId().equals(value.payeeMerchantId()) || head.latestVersion() < value.policyVersion()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var policy = policies.findRevision(actor.tenantId(), value.policyId(), value.policyVersion())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!policy.policyHash().equals(stored.policyHash()) || !policy.payeeMerchantId().equals(value.payeeMerchantId()))
+        if (!policy.policyHash().equals(stored.policyHash()) || !policy.payeeMerchantId().equals(value.payeeMerchantId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var items = reservations.loadItems(actor.tenantId(), value.id());
         var expected = new HashMap<LimitBucketKey, Long>();
-        for (var rule : policy.rules())
+        for (var rule : policy.rules()) {
             expected.put(new LimitBucketKey(rule.ruleScopeId(), rule.merchantId(), rule.metric(),
                             rule.currency(), rule.window(), windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
                     rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
+        }
         var seen = new HashSet<LimitBucketKey>();
-        if (items.size() != expected.size()) throw new CommonException(SNAPSHOT_INVALID);
-        for (var item : items)
+        if (items.size() != expected.size()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        for (var item : items) {
             if (!item.reservationId().equals(value.id()) || !seen.add(item.bucket())
-                    || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != 0 || item.restored() != 0)
+                    || !Objects.equals(expected.get(item.bucket()), item.reserved()) || item.consumed() != 0 || item.restored() != 0) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
+        }
         return items;
     }
 
     private void owner(LimitActor actor, StoredLimitReservation stored) {
-        if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(stored.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private void ids(String operation, String paymentId, String event, String evidence) {
@@ -271,8 +298,9 @@ public class LimitSettlementService implements LimitSettlementFacade {
     private String digest(String kind, LimitActor actor, String... fields) {
         var canonical = new StringBuilder();
         for (String value : java.util.stream.Stream.concat(java.util.stream.Stream.of("limit.settlement.v1", kind, actor.tenantId(), actor.serviceId()),
-                Arrays.stream(fields)).toList())
+                Arrays.stream(fields)).toList()) {
             canonical.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+        }
         return DigestUtils.sha256(canonical.toString());
     }
 }

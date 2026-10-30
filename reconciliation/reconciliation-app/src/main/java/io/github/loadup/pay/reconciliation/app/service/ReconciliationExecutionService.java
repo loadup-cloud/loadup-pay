@@ -29,7 +29,6 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -57,7 +56,7 @@ public class ReconciliationExecutionService {
 
     public ReconciliationExecutionService(DelayedTaskTemplate tasks, ReconciliationBatchGateway batches, ReconciliationInputGateway inputs,
                                           ReconciliationResultGateway results, ReconciliationTransactions transactions, ReconciliationConverter converter,
-                                          ReconciliationMatcher matcher, @Qualifier("reconciliationClock") Clock clock) {
+                                          ReconciliationMatcher matcher, Clock clock) {
         this.tasks = tasks;
         this.batches = batches;
         this.inputs = inputs;
@@ -69,42 +68,60 @@ public class ReconciliationExecutionService {
     }
 
     public void handle(DelayedTask task) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (task == null || !TYPE.equals(task.taskType()) || !Objects.equals(TenantUtil.getTenantId(), task.tenantId())
-                || task.status() != DelayedTaskStatus.RUNNING || task.attempts() <= 0 || task.maxAttempts() < task.attempts())
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
+        }
+        if (task == null || !TYPE.equals(task.taskType())
+                || task.status() != DelayedTaskStatus.RUNNING || task.attempts() <= 0 || task.maxAttempts() < task.attempts()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (task.id() == null || task.id().isBlank() || task.bizId() == null || task.bizId().isBlank()
-                || task.leaseUntil() == null || task.nextExecuteAt() == null) throw new CommonException(INVALID_STATE);
+                || task.leaseUntil() == null || task.nextExecuteAt() == null) {
+            throw new CommonException(INVALID_STATE);
+        }
         var registered = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var now = LocalDateTime.now(clock);
-        if (!Objects.equals(task.id(), registered.id()) || !Objects.equals(task.tenantId(), registered.tenantId())
+        if (!Objects.equals(task.id(), registered.id())
                 || !TYPE.equals(registered.taskType()) || !Objects.equals(task.bizId(), registered.bizId())
                 || !Objects.equals(task.executeAt(), registered.executeAt()) || task.executeAt() == null
                 || !Objects.equals(task.nextExecuteAt(), registered.nextExecuteAt())
                 || task.attempts() != registered.attempts() || task.maxAttempts() != registered.maxAttempts()
                 || registered.status() != DelayedTaskStatus.RUNNING || registered.leaseUntil() == null || !registered.leaseUntil().isAfter(now)
-                || registered.nextExecuteAt() == null || registered.nextExecuteAt().isAfter(now))
+                || registered.nextExecuteAt() == null || registered.nextExecuteAt().isAfter(now)) {
             throw new CommonException(INVALID_STATE);
-        var work = transactions.readSnapshot(task.tenantId(), () -> {
-            var stored = batches.findRun(task.tenantId(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!task.bizId().equals(stored.batch().runId())) throw new CommonException(SNAPSHOT_INVALID);
-            if (terminal(stored.batch())) return java.util.Optional.<Work>empty();
-            if (stored.batch().state() != ReconciliationState.RUNNING) throw new CommonException(INVALID_STATE);
-            var channel = inputs.loadSealed(task.tenantId(), stored.batch().channel().artifactId());
-            var ledger = inputs.loadSealed(task.tenantId(), stored.batch().ledger().artifactId());
-            if (!stored.batch().channel().equals(channel.manifest()) || !stored.batch().ledger().equals(ledger.manifest()))
+        }
+        String tenant = TenantUtil.getTenantId();
+        var work = transactions.readSnapshot(tenant, () -> {
+            var stored = batches.findRun(tenant, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (!task.bizId().equals(stored.batch().runId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
+            if (terminal(stored.batch())) {
+                return java.util.Optional.<Work>empty();
+            }
+            if (stored.batch().state() != ReconciliationState.RUNNING) {
+                throw new CommonException(INVALID_STATE);
+            }
+            var channel = inputs.loadSealed(tenant, stored.batch().channel().artifactId());
+            var ledger = inputs.loadSealed(tenant, stored.batch().ledger().artifactId());
+            if (!stored.batch().channel().equals(channel.manifest()) || !stored.batch().ledger().equals(ledger.manifest())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return java.util.Optional.of(new Work(stored, channel, ledger));
         });
-        if (work.isEmpty()) return;
+        if (work.isEmpty()) {
+            return;
+        }
         var snapshot = work.get();
         var compared = matcher.compare(snapshot.channel(), snapshot.ledger());
-        transactions.writeLocal(task.tenantId(), () -> {
-            var current = batches.lock(task.tenantId(), snapshot.stored().batch().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        transactions.writeLocal(tenant, () -> {
+            var current = batches.lock(tenant, snapshot.stored().batch().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var next = current.batch().complete(task.bizId(), compared);
-            if (next == current.batch()) return false;
-            results.insert(task.tenantId(), current.batch().id(), task.bizId(), compared);
-            batches.update(task.tenantId(), converter.withBatch(current, next), current.batch().version());
+            if (next == current.batch()) {
+                return false;
+            }
+            results.insert(tenant, current.batch().id(), task.bizId(), compared);
+            batches.update(tenant, converter.withBatch(current, next), current.batch().version());
             return true;
         });
     }

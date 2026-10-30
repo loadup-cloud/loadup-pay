@@ -53,15 +53,21 @@ public class RealtimeTransactions {
      * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
      */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return writes.execute(status -> work.get());
                 } catch (ProjectionWriteRaceException | TransientDataAccessException conflict) {
-                    if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
+                    if (attempt == 2) {
+                        throw new CommonException(CONCURRENT_UPDATE);
+                    }
                     LockSupport.parkNanos(ThreadLocalRandom.current().nextLong(1_000_000L, 4_000_000L << attempt));
-                    if (Thread.currentThread().isInterrupted()) throw new CommonException(CONCURRENT_UPDATE, conflict);
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new CommonException(CONCURRENT_UPDATE, conflict);
+                    }
                 }
             }
             throw new AssertionError("Unreachable retry");
@@ -72,7 +78,9 @@ public class RealtimeTransactions {
      * One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO.
      */
     public <T> T readSnapshot(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> reads.execute(status -> work.get()));
     }
 

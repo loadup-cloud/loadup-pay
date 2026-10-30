@@ -64,11 +64,13 @@ public record RefundSnapshotEventDTO(
         require(amountMinor > 0 && sourceVersion >= 0 && state != null, INVALID_ARGUMENT);
         require((state == RefundState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(refundCreatedAt);
-        if (refundCreatedAt != null)
+        if (refundCreatedAt != null) {
             refundCreatedAt =
                     refundCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (succeededAt != null)
+        }
+        if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {

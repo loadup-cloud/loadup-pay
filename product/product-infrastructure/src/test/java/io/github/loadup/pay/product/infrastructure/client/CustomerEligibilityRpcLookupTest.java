@@ -6,6 +6,7 @@ import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
 import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.rpc.CustomerRpcMapper;
+import io.github.loadup.pay.customer.rpc.CustomerRpcMapperImpl;
 import io.github.loadup.pay.customer.rpc.proto.CustomerRpc;
 import io.github.loadup.pay.product.app.security.ProductActor;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
@@ -30,22 +31,23 @@ class CustomerEligibilityRpcLookupTest {
     private static final String TOKEN = "aGVhZGVy.eyJzdWIiOiJtZXJjaGFudCJ9.c2lnbmF0dXJl";
 
     private final CustomerRpc customerRpc = mock(CustomerRpc.class);
+    private final CustomerRpcMapper customerRpcMapper = new CustomerRpcMapperImpl();
     private final ProductActor actor =
             new ProductActor("tenant", "MERCHANT_APP", "app", "merchant", TOKEN, Set.of());
     private final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
-    private final CustomerEligibilityRpcLookup lookup = new CustomerEligibilityRpcLookup(() -> actor);
+    private final CustomerEligibilityRpcLookup lookup = new CustomerEligibilityRpcLookup(customerRpcMapper, () -> actor);
+
+    private static RpcException remoteFailure(String code) {
+        return new RpcException(RpcException.BIZ_EXCEPTION, "loadup-result-code=" + code);
+    }
 
     @BeforeEach
     void inject() {
         ReflectionTestUtils.setField(lookup, "customerRpc", customerRpc);
     }
 
-    private static RpcException remoteFailure(String code) {
-        return new RpcException(RpcException.BIZ_EXCEPTION, "loadup-result-code=" + code);
-    }
-
     private void respond(MerchantEligibilityDTO value) {
-        doAnswer(invocation -> CustomerRpcMapper.INSTANCE.toWireMerchantEligibilityDTO(value))
+        doAnswer(invocation -> customerRpcMapper.toWireMerchantEligibilityDTO(value))
                 .when(customerRpc).authorize(any());
     }
 
@@ -60,7 +62,7 @@ class CustomerEligibilityRpcLookupTest {
         respond(new MerchantEligibilityDTO(
                 true,
                 "ALLOWED",
-                new MerchantProfileDTO("merchant", "tenant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                 1,
                 "grant",
                 1L));
@@ -73,7 +75,7 @@ class CustomerEligibilityRpcLookupTest {
         respond(new MerchantEligibilityDTO(
                 true,
                 "ALLOWED",
-                new MerchantProfileDTO("merchant", "other", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                 1,
                 "grant",
                 1L));

@@ -49,7 +49,9 @@ public final class AlipayNotificationProvider implements ChannelNotificationProv
 
     @Override
     public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
-        if (context == null || context.binding().channel() != channel()) throw new CommonException(INVALID_ARGUMENT);
+        if (context == null || context.binding().channel() != channel()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return codec.identify(input);
     }
 
@@ -71,7 +73,9 @@ public final class AlipayNotificationProvider implements ChannelNotificationProv
 
     @Override
     public ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted) {
-        if (channel != channel()) throw new CommonException(INVALID_ARGUMENT);
+        if (channel != channel()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return new ChannelNotificationAcknowledgement(200, "text/plain;charset=UTF-8", accepted ? "success" : "failure");
     }
 }

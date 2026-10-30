@@ -54,8 +54,9 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var delivery = deliveries.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (actor.merchant() && !actor.merchantId().equals(delivery.payeeMerchantId()))
+            if (actor.merchant() && !actor.merchantId().equals(delivery.payeeMerchantId())) {
                 throw new CommonException(NOT_FOUND);
+            }
             return converter.toDTO(delivery);
         });
     }
@@ -64,12 +65,15 @@ public class MerchantNotificationQueryService implements MerchantNotificationQue
     public PageDTO<MerchantNotificationDTO> page(MerchantNotificationPageQuery query) {
         validate(query);
         var actor = access.reader();
-        if (actor.merchant() && !actor.merchantId().equals(query.payeeMerchantId()))
+        if (actor.merchant() && !actor.merchantId().equals(query.payeeMerchantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> PageDTO.of(deliveries.page(actor.tenantId(), converter.toFilter(query)).map(converter::toDTO)));
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 }

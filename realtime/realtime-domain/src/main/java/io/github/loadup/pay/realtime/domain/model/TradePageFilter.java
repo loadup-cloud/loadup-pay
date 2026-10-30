@@ -25,10 +25,18 @@ public record TradePageFilter(String payeeMerchantId, String orderId, String mer
                               String state, LocalDateTime createdFrom, LocalDateTime createdTo, int page, int size) {
     public TradePageFilter {
         DomainChecks.id(payeeMerchantId);
-        if (orderId != null) DomainChecks.id(orderId);
-        if (merchantOrderNo != null) DomainChecks.text(merchantOrderNo, 64);
-        if (refundRequestId != null) DomainChecks.id(refundRequestId);
-        if (state != null) DomainChecks.text(state, 32);
+        if (orderId != null) {
+            DomainChecks.id(orderId);
+        }
+        if (merchantOrderNo != null) {
+            DomainChecks.text(merchantOrderNo, 64);
+        }
+        if (refundRequestId != null) {
+            DomainChecks.id(refundRequestId);
+        }
+        if (state != null) {
+            DomainChecks.text(state, 32);
+        }
         DomainViolation.require(page > 0 && size > 0 && size <= 100 && (createdFrom == null || createdTo == null
                 || createdFrom.isBefore(createdTo)), DomainViolation.Reason.INVALID_ARGUMENT);
     }

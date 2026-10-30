@@ -44,7 +44,9 @@ public record WechatCodepayProperties(Map<String, Map<String, String>> serverIps
     }
 
     private static boolean validIp(String value) {
-        if (value == null || value.length() > 64 || !InetAddresses.isInetAddress(value)) return false;
+        if (value == null || value.length() > 64 || !InetAddresses.isInetAddress(value)) {
+            return false;
+        }
         var address = InetAddresses.forString(value);
         return !address.isAnyLocalAddress() && !address.isMulticastAddress() && !address.isLoopbackAddress()
                 && !address.isLinkLocalAddress();

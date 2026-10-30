@@ -126,7 +126,9 @@ class PaymentChannelCallbackServiceTest {
         when(attempts.findChannelRequest(anyString(), anyString(), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(stored.get()));
         when(payments.find(anyString(), anyString())).thenAnswer(call -> {
-            if (!TENANT.equals(call.getArgument(0))) return Optional.empty();
+            if (!TENANT.equals(call.getArgument(0))) {
+                return Optional.empty();
+            }
             return Optional.ofNullable(accepted.get());
         });
         when(commands.decode(any(StoredPaymentAcceptance.class))).thenReturn(AttemptFixtures.command());

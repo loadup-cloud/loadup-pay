@@ -8,18 +8,23 @@ import io.github.loadup.pay.customer.rpc.proto.WireMerchantActionAuthorizeComman
 import io.github.loadup.pay.customer.rpc.proto.WireMerchantEligibilityDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the customer service. */
+/**
+ * Protobuf IDL entry point for the customer service.
+ */
 @DubboService(interfaceClass = CustomerRpc.class)
 public class CustomerRpcService extends DubboCustomerRpcTriple.CustomerRpcImplBase {
     private final MerchantEligibilityFacade merchantEligibility;
 
-    public CustomerRpcService(MerchantEligibilityFacade merchantEligibility) {
+    private final CustomerRpcMapper customerRpcMapper;
+
+    public CustomerRpcService(CustomerRpcMapper customerRpcMapper, MerchantEligibilityFacade merchantEligibility) {
+        this.customerRpcMapper = customerRpcMapper;
         this.merchantEligibility = merchantEligibility;
     }
 
     @Override
     public WireMerchantEligibilityDTO authorize(WireMerchantActionAuthorizeCommand request) {
-        return CustomerRpcMapper.INSTANCE.toWireMerchantEligibilityDTO(merchantEligibility.authorize(
-                CustomerRpcMapper.INSTANCE.fromWireMerchantActionAuthorizeCommand(request)));
+        return customerRpcMapper.toWireMerchantEligibilityDTO(merchantEligibility.authorize(
+                customerRpcMapper.fromWireMerchantActionAuthorizeCommand(request)));
     }
 }

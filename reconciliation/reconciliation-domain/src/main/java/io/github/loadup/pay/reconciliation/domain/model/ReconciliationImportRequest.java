@@ -49,8 +49,12 @@ public record ReconciliationImportRequest(String id, String batchId, String call
         require(version == (state == ReconciliationImportState.INIT ? 0L : 1L), INVALID_STATE);
         require((state == ReconciliationImportState.SEALED) == (artifactId != null), INVALID_STATE);
         require((state == ReconciliationImportState.REJECTED) == (rejectionCode != null), INVALID_STATE);
-        if (artifactId != null) require(id.equals(artifactId), CONFLICT);
-        if (rejectionCode != null) DomainChecks.text(rejectionCode, 64);
+        if (artifactId != null) {
+            require(id.equals(artifactId), CONFLICT);
+        }
+        if (rejectionCode != null) {
+            DomainChecks.text(rejectionCode, 64);
+        }
     }
 
     public static ReconciliationImportRequest init(String id, String batchId, String caller, String key, String digest,
@@ -63,7 +67,9 @@ public record ReconciliationImportRequest(String id, String batchId, String call
         require(manifest != null && manifest.side() == ReconciliationSide.CHANNEL && manifest.scope().equals(scope)
                 && manifest.artifactId().equals(id) && manifest.sourceCaptureId().equals(id)
                 && manifest.artifactSha256().equals(file.sha256()) && manifest.parserRevision().equals(scope.statementProfile()), CONFLICT);
-        if (state == ReconciliationImportState.SEALED) return this;
+        if (state == ReconciliationImportState.SEALED) {
+            return this;
+        }
         require(state == ReconciliationImportState.INIT, INVALID_STATE);
         return new ReconciliationImportRequest(id, batchId, callerServiceId, requestKey, requestDigest, scope, statementAccount, file,
                 sourceKind, taskId, ReconciliationImportState.SEALED, id, null, Math.incrementExact(version));

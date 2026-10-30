@@ -5,7 +5,6 @@
 CREATE TABLE order_admission
 (
     id                    VARCHAR(64)  NOT NULL,
-    tenant_id             VARCHAR(64)  NOT NULL,
     created_at            DATETIME(6)  NOT NULL,
     updated_at            DATETIME(6)  NOT NULL,
     deleted               TINYINT      NOT NULL DEFAULT 0,
@@ -30,8 +29,8 @@ CREATE TABLE order_admission
     compiled_terms_hash   CHAR(64)     NULL,
     compiled_terms        LONGTEXT     NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_admission_order (tenant_id, order_id),
-    KEY                   ix_admission_contract(tenant_id, contract_id, created_at, id),
+    UNIQUE KEY uk_admission_order (order_id),
+    KEY                   ix_admission_contract(contract_id, created_at, id),
     CHECK (amount_minor > 0 AND currency = 'CNY'),
     CHECK (merchant_fact_version >= 0 AND authorization_version >= 0),
     CHECK (state IN ('INIT', 'ADMITTED', 'DENIED')),
@@ -50,7 +49,6 @@ CREATE TABLE order_admission
 CREATE TABLE contract_limit_publication
 (
     id                VARCHAR(64) NOT NULL,
-    tenant_id         VARCHAR(64) NOT NULL,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,
     deleted           TINYINT     NOT NULL DEFAULT 0,
@@ -63,8 +61,8 @@ CREATE TABLE contract_limit_publication
     activated_at      DATETIME(6) NULL,
     row_version       BIGINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_contract_policy_publication (tenant_id, contract_id, contract_revision),
-    UNIQUE KEY uk_policy_publication_version (tenant_id, policy_id, policy_version),
+    UNIQUE KEY uk_contract_policy_publication (contract_id, contract_revision),
+    UNIQUE KEY uk_policy_publication_version (policy_id, policy_version),
     CHECK (contract_revision > 0 AND policy_version > 0 AND row_version >= 0),
     CHECK (state IN ('INIT', 'PUBLISHING', 'ACTIVE', 'FAILED')),
     CHECK (state <> 'ACTIVE' OR activated_at IS NOT NULL)
@@ -82,8 +80,8 @@ ALTER TABLE contract_limit_publication
     ADD COLUMN outbox_event_id            VARCHAR(64)  NULL,
     ADD COLUMN requested_at               DATETIME(6)  NULL,
     ADD COLUMN publication_schema_version INT          NOT NULL DEFAULT 0,
-    ADD UNIQUE KEY uk_initial_policy_merchant (tenant_id, payee_merchant_id),
-    ADD UNIQUE KEY uk_publication_outbox (tenant_id, outbox_event_id),
+    ADD UNIQUE KEY uk_initial_policy_merchant (payee_merchant_id),
+    ADD UNIQUE KEY uk_publication_outbox (outbox_event_id),
     ADD CHECK (publication_schema_version IN (0, 1)),
     ADD CHECK (publication_schema_version = 0 OR (
     publication_schema_version = 1 AND payee_merchant_id IS NOT NULL AND product_scope_key IS NOT NULL

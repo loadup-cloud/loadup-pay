@@ -62,13 +62,13 @@ class RefundLimitDeliveryTest {
             new RefundOutcomeEventDTO("refund", "request", "payment", "order", "operation", "merchant", 1000, "CNY",
                     RefundState.SUCCEEDED, 2, 1000, "refund-evidence"));
     final OutboxEvent event = new OutboxEvent("queue-limit",
-            new OutboxMessage("tenant", RefundProjectionEvents.LIMIT, 1, "refund", "limit-payload"),
+            new OutboxMessage(RefundProjectionEvents.LIMIT, 1, "refund", "limit-payload"),
             RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "queue-limit")).thenReturn(Optional.of(
-                new OutboxRecord("queue-limit", "tenant", RefundProjectionEvents.LIMIT, "refund", "PROCESSING", 1, null)));
+        when(outbox.find("queue-limit")).thenReturn(Optional.of(
+                new OutboxRecord("queue-limit", RefundProjectionEvents.LIMIT, "refund", "PROCESSING", 1, null)));
         when(codec.limit("limit-payload")).thenReturn(envelope);
         when(client.supportsTenant("tenant")).thenReturn(true);
         when(client.restoreRefund(eq("tenant"), any())).thenReturn(validAck());
@@ -133,10 +133,10 @@ class RefundLimitDeliveryTest {
     @Test
     void wrongTenantAndUnclaimedOrNonProcessingQueueCannotCallLimitCenter() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
-        when(outbox.find("tenant", "queue-limit")).thenReturn(Optional.empty());
+        when(outbox.find("queue-limit")).thenReturn(Optional.empty());
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
-        when(outbox.find("tenant", "queue-limit")).thenReturn(Optional.of(
-                new OutboxRecord("queue-limit", "tenant", RefundProjectionEvents.LIMIT, "refund", "PENDING", 1, null)));
+        when(outbox.find("queue-limit")).thenReturn(Optional.of(
+                new OutboxRecord("queue-limit", RefundProjectionEvents.LIMIT, "refund", "PENDING", 1, null)));
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::deliver).getResultCode());
         verify(client, never()).restoreRefund(eq("tenant"), any());
     }

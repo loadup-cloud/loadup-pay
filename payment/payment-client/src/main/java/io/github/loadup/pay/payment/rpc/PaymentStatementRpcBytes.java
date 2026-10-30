@@ -7,7 +7,7 @@ public final class PaymentStatementRpcBytes {
     }
 
     public static ByteString bytes(byte[] value) {
-        return value == null ? null : ByteString.copyFrom((byte[])value);
+        return value == null ? null : ByteString.copyFrom((byte[]) value);
     }
 
     public static byte[] bytes(ByteString value) {

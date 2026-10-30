@@ -95,7 +95,9 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         for (var change : changes) {
             var key = change.item().bucket();
             require(seen.add(key) && buckets.containsKey(key), CONFLICT);
-            if (change.delta() > 0) updated.put(key, buckets.get(key).restore(change.delta()));
+            if (change.delta() > 0) {
+                updated.put(key, buckets.get(key).restore(change.delta()));
+            }
         }
         return new LimitBucketSet(updated);
     }

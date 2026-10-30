@@ -55,13 +55,16 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     @Override
     public AcquireOrderCreateCommand decodeIntent(OrderCreateIntent intent) {
         try {
-            if (!"ORDER".equals(intent.entryMode())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!"ORDER".equals(intent.entryMode())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(intent.intentPayload(), AcquireOrderCreateCommand.class);
             if (value == null
                     || !validator.validate(value).isEmpty()
                     || !intent.payeeMerchantId().equals(value.payeeMerchantId())
-                    || !intent.merchantOrderNo().equals(value.merchantOrderNo()))
+                    || !intent.merchantOrderNo().equals(value.merchantOrderNo())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -86,12 +89,14 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                 command.requestedDueAt() == null
                         ? null
                         : command.requestedDueAt().toString())) {
-            if (field == null) canonical.append("-1:");
-            else
+            if (field == null) {
+                canonical.append("-1:");
+            } else {
                 canonical
                         .append(field.getBytes(StandardCharsets.UTF_8).length)
                         .append(':')
                         .append(field);
+            }
         }
         return checksum(canonical.toString());
     }
@@ -104,13 +109,16 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     @Override
     public CheckoutCreateCommand decodeCheckout(OrderCreateIntent intent) {
         try {
-            if (!"CHECKOUT".equals(intent.entryMode())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!"CHECKOUT".equals(intent.entryMode())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(intent.intentPayload(), CheckoutCreateCommand.class);
             if (value == null
                     || !validator.validate(value).isEmpty()
                     || !intent.payeeMerchantId().equals(value.payeeMerchantId())
-                    || !intent.merchantOrderNo().equals(value.merchantOrderNo()))
+                    || !intent.merchantOrderNo().equals(value.merchantOrderNo())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -135,12 +143,14 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                         ? null
                         : command.requestedDueAt().toString(),
                 command.returnTargetCode())) {
-            if (field == null) canonical.append("-1:");
-            else
+            if (field == null) {
+                canonical.append("-1:");
+            } else {
                 canonical
                         .append(field.getBytes(StandardCharsets.UTF_8).length)
                         .append(':')
                         .append(field);
+            }
         }
         return checksum(canonical.toString());
     }
@@ -148,7 +158,9 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     @Override
     public String encodeAdmission(OrderAdmissionDTO admission) {
         var payload = mapper.writeValueAsString(admission);
-        if (payload.length() > 262144) throw new CommonException(SNAPSHOT_INVALID);
+        if (payload.length() > 262144) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
@@ -160,12 +172,15 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     @Override
     public io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent) {
         try {
-            if (!"DIRECT_PAY".equals(intent.entryMode())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!"DIRECT_PAY".equals(intent.entryMode())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(intent.intentPayload(), io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand.class);
             if (value == null || !validator.validate(value).isEmpty() || value.firstPaymentAmountMinor() > value.amountMinor()
                     || !value.interactionKind().supports(value.choice().method())
-                    || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.merchantOrderNo().equals(value.merchantOrderNo()))
+                    || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.merchantOrderNo().equals(value.merchantOrderNo())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -180,8 +195,11 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                 command.requestedDueAt() == null ? null : command.requestedDueAt().toString(), command.actionKey(),
                 Long.toString(command.firstPaymentAmountMinor()), command.choice().channel().name(), command.choice().method().name(),
                 command.interactionKind().name())) {
-            if (field == null) canonical.append("-1:");
-            else canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            if (field == null) {
+                canonical.append("-1:");
+            } else {
+                canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            }
         }
         return checksum(canonical.toString());
     }
@@ -191,14 +209,17 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
         try {
             if (payload == null
                     || payload.length() > 262144
-                    || !checksum(payload).equals(checksum)) throw new CommonException(SNAPSHOT_INVALID);
+                    || !checksum(payload).equals(checksum)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(payload, OrderAdmissionDTO.class);
             if (value == null
                     || !validator.validate(value).isEmpty()
                     || value.terms() == null
                     || value.terms().schemaVersion() != 1
-                    || value.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED)
+                    || value.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(SNAPSHOT_INVALID);

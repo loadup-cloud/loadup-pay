@@ -8,18 +8,24 @@ import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentVerificationQuery;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for reconciliation verification reads. */
+/**
+ * Protobuf IDL entry point for reconciliation verification reads.
+ */
 @DubboService(interfaceClass = PaymentVerificationRpc.class)
 public class PaymentVerificationRpcService extends DubboPaymentVerificationRpcTriple.PaymentVerificationRpcImplBase {
     private final PaymentVerificationFacade paymentVerification;
 
+    private final PaymentVerificationRpcMapper paymentVerificationRpcMapper;
+
     public PaymentVerificationRpcService(
+            PaymentVerificationRpcMapper paymentVerificationRpcMapper,
             PaymentVerificationFacade paymentVerification) {
+        this.paymentVerificationRpcMapper = paymentVerificationRpcMapper;
         this.paymentVerification = paymentVerification;
     }
 
     @Override
     public WirePaymentVerificationDTO verify(WirePaymentVerificationQuery request) {
-        return PaymentVerificationRpcMapper.INSTANCE.toWire(paymentVerification.verify(PaymentVerificationRpcMapper.INSTANCE.fromWire(request)));
+        return paymentVerificationRpcMapper.toWire(paymentVerification.verify(paymentVerificationRpcMapper.fromWire(request)));
     }
 }

@@ -38,7 +38,7 @@ public interface OrderCreationStorageConverter {
 
     @Mapping(target = "entryMode", source = "value.entryMode")
     @Mapping(target = "initialSessionId", source = "value.initialSessionId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -71,7 +71,7 @@ public interface OrderCreationStorageConverter {
             AcquireOrder order,
             OrderAdmissionProof admission);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.order.id")
     @Mapping(target = "payeeMerchantId", source = "value.order.payeeMerchantId")
     @Mapping(target = "admissionId", source = "value.admission.admissionId")
@@ -94,7 +94,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     AcquireOrderDO toOrderDO(String tenant, StoredAcquireOrder value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.snapshotId")
     @Mapping(target = "orderId", source = "value.order.id")
     @Mapping(target = "contractId", source = "value.admission.contract.contractId")
@@ -110,7 +110,7 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     OrderContractSnapshotDO toSnapshotDO(String tenant, StoredAcquireOrder value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "feeType", constant = "ORDER_AMOUNT")
     @Mapping(target = "currency", source = "value.baseAmount.currencyValue")
     @Mapping(target = "baseAmountMinor", source = "value.baseAmount.cent")

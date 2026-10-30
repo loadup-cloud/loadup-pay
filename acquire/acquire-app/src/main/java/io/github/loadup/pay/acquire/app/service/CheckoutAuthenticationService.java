@@ -20,7 +20,6 @@ import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -39,7 +38,7 @@ public class CheckoutAuthenticationService {
             CheckoutSessionGateway sessions,
             CheckoutTokens tokens,
             OrderCreationTransactions transactions,
-            @Qualifier("acquireClock") Clock clock) {
+            Clock clock) {
         this.sessions = sessions;
         this.tokens = tokens;
         this.transactions = transactions;
@@ -55,8 +54,9 @@ public class CheckoutAuthenticationService {
                 || tenantLocator.chars().anyMatch(Character::isISOControl)
                 || token == null
                 || token.length() > 108
-                || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}"))
+                || !token.matches("[A-Za-z0-9_-]{1,64}\\.[A-Za-z0-9_-]{43}")) {
             throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         String sessionId = token.substring(0, token.indexOf('.'));
         return transactions.withTenantContext(tenantLocator, () -> {
             var stored = sessions.find(tenantLocator, sessionId)
@@ -68,8 +68,9 @@ public class CheckoutAuthenticationService {
                     || (state != CheckoutSessionState.ACTIVE && state != CheckoutSessionState.COMPLETED)
                     || !now.isBefore(stored.session().expiresAt())
                     || !stored.scope().permissions().contains("ORDER_SUMMARY")
-                    || (origin != null && !origin.equals(stored.allowedOrigin())))
+                    || (origin != null && !origin.equals(stored.allowedOrigin()))) {
                 throw new CommonException(SESSION_UNAUTHORIZED);
+            }
             return new CashierActor(
                     tenantLocator,
                     sessionId,

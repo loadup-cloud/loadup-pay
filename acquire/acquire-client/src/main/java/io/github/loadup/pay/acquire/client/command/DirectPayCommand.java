@@ -67,9 +67,12 @@ public record DirectPayCommand(
         PaymentInteractionDTO interaction) {
     public DirectPayCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);
-        if (requestedDueAt != null)
+        if (requestedDueAt != null) {
             requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (interaction == null) interaction = new NoInteractionDTO();
+        }
+        if (interaction == null) {
+            interaction = new NoInteractionDTO();
+        }
     }
 
     @Override

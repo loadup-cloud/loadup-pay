@@ -41,27 +41,34 @@ public record PaymentVerificationDTO(PaymentVerificationQuery request, PaymentVe
                                      String sourceDigest,
                                      OffsetDateTime startedAt, OffsetDateTime finishedAt, OffsetDateTime acceptedAt) {
     public PaymentVerificationDTO {
-        if (request == null || disposition == null || !time(startedAt) || !time(finishedAt) || finishedAt.isBefore(startedAt))
+        if (request == null || disposition == null || !time(startedAt) || !time(finishedAt) || finishedAt.isBefore(startedAt)) {
             invalid();
+        }
         if (disposition == PaymentVerificationDisposition.OBSERVED) {
             boolean refund = request.kind() == PaymentLedgerKind.REFUND;
             if (!text(bindingRevisionId, 64) || !text(paymentId, 64) || !text(attemptId, 64) || (refund ? !text(refundId, 64) : refundId != null)
                     || sourceVersion == null || sourceVersion < 0 || !text(localState, 32) || outcome == null || amount == null
-                    || amount.getCent() <= 0 || !"CNY".equals(amount.getCurrencyValue()) || sourceDigest == null || !sourceDigest.matches("[0-9a-f]{64}"))
+                    || amount.getCent() <= 0 || !"CNY".equals(amount.getCurrencyValue()) || sourceDigest == null || !sourceDigest.matches("[0-9a-f]{64}")) {
                 invalid();
+            }
             if (refund && !Set.of(PaymentVerificationOutcome.ACCEPTED, PaymentVerificationOutcome.SUCCEEDED, PaymentVerificationOutcome.FAILED_WITH_NO_REFUND, PaymentVerificationOutcome.UNKNOWN).contains(outcome)
-                    || !refund && outcome == PaymentVerificationOutcome.FAILED_WITH_NO_REFUND) invalid();
+                    || !refund && outcome == PaymentVerificationOutcome.FAILED_WITH_NO_REFUND) {
+                invalid();
+            }
             boolean succeeded = outcome == PaymentVerificationOutcome.SUCCEEDED || outcome == PaymentVerificationOutcome.CLOSED_WITH_FUNDS_RETURNED;
             if (succeeded != (succeededAt != null) || succeededAt != null && !time(succeededAt)
                     || (succeeded || refund) && !text(observedChannelTransactionNo, 128)
                     || observedChannelTransactionNo != null && !text(observedChannelTransactionNo, 128)
-                    || (refund && succeeded ? !text(observedRefundTransactionNo, 128) : observedRefundTransactionNo != null))
+                    || (refund && succeeded ? !text(observedRefundTransactionNo, 128) : observedRefundTransactionNo != null)) {
                 invalid();
-            if (acceptedAt != null && (!refund || !time(acceptedAt) || succeededAt != null && acceptedAt.isAfter(succeededAt)))
+            }
+            if (acceptedAt != null && (!refund || !time(acceptedAt) || succeededAt != null && acceptedAt.isAfter(succeededAt))) {
                 invalid();
+            }
         } else if (acceptedAt != null || bindingRevisionId != null || paymentId != null || attemptId != null || refundId != null || sourceVersion != null || localState != null
-                || outcome != null || amount != null || observedChannelTransactionNo != null || observedRefundTransactionNo != null || succeededAt != null || sourceDigest != null)
+                || outcome != null || amount != null || observedChannelTransactionNo != null || observedRefundTransactionNo != null || succeededAt != null || sourceDigest != null) {
             invalid();
+        }
     }
 
     private static boolean text(String value, int max) {

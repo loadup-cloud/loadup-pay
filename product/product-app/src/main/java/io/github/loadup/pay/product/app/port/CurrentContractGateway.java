@@ -25,9 +25,10 @@ import java.util.Optional;
  * Local primary-database access; no remote calls while the contract header is locked.
  */
 public interface CurrentContractGateway {
-    Optional<ContractRecord> lockByScope(String tenantId, String merchantId, String scopeKey);
+    Optional<ContractRecord> lockByScope(String merchantId, String scopeKey);
 
     MerchantContractRevision snapshot(ContractRecord header);
 
-    Optional<ActivatedLimitPolicy> publication(String tenantId, String contractId, int revision);
+    Optional<ActivatedLimitPolicy> publication(String contractId, int revision);
+
 }

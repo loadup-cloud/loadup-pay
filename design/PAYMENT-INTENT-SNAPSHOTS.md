@@ -12,7 +12,8 @@ PaymentIntentSnapshot：
 | acquire / StoredPaymentAllocation | payment allocation 的 intent_payload/payload_hash | pay.acquire.payment-intent.v1 |
 | payment / StoredPaymentAcceptance | payment_order.intent_payload/payload_hash         | pay.payment.intent.v1         |
 
-两个格式没有共享 Java 实现或共用数据库字节；通过原公开 Command/Dubbo Triple 边界转换后，各服务冻结自己的表示。不能把 acquire 的
+两个格式没有共享 Java 实现或共用数据库字节；通过原公开 Command/Dubbo Triple 边界转换后，各服务冻结自己的表示。不能把
+acquire 的
 payload 直接复制给 payment。
 不新建 pay-common 或通用版本调度器，也不加载旧格式/裸 Command/其他 owner 格式作为兜底。
 Codec port 仍以 Command 接收当前调用参数、返回恢复后的运行参数，存储行为封装在本地 codec/MapStruct 内，公开 client/RPC

@@ -40,11 +40,13 @@ public record AlipayStatementGrant(String bindingRevisionId, String accountScope
                 || downloadUri == null || downloadUri.getScheme() == null || !java.util.Set.of("http", "https").contains(downloadUri.getScheme()) || downloadUri.getHost() == null
                 || downloadUri.getRawUserInfo() != null || downloadUri.getRawFragment() != null || downloadUri.toASCIIString().length() > 2048
                 || billFileCode != null && !"EMPTY_DATA_WITH_BILL_FILE".equals(billFileCode)
-                || !hash(requestSha256) || !hash(evidenceSha256) || evidence == null || evidence.length == 0 || evidence.length > 32768)
+                || !hash(requestSha256) || !hash(evidenceSha256) || evidence == null || evidence.length == 0 || evidence.length > 32768) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         evidence = evidence.clone();
-        if (!evidenceSha256.equals(io.github.loadup.commons.util.DigestUtils.sha256(evidence)))
+        if (!evidenceSha256.equals(io.github.loadup.commons.util.DigestUtils.sha256(evidence))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     private static boolean hash(String value) {

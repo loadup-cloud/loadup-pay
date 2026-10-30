@@ -36,7 +36,9 @@ public class JwtLimitActorProvider implements LimitActorProvider {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
                 || !authentication.isAuthenticated()
-                || !(authentication.getCredentials() instanceof Jwt jwt)) throw forbidden();
+                || !(authentication.getCredentials() instanceof Jwt jwt)) {
+            throw forbidden();
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id");
             String service = jwt.getClaimAsString("service_id");
@@ -45,7 +47,9 @@ public class JwtLimitActorProvider implements LimitActorProvider {
                     || service == null
                     || !tenant.equals(tenant.trim())
                     || !service.equals(service.trim())
-                    || !service.equals(jwt.getSubject())) throw forbidden();
+                    || !service.equals(jwt.getSubject())) {
+                throw forbidden();
+            }
             return new LimitActor(
                     tenant,
                     service,

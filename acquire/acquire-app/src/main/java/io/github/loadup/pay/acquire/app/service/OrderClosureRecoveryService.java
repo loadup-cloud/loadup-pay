@@ -26,7 +26,6 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -49,7 +48,7 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     private final Clock clock;
 
     public OrderClosureRecoveryService(DelayedTaskTemplate tasks, OrderCreationGateway orders, OrderClosureGateway closes,
-                                       OrderClosureOperations operations, OrderCreationTransactions transactions, @Qualifier("acquireClock") Clock clock) {
+                                       OrderClosureOperations operations, OrderCreationTransactions transactions, Clock clock) {
         this.tasks = tasks;
         this.orders = orders;
         this.closes = closes;
@@ -66,25 +65,31 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
     @Override
     public void handle(DelayedTask task) {
         var key = validate(task);
-        var pending = transactions.writeLocal(task.tenantId(), () -> {
-            var order = orders.lockOrder(task.tenantId(), key.orderId());
-            var intent = closes.findIntent(task.tenantId(), key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        String tenant = TenantUtil.getTenantId();
+        var pending = transactions.writeLocal(tenant, () -> {
+            var order = orders.lockOrder(tenant, key.orderId());
+            var intent = closes.findIntent(tenant, key.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!order.order().id().equals(key.orderId()) || !intent.orderId().equals(key.orderId())
-                    || task.executeAt().isBefore(intent.requestedAt())) throw new CommonException(SNAPSHOT_INVALID);
-            var scope = new OrderPaymentScope(task.tenantId(), order.callerScopeHash());
+                    || task.executeAt().isBefore(intent.requestedAt())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            var scope = new OrderPaymentScope(tenant, order.callerScopeHash());
             return operations.isCurrent(scope, order, intent, key.generation())
                     ? java.util.Optional.of(intent) : java.util.Optional.<OrderCloseIntent>empty();
         });
         if (pending.isPresent()) {
             var intent = pending.get();
-            operations.resume(new OrderPaymentScope(task.tenantId(), intent.callerScopeHash()), intent);
+            operations.resume(new OrderPaymentScope(tenant, intent.callerScopeHash()), intent);
         }
     }
 
     private OrderTaskKey validate(DelayedTask task) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (task == null || task.tenantId() == null || !taskType().equals(task.taskType())
-                || !task.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (task == null || !taskType().equals(task.taskType())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         final OrderTaskKey key;
         try {
             key = OrderTaskKey.parse(task.bizId());
@@ -93,12 +98,13 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
         }
         var nativeTask = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = LocalDateTime.now(clock);
-        if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())
+        if (!task.id().equals(nativeTask.id())
                 || !taskType().equals(nativeTask.taskType()) || !task.bizId().equals(nativeTask.bizId())
                 || !task.executeAt().equals(nativeTask.executeAt()) || nativeTask.status() != DelayedTaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts() || nativeTask.leaseUntil() == null
-                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt()))
+                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
+        }
         return key;
     }
 }

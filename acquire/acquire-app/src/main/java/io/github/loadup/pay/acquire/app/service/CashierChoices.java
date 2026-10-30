@@ -41,13 +41,19 @@ public class CashierChoices {
     public Set<PaymentChoiceDTO> choices(StoredAcquireOrder order, LocalDateTime at) {
         var policy = order.order().paymentPolicy();
         if (policy.maxSuccessfulPayments() != null && (long) order.order().successfulPaymentCount() + order.order().reservedPaymentCount()
-                >= policy.maxSuccessfulPayments()) return Set.of();
+                >= policy.maxSuccessfulPayments()) {
+            return Set.of();
+        }
         if (!order.order().canAcceptNewPayment(at) || order.order().amount().getCent() - order.order().paidAmountMinor()
-                - order.order().paymentReservedMinor() <= 0) return Set.of();
+                - order.order().paymentReservedMinor() <= 0) {
+            return Set.of();
+        }
         var original = admissions.decodeAdmission(order.admissionPayload(), order.payloadHash());
         if (original == null || !original.orderId().equals(order.order().id()) || !original.payeeMerchantId().equals(order.order().payeeMerchantId())
                 || !original.admissionId().equals(order.admission().admissionId()) || !original.requestDigest().equals(order.admission().requestDigest())
-                || original.terms() == null) throw new CommonException(SNAPSHOT_INVALID);
+                || original.terms() == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return hosted.choices().stream().filter(choice -> original.terms().capabilities().stream().anyMatch(capability ->
                 capability.channel() == choice.channel() && capability.methods().contains(choice.method()))).collect(Collectors.toUnmodifiableSet());
     }

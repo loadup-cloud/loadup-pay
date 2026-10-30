@@ -15,6 +15,8 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
 
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitSettlementGateway;
@@ -24,8 +26,8 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitOperationGate;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitSettlementStorageConverter;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
+import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
+import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitSettlementReceiptMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,19 +46,19 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
-public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
+public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementReceiptMapper, LimitSettlementReceiptDO>
+        implements LimitSettlementGateway {
     private final NamedParameterJdbcTemplate jdbc;
-    private final LimitSettlementReceiptRepository receipts;
     private final Clock clock;
     private final LimitSettlementStorageConverter converter;
 
     public LimitSettlementGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            LimitSettlementReceiptRepository receipts,
+            LimitSettlementReceiptMapper mapper,
             LimitSettlementStorageConverter converter,
-            @Qualifier("databaseClock") Clock clock) {
+            Clock clock) {
         this.jdbc = jdbc;
-        this.receipts = receipts;
+        this.mapper = mapper;
         this.clock = clock;
         this.converter = converter;
     }
@@ -64,10 +66,12 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
     @Override
     public Optional<LimitSettlementReceipt> findReceipt(String tenant, String operation) {
         scope(tenant);
-        var row = receipts
-                .findReceipt(operation)
+        var row = Optional.ofNullable(
+                        getOne(QueryWrapper.create().eq("operation_id", operation)))
                 .orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             return Optional.of(converter.toReceipt(row));
         } catch (RuntimeException corrupt) {
@@ -84,63 +88,84 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO limit_settlement_receipt (id, tenant_id, created_at, updated_at, deleted, operation_id,
+                INSERT INTO limit_settlement_receipt (id, created_at, updated_at, deleted, operation_id,
                     payment_id, kind, business_event_id, request_digest, payment_version, evidence_id)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :operationId, :paymentId, :kind,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :operationId, :paymentId, :kind,
                     :businessEventId, :requestDigest, :paymentVersion, :evidenceId)
-                ON CONFLICT (tenant_id, operation_id) DO NOTHING
+                ON CONFLICT (operation_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new LimitWriteRaceException("Settlement receipt business key already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new LimitWriteRaceException("Settlement receipt business key already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public void fenceGate(String tenant, LimitOperationGate gate) {
         transaction();
         scope(tenant);
-        if (gate.state() != GateState.FENCED) throw new CommonException(SNAPSHOT_INVALID);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("operation", gate.operationId());
+        if (gate.state() != GateState.FENCED) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var args = new MapSqlParameterSource("operation", gate.operationId());
         var row = jdbc.query("SELECT id, payment_id, row_version FROM limit_operation_gate "
-                                + "WHERE tenant_id = :tenant AND operation_id = :operation AND deleted = FALSE", args,
+                                + "WHERE operation_id = :operation AND deleted = FALSE", args,
                         (rs, index) -> new GateRow(rs.getString("id"), rs.getString("payment_id"), rs.getLong("row_version")))
                 .stream().findFirst().orElse(null);
-        if (row == null || !row.paymentId().equals(gate.paymentId()))
+        if (row == null || !row.paymentId().equals(gate.paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         args.addValue("id", row.id()).addValue("version", row.version())
                 .addValue("next", Math.incrementExact(row.version())).addValue("source", gate.paymentSourceVersion())
                 .addValue("evidence", gate.noCollectionEvidenceId()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE limit_operation_gate SET state = 'FENCED', payment_source_version = :source,
                     no_collection_evidence_id = :evidence, row_version = :next, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND row_version = :version AND deleted = FALSE
+                WHERE id = :id AND row_version = :version AND deleted = FALSE
                     AND state IN ('INIT', 'OPEN')
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public void updateItems(String tenant, List<LimitReservationItem> before, List<LimitReservationItem> after) {
         transaction();
         scope(tenant);
-        if (before.size() != after.size()) throw new CommonException(SNAPSHOT_INVALID);
+        if (before.size() != after.size()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var changed = new HashMap<String, LimitReservationItem>();
-        for (var value : after) if (changed.put(value.id(), value) != null) throw new CommonException(SNAPSHOT_INVALID);
+        for (var value : after) {
+            if (changed.put(value.id(), value) != null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+        }
         for (var previous : before) {
             var next = changed.get(previous.id());
             if (next == null || !previous.reservationId().equals(next.reservationId()) || !previous.bucket().equals(next.bucket())
-                    || previous.reserved() != next.reserved()) throw new CommonException(SNAPSHOT_INVALID);
-            if (previous.equals(next)) continue;
-            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", previous.id())
+                    || previous.reserved() != next.reserved()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            if (previous.equals(next)) {
+                continue;
+            }
+            var args = new MapSqlParameterSource("id", previous.id())
                     .addValue("reservation", previous.reservationId()).addValue("reserved", previous.reserved())
                     .addValue("consumed", previous.consumed()).addValue("restored", previous.restored())
                     .addValue("nextConsumed", next.consumed()).addValue("nextRestored", next.restored())
                     .addValue("updated", LocalDateTime.now(clock));
             int count = jdbc.update("""
                     UPDATE limit_reservation_item SET consumed_value = :nextConsumed, restored_value = :nextRestored,
-                        updated_at = :updated WHERE tenant_id = :tenant AND id = :id AND reservation_id = :reservation
+                        updated_at = :updated WHERE id = :id AND reservation_id = :reservation
                         AND reserved_value = :reserved AND consumed_value = :consumed AND restored_value = :restored AND deleted = FALSE
                     """, args);
-            if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+            if (count != 1) {
+                throw new CommonException(CONCURRENT_UPDATE);
+            }
         }
     }
 
@@ -148,12 +173,15 @@ public class LimitSettlementGatewayImpl implements LimitSettlementGateway {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private record GateRow(String id, String paymentId, long version) {

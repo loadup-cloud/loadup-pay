@@ -33,7 +33,6 @@ import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -70,7 +69,7 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
     public PaymentOutcomeEventService(AcquireServiceActorProvider actors, PaymentOutcomeClient payment,
                                       OrderCreationGateway orders, PaymentOutcomeGateway allocations, PaymentEventReceiptGateway receipts,
                                       PaymentOutcomeOperations outcomes, PaymentEventCodec codec, PaymentEventConverter converter,
-                                      OrderCreationTransactions transactions, IdGenerator ids, @Qualifier("acquireClock") Clock clock,
+                                      OrderCreationTransactions transactions, IdGenerator ids, Clock clock,
                                       @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.payment = payment;
@@ -89,15 +88,22 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
     @Override
     public PaymentOutcomeAckDTO accept(EventEnvelope<PaymentOutcomeEventDTO> event) {
         var actor = actors.current();
-        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:payment:outcome"))
+        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:payment:outcome")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         validate(event);
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = codec.digest(actor.tenantId(), actor.serviceId(), event);
             var prior = receipts.find(actor.tenantId(), event.deliveryId());
-            if (prior.isPresent()) return replay(actor, prior.get(), digest);
+            if (prior.isPresent()) {
+                return replay(actor, prior.get(), digest);
+            }
             var data = event.data();
             var order = orders.findOrder(actor.tenantId(), data.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var allocation = allocations.findPayment(actor.tenantId(), data.orderId(), data.paymentId())
@@ -106,21 +112,26 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
             var owner = new OrderPaymentScope(actor.tenantId(), order.callerScopeHash());
             var command = outcomes.bound(owner, order, allocation);
             if (!command.payeeMerchantId().equals(data.payeeMerchantId()) || !command.allocationId().equals(data.allocationId())
-                    || command.amountMinor() != data.amountMinor() || !command.currency().equals(data.currency()))
+                    || command.amountMinor() != data.amountMinor() || !command.currency().equals(data.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var facts = payment.facts(actor.tenantId(), data.paymentId()); // No local transaction or lock is held.
             if (facts == null || !data.operationId().equals(facts.limitOperationId())
-                    || !data.payeeMerchantId().equals(facts.payeeMerchantId()))
+                    || !data.payeeMerchantId().equals(facts.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var observed = converter.toObserved(facts);
             var verified = outcomes.terminal(command, observed);
             if (verified == null || observed.payment().state() != data.state() || observed.payment().version() != data.paymentVersion()
                     || !observed.payment().terminalEvidenceId().equals(data.evidenceId())
-                    || data.executionFenced() && !observed.executionFenced())
+                    || data.executionFenced() && !observed.executionFenced()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
-                if (existing.isPresent()) return replay(actor, existing.get(), digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), digest);
+                }
                 var changed = outcomes.convergeLocked(owner, command, verified);
                 var accepted = converter.toReceipt(ids.generate(), event, digest, actor.serviceId(), changed.order().version(),
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
@@ -131,18 +142,25 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
     }
 
     private PaymentOutcomeAckDTO replay(AcquireServiceActor actor, PaymentEventReceipt receipt, String digest) {
-        if (!receipt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!receipt.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toAck(receipt);
     }
 
     private void validate(EventEnvelope<PaymentOutcomeEventDTO> event) {
         try {
-            if (event == null || event.data() == null) throw new CommonException(INVALID_ARGUMENT);
+            if (event == null || event.data() == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             event.data().requireEnvelope(event);
             if (!TYPE.equals(event.eventType()) || !event.businessEventId().equals(event.data().evidenceId())
-                    || !Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED).contains(event.data().state()))
+                    || !Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED).contains(event.data().state())) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }

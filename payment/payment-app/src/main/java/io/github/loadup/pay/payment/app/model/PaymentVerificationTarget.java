@@ -31,12 +31,16 @@ public record PaymentVerificationTarget(@DiagnosticHidden ChannelPaymentTarget p
                                         @DiagnosticHidden PreparedChannelRefund refund, Long sourceVersion,
                                         String localState, PaymentVerificationDisposition disposition) {
     public PaymentVerificationTarget {
-        if (disposition == null) throw new CommonException(SNAPSHOT_INVALID);
-        if (disposition == PaymentVerificationDisposition.OBSERVED) {
-            if ((payment == null) == (refund == null) || sourceVersion == null || sourceVersion < 0 || localState == null || localState.isBlank())
-                throw new CommonException(SNAPSHOT_INVALID);
-        } else if (payment != null || refund != null || sourceVersion != null || localState != null)
+        if (disposition == null) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (disposition == PaymentVerificationDisposition.OBSERVED) {
+            if ((payment == null) == (refund == null) || sourceVersion == null || sourceVersion < 0 || localState == null || localState.isBlank()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+        } else if (payment != null || refund != null || sourceVersion != null || localState != null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override

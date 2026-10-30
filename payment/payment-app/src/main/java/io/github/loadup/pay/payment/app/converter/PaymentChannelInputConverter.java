@@ -75,7 +75,9 @@ public interface PaymentChannelInputConverter {
                                           PaymentExecuteCommand command, ChannelPaymentInput input);
 
     default PaymentActionDTO toAction(ChannelPaymentAction value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         return switch (value) {
             case AlipayH5ChannelAction h5 -> toAlipayH5Action(h5);
             case AlipayJsapiChannelAction alipay -> toAlipayAction(alipay);

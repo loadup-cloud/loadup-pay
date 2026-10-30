@@ -72,7 +72,7 @@
 纯详情和分页使用只读 RR，历史 count/page 与 head.version 一致且序列连续；head 缺失但已有事件时不能伪装 INIT。
 
 迁移源码 `V20261028010000__reconciliation_review.sql`，使用 BaseDO 和注解处理生成的 Mapper/TableDef；未执行 DDL。
-业务时间来自注入的 reconciliationClock/system default zone，协议没有强制 UTC 或全局时区设置。
+业务时间来自注入的共享 Clock（默认系统时区），协议没有强制 UTC 或全局时区设置。
 
 ## 当前证据与剩余工作
 

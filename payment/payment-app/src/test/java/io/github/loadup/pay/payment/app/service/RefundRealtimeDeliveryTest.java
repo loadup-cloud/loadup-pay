@@ -61,13 +61,13 @@ class RefundRealtimeDeliveryTest {
     final OutboxEvent summaryEvent = event("summary", RefundProjectionEvents.SUMMARY, "order");
 
     OutboxEvent event(String queue, String type, String aggregate) {
-        return new OutboxEvent(queue, new OutboxMessage("tenant", type, 1, aggregate, queue + "-payload"), RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
+        return new OutboxEvent(queue, new OutboxMessage(type, 1, aggregate, queue + "-payload"), RefundResultFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), null);
     }
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "child")).thenReturn(Optional.of(new OutboxRecord("child", "tenant", RefundProjectionEvents.CHILD, "refund", "PROCESSING", 1, null)));
-        when(outbox.find("tenant", "summary")).thenReturn(Optional.of(new OutboxRecord("summary", "tenant", RefundProjectionEvents.SUMMARY, "order", "PROCESSING", 1, null)));
+        when(outbox.find("child")).thenReturn(Optional.of(new OutboxRecord("child", RefundProjectionEvents.CHILD, "refund", "PROCESSING", 1, null)));
+        when(outbox.find("summary")).thenReturn(Optional.of(new OutboxRecord("summary", RefundProjectionEvents.SUMMARY, "order", "PROCESSING", 1, null)));
         when(client.supportsTenant("tenant")).thenReturn(true);
         when(codec.child("child-payload")).thenReturn(child);
         when(codec.summary("summary-payload")).thenReturn(summary);
@@ -110,7 +110,7 @@ class RefundRealtimeDeliveryTest {
     @Test
     void wrongTenantAndUnclaimedQueueCannotMakeTheNetworkCall() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.child(childEvent)));
-        when(outbox.find("tenant", "child")).thenReturn(Optional.empty());
+        when(outbox.find("child")).thenReturn(Optional.empty());
         assertThrows(CommonException.class, this::child);
         verify(client, never()).applyRefund(anyString(), any());
     }

@@ -39,7 +39,7 @@ public interface PaymentOutcomeStorageConverter {
     @Mapping(target = "outcome", source = "outcome")
     PaymentOutcomeReceipt toReceipt(OrderPaymentOutcomeDO row, VerifiedPaymentOutcome outcome);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "orderId", source = "value.outcome.orderId")
     @Mapping(target = "paymentId", source = "value.outcome.paymentId")
     @Mapping(target = "amountMinor", source = "value.outcome.amount.cent")

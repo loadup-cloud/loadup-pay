@@ -72,20 +72,27 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
     @Override
     public DirectPayRecoveryDTO recover(DirectPayRecoverCommand command) {
         if (command == null || !validator.validate(command).isEmpty() || command.firstPaymentAmountMinor() > command.amountMinor()
-                || !command.interactionKind().supports(command.choice().method()))
+                || !command.interactionKind().supports(command.choice().method())) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().containsAll(Set.of("pay:acquire:direct-pay:recover", "pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover")))
+        if (!actor.permissions().containsAll(Set.of("pay:acquire:direct-pay:recover", "pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:recover"))) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.payeeMerchantId());
             DomainChecks.id(command.merchantOrderNo());
             var observed = find(actor, command);
-            if (observed.isEmpty())
+            if (observed.isEmpty()) {
                 return converter.toRecoveryDTO(command, null, OrderCreationRecoveryState.NOT_OBSERVED, null, null, null);
+            }
             var intent = observed.get();
-            if (terminalCreation(intent)) return terminal(command, intent);
+            if (terminalCreation(intent)) {
+                return terminal(command, intent);
+            }
             io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO created;
             try {
                 created = orders.resumeDirectPay(command);
@@ -93,29 +100,40 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
                 if (failure.getResultCode() == CONTRACT_NOT_ADMITTING || failure.getResultCode() == ADMISSION_EXPIRED
                         || failure.getResultCode() == ACTION_FORBIDDEN || failure.getResultCode() == ORDER_NOT_PAYABLE) {
                     var current = find(actor, command).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                    if (terminalCreation(current)) return terminal(command, current);
+                    if (terminalCreation(current)) {
+                        return terminal(command, current);
+                    }
                 }
                 throw failure;
             }
-            if (created == null || !intent.orderId().equals(created.orderId()))
+            if (created == null || !intent.orderId().equals(created.orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var payment = payments.recover(converter.toPaymentRecovery(command, created.orderId()));
-            if (payment == null || !created.orderId().equals(payment.orderId()) || !command.actionKey().equals(payment.actionKey()))
+            if (payment == null || !created.orderId().equals(payment.orderId()) || !command.actionKey().equals(payment.actionKey())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var currentOrder = payment.progress() == null ? created : payment.progress().order();
-            if (currentOrder == null || !created.orderId().equals(currentOrder.orderId()))
+            if (currentOrder == null || !created.orderId().equals(currentOrder.orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toRecoveryDTO(command, created.orderId(), OrderCreationRecoveryState.COMPLETED, "SUCCESS", currentOrder, payment);
         });
     }
 
     private Optional<OrderCreateIntent> find(AcquireActor actor, DirectPayRecoverCommand command) {
         var known = store.findIntent(actor.tenantId(), command.payeeMerchantId(), command.merchantOrderNo());
-        if (known.isEmpty()) return known;
+        if (known.isEmpty()) {
+            return known;
+        }
         var intent = known.get();
-        if (!intent.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!intent.callerScopeHash().equals(actor.scopeHash())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!"DIRECT_PAY".equals(intent.entryMode()) || !intent.requestDigest().equals(codec.directPayDigest(actor.tenantId(), actor.scopeHash(), command))
-                || !codec.decodeDirectPay(intent).equals(command)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                || !codec.decodeDirectPay(intent).equals(command)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return known;
     }
 
@@ -124,12 +142,14 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
     }
 
     private DirectPayRecoveryDTO terminal(DirectPayRecoverCommand command, OrderCreateIntent intent) {
-        if ("EXPIRED".equals(intent.state()) && ADMISSION_EXPIRED.getCode().equals(intent.resultCode()))
+        if ("EXPIRED".equals(intent.state()) && ADMISSION_EXPIRED.getCode().equals(intent.resultCode())) {
             return converter.toRecoveryDTO(command, intent.orderId(), OrderCreationRecoveryState.EXPIRED, ADMISSION_EXPIRED.getCode(), null, null);
+        }
         if ("REJECTED".equals(intent.state())) {
             for (var reason : java.util.List.of(CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE)) {
-                if (reason.getCode().equals(intent.resultCode()))
+                if (reason.getCode().equals(intent.resultCode())) {
                     return converter.toRecoveryDTO(command, intent.orderId(), OrderCreationRecoveryState.REJECTED, reason.getCode(), null, null);
+                }
             }
         }
         throw new CommonException(SNAPSHOT_INVALID);

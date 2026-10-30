@@ -65,7 +65,9 @@ public record StoredCheckoutSession(
     public StoredCheckoutSession revoke(long expectedVersion, LocalDateTime at) {
         require(expectedVersion == rowVersion, io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT);
         Objects.requireNonNull(at);
-        if (revokedAt != null) return this;
+        if (revokedAt != null) {
+            return this;
+        }
         return new StoredCheckoutSession(session, payeeMerchantId, requestKey, requestDigest, tokenHash, tokenNonce,
                 tokenKeyRef, tokenKeyVersion, allowedOrigin, scope, at, Math.incrementExact(rowVersion));
     }

@@ -46,14 +46,14 @@ public class LimitPolicyCodec {
     public ActivatedLimitPolicy decode(String tenant, LimitPolicyRevisionDO row) {
         try {
             var command = json.readValue(row.getCompiledRules(), LimitPolicyActivateCommand.class);
-            if (!tenant.equals(row.getTenantId())
-                    || !validator.validate(command).isEmpty()
+            if (!validator.validate(command).isEmpty()
                     || !command.policyId().equals(row.getPolicyId())
                     || command.policyVersion() != row.getPolicyVersion()
                     || !command.payeeMerchantId().equals(row.getPayeeMerchantId())
                     || !command.policyHash().equals(row.getPolicyHash())
-                    || !command.policyHash().equals(LimitPolicyHash.compute(tenant, command)))
+                    || !command.policyHash().equals(LimitPolicyHash.compute(tenant, command))) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toPolicy(command, row.getActivatedAt());
         } catch (CommonException known) {
             throw known;

@@ -7,11 +7,14 @@ import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
 import io.github.loadup.pay.acquire.client.dto.FeeRefundAckDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.rpc.AcquireRpcMapper;
+import io.github.loadup.pay.acquire.rpc.AcquireRpcMapperImpl;
 import io.github.loadup.pay.acquire.rpc.proto.AcquireRpc;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
+import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcException;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +54,8 @@ class PaymentAcquireRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final AcquireRpc acquireRpc = mock(AcquireRpc.class);
+    final AcquireRpcMapper acquireRpcMapper =
+            new AcquireRpcMapperImpl(new PaymentRpcMapperImpl(new ProductRpcMapperImpl()));
     final List<String> attachments = new ArrayList<>();
     final EventEnvelope<PaymentOutcomeEventDTO> event = new EventEnvelope<>("delivery", "proof", "payment",
             "pay.payment.outcome.acquire.v1", 1, "payment", 2, OffsetDateTime.now(clock),
@@ -82,11 +87,11 @@ class PaymentAcquireRpcClientTest {
     void setup() throws Exception {
         tokenFile = directory.resolve("acquire.jwt");
         token(claims());
-        client = new PaymentAcquireRpcClient(mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
+        client = new PaymentAcquireRpcClient(acquireRpcMapper, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
         ReflectionTestUtils.setField(client, "acquireRpc", acquireRpc);
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return AcquireRpcMapper.INSTANCE.toWirePaymentOutcomeAckDTO(
+            return acquireRpcMapper.toWirePaymentOutcomeAckDTO(
                     new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
         }).when(acquireRpc).paymentOutcome(any());
     }
@@ -104,7 +109,7 @@ class PaymentAcquireRpcClientTest {
         var fee = new EventEnvelope<>("fee-delivery", "fee-business", "payment", "pay.payment.refund.fee.v1", 1, "order", 3,
                 OffsetDateTime.now(clock), new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
         var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
-        doAnswer(invocation -> AcquireRpcMapper.INSTANCE.toWireFeeRefundAckDTO(ack))
+        doAnswer(invocation -> acquireRpcMapper.toWireFeeRefundAckDTO(ack))
                 .when(acquireRpc).feeRefund(any());
         assertEquals(ack, client.acceptFeeRefund("tenant", fee));
         verify(acquireRpc).feeRefund(any());

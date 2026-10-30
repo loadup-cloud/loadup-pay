@@ -47,7 +47,6 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewStat
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -87,7 +86,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     public ReconciliationReviewService(ReconciliationActorProvider actors, ReconciliationAccountDirectory accounts,
                                        ReconciliationBatchGateway batches, ReconciliationDifferenceReader differences, ReconciliationReviewGateway reviews,
                                        ReconciliationSourceFiles files, ReconciliationTransactions transactions, ReconciliationReviewConverter converter,
-                                       ReconciliationConverter differenceConverter, IdGenerator ids, Validator validator, @Qualifier("reconciliationClock") Clock clock) {
+                                       ReconciliationConverter differenceConverter, IdGenerator ids, Validator validator, Clock clock) {
         this.actors = actors;
         this.accounts = accounts;
         this.batches = batches;
@@ -116,20 +115,28 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         String digest = digest(actor, "PROPOSE", command.batchId(), command.differenceId(), command.requestKey(), Long.toString(command.expectedVersion()), command.conclusion().name(), command.note(), command.evidenceFileId());
         var replay = transactions.readSnapshot(actor.tenantId(), () -> reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey())
                 .map(event -> replay(actor, event, digest, command.batchId(), command.differenceId())));
-        if (replay.isPresent()) return replay.get();
+        if (replay.isPresent()) {
+            return replay.get();
+        }
         transactions.readSnapshot(actor.tenantId(), () -> evidence(actor, command.batchId(), command.differenceId(), false));
         var file = command.evidenceFileId() == null ? null : files.inspect(actor.tenantId(), actor.serviceId(), command.evidenceFileId());
         return transactions.writeLocal(actor.tenantId(), () -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
-            if (old.isPresent()) return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
+            if (old.isPresent()) {
+                return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
+            }
             var previous = head(actor.tenantId(), source.reference(), true);
-            if (previous.version() != command.expectedVersion()) throw new CommonException(REVIEW_VERSION_CONFLICT);
+            if (previous.version() != command.expectedVersion()) {
+                throw new CommonException(REVIEW_VERSION_CONFLICT);
+            }
             var at = now();
             var proposal = converter.toProposal(source.reference(), ids.generate(), actor.serviceId(), command, file, at);
             var next = previous.propose(proposal, ids.generate(), command.expectedVersion());
             var event = converter.toEvent(next, next.lastEventId(), actor.serviceId(), command.requestKey(), digest, ReconciliationReviewOperation.PROPOSE, null, at);
-            if (file != null) files.attachReview(actor.tenantId(), actor.serviceId(), file, proposal.id());
+            if (file != null) {
+                files.attachReview(actor.tenantId(), actor.serviceId(), file, proposal.id());
+            }
             reviews.commit(actor.tenantId(), previous, next, proposal, event);
             return converter.toDTO(event, clock);
         });
@@ -144,14 +151,20 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         return transactions.writeLocal(actor.tenantId(), () -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
-            if (old.isPresent()) return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
+            if (old.isPresent()) {
+                return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
+            }
             var previous = head(actor.tenantId(), source.reference(), true);
-            if (previous.version() != command.expectedVersion() || !command.proposalId().equals(previous.proposalId()))
+            if (previous.version() != command.expectedVersion() || !command.proposalId().equals(previous.proposalId())) {
                 throw new CommonException(REVIEW_VERSION_CONFLICT);
-            if (previous.state() != ReconciliationReviewState.PROPOSED) throw new CommonException(INVALID_STATE);
+            }
+            if (previous.state() != ReconciliationReviewState.PROPOSED) {
+                throw new CommonException(INVALID_STATE);
+            }
             var proposal = proposal(actor.tenantId(), source.reference(), previous.proposalId());
-            if (actor.serviceId().equals(proposal.proposerServiceId()))
+            if (actor.serviceId().equals(proposal.proposerServiceId())) {
                 throw new CommonException(REVIEW_CHECKER_REQUIRED);
+            }
             var next = previous.decide(proposal, actor.serviceId(), ids.generate(), command.approve(), command.expectedVersion());
             var event = converter.toEvent(next, next.lastEventId(), actor.serviceId(), command.requestKey(), digest,
                     command.approve() ? ReconciliationReviewOperation.APPROVE : ReconciliationReviewOperation.REJECT, command.note(), now());
@@ -183,10 +196,13 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             var page = reviews.history(actor.tenantId(), query.differenceId(), query.page(), query.size());
             long offset = (long) (query.page() - 1) * query.size();
             if (page.page() != query.page() || page.size() != query.size() || page.total() != head.version()
-                    || page.records().size() != Math.min(query.size(), Math.max(0L, head.version() - offset)))
+                    || page.records().size() != Math.min(query.size(), Math.max(0L, head.version() - offset))) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             for (var event : page.records()) {
-                if (event.version() != ++offset) throw new CommonException(SNAPSHOT_INVALID);
+                if (event.version() != ++offset) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 verifyEvent(actor.tenantId(), source.reference(), event);
             }
             return PageDTO.of(page.map(value -> converter.toDTO(value, clock)));
@@ -200,28 +216,35 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                                                                                                               String proposalId, String approvalEventId, long expectedVersion, boolean lock) {
         var source = evidence(actor, batchId, differenceId, lock);
         var head = head(actor.tenantId(), source.reference(), lock);
-        if (head.state() != ReconciliationReviewState.APPROVED || head.version() != expectedVersion || !proposalId.equals(head.proposalId()) || !approvalEventId.equals(head.lastEventId()))
+        if (head.state() != ReconciliationReviewState.APPROVED || head.version() != expectedVersion || !proposalId.equals(head.proposalId()) || !approvalEventId.equals(head.lastEventId())) {
             throw new CommonException(REVIEW_VERSION_CONFLICT);
+        }
         var proposal = proposal(actor.tenantId(), source.reference(), proposalId);
-        if (proposal.conclusion() != ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION)
+        if (proposal.conclusion() != ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION) {
             throw new CommonException(INVALID_STATE);
+        }
         var line = source.difference().difference().ledger() != null ? source.difference().difference().ledger() : source.difference().difference().channel();
         return new io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview(source.reference(), source.scope(), source.difference().difference().key(), line.merchantPaymentNo(), proposalId, approvalEventId, expectedVersion);
     }
 
     private ReconciliationReviewEventDTO replay(ReconciliationActor actor, ReconciliationReviewEvent event, String digest, String batchId, String differenceId) {
         var source = evidence(actor, batchId, differenceId, false);
-        if (!event.callerServiceId().equals(actor.serviceId()) || !event.requestDigest().equals(digest))
+        if (!event.callerServiceId().equals(actor.serviceId()) || !event.requestDigest().equals(digest)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         verifyEvent(actor.tenantId(), source.reference(), event);
         var head = head(actor.tenantId(), source.reference(), false);
-        if (event.version() > head.version()) throw new CommonException(SNAPSHOT_INVALID);
+        if (event.version() > head.version()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toDTO(event, clock);
     }
 
     private ReconciliationReview head(String tenant, ReconciliationReviewReference reference, boolean lock) {
         var value = (lock ? reviews.lock(tenant, reference.differenceId()) : reviews.find(tenant, reference.differenceId())).orElseGet(() -> ReconciliationReview.init(reference));
-        if (!reference.equals(value.reference())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!reference.equals(value.reference())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (value.lastEventId() != null) {
             var event = event(tenant, reference, value.lastEventId());
             try {
@@ -235,54 +258,70 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
 
     private ReconciliationReviewProposal proposal(String tenant, ReconciliationReviewReference reference, String id) {
         var value = reviews.proposal(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!id.equals(value.id()) || !reference.equals(value.reference())) throw new CommonException(SNAPSHOT_INVALID);
-        if (value.evidence() != null)
+        if (!id.equals(value.id()) || !reference.equals(value.reference())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (value.evidence() != null) {
             files.verifyReview(tenant, value.proposerServiceId(), value.evidence(), value.id());
+        }
         return value;
     }
 
     private ReconciliationReviewEvent event(String tenant, ReconciliationReviewReference reference, String id) {
         var value = reviews.event(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!id.equals(value.id())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!id.equals(value.id())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         verifyEvent(tenant, reference, value);
         return value;
     }
 
     private void verifyEvent(String tenant, ReconciliationReviewReference reference, ReconciliationReviewEvent event) {
-        if (!reference.equals(event.reference())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!reference.equals(event.reference())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var proposal = proposal(tenant, reference, event.proposalId());
         boolean same = proposal.proposerServiceId().equals(event.callerServiceId());
-        if ((event.operation() == ReconciliationReviewOperation.PROPOSE) != same)
+        if ((event.operation() == ReconciliationReviewOperation.PROPOSE) != same) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private Evidence evidence(ReconciliationActor actor, String batchId, String differenceId, boolean lock) {
         var stored = (lock ? batches.lock(actor.tenantId(), batchId) : batches.find(actor.tenantId(), batchId)).orElseThrow(() -> new CommonException(NOT_FOUND));
         // Review permissions authorize independent account reviewers; original import/batch mutation permissions remain separate.
         accounts.authorize(actor.tenantId(), actor.serviceId(), stored.channelAccountCode(), stored.batch().scope());
-        if (stored.batch().state() != ReconciliationState.DIFFERENCES || stored.batch().result() == null)
+        if (stored.batch().state() != ReconciliationState.DIFFERENCES || stored.batch().result() == null) {
             throw new CommonException(INVALID_STATE);
+        }
         var difference = differences.find(actor.tenantId(), batchId, differenceId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!differenceId.equals(difference.id()) || !batchId.equals(difference.batchId()) || !stored.batch().runId().equals(difference.runId()))
+        if (!differenceId.equals(difference.id()) || !batchId.equals(difference.batchId()) || !stored.batch().runId().equals(difference.runId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return new Evidence(converter.toReference(difference, stored.batch().result().resultHash()), difference, stored.batch().scope());
     }
 
     private ReconciliationActor actor(String operation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor == null || !actor.permissions().contains("pay:reconciliation:review:" + operation))
+        if (actor == null || !actor.permissions().contains("pay:reconciliation:review:" + operation)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private void note(String value) {
-        if (value == null || value.isBlank() || value.length() > 1024 || value.chars().anyMatch(Character::isISOControl))
+        if (value == null || value.isBlank() || value.length() > 1024 || value.chars().anyMatch(Character::isISOControl)) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {
@@ -293,13 +332,18 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         var value = new StringBuilder("reconciliation-review-v1");
         field(value, actor.tenantId());
         field(value, actor.serviceId());
-        for (String field : fields) field(value, field);
+        for (String field : fields) {
+            field(value, field);
+        }
         return DigestUtils.sha256(value.toString());
     }
 
     private void field(StringBuilder value, String field) {
-        if (field == null) value.append("-1:");
-        else value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        if (field == null) {
+            value.append("-1:");
+        } else {
+            value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
     }
 
     private record Evidence(ReconciliationReviewReference reference, StoredReconciliationDifference difference,

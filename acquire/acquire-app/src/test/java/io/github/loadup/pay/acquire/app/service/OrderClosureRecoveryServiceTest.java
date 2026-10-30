@@ -63,7 +63,7 @@ class OrderClosureRecoveryServiceTest {
             original.admission(), original.admittedAt(), original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
     final OrderCloseIntent intent = new OrderCloseIntent("close-intent", "order", "merchant", OWNER, "original-key", "e".repeat(64),
             "MERCHANT_CLOSED", 1L, NOW.minusMinutes(1), "original-payment-cursor", 3L);
-    final DelayedTask task = new DelayedTask("close-task", "tenant", OrderClosureTasks.TYPE, "order.3", NOW, NOW,
+    final DelayedTask task = new DelayedTask("close-task", OrderClosureTasks.TYPE, "order.3", NOW, NOW,
             DelayedTaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
     final OrderPaymentScope scope = new OrderPaymentScope("tenant", OWNER);
 

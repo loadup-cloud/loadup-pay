@@ -65,7 +65,9 @@ class RecoveryInventoryCollectorTest {
 
     private static double gauge(MeterRegistry registry, String suffix, String kind) {
         var search = registry.get(RecoveryInventoryCollector.PREFIX + suffix);
-        if (kind != null) search.tag("kind", kind);
+        if (kind != null) {
+            search.tag("kind", kind);
+        }
         return search.gauge().value();
     }
 
@@ -100,7 +102,9 @@ class RecoveryInventoryCollectorTest {
             verify(reader, times(1)).read("tenant-a");
             verify(reader, times(1)).read("tenant-b");
             collector.execute();
-            for (int i = 0; i < 5; i++) gauge(registry, ".unknown.count", "payment");
+            for (int i = 0; i < 5; i++) {
+                gauge(registry, ".unknown.count", "payment");
+            }
             verifyNoMoreInteractions(reader);
             assertNull(TenantUtil.getTenantId());
         } catch (Exception e) {
@@ -115,7 +119,9 @@ class RecoveryInventoryCollectorTest {
         var reads = new AtomicInteger();
         var original = new CommonException(DEPENDENCY_UNAVAILABLE);
         when(reader.read(anyString())).thenAnswer(call -> {
-            if (fail.get() && reads.incrementAndGet() == 2) throw original;
+            if (fail.get() && reads.incrementAndGet() == 2) {
+                throw original;
+            }
             long count = fail.get() ? 99L : 1L;
             return List.of(new RecoveryInventoryCell(PAYMENT, count, count * 100L, AT.minusHours(1)), RecoveryInventoryCell.empty(REFUND));
         });

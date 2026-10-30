@@ -47,26 +47,32 @@ public class PaymentLimitOutcomeDelivery {
 
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentEvents.LIMIT); // All local locks are released on return.
-        if (!limits.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!limits.supportsTenant(snapshot.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var payment = snapshot.payment();
         var envelope = snapshot.envelope();
         if (payment.payment().state() == PaymentState.SUCCEEDED) {
             var ack = limits.confirm(snapshot.tenantId(),
                     converter.toConfirm(payment, envelope.businessEventId(), snapshot.succeededAt()));
             reservation(snapshot, ack);
-            if (ack.state() != LimitReservationState.CONFIRMED) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (ack.state() != LimitReservationState.CONFIRMED) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
         } else {
             var ack = limits.release(snapshot.tenantId(), converter.toRelease(payment, envelope.businessEventId()));
             if (ack == null || !ack.fenced() || !payment.payment().id().equals(ack.paymentId())
                     || !payment.payment().limitOperationId().equals(ack.operationId())
                     || payment.payment().version() != ack.paymentVersion()
-                    || !payment.terminalEvidenceId().equals(ack.noCollectionEvidenceId()))
+                    || !payment.terminalEvidenceId().equals(ack.noCollectionEvidenceId())) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             if (ack.reservation() != null) {
                 reservation(snapshot, ack.reservation());
                 if (ack.reservation().state() != LimitReservationState.RELEASED
-                        && ack.reservation().state() != LimitReservationState.EXPIRED)
+                        && ack.reservation().state() != LimitReservationState.EXPIRED) {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                }
             }
         }
     }
@@ -77,7 +83,8 @@ public class PaymentLimitOutcomeDelivery {
         if (ack == null || ack.reservationId() == null || ack.reservationId().isBlank() || ack.state() == null || ack.version() < 1
                 || !source.limitOperationId().equals(ack.operationId()) || !source.id().equals(ack.paymentId())
                 || !policy.policyId().equals(ack.policyId()) || policy.policyVersion() != ack.policyVersion()
-                || !BusinessTime.external(source.initiatedAt()).equals(ack.initiatedAt()))
+                || !BusinessTime.external(source.initiatedAt()).equals(ack.initiatedAt())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

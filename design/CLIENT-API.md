@@ -11,7 +11,8 @@ Facade、Command/Query/DTO、错误码、条款校验、授权撤销和完整结
 。本文保留目标协议；HTTP 适配及 Facade 实现按各批次推进，真实渠道原生 Action 参数后续扩展。
 
 本文为待实现的业务契约。`client`
-指COLA公开Java业务接口；HTTP 与 Dubbo Triple 是其适配。示例省略package/import及重复的Schema/toString，不表示已有可编译SDK。框架已有接口保持原名，下面收单平台新增接口不伪称为框架现成功能。
+指COLA公开Java业务接口；HTTP 与 Dubbo Triple
+是其适配。示例省略package/import及重复的Schema/toString，不表示已有可编译SDK。框架已有接口保持原名，下面收单平台新增接口不伪称为框架现成功能。
 
 ## 1. 全局契约
 
@@ -551,7 +552,8 @@ target/签名引用/超时/退避/最大窗口来自原冻结通知策略。独�
 服务间采用 Dubbo Triple 的 Protobuf 纯 IDL 模式。`*-client` 模块用 `.proto` 定义 service 和消息，
 `dubbo-maven-plugin` 生成 `<Service>Rpc` 接口与 `Dubbo<Service>RpcTriple` 存根；`*-adapter` 实现生成的
 `ImplBase` 并标注 `@DubboService(interfaceClass = ...)`，消费方在 `*-infrastructure` 用 `@DubboReference` 引用生成的
-接口。业务 Facade、Command/Query/DTO、结果码与 IDL 同属 `*-client`，IDL 代码隔离在 `rpc` 子包；domain/app 不直接引用 proto 类型。运行配置与迁移边界见
+接口。业务 Facade、Command/Query/DTO、结果码与 IDL 同属 `*-client`，IDL 代码隔离在 `rpc` 子包；domain/app 不直接引用 proto
+类型。运行配置与迁移边界见
 [RPC 规范](RPC.md)。
 
 请求/响应只传 protobuf 消息，`optional` 标量用 `hasXxx()` 表达 presence，枚举以显式字符串传输并拒绝未知符号，

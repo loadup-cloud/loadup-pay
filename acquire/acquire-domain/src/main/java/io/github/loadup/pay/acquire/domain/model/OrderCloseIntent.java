@@ -39,7 +39,9 @@ public record OrderCloseIntent(String id, String orderId, String payeeMerchantId
         DomainChecks.text(reasonCode, 64);
         Objects.requireNonNull(requestedAt);
         Objects.requireNonNull(cursorPaymentId);
-        if (!cursorPaymentId.isEmpty()) DomainChecks.id(cursorPaymentId);
+        if (!cursorPaymentId.isEmpty()) {
+            DomainChecks.id(cursorPaymentId);
+        }
         require(closeEpoch > 0 && rowVersion >= 0 && callerScopeHash != null
                 && callerScopeHash.matches("[0-9a-f]{64}") && requestDigest != null
                 && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);

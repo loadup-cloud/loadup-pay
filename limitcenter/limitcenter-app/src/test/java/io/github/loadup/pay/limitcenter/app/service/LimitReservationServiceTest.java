@@ -73,7 +73,9 @@ class LimitReservationServiceTest {
         when(f.reservations.lockBuckets(eq("tenant"), anyList())).thenAnswer(call -> {
             List<LimitBucketKey> keys = call.getArgument(1);
             var values = new HashMap<LimitBucketKey, LimitBucket>();
-            for (var key : keys) values.put(key, new LimitBucket(key, used, 0, 4));
+            for (var key : keys) {
+                values.put(key, new LimitBucket(key, used, 0, 4));
+            }
             return new LimitBucketSet(values);
         });
     }
@@ -159,7 +161,9 @@ class LimitReservationServiceTest {
     void aUniquenessRaceRollsBackBeforeStartingTheRetry() {
         AtomicInteger calls = new AtomicInteger();
         String result = f.transactions.writeLocal(f.actor, LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, () -> {
-            if (calls.incrementAndGet() == 1) throw new LimitWriteRaceException("synthetic collision");
+            if (calls.incrementAndGet() == 1) {
+                throw new LimitWriteRaceException("synthetic collision");
+            }
             assertEquals(1, f.manager.rollbacks);
             assertEquals(2, f.manager.begins);
             return "winner";

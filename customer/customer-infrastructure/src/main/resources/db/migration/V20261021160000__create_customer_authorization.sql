@@ -1,10 +1,9 @@
 -- Customer-owned tables. Framework components own merchant_profile, global_unique and sequence allocation.
--- Business sessions use the deployment system default.
+-- Tenant identity selects the PostgreSQL schema; business tables do not carry a tenant column.
 
 CREATE TABLE merchant_relationship
 (
     id                 VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id          VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at         TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at         TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted            BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -26,7 +25,6 @@ CREATE TABLE merchant_relationship
 CREATE TABLE merchant_action_grant
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -49,8 +47,8 @@ CREATE TABLE merchant_action_grant
 
 -- INIT and ACTIVE relationships/grants occupy the original generated active slot.
 CREATE UNIQUE INDEX uk_merchant_relationship ON merchant_relationship
-    (tenant_id, parent_merchant_id, child_merchant_id, relation_type) WHERE state IN ('INIT', 'ACTIVE');
-CREATE INDEX ix_relationship_child ON merchant_relationship (tenant_id, child_merchant_id, state);
+    (parent_merchant_id, child_merchant_id, relation_type) WHERE state IN ('INIT', 'ACTIVE');
+CREATE INDEX ix_relationship_child ON merchant_relationship (child_merchant_id, state);
 CREATE UNIQUE INDEX uk_merchant_action ON merchant_action_grant
-    (tenant_id, principal_type, principal_id, payee_merchant_id, action) WHERE state IN ('INIT', 'ACTIVE');
-CREATE INDEX ix_grant_payee ON merchant_action_grant (tenant_id, payee_merchant_id, state);
+    (principal_type, principal_id, payee_merchant_id, action) WHERE state IN ('INIT', 'ACTIVE');
+CREATE INDEX ix_grant_payee ON merchant_action_grant (payee_merchant_id, state);

@@ -10,7 +10,6 @@ import io.github.loadup.pay.payment.rpc.proto.PaymentStatementRpc;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentStatements;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,28 +25,35 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 @Component
 public class PaymentStatementRpcClient implements ReconciliationPaymentStatements {
+    private final ReconciliationPaymentProperties properties;
+    private final ReconciliationServiceTokenReader tokens;
+    private final PaymentStatementRpcMapper paymentStatementRpcMapper;
     @DubboReference(url = "tri://payment-headless:50051", timeout = 60000)
     private PaymentStatementRpc paymentStatementRpc;
 
-    private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
-
-    public PaymentStatementRpcClient(ReconciliationPaymentProperties properties,
-                                     JsonMapper mapper, @Qualifier("reconciliationClock") Clock clock) {
+    public PaymentStatementRpcClient(PaymentStatementRpcMapper paymentStatementRpcMapper, ReconciliationPaymentProperties properties,
+                                     JsonMapper mapper, Clock clock) {
+        this.paymentStatementRpcMapper = paymentStatementRpcMapper;
         this.properties = properties;
         this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
     }
 
     @Override
     public PaymentStatementDTO download(String tenant, PaymentStatementQuery query) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!properties.tenantId().equals(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!properties.tenantId().equals(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             var value = RpcTokenContext.call(
                     tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
-                    () -> PaymentStatementRpcMapper.INSTANCE.fromWire(paymentStatementRpc.download(
-                            PaymentStatementRpcMapper.INSTANCE.toWire(query))));
-            if (value == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    () -> paymentStatementRpcMapper.fromWire(paymentStatementRpc.download(
+                            paymentStatementRpcMapper.toWire(query))));
+            if (value == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return value;
         } catch (RuntimeException failure) {
             throw new CommonException(switch (RpcExceptionCodes.resultCode(failure)) {

@@ -86,13 +86,16 @@ public final class AlipayRefundAdapter {
         boolean originalIdentity = refund.originalChannelTransactionNo().equals(responses.text(response, "trade_no"))
                 && refund.original().channelRequestNo().equals(responses.text(response, "out_trade_no"))
                 && refund.channelRefundNo().equals(responses.text(response, "out_request_no"));
-        if (!"10000".equals(responses.text(response, "code")) || responses.text(response, "refund_status") != null || !originalIdentity)
+        if (!"10000".equals(responses.text(response, "code")) || responses.text(response, "refund_status") != null || !originalIdentity) {
             return interpret(refund, queried);
+        }
         String amount = responses.text(response, "refund_amount");
-        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount))
+        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount)) {
             responses.requireAmount(amount, refund.amount().getCent());
-        if (response.get("total_amount") != null)
+        }
+        if (response.get("total_amount") != null) {
             responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+        }
         // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider idempotency.
         var submitted = submit(context, refund);
         var digest = DigestUtils.sha256("alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
@@ -116,8 +119,9 @@ public final class AlipayRefundAdapter {
         if ("10000".equals(responses.text(response, "code")) && "REFUND_SUCCESS".equals(responses.text(response, "refund_status"))) {
             requireIdentity(response, refund, true);
             responses.requireAmount(responses.text(response, "refund_amount"), refund.amount().getCent());
-            if (response.containsKey("total_amount") && response.get("total_amount") != null)
+            if (response.containsKey("total_amount") && response.get("total_amount") != null) {
                 responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+            }
             try {
                 succeededAt = AlipayProtocolTime.businessTime(responses.text(response, "gmt_refund_pay"), clock.getZone());
             } catch (RuntimeException invalidTime) {
@@ -140,7 +144,9 @@ public final class AlipayRefundAdapter {
     }
 
     private void requireContext(ChannelExecutionContext context, PreparedChannelRefund refund) {
-        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        if (refund == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         AlipayBindingGuard.require(context, refund.original());
     }
 
@@ -153,8 +159,9 @@ public final class AlipayRefundAdapter {
     private void requireIdentity(Map<String, Object> response, PreparedChannelRefund refund, boolean requireRefundNo) {
         if (!refund.originalChannelTransactionNo().equals(responses.text(response, "trade_no"))
                 || !refund.original().channelRequestNo().equals(responses.text(response, "out_trade_no"))
-                || (requireRefundNo && !refund.channelRefundNo().equals(responses.text(response, "out_request_no"))))
+                || (requireRefundNo && !refund.channelRefundNo().equals(responses.text(response, "out_request_no")))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     private String framed(String originalTrade, String refundRequest) {

@@ -272,7 +272,9 @@ class PaymentExecutionServiceTest {
 
     private StoredPaymentAttempt started(PaymentAttemptState target) {
         var base = AttemptFixtures.prepared().beginSubmission(1, "d".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
-        if (target == PaymentAttemptState.SUBMITTING) return base;
+        if (target == PaymentAttemptState.SUBMITTING) {
+            return base;
+        }
         var kind = target == PaymentAttemptState.PENDING ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN;
         var outcome = new ChannelPaymentOutcome(kind, base.attempt().identity(), base.attempt().amount(), null);
         return base.applyOutcome(outcome, false);

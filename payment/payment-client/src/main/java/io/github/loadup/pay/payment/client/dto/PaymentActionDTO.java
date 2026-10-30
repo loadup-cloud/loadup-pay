@@ -31,8 +31,9 @@ public record PaymentActionDTO(
         @Schema(description = "Data") @Valid @DiagnosticHidden
         PaymentActionDataDTO data) {
     public PaymentActionDTO {
-        if (expiresAt != null)
+        if (expiresAt != null) {
             expiresAt = expiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

@@ -40,13 +40,20 @@ public record ReconciliationDifference(ReconciliationKey key, ReconciliationLine
 
     static Set<ReconciliationDifferenceReason> reasons(ReconciliationLine channel, ReconciliationLine ledger) {
         var result = EnumSet.noneOf(ReconciliationDifferenceReason.class);
-        if (channel == null) result.add(ReconciliationDifferenceReason.LEDGER_ONLY);
-        else if (ledger == null) result.add(ReconciliationDifferenceReason.CHANNEL_ONLY);
-        else {
-            if (!channel.amount().equals(ledger.amount())) result.add(ReconciliationDifferenceReason.AMOUNT_MISMATCH);
-            if (!channel.merchantPaymentNo().equals(ledger.merchantPaymentNo()))
+        if (channel == null) {
+            result.add(ReconciliationDifferenceReason.LEDGER_ONLY);
+        } else if (ledger == null) {
+            result.add(ReconciliationDifferenceReason.CHANNEL_ONLY);
+        } else {
+            if (!channel.amount().equals(ledger.amount())) {
+                result.add(ReconciliationDifferenceReason.AMOUNT_MISMATCH);
+            }
+            if (!channel.merchantPaymentNo().equals(ledger.merchantPaymentNo())) {
                 result.add(ReconciliationDifferenceReason.REQUEST_MISMATCH);
-            if (channel.status() != ledger.status()) result.add(ReconciliationDifferenceReason.STATE_MISMATCH);
+            }
+            if (channel.status() != ledger.status()) {
+                result.add(ReconciliationDifferenceReason.STATE_MISMATCH);
+            }
         }
         return Set.copyOf(result);
     }

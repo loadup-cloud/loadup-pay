@@ -36,19 +36,27 @@ public record ReconciliationBatch(String id, ReconciliationScope scope, Reconcil
         Objects.requireNonNull(scope);
         Objects.requireNonNull(state);
         require(version >= 0, INVALID_ARGUMENT);
-        if (channel != null)
+        if (channel != null) {
             require(channel.side() == ReconciliationSide.CHANNEL && scope.equals(channel.scope()), CONFLICT);
-        if (ledger != null)
+        }
+        if (ledger != null) {
             require(ledger.side() == ReconciliationSide.LEDGER && scope.equals(ledger.scope()), CONFLICT);
+        }
         boolean both = channel != null && ledger != null;
-        if (both) require(!channel.artifactId().equals(ledger.artifactId())
-                && !channel.sourceCaptureId().equals(ledger.sourceCaptureId()), CONFLICT);
+        if (both) {
+            require(!channel.artifactId().equals(ledger.artifactId())
+                    && !channel.sourceCaptureId().equals(ledger.sourceCaptureId()), CONFLICT);
+        }
         require((state == ReconciliationState.INIT) == !both, INVALID_STATE);
         boolean terminal = state == ReconciliationState.MATCHED || state == ReconciliationState.DIFFERENCES;
         require(terminal == (result != null), INVALID_STATE);
         require((state == ReconciliationState.RUNNING || terminal) == (runId != null), INVALID_STATE);
-        if (runId != null) DomainChecks.id(runId);
-        if (terminal) require((state == ReconciliationState.MATCHED) == (result.differenceCount() == 0), CONFLICT);
+        if (runId != null) {
+            DomainChecks.id(runId);
+        }
+        if (terminal) {
+            require((state == ReconciliationState.MATCHED) == (result.differenceCount() == 0), CONFLICT);
+        }
     }
 
     public static ReconciliationBatch init(String id, ReconciliationScope scope) {
@@ -65,9 +73,10 @@ public record ReconciliationBatch(String id, ReconciliationScope scope, Reconcil
         }
         var nextChannel = input.side() == ReconciliationSide.CHANNEL ? input : channel;
         var nextLedger = input.side() == ReconciliationSide.LEDGER ? input : ledger;
-        if (nextChannel != null && nextLedger != null)
+        if (nextChannel != null && nextLedger != null) {
             require(!nextChannel.artifactId().equals(nextLedger.artifactId())
                     && !nextChannel.sourceCaptureId().equals(nextLedger.sourceCaptureId()), CONFLICT);
+        }
         return new ReconciliationBatch(id, scope, nextChannel, nextLedger,
                 nextChannel != null && nextLedger != null ? ReconciliationState.READY : ReconciliationState.INIT,
                 null, null, Math.incrementExact(version));

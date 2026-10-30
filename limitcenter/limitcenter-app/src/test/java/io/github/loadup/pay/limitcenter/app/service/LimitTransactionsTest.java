@@ -78,7 +78,9 @@ class LimitTransactionsTest {
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
             int attempt = calls.incrementAndGet();
             assertEquals(attempt - 1, manager.rollbacks);
-            if (attempt < 3) throw new LimitWriteRaceException("Synthetic reservation race");
+            if (attempt < 3) {
+                throw new LimitWriteRaceException("Synthetic reservation race");
+            }
             return "reserved";
         }));
         assertEquals(3, calls.get());

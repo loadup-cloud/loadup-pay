@@ -121,13 +121,15 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 ## 应用间 Dubbo Triple 发布
 
 七应用 `application.yml` 固定 HTTP 8080、Triple 50051、`shutdown: graceful`，Pod 终止窗口 45 秒。消费端
-`@DubboReference` 直接使用 `tri://<peer>-headless:50051`，字段类型是生成的 Protobuf IDL 接口；`dubbo.registry.address: N/A`，
+`@DubboReference` 直接使用 `tri://<peer>-headless:50051`，字段类型是生成的 Protobuf IDL 接口；
+`dubbo.registry.address: N/A`，
 `consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
 
 业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产
 TLS 配置。默认骨架构建不包含业务 adapter，也没有 Triple 监听；只声明 Headless Service 与 containerPort 不会启动监听。
 
-`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 Dubbo Triple Headless Service。`verify.sh` 目前仅检查
+`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 Dubbo Triple Headless Service。`verify.sh`
+目前仅检查
 Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 Triple
 调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
 

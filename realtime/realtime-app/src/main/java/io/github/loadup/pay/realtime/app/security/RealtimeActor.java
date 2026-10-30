@@ -29,8 +29,12 @@ public record RealtimeActor(String tenantId, String serviceId, String merchantId
         DomainChecks.id(tenantId);
         permissions = Set.copyOf(permissions);
         DomainViolation.require((serviceId == null) != (merchantId == null), DomainViolation.Reason.INVALID_ARGUMENT);
-        if (serviceId != null) DomainChecks.id(serviceId);
-        if (merchantId != null) DomainChecks.id(merchantId);
+        if (serviceId != null) {
+            DomainChecks.id(serviceId);
+        }
+        if (merchantId != null) {
+            DomainChecks.id(merchantId);
+        }
     }
 
     @Override

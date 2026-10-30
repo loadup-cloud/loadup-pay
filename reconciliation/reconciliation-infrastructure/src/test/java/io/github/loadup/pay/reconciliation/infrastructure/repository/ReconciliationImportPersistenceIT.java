@@ -133,7 +133,7 @@ class ReconciliationImportPersistenceIT {
         assertEquals("SEALED", sealed.state().name());
         assertEquals("SUCCEEDED", sealed.taskStatus());
         assertEquals(1L, count("file_resource_reference", fixture.tenant()));
-        TenantUtil.runWithTenant(fixture.tenant(), () -> assertThrows(CommonException.class, () -> files.requestDeletion(fixture.tenant(), fixture.file().fileId(), "ops", false)));
+        TenantUtil.runWithTenant(fixture.tenant(), () -> assertThrows(CommonException.class, () -> files.requestDeletion(fixture.file().fileId(), "ops", false)));
     }
 
     @Test
@@ -209,8 +209,9 @@ class ReconciliationImportPersistenceIT {
 
     private long count(String table, String tenant) {
         // Table names are a closed test-only set; values always use bind parameters.
-        if (!Set.of("reconciliation_import", "transfer_task", "file_resource_reference", "file_resource", "reconciliation_input", "reconciliation_entry").contains(table))
+        if (!Set.of("reconciliation_import", "transfer_task", "file_resource_reference", "file_resource", "reconciliation_input", "reconciliation_entry").contains(table)) {
             throw new AssertionError("Unexpected table");
+        }
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
     }
 
@@ -280,16 +281,18 @@ class ReconciliationImportPersistenceIT {
         public void insert(String tenant, ReconciliationImportRequest value) {
             super.insert(tenant, value);
             String target = failInsertBatch.get();
-            if (value.batchId().equals(target) && failInsertBatch.compareAndSet(target, null))
+            if (value.batchId().equals(target) && failInsertBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual import registration");
+            }
         }
 
         @Override
         public void update(String tenant, ReconciliationImportRequest value, long expected) {
             super.update(tenant, value, expected);
             String target = failSealBatch.get();
-            if (value.state() == ReconciliationImportState.SEALED && value.batchId().equals(target) && failSealBatch.compareAndSet(target, null))
+            if (value.state() == ReconciliationImportState.SEALED && value.batchId().equals(target) && failSealBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual seal update");
+            }
         }
     }
 
@@ -307,7 +310,7 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Bean
-        FaultingImports imports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, @org.springframework.beans.factory.annotation.Qualifier("reconciliationClock") Clock clock) {
+        FaultingImports imports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
             return new FaultingImports(jdbc, converter, clock);
         }
 

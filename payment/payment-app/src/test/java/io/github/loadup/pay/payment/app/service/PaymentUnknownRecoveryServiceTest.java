@@ -158,8 +158,9 @@ class PaymentUnknownRecoveryServiceTest {
                 new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, external, " ", 10),
                 new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, external.minusSeconds(1).plusNanos(1), "pay-a", 10),
                 new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, null, 0),
-                new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, null, 101)))
+                new PaymentUnknownRecoveryQuery(COLLECTION, REVIEW, null, null, 101))) {
             assertEquals(INVALID_ARGUMENT, assertThrows(CommonException.class, () -> service.list(query)).getResultCode());
+        }
         verifyNoInteractions(reader);
     }
 

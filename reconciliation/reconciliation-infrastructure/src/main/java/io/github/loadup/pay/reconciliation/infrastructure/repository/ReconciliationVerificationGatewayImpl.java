@@ -17,14 +17,13 @@ package io.github.loadup.pay.reconciliation.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationVerificationGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationVerificationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationVerificationDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -47,7 +46,7 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     private final NamedParameterJdbcTemplate jdbc;
     private final ReconciliationVerificationStorageConverter converter;
 
-    public ReconciliationVerificationGatewayImpl(ReconciliationVerificationStorageConverter converter, NamedParameterJdbcTemplate jdbc, @Qualifier("reconciliationClock") Clock clock) {
+    public ReconciliationVerificationGatewayImpl(ReconciliationVerificationStorageConverter converter, NamedParameterJdbcTemplate jdbc, Clock clock) {
         this.clock = clock;
         this.jdbc = jdbc;
         this.converter = converter;
@@ -74,16 +73,18 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(id);
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
     public void insert(String tenant, ReconciliationVerificationRequest value) {
         ReconciliationStoreContext.writable(tenant);
-        if (value == null || value.state() != ReconciliationVerificationState.INIT || value.version() != 0L)
+        if (value == null || value.state() != ReconciliationVerificationState.INIT || value.version() != 0L) {
             throw new CommonException(INVALID_STATE);
+        }
         requireJdbc();
         var row = converter.toDO(tenant, value);
         var now = LocalDateTime.now(clock);
@@ -94,20 +95,28 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :differenceId, :batchId, :runId, :resultHash, :matchKeyHash, :proposalId, :approvalEventId, :reviewVersion, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :kind, :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :deliveryId, :state, :rowVersion, :disposition, :bindingRevisionId, :paymentId, :attemptId, :refundId, :sourceVersion, :localState, :outcome, :amountMinor, :currency, :observedChannelTransactionNo, :observedRefundTransactionNo, :succeededEpochMicros, :sourceDigest, :startedEpochMicros, :finishedEpochMicros, :acceptedEpochMicros)
                 ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0)
+        if (count == 0) {
             throw new ReconciliationWriteConflictException("reconciliation_verification_request business key already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public void update(String tenant, ReconciliationVerificationRequest value, long expectedVersion) {
         ReconciliationStoreContext.writable(tenant);
-        if (value == null || expectedVersion < 0 || expectedVersion == Long.MAX_VALUE || value.version() != expectedVersion + 1L)
+        if (value == null || expectedVersion < 0 || expectedVersion == Long.MAX_VALUE || value.version() != expectedVersion + 1L) {
             throw new CommonException(INVALID_STATE);
+        }
         var original = lock(tenant, value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (original.version() != expectedVersion) throw new CommonException(CONCURRENT_UPDATE);
+        if (original.version() != expectedVersion) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         if (!converter.toInitial(original).equals(converter.toInitial(value)) || original.state() != ReconciliationVerificationState.INIT
-                || value.state() == ReconciliationVerificationState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+                || value.state() == ReconciliationVerificationState.INIT) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         requireJdbc();
         var row = converter.toDO(tenant, value);
         row.setUpdatedAt(LocalDateTime.now(clock));
@@ -135,13 +144,16 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
         if (jdbc.update("""
                 UPDATE reconciliation_verification_request SET state = :state, row_version = :rowVersion, disposition = :disposition, binding_revision_id = :bindingRevisionId, payment_id = :paymentId, attempt_id = :attemptId, refund_id = :refundId, source_version = :sourceVersion, local_state = :localState, outcome = :outcome, amount_minor = :amountMinor, currency = :currency, observed_channel_transaction_no = :observedChannelTransactionNo, observed_refund_transaction_no = :observedRefundTransactionNo, succeeded_epoch_micros = :succeededEpochMicros, source_digest = :sourceDigest, started_epoch_micros = :startedEpochMicros, finished_epoch_micros = :finishedEpochMicros, accepted_epoch_micros = :acceptedEpochMicros, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
-                """, args) != 1) throw new CommonException(CONCURRENT_UPDATE);
+                """, args) != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void requireJdbc() {
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 
     private ReconciliationVerificationDO row(String predicate, MapSqlParameterSource args, boolean lock) {
@@ -151,10 +163,13 @@ public class ReconciliationVerificationGatewayImpl implements ReconciliationVeri
     }
 
     private Optional<ReconciliationVerificationRequest> read(ReconciliationVerificationDO row) {
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
-            if (row.getRowVersion() == null || row.getReviewVersion() == null)
+            if (row.getRowVersion() == null || row.getReviewVersion() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return Optional.of(converter.toModel(row));
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

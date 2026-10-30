@@ -53,13 +53,15 @@ OPERATOR 在直接授权时可无 merchant_id；绑定父子关系的代操作�
   `customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql`
   ；设计草案同步更新，不能重复执行草案。
 - 创建、授权、撤销、资格判断均使用主库 READ_COMMITTED 事务。以收款商户主档行锁串行化该商户的授权变更和资格判断；撤销另校验原资源版本。数据库唯一索引作为最终约束。
-- 撤销保留原ID和版本历史。PostgreSQL 部分唯一索引限制每个业务键最多存在一个 INIT 或 ACTIVE 记录。撤销后可用新ID和新幂等键重新授予；到期记录仍需显式撤销。旧关系绑定的授权不会自动改绑到新关系。
+- 撤销保留原ID和版本历史。PostgreSQL 部分唯一索引限制每个业务键最多存在一个 INIT 或 ACTIVE
+  记录。撤销后可用新ID和新幂等键重新授予；到期记录仍需显式撤销。旧关系绑定的授权不会自动改绑到新关系。
 - 有效窗口是左闭右开；授权与关系同时满足才可代操作。入参统一转为上海偏移，拒绝超过微秒精度的有效时间，避免 DATETIME (6)
   截断改变边界。
 - requestKey 按租户、操作版本、主体类型和主体ID隔离。执行器保存参数 SHA-256 与首次响应快照；同键同参返回首次快照，同键异参报
   CUSTOMER_IDEMPOTENCY_CONFLICT。租户同时进入哈希键，回放再次核对租户精确一致，避免依赖表的大小写不敏感排序规则混淆租户。获取商户行锁后再次检查，处理并发重试。
 - GlobalUnique claim 与业务写入使用同一数据源、同一事务；失败一起回滚。重复请求返回首次结果，即使资源后来被撤销，下一次资格判断仍读取最新状态。幂等记录不设置TTL，不通过软删除复用键。
-- 关系与授权使用参数化 Spring JDBC SQL，显式维护租户、时间、状态和版本；MapStruct 使用框架共享配置。
+- 关系与授权使用 MyBatis-Flex 读取和参数化 Spring JDBC 写入；租户由 schema 隔离，表内不保存租户列，显式维护时间、状态和版本。MapStruct
+  使用框架共享配置。
 
 ## 构建与启动
 
@@ -79,13 +81,13 @@ java \
   --spring.profiles.active=customer-business
 ```
 
-| 环境变量                                        | 用途                                                              |
-|-------------------------------------------------|-------------------------------------------------------------------|
-| CUSTOMER_JDBC_URL                               | 专属 PostgreSQL 数据库 JDBC URL |
-| CUSTOMER_JDBC_USERNAME / CUSTOMER_JDBC_PASSWORD | 通过外部 Secret 注入的数据库凭证                                  |
-| CUSTOMER_JWT_ISSUER_URI                         | 可信令牌签发方 issuer                                             |
-| CUSTOMER_JWT_AUDIENCE                           | 本业务 API audience                                               |
-| CUSTOMER_JWT_JWK_SET_URI                        | 签发方公钥 JWK Set 地址                                           |
+| 环境变量                                        | 用途                             |
+|-------------------------------------------------|----------------------------------|
+| CUSTOMER_JDBC_URL                               | 专属 PostgreSQL 数据库 JDBC URL  |
+| CUSTOMER_JDBC_USERNAME / CUSTOMER_JDBC_PASSWORD | 通过外部 Secret 注入的数据库凭证 |
+| CUSTOMER_JWT_ISSUER_URI                         | 可信令牌签发方 issuer            |
+| CUSTOMER_JWT_AUDIENCE                           | 本业务 API audience              |
+| CUSTOMER_JWT_JWK_SET_URI                        | 签发方公钥 JWK Set 地址          |
 
 业务配置开启框架 Flyway，扫描依赖内的 db/migration，包含框架主档、序列、幂等表及本次两个表；启动会执行尚未应用的迁移。使用专属业务库，不把其他服务的迁移目录混入
 customer。数据库会话、JVM 与业务 Clock 使用一致的部署时区，JWT epoch 仍保持绝对时间。

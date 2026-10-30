@@ -53,7 +53,6 @@ import io.github.loadup.pay.product.domain.model.OrderAdmission;
 import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
 import io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -108,11 +107,12 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             OrderAdmissionConverter converter,
             Validator validator,
             IdGenerator ids,
-            @Qualifier("productClock") Clock clock,
+            Clock clock,
             @Value("${loadup.modules.product.materialize-seconds:300}") long materializeSeconds,
             PlatformTransactionManager transactionManager) {
-        if (materializeSeconds < 1 || materializeSeconds > 86400)
+        if (materializeSeconds < 1 || materializeSeconds > 86400) {
             throw new IllegalArgumentException("Product materialization window must be between 1 and 86400 seconds");
+        }
         this.actors = actors;
         this.admissions = admissions;
         this.contracts = contracts;
@@ -131,7 +131,9 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
 
     private static Map<String, TypedValue> trustedFacts(
             io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO merchant, AdmissionIntent intent) {
-        if (merchant == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        if (merchant == null) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         Map<String, TypedValue> values = new HashMap<>();
         values.put("merchant.id", TypedValue.text(merchant.id()));
         values.put("merchant.code", TypedValue.text(merchant.merchantCode()));
@@ -139,8 +141,12 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         values.put("merchant.industry", TypedValue.text(merchant.industry()));
         values.put("merchant.country", TypedValue.text(merchant.country()));
         values.put("merchant.active", TypedValue.bool(merchant.active()));
-        if (merchant.province() != null) values.put("merchant.province", TypedValue.text(merchant.province()));
-        if (merchant.city() != null) values.put("merchant.city", TypedValue.text(merchant.city()));
+        if (merchant.province() != null) {
+            values.put("merchant.province", TypedValue.text(merchant.province()));
+        }
+        if (merchant.city() != null) {
+            values.put("merchant.city", TypedValue.text(merchant.city()));
+        }
         values.put("transaction.amountMinor", TypedValue.integer(intent.amount().getCent()));
         values.put("transaction.currency", TypedValue.text(intent.amount().getCurrencyValue()));
         return Map.copyOf(values);
@@ -151,7 +157,9 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         validate(command);
         ProductActor actor = requireActor("pay:product:admit");
         // The customer network call must never join a caller's local transaction.
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return invoke(actor, () -> {
             AdmissionIntent intent = new AdmissionIntent(
                     command.orderId(),
@@ -162,7 +170,9 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     command.requestedDueAt() == null ? null : BusinessTime.local(command.requestedDueAt()),
                     actor.scopeHash());
             var prior = admissions.findByOrder(actor.tenantId(), intent.orderId());
-            if (prior.isPresent()) return replay(prior.get(), intent);
+            if (prior.isPresent()) {
+                return replay(prior.get(), intent);
+            }
             var eligibility = customer.authorizeNewOrder(actor.tenantId(), intent.payeeMerchantId());
             var merchant = converter.toFacts(intent.payeeMerchantId(), eligibility);
             String admissionId = ids.generate();
@@ -173,7 +183,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                         return checked(first.get(), intent);
                     }
                     var header =
-                            contracts.lockByScope(actor.tenantId(), intent.payeeMerchantId(), intent.productScopeKey());
+                            contracts.lockByScope(intent.payeeMerchantId(), intent.productScopeKey());
                     // Serialize against both status changes and another admission waiting on this contract.
                     var afterLock = admissions.findByOrder(actor.tenantId(), intent.orderId());
                     if (afterLock.isPresent()) {
@@ -182,9 +192,13 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                     Instant at = clock.instant().truncatedTo(ChronoUnit.MICROS);
                     LocalDateTime now = LocalDateTime.ofInstant(at, clock.getZone());
                     StoredOrderAdmission decision;
-                    if (!merchant.eligible()) decision = denied(admissionId, intent, merchant.reasonCode(), merchant);
-                    else if (header.isEmpty()) decision = denied(admissionId, intent, "CONTRACT_NOT_FOUND", merchant);
-                    else decision = decide(admissionId, intent, header.get(), eligibility, merchant, at, now);
+                    if (!merchant.eligible()) {
+                        decision = denied(admissionId, intent, merchant.reasonCode(), merchant);
+                    } else if (header.isEmpty()) {
+                        decision = denied(admissionId, intent, "CONTRACT_NOT_FOUND", merchant);
+                    } else {
+                        decision = decide(admissionId, intent, header.get(), eligibility, merchant, at, now);
+                    }
                     admissions.insert(actor.tenantId(), decision);
                     return decision;
                 }));
@@ -208,18 +222,22 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             MerchantEligibilityFacts merchant,
             Instant at,
             LocalDateTime now) {
-        if (!header.tenantId().equals(TenantUtil.getTenantId())
-                || !header.merchantId().equals(intent.payeeMerchantId())
-                || !header.scopeKey().equals(intent.productScopeKey())) throw new CommonException(SNAPSHOT_INVALID);
-        if (header.status() != ContractStatus.NORMAL) return denied(id, intent, "CONTRACT_NOT_ADMISSIBLE", merchant);
+        if (!header.merchantId().equals(intent.payeeMerchantId())
+                || !header.scopeKey().equals(intent.productScopeKey())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (header.status() != ContractStatus.NORMAL) {
+            return denied(id, intent, "CONTRACT_NOT_ADMISSIBLE", merchant);
+        }
         MerchantContractRevision snapshot = contracts.snapshot(header);
         var selected = snapshot.items().entrySet().stream()
                 .filter(entry -> entry.getValue().configuration().values().containsKey("trade.amountModel"))
                 .toList();
-        if (selected.size() != 1) throw new CommonException(UNSUPPORTED_POLICY);
+        if (selected.size() != 1) {
+            throw new CommonException(UNSUPPORTED_POLICY);
+        }
         var item = selected.getFirst();
         var view = new MerchantContract(
-                header.tenantId(),
                 header.merchantId(),
                 header.scopeKey(),
                 header.id(),
@@ -228,15 +246,19 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
                 List.of(snapshot));
         ContractDecision runtime = new ContractRuntimeResolver()
                 .resolve(view, item.getKey(), at, trustedFacts(eligibility.merchant(), intent));
-        if (!runtime.allowed())
+        if (!runtime.allowed()) {
             return denied(id, intent, "CONTRACT_" + runtime.reason().name(), merchant);
+        }
         ActivatedLimitPolicy publication = contracts
-                .publication(header.tenantId(), header.id(), snapshot.revision())
+                .publication(header.id(), snapshot.revision())
                 .orElse(null);
-        if (publication == null || !publication.activeAt(now)) return denied(id, intent, "POLICY_NOT_ACTIVE", merchant);
+        if (publication == null || !publication.activeAt(now)) {
+            return denied(id, intent, "POLICY_NOT_ACTIVE", merchant);
+        }
         AcquiringTermsDTO terms = compiler.compile(runtime.configuration(), publication);
-        if (!policy.acceptsRequestedDeadline(intent, now, terms.order().maxWaitSeconds()))
+        if (!policy.acceptsRequestedDeadline(intent, now, terms.order().maxWaitSeconds())) {
             return denied(id, intent, "ORDER_DEADLINE_INVALID", merchant);
+        }
         EncodedAcquiringTerms compiled = codec.encode(new CompiledAcquiringTerms(
                 1,
                 header.id(),
@@ -295,8 +317,9 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             DomainChecks.id(query.id());
             StoredOrderAdmission stored =
                     admissions.findById(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (!actor.scopeHash().equals(stored.intent().callerScopeHash()))
+            if (!actor.scopeHash().equals(stored.intent().callerScopeHash())) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             return present(stored);
         });
     }
@@ -306,8 +329,9 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
     }
 
     private StoredOrderAdmission checked(StoredOrderAdmission stored, AdmissionIntent intent) {
-        if (!stored.intent().callerScopeHash().equals(intent.callerScopeHash()))
+        if (!stored.intent().callerScopeHash().equals(intent.callerScopeHash())) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         stored.intent().requireSame(intent);
         return stored;
     }
@@ -320,12 +344,16 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private ProductActor requireActor(String permission) {
         ProductActor actor = actors.current();
-        if (!actor.permissions().contains(permission)) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.permissions().contains(permission)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 

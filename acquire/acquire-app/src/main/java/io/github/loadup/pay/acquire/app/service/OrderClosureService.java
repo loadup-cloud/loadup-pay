@@ -43,9 +43,13 @@ public class OrderClosureService implements AcquireOrderClosureFacade {
 
     @Override
     public AcquireOrderDTO close(AcquireOrderCloseCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:close")) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.permissions().contains("pay:acquire:close")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return operations.close(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), command);
     }
 }

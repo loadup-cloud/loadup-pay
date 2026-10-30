@@ -9,24 +9,29 @@ import io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionAuthorizeCommand
 import io.github.loadup.pay.product.rpc.proto.WireOrderAdmissionDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the product service. */
+/**
+ * Protobuf IDL entry point for the product service.
+ */
 @DubboService(interfaceClass = ProductRpc.class)
 public class ProductRpcService extends DubboProductRpcTriple.ProductRpcImplBase {
     private final OrderAdmissionFacade orderAdmission;
 
-    public ProductRpcService(OrderAdmissionFacade orderAdmission) {
+    private final ProductRpcMapper productRpcMapper;
+
+    public ProductRpcService(ProductRpcMapper productRpcMapper, OrderAdmissionFacade orderAdmission) {
+        this.productRpcMapper = productRpcMapper;
         this.orderAdmission = orderAdmission;
     }
 
     @Override
     public WireOrderAdmissionDTO authorize(WireOrderAdmissionAuthorizeCommand request) {
-        return ProductRpcMapper.INSTANCE.toWireOrderAdmissionDTO(orderAdmission.authorize(
-                ProductRpcMapper.INSTANCE.fromWireOrderAdmissionAuthorizeCommand(request)));
+        return productRpcMapper.toWireOrderAdmissionDTO(orderAdmission.authorize(
+                productRpcMapper.fromWireOrderAdmissionAuthorizeCommand(request)));
     }
 
     @Override
     public WireOrderAdmissionDTO detail(WireIdQuery request) {
-        return ProductRpcMapper.INSTANCE.toWireOrderAdmissionDTO(
-                orderAdmission.detail(ProductRpcMapper.INSTANCE.fromWireIdQuery(request)));
+        return productRpcMapper.toWireOrderAdmissionDTO(
+                orderAdmission.detail(productRpcMapper.fromWireIdQuery(request)));
     }
 }

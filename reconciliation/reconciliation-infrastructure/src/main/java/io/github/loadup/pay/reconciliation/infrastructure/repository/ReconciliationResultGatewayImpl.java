@@ -18,6 +18,7 @@ package io.github.loadup.pay.reconciliation.infrastructure.repository;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationDifferenceReader;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
@@ -31,8 +32,6 @@ import io.github.loadup.pay.reconciliation.infrastructure.converter.Reconciliati
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationBatchDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationDifferenceDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationEntryDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -66,7 +65,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
     private final ReconciliationDifferenceStorageConverter converter;
 
     public ReconciliationResultGatewayImpl(IdGenerator ids,
-                                           NamedParameterJdbcTemplate jdbc, ReconciliationStorageConverter values, ReconciliationDifferenceStorageConverter converter, @Qualifier("reconciliationClock") Clock clock) {
+                                           NamedParameterJdbcTemplate jdbc, ReconciliationStorageConverter values, ReconciliationDifferenceStorageConverter converter, Clock clock) {
         this.ids = ids;
         this.jdbc = jdbc;
         this.clock = clock;
@@ -80,10 +79,13 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         var batch = batch(tenant, batchId, true);
         if (result == null || !"RUNNING".equals(batch.getState()) || !Objects.equals(runId, batch.getRunId())
                 || !Objects.equals(batch.getChannelInputId(), result.channel().artifactId()) || !Objects.equals(batch.getLedgerInputId(), result.ledger().artifactId())
-                || !values.toScope(batch).equals(result.channel().scope())) throw new CommonException(SNAPSHOT_INVALID);
-        var countArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
-        if (jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_difference WHERE tenant_id = :tenant AND batch_id = :batch AND deleted = FALSE", countArgs, Long.class) != 0)
+                || !values.toScope(batch).equals(result.channel().scope())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var countArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_difference WHERE tenant_id = :tenant AND batch_id = :batch AND deleted = FALSE", countArgs, Long.class) != 0) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var channel = referenced(tenant, batch.getChannelInputId(), result.differences(), true);
         var ledger = referenced(tenant, batch.getLedgerInputId(), result.differences(), false);
         var pending = new ArrayList<BeanPropertySqlParameterSource>();
@@ -108,9 +110,14 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
                         :channelTransactionNo, :channelRefundNo, :channelEntryId, :ledgerEntryId, :channelOnly, :ledgerOnly,
                         :amountMismatch, :requestMismatch, :stateMismatch)
                     """, rows);
-            if (counts.length != rows.length) throw new CommonException(CONCURRENT_UPDATE);
-            for (int count : counts)
-                if (count != 1 && count != Statement.SUCCESS_NO_INFO) throw new CommonException(CONCURRENT_UPDATE);
+            if (counts.length != rows.length) {
+                throw new CommonException(CONCURRENT_UPDATE);
+            }
+            for (int count : counts) {
+                if (count != 1 && count != Statement.SUCCESS_NO_INFO) {
+                    throw new CommonException(CONCURRENT_UPDATE);
+                }
+            }
         }
     }
 
@@ -118,10 +125,13 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
     public PageResult<StoredReconciliationDifference> page(String tenant, String batchId, ReconciliationRecordKind kind,
                                                            ReconciliationDifferenceReason reason, int page, int size) {
         ReconciliationStoreContext.readable(tenant);
-        if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100)
+        if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100) {
             throw new CommonException(INVALID_STATE);
+        }
         var batch = batch(tenant, batchId, false);
-        if (!Set.of("MATCHED", "DIFFERENCES").contains(batch.getState())) throw new CommonException(INVALID_STATE);
+        if (!Set.of("MATCHED", "DIFFERENCES").contains(batch.getState())) {
+            throw new CommonException(INVALID_STATE);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId).addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
         var where = new StringBuilder("tenant_id = :tenant AND batch_id = :batch AND deleted = FALSE");
@@ -129,34 +139,45 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
             where.append(" AND kind = :kind");
             args.addValue("kind", kind.name());
         }
-        if (reason != null) where.append(switch (reason) {
-            case CHANNEL_ONLY -> " AND channel_only = TRUE";
-            case LEDGER_ONLY -> " AND ledger_only = TRUE";
-            case AMOUNT_MISMATCH -> " AND amount_mismatch = TRUE";
-            case REQUEST_MISMATCH -> " AND request_mismatch = TRUE";
-            case STATE_MISMATCH -> " AND state_mismatch = TRUE";
-        });
+        if (reason != null) {
+            where.append(switch (reason) {
+                case CHANNEL_ONLY -> " AND channel_only = TRUE";
+                case LEDGER_ONLY -> " AND ledger_only = TRUE";
+                case AMOUNT_MISMATCH -> " AND amount_mismatch = TRUE";
+                case REQUEST_MISMATCH -> " AND request_mismatch = TRUE";
+                case STATE_MISMATCH -> " AND state_mismatch = TRUE";
+            });
+        }
         long total = jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_difference WHERE " + where, args, Long.class);
         var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE " + where + " ORDER BY id ASC LIMIT :limit OFFSET :offset",
                 args, BeanPropertyRowMapper.newInstance(ReconciliationDifferenceDO.class));
         var ids = new HashSet<String>();
         for (var row : rows) {
-            if (row.getChannelEntryId() != null) ids.add(row.getChannelEntryId());
-            if (row.getLedgerEntryId() != null) ids.add(row.getLedgerEntryId());
+            if (row.getChannelEntryId() != null) {
+                ids.add(row.getChannelEntryId());
+            }
+            if (row.getLedgerEntryId() != null) {
+                ids.add(row.getLedgerEntryId());
+            }
         }
         var indexed = new HashMap<String, ReconciliationEntryDO>();
-        if (!ids.isEmpty())
+        if (!ids.isEmpty()) {
             for (var row : jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)",
-                    new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids), BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class)))
+                    new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids), BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class))) {
                 indexed.put(row.getId(), row);
+            }
+        }
         var records = rows.stream().map(row -> {
             try {
-                if (!Objects.equals(batch.getRunId(), row.getRunId())) throw new CommonException(SNAPSHOT_INVALID);
+                if (!Objects.equals(batch.getRunId(), row.getRunId())) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var channel = line(indexed, row.getChannelEntryId(), batch.getChannelInputId());
                 var ledger = line(indexed, row.getLedgerEntryId(), batch.getLedgerInputId());
                 var value = converter.toDifference(row, channel, ledger);
-                if (!value.key().fingerprint().equals(row.getMatchKeyHash()))
+                if (!value.key().fingerprint().equals(row.getMatchKeyHash())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 return converter.toStored(row, value);
             } catch (RuntimeException corrupt) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -170,24 +191,37 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         ReconciliationStoreContext.readable(tenant);
         io.github.loadup.commons.validation.DomainChecks.id(differenceId);
         var batch = batch(tenant, batchId, false);
-        if (!Set.of("MATCHED", "DIFFERENCES").contains(batch.getState())) throw new CommonException(INVALID_STATE);
+        if (!Set.of("MATCHED", "DIFFERENCES").contains(batch.getState())) {
+            throw new CommonException(INVALID_STATE);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId).addValue("id", differenceId);
         var row = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE tenant_id = :tenant AND batch_id = :batch AND id = :id AND deleted = FALSE",
                 args, BeanPropertyRowMapper.newInstance(ReconciliationDifferenceDO.class)).stream().findFirst().orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
-            if (!differenceId.equals(row.getId()) || !batchId.equals(row.getBatchId()) || !Objects.equals(batch.getRunId(), row.getRunId()))
+            if (!differenceId.equals(row.getId()) || !batchId.equals(row.getBatchId()) || !Objects.equals(batch.getRunId(), row.getRunId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var ids = new HashSet<String>();
-            if (row.getChannelEntryId() != null) ids.add(row.getChannelEntryId());
-            if (row.getLedgerEntryId() != null) ids.add(row.getLedgerEntryId());
+            if (row.getChannelEntryId() != null) {
+                ids.add(row.getChannelEntryId());
+            }
+            if (row.getLedgerEntryId() != null) {
+                ids.add(row.getLedgerEntryId());
+            }
             var indexed = new HashMap<String, ReconciliationEntryDO>();
-            if (!ids.isEmpty())
+            if (!ids.isEmpty()) {
                 for (var entry : jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)",
-                        new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids), BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class)))
+                        new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids), BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class))) {
                     indexed.put(entry.getId(), entry);
+                }
+            }
             var value = converter.toDifference(row, line(indexed, row.getChannelEntryId(), batch.getChannelInputId()), line(indexed, row.getLedgerEntryId(), batch.getLedgerInputId()));
-            if (!value.key().fingerprint().equals(row.getMatchKeyHash())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!value.key().fingerprint().equals(row.getMatchKeyHash())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return Optional.of(converter.toStored(row, value));
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -202,31 +236,42 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
             var part = keys.subList(offset, Math.min(offset + 256, keys.size()));
             for (var row : jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND input_id = :input AND match_key_hash IN (:keys)",
                     new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("input", input).addValue("keys", part), BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class))) {
-                if (!input.equals(row.getInputId()) || result.put(row.getMatchKeyHash(), row) != null)
+                if (!input.equals(row.getInputId()) || result.put(row.getMatchKeyHash(), row) != null) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
             }
         }
         return result;
     }
 
     private ReconciliationEntryDO reference(Map<String, ReconciliationEntryDO> entries, ReconciliationLine expected) {
-        if (expected == null) return null;
+        if (expected == null) {
+            return null;
+        }
         var row = entries.get(expected.key().fingerprint());
-        if (row == null || !expected.equals(read(row))) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null || !expected.equals(read(row))) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return row;
     }
 
     private ReconciliationLine line(Map<String, ReconciliationEntryDO> entries, String id, String inputId) {
-        if (id == null) return null;
+        if (id == null) {
+            return null;
+        }
         var row = entries.get(id);
-        if (row == null || !inputId.equals(row.getInputId())) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null || !inputId.equals(row.getInputId())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return read(row);
     }
 
     private ReconciliationLine read(ReconciliationEntryDO row) {
         try {
             var value = values.toLine(row);
-            if (!value.key().fingerprint().equals(row.getMatchKeyHash())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!value.key().fingerprint().equals(row.getMatchKeyHash())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -236,13 +281,16 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
     private ReconciliationBatchDO batch(String tenant, String id, boolean lock) {
         io.github.loadup.commons.validation.DomainChecks.id(id);
         if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))) {
             throw new CommonException(INVALID_STATE);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         var row = jdbc.query("SELECT id, tenant_id, created_at, updated_at, caller_service_id, request_key, request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version FROM reconciliation_batch WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))
                 .stream().findFirst().orElse(null);
-        if (row == null) throw new CommonException(NOT_FOUND);
+        if (row == null) {
+            throw new CommonException(NOT_FOUND);
+        }
         return row;
     }
 

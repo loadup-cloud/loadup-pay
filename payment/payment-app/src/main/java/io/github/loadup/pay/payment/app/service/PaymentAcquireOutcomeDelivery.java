@@ -35,12 +35,16 @@ public class PaymentAcquireOutcomeDelivery {
 
     public void deliver(OutboxEvent event) {
         var snapshot = support.load(event, PaymentEvents.ACQUIRE);
-        if (!acquire.supportsTenant(snapshot.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!acquire.supportsTenant(snapshot.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var envelope = snapshot.envelope();
         var ack = acquire.accept(snapshot.tenantId(), envelope);
         if (ack == null || !ack.accepted() || !envelope.deliveryId().equals(ack.deliveryId())
                 || !envelope.businessEventId().equals(ack.businessEventId()) || !envelope.aggregateId().equals(ack.paymentId())
                 || envelope.aggregateVersion() != ack.paymentVersion() || !envelope.data().evidenceId().equals(ack.evidenceId())
-                || ack.orderVersion() < 0) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                || ack.orderVersion() < 0) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

@@ -366,7 +366,7 @@ Collector/model 单测和两类实际 MySQL 聚合输入已补，未运行。真
 
 ## 2026-10-27 Review R3：首次 UNKNOWN 时间源码
 
-付款/子退款的 first_unknown_at 与第一次 UNKNOWN 状态 CAS 原子保存，使用既有 paymentClock 本地微秒时间；后续与终态保留，不改变公开
+付款/子退款的 first_unknown_at 与第一次 UNKNOWN 状态 CAS 原子保存，使用共享 Clock 本地微秒时间；后续与终态保留，不改变公开
 Command/意图/摘要或资金权限。
 库存最老年龄改用当前 UNKNOWN 行的该字段，删除开发期 .unknown.oldest.business.age，统一 .unknown.oldest.age。
 直接同步两份初始化迁移的列与 CHECK，不增加兼容默认/回填；没有执行数据库操作。补金融 IT 的回滚/首个提交/重复/终态保留与退出库存输入，均未运行。

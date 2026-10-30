@@ -32,7 +32,6 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -69,7 +68,7 @@ public class CheckoutSessionOperations {
             AcquireOrderConverter ordersConverter,
             CheckoutConverter converter,
             IdGenerator ids,
-            @Qualifier("acquireClock") Clock clock) {
+            Clock clock) {
         this.sessions = sessions;
         this.codec = codec;
         this.tokens = tokens;
@@ -122,7 +121,9 @@ public class CheckoutSessionOperations {
         String digest =
                 digest(actor, new CheckoutSessionCreateCommand(order.order().id(), key, target), target);
         checked(actor, order, stored, key, digest, target);
-        if (!sessionId.equals(stored.session().id())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!sessionId.equals(stored.session().id())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return present(actor, order, stored);
     }
 
@@ -135,7 +136,9 @@ public class CheckoutSessionOperations {
         var admission = codec.decodeAdmission(order.admissionPayload(), order.payloadHash());
         String target = requested == null ? admission.terms().returnTargetCode() : requested;
         DomainChecks.text(target, 128);
-        if (!target.equals(admission.terms().returnTargetCode())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!target.equals(admission.terms().returnTargetCode())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return target;
     }
 
@@ -152,22 +155,30 @@ public class CheckoutSessionOperations {
                 || !stored.scope().callerScopeHash().equals(actor.scopeHash())
                 || !stored.scope().returnTargetCode().equals(target)
                 || !stored.session().orderId().equals(order.order().id())
-                || !stored.payeeMerchantId().equals(order.order().payeeMerchantId()))
+                || !stored.payeeMerchantId().equals(order.order().payeeMerchantId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
     }
 
     private StoredCheckoutSession prepare(
             AcquireActor actor, StoredAcquireOrder order, String id, String requestKey, String digest, String target) {
-        if (!actor.scopeHash().equals(order.callerScopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.scopeHash().equals(order.callerScopeHash())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var admission = codec.decodeAdmission(order.admissionPayload(), order.payloadHash());
         LocalDateTime now = now();
-        if (!order.order().canAcceptNewPayment(now)) throw new CommonException(ORDER_NOT_PAYABLE);
+        if (!order.order().canAcceptNewPayment(now)) {
+            throw new CommonException(ORDER_NOT_PAYABLE);
+        }
         LocalDateTime expiry =
                 now.plusSeconds(admission.terms().order().sessionSeconds()).truncatedTo(ChronoUnit.SECONDS);
         if (order.order().unpaidAction() == UnpaidOrderAction.CLOSE
-                && expiry.isAfter(order.order().orderDueAt()))
+                && expiry.isAfter(order.order().orderDueAt())) {
             expiry = order.order().orderDueAt().truncatedTo(ChronoUnit.SECONDS);
-        if (!expiry.isAfter(now) || expiry.getYear() > 9998) throw new CommonException(ORDER_NOT_PAYABLE);
+        }
+        if (!expiry.isAfter(now) || expiry.getYear() > 9998) {
+            throw new CommonException(ORDER_NOT_PAYABLE);
+        }
         var session = CheckoutSession.init(id, order.order().id(), expiry).activate(now);
         String nonce = tokens.nonce();
         String keyRef = tokens.keyRef();
@@ -189,17 +200,24 @@ public class CheckoutSessionOperations {
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 
     private CheckoutDTO present(AcquireActor actor, StoredAcquireOrder order, StoredCheckoutSession stored) {
-        if (stored.revokedAt() != null) throw new CommonException(SESSION_UNAVAILABLE);
-        if (!presentation.allowedOrigin().equals(stored.allowedOrigin()))
+        if (stored.revokedAt() != null) {
             throw new CommonException(SESSION_UNAVAILABLE);
+        }
+        if (!presentation.allowedOrigin().equals(stored.allowedOrigin())) {
+            throw new CommonException(SESSION_UNAVAILABLE);
+        }
         // Rebuild the original token, never renew the session or select the new active key on replay.
         String token =
                 tokens.issue(stored.session(), stored.tokenNonce(), stored.tokenKeyRef(), stored.tokenKeyVersion());
-        if (!tokens.matches(token, stored)) throw new CommonException(SESSION_UNAVAILABLE);
+        if (!tokens.matches(token, stored)) {
+            throw new CommonException(SESSION_UNAVAILABLE);
+        }
         return converter.toCheckout(
                 ordersConverter.toDTO(order, now()),
                 stored.session().id(),
@@ -215,10 +233,11 @@ public class CheckoutSessionOperations {
                 actor.scopeHash(),
                 command.orderId(),
                 command.requestKey(),
-                target))
+                target)) {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(field);
+        }
         return tokens.hash(framed.toString());
     }
 

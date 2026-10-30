@@ -30,7 +30,9 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 public record PaymentExecutionGate(String orderId, String paymentId, GateState state, long fenceEpoch) {
     public PaymentExecutionGate {
         DomainChecks.id(orderId);
-        if (paymentId != null) DomainChecks.id(paymentId);
+        if (paymentId != null) {
+            DomainChecks.id(paymentId);
+        }
         Objects.requireNonNull(state);
         require(fenceEpoch >= 0, INVALID_ARGUMENT);
         require((state == GateState.FENCED) == (fenceEpoch > 0), INVALID_STATE);
@@ -51,7 +53,9 @@ public record PaymentExecutionGate(String orderId, String paymentId, GateState s
      * A tombstone received before creation can never be opened by a late execution intent.
      */
     public PaymentExecutionGate open() {
-        if (state == GateState.OPEN) return this;
+        if (state == GateState.OPEN) {
+            return this;
+        }
         require(state == GateState.INIT, INVALID_STATE);
         return new PaymentExecutionGate(orderId, paymentId, GateState.OPEN, 0);
     }

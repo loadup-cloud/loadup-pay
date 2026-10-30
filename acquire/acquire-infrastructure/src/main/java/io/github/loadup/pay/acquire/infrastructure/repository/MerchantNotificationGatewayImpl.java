@@ -18,14 +18,13 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -53,7 +52,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     private final MerchantNotificationStorageConverter converter;
 
     public MerchantNotificationGatewayImpl(MerchantNotificationStorageConverter converter, NamedParameterJdbcTemplate jdbc,
-                                           @Qualifier("acquireClock") Clock clock) {
+                                           Clock clock) {
         this.clock = clock;
         this.jdbc = jdbc;
         this.converter = converter;
@@ -111,8 +110,9 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     public Optional<MerchantNotificationDelivery> lock(String tenant, String deliveryId) {
         writable(tenant);
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", deliveryId);
         var row = read("id = :id", args, true);
         return row == null ? Optional.empty() : Optional.of(decode(row));
@@ -121,7 +121,9 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     @Override
     public void insert(String tenant, MerchantNotificationDelivery delivery) {
         writable(tenant);
-        if (delivery.rowVersion() != 0) throw new CommonException(SNAPSHOT_INVALID);
+        if (delivery.rowVersion() != 0) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var row = converter.toDO(tenant, delivery);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -137,16 +139,21 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
                     :nextAttemptAt, :attemptCount, :state, :routeFingerprint, :acknowledgedAt, :rowVersion)
                 ON CONFLICT (tenant_id, event_id, target_ref) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Notification event target already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Notification event target already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public void update(String tenant, MerchantNotificationDelivery before, MerchantNotificationDelivery after) {
         writable(tenant);
         if (!sameIdentity(before, after) || after.rowVersion() != increment(before.rowVersion())
-                || before.routeFingerprint() != null && !before.routeFingerprint().equals(after.routeFingerprint()))
+                || before.routeFingerprint() != null && !before.routeFingerprint().equals(after.routeFingerprint())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var patch = converter.toPatch(after);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.id()).addValue("expected", before.rowVersion())
                 .addValue("next", patch.getNextAttemptAt()).addValue("attempts", patch.getAttemptCount()).addValue("state", patch.getState())
@@ -158,7 +165,9 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
                     row_version = :version, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND deleted = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private MerchantNotificationDeliveryDO read(String predicate, MapSqlParameterSource args, boolean lock) {
@@ -170,10 +179,11 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     private MerchantNotificationDelivery decode(io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO row) {
         try {
             var value = converter.toDomain(row);
-            if (row.getId() == null || row.getTenantId() == null || row.getRowVersion() == null
+            if (row.getId() == null || row.getRowVersion() == null
                     || row.getRowVersion() < 0 || !row.getId().equals(value.id())
-                    || row.getRowVersion() != value.rowVersion() || !row.getTargetRef().equals(value.policy().targetRef()))
+                    || row.getRowVersion() != value.rowVersion() || !row.getTargetRef().equals(value.policy().targetRef())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -199,14 +209,17 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
     }
 
     private void tenant(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private void writable(String tenant) {
         tenant(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

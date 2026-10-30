@@ -76,7 +76,9 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
 
     @Override
     public ChannelNotificationAcknowledgement receive(String endpointRef, ChannelNotificationInput input) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var endpoint = endpoints.resolve(endpointRef).orElseThrow(() -> new CommonException(NOT_FOUND));
         boolean accepted;
         try {
@@ -87,20 +89,24 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
                 var attempt = stored.attempt();
                 if (attempt.binding().channel() != endpoint.channel() || !attempt.binding().id().equals(endpoint.bindingRevisionId())
                         || !attempt.channelRequestNo().equals(hint.channelRequestNo()) || attempt.executionEpoch() <= 0
-                        || stored.submissionStartedAt() == null) throw new CommonException(SNAPSHOT_INVALID);
+                        || stored.submissionStartedAt() == null) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var payment = payments.find(endpoint.tenantId(), attempt.paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
                 commands.decode(payment);
                 PaymentExecutionBindings.observable(payment, stored);
                 var target = new ChannelPaymentTarget(attempt.identity(), attempt.amount());
                 var verified = notifications.verify(target, input);
                 // Nothing from the unverified hint reaches a channel query or a financial mutation.
-                if (!verified.identity().equals(target.identity()) || !verified.amount().equals(target.amount()))
+                if (!verified.identity().equals(target.identity()) || !verified.amount().equals(target.amount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var query = channels.query(target);
                 if (query.source() != PaymentObservation.Source.QUERY_RESPONSE || !target.identity().equals(query.identity())
                         || !target.amount().equals(query.amount()) || query.channelTransactionNo() != null
-                        && !verified.channelTransactionNo().equals(query.channelTransactionNo()))
+                        && !verified.channelTransactionNo().equals(query.channelTransactionNo())) {
                     throw new CommonException(OUTCOME_UNKNOWN);
+                }
                 String notificationId = verified.notificationId();
                 String facts = observations.factsDigest(query);
                 String key = "notification:" + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length

@@ -43,7 +43,9 @@ class JwtPublicationActorProviderTest {
                 .subject("publisher")
                 .claim("tenant_id", "tenant")
                 .claim("principal_type", type);
-        if (service != null) builder.claim("service_id", service);
+        if (service != null) {
+            builder.claim("service_id", service);
+        }
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         "verified", builder.build(), List.of(new SimpleGrantedAuthority("pay:product:publish"))));

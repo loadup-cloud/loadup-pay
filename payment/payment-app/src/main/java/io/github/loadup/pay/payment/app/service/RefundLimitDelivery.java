@@ -50,22 +50,29 @@ public class RefundLimitDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.message().version() != 1
-                || !RefundProjectionEvents.LIMIT.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !RefundProjectionEvents.LIMIT.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var message = event.message();
-        var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId()) || !row.type().equals(message.type())
-                || !row.businessId().equals(message.businessId()) || !"PROCESSING".equals(row.status()))
+        String tenant = TenantUtil.getTenantId();
+        var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!row.id().equals(event.id()) || !row.type().equals(message.type())
+                || !row.businessId().equals(message.businessId()) || !"PROCESSING".equals(row.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (!client.supportsTenant(row.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!client.supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var envelope = codec.limit(message.payload());
-        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType()))
+        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var command = converter.toRestore(envelope);
-        var ack = client.restoreRefund(row.tenantId(), command);
+        var ack = client.restoreRefund(tenant, command);
         if (ack == null || !command.operationId().equals(ack.operationId()) || !command.paymentId().equals(ack.paymentId())
                 || !command.refundId().equals(ack.refundId()) || command.refundVersion() != ack.refundVersion()
                 || !command.businessEventId().equals(ack.businessEventId()) || !command.refundEvidenceId().equals(ack.refundEvidenceId())
@@ -73,7 +80,8 @@ public class RefundLimitDelivery {
                 || ack.verifiedPaymentRefundedMinor() < ack.cumulativePaymentRefundedMinor() || ack.verifiedPaymentRefundVersion() <= 0
                 || ack.restoredAmountMinor() < 0 || ack.restoredAmountMinor() > ack.verifiedPaymentRefundedMinor()
                 || ack.result() != (ack.restoredAmountMinor() > 0 || ack.restoredPaymentCount()
-                ? LimitRestoreResult.RESTORED : LimitRestoreResult.NO_ACTION))
+                ? LimitRestoreResult.RESTORED : LimitRestoreResult.NO_ACTION)) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

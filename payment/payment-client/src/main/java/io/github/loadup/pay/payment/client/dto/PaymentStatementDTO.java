@@ -46,13 +46,15 @@ public record PaymentStatementDTO(String bindingRevisionId, Channel channel, Str
                 || receivedAt == null || downloadedAt == null || downloadedAt.isBefore(receivedAt)
                 || receivedAt.getNano() % 1000 != 0 || downloadedAt.getNano() % 1000 != 0
                 || evidence == null || evidence.length == 0 || evidence.length > 32768
-                || content == null || content.length == 0 || content.length > 16777216)
+                || content == null || content.length == 0 || content.length > 16777216) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         evidence = evidence.clone();
         content = content.clone();
         if (!contentSha256.equals(digest("SHA-256", content)) || !evidenceSha256.equals(digest("SHA-256", evidence))
-                || "SHA1".equals(officialHashType) && !officialHash.equals(digest("SHA-1", content)))
+                || "SHA1".equals(officialHashType) && !officialHash.equals(digest("SHA-1", content))) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private static boolean text(String value, int max) {

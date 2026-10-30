@@ -5,7 +5,8 @@
 
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
-当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc` 子包）：批次创建/封存输入引用、原运行与持久任务、
+当前已有 client/domain/app/infrastructure/adapter/bootstrap 六层源码（Protobuf IDL 位于 client 的 `rpc`
+子包）：批次创建/封存输入引用、原运行与持久任务、
 双侧完整输入核对、多原因差错、数据库适配和 HTTP/Dubbo Triple 批次入口。根 reactor、源码/POM 门禁及单应用构建/部署脚本已接入。
 微信 ALL 交易账单解析源码按 2026-01-16 官方格式实现，独立校验账户、账期、规范化行和完整汇总；已接受信 SERVICE 的
 File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已有源码，本服务官方来源请求/任务/File/Transfer 接线源码已补。
@@ -28,7 +29,8 @@ File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已�
   原批次只允许原 caller 及当前账户授权读取/操作；商户凭证不能直接取得对账运营权限。
 - HTTP POST `/api/reconciliation/batches/{create,attach,start,detail,task,retry,differences}`；start 使用
   `ReconciliationBatchStartCommand`。
-  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder 的身份与错误映射。
+  跨进程契约是 reconciliation-client 的 `ReconciliationRpc`，适配器用 `@DubboService` 实现生成的 `ImplBase`，复用 binder
+  的身份与错误映射。
   differences 使用通用 PageDTO/PageResponse，默认 1/20，最大 100；终态差错查询不回源交易服务。
   detail 在 run 已建立时显示任务 ID 与原生状态；retry 要求 batchId、runId、expectedTaskId，只重试原 FAILED 任务，保留两份封存输入。
 

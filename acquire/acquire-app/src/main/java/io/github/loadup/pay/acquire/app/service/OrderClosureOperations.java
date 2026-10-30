@@ -32,7 +32,6 @@ import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -67,7 +66,7 @@ public class OrderClosureOperations {
     public OrderClosureOperations(OrderCreationGateway orders, OrderClosureGateway store,
                                   PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
                                   AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
-                                  IdGenerator ids, Validator validator, @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderClosureTasks tasks) {
+                                  IdGenerator ids, Validator validator, Clock clock, OrderSnapshotEvents snapshots, OrderClosureTasks tasks) {
         this.orders = orders;
         this.store = store;
         this.payment = payment;
@@ -85,7 +84,9 @@ public class OrderClosureOperations {
 
     AcquireOrderDTO close(OrderPaymentScope actor, AcquireOrderCloseCommand command) {
         requireNoTransaction(actor);
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var intent = transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), command.id());
@@ -100,16 +101,22 @@ public class OrderClosureOperations {
      */
     OrderCloseIntent startLocked(OrderPaymentScope actor, StoredAcquireOrder order, AcquireOrderCloseCommand command) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        if (!actor.tenantId().equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+        }
+        if (!actor.tenantId().equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         DomainChecks.id(command.id());
         DomainChecks.text(command.requestKey(), 128);
         DomainChecks.text(command.reasonCode(), 64);
         owned(actor, order);
-        if (!order.order().id().equals(command.id())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!order.order().id().equals(command.id())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         String digest = digest(actor, command);
         var prior = store.findIntent(actor.tenantId(), command.id());
         if (prior.isPresent()) {
@@ -118,8 +125,9 @@ public class OrderClosureOperations {
             bound(order, value);
             return value;
         }
-        if (order.order().state() != AcquireOrderState.INIT && order.order().state() != AcquireOrderState.PENDING)
+        if (order.order().state() != AcquireOrderState.INIT && order.order().state() != AcquireOrderState.PENDING) {
             throw new CommonException(INVALID_STATE);
+        }
         var closing = order.order().requestClose();
         var intent = converter.toIntent(command, closing, ids.generate(), actor.scopeHash(), digest, now());
         store.start(actor.tenantId(), closing, intent, order.order().version());
@@ -135,12 +143,15 @@ public class OrderClosureOperations {
         requireNoTransaction(actor);
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var original = current(actor, intent);
-            if (terminal(original.order())) return orderConverter.toDTO(original, now());
+            if (terminal(original.order())) {
+                return orderConverter.toDTO(original, now());
+            }
             var fenced = payment.fenceParent(actor.tenantId(), converter.toFence(intent));
             requireParent(intent, fenced);
             var batch = store.heldAfter(actor.tenantId(), intent.orderId(), intent.cursorPaymentId(), BATCH_SIZE);
-            if (batch.isEmpty() && !intent.cursorPaymentId().isEmpty())
+            if (batch.isEmpty() && !intent.cursorPaymentId().isEmpty()) {
                 batch = store.heldAfter(actor.tenantId(), intent.orderId(), "", BATCH_SIZE);
+            }
             for (var allocation : batch) {
                 outcomes.bound(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), original, allocation);
                 var request = converter.toPaymentClose(intent, allocation);
@@ -157,10 +168,13 @@ public class OrderClosureOperations {
                 owned(actor, order);
                 bound(order, store.findIntent(actor.tenantId(), intent.orderId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
-                if (terminal(order.order())) return orderConverter.toDTO(order, now());
-                if (!status.allChildrenConverged() || order.order().paymentReservedMinor() != 0
-                        || order.order().reservedPaymentCount() != 0 || !store.allAllocationsSettled(actor.tenantId(), intent.orderId()))
+                if (terminal(order.order())) {
                     return orderConverter.toDTO(order, now());
+                }
+                if (!status.allChildrenConverged() || order.order().paymentReservedMinor() != 0
+                        || order.order().reservedPaymentCount() != 0 || !store.allAllocationsSettled(actor.tenantId(), intent.orderId())) {
+                    return orderConverter.toDTO(order, now());
+                }
                 var closed = order.order().finishClose(converter.toEvidence(intent, status));
                 store.finish(actor.tenantId(), closed, order.order().version(), now());
                 snapshots.publish(actor.tenantId(), closed.id(), closed.version());
@@ -174,16 +188,24 @@ public class OrderClosureOperations {
      * Checks the supplied consistent view without acquiring locks or starting another close request.
      */
     boolean isCurrent(OrderPaymentScope actor, StoredAcquireOrder order, OrderCloseIntent intent, long generation) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         owned(actor, order);
         bound(order, intent);
-        if (generation > intent.rowVersion()) throw new CommonException(SNAPSHOT_INVALID);
+        if (generation > intent.rowVersion()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return generation == intent.rowVersion() && !terminal(order.order());
     }
 
     private void requireNoTransaction(OrderPaymentScope actor) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private void advance(OrderPaymentScope actor, OrderCloseIntent attempted, String nextCursor) {
@@ -214,15 +236,17 @@ public class OrderClosureOperations {
     private void bound(StoredAcquireOrder order, OrderCloseIntent intent) {
         if (!order.order().id().equals(intent.orderId()) || !order.order().payeeMerchantId().equals(intent.payeeMerchantId())
                 || !order.callerScopeHash().equals(intent.callerScopeHash()) || order.order().closeEpoch() != intent.closeEpoch()
-                || !(order.order().state() == AcquireOrderState.CLOSING || terminal(order.order())))
+                || !(order.order().state() == AcquireOrderState.CLOSING || terminal(order.order()))) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void requireParent(OrderCloseIntent intent, ParentFenceDTO response) {
         if (response == null || !validator.validate(response).isEmpty() || !intent.orderId().equals(response.orderId())
                 || !response.fenced() || response.closeEpoch() < intent.closeEpoch() || response.unknownCount() < 0
-                || response.allChildrenConverged() && response.unknownCount() != 0)
+                || response.allChildrenConverged() && response.unknownCount() != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private boolean terminal(AcquireOrder order) {
@@ -230,13 +254,16 @@ public class OrderClosureOperations {
     }
 
     private void owned(OrderPaymentScope actor, StoredAcquireOrder order) {
-        if (!order.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!order.callerScopeHash().equals(actor.scopeHash())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private String digest(OrderPaymentScope actor, AcquireOrderCloseCommand command) {
         var canonical = new StringBuilder();
-        for (String field : List.of("acquire.order-close.v1", actor.tenantId(), actor.scopeHash(), command.id(), command.requestKey(), command.reasonCode()))
+        for (String field : List.of("acquire.order-close.v1", actor.tenantId(), actor.scopeHash(), command.id(), command.requestKey(), command.reasonCode())) {
             canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return codec.checksum(canonical.toString());
     }
 

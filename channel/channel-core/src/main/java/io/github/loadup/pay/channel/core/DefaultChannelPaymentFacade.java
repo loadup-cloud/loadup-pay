@@ -55,112 +55,154 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
 
     @Override
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, request.identity());
-        if (!context.binding().capabilities().contains(request.method()))
+        if (!context.binding().capabilities().contains(request.method())) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         provider.validate(context, request);
     }
 
     @Override
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var payment = request.payment();
         var provider = route(context, payment.identity());
-        if (!context.binding().capabilities().contains(payment.method()))
+        if (!context.binding().capabilities().contains(payment.method())) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         var result = provider.submit(context, request);
-        if (result == null || !payment.identity().equals(result.identity()) || !payment.amount().equals(result.amount()))
+        if (result == null || !payment.identity().equals(result.identity()) || !payment.amount().equals(result.amount())) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         if (result.action() != null && (result.action().channel() != payment.identity().channel()
                 || result.action().method() != payment.method()
-                || result.action().expiresAt().isAfter(request.payableUntil())))
+                || result.action().expiresAt().isAfter(request.payableUntil()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 
     @Override
     public PaymentObservation query(ChannelExecutionContext context, ChannelPaymentTarget target) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, target.identity());
         return checked(target, recovery.execute(target.identity().channel(), () -> provider.query(context, target)));
     }
 
     @Override
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, request.identity());
         var result = recovery.execute(request.identity().channel(), () -> provider.recover(context, request));
         if (result == null || !request.identity().equals(result.identity()) || !request.amount().equals(result.amount())
-                || result.observation() == null || result.observation().source() != PaymentObservation.Source.QUERY_RESPONSE)
+                || result.observation() == null || result.observation().source() != PaymentObservation.Source.QUERY_RESPONSE) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         if (result.action() != null && (result.action().channel() != request.identity().channel()
-                || result.action().method() != request.method() || result.action().expiresAt().isAfter(request.payableUntil())))
+                || result.action().method() != request.method() || result.action().expiresAt().isAfter(request.payableUntil()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 
     @Override
     public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, target.identity());
         return checked(target, recovery.execute(target.identity().channel(), () -> provider.close(context, target)));
     }
 
     @Override
     public boolean canRefund(PreparedChannelRefund refund) {
-        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        if (refund == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return providers.find(refund.original().channel()).map(provider -> provider.canRefund(refund)).orElse(false);
     }
 
     @Override
     public RefundObservation submitRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
-        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        if (refund == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, refund.original());
-        if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (!provider.canRefund(refund)) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         return checked(refund, provider.submitRefund(context, refund));
     }
 
     @Override
     public RefundObservation queryRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
-        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        if (refund == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, refund.original());
-        if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (!provider.canRefund(refund)) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         return checked(refund, recovery.execute(refund.original().channel(), () -> provider.queryRefund(context, refund)));
     }
 
     @Override
     public RefundObservation recoverRefund(ChannelExecutionContext context, PreparedChannelRefund refund) {
-        if (refund == null) throw new CommonException(INVALID_ARGUMENT);
+        if (refund == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var provider = route(context, refund.original());
-        if (!provider.canRefund(refund)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (!provider.canRefund(refund)) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         var result = checked(refund, recovery.execute(refund.original().channel(), () -> provider.recoverRefund(context, refund)));
         if (result.source() != RefundObservation.Source.QUERY_RESPONSE && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
                 || result.source() == RefundObservation.Source.SUBMIT_RESPONSE && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
-                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN)
+                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 
     private ChannelProvider route(ChannelExecutionContext context, ChannelPaymentIdentity identity) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || identity == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || identity == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
         if (binding.channel() != identity.channel() || !binding.id().equals(identity.bindingRevisionId())
-                || !binding.accountScopeHash().equals(identity.accountScopeHash()))
+                || !binding.accountScopeHash().equals(identity.accountScopeHash())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         return providers.require(identity.channel());
     }
 
     private PaymentObservation checked(ChannelPaymentIdentity identity, PaymentObservation result) {
-        if (result == null || !identity.equals(result.identity())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (result == null || !identity.equals(result.identity())) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 
     private PaymentObservation checked(ChannelPaymentTarget target, PaymentObservation result) {
         checked(target.identity(), result);
-        if (!target.amount().equals(result.amount())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!target.amount().equals(result.amount())) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 
@@ -168,7 +210,9 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (result == null || !refund.refundId().equals(result.refundId()) || !refund.original().equals(result.original())
                 || !refund.channelRefundNo().equals(result.channelRefundNo())
                 || !refund.originalChannelTransactionNo().equals(result.originalChannelTransactionNo())
-                || !refund.amount().equals(result.amount())) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                || !refund.amount().equals(result.amount())) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 }

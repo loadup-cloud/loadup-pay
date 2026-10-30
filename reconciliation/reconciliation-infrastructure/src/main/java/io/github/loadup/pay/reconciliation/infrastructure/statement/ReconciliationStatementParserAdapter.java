@@ -49,17 +49,25 @@ public class ReconciliationStatementParserAdapter implements ReconciliationState
 
     @Override
     public ReconciliationDataset parse(InputStream input, ReconciliationImportRequest request) {
-        if (!supports(request.scope())) throw new CommonException(INPUT_INVALID);
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+        if (!supports(request.scope())) {
+            throw new CommonException(INPUT_INVALID);
+        }
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
-        if (request.file().size() > 67108864L) throw new CommonException(INPUT_INVALID);
+        }
+        if (request.file().size() > 67108864L) {
+            throw new CommonException(INPUT_INVALID);
+        }
         try {
             int size = Math.toIntExact(request.file().size());
             byte[] bytes = input.readNBytes(size + 1);
             // A short transport read is not proof that the original pinned file has an invalid trailer.
-            if (bytes.length != size) throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            if (!request.file().sha256().equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))))
+            if (bytes.length != size) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
+            if (!request.file().sha256().equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)))) {
                 throw new CommonException(INPUT_INVALID);
+            }
             return wechat.parse(new ByteArrayInputStream(bytes), request.scope(), request.statementAccount(), request.id(), request.id());
         } catch (IOException | NoSuchAlgorithmException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

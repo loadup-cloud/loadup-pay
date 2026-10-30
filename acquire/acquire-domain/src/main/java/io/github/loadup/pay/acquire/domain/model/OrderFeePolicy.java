@@ -54,7 +54,9 @@ public record OrderFeePolicy(
                 .setScale(0, rounding)
                 .longValueExact();
         long fee = Math.max(minimumMinor, rounded);
-        if (maximumMinor != null) fee = Math.min(maximumMinor, fee);
+        if (maximumMinor != null) {
+            fee = Math.min(maximumMinor, fee);
+        }
         return DomainChecks.cnyAmount(fee, orderAmount.getCurrencyValue());
     }
 

@@ -33,7 +33,7 @@ Mapper/TableDef，Spring MapStruct 维护表示转换。
 
 字段保留完整 ChannelPaymentIdentity（payment/attempt/channel/bindingRevision/accountScopeHash/channelRequestNo）、CNY
 原金额、可空渠道交易号、原 receiptKey、原 sourceDigest、正 executionEpoch 和本地微秒 recordedAt。时间来自注入的
-paymentClock，不改变系统时区；recordedAt 是本地记录时间，绝不是渠道成功或关闭的发生时间。
+共享 Clock，不改变系统时区；recordedAt 是本地记录时间，绝不是渠道成功或关闭的发生时间。
 
 类型隐含已确认未收款关闭，不另存可由调用方指定的状态。原 observation 重建固定
 NO_COLLECTION/CLOSE_RESPONSE，成功时间为空。私有渠道交易号在诊断输出隐藏；不保存浏览器输入、授权 token 或凭证材料。

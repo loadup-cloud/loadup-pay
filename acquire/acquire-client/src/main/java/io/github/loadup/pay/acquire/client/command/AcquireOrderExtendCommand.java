@@ -39,8 +39,9 @@ public record AcquireOrderExtendCommand(
         @Schema(description = "Original order version precondition; do not replace it on a retry") @PositiveOrZero
         long expectedVersion) {
     public AcquireOrderExtendCommand {
-        if (requestedDueAt != null)
+        if (requestedDueAt != null) {
             requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

@@ -26,7 +26,9 @@ public record ReconciliationStatementAccount(@DiagnosticHidden String merchantId
                                              @DiagnosticHidden String subMerchantId) {
     public ReconciliationStatementAccount {
         DomainChecks.id(merchantId);
-        if (subMerchantId != null) DomainChecks.id(subMerchantId);
+        if (subMerchantId != null) {
+            DomainChecks.id(subMerchantId);
+        }
     }
 
     @Override

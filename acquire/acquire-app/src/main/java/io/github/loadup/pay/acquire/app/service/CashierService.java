@@ -31,7 +31,6 @@ import io.github.loadup.pay.acquire.client.facade.CashierFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -62,7 +61,7 @@ public class CashierService implements CashierFacade {
     public CashierService(CashierActorProvider actors, CashierAccess access, CashierChoices choices, CashierInteractionProvider inputs,
                           OrderCreationGateway orders, PaymentOutcomeGateway allocations, PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
                           CashierSummaryService summaries, CashierPaymentConverter converter, OrderCreationTransactions transactions, Validator validator,
-                          @Qualifier("acquireClock") Clock clock) {
+                          Clock clock) {
         this.actors = actors;
         this.access = access;
         this.choices = choices;
@@ -88,7 +87,9 @@ public class CashierService implements CashierFacade {
         validate(command);
         noTransaction();
         var actor = actors.current();
-        if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
+        if (!actor.orderId().equals(command.orderId())) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         String owner = transactions.withTenantContext(actor.tenantId(), () -> {
             var order = orders.findOrder(actor.tenantId(), actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_START");
@@ -97,8 +98,9 @@ public class CashierService implements CashierFacade {
         var interaction = inputs.prepare(actor, command.choice());
         var result = initiation.start(new PaymentInitiationPrincipal(actor.tenantId(), owner, "checkout/" + actor.sessionId(), (order, creating) -> {
             access.authorize(actor, owner, order, creating);
-            if (creating && !choices.choices(order, LocalDateTime.ofInstant(clock.instant(), clock.getZone())).contains(command.choice()))
+            if (creating && !choices.choices(order, LocalDateTime.ofInstant(clock.instant(), clock.getZone())).contains(command.choice())) {
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
+            }
         }), converter.toStart(command, interaction));
         return converter.toCashier(result, summary(new IdQuery(actor.orderId())));
     }
@@ -114,8 +116,9 @@ public class CashierService implements CashierFacade {
             access.read(actor, order, "PAYMENT_PROGRESS");
             var allocation = allocations.findPayment(actor.tenantId(), actor.orderId(), query.id()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             if (!allocation.allocation().actorScope().equals("checkout/" + actor.sessionId())
-                    || !allocation.callerScopeHash().equals(order.callerScopeHash()))
+                    || !allocation.callerScopeHash().equals(order.callerScopeHash())) {
                 throw new CommonException(SESSION_UNAUTHORIZED);
+            }
             return order.callerScopeHash();
         });
         var progress = outcomes.refresh(new OrderPaymentScope(actor.tenantId(), owner), new PaymentProgressRefreshCommand(actor.orderId(), query.id()));
@@ -127,7 +130,9 @@ public class CashierService implements CashierFacade {
         validate(command);
         noTransaction();
         var actor = actors.current();
-        if (!actor.orderId().equals(command.orderId())) throw new CommonException(SESSION_UNAUTHORIZED);
+        if (!actor.orderId().equals(command.orderId())) {
+            throw new CommonException(SESSION_UNAUTHORIZED);
+        }
         var owner = transactions.withTenantContext(actor.tenantId(), () -> {
             var order = orders.findOrder(actor.tenantId(), actor.orderId()).orElseThrow(() -> new CommonException(SESSION_UNAUTHORIZED));
             access.read(actor, order, "PAYMENT_PROGRESS");
@@ -147,10 +152,14 @@ public class CashierService implements CashierFacade {
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private void noTransaction() {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 }

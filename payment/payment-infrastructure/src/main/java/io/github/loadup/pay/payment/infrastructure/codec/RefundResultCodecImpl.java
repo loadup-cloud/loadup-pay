@@ -40,7 +40,9 @@ public class RefundResultCodecImpl implements RefundResultCodec {
     @Override
     public String encode(RefundObservation observation) {
         var payload = json.writeValueAsString(observation);
-        if (payload.getBytes(StandardCharsets.UTF_8).length > 32768) throw new CommonException(SNAPSHOT_INVALID);
+        if (payload.getBytes(StandardCharsets.UTF_8).length > 32768) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
@@ -50,8 +52,9 @@ public class RefundResultCodecImpl implements RefundResultCodec {
         for (var field : java.util.List.of(o.refundId(), o.original().paymentId(), o.original().attemptId(), o.original().channel().name(),
                 o.original().bindingRevisionId(), o.original().accountScopeHash(), o.original().channelRequestNo(), o.channelRefundNo(),
                 o.originalChannelTransactionNo(), o.kind().name(), Long.toString(o.amount().getCent()), o.amount().getCurrencyValue(),
-                Objects.toString(o.channelRefundTransactionNo(), ""), Objects.toString(o.succeededAt(), ""), Objects.toString(o.acceptedAt(), "")))
+                Objects.toString(o.channelRefundTransactionNo(), ""), Objects.toString(o.succeededAt(), ""), Objects.toString(o.acceptedAt(), ""))) {
             value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return hashes.checksum(value.toString());
     }
 }

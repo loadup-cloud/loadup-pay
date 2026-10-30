@@ -47,8 +47,11 @@ public class PaymentResultCodecImpl implements PaymentResultCodec {
                 identity.channel().name(), identity.bindingRevisionId(), identity.accountScopeHash(), identity.channelRequestNo(),
                 value.kind().name(), Long.toString(value.amount().getCent()), value.amount().getCurrencyValue(),
                 value.channelTransactionNo(), value.succeededAt() == null ? null : value.succeededAt().toString())) {
-            if (field == null) data.append("-1:");
-            else data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            if (field == null) {
+                data.append("-1:");
+            } else {
+                data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            }
         }
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(data.toString().getBytes(StandardCharsets.UTF_8)));

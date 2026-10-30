@@ -73,7 +73,7 @@ public interface ReconciliationImportStorageConverter {
     @Mapping(target = "rejectionCode", source = "value.rejectionCode")
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "id", source = "value.id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

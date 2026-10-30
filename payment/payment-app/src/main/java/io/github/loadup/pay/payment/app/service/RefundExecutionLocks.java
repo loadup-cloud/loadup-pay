@@ -52,14 +52,16 @@ public class RefundExecutionLocks {
         var reference = refunds.reference(tenant, requestId).orElseThrow(() -> new CommonException(NOT_FOUND));
         var parent = payments.lockParent(tenant, reference.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!parent.payeeMerchantId().equals(reference.payeeMerchantId()) || !parent.gate().orderId().equals(reference.orderId())
-                || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT)
+                || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var current = refunds.lock(tenant, requestId);
         if (!current.request().id().equals(requestId) || !current.request().id().equals(reference.id())
                 || !current.request().orderId().equals(reference.orderId())
                 || !current.request().payeeMerchantId().equals(reference.payeeMerchantId())
-                || !current.requestDigest().equals(reference.requestDigest()))
+                || !current.requestDigest().equals(reference.requestDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return current;
     }
 
@@ -82,10 +84,12 @@ public class RefundExecutionLocks {
                 || !original.payment().payeeMerchantId().equals(capacity.payeeMerchantId()) || !original.payment().amount().equals(capacity.succeededAmount())
                 || !selected.original().attemptId().equals(original.payment().successfulAttemptId())
                 || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED || !attempt.attempt().identity().equals(selected.original())
-                || !attempt.attempt().amount().equals(capacity.succeededAmount()))
+                || !attempt.attempt().amount().equals(capacity.succeededAmount())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (!selected.refund().terminal() && capacity.reservedMinor() < selected.refund().amount().getCent())
+        }
+        if (!selected.refund().terminal() && capacity.reservedMinor() < selected.refund().amount().getCent()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return new LockedRefund(request, facts, capacity);
     }
 

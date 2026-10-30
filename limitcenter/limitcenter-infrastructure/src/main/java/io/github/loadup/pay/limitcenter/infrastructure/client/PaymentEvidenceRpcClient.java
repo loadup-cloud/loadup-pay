@@ -10,7 +10,6 @@ import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
@@ -33,15 +32,16 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 
 @Component
 public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
-    @DubboReference(url = "tri://payment-headless:50051")
-    private PaymentRpc paymentRpc;
-
     private final JsonMapper mapper;
     private final PaymentEvidenceProperties properties;
     private final Clock clock;
+    private final PaymentRpcMapper paymentRpcMapper;
+    @DubboReference(url = "tri://payment-headless:50051")
+    private PaymentRpc paymentRpc;
 
-    public PaymentEvidenceRpcClient(JsonMapper mapper, PaymentEvidenceProperties properties,
-                                    @Qualifier("limitcenterClock") Clock clock) {
+    public PaymentEvidenceRpcClient(PaymentRpcMapper paymentRpcMapper, JsonMapper mapper, PaymentEvidenceProperties properties,
+                                    Clock clock) {
+        this.paymentRpcMapper = paymentRpcMapper;
         this.mapper = mapper;
         this.properties = properties;
         this.clock = clock;
@@ -54,22 +54,28 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
-                PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(paymentId)))));
+        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
+                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))));
     }
 
     @Override
     public RefundSettlementFactsDTO refundFacts(String tenant, String refundId) {
-        return exchange(tenant, () -> PaymentRpcMapper.INSTANCE.fromWireRefundSettlementFactsDTO(paymentRpc.refundFacts(
-                PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery(refundId)))));
+        return exchange(tenant, () -> paymentRpcMapper.fromWireRefundSettlementFactsDTO(paymentRpc.refundFacts(
+                paymentRpcMapper.toWireIdQuery(new IdQuery(refundId)))));
     }
 
     private <R> R exchange(String tenant, Supplier<R> call) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             R response = RpcTokenContext.call(credential(tenant), call);
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -80,11 +86,14 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
         // Preflight routing claims only. The receiving provider rebuilds identity from the same token.
         try (var input = Files.newInputStream(properties.tokenFile())) {
             byte[] bytes = input.readNBytes(16385);
-            if (bytes.length > 16384) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (bytes.length > 16384) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             String token = new String(bytes, StandardCharsets.US_ASCII).strip();
             String[] parts = token.split("[.]", -1);
-            if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+")))
+            if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+"))) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             var claims = mapper.readValue(
                     Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
                     });
@@ -98,8 +107,9 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
                     || !properties.serviceId().equals(claims.get("sub"))
                     || !expectedAudience
                     || epoch(claims.get("exp")) <= now
-                    || claims.get("nbf") != null && epoch(claims.get("nbf")) > now)
+                    || claims.get("nbf") != null && epoch(claims.get("nbf")) > now) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return token;
         } catch (IOException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
@@ -107,7 +117,9 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
     }
 
     private long epoch(Object value) {
-        if (!(value instanceof Number)) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        if (!(value instanceof Number)) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         return new BigDecimal(value.toString()).longValueExact();
     }
 }

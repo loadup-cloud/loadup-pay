@@ -34,7 +34,6 @@ import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;
 import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -70,7 +69,7 @@ public class RoutingProfileService implements RoutingProfileFacade {
     public RoutingProfileService(PaymentActorProvider actors, RoutingProfileGateway profiles,
                                  ChannelBindingManagementGateway bindings, RoutingProfileConverter converter, RoutingProfileCodec codec,
                                  PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator,
-                                 @Qualifier("paymentClock") Clock clock,
+                                 Clock clock,
                                  @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
         this.actors = actors;
         this.profiles = profiles;
@@ -98,12 +97,15 @@ public class RoutingProfileService implements RoutingProfileFacade {
                 if (prior.isPresent()) {
                     var original = prior.get();
                     if (!original.requestDigest().equals(digest) || !original.spec().equals(spec)
-                            || !original.contentHash().equals(hash)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                            || !original.contentHash().equals(hash)) {
+                        throw new CommonException(IDEMPOTENCY_CONFLICT);
+                    }
                     return converter.toDTO(original);
                 }
                 // A reference is a version, never a mutable "latest" alias.
-                if (profiles.find(actor.tenantId(), spec.profileRef()).isPresent())
+                if (profiles.find(actor.tenantId(), spec.profileRef()).isPresent()) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 requireBindings(actor.tenantId(), spec);
                 var profile = converter.toStored(ids.generate(), spec, hash, actor.serviceId(), command.requestKey(), digest,
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
@@ -119,8 +121,9 @@ public class RoutingProfileService implements RoutingProfileFacade {
         for (var code : spec.rules().stream().map(RoutingRule::bindingCode).distinct().toList()) {
             var head = bindings.find(tenant, spec.payeeMerchantId(), code)
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-            if (!head.payeeMerchantId().equals(spec.payeeMerchantId()) || !head.bindingCode().equals(code))
+            if (!head.payeeMerchantId().equals(spec.payeeMerchantId()) || !head.bindingCode().equals(code)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             resolved.put(head.id(), head);
         }
         var locked = new HashMap<String, RoutableChannelBinding>();
@@ -128,9 +131,12 @@ public class RoutingProfileService implements RoutingProfileFacade {
             var head = bindings.lock(tenant, spec.payeeMerchantId(), prior.bindingCode())
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
             if (!head.id().equals(prior.id()) || !head.bindingCode().equals(prior.bindingCode())
-                    || !head.payeeMerchantId().equals(spec.payeeMerchantId()))
+                    || !head.payeeMerchantId().equals(spec.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
-            if (head.state() != ChannelBindingState.ACTIVE) throw new CommonException(CHANNEL_BINDING_UNAVAILABLE);
+            }
+            if (head.state() != ChannelBindingState.ACTIVE) {
+                throw new CommonException(CHANNEL_BINDING_UNAVAILABLE);
+            }
             var revision = bindings.revision(tenant, head.currentRevisionId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             try {
@@ -142,8 +148,9 @@ public class RoutingProfileService implements RoutingProfileFacade {
         for (var rule : spec.rules()) {
             var binding = locked.get(rule.bindingCode()).revision().binding();
             if (!spec.payeeMerchantId().equals(binding.payeeMerchantId()) || binding.channel() != rule.channel()
-                    || binding.accessMode() != rule.accessMode() || !binding.capabilities().contains(rule.method()))
+                    || binding.accessMode() != rule.accessMode() || !binding.capabilities().contains(rule.method())) {
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
+            }
         }
     }
 
@@ -156,21 +163,27 @@ public class RoutingProfileService implements RoutingProfileFacade {
             DomainChecks.text(query.profileRef(), 128);
             var profile = profiles.find(actor.tenantId(), query.profileRef())
                     .orElseThrow(() -> new CommonException(ROUTING_PROFILE_UNAVAILABLE));
-            if (!profile.spec().payeeMerchantId().equals(query.payeeMerchantId()))
+            if (!profile.spec().payeeMerchantId().equals(query.payeeMerchantId())) {
                 throw new CommonException(ROUTING_PROFILE_UNAVAILABLE);
+            }
             return converter.toDTO(profile);
         });
     }
 
     private PaymentActor actor(String permission) {
         var actor = actors.current();
-        if (!managementService.equals(actor.serviceId()) || !actor.permissions().contains(permission))
+        if (!managementService.equals(actor.serviceId()) || !actor.permissions().contains(permission)) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 }

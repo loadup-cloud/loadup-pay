@@ -28,8 +28,9 @@ public record AlipayVerifiedExchange(AlipayVerifiedResponse response, String req
                                      @DiagnosticHidden byte[] responseBytes) {
     public AlipayVerifiedExchange {
         if (response == null || requestSha256 == null || !requestSha256.matches("[0-9a-f]{64}")
-                || responseBytes == null || responseBytes.length == 0 || responseBytes.length > 1048576)
+                || responseBytes == null || responseBytes.length == 0 || responseBytes.length > 1048576) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         responseBytes = responseBytes.clone();
     }
 

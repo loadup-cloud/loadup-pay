@@ -54,9 +54,13 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
     @Override
     public String encode(PaymentExecuteCommand command) {
         try {
-            if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+            if (command == null || !validator.validate(command).isEmpty()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             String payload = mapper.writeValueAsString(snapshots.toSnapshot(command));
-            if (payload.getBytes(StandardCharsets.UTF_8).length > 262144) throw new CommonException(SNAPSHOT_INVALID);
+            if (payload.getBytes(StandardCharsets.UTF_8).length > 262144) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return payload;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -76,15 +80,17 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
     public PaymentExecuteCommand decode(StoredPaymentAcceptance stored) {
         try {
             if (stored.intentPayload().getBytes(StandardCharsets.UTF_8).length > 262144
-                    || !checksum(stored.intentPayload()).equals(stored.payloadHash()))
+                    || !checksum(stored.intentPayload()).equals(stored.payloadHash())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
             var payment = stored.payment();
             if (value == null || !payment.id().equals(value.paymentId()) || !payment.orderId().equals(value.orderId())
                     || !payment.allocationId().equals(value.allocationId()) || !payment.payeeMerchantId().equals(value.payeeMerchantId())
                     || payment.amount().getCent() != value.amountMinor() || !payment.amount().getCurrencyValue().equals(value.currency())
-                    || !stored.admissionId().equals(value.admissionId()) || !stored.requestDigest().equals(value.requestDigest()))
+                    || !stored.admissionId().equals(value.admissionId()) || !stored.requestDigest().equals(value.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             // Storage constructors validate the frozen format. Current public Bean Validation is ingress-only.
             return snapshots.toCommand(value);
         } catch (RuntimeException corrupt) {

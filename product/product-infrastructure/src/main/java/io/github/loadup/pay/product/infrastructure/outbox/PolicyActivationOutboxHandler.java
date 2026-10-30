@@ -45,17 +45,18 @@ public class PolicyActivationOutboxHandler implements OutboxHandler {
     public void handle(OutboxEvent event) {
         if (event == null
                 || !eventType().equals(event.message().type())
-                || event.message().version() != 1
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || event.message().version() != 1) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         PolicyActivationDispatch dispatch;
         try {
             dispatch = json.readValue(event.message().payload(), PolicyActivationDispatch.class);
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (dispatch == null || !event.message().businessId().equals(dispatch.publicationId()))
+        if (dispatch == null || !event.message().businessId().equals(dispatch.publicationId())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        service.deliver(event.message().tenantId(), event.id(), dispatch.publicationId());
+        }
+        service.deliver(TenantUtil.getTenantId(), event.id(), dispatch.publicationId());
     }
 }

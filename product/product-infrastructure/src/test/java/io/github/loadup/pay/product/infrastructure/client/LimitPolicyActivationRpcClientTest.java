@@ -5,6 +5,7 @@ import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
+import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapperImpl;
 import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
 import org.apache.dubbo.rpc.RpcContext;
@@ -21,7 +22,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 class LimitPolicyActivationRpcClientTest {
     final LimitCenterRpc limitCenterRpc = mock(LimitCenterRpc.class);
+    final LimitCenterRpcMapper limitCenterRpcMapper = new LimitCenterRpcMapperImpl();
     final List<String> attachments = new ArrayList<>();
     @TempDir
     Path directory;
@@ -42,7 +43,7 @@ class LimitPolicyActivationRpcClientTest {
 
     LimitPolicyActivationRpcClient client(Path file) {
         var client = new LimitPolicyActivationRpcClient(
-                new PolicyPublicationTransportProperties("tenant", file));
+                limitCenterRpcMapper, new PolicyPublicationTransportProperties("tenant", file));
         ReflectionTestUtils.setField(client, "limitCenterRpc", limitCenterRpc);
         return client;
     }
@@ -55,7 +56,7 @@ class LimitPolicyActivationRpcClientTest {
                 "policy", 1, "a".repeat(64), OffsetDateTime.parse("2026-10-21T10:00:00+08:00"));
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return LimitCenterRpcMapper.INSTANCE.toWireLimitPolicyActivationDTO(ack);
+            return limitCenterRpcMapper.toWireLimitPolicyActivationDTO(ack);
         }).when(limitCenterRpc).activate(isNull());
         var client = client(file);
         client.activate("tenant", null);

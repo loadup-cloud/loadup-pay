@@ -40,11 +40,14 @@ public final class WechatResponseReader {
     public Map<?, ?> read(WechatVerifiedResponse response, WechatMethod expected) {
         if (response == null || response.method() != expected || response.status() < 100 || response.status() > 599
                 || response.payload() == null || response.payload().isEmpty() || response.payload().length() > 1048576
-                || response.sourceDigest() == null || !response.sourceDigest().matches("[0-9a-f]{64}"))
+                || response.sourceDigest() == null || !response.sourceDigest().matches("[0-9a-f]{64}")) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
             var value = json.readValue(response.payload(), Map.class);
-            if (value == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (value == null) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             return value;
         } catch (RuntimeException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
@@ -54,7 +57,9 @@ public final class WechatResponseReader {
     public String text(Map<?, ?> value, String name, int maximum) {
         Object field = value.get(name);
         if (!(field instanceof String text) || text.isBlank() || text.length() > maximum
-                || text.chars().anyMatch(Character::isISOControl)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                || text.chars().anyMatch(Character::isISOControl)) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return text;
     }
 
@@ -63,7 +68,9 @@ public final class WechatResponseReader {
     }
 
     public void match(Map<?, ?> value, String name, String expected) {
-        if (!expected.equals(text(value, name, 128))) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!expected.equals(text(value, name, 128))) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     public void account(Map<?, ?> value, WechatAccountIdentity account) {
@@ -74,14 +81,18 @@ public final class WechatResponseReader {
             match(value, "sp_appid", account.appId());
             match(value, "sp_mchid", account.merchantId());
             match(value, "sub_mchid", account.subMerchantId());
-            if (account.subAppId() != null) match(value, "sub_appid", account.subAppId());
-            else if (value.get("sub_appid") != null && !"".equals(value.get("sub_appid")))
+            if (account.subAppId() != null) {
+                match(value, "sub_appid", account.subAppId());
+            } else if (value.get("sub_appid") != null && !"".equals(value.get("sub_appid"))) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
         }
     }
 
     public void amount(Map<?, ?> value, long expected) {
-        if (!(value.get("amount") instanceof Map<?, ?> amount)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!(value.get("amount") instanceof Map<?, ?> amount)) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         match(amount, "currency", "CNY");
         minorUnits(amount, "total", expected);
     }
@@ -89,7 +100,8 @@ public final class WechatResponseReader {
     public void minorUnits(Map<?, ?> amount, String name, long expected) {
         Object total = amount.get(name);
         if (!(total instanceof Integer || total instanceof Long || total instanceof BigInteger)
-                || !new BigInteger(total.toString()).equals(BigInteger.valueOf(expected)))
+                || !new BigInteger(total.toString()).equals(BigInteger.valueOf(expected))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 }

@@ -34,7 +34,7 @@ public interface RefundProjectionStorageConverter {
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
 
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "orderAmountMinor", source = "value.orderAmount.cent")
     @Mapping(target = "currency", source = "value.orderAmount.currencyValue")
     @Mapping(target = "rowVersion", source = "value.version")

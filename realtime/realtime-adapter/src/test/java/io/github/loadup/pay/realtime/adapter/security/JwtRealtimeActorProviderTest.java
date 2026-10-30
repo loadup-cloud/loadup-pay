@@ -34,8 +34,12 @@ class JwtRealtimeActorProviderTest {
 
     void jwt(String type, String subject, String service, String merchant) {
         var value = Jwt.withTokenValue("synthetic").header("alg", "RS256").subject(subject).claim("tenant_id", "tenant").claim("principal_type", type);
-        if (service != null) value.claim("service_id", service);
-        if (merchant != null) value.claim("merchant_id", merchant);
+        if (service != null) {
+            value.claim("service_id", service);
+        }
+        if (merchant != null) {
+            value.claim("merchant_id", merchant);
+        }
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", value.build(),
                 List.of(new SimpleGrantedAuthority("pay:realtime:trade:read"))));
     }

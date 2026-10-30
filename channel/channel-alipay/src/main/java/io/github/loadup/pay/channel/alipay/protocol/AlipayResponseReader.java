@@ -42,11 +42,14 @@ public final class AlipayResponseReader {
     public Map<String, Object> read(AlipayVerifiedResponse response, AlipayMethod expected) {
         if (response == null || response.method() != expected || response.payload() == null
                 || response.payload().getBytes(StandardCharsets.UTF_8).length > 1048576
-                || response.sourceDigest() == null || !response.sourceDigest().equals(DigestUtils.sha256(response.payload())))
+                || response.sourceDigest() == null || !response.sourceDigest().equals(DigestUtils.sha256(response.payload()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
             var result = json.readValue(response.payload(), Map.class);
-            if (result == null || text(result, "code") == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (result == null || text(result, "code") == null) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             return result;
         } catch (RuntimeException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
@@ -55,33 +58,43 @@ public final class AlipayResponseReader {
 
     public String text(Map<String, Object> response, String key) {
         var value = response.get(key);
-        if (value == null) return null;
-        if (!(value instanceof String text) || text.isBlank() || text.length() > 4096)
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String text) || text.isBlank() || text.length() > 4096) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return text;
     }
 
     public String requiredText(Map<String, Object> response, String key, int maximum) {
         var value = text(response, key);
-        if (value == null || value.length() > maximum) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (value == null || value.length() > maximum) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return value;
     }
 
     public void matchIfPresent(Map<String, Object> response, String key, String expected) {
-        if (response.get(key) != null && !expected.equals(text(response, key)))
+        if (response.get(key) != null && !expected.equals(text(response, key))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     public void requireMatch(Map<String, Object> response, String key, String expected) {
-        if (!expected.equals(text(response, key))) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!expected.equals(text(response, key))) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     public void requireAmount(String wireAmount, long expectedMinor) {
-        if (wireAmount == null || !wireAmount.matches("(0|[1-9][0-9]{0,15})(\\.[0-9]{1,2})?"))
+        if (wireAmount == null || !wireAmount.matches("(0|[1-9][0-9]{0,15})(\\.[0-9]{1,2})?")) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
-            if (new BigDecimal(wireAmount).movePointRight(2).longValueExact() != expectedMinor)
+            if (new BigDecimal(wireAmount).movePointRight(2).longValueExact() != expectedMinor) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
         } catch (ArithmeticException invalidAmount) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }

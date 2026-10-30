@@ -89,9 +89,12 @@ public interface ReconciliationVerificationConverter {
 
     @Named("verificationMicros")
     default Long micros(OffsetDateTime value) {
-        if (value == null) return null;
-        if (value.getNano() % 1000 != 0)
+        if (value == null) {
+            return null;
+        }
+        if (value.getNano() % 1000 != 0) {
             throw new io.github.loadup.commons.error.CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
+        }
         return Math.addExact(Math.multiplyExact(value.toEpochSecond(), 1000000L), value.getNano() / 1000L);
     }
 

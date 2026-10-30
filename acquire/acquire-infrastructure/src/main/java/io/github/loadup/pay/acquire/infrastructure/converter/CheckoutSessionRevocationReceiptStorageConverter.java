@@ -25,7 +25,7 @@ import org.mapstruct.Mapping;
 public interface CheckoutSessionRevocationReceiptStorageConverter {
     CheckoutSessionRevocationReceipt toDomain(CheckoutSessionRevocationReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

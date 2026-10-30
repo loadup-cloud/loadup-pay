@@ -34,7 +34,9 @@ public record CheckoutProperties(
     public CheckoutProperties {
         DomainChecks.text(keyRef, 128);
         DomainChecks.id(activeKeyVersion);
-        if (pageUrl != null) DomainChecks.text(pageUrl.toASCIIString(), 512);
+        if (pageUrl != null) {
+            DomainChecks.text(pageUrl.toASCIIString(), 512);
+        }
         if (pageUrl == null
                 || pageUrl.getHost() == null
                 || pageUrl.getRawUserInfo() != null
@@ -44,15 +46,18 @@ public record CheckoutProperties(
                 || !("https".equals(pageUrl.getScheme())
                 || "http".equals(pageUrl.getScheme())
                 && Set.of("localhost", "127.0.0.1", "[::1]").contains(pageUrl.getHost()))
-                || !"/checkout".equals(pageUrl.getPath()))
+                || !"/checkout".equals(pageUrl.getPath())) {
             throw new IllegalStateException("Checkout page requires an HTTPS /checkout URL (HTTP only on loopback)");
-        if (keys == null || !keys.containsKey(activeKeyVersion))
+        }
+        if (keys == null || !keys.containsKey(activeKeyVersion)) {
             throw new IllegalStateException("Active checkout key must be configured");
+        }
         keys = Map.copyOf(keys);
         keys.forEach((version, secret) -> {
             DomainChecks.id(version);
-            if (secret == null || secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32)
+            if (secret == null || secret.isBlank() || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
                 throw new IllegalStateException("Checkout keys require at least 32 random UTF-8 bytes");
+            }
         });
     }
 

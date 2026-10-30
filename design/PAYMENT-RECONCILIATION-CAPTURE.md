@@ -68,8 +68,10 @@ Create 只允许已结束的渠道账单日。页码默认1/20、最多100；分
 payment_reconciliation_line；V20261027030000__payment_reconciliation_capture.sql 只作为待执行迁移源码。
 
 DTO 直接使用 record 与 `Instant`/`BigDecimal`；严格校验缺字段、未知枚举/日期/profile、状态 presence、微秒时间与页码/连续
-ordinal/EOF shape。`payment-adapter` 用 `@DubboService(interfaceClass = PaymentCaptureRpc.class)` 实现生成的 `ImplBase`，reconciliation-infrastructure
-用 `@DubboReference(url = "tri://payment-headless:50051")` 引用生成的 `PaymentCaptureRpc`；Wire↔DTO 由 `PaymentCaptureRpcMapper` 转换，无内部 HTTP 回退。
+ordinal/EOF shape。`payment-adapter` 用 `@DubboService(interfaceClass = PaymentCaptureRpc.class)` 实现生成的 `ImplBase`
+，reconciliation-infrastructure
+用 `@DubboReference(url = "tri://payment-headless:50051")` 引用生成的 `PaymentCaptureRpc`；Wire↔DTO 由
+`PaymentCaptureRpcMapper` 转换，无内部 HTTP 回退。
 
 ## 对账侧导入
 

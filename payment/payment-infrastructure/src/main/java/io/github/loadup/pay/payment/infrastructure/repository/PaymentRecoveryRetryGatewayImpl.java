@@ -22,8 +22,6 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryRetryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryRetryReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -47,7 +45,7 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     private final Clock clock;
 
     public PaymentRecoveryRetryGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentRecoveryRetryStorageConverter converter,
-                                           @Qualifier("databaseClock") Clock clock) {
+                                           Clock clock) {
         this.jdbc = jdbc;
         this.converter = converter;
         this.clock = clock;
@@ -56,12 +54,12 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     @Override
     public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var args = new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
+                SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
                        request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,
                        expected_next_execute_at, reason, result, accepted_at
-                FROM payment_recovery_retry_receipt WHERE tenant_id = :tenant AND caller_scope_hash = :caller
+                FROM payment_recovery_retry_receipt WHERE caller_scope_hash = :caller
                     AND request_key = :key AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream().findFirst().orElse(null);
         try {
@@ -76,26 +74,33 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = converter.toDO(tenant, receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_recovery_retry_receipt (id, tenant_id, created_at, updated_at, deleted, request_key,
+                INSERT INTO payment_recovery_retry_receipt (id, created_at, updated_at, deleted, request_key,
                     caller_scope_hash, caller_service_id, request_digest, kind, subject_id, generation, order_id,
                     native_task_id, expected_attempts, expected_next_execute_at, reason, result, accepted_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :requestKey, :callerScopeHash, :callerServiceId,
                     :requestDigest, :kind, :subjectId, :generation, :orderId, :nativeTaskId, :expectedAttempts,
                     :expectedNextExecuteAt, :reason, :result, :acceptedAt)
-                ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
+                ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new PaymentWriteConflictException("Recovery retry request key already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new PaymentWriteConflictException("Recovery retry request key already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

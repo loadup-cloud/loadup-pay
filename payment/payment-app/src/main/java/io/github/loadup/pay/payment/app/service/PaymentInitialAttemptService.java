@@ -25,7 +25,6 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -56,7 +55,7 @@ public class PaymentInitialAttemptService {
 
     public PaymentInitialAttemptService(PaymentRouteSelector routes, PaymentInputAccess inputs, PaymentAttemptGateway attempts,
                                         PaymentControlGateway payments, PaymentAcceptanceCodec codec, PaymentAttemptConverter converter,
-                                        PaymentControlConverter changes, IdGenerator ids, @Qualifier("paymentClock") Clock clock, PaymentEvents events) {
+                                        PaymentControlConverter changes, IdGenerator ids, Clock clock, PaymentEvents events) {
         this.routes = routes;
         this.inputs = inputs;
         this.attempts = attempts;
@@ -71,14 +70,19 @@ public class PaymentInitialAttemptService {
 
     public StoredPaymentAcceptance create(String tenant, StoredPaymentAcceptance accepted, String requestKey, String digest) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+        }
+        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (accepted.payment().activeAttemptId() != null || accepted.payment().state() != PaymentState.INIT)
+        }
+        if (accepted.payment().activeAttemptId() != null || accepted.payment().state() != PaymentState.INIT) {
             throw new CommonException(INVALID_STATE);
+        }
         var original = codec.decode(accepted);
-        if (!clock.instant().isBefore(original.payableUntil().toInstant())) throw new CommonException(PAYMENT_EXPIRED);
+        if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
+            throw new CommonException(PAYMENT_EXPIRED);
+        }
         var binding = routes.select(tenant, original);
         var preparedAt = LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
         inputs.requireNewAcceptance(tenant, accepted.callerServiceId(), original, preparedAt);

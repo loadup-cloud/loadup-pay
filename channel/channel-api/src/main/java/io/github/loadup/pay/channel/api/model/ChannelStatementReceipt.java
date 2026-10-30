@@ -33,8 +33,9 @@ public record ChannelStatementReceipt(String format, String requestSha256, Strin
     public ChannelStatementReceipt {
         if (format == null || format.isBlank() || format.length() > 64 || !hash(requestSha256) || !hash(evidenceSha256) || !hash(contentSha256)
                 || officialHashType == null || officialHash == null || !officialHash.matches("[0-9a-f]{1,128}")
-                || receivedAt == null || downloadedAt == null || downloadedAt.isBefore(receivedAt) || evidence == null || evidence.length == 0 || evidence.length > 32768)
+                || receivedAt == null || downloadedAt == null || downloadedAt.isBefore(receivedAt) || evidence == null || evidence.length == 0 || evidence.length > 32768) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         evidence = evidence.clone();
     }
 

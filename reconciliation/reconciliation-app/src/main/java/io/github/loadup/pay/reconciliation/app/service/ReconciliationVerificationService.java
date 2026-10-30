@@ -33,7 +33,6 @@ import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationVerifica
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -66,7 +65,7 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
 
     public ReconciliationVerificationService(ReconciliationActorProvider actors, ReconciliationReviewService reviews, ReconciliationVerificationGateway requests,
                                              ReconciliationTransactions transactions, OutboxTemplate outbox, ReconciliationVerificationConverter converter, IdGenerator ids, Validator validator,
-                                             @Qualifier("reconciliationClock") Clock clock) {
+                                             Clock clock) {
         this.actors = actors;
         this.reviews = reviews;
         this.requests = requests;
@@ -78,12 +77,13 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
         this.clock = clock;
     }
 
-    static OutboxRecord delivery(OutboxTemplate outbox, String tenant, ReconciliationVerificationRequest value) {
-        var row = outbox.find(tenant, value.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!value.deliveryId().equals(row.id()) || !tenant.equals(row.tenantId()) || !value.id().equals(row.businessId())
+    static OutboxRecord delivery(OutboxTemplate outbox, ReconciliationVerificationRequest value) {
+        var row = outbox.find(value.deliveryId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!value.deliveryId().equals(row.id()) || !value.id().equals(row.businessId())
                 || !ReconciliationVerificationMessages.TYPE.equals(row.type()) || row.status() == null || !Set.of("PENDING", "PROCESSING", "SUCCEEDED", "FAILED").contains(row.status())
-                || row.attempts() < 0 || "SUCCEEDED".equals(row.status()) && value.state() == ReconciliationVerificationState.INIT)
+                || row.attempts() < 0 || "SUCCEEDED".equals(row.status()) && value.state() == ReconciliationVerificationState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return row;
     }
 
@@ -97,11 +97,13 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
             var old = requests.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
             if (old.isPresent()) {
                 var value = checked(actor, old.get());
-                if (!value.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                if (!value.requestDigest().equals(digest)) {
+                    throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 return present(actor.tenantId(), value);
             }
             var id = ids.generate();
-            var deliveryId = outbox.publish(new OutboxMessage(actor.tenantId(), ReconciliationVerificationMessages.TYPE, 1, id, ReconciliationVerificationMessages.encode(id)));
+            var deliveryId = outbox.publish(new OutboxMessage(ReconciliationVerificationMessages.TYPE, 1, id, ReconciliationVerificationMessages.encode(id)));
             var request = converter.toRequest(approved, id, actor.serviceId(), command.requestKey(), digest, deliveryId);
             requests.insert(actor.tenantId(), request);
             return present(actor.tenantId(), request);
@@ -124,43 +126,54 @@ public class ReconciliationVerificationService implements ReconciliationVerifica
             // Stable batch -> review -> verification order. Retry never replaces the frozen query or recorded observation.
             reviews.approvedForVerification(actor, original.reference().batchId(), original.reference().differenceId(), original.proposalId(), original.approvalEventId(), original.reviewVersion(), true);
             var value = checked(actor, requests.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
-            if (!value.deliveryId().equals(command.expectedDeliveryId()))
+            if (!value.deliveryId().equals(command.expectedDeliveryId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
-            var delivery = delivery(outbox, actor.tenantId(), value);
-            if ("FAILED".equals(delivery.status()))
-                outbox.replay(actor.tenantId(), delivery.id(), actor.serviceId(), command.reason());
+            }
+            var delivery = delivery(outbox, value);
+            if ("FAILED".equals(delivery.status())) {
+                outbox.replay(delivery.id(), actor.serviceId(), command.reason());
+            }
             return present(actor.tenantId(), value);
         });
     }
 
     private ReconciliationVerificationRequest checked(ReconciliationActor actor, ReconciliationVerificationRequest value) {
-        if (!actor.serviceId().equals(value.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(value.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var approved = reviews.approvedForVerification(actor, value.reference().batchId(), value.reference().differenceId(), value.proposalId(), value.approvalEventId(), value.reviewVersion(), false);
-        if (!value.reference().equals(approved.reference()) || !value.scope().equals(approved.scope()) || !value.key().equals(approved.key()) || !value.merchantPaymentNo().equals(approved.merchantPaymentNo()))
+        if (!value.reference().equals(approved.reference()) || !value.scope().equals(approved.scope()) || !value.key().equals(approved.key()) || !value.merchantPaymentNo().equals(approved.merchantPaymentNo())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return value;
     }
 
     private ReconciliationVerificationDTO present(String tenant, ReconciliationVerificationRequest value) {
-        return converter.toDTO(value, delivery(outbox, tenant, value), clock);
+        return converter.toDTO(value, delivery(outbox, value), clock);
     }
 
     private ReconciliationActor actor(String operation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor == null || !actor.permissions().contains("pay:reconciliation:verification:" + operation))
+        if (actor == null || !actor.permissions().contains("pay:reconciliation:verification:" + operation)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private String digest(ReconciliationActor actor, ReconciliationVerificationSubmitCommand command) {
         var value = new StringBuilder();
-        for (var field : List.of("reconciliation-verification-v1", actor.tenantId(), actor.serviceId(), command.batchId(), command.differenceId(), command.proposalId(), command.approvalEventId(), Long.toString(command.expectedReviewVersion()), command.requestKey()))
+        for (var field : List.of("reconciliation-verification-v1", actor.tenantId(), actor.serviceId(), command.batchId(), command.differenceId(), command.proposalId(), command.approvalEventId(), Long.toString(command.expectedReviewVersion()), command.requestKey())) {
             value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return DigestUtils.sha256(value.toString());
     }
 }

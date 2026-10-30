@@ -84,7 +84,9 @@ class WechatRefundAdapterTest {
     }
 
     private static String queryPayload(String status) {
-        if (!"SUCCESS".equals(status)) return submitPayload(status);
+        if (!"SUCCESS".equals(status)) {
+            return submitPayload(status);
+        }
         return submitPayload(status).replace("\"status\":\"" + status + "\"", "\"status\":\"" + status
                 + "\",\"success_time\":\"2026-10-23T10:11:12+00:00\"");
     }

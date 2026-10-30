@@ -19,7 +19,6 @@ import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -37,14 +36,15 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LI
 
 @Component
 public class PaymentLimitRpcClient implements PaymentLimitClient {
+    private final PaymentLimitProperties properties;
+    private final PaymentServiceTokenReader tokens;
+    private final LimitCenterRpcMapper limitCenterRpcMapper;
     @DubboReference(url = "tri://limitcenter-headless:50051")
     private LimitCenterRpc limitCenterRpc;
 
-    private final PaymentLimitProperties properties;
-    private final PaymentServiceTokenReader tokens;
-
-    public PaymentLimitRpcClient(JsonMapper mapper, PaymentLimitProperties properties,
-                                 @Qualifier("paymentClock") Clock clock) {
+    public PaymentLimitRpcClient(LimitCenterRpcMapper limitCenterRpcMapper, JsonMapper mapper, PaymentLimitProperties properties,
+                                 Clock clock) {
+        this.limitCenterRpcMapper = limitCenterRpcMapper;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
@@ -56,46 +56,52 @@ public class PaymentLimitRpcClient implements PaymentLimitClient {
 
     @Override
     public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitReservationDTO(
-                limitCenterRpc.reserve(LimitCenterRpcMapper.INSTANCE.toWireLimitReserveCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
+                limitCenterRpc.reserve(limitCenterRpcMapper.toWireLimitReserveCommand(command))));
     }
 
     @Override
     public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitExecutionPermitDTO(
-                limitCenterRpc.begin(LimitCenterRpcMapper.INSTANCE.toWireLimitBeginExecutionCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitExecutionPermitDTO(
+                limitCenterRpc.begin(limitCenterRpcMapper.toWireLimitBeginExecutionCommand(command))));
     }
 
     @Override
     public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitExecutionVerificationDTO(
-                limitCenterRpc.verify(LimitCenterRpcMapper.INSTANCE.toWireLimitExecutionVerifyCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitExecutionVerificationDTO(
+                limitCenterRpc.verify(limitCenterRpcMapper.toWireLimitExecutionVerifyCommand(command))));
     }
 
     @Override
     public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitReservationDTO(
-                limitCenterRpc.confirm(LimitCenterRpcMapper.INSTANCE.toWireLimitConfirmCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
+                limitCenterRpc.confirm(limitCenterRpcMapper.toWireLimitConfirmCommand(command))));
     }
 
     @Override
     public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitReleaseDTO(
-                limitCenterRpc.release(LimitCenterRpcMapper.INSTANCE.toWireLimitReleaseCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReleaseDTO(
+                limitCenterRpc.release(limitCenterRpcMapper.toWireLimitReleaseCommand(command))));
     }
 
     @Override
     public LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command) {
-        return exchange(tenant, () -> LimitCenterRpcMapper.INSTANCE.fromWireLimitRestoreDTO(
-                limitCenterRpc.restoreRefund(LimitCenterRpcMapper.INSTANCE.toWireLimitRefundRestoreCommand(command))));
+        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitRestoreDTO(
+                limitCenterRpc.restoreRefund(limitCenterRpcMapper.toWireLimitRefundRestoreCommand(command))));
     }
 
     private <R> R exchange(String tenant, Supplier<R> call) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             R response = RpcTokenContext.call(credential(tenant), call);
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             var code = switch (RpcExceptionCodes.resultCode(failure)) {

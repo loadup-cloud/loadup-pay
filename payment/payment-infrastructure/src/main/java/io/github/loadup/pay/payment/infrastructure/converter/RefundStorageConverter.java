@@ -60,7 +60,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "channelTransactionNo", source = "row.originalChannelTransactionNo")
     StoredRefundChild toChild(RefundOrderDO row, RefundOrder refund, ChannelPaymentIdentity original, int sequenceNo);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.request.id")
     @Mapping(target = "orderId", source = "value.request.orderId")
     @Mapping(target = "payeeMerchantId", source = "value.request.payeeMerchantId")
@@ -80,7 +80,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     RefundRequestDO toRequestDO(String tenant, StoredRefundRequest value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")
     @Mapping(target = "paymentId", source = "value.refund.paymentId")
@@ -107,7 +107,7 @@ public interface RefundStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     RefundOrderDO toChildDO(String tenant, StoredRefundChild value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")
     @Mapping(target = "planVersion", constant = "1")

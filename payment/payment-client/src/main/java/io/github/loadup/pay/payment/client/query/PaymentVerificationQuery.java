@@ -39,8 +39,9 @@ public record PaymentVerificationQuery(@NotBlank @Size(max = 64) String sourceRe
     public PaymentVerificationQuery {
         if (!text(sourceRequestId, 64) || channel == null || accountScopeHash == null || !accountScopeHash.matches("[0-9a-f]{64}")
                 || kind == null || !text(merchantPaymentNo, 64) || !text(channelTransactionNo, 128)
-                || (kind == PaymentLedgerKind.REFUND ? !text(channelRefundNo, 64) : channelRefundNo != null))
+                || (kind == PaymentLedgerKind.REFUND ? !text(channelRefundNo, 64) : channelRefundNo != null)) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private static boolean text(String value, int max) {

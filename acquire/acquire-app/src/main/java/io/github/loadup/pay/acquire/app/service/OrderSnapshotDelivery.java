@@ -47,25 +47,33 @@ public class OrderSnapshotDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.message().version() != 1
-                || !OrderSnapshotEvents.TYPE.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !OrderSnapshotEvents.TYPE.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        String tenant = event.message().tenantId();
-        var row = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!row.id().equals(event.id()) || !row.tenantId().equals(tenant) || !row.type().equals(OrderSnapshotEvents.TYPE)
-                || !row.businessId().equals(event.message().businessId()) || !"PROCESSING".equals(row.status()))
+        }
+        String tenant = TenantUtil.getTenantId();
+        var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!row.id().equals(event.id()) || !row.type().equals(OrderSnapshotEvents.TYPE)
+                || !row.businessId().equals(event.message().businessId()) || !"PROCESSING".equals(row.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var envelope = codec.decode(event.message().payload());
-        if (!envelope.aggregateId().equals(row.businessId())) throw new CommonException(SNAPSHOT_INVALID);
-        if (!client.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (!envelope.aggregateId().equals(row.businessId())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (!client.supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var ack = client.apply(tenant, envelope);
         if (ack == null || !ack.accepted() || !envelope.deliveryId().equals(ack.deliveryId())
                 || !envelope.businessEventId().equals(ack.businessEventId()) || !envelope.producer().equals(ack.producer())
                 || !envelope.aggregateId().equals(ack.aggregateId()) || ack.sourceVersion() != envelope.aggregateVersion()
                 || ack.projectedVersion() < ack.sourceVersion() || ack.disposition() == null
-                || !Set.of("APPLIED", "DUPLICATE", "STALE").contains(ack.disposition()))
+                || !Set.of("APPLIED", "DUPLICATE", "STALE").contains(ack.disposition())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

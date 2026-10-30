@@ -63,9 +63,12 @@ public record PaymentAttempt(
                         PaymentAttemptState.PENDING,
                         PaymentAttemptState.UNKNOWN,
                         PaymentAttemptState.SUCCEEDED)
-                .contains(state)) require(executionEpoch > 0, INVALID_STATE);
-        if (state == PaymentAttemptState.FAILED || state == PaymentAttemptState.CLOSED)
+                .contains(state)) {
+            require(executionEpoch > 0, INVALID_STATE);
+        }
+        if (state == PaymentAttemptState.FAILED || state == PaymentAttemptState.CLOSED) {
             DomainChecks.id(noCollectionEvidenceId);
+        }
     }
 
     public static PaymentAttempt init(
@@ -126,14 +129,19 @@ public record PaymentAttempt(
         };
         if (terminal()) {
             // Late intermediate observations cannot undo a verified terminal fact.
-            if (target == PaymentAttemptState.PENDING || target == PaymentAttemptState.UNKNOWN) return this;
+            if (target == PaymentAttemptState.PENDING || target == PaymentAttemptState.UNKNOWN) {
+                return this;
+            }
             require(state == target || canSafelyReplace() && target == PaymentAttemptState.FAILED, CONFLICT);
             return this;
         }
         require(state != PaymentAttemptState.INIT, INVALID_STATE);
-        if (target == PaymentAttemptState.FAILED) require(executionFenced, OUTCOME_UNKNOWN);
-        if (state == target || state == PaymentAttemptState.UNKNOWN && target == PaymentAttemptState.PENDING)
+        if (target == PaymentAttemptState.FAILED) {
+            require(executionFenced, OUTCOME_UNKNOWN);
+        }
+        if (state == target || state == PaymentAttemptState.UNKNOWN && target == PaymentAttemptState.PENDING) {
             return this;
+        }
         return new PaymentAttempt(
                 id,
                 paymentId,

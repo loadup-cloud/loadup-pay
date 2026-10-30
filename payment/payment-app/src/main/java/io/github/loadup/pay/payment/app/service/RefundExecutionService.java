@@ -27,7 +27,6 @@ import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -57,7 +56,7 @@ public class RefundExecutionService {
 
     public RefundExecutionService(ObjectProvider<PaymentChannelGateway> channels, RefundExecutionLocks locks, RefundResultGateway changes,
                                   RefundResultService results, RefundExecutionConverter converter, PaymentAcceptanceTransactions transactions,
-                                  @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections) {
+                                  Clock clock, RefundProjectionEvents projections) {
         this.channels = channels;
         this.locks = locks;
         this.changes = changes;
@@ -69,13 +68,19 @@ public class RefundExecutionService {
     }
 
     public void progress(String tenant, String requestId) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         DomainChecks.id(tenant);
         DomainChecks.id(requestId);
         var channel = channels.getIfAvailable();
-        if (channel == null) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (channel == null) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         var work = transactions.writeLocal(tenant, () -> prepare(tenant, requestId, channel));
-        if (work.isEmpty()) return;
+        if (work.isEmpty()) {
+            return;
+        }
         var step = work.get();
         final RefundObservation observation;
         try {
@@ -95,17 +100,23 @@ public class RefundExecutionService {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
         var application = results.record(tenant, observation);
-        if (application.disposition() == RefundReceiptDisposition.CONFLICT) throw new CommonException(OUTCOME_UNKNOWN);
+        if (application.disposition() == RefundReceiptDisposition.CONFLICT) {
+            throw new CommonException(OUTCOME_UNKNOWN);
+        }
     }
 
     private Optional<RefundExecutionWork> prepare(String tenant, String requestId, PaymentChannelGateway channel) {
         var stored = locks.request(tenant, requestId);
         var first = stored.allocations().stream().filter(c -> !c.refund().terminal()).findFirst();
-        if (first.isEmpty()) return Optional.empty();
+        if (first.isEmpty()) {
+            return Optional.empty();
+        }
         var locked = locks.child(tenant, stored, first.get().refund().id());
         var prepared = converter.toPrepared(locked.child().child(), locked.capacity());
         // Strictly a local registry lookup. Capability checks must not load credentials or make network requests.
-        if (!channel.canRefund(prepared)) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (!channel.canRefund(prepared)) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         boolean winner = first.get().refund().state() == RefundState.INIT;
         if (winner) {
             var started = first.get().refund().beginSubmission();

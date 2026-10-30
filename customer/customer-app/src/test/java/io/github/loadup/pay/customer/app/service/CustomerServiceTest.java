@@ -136,11 +136,11 @@ class CustomerServiceTest {
                         null)
                 .activate();
         var profile = new io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO(
-                "child", "tenant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true);
+                "child", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true);
         when(authorization.findGrant("tenant", PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
                 .thenReturn(Optional.of(grant));
         when(facts.find("tenant", "parent")).thenReturn(Optional.of(new MerchantFacts("parent", true, 1)));
-        when(merchants.find("tenant", "child")).thenReturn(Optional.of(profile));
+        when(merchants.find("child")).thenReturn(Optional.of(profile));
         service.authorize(query());
         verify(converter).toEligibility(true, "ALLOWED", profile, new MerchantFacts("child", true, 2), grant);
     }

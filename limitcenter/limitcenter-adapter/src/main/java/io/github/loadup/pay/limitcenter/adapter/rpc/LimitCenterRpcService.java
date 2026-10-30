@@ -25,7 +25,9 @@ import io.github.loadup.pay.limitcenter.rpc.proto.WireLimitReserveCommand;
 import io.github.loadup.pay.limitcenter.rpc.proto.WireLimitRestoreDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the limitcenter service. */
+/**
+ * Protobuf IDL entry point for the limitcenter service.
+ */
 @DubboService(interfaceClass = LimitCenterRpc.class)
 public class LimitCenterRpcService extends DubboLimitCenterRpcTriple.LimitCenterRpcImplBase {
     private final LimitPolicyFacade limitPolicy;
@@ -34,12 +36,16 @@ public class LimitCenterRpcService extends DubboLimitCenterRpcTriple.LimitCenter
     private final LimitSettlementFacade limitSettlement;
     private final LimitRefundFacade limitRefund;
 
+    private final LimitCenterRpcMapper limitCenterRpcMapper;
+
     public LimitCenterRpcService(
+            LimitCenterRpcMapper limitCenterRpcMapper,
             LimitPolicyFacade limitPolicy,
             LimitReservationFacade limitReservation,
             LimitExecutionFacade limitExecution,
             LimitSettlementFacade limitSettlement,
             LimitRefundFacade limitRefund) {
+        this.limitCenterRpcMapper = limitCenterRpcMapper;
         this.limitPolicy = limitPolicy;
         this.limitReservation = limitReservation;
         this.limitExecution = limitExecution;
@@ -49,55 +55,55 @@ public class LimitCenterRpcService extends DubboLimitCenterRpcTriple.LimitCenter
 
     @Override
     public WireLimitPolicyActivationDTO activate(WireLimitPolicyActivateCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitPolicyActivationDTO(
-                limitPolicy.activate(LimitCenterRpcMapper.INSTANCE.fromWireLimitPolicyActivateCommand(request)));
+        return limitCenterRpcMapper.toWireLimitPolicyActivationDTO(
+                limitPolicy.activate(limitCenterRpcMapper.fromWireLimitPolicyActivateCommand(request)));
     }
 
     @Override
     public WireLimitReservationDTO reserve(WireLimitReserveCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitReservationDTO(
-                limitReservation.reserve(LimitCenterRpcMapper.INSTANCE.fromWireLimitReserveCommand(request)));
+        return limitCenterRpcMapper.toWireLimitReservationDTO(
+                limitReservation.reserve(limitCenterRpcMapper.fromWireLimitReserveCommand(request)));
     }
 
     @Override
     public WireLimitReservationDTO detail(WireLimitOperationQuery request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitReservationDTO(
-                limitReservation.detail(LimitCenterRpcMapper.INSTANCE.fromWireLimitOperationQuery(request)));
+        return limitCenterRpcMapper.toWireLimitReservationDTO(
+                limitReservation.detail(limitCenterRpcMapper.fromWireLimitOperationQuery(request)));
     }
 
     @Override
     public WireLimitExecutionPermitDTO begin(WireLimitBeginExecutionCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitExecutionPermitDTO(
-                limitExecution.beginExecution(LimitCenterRpcMapper.INSTANCE.fromWireLimitBeginExecutionCommand(request)));
+        return limitCenterRpcMapper.toWireLimitExecutionPermitDTO(
+                limitExecution.beginExecution(limitCenterRpcMapper.fromWireLimitBeginExecutionCommand(request)));
     }
 
     @Override
     public WireLimitExecutionVerificationDTO verify(WireLimitExecutionVerifyCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitExecutionVerificationDTO(
-                limitExecution.verifyExecution(LimitCenterRpcMapper.INSTANCE.fromWireLimitExecutionVerifyCommand(request)));
+        return limitCenterRpcMapper.toWireLimitExecutionVerificationDTO(
+                limitExecution.verifyExecution(limitCenterRpcMapper.fromWireLimitExecutionVerifyCommand(request)));
     }
 
     @Override
     public WireLimitReservationDTO expire(WireLimitExpireCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitReservationDTO(
-                limitExecution.expire(LimitCenterRpcMapper.INSTANCE.fromWireLimitExpireCommand(request)));
+        return limitCenterRpcMapper.toWireLimitReservationDTO(
+                limitExecution.expire(limitCenterRpcMapper.fromWireLimitExpireCommand(request)));
     }
 
     @Override
     public WireLimitReservationDTO confirm(WireLimitConfirmCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitReservationDTO(
-                limitSettlement.confirm(LimitCenterRpcMapper.INSTANCE.fromWireLimitConfirmCommand(request)));
+        return limitCenterRpcMapper.toWireLimitReservationDTO(
+                limitSettlement.confirm(limitCenterRpcMapper.fromWireLimitConfirmCommand(request)));
     }
 
     @Override
     public WireLimitReleaseDTO release(WireLimitReleaseCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitReleaseDTO(
-                limitSettlement.release(LimitCenterRpcMapper.INSTANCE.fromWireLimitReleaseCommand(request)));
+        return limitCenterRpcMapper.toWireLimitReleaseDTO(
+                limitSettlement.release(limitCenterRpcMapper.fromWireLimitReleaseCommand(request)));
     }
 
     @Override
     public WireLimitRestoreDTO restoreRefund(WireLimitRefundRestoreCommand request) {
-        return LimitCenterRpcMapper.INSTANCE.toWireLimitRestoreDTO(
-                limitRefund.restoreRefund(LimitCenterRpcMapper.INSTANCE.fromWireLimitRefundRestoreCommand(request)));
+        return limitCenterRpcMapper.toWireLimitRestoreDTO(
+                limitRefund.restoreRefund(limitCenterRpcMapper.fromWireLimitRefundRestoreCommand(request)));
     }
 }

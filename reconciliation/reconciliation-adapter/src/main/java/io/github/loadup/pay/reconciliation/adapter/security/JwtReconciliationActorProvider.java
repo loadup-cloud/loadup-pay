@@ -34,13 +34,15 @@ public class JwtReconciliationActorProvider implements ReconciliationActorProvid
     @Override
     public ReconciliationActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt))
+        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id"), service = jwt.getClaimAsString("service_id");
             if (!"SERVICE".equals(jwt.getClaimAsString("principal_type")) || tenant == null || !tenant.equals(tenant.trim())
-                    || service == null || !service.equals(service.trim()) || !service.equals(jwt.getSubject()))
+                    || service == null || !service.equals(service.trim()) || !service.equals(jwt.getSubject())) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             var permissions = auth.getAuthorities().stream().map(authority -> authority.getAuthority()).collect(Collectors.toUnmodifiableSet());
             return new ReconciliationActor(tenant, service, permissions);
         } catch (RuntimeException invalid) {

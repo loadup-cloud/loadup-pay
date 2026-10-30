@@ -52,13 +52,17 @@ public class OrderSnapshotEvents {
     }
 
     public void publish(String tenant, String orderId, long expectedVersion) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         DomainChecks.id(orderId);
         var header = headers.lockCurrent(tenant, orderId);
-        if (header == null || !orderId.equals(header.orderId()) || header.sourceVersion() != expectedVersion)
+        if (header == null || !orderId.equals(header.orderId()) || header.sourceVersion() != expectedVersion) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         final io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO data;
         try {
             data = converter.toEvent(header);
@@ -67,7 +71,7 @@ public class OrderSnapshotEvents {
         }
         var event = new EventEnvelope<>(ids.generate(), ids.generate(), "acquire", TYPE, 1, orderId, expectedVersion,
                 BusinessTime.external(header.sourceUpdatedAt()), data);
-        outbox.publish(new OutboxMessage(tenant, TYPE, 1, orderId, JsonUtil.toJson(event)));
+        outbox.publish(new OutboxMessage(TYPE, 1, orderId, JsonUtil.toJson(event)));
         notifications.order(tenant, header);
     }
 }

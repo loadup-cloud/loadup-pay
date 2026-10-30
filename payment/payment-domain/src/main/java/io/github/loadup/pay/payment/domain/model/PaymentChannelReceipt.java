@@ -42,7 +42,9 @@ public record PaymentChannelReceipt(String id, ChannelPaymentIdentity identity, 
                 && sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(disposition);
         Objects.requireNonNull(receivedAt);
-        if (reasonCode != null) DomainChecks.text(reasonCode, 64);
+        if (reasonCode != null) {
+            DomainChecks.text(reasonCode, 64);
+        }
         require(disposition != PaymentReceiptDisposition.CONFLICT || reasonCode != null, INVALID_ARGUMENT);
     }
 

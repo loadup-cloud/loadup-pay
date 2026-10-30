@@ -4,6 +4,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
+import io.github.loadup.pay.product.rpc.ProductRpcMapper;
+import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
 import io.github.loadup.pay.product.rpc.proto.ProductRpc;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcException;
@@ -31,8 +33,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class OrderAdmissionRpcClientTest {
     static final String TOKEN = "aGVhZGVy.eyJzdWIiOiJhY3F1aXJlIn0.c2lnbmF0dXJl";
     final ProductRpc productRpc = mock(ProductRpc.class);
+    final ProductRpcMapper productRpcMapper = new ProductRpcMapperImpl();
     final AcquireActor actor = new AcquireActor("tenant", "a".repeat(64), TOKEN, Set.of());
-    final OrderAdmissionRpcClient client = new OrderAdmissionRpcClient(() -> actor);
+    final OrderAdmissionRpcClient client = new OrderAdmissionRpcClient(productRpcMapper, () -> actor);
     final OrderAdmissionAuthorizeCommand command =
             new OrderAdmissionAuthorizeCommand("order", "merchant", "scope", "b".repeat(64), 100, "CNY", null);
 
@@ -76,7 +79,7 @@ class OrderAdmissionRpcClientTest {
 
     @Test
     void missingDelegationAudiencePreventsAnyNetworkRequest() {
-        var denied = new OrderAdmissionRpcClient(
+        var denied = new OrderAdmissionRpcClient(productRpcMapper,
                 () -> new AcquireActor("tenant", "a".repeat(64), null, Set.of()));
         ReflectionTestUtils.setField(denied, "productRpc", productRpc);
         assertSame(

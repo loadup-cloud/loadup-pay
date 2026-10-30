@@ -69,12 +69,15 @@ public interface ReconciliationStatementStorageConverter {
     ReconciliationStatementRequest toModel(ReconciliationStatementDO row);
 
     default ReconciliationOfficialReceipt receipt(ReconciliationStatementDO row) {
-        if ("READY".equals(row.getState())) return toReceipt(row);
+        if ("READY".equals(row.getState())) {
+            return toReceipt(row);
+        }
         if (row.getFormat() != null || row.getRequestSha256() != null || row.getOfficialHashType() != null || row.getOfficialHash() != null
                 || row.getReceivedEpochMicros() != null || row.getDownloadedEpochMicros() != null || row.getFileId() != null || row.getStorageId() != null
                 || row.getFileSize() != null || row.getSourceSha256() != null || row.getProofFileId() != null || row.getProofStorageId() != null
-                || row.getProofFileSize() != null || row.getProofSha256() != null)
+                || row.getProofFileSize() != null || row.getProofSha256() != null) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return null;
     }
 
@@ -114,7 +117,7 @@ public interface ReconciliationStatementStorageConverter {
     @Mapping(target = "proofFileSize", source = "value.receipt", qualifiedByName = "evidenceSize")
     @Mapping(target = "proofSha256", source = "value.receipt.evidence.sha256")
     @Mapping(target = "id", source = "value.id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

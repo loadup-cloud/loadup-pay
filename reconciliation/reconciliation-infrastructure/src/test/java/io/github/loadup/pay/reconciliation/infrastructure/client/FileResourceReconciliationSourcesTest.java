@@ -46,7 +46,7 @@ class FileResourceReconciliationSourcesTest {
     @Test
     void inspectHashesActualOwnedBytesAndClosesTheDownloadedStream() {
         var closed = new AtomicBoolean();
-        when(files.get("tenant", "file", "ops", false)).thenReturn(metadata("ops", 3));
+        when(files.get("file", "ops", false)).thenReturn(metadata("ops", 3));
         var object = mock(FileMetadata.class);
         when(object.fileId()).thenReturn("storage");
         var stream = new ByteArrayInputStream(new byte[]{'a', 'b', 'c'}) {
@@ -56,7 +56,7 @@ class FileResourceReconciliationSourcesTest {
                 super.close();
             }
         };
-        when(files.download("tenant", "file", "ops", false)).thenReturn(new FileDownloadResponse(object, stream, 3));
+        when(files.download("file", "ops", false)).thenReturn(new FileDownloadResponse(object, stream, 3));
         var inspected = source.inspect("tenant", "ops", "file");
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", inspected.sha256());
         assertEquals("storage", inspected.storageId());
@@ -66,15 +66,15 @@ class FileResourceReconciliationSourcesTest {
 
     @Test
     void wrongOwnerOversizedOrTruncatedSourceCannotBeFrozen() {
-        when(files.get("tenant", "file", "ops", false)).thenReturn(metadata("other", 3));
+        when(files.get("file", "ops", false)).thenReturn(metadata("other", 3));
         assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file")).getResultCode());
-        verify(files, never()).download(anyString(), anyString(), anyString(), anyBoolean());
-        when(files.get("tenant", "file", "ops", false)).thenReturn(metadata("ops", 1025));
+        verify(files, never()).download(anyString(), anyString(), anyBoolean());
+        when(files.get("file", "ops", false)).thenReturn(metadata("ops", 1025));
         assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"));
-        when(files.get("tenant", "file", "ops", false)).thenReturn(metadata("ops", 3));
+        when(files.get("file", "ops", false)).thenReturn(metadata("ops", 3));
         var object = mock(FileMetadata.class);
         when(object.fileId()).thenReturn("storage");
-        when(files.download("tenant", "file", "ops", false)).thenReturn(new FileDownloadResponse(object, new ByteArrayInputStream(new byte[]{'a'}), 3));
+        when(files.download("file", "ops", false)).thenReturn(new FileDownloadResponse(object, new ByteArrayInputStream(new byte[]{'a'}), 3));
         assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file")).getResultCode());
     }
 
@@ -87,6 +87,6 @@ class FileResourceReconciliationSourcesTest {
 
     private FileResourceDTO metadata(String owner, long size) {
         var at = LocalDateTime.of(2026, 10, 27, 12, 0);
-        return new FileResourceDTO("file", "tenant", owner, "storage", "bill.csv", "text/csv", size, "s3", "ACTIVE", at, at);
+        return new FileResourceDTO("file", owner, "storage", "bill.csv", "text/csv", size, "s3", "ACTIVE", at, at);
     }
 }

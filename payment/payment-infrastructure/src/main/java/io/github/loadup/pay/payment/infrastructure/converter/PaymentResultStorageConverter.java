@@ -49,7 +49,7 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "identity", source = "identity")
     PaymentChannelReceipt toReceipt(PaymentChannelReceiptDO row, ChannelPaymentIdentity identity);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "paymentId", source = "value.identity.paymentId")
     @Mapping(target = "attemptId", source = "value.identity.attemptId")
     @Mapping(target = "channel", source = "value.identity.channel")
@@ -61,15 +61,16 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     PaymentChannelReceiptDO toReceiptDO(String tenant, PaymentChannelReceipt value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     PaymentResultAnomalyDO toAnomalyDO(String tenant, PaymentResultAnomaly value);
 
+    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "identity", source = "identity")
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
-    ChannelTransactionClaim toClaim(ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
+    ChannelTransactionClaim toClaim(String tenant, ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
 
     @Mapping(target = "paymentId", source = "identity.paymentId")
     @Mapping(target = "attemptId", source = "identity.attemptId")
@@ -90,7 +91,7 @@ public interface PaymentResultStorageConverter {
     PaymentRefundCapacity toCapacity(PaymentRefundCapacityDO row);
 
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "succeededMinor", source = "value.succeededAmount.cent")
     @Mapping(target = "currency", source = "value.succeededAmount.currencyValue")
     @Mapping(target = "rowVersion", source = "value.version")

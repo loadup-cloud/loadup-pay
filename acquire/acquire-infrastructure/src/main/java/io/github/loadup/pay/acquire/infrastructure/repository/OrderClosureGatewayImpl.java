@@ -17,6 +17,7 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
@@ -28,8 +29,6 @@ import io.github.loadup.pay.acquire.infrastructure.converter.OrderClosureStorage
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCloseIntentDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -58,7 +57,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
 
     public OrderClosureGatewayImpl(NamedParameterJdbcTemplate jdbc,
                                    OrderClosureStorageConverter converter, PaymentInitiationStorageConverter allocationConverter,
-                                   PaymentInitiationCodec codec, @Qualifier("acquireClock") Clock clock) {
+                                   PaymentInitiationCodec codec, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -75,7 +74,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                        request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version
                 FROM order_close_intent WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(OrderCloseIntentDO.class)).stream().findFirst().orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             return Optional.of(converter.toIntent(row));
         } catch (RuntimeException corrupt) {
@@ -89,7 +90,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         requireTransaction();
         if (before.state() != AcquireOrderState.INIT
                 || before.unpaidAction() != io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction.KEEP_PENDING
-                || !after.equals(before.checkDue(before.orderDueAt()))) throw new CommonException(SNAPSHOT_INVALID);
+                || !after.equals(before.checkDue(before.orderDueAt()))) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var patch = converter.toClosingPatch(after);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.id()).addValue("expected", before.version())
                 .addValue("due", before.orderDueAt()).addValue("oldEpoch", before.closeEpoch()).addValue("state", patch.getState())
@@ -99,7 +102,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'INIT' AND row_version = :expected
                     AND order_due_at = :due AND close_epoch = :oldEpoch
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -109,7 +114,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         if (closing.state() != AcquireOrderState.CLOSING || !closing.id().equals(intent.orderId())
                 || !closing.payeeMerchantId().equals(intent.payeeMerchantId()) || closing.closeEpoch() != intent.closeEpoch()
                 || closing.version() != Math.incrementExact(expectedOrderVersion) || intent.rowVersion() != 0
-                || !intent.cursorPaymentId().isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+                || !intent.cursorPaymentId().isEmpty()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var patch = converter.toClosingPatch(closing);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", closing.id()).addValue("expected", expectedOrderVersion)
                 .addValue("state", patch.getState()).addValue("epoch", patch.getCloseEpoch()).addValue("version", patch.getRowVersion())
@@ -118,7 +125,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 UPDATE acquire_order SET state = :state, close_epoch = :epoch, row_version = :version, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND row_version = :expected AND state IN ('INIT', 'PENDING')
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var row = converter.toDO(tenant, intent);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -130,14 +139,20 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                     :requestDigest, :reasonCode, :closeEpoch, :requestedAt, :cursorPaymentId, :rowVersion)
                 ON CONFLICT (tenant_id, order_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Order close intent already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Order close intent already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public List<StoredPaymentAllocation> heldAfter(String tenant, String orderId, String afterPaymentId, int limit) {
         scope(tenant);
-        if (limit < 1 || limit > 16 || afterPaymentId == null) throw new CommonException(INVALID_ARGUMENT);
+        if (limit < 1 || limit > 16 || afterPaymentId == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId)
                 .addValue("after", afterPaymentId).addValue("limit", limit);
         var rows = jdbc.query("""
@@ -163,7 +178,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
     public void advanceCursor(String tenant, OrderCloseIntent updated, long expectedVersion) {
         scope(tenant);
         requireTransaction();
-        if (updated.rowVersion() != Math.incrementExact(expectedVersion)) throw new CommonException(SNAPSHOT_INVALID);
+        if (updated.rowVersion() != Math.incrementExact(expectedVersion)) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         // Empty string starts a new pass; it is a real value, never an ignored-null clear operation.
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id()).addValue("order", updated.orderId())
                 .addValue("expected", expectedVersion).addValue("cursor", updated.cursorPaymentId())
@@ -172,7 +189,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 UPDATE order_close_intent SET cursor_payment_id = :cursor, row_version = :version, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND row_version = :expected AND deleted = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -184,7 +203,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order
                     AND deleted = FALSE AND state IN ('INIT', 'HELD')
                 """, args, Long.class);
-        if (pending != 0) return false;
+        if (pending != 0) {
+            return false;
+        }
         long count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
                 """, args, Long.class);
@@ -199,7 +220,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         scope(tenant);
         requireTransaction();
         if (closed.state() != AcquireOrderState.CLOSED || closed.version() != Math.incrementExact(expectedOrderVersion)
-                || closed.closeEpoch() <= 0 || closedAt == null) throw new CommonException(SNAPSHOT_INVALID);
+                || closed.closeEpoch() <= 0 || closedAt == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var patch = converter.toClosedPatch(closed, closedAt);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", closed.id()).addValue("expected", expectedOrderVersion)
                 .addValue("epoch", closed.closeEpoch()).addValue("state", patch.getState()).addValue("version", patch.getRowVersion())
@@ -209,17 +232,22 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'CLOSING' AND close_epoch = :epoch
                     AND row_version = :expected AND payment_reserved_minor = 0 AND reserved_payment_count = 0
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

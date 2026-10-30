@@ -45,10 +45,12 @@ public record MerchantActionGrantCommand(
         @Schema(description = "Request key") @NotBlank @Size(max = 128)
         String requestKey) {
     public MerchantActionGrantCommand {
-        if (validFrom != null)
+        if (validFrom != null) {
             validFrom = validFrom.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (validTo != null)
+        }
+        if (validTo != null) {
             validTo = validTo.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

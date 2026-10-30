@@ -71,29 +71,34 @@ public class PaymentOutcomeDeliverySupport {
     }
 
     public PaymentDeliverySnapshot load(OutboxEvent event, String expectedType) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.message().version() != 1
-                || !expectedType.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !expectedType.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        String tenant = event.message().tenantId();
+        }
+        String tenant = TenantUtil.getTenantId();
         DomainChecks.id(event.id());
-        var queue = outbox.find(tenant, event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!queue.id().equals(event.id()) || !queue.tenantId().equals(tenant) || !queue.type().equals(expectedType)
-                || !queue.businessId().equals(event.message().businessId()) || !"PROCESSING".equals(queue.status()))
+        var queue = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!queue.id().equals(event.id()) || !queue.type().equals(expectedType)
+                || !queue.businessId().equals(event.message().businessId()) || !"PROCESSING".equals(queue.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var envelope = envelopes.decode(event.message().payload());
         if (envelope == null || envelope.data() == null || envelope.schemaVersion() != 1 || !"payment".equals(envelope.producer())
                 || !expectedType.equals(envelope.eventType()) || !queue.businessId().equals(envelope.aggregateId())
                 || !envelope.aggregateId().equals(envelope.data().paymentId())
                 || envelope.aggregateVersion() != envelope.data().paymentVersion()
-                || !envelope.businessEventId().equals(envelope.data().evidenceId()))
+                || !envelope.businessEventId().equals(envelope.data().evidenceId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var data = envelope.data();
         if (!Set.of(io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED,
                 io.github.loadup.pay.payment.domain.model.PaymentState.FAILED,
-                io.github.loadup.pay.payment.domain.model.PaymentState.CLOSED).contains(data.state()))
+                io.github.loadup.pay.payment.domain.model.PaymentState.CLOSED).contains(data.state())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return transactions.withTenantContext(tenant, () -> {
             var original = payments.find(tenant, data.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             return transactions.writeLocal(tenant, () -> {
@@ -104,8 +109,9 @@ public class PaymentOutcomeDeliverySupport {
                 boolean succeeded = current.payment().state() == PaymentState.SUCCEEDED;
                 // A later fence cannot invalidate an earlier positive terminal fact.
                 if (!converter.toEvent(current, data.executionFenced()).equals(data)
-                        || data.executionFenced() && !fenced || !succeeded && !fenced)
+                        || data.executionFenced() && !fenced || !succeeded && !fenced) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 StoredPaymentAttempt attempt = null;
                 if (current.payment().activeAttemptId() != null) {
                     attempt = attempts.lock(tenant, current.payment().activeAttemptId())
@@ -115,8 +121,9 @@ public class PaymentOutcomeDeliverySupport {
                 }
                 java.time.LocalDateTime succeededAt = null;
                 if (succeeded) {
-                    if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED)
+                    if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     var claim = results.attemptClaim(tenant, attempt.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     var capacity = results.capacity(tenant, current.payment().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (!claim.tenantId().equals(tenant) || !claim.identity().equals(attempt.attempt().identity())
@@ -124,8 +131,9 @@ public class PaymentOutcomeDeliverySupport {
                             || !capacity.succeededAmount().equals(current.payment().amount())
                             || !capacity.orderId().equals(current.payment().orderId())
                             || !capacity.payeeMerchantId().equals(current.payment().payeeMerchantId())
-                            || !capacity.succeededAt().equals(claim.succeededAt()))
+                            || !capacity.succeededAt().equals(claim.succeededAt())) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     succeededAt = claim.succeededAt();
                 } else if (attempt != null && (!attempt.attempt().canSafelyReplace()
                         || !Objects.equals(attempt.attempt().noCollectionEvidenceId(), current.terminalEvidenceId()))) {

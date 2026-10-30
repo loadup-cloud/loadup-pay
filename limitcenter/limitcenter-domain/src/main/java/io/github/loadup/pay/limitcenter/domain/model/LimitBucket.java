@@ -32,10 +32,11 @@ public record LimitBucket(LimitBucketKey key, long used, long held, long version
 
     public LimitBucket reserve(long requested, long threshold, boolean enforce) {
         require(requested > 0 && threshold >= 0, INVALID_ARGUMENT);
-        if (enforce)
+        if (enforce) {
             require(
                     used <= threshold && held <= threshold - used && requested <= threshold - used - held,
                     AMOUNT_EXCEEDED);
+        }
         return new LimitBucket(key, used, Math.addExact(held, requested), Math.incrementExact(version));
     }
 

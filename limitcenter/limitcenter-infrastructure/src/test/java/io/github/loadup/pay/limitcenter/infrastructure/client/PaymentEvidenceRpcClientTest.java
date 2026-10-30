@@ -9,7 +9,9 @@ import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
+import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
 import org.apache.dubbo.rpc.RpcContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 class PaymentEvidenceRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
+    final PaymentRpcMapper paymentRpcMapper = new PaymentRpcMapperImpl(new ProductRpcMapperImpl());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final PaymentRpc paymentRpc = mock(PaymentRpc.class);
     final RefundSettlementFactsDTO facts = new RefundSettlementFactsDTO(
@@ -67,20 +70,20 @@ class PaymentEvidenceRpcClientTest {
     void setup() throws Exception {
         tokenFile = directory.resolve("payment-evidence.jwt");
         token();
-        client = new PaymentEvidenceRpcClient(mapper,
+        client = new PaymentEvidenceRpcClient(paymentRpcMapper, mapper,
                 new PaymentEvidenceProperties("tenant", "limitcenter", "payment", tokenFile), clock);
         ReflectionTestUtils.setField(client, "paymentRpc", paymentRpc);
         doAnswer(invocation -> {
             assertEquals("Bearer " + Files.readString(tokenFile),
                     RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return PaymentRpcMapper.INSTANCE.toWireRefundSettlementFactsDTO(facts);
+            return paymentRpcMapper.toWireRefundSettlementFactsDTO(facts);
         }).when(paymentRpc).refundFacts(any());
     }
 
     @Test
     void refundFactsUsesItsNamedOperationTypedQueryAndMountedCredential() {
         assertEquals(facts, client.refundFacts("tenant", "refund"));
-        verify(paymentRpc).refundFacts(PaymentRpcMapper.INSTANCE.toWireIdQuery(new IdQuery("refund")));
+        verify(paymentRpc).refundFacts(paymentRpcMapper.toWireIdQuery(new IdQuery("refund")));
     }
 
     @Test

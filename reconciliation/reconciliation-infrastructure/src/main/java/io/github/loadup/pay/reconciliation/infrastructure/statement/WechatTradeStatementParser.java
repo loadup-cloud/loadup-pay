@@ -67,8 +67,9 @@ public class WechatTradeStatementParser {
 
     public WechatTradeStatementParser(@Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords,
                                       @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
-        if (maxRecords < 1 || maxRecords > 1000000 || maxBytes < 1024 || maxBytes > 67108864)
+        if (maxRecords < 1 || maxRecords > 1000000 || maxBytes < 1024 || maxBytes > 67108864) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         this.maxRecords = maxRecords;
         this.maxBytes = maxBytes;
     }
@@ -78,27 +79,39 @@ public class WechatTradeStatementParser {
      */
     public ReconciliationDataset parse(InputStream source, ReconciliationScope scope, ReconciliationStatementAccount account,
                                        String artifactId, String sourceCaptureId) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (source == null || scope == null || scope.channel() != Channel.WECHAT || !PROFILE.equals(scope.statementProfile()) || account == null || !account.merchantId().matches("[0-9]{8,10}")
-                || account.subMerchantId() != null && !account.subMerchantId().matches("[0-9]{8,10}"))
+                || account.subMerchantId() != null && !account.subMerchantId().matches("[0-9]{8,10}")) {
             throw new CommonException(INPUT_INVALID);
+        }
         try {
             byte[] raw = source.readNBytes(maxBytes + 1);
-            if (raw.length > maxBytes) throw new CommonException(INPUT_INVALID);
+            if (raw.length > maxBytes) {
+                throw new CommonException(INPUT_INVALID);
+            }
             String content = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(raw)).toString();
-            if (content.startsWith("\uFEFF")) content = content.substring(1);
+            if (content.startsWith("\uFEFF")) {
+                content = content.substring(1);
+            }
             var reader = new BufferedReader(new StringReader(content));
-            if (!HEADER.equals(reader.readLine())) throw new CommonException(INPUT_INVALID);
+            if (!HEADER.equals(reader.readLine())) {
+                throw new CommonException(INPUT_INVALID);
+            }
             var lines = new ArrayList<ReconciliationLine>();
             long netPayment = 0, netRefund = 0, couponRefund = 0, fees = 0, grossPayment = 0, grossRefund = 0;
             String line;
             while ((line = reader.readLine()) != null && !TOTAL_HEADER.equals(line)) {
-                if (lines.size() >= maxRecords) throw new CommonException(INPUT_INVALID);
+                if (lines.size() >= maxRecords) {
+                    throw new CommonException(INPUT_INVALID);
+                }
                 var fields = fields(line, 27);
                 if (!account.merchantId().equals(fields[2]) || !(account.subMerchantId() == null ? "0" : account.subMerchantId()).equals(fields[3])
-                        || !"CNY".equals(fields[11]) || !LocalDateTime.parse(fields[0], TIME).toLocalDate().equals(scope.billDate()))
+                        || !"CNY".equals(fields[11]) || !LocalDateTime.parse(fields[0], TIME).toLocalDate().equals(scope.billDate())) {
                     throw new CommonException(INPUT_INVALID);
+                }
                 long orderNet = money(fields[12], false), refundNet = money(fields[16], false), refundCoupon = money(fields[17], false);
                 long fee = money(fields[22], true), orderGross = money(fields[24], false), refundGross = money(fields[25], false);
                 ReconciliationRecordKind kind;
@@ -107,15 +120,17 @@ public class WechatTradeStatementParser {
                 String refundNo;
                 if ("SUCCESS".equals(fields[9])) {
                     if (orderGross <= 0 || refundGross != 0 || refundNet != 0 || refundCoupon != 0 || fee < 0
-                            || !"0".equals(fields[14]) || !"0".equals(fields[15]) || !fields[18].isEmpty() || !fields[19].isEmpty())
+                            || !"0".equals(fields[14]) || !"0".equals(fields[15]) || !fields[18].isEmpty() || !fields[19].isEmpty()) {
                         throw new CommonException(INPUT_INVALID);
+                    }
                     kind = ReconciliationRecordKind.PAYMENT;
                     status = ReconciliationEntryStatus.SUCCEEDED;
                     amount = orderGross;
                     refundNo = null;
                 } else if ("REFUND".equals(fields[9])) {
-                    if (refundGross <= 0 || orderGross != 0 || orderNet != 0 || fee > 0 || "0".equals(fields[14]) || "0".equals(fields[15]))
+                    if (refundGross <= 0 || orderGross != 0 || orderNet != 0 || fee > 0 || "0".equals(fields[14]) || "0".equals(fields[15])) {
                         throw new CommonException(INPUT_INVALID);
+                    }
                     kind = ReconciliationRecordKind.REFUND;
                     amount = refundGross;
                     refundNo = id(fields[15], 64);
@@ -131,8 +146,9 @@ public class WechatTradeStatementParser {
                     // Revocation has a distinct compensation identity; never drop it or manufacture a child-refund number.
                     throw new CommonException(INPUT_INVALID);
                 }
-                if (orderNet > orderGross || refundNet > refundGross || refundCoupon > refundGross)
+                if (orderNet > orderGross || refundNet > refundGross || refundCoupon > refundGross) {
                     throw new CommonException(INPUT_INVALID);
+                }
                 lines.add(new ReconciliationLine(new ReconciliationKey(kind, id(fields[5], 128), refundNo), id(fields[6], 64),
                         Money.ofMinor(amount, "CNY"), status, lines.size() + 1L));
                 netPayment = Math.addExact(netPayment, orderNet);
@@ -142,13 +158,16 @@ public class WechatTradeStatementParser {
                 grossPayment = Math.addExact(grossPayment, orderGross);
                 grossRefund = Math.addExact(grossRefund, refundGross);
             }
-            if (line == null) throw new CommonException(INPUT_INVALID);
+            if (line == null) {
+                throw new CommonException(INPUT_INVALID);
+            }
             var totals = fields(reader.readLine(), 7);
             if (!totals[0].matches("0|[1-9][0-9]{0,18}") || Long.parseLong(totals[0]) != lines.size()
                     || money(totals[1], false) != netPayment || money(totals[2], false) != netRefund
                     || money(totals[3], false) != couponRefund || money(totals[4], true) != fees
-                    || money(totals[5], false) != grossPayment || money(totals[6], false) != grossRefund || reader.readLine() != null)
+                    || money(totals[5], false) != grossPayment || money(totals[6], false) != grossRefund || reader.readLine() != null) {
                 throw new CommonException(INPUT_INVALID);
+            }
             var manifest = new ReconciliationManifest(ReconciliationSide.CHANNEL, scope, artifactId,
                     HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(raw)),
                     ReconciliationDataset.normalizedHash(scope, ReconciliationSide.CHANNEL, PROFILE, lines), sourceCaptureId, PROFILE,
@@ -164,25 +183,33 @@ public class WechatTradeStatementParser {
     }
 
     private String[] fields(String line, int count) {
-        if (line == null || line.length() > 65536) throw new CommonException(INPUT_INVALID);
+        if (line == null || line.length() > 65536) {
+            throw new CommonException(INPUT_INVALID);
+        }
         var values = line.split(",", -1);
-        if (values.length != count) throw new CommonException(INPUT_INVALID);
+        if (values.length != count) {
+            throw new CommonException(INPUT_INVALID);
+        }
         for (int i = 0; i < values.length; i++) {
-            if (!values[i].startsWith("`")) throw new CommonException(INPUT_INVALID);
+            if (!values[i].startsWith("`")) {
+                throw new CommonException(INPUT_INVALID);
+            }
             values[i] = values[i].substring(1);
         }
         return values;
     }
 
     private long money(String value, boolean signed) {
-        if (!(signed ? value.matches("-?(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}") : value.matches("(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}")))
+        if (!(signed ? value.matches("-?(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}") : value.matches("(?:0|[1-9][0-9]{0,16})\\.[0-9]{2}"))) {
             throw new CommonException(INPUT_INVALID);
+        }
         return new BigDecimal(value).movePointRight(2).longValueExact();
     }
 
     private String id(String value, int max) {
-        if (value == null || value.length() > max || !value.matches("[A-Za-z0-9_-]+"))
+        if (value == null || value.length() > max || !value.matches("[A-Za-z0-9_-]+")) {
             throw new CommonException(INPUT_INVALID);
+        }
         return value;
     }
 }

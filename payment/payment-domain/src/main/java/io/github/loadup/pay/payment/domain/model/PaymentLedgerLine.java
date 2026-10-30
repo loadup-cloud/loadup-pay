@@ -38,8 +38,11 @@ public record PaymentLedgerLine(long ordinal, PaymentLedgerKind kind, @Diagnosti
         Objects.requireNonNull(status);
         DomainChecks.text(channelTransactionNo, 128);
         DomainChecks.text(merchantPaymentNo, 64);
-        if (kind == PaymentLedgerKind.REFUND) DomainChecks.text(channelRefundNo, 64);
-        else require(channelRefundNo == null && status == PaymentLedgerStatus.SUCCEEDED, INVALID_ARGUMENT);
+        if (kind == PaymentLedgerKind.REFUND) {
+            DomainChecks.text(channelRefundNo, 64);
+        } else {
+            require(channelRefundNo == null && status == PaymentLedgerStatus.SUCCEEDED, INVALID_ARGUMENT);
+        }
         DomainChecks.cnyAmount(amount);
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         Objects.requireNonNull(sourceAt);

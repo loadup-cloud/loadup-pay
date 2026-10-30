@@ -41,13 +41,13 @@ import java.time.LocalDateTime;
 public interface RefundResultStorageConverter {
     RefundChannelReceipt toReceipt(RefundChannelReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     RefundChannelReceiptDO toReceiptDO(String tenant, RefundChannelReceipt value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -55,9 +55,10 @@ public interface RefundResultStorageConverter {
 
     ChannelPaymentIdentity toIdentity(RefundTransactionClaimDO row);
 
+    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "original", source = "original")
     @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
-    RefundTransactionClaim toClaim(RefundTransactionClaimDO row, ChannelPaymentIdentity original);
+    RefundTransactionClaim toClaim(String tenant, RefundTransactionClaimDO row, ChannelPaymentIdentity original);
 
     @Mapping(target = "paymentId", source = "original.paymentId")
     @Mapping(target = "attemptId", source = "original.attemptId")

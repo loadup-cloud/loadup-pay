@@ -21,47 +21,58 @@ import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IN
 
 @Component
 public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
+    private final ProductActorProvider actors;
+    private final CustomerRpcMapper customerRpcMapper;
     @DubboReference(url = "tri://customer-headless:50051")
     private CustomerRpc customerRpc;
 
-    private final ProductActorProvider actors;
-
-    public CustomerEligibilityRpcLookup(ProductActorProvider actors) {
+    public CustomerEligibilityRpcLookup(CustomerRpcMapper customerRpcMapper, ProductActorProvider actors) {
+        this.customerRpcMapper = customerRpcMapper;
         this.actors = actors;
     }
 
     @Override
     public MerchantEligibilityDTO authorizeNewOrder(String tenant, String payee) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
         if (!tenant.equals(actor.tenantId())
                 || actor.customerAccessToken() == null
-                || actor.customerAccessToken().isBlank()) throw new CommonException(ACTION_FORBIDDEN);
+                || actor.customerAccessToken().isBlank()) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             var command = new MerchantActionAuthorizeCommand(payee, MerchantAction.CREATE_ORDER);
             MerchantEligibilityDTO data = RpcTokenContext.call(
                     actor.customerAccessToken(),
-                    () -> CustomerRpcMapper.INSTANCE.fromWireMerchantEligibilityDTO(customerRpc.authorize(
-                            CustomerRpcMapper.INSTANCE.toWireMerchantActionAuthorizeCommand(command))));
-            if (data == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            if (data.merchantFactVersion() < 0) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    () -> customerRpcMapper.fromWireMerchantEligibilityDTO(customerRpc.authorize(
+                            customerRpcMapper.toWireMerchantActionAuthorizeCommand(command))));
+            if (data == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
+            if (data.merchantFactVersion() < 0) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             if (data.allowed()) {
                 if (data.merchant() == null
                         || !payee.equals(data.merchant().id())
-                        || !tenant.equals(data.merchant().tenantId())
                         || !data.merchant().active()
                         || data.merchantFactVersion() < 1
                         || data.grantId() == null
                         || data.grantVersion() == null
                         || data.grantVersion() < 1
-                        || !"ALLOWED".equals(data.reasonCode())) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                        || !"ALLOWED".equals(data.reasonCode())) {
+                    throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                }
                 if (java.util.stream.Stream.of(
                                 data.merchant().merchantCode(),
                                 data.merchant().type(),
                                 data.merchant().industry(),
                                 data.merchant().country())
-                        .anyMatch(value -> value == null || value.isBlank() || value.length() > 1024))
+                        .anyMatch(value -> value == null || value.isBlank() || value.length() > 1024)) {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                }
             } else if (!(CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode().equals(data.reasonCode())
                     || CustomerResultCodeEnum.MERCHANT_INACTIVE
                     .getCode()
@@ -73,8 +84,9 @@ public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
             }
             return data;
         } catch (RuntimeException failure) {
-            if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(RpcExceptionCodes.resultCode(failure)))
+            if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(RpcExceptionCodes.resultCode(failure))) {
                 return new MerchantEligibilityDTO(false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
+            }
             // Never expose remote descriptions or arbitrary codes.
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

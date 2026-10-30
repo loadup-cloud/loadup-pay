@@ -18,27 +18,33 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 
 @Component
 public class OrderAdmissionRpcClient implements OrderAdmissionClient {
+    private final AcquireActorProvider actors;
+    private final ProductRpcMapper productRpcMapper;
     @DubboReference(url = "tri://product-headless:50051")
     private ProductRpc productRpc;
 
-    private final AcquireActorProvider actors;
-
-    public OrderAdmissionRpcClient(AcquireActorProvider actors) {
+    public OrderAdmissionRpcClient(ProductRpcMapper productRpcMapper, AcquireActorProvider actors) {
+        this.productRpcMapper = productRpcMapper;
         this.actors = actors;
     }
 
     @Override
     public OrderAdmissionDTO authorize(OrderAdmissionAuthorizeCommand command) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor.productAccessToken() == null || actor.productAccessToken().isBlank())
+        if (actor.productAccessToken() == null || actor.productAccessToken().isBlank()) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             var response = RpcTokenContext.call(
                     actor.productAccessToken(),
-                    () -> ProductRpcMapper.INSTANCE.fromWireOrderAdmissionDTO(productRpc.authorize(
-                            ProductRpcMapper.INSTANCE.toWireOrderAdmissionAuthorizeCommand(command))));
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    () -> productRpcMapper.fromWireOrderAdmissionDTO(productRpc.authorize(
+                            productRpcMapper.toWireOrderAdmissionAuthorizeCommand(command))));
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

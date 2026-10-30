@@ -39,7 +39,6 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementR
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -82,9 +81,11 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     public ReconciliationStatementService(ReconciliationActorProvider actors, ReconciliationAccountDirectory accounts, ReconciliationBatchGateway batches,
                                           ReconciliationStatementGateway sources, ReconciliationImportGateway imports, ReconciliationStatementParser parser,
                                           ReconciliationTransactions transactions, DelayedTaskTemplate tasks, ReconciliationStatementConverter converter,
-                                          ReconciliationOfficialImports official, IdGenerator ids, Validator validator, @Qualifier("reconciliationClock") Clock clock,
+                                          ReconciliationOfficialImports official, IdGenerator ids, Validator validator, Clock clock,
                                           @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
-        if (maxBytes < 32768 || maxBytes > 16777216) throw new CommonException(INVALID_ARGUMENT);
+        if (maxBytes < 32768 || maxBytes > 16777216) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         this.actors = actors;
         this.accounts = accounts;
         this.batches = batches;
@@ -102,11 +103,12 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     }
 
     static void task(DelayedTask task, String tenant, ReconciliationStatementRequest value) {
-        if (task == null || !value.taskId().equals(task.id()) || !tenant.equals(task.tenantId()) || !value.id().equals(task.bizId())
+        if (task == null || !value.taskId().equals(task.id()) || !value.id().equals(task.bizId())
                 || !ReconciliationStatementExecutionService.TYPE.equals(task.taskType()) || task.status() == null
                 || task.attempts() < 0 || task.maxAttempts() < 1 || task.attempts() > task.maxAttempts()
-                || task.status() == DelayedTaskStatus.SUCCEEDED && value.state() == ReconciliationStatementState.INIT)
+                || task.status() == DelayedTaskStatus.SUCCEEDED && value.state() == ReconciliationStatementState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     @Override
@@ -120,15 +122,20 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             if (old.isPresent()) {
                 var value = old.get();
                 checked(actor, value);
-                if (!value.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                if (!value.requestDigest().equals(digest)) {
+                    throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 return present(actor.tenantId(), value);
             }
-            if (batch.batch().state() != ReconciliationState.INIT || batch.batch().channel() != null)
+            if (batch.batch().state() != ReconciliationState.INIT || batch.batch().channel() != null) {
                 throw new CommonException(INVALID_STATE);
-            if (!parser.supports(batch.batch().scope()) || !batch.batch().scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate()))
+            }
+            if (!parser.supports(batch.batch().scope()) || !batch.batch().scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
                 throw new CommonException(INPUT_INVALID);
-            if (sources.activeForBatch(actor.tenantId(), command.batchId()).isPresent() || imports.activeForBatch(actor.tenantId(), command.batchId()).isPresent())
+            }
+            if (sources.activeForBatch(actor.tenantId(), command.batchId()).isPresent() || imports.activeForBatch(actor.tenantId(), command.batchId()).isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
+            }
             var account = accounts.statementAccount(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
             var binding = accounts.statementBindingRevision(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
             var id = ids.generate();
@@ -137,7 +144,9 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             var request = ReconciliationStatementRequest.init(id, command.batchId(), actor.serviceId(), command.requestKey(), digest,
                     batch.batch().scope(), account, binding, maxBytes, task.id());
             task(task, actor.tenantId(), request);
-            if (task.status() != DelayedTaskStatus.PENDING) throw new CommonException(SNAPSHOT_INVALID);
+            if (task.status() != DelayedTaskStatus.PENDING) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             sources.insert(actor.tenantId(), request);
             return converter.toDTO(request, task);
         });
@@ -159,25 +168,35 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             batch(actor, original.batchId(), true);
             var value = checked(actor, sources.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = task(actor.tenantId(), value);
-            if (!command.expectedTaskId().equals(task.id())) throw new CommonException(IDEMPOTENCY_CONFLICT);
-            if (task.status() == DelayedTaskStatus.CANCELLED) throw new CommonException(INVALID_STATE);
-            if (task.status() == DelayedTaskStatus.FAILED)
+            if (!command.expectedTaskId().equals(task.id())) {
+                throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
+            if (task.status() == DelayedTaskStatus.CANCELLED) {
+                throw new CommonException(INVALID_STATE);
+            }
+            if (task.status() == DelayedTaskStatus.FAILED) {
                 tasks.retryFailed(ReconciliationStatementExecutionService.TYPE, value.id());
+            }
             return present(actor.tenantId(), value);
         });
     }
 
     private ReconciliationStatementRequest checked(ReconciliationActor actor, ReconciliationStatementRequest value) {
-        if (!actor.serviceId().equals(value.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(value.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var batch = batch(actor, value.batchId(), false);
-        if (!value.scope().equals(batch.batch().scope()) || !value.statementAccount().equals(accounts.statementAccount(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), value.scope())))
+        if (!value.scope().equals(batch.batch().scope()) || !value.statementAccount().equals(accounts.statementAccount(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), value.scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
+        }
         return value;
     }
 
     private StoredReconciliationBatch batch(ReconciliationActor actor, String id, boolean lock) {
         var value = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id)).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!actor.serviceId().equals(value.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(value.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         accounts.authorize(actor.tenantId(), actor.serviceId(), value.channelAccountCode(), value.batch().scope());
         return value;
     }
@@ -198,21 +217,27 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     }
 
     private ReconciliationActor actor(String operation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor == null || !actor.permissions().contains("pay:reconciliation:statement:" + operation))
+        if (actor == null || !actor.permissions().contains("pay:reconciliation:statement:" + operation)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private String digest(ReconciliationActor actor, ReconciliationStatementSubmitCommand command) {
         var framed = new StringBuilder();
-        for (var field : List.of("official-statement-request-v1", actor.tenantId(), actor.serviceId(), command.batchId(), command.requestKey()))
+        for (var field : List.of("official-statement-request-v1", actor.tenantId(), actor.serviceId(), command.batchId(), command.requestKey())) {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return DigestUtils.sha256(framed.toString());
     }
 }

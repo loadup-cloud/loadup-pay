@@ -46,11 +46,19 @@ public class PaymentProgressService implements PaymentProgressFacade {
 
     @Override
     public PaymentProgressDTO refresh(PaymentProgressRefreshCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:payment:refresh")) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.permissions().contains("pay:acquire:payment:refresh")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return outcomes.refresh(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), command);
     }
 }

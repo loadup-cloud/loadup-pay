@@ -27,7 +27,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -69,7 +68,7 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     private Instant lastAttempt;
 
     public RecoveryInventoryCollector(RecoveryInventoryReader reader, PaymentAcceptanceTransactions transactions,
-                                      @Qualifier("paymentClock") Clock clock, ObjectProvider<MeterRegistry> registries, RecoveryEscalationPolicy escalation,
+                                      Clock clock, ObjectProvider<MeterRegistry> registries, RecoveryEscalationPolicy escalation,
                                       @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
                                       @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
                                       @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
@@ -78,10 +77,14 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         this.clock = clock;
         this.enabled = enabled;
         this.escalation = escalation;
-        if (intervalSeconds < 1 || intervalSeconds > 86400) throw new CommonException(INVALID_ARGUMENT);
+        if (intervalSeconds < 1 || intervalSeconds > 86400) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         this.intervalSeconds = intervalSeconds;
         this.tenants = Set.copyOf(Arrays.stream(tenantIds.split(",", -1)).map(String::trim).filter(value -> !value.isEmpty()).toList());
-        if (tenants.size() > 100 || enabled && tenants.isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (tenants.size() > 100 || enabled && tenants.isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         tenants.forEach(DomainChecks::id);
         var registry = registries.getIfAvailable();
         hasRegistry = registry != null;
@@ -110,11 +113,15 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     }
 
     private static void requireComplete(List<RecoveryInventoryCell> cells) {
-        if (cells == null || cells.size() != RecoveryInventoryCell.Kind.values().length)
+        if (cells == null || cells.size() != RecoveryInventoryCell.Kind.values().length) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var kinds = EnumSet.noneOf(RecoveryInventoryCell.Kind.class);
-        for (var cell : cells)
-            if (cell == null || !kinds.add(cell.kind())) throw new CommonException(SNAPSHOT_INVALID);
+        for (var cell : cells) {
+            if (cell == null || !kinds.add(cell.kind())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+        }
     }
 
     @Override
@@ -124,19 +131,26 @@ public class RecoveryInventoryCollector implements ScheduledTask {
 
     @Override
     public void execute() {
-        if (!enabled || !hasRegistry || !collecting.compareAndSet(false, true)) return;
+        if (!enabled || !hasRegistry || !collecting.compareAndSet(false, true)) {
+            return;
+        }
         try {
             var now = clock.instant();
-            if (lastAttempt != null && !now.isBefore(lastAttempt) && now.isBefore(lastAttempt.plusSeconds(intervalSeconds)))
+            if (lastAttempt != null && !now.isBefore(lastAttempt) && now.isBefore(lastAttempt.plusSeconds(intervalSeconds))) {
                 return;
+            }
             lastAttempt = now;
             var combined = new EnumMap<RecoveryInventoryCell.Kind, RecoveryInventoryCell>(RecoveryInventoryCell.Kind.class);
-            for (var kind : RecoveryInventoryCell.Kind.values()) combined.put(kind, RecoveryInventoryCell.empty(kind));
+            for (var kind : RecoveryInventoryCell.Kind.values()) {
+                combined.put(kind, RecoveryInventoryCell.empty(kind));
+            }
             try {
                 for (var tenant : tenants) {
                     var cells = transactions.readSnapshot(tenant, () -> reader.read(tenant));
                     requireComplete(cells);
-                    for (var cell : cells) combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
+                    for (var cell : cells) {
+                        combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
+                    }
                 }
                 // Only a complete configured scope replaces the previous publication, never a successful partial prefix.
                 snapshot.set(new Snapshot(Map.copyOf(combined), clock.instant()));
@@ -151,7 +165,9 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     }
 
     private void increment(Counter counter) {
-        if (counter == null) return;
+        if (counter == null) {
+            return;
+        }
         try {
             counter.increment();
         } catch (RuntimeException failed) {
@@ -171,7 +187,9 @@ public class RecoveryInventoryCollector implements ScheduledTask {
 
     private double oldestAge(RecoveryInventoryCell.Kind kind) {
         var current = snapshot.get();
-        if (current == null) return Double.NaN;
+        if (current == null) {
+            return Double.NaN;
+        }
         var oldest = current.cells.get(kind).oldestUnknownAt();
         return oldest == null ? 0.0 : Math.max(0L, Duration.between(oldest, LocalDateTime.now(clock)).getSeconds());
     }

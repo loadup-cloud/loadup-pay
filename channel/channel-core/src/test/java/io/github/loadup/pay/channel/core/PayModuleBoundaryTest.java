@@ -104,29 +104,34 @@ class PayModuleBoundaryTest {
     private static List<String> sourceViolations(Module module, String path, String source) {
         var errors = new ArrayList<String>();
         boolean transportContract = module.layer().equals("client") && path.replace('\\', '/').contains("/rpc/");
-        if ((module.layer().equals("domain") || module.layer().equals("client") && !transportContract) && TECHNICAL_IMPLEMENTATION.matcher(source).find())
+        if ((module.layer().equals("domain") || module.layer().equals("client") && !transportContract) && TECHNICAL_IMPLEMENTATION.matcher(source).find()) {
             errors.add("TECHNICAL_IMPLEMENTATION: client/domain cannot name Spring, ORM, RPC or component implementation types");
-        if (CHANNEL_IMPLEMENTATION.matcher(source).find())
+        }
+        if (CHANNEL_IMPLEMENTATION.matcher(source).find()) {
             errors.add("CHANNEL_IMPLEMENTATION: business sources must use channel-api");
+        }
         var references = PAY_REFERENCE.matcher(source);
         while (references.find()) {
             String owner = references.group(1), layer = references.group(2), role = references.group(3);
             boolean publicEnum = layer.equals("domain") && "model".equals(role)
                     && PUBLIC_DOMAIN_ENUMS.contains(owner + "." + references.group(4));
             if (!owner.equals(module.service())) {
-                if (!publicEnum && !Set.of("client", "rpc").contains(layer))
+                if (!publicEnum && !Set.of("client", "rpc").contains(layer)) {
                     errors.add("CROSS_SERVICE: " + owner + "." + layer);
-                else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()) && !transportContract)
+                } else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()) && !transportContract) {
                     errors.add("TRANSPORT_IN_BUSINESS: gRPC belongs in adapters/ports");
+                }
             } else {
-                if (!publicEnum && !(transportContract && layer.equals("rpc")) && !allowedOwnLayer(module.layer(), layer))
+                if (!publicEnum && !(transportContract && layer.equals("rpc")) && !allowedOwnLayer(module.layer(), layer)) {
                     errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
+                }
                 var normalized = "/" + path.replace('\\', '/');
                 boolean storage = List.of("repository", "converter", "codec").stream()
                         .anyMatch(segment -> normalized.contains("/infrastructure/" + segment + "/"));
                 if (module.layer().equals("infrastructure") && storage && layer.equals("app")
-                        && !Set.of("port", "model", "converter").contains(role == null ? "" : role))
+                        && !Set.of("port", "model", "converter").contains(role == null ? "" : role)) {
                     errors.add("STORAGE_APP_ROLE: data adapters may reference only app port/model/converter");
+                }
             }
         }
         return List.copyOf(errors);
@@ -143,27 +148,37 @@ class PayModuleBoundaryTest {
     }
 
     private static List<String> dependencyViolations(Module module, Dependency dependency) {
-        if (dependency.scope().equals("test")) return List.of();
+        if (dependency.scope().equals("test")) {
+            return List.of();
+        }
         var errors = new ArrayList<String>();
         if (module.layer().equals("domain") && (dependency.group().startsWith("org.springframework")
                 || dependency.group().startsWith("org.mybatis") || dependency.group().startsWith("com.mybatis-flex")
                 || dependency.group().startsWith("io.grpc") || dependency.group().equals("com.google.protobuf")
-                || dependency.group().equals("jakarta.persistence") || dependency.artifact().startsWith("loadup-components-")))
+                || dependency.group().equals("jakarta.persistence") || dependency.artifact().startsWith("loadup-components-"))) {
             errors.add("TECHNICAL_DEPENDENCY: " + dependency.artifact());
-        if (!dependency.local()) return List.copyOf(errors);
+        }
+        if (!dependency.local()) {
+            return List.copyOf(errors);
+        }
         if (dependency.artifact().startsWith("channel-") && !dependency.artifact().equals("channel-api")
-                && !(module.service().equals("payment") && module.layer().equals("bootstrap") && dependency.scope().equals("runtime")))
+                && !(module.service().equals("payment") && module.layer().equals("bootstrap") && dependency.scope().equals("runtime"))) {
             errors.add("CHANNEL_IMPLEMENTATION: " + dependency.artifact());
+        }
         for (var owner : SERVICES) {
             for (var layer : LAYERS) {
-                if (!dependency.artifact().equals(owner + "-" + layer)) continue;
+                if (!dependency.artifact().equals(owner + "-" + layer)) {
+                    continue;
+                }
                 if (owner.equals(module.service())) {
-                    if (!(module.layer().equals("client") && layer.equals("domain")) && !allowedOwnLayer(module.layer(), layer))
+                    if (!(module.layer().equals("client") && layer.equals("domain")) && !allowedOwnLayer(module.layer(), layer)) {
                         errors.add("OWN_LAYER: " + dependency.artifact());
-                } else if (!Set.of("client", "rpc").contains(layer))
+                    }
+                } else if (!Set.of("client", "rpc").contains(layer)) {
                     errors.add("CROSS_SERVICE: " + dependency.artifact());
-                else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer()))
+                } else if (layer.equals("rpc") && Set.of("client", "domain", "app").contains(module.layer())) {
                     errors.add("TRANSPORT_IN_BUSINESS: " + dependency.artifact());
+                }
             }
         }
         return List.copyOf(errors);
@@ -201,7 +216,9 @@ class PayModuleBoundaryTest {
     private static Path repositoryRoot() {
         var current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) return current;
+            if (Files.isRegularFile(current.resolve("channel/channel-core/pom.xml"))) {
+                return current;
+            }
             current = current.getParent();
         }
         throw new AssertionError("Run this source architecture test inside the loadup-pay checkout");
@@ -229,11 +246,14 @@ class PayModuleBoundaryTest {
         var violations = new ArrayList<String>();
         for (var module : modules()) {
             var root = module.directory().resolve("src/main/java");
-            if (!Files.isDirectory(root)) continue;
+            if (!Files.isDirectory(root)) {
+                continue;
+            }
             try (var sources = Files.walk(root)) {
                 for (var source : sources.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".java")).toList()) {
-                    for (var violation : sourceViolations(module, module.directory().relativize(source).toString(), Files.readString(source)))
+                    for (var violation : sourceViolations(module, module.directory().relativize(source).toString(), Files.readString(source))) {
                         violations.add(source + ": " + violation);
+                    }
                 }
             }
         }
@@ -245,8 +265,9 @@ class PayModuleBoundaryTest {
         var violations = new ArrayList<String>();
         for (var module : modules()) {
             for (var dependency : dependencies(module.directory())) {
-                for (var violation : dependencyViolations(module, dependency))
+                for (var violation : dependencyViolations(module, dependency)) {
                     violations.add(module.directory() + ": " + violation);
+                }
             }
         }
         assertTrue(violations.isEmpty(), () -> String.join("\n", violations));

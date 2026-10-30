@@ -31,8 +31,9 @@ public record TradeDetailDTO(
 
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeDetailDTO {
-        if (snapshotAt != null)
+        if (snapshotAt != null) {
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

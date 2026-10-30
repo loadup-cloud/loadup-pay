@@ -32,7 +32,6 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundCallbackStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
-import io.github.loadup.components.database.tenant.TenantContext;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -70,24 +69,33 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
 
     @Override
     public PaymentVerificationTarget read(String tenant, PaymentVerificationQuery query) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (query == null || !TransactionSynchronizationManager.isActualTransactionActive() || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ).equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("channel", query.channel().name())
+        }
+        var args = new MapSqlParameterSource().addValue("channel", query.channel().name())
                 .addValue("scope", query.accountScopeHash()).addValue("paymentNo", query.merchantPaymentNo());
         if (query.kind() == PaymentLedgerKind.PAYMENT) {
             var rows = jdbc.query("""
-                    SELECT id FROM payment_attempt WHERE tenant_id = :tenant AND deleted = FALSE AND channel = :channel
+                    SELECT id FROM payment_attempt WHERE deleted = FALSE AND channel = :channel
                         AND account_scope_hash = :scope AND channel_request_no = :paymentNo LIMIT 2
                     """, args, (rs, index) -> rs.getString("id"));
-            if (rows.isEmpty()) return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
-            if (rows.size() > 1) return missing(PaymentVerificationDisposition.AMBIGUOUS_TARGET);
+            if (rows.isEmpty()) {
+                return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
+            }
+            if (rows.size() > 1) {
+                return missing(PaymentVerificationDisposition.AMBIGUOUS_TARGET);
+            }
             var stored = attempt(tenant, rows.getFirst());
             identity(query, stored);
-            if (stored.attempt().executionEpoch() == 0L) return missing(PaymentVerificationDisposition.NOT_SUBMITTED);
+            if (stored.attempt().executionEpoch() == 0L) {
+                return missing(PaymentVerificationDisposition.NOT_SUBMITTED);
+            }
             observable(tenant, stored);
             return new PaymentVerificationTarget(new ChannelPaymentTarget(stored.attempt().identity(), stored.attempt().amount()), null,
                     stored.rowVersion(), stored.attempt().state().name(), PaymentVerificationDisposition.OBSERVED);
@@ -97,35 +105,47 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
                 SELECT id, payment_id, original_attempt_id, binding_revision_id, channel, account_scope_hash,
                        original_channel_request_no, original_channel_transaction_no, original_succeeded_at,
                        submission_started_at, channel_refund_no, amount_minor, currency, state, row_version
-                FROM refund_order WHERE tenant_id = :tenant AND deleted = FALSE AND channel = :channel
+                FROM refund_order WHERE deleted = FALSE AND channel = :channel
                     AND account_scope_hash = :scope AND original_channel_request_no = :paymentNo
                     AND channel_refund_no = :refundNo LIMIT 2
                 """, args, BeanPropertyRowMapper.newInstance(RefundOrderDO.class));
-        if (rows.isEmpty()) return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
-        if (rows.size() > 1) return missing(PaymentVerificationDisposition.AMBIGUOUS_TARGET);
+        if (rows.isEmpty()) {
+            return missing(PaymentVerificationDisposition.NO_LOCAL_TARGET);
+        }
+        if (rows.size() > 1) {
+            return missing(PaymentVerificationDisposition.AMBIGUOUS_TARGET);
+        }
         var row = rows.getFirst();
-        if (row.getRowVersion() == null || row.getRowVersion() < 0 || row.getState() == null)
+        if (row.getRowVersion() == null || row.getRowVersion() < 0 || row.getState() == null) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (row.getSubmissionStartedAt() == null) {
-            if (!"INIT".equals(row.getState())) throw new CommonException(SNAPSHOT_INVALID);
+            if (!"INIT".equals(row.getState())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return missing(PaymentVerificationDisposition.NOT_SUBMITTED);
         }
-        if ("INIT".equals(row.getState())) throw new CommonException(SNAPSHOT_INVALID);
+        if ("INIT".equals(row.getState())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var original = attempt(tenant, row.getOriginalAttemptId());
         identity(query, original);
         observable(tenant, original);
-        if (!original.attempt().identity().equals(refunds.toIdentity(row))) throw new CommonException(SNAPSHOT_INVALID);
+        if (!original.attempt().identity().equals(refunds.toIdentity(row))) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var claim = claims.attemptClaim(tenant, original.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        var capacityArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payment", row.getPaymentId());
+        var capacityArgs = new MapSqlParameterSource().addValue("payment", row.getPaymentId());
         var capacity = jdbc.query("""
                 SELECT id, payment_id, succeeded_at, succeeded_minor, currency FROM payment_refund_capacity
-                WHERE tenant_id = :tenant AND deleted = FALSE AND payment_id = :payment
+                WHERE deleted = FALSE AND payment_id = :payment
                 """, capacityArgs, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream().findFirst().orElse(null);
         if (capacity == null || !tenant.equals(claim.tenantId()) || !claim.identity().equals(original.attempt().identity())
                 || !claim.amount().equals(original.attempt().amount()) || !claim.channelTransactionNo().equals(row.getOriginalChannelTransactionNo())
                 || !claim.succeededAt().equals(row.getOriginalSucceededAt()) || !claim.succeededAt().equals(capacity.getSucceededAt())
-                || capacity.getSucceededMinor() == null || capacity.getSucceededMinor() != claim.amount().getCent() || !Objects.equals(capacity.getCurrency(), row.getCurrency()))
+                || capacity.getSucceededMinor() == null || capacity.getSucceededMinor() != claim.amount().getCent() || !Objects.equals(capacity.getCurrency(), row.getCurrency())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return new PaymentVerificationTarget(null, refunds.toPrepared(row, capacity, original.attempt().identity()), row.getRowVersion(), row.getState(), PaymentVerificationDisposition.OBSERVED);
     }
 
@@ -141,8 +161,9 @@ public class PaymentVerificationTargetReaderImpl implements PaymentVerificationT
 
     private void identity(PaymentVerificationQuery query, StoredPaymentAttempt stored) {
         var original = stored.attempt().identity();
-        if (query.channel() != original.channel() || !query.accountScopeHash().equals(original.accountScopeHash()) || !query.merchantPaymentNo().equals(original.channelRequestNo()))
+        if (query.channel() != original.channel() || !query.accountScopeHash().equals(original.accountScopeHash()) || !query.merchantPaymentNo().equals(original.channelRequestNo())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private PaymentVerificationTarget missing(PaymentVerificationDisposition disposition) {

@@ -9,8 +9,6 @@ import io.github.loadup.components.rpc.proto.RpcScalarMapper;
 import io.github.loadup.pay.payment.client.dto.PaymentStatementDTO;
 import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
-import io.github.loadup.pay.payment.rpc.PaymentCaptureRpcFields;
-import io.github.loadup.pay.payment.rpc.PaymentStatementRpcBytes;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentStatementDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentStatementQuery;
 import org.mapstruct.BeanMapping;
@@ -20,18 +18,16 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-@Mapper(config=LoadUpMapStructConfig.class, componentModel="default", uses={PaymentCaptureRpcFields.class, PaymentStatementRpcBytes.class, RpcScalarMapper.class}, nullValueCheckStrategy=NullValueCheckStrategy.ALWAYS)
+@Mapper(config = LoadUpMapStructConfig.class, uses = {PaymentCaptureRpcFields.class, PaymentStatementRpcBytes.class, RpcScalarMapper.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
 public interface PaymentStatementRpcMapper {
-    PaymentStatementRpcMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(PaymentStatementRpcMapper.class);
-
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="bindingRevisionId", source="bindingRevisionId"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="billDate", source="billDate"), @Mapping(target="statementProfile", source="statementProfile"), @Mapping(target="maxBytes", source="maxBytes")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "bindingRevisionId", source = "bindingRevisionId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile"), @Mapping(target = "maxBytes", source = "maxBytes")})
     public WirePaymentStatementQuery toWire(PaymentStatementQuery value);
 
     public PaymentStatementQuery fromWire(WirePaymentStatementQuery value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="bindingRevisionId", source="bindingRevisionId"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="billDate", source="billDate"), @Mapping(target="statementProfile", source="statementProfile"), @Mapping(target="format", source="format"), @Mapping(target="requestSha256", source="requestSha256"), @Mapping(target="evidenceSha256", source="evidenceSha256"), @Mapping(target="officialHashType", source="officialHashType"), @Mapping(target="officialHash", source="officialHash"), @Mapping(target="contentSha256", source="contentSha256"), @Mapping(target="receivedAt", source="receivedAt"), @Mapping(target="downloadedAt", source="downloadedAt"), @Mapping(target="evidence", source="evidence"), @Mapping(target="content", source="content")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "bindingRevisionId", source = "bindingRevisionId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile"), @Mapping(target = "format", source = "format"), @Mapping(target = "requestSha256", source = "requestSha256"), @Mapping(target = "evidenceSha256", source = "evidenceSha256"), @Mapping(target = "officialHashType", source = "officialHashType"), @Mapping(target = "officialHash", source = "officialHash"), @Mapping(target = "contentSha256", source = "contentSha256"), @Mapping(target = "receivedAt", source = "receivedAt"), @Mapping(target = "downloadedAt", source = "downloadedAt"), @Mapping(target = "evidence", source = "evidence"), @Mapping(target = "content", source = "content")})
     public WirePaymentStatementDTO toWire(PaymentStatementDTO value);
 
     public PaymentStatementDTO fromWire(WirePaymentStatementDTO value);
@@ -61,7 +57,7 @@ public interface PaymentStatementRpcMapper {
         this.hash(value.getContentSha256());
         this.timestamp(value.getReceivedAt());
         this.timestamp(value.getDownloadedAt());
-        if (RpcScalarMapper.offset((Timestamp)value.getDownloadedAt()).isBefore(RpcScalarMapper.offset((Timestamp)value.getReceivedAt()))) {
+        if (RpcScalarMapper.offset((Timestamp) value.getDownloadedAt()).isBefore(RpcScalarMapper.offset((Timestamp) value.getReceivedAt()))) {
             this.invalid();
         }
     }
@@ -83,17 +79,16 @@ public interface PaymentStatementRpcMapper {
 
     private void timestamp(Timestamp value) {
         try {
-            Timestamps.checkValid((Timestamp)value);
+            Timestamps.checkValid((Timestamp) value);
             if (value.getNanos() % 1000 != 0) {
                 this.invalid();
             }
-        }
-        catch (IllegalArgumentException invalid) {
+        } catch (IllegalArgumentException invalid) {
             this.invalid();
         }
     }
 
     private void invalid() {
-        throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+        throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
     }
 }

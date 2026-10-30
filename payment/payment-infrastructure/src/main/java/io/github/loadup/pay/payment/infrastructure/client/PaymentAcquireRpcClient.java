@@ -14,7 +14,6 @@ import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -28,14 +27,15 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 
 @Component
 public class PaymentAcquireRpcClient implements PaymentAcquireClient {
+    private final PaymentAcquireProperties properties;
+    private final PaymentServiceTokenReader tokens;
+    private final AcquireRpcMapper acquireRpcMapper;
     @DubboReference(url = "tri://acquire-headless:50051")
     private AcquireRpc acquireRpc;
 
-    private final PaymentAcquireProperties properties;
-    private final PaymentServiceTokenReader tokens;
-
-    public PaymentAcquireRpcClient(JsonMapper mapper, PaymentAcquireProperties properties,
-                                   @Qualifier("paymentClock") Clock clock) {
+    public PaymentAcquireRpcClient(AcquireRpcMapper acquireRpcMapper, JsonMapper mapper, PaymentAcquireProperties properties,
+                                   Clock clock) {
+        this.acquireRpcMapper = acquireRpcMapper;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
@@ -47,30 +47,36 @@ public class PaymentAcquireRpcClient implements PaymentAcquireClient {
 
     @Override
     public PaymentOutcomeAckDTO accept(String tenant, EventEnvelope<PaymentOutcomeEventDTO> event) {
-        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWirePaymentOutcomeAckDTO(acquireRpc.paymentOutcome(
-                AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfPaymentOutcomeEventDTO(event))));
+        return exchange(tenant, () -> acquireRpcMapper.fromWirePaymentOutcomeAckDTO(acquireRpc.paymentOutcome(
+                acquireRpcMapper.toWirePayEventEnvelopeOfPaymentOutcomeEventDTO(event))));
     }
 
     @Override
     public FeeRefundAckDTO acceptFeeRefund(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWireFeeRefundAckDTO(acquireRpc.feeRefund(
-                AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(event))));
+        return exchange(tenant, () -> acquireRpcMapper.fromWireFeeRefundAckDTO(acquireRpc.feeRefund(
+                acquireRpcMapper.toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(event))));
     }
 
     @Override
     public RefundNotificationAckDTO acceptRefundNotification(String tenant, EventEnvelope<RefundMerchantEventDTO> event) {
-        return exchange(tenant, () -> AcquireRpcMapper.INSTANCE.fromWireRefundNotificationAckDTO(
+        return exchange(tenant, () -> acquireRpcMapper.fromWireRefundNotificationAckDTO(
                 acquireRpc.refundNotification(
-                        AcquireRpcMapper.INSTANCE.toWirePayEventEnvelopeOfRefundMerchantEventDTO(event))));
+                        acquireRpcMapper.toWirePayEventEnvelopeOfRefundMerchantEventDTO(event))));
     }
 
     private <R> R exchange(String tenant, Supplier<R> call) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
             var response = RpcTokenContext.call(token, call);
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

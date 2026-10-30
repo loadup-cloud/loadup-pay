@@ -42,7 +42,9 @@ public record MerchantNotificationWakeReceipt(String id, String deliveryId, Stri
         DomainChecks.text(principalId, 128);
         DomainChecks.text(reason, 500);
         Objects.requireNonNull(acceptedAt);
-        if (nativeTaskId != null) DomainChecks.id(nativeTaskId);
+        if (nativeTaskId != null) {
+            DomainChecks.id(nativeTaskId);
+        }
         require(principalType != null && Set.of("OPERATOR", "SERVICE").contains(principalType)
                 && attemptCount >= 0 && deliveryVersion >= 0 && callerScopeHash != null && callerScopeHash.matches("[0-9a-f]{64}")
                 && requestDigest != null && requestDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);

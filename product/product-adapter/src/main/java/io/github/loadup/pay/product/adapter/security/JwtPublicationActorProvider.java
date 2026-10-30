@@ -36,17 +36,22 @@ public class JwtPublicationActorProvider implements PublicationActorProvider {
     @Override
     public PublicationActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) throw forbidden();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) {
+            throw forbidden();
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id");
             String type = jwt.getClaimAsString("principal_type");
             if (tenant == null
                     || !tenant.equals(tenant.trim())
                     || type == null
-                    || !Set.of("SERVICE", "OPERATOR").contains(type)) throw forbidden();
-            if ("SERVICE".equals(type)
-                    && (jwt.getSubject() == null || !jwt.getSubject().equals(jwt.getClaimAsString("service_id"))))
+                    || !Set.of("SERVICE", "OPERATOR").contains(type)) {
                 throw forbidden();
+            }
+            if ("SERVICE".equals(type)
+                    && (jwt.getSubject() == null || !jwt.getSubject().equals(jwt.getClaimAsString("service_id")))) {
+                throw forbidden();
+            }
             return new PublicationActor(
                     tenant,
                     jwt.getSubject(),

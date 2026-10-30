@@ -54,21 +54,27 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
     @Override
     public String encodeIdentity(ChannelAccountIdentity identity) {
         String payload = mapper.writerFor(ChannelAccountIdentityDTO.class).writeValueAsString(converter.toIdentityDTO(identity));
-        if (payload.length() > 8192) throw new CommonException(SNAPSHOT_INVALID);
+        if (payload.length() > 8192) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return payload;
     }
 
     @Override
     public ChannelAccountIdentity decodeIdentity(String payload, String expectedHash) {
         try {
-            if (payload == null || payload.length() > 8192)
+            if (payload == null || payload.length() > 8192) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var identity = mapper.readValue(payload, ChannelAccountIdentityDTO.class);
-            if (identity == null || !validator.validate(identity).isEmpty())
+            if (identity == null || !validator.validate(identity).isEmpty()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = converter.toIdentity(identity);
             // Hash the typed canonical representation independently of JSON formatting.
-            if (!checksum(encodeIdentity(value)).equals(expectedHash)) throw new CommonException(SNAPSHOT_INVALID);
+            if (!checksum(encodeIdentity(value)).equals(expectedHash)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -107,16 +113,20 @@ public class ChannelBindingCodecImpl implements ChannelBindingCodec {
     @Override
     public String accountScopeHash(Channel channel, ChannelAccountIdentity identity) {
         // Financial uniqueness follows the real collecting account, across tenant/app/credential aliases.
-        if (channel == null || identity == null || channel != identity.channel())
+        if (channel == null || identity == null || channel != identity.channel()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return framedHash(List.of("payment-collecting-account-v1", channel.name(), identity.collectingAccountId()));
     }
 
     private String framedHash(List<String> fields) {
         var data = new StringBuilder();
         for (String field : fields) {
-            if (field == null) data.append("-1:");
-            else data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            if (field == null) {
+                data.append("-1:");
+            } else {
+                data.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            }
         }
         return checksum(data.toString());
     }

@@ -48,9 +48,10 @@ public class RecoveryExecutionMetrics {
             var measurements = new EnumMap<Outcome, Timer>(Outcome.class);
             if (registry != null) {
                 Gauge.builder(INFLIGHT, count, AtomicInteger::get).tag("kind", kind.label).register(registry);
-                for (var outcome : Outcome.values())
+                for (var outcome : Outcome.values()) {
                     measurements.put(outcome, Timer.builder(EXECUTION).tags("kind", kind.label, "outcome", outcome.label)
                             .description("Recovery handler invocations, including replay and native retry").register(registry));
+                }
             }
             timers.put(kind, measurements);
         }
@@ -65,11 +66,13 @@ public class RecoveryExecutionMetrics {
         count.incrementAndGet();
         try {
             var result = work.get();
-            if (result != null) outcome = switch (result) {
-                case COMPLETED -> Outcome.COMPLETED;
-                case CONTINUED -> Outcome.CONTINUED;
-                case SKIPPED -> Outcome.SKIPPED;
-            };
+            if (result != null) {
+                outcome = switch (result) {
+                    case COMPLETED -> Outcome.COMPLETED;
+                    case CONTINUED -> Outcome.CONTINUED;
+                    case SKIPPED -> Outcome.SKIPPED;
+                };
+            }
         } finally {
             count.decrementAndGet();
             var timer = timers.get(kind).get(outcome);

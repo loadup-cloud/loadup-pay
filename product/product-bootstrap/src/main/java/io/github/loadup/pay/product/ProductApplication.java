@@ -17,9 +17,7 @@ package io.github.loadup.pay.product;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 
-import java.time.Clock;
 
 @SpringBootApplication
 public class ProductApplication {
@@ -27,8 +25,4 @@ public class ProductApplication {
         SpringApplication.run(ProductApplication.class, args);
     }
 
-    @Bean
-    Clock businessClock() {
-        return Clock.systemDefaultZone();
-    }
 }

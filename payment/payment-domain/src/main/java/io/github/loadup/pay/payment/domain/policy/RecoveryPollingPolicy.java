@@ -51,8 +51,9 @@ public record RecoveryPollingPolicy(long initialDelaySeconds, long maximumDelayS
         long stages = Duration.between(startedAt, anchor).getSeconds() / backoffEverySeconds;
         long delay = initialDelaySeconds;
         // Saturate before multiplying; an arbitrarily old request never overflows or resets to a short delay.
-        while (stages-- > 0 && delay < maximumDelaySeconds)
+        while (stages-- > 0 && delay < maximumDelaySeconds) {
             delay = delay >= maximumDelaySeconds - delay ? maximumDelaySeconds : delay * 2;
+        }
         long spread = delay * jitterPercent / 100;
         long lower = Math.max(initialDelaySeconds, delay - spread);
         long upper = Math.min(maximumDelaySeconds, delay + spread);

@@ -45,24 +45,34 @@ public class RefundFeeDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.message().version() != 1
-                || !RefundProjectionEvents.FEE.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !RefundProjectionEvents.FEE.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var message = event.message();
-        var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId())
+        String tenant = TenantUtil.getTenantId();
+        var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!row.id().equals(event.id())
                 || !RefundProjectionEvents.FEE.equals(row.type()) || !row.businessId().equals(message.businessId())
-                || !"PROCESSING".equals(row.status())) throw new CommonException(SNAPSHOT_INVALID);
-        if (!acquire.supportsTenant(row.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+                || !"PROCESSING".equals(row.status())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (!acquire.supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var envelope = codec.fee(message.payload());
         if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType())
-                || envelope.aggregateVersion() <= 0) throw new CommonException(SNAPSHOT_INVALID);
-        var ack = acquire.acceptFeeRefund(row.tenantId(), envelope);
+                || envelope.aggregateVersion() <= 0) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        var ack = acquire.acceptFeeRefund(tenant, envelope);
         if (ack == null || !ack.accepted() || !envelope.deliveryId().equals(ack.deliveryId())
                 || !envelope.businessEventId().equals(ack.businessEventId()) || !envelope.aggregateId().equals(ack.orderId())
-                || ack.sourceVersion() != envelope.aggregateVersion() || ack.appliedVersion() < ack.sourceVersion())
+                || ack.sourceVersion() != envelope.aggregateVersion() || ack.appliedVersion() < ack.sourceVersion()) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

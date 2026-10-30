@@ -69,15 +69,17 @@ public class PaymentEvents {
     public void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, LocalDateTime occurredAt) {
         writable(tenant);
         if (payment == null || occurredAt == null || !PaymentExecutionService.terminal(payment.payment().state())
-                || payment.terminalEvidenceId() == null) throw new CommonException(SNAPSHOT_INVALID);
+                || payment.terminalEvidenceId() == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var realtime = freezeSnapshot(tenant, payment, occurredAt);
         var data = converter.toEvent(payment, fenced);
         for (var type : List.of(ACQUIRE, LIMIT, RISK)) {
             var envelope = new EventEnvelope<>(ids.generate(), payment.terminalEvidenceId(), "payment", type, 1,
                     payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), data);
-            outbox.publish(new OutboxMessage(tenant, type, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
+            outbox.publish(new OutboxMessage(type, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
         }
-        sendSnapshot(tenant, payment, realtime);
+        sendSnapshot(payment, realtime);
     }
 
     /**
@@ -85,34 +87,46 @@ public class PaymentEvents {
      */
     public void publishSnapshot(String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
         writable(tenant);
-        sendSnapshot(tenant, payment, freezeSnapshot(tenant, payment, occurredAt));
+        sendSnapshot(payment, freezeSnapshot(tenant, payment, occurredAt));
     }
 
     private EventEnvelope<PaymentSnapshotEventDTO> freezeSnapshot(String tenant, StoredPaymentAcceptance payment, LocalDateTime occurredAt) {
-        if (payment == null || occurredAt == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (payment == null || occurredAt == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         boolean terminal = PaymentExecutionService.terminal(payment.payment().state());
-        if (terminal != (payment.terminalEvidenceId() != null)) throw new CommonException(SNAPSHOT_INVALID);
+        if (terminal != (payment.terminalEvidenceId() != null)) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         StoredPaymentAttempt attempt = payment.payment().activeAttemptId() == null ? null
                 : attempts.find(tenant, payment.payment().activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (attempt != null) {
             PaymentExecutionBindings.active(payment, attempt);
-            if (payment.payment().state() == PaymentState.UNKNOWN)
+            if (payment.payment().state() == PaymentState.UNKNOWN) {
                 PaymentExecutionBindings.observable(payment, attempt);
-            if (payment.payment().state() == PaymentState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+            }
+            if (payment.payment().state() == PaymentState.INIT) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             if ((payment.payment().state() == PaymentState.FAILED || payment.payment().state() == PaymentState.CLOSED)
                     && (!attempt.attempt().canSafelyReplace()
-                    || !payment.terminalEvidenceId().equals(attempt.attempt().noCollectionEvidenceId())))
+                    || !payment.terminalEvidenceId().equals(attempt.attempt().noCollectionEvidenceId()))) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
         } else if (payment.payment().state() == PaymentState.PROCESSING || payment.payment().state() == PaymentState.UNKNOWN
-                || payment.payment().state() == PaymentState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
+                || payment.payment().state() == PaymentState.SUCCEEDED) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         LocalDateTime succeededAt = null;
         if (payment.payment().state() == PaymentState.SUCCEEDED) {
-            if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED)
+            if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var claim = results.attemptClaim(tenant, attempt.attempt().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!claim.tenantId().equals(tenant) || !claim.identity().equals(attempt.attempt().identity())
-                    || !claim.amount().equals(payment.payment().amount()) || !claim.receiptId().equals(payment.terminalEvidenceId()))
+                    || !claim.amount().equals(payment.payment().amount()) || !claim.receiptId().equals(payment.terminalEvidenceId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             succeededAt = claim.succeededAt();
         }
         final PaymentSnapshotEventDTO snapshot;
@@ -126,15 +140,17 @@ public class PaymentEvents {
                 payment.payment().id(), payment.payment().version(), BusinessTime.external(occurredAt), snapshot);
     }
 
-    private void sendSnapshot(String tenant, StoredPaymentAcceptance payment, EventEnvelope<PaymentSnapshotEventDTO> envelope) {
-        outbox.publish(new OutboxMessage(tenant, REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
+    private void sendSnapshot(StoredPaymentAcceptance payment, EventEnvelope<PaymentSnapshotEventDTO> envelope) {
+        outbox.publish(new OutboxMessage(REALTIME, 1, payment.payment().id(), JsonUtil.toJson(envelope)));
     }
 
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId()))
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN);
+        }
     }
 }

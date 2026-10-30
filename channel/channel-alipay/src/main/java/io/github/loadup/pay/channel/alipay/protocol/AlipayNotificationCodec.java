@@ -49,13 +49,16 @@ public final class AlipayNotificationCodec {
 
     private static String required(Map<String, String> values, String key, int max) {
         String value = values.get(key);
-        if (value == null || value.isBlank() || value.length() > max)
+        if (value == null || value.isBlank() || value.length() > max) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return value;
     }
 
     private static void match(Map<String, String> values, String key, String expected) {
-        if (!expected.equals(required(values, key, 128))) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!expected.equals(required(values, key, 128))) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
     }
 
     public ChannelNotificationHint identify(ChannelNotificationInput input) {
@@ -64,11 +67,14 @@ public final class AlipayNotificationCodec {
 
     public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target,
                                               ChannelNotificationInput input) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var account = AlipayBindingGuard.require(context, target.identity());
         var parameters = parse(input);
-        if (!"RSA2".equals(parameters.get("sign_type")) || !"utf-8".equalsIgnoreCase(parameters.get("charset")))
+        if (!"RSA2".equals(parameters.get("sign_type")) || !"utf-8".equalsIgnoreCase(parameters.get("charset"))) {
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        }
         var encodedSignature = required(parameters, "sign", 1024);
         var canonical = new TreeMap<>(parameters);
         canonical.remove("sign");
@@ -79,8 +85,9 @@ public final class AlipayNotificationCodec {
             var verifier = Signature.getInstance("SHA256withRSA");
             verifier.initVerify(key);
             verifier.update(signed.getBytes(StandardCharsets.UTF_8));
-            if (!verifier.verify(Base64.getDecoder().decode(encodedSignature)))
+            if (!verifier.verify(Base64.getDecoder().decode(encodedSignature))) {
                 throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+            }
         } catch (CommonException invalid) {
             throw invalid;
         } catch (Exception invalid) {
@@ -91,11 +98,13 @@ public final class AlipayNotificationCodec {
         match(parameters, "seller_id", account.sellerId());
         match(parameters, "notify_type", "trade_status_sync");
         var amount = required(parameters, "total_amount", 32);
-        if (!amount.matches("(0|[1-9][0-9]{0,15})(\\.[0-9]{1,2})?"))
+        if (!amount.matches("(0|[1-9][0-9]{0,15})(\\.[0-9]{1,2})?")) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         try {
-            if (new BigDecimal(amount).movePointRight(2).longValueExact() != target.amount().getCent())
+            if (new BigDecimal(amount).movePointRight(2).longValueExact() != target.amount().getCent()) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
         } catch (ArithmeticException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
@@ -105,29 +114,43 @@ public final class AlipayNotificationCodec {
     }
 
     private Map<String, String> parse(ChannelNotificationInput input) {
-        if (input == null) throw new CommonException(INVALID_ARGUMENT);
-        String[] media = input.contentType().split(";", -1);
-        if (!"application/x-www-form-urlencoded".equalsIgnoreCase(media[0].strip()))
+        if (input == null) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
+        String[] media = input.contentType().split(";", -1);
+        if (!"application/x-www-form-urlencoded".equalsIgnoreCase(media[0].strip())) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         boolean charset = false;
         for (int i = 1; i < media.length; i++) {
             var parameter = media[i].strip().split("=", 2);
             if (charset || parameter.length != 2 || !"charset".equalsIgnoreCase(parameter[0].strip())
-                    || !("utf-8".equalsIgnoreCase(parameter[1].strip()) || "\"utf-8\"".equalsIgnoreCase(parameter[1].strip())))
+                    || !("utf-8".equalsIgnoreCase(parameter[1].strip()) || "\"utf-8\"".equalsIgnoreCase(parameter[1].strip()))) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             charset = true;
         }
         byte[] bytes = input.body();
-        for (byte value : bytes) if (value < 32 || value > 126) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        for (byte value : bytes) {
+            if (value < 32 || value > 126) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
+        }
         String[] fields = new String(bytes, StandardCharsets.US_ASCII).split("&", -1);
-        if (fields.length > 256) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (fields.length > 256) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         var parameters = new TreeMap<String, String>();
         for (String field : fields) {
             int separator = field.indexOf('=');
-            if (separator <= 0) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (separator <= 0) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             String key = decode(field.substring(0, separator)), value = decode(field.substring(separator + 1));
             if (!key.matches("[A-Za-z][A-Za-z0-9_]{0,63}") || value.length() > 16384
-                    || parameters.putIfAbsent(key, value) != null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    || parameters.putIfAbsent(key, value) != null) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
         }
         return Map.copyOf(parameters);
     }
@@ -138,11 +161,17 @@ public final class AlipayNotificationCodec {
             for (int i = 0; i < part.length(); i++) {
                 char value = part.charAt(i);
                 if (value == '%') {
-                    if (i + 2 >= part.length()) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    if (i + 2 >= part.length()) {
+                        throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    }
                     int high = Character.digit(part.charAt(++i), 16), low = Character.digit(part.charAt(++i), 16);
-                    if (high < 0 || low < 0) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    if (high < 0 || low < 0) {
+                        throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                    }
                     bytes.write((high << 4) | low);
-                } else bytes.write(value == '+' ? ' ' : value);
+                } else {
+                    bytes.write(value == '+' ? ' ' : value);
+                }
             }
             return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes.toByteArray())).toString();

@@ -39,7 +39,9 @@ final class ReconciliationFingerprint {
     void field(String value) {
         byte[] bytes = value == null ? null : value.getBytes(StandardCharsets.UTF_8);
         digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes == null ? -1 : bytes.length).array());
-        if (bytes != null) digest.update(bytes);
+        if (bytes != null) {
+            digest.update(bytes);
+        }
     }
 
     void scope(ReconciliationScope scope) {
@@ -51,7 +53,9 @@ final class ReconciliationFingerprint {
 
     void line(ReconciliationLine line) {
         field(line == null ? null : "line");
-        if (line == null) return;
+        if (line == null) {
+            return;
+        }
         field(line.key().kind().name());
         field(line.key().channelTransactionNo());
         field(line.key().channelRefundNo());

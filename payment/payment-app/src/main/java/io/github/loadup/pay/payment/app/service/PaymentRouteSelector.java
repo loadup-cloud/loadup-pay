@@ -47,21 +47,29 @@ public class PaymentRouteSelector {
     }
 
     public ChannelBindingRevision select(String tenant, PaymentExecuteCommand accepted) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var modes = EnumSet.noneOf(AccessMode.class);
         var choice = accepted.choice();
         for (var capability : accepted.admittedTerms().terms().capabilities()) {
-            if (capability.channel() == choice.channel() && capability.methods().contains(choice.method()))
+            if (capability.channel() == choice.channel() && capability.methods().contains(choice.method())) {
                 modes.add(capability.accessMode());
+            }
         }
-        if (modes.isEmpty()) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (modes.isEmpty()) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         String ref = accepted.admittedTerms().terms().routingProfileRef();
         var profile = profiles.find(tenant, ref).orElseThrow(() -> new CommonException(ROUTING_PROFILE_UNAVAILABLE));
-        if (!profile.spec().profileRef().equals(ref) || !profile.spec().payeeMerchantId().equals(accepted.payeeMerchantId()))
+        if (!profile.spec().profileRef().equals(ref) || !profile.spec().payeeMerchantId().equals(accepted.payeeMerchantId())) {
             throw new CommonException(ROUTING_PROFILE_UNAVAILABLE);
+        }
         var rules = profile.spec().rules().stream().filter(rule -> rule.channel() == choice.channel()
                 && rule.method() == choice.method() && modes.contains(rule.accessMode())).toList();
-        if (rules.isEmpty()) throw new CommonException(UNSUPPORTED_CAPABILITY);
+        if (rules.isEmpty()) {
+            throw new CommonException(UNSUPPORTED_CAPABILITY);
+        }
         var routedModes = EnumSet.noneOf(AccessMode.class);
         rules.stream().map(RoutingRule::accessMode).forEach(routedModes::add);
         var candidates = bindings.lockActive(tenant, accepted.payeeMerchantId(), choice.channel(), routedModes, choice.method());
@@ -70,10 +78,12 @@ public class PaymentRouteSelector {
             for (var candidate : candidates) {
                 var selected = candidate.revision().binding();
                 if (!selected.payeeMerchantId().equals(accepted.payeeMerchantId()) || selected.channel() != choice.channel()
-                        || !routedModes.contains(selected.accessMode()) || !selected.capabilities().contains(choice.method()))
+                        || !routedModes.contains(selected.accessMode()) || !selected.capabilities().contains(choice.method())) {
                     throw new CommonException(SNAPSHOT_INVALID);
-                if (candidate.head().bindingCode().equals(rule.bindingCode()) && selected.accessMode() == rule.accessMode())
+                }
+                if (candidate.head().bindingCode().equals(rule.bindingCode()) && selected.accessMode() == rule.accessMode()) {
                     return selected;
+                }
             }
         }
         throw new CommonException(CHANNEL_BINDING_UNAVAILABLE);

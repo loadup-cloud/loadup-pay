@@ -13,42 +13,47 @@ import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTask
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the reconciliation service. */
+/**
+ * Protobuf IDL entry point for the reconciliation service.
+ */
 @DubboService(interfaceClass = ReconciliationRpc.class)
 public class ReconciliationRpcService extends DubboReconciliationRpcTriple.ReconciliationRpcImplBase {
     private final ReconciliationFacade reconciliation;
 
-    public ReconciliationRpcService(ReconciliationFacade reconciliation) {
+    private final ReconciliationRpcMapper reconciliationRpcMapper;
+
+    public ReconciliationRpcService(ReconciliationRpcMapper reconciliationRpcMapper, ReconciliationFacade reconciliation) {
+        this.reconciliationRpcMapper = reconciliationRpcMapper;
         this.reconciliation = reconciliation;
     }
 
     @Override
     public WireReconciliationBatchDTO create(WireReconciliationBatchCreateCommand request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.create(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.create(reconciliationRpcMapper.fromWire(request)));
     }
 
     @Override
     public WireReconciliationBatchDTO attach(WireReconciliationInputAttachCommand request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.attach(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.attach(reconciliationRpcMapper.fromWire(request)));
     }
 
     @Override
     public WireReconciliationBatchDTO start(WireReconciliationBatchStartCommand request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.start(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.start(reconciliationRpcMapper.fromWire(request)));
     }
 
     @Override
     public WireReconciliationBatchDTO retry(WireReconciliationBatchRetryCommand request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.retry(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.retry(reconciliationRpcMapper.fromWire(request)));
     }
 
     @Override
     public WireReconciliationBatchTaskDTO task(WireReconciliationBatchQuery request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.task(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.task(reconciliationRpcMapper.fromWire(request)));
     }
 
     @Override
     public WireReconciliationBatchDTO detail(WireReconciliationBatchQuery request) {
-        return ReconciliationRpcMapper.INSTANCE.toWire(reconciliation.detail(ReconciliationRpcMapper.INSTANCE.fromWire(request)));
+        return reconciliationRpcMapper.toWire(reconciliation.detail(reconciliationRpcMapper.fromWire(request)));
     }
 }

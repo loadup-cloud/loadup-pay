@@ -57,8 +57,9 @@ public record LimitReserveCommand(
         @Schema(description = "Original payment intent SHA-256") @NotBlank @Pattern(regexp = "[0-9a-f]{64}")
         String requestDigest) {
     public LimitReserveCommand {
-        if (initiatedAt != null)
+        if (initiatedAt != null) {
             initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

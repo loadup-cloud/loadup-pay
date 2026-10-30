@@ -21,8 +21,6 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryCursorDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -46,7 +44,7 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
     private final Clock clock;
 
     public PaymentRecoveryGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentRecoveryStorageConverter converter,
-                                      @Qualifier("databaseClock") Clock clock) {
+                                      Clock clock) {
         this.jdbc = jdbc;
         this.converter = converter;
         this.clock = clock;
@@ -54,7 +52,9 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
 
     @Override
     public Optional<PaymentRecoveryCursor> find(String tenant, String paymentId) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var row = row(tenant, paymentId, false);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
@@ -82,10 +82,12 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO payment_recovery_cursor (id, tenant_id, created_at, updated_at, deleted, generation, due_at, completed)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :generation, :dueAt, :completed)
+                INSERT INTO payment_recovery_cursor (id, created_at, updated_at, deleted, generation, due_at, completed)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :generation, :dueAt, :completed)
                 """, new BeanPropertySqlParameterSource(row));
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -95,24 +97,27 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
                 && before.generation() == after.generation() && before.dueAt().equals(after.dueAt());
         boolean rescheduled = !before.completed() && !after.completed() && before.generation() != Long.MAX_VALUE
                 && after.generation() == before.generation() + 1 && after.dueAt().isAfter(before.dueAt());
-        if (!before.paymentId().equals(after.paymentId()) || (!completed && !rescheduled))
+        if (!before.paymentId().equals(after.paymentId()) || (!completed && !rescheduled)) {
             throw new CommonException(INVALID_STATE);
+        }
 
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.paymentId())
+        var args = new MapSqlParameterSource().addValue("id", before.paymentId())
                 .addValue("expected", before.generation()).addValue("generation", after.generation())
                 .addValue("due", after.dueAt()).addValue("completed", after.completed()).addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE payment_recovery_cursor SET generation = :generation, due_at = :due, completed = :completed,
-                    updated_at = :updated WHERE tenant_id = :tenant AND id = :id AND generation = :expected
+                    updated_at = :updated WHERE id = :id AND generation = :expected
                     AND completed = FALSE AND deleted = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private PaymentRecoveryCursorDO row(String tenant, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", paymentId);
-        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, generation, due_at, completed "
-                        + "FROM payment_recovery_cursor WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+        var args = new MapSqlParameterSource().addValue("id", paymentId);
+        return jdbc.query("SELECT id, created_at, updated_at, generation, due_at, completed "
+                        + "FROM payment_recovery_cursor WHERE id = :id AND deleted = FALSE"
                         + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(PaymentRecoveryCursorDO.class))
                 .stream().findFirst().orElse(null);
     }
@@ -121,8 +126,11 @@ public class PaymentRecoveryGatewayImpl implements PaymentRecoveryGateway {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

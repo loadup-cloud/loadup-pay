@@ -29,7 +29,8 @@ public class LimitCenterSecurityConfiguration implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false))
+        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("LimitCenter business HTTP requires the verified JWT resource server");
+        }
     }
 }

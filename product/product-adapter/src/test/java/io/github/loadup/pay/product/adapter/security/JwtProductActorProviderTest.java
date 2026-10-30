@@ -45,7 +45,9 @@ class JwtProductActorProviderTest {
                 .claim("tenant_id", "tenant")
                 .claim("principal_type", type)
                 .claim("aud", audience);
-        if (merchant != null) builder.claim("merchant_id", merchant);
+        if (merchant != null) {
+            builder.claim("merchant_id", merchant);
+        }
         SecurityContextHolder.getContext()
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         "verified", builder.build(), List.of(new SimpleGrantedAuthority("pay:product:admit"))));

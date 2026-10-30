@@ -116,7 +116,9 @@ class WechatRefundNotificationCodecTest {
     private static Map<String, List<String>> withHeader(Map<String, List<String>> headers, String name, List<String> values) {
         var copy = new HashMap<String, List<String>>();
         headers.forEach((key, value) -> {
-            if (!key.equalsIgnoreCase(name)) copy.put(key, value);
+            if (!key.equalsIgnoreCase(name)) {
+                copy.put(key, value);
+            }
         });
         copy.put(name, values);
         return copy;
@@ -256,7 +258,9 @@ class WechatRefundNotificationCodecTest {
 
     private void assertEveryKeyWasZeroed() {
         assertFalse(apiKeys.isEmpty());
-        for (byte[] key : apiKeys) assertArrayEquals(new byte[key.length], key);
+        for (byte[] key : apiKeys) {
+            assertArrayEquals(new byte[key.length], key);
+        }
     }
 
     private void assertKeyWasZeroed() {
@@ -276,7 +280,9 @@ class WechatRefundNotificationCodecTest {
         signer.update(body);
         signer.update((byte) '\n');
         byte[] signature = signer.sign();
-        if (mutateSignature) signature[0] ^= 1;
+        if (mutateSignature) {
+            signature[0] ^= 1;
+        }
         return Map.of("Wechatpay-Serial", List.of("PUB_KEY_ID_test"), "Wechatpay-Timestamp", List.of(TIMESTAMP),
                 "Wechatpay-Nonce", List.of(NONCE), "Wechatpay-Signature", List.of(Base64.getEncoder().encodeToString(signature)));
     }

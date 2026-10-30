@@ -35,7 +35,9 @@ public record ReconciliationAccountsProperties(Map<String, Map<String, Account>>
                 Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
         for (var tenant : tenants.entrySet()) {
             DomainChecks.id(tenant.getKey());
-            for (var account : tenant.getValue().entrySet()) DomainChecks.id(account.getKey());
+            for (var account : tenant.getValue().entrySet()) {
+                DomainChecks.id(account.getKey());
+            }
         }
     }
 
@@ -52,7 +54,9 @@ public record ReconciliationAccountsProperties(Map<String, Map<String, Account>>
             require(accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
             DomainChecks.text(statementProfile, 64);
             java.util.Objects.requireNonNull(statementAccount);
-            if (statementBindingRevisionId != null) DomainChecks.id(statementBindingRevisionId);
+            if (statementBindingRevisionId != null) {
+                DomainChecks.id(statementBindingRevisionId);
+            }
             serviceIds = serviceIds == null ? Set.of() : Set.copyOf(serviceIds);
             serviceIds.forEach(DomainChecks::id);
         }

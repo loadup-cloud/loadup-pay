@@ -28,8 +28,9 @@ public record LimitPolicyActivationDTO(
         @Schema(description = "Policy hash") @Size(max = 64) String policyHash,
         @Schema(description = "Activated at") OffsetDateTime activatedAt) {
     public LimitPolicyActivationDTO {
-        if (activatedAt != null)
+        if (activatedAt != null) {
             activatedAt = activatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

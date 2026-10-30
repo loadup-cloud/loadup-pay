@@ -156,7 +156,6 @@ class PaymentInitiationPersistenceTest {
         var value = stored(payload, hashes.checksum(payload));
         assertEquals(command(), codec.decode(value));
         var row = converter.toAllocationDO("tenant", value);
-        assertEquals("tenant", row.getTenantId());
         assertFalse(row.getDeleted());
         assertNull(row.getCreatedAt());
         var restored = converter.toStored(row, converter.toAllocation(row));

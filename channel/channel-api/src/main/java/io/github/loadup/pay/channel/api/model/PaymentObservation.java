@@ -41,11 +41,17 @@ public record PaymentObservation(ChannelPaymentIdentity identity, ChannelPayment
         require(amount.getCent() > 0, INVALID_ARGUMENT);
         DomainChecks.text(receiptKey, 128);
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
-        if (channelTransactionNo != null) DomainChecks.text(channelTransactionNo, 128);
-        if (succeededAt != null) succeededAt = succeededAt.truncatedTo(ChronoUnit.MICROS);
-        if (kind == ChannelPaymentOutcome.Kind.SUCCEEDED || kind == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED)
+        if (channelTransactionNo != null) {
+            DomainChecks.text(channelTransactionNo, 128);
+        }
+        if (succeededAt != null) {
+            succeededAt = succeededAt.truncatedTo(ChronoUnit.MICROS);
+        }
+        if (kind == ChannelPaymentOutcome.Kind.SUCCEEDED || kind == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED) {
             require(channelTransactionNo != null && succeededAt != null, INVALID_ARGUMENT);
-        else require(succeededAt == null, INVALID_ARGUMENT);
+        } else {
+            require(succeededAt == null, INVALID_ARGUMENT);
+        }
     }
 
     @Override

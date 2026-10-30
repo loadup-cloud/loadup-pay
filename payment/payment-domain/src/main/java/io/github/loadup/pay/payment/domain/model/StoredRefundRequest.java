@@ -43,8 +43,9 @@ public record StoredRefundRequest(RefundRequest request, String reasonCode, Stri
                 && termsHash != null && termsHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         allocations = List.copyOf(allocations);
         require(allocations.size() == request.children().size(), CONFLICT);
-        for (int i = 0; i < allocations.size(); i++)
+        for (int i = 0; i < allocations.size(); i++) {
             require(allocations.get(i).sequenceNo() == i + 1 && allocations.get(i).refund().equals(request.children().get(i)), CONFLICT);
+        }
     }
 
     @Override

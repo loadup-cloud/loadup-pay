@@ -17,6 +17,7 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
@@ -28,8 +29,6 @@ import io.github.loadup.pay.acquire.infrastructure.converter.OrderCreationStorag
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCreateIntentDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -59,7 +58,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             NamedParameterJdbcTemplate jdbc,
             OrderCreationStorageConverter converter,
             AcquireOrderConverter business,
-            OrderCreationCodec codec, @Qualifier("acquireClock") Clock clock) {
+            OrderCreationCodec codec, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -87,7 +86,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     public OrderCreateIntent lockIntent(String tenant, String id) {
         requireTransaction();
         var row = intent(tenant, "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toIntent(row);
     }
 
@@ -107,8 +108,12 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     :resultCode, :rowVersion, :initialSessionId)
                 ON CONFLICT (tenant_id, payee_merchant_id, merchant_order_no) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Order creation request already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Order creation request already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
@@ -125,13 +130,17 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     row_version = :version, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (changed != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     @Override
     public Optional<StoredAcquireOrder> findOrder(String tenant, String id) {
         var row = order(tenant, id, false);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             var intentRow = intent(tenant, "order_id = :order", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", id), false);
             var snapshotArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", row.getContractSnapshotId()).addValue("order", id);
@@ -140,8 +149,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                            snapshot_hash, compiled_terms_hash, schema_version, configuration, payload_hash, admission_digest
                     FROM order_contract_snapshot WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND deleted = FALSE
                     """, snapshotArgs, BeanPropertyRowMapper.newInstance(OrderContractSnapshotDO.class)).stream().findFirst().orElse(null);
-            if (intentRow == null || snapshot == null || !"COMPLETED".equals(intentRow.getState()))
+            if (intentRow == null || snapshot == null || !"COMPLETED".equals(intentRow.getState())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var intent = converter.toIntent(intentRow);
             final io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand command;
             final String digest;
@@ -182,8 +192,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     || !Objects.equals(snapshot.getCompiledTermsHash(), admission.compiledTermsHash())
                     || !Objects.equals(
                     snapshot.getSchemaVersion(), admission.terms().schemaVersion())
-                    || !Objects.equals(snapshot.getAdmissionDigest(), admission.requestDigest()))
+                    || !Objects.equals(snapshot.getAdmissionDigest(), admission.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var policy = business.toPaymentPolicy(admission.terms().payment());
             var order = converter.toOrder(
                     row,
@@ -199,7 +210,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     public StoredAcquireOrder lockOrder(String tenant, String id) {
         requireTransaction();
         var row = order(tenant, id, true);
-        if (row == null) throw new CommonException(NOT_FOUND);
+        if (row == null) {
+            throw new CommonException(NOT_FOUND);
+        }
         // The held header lock serializes new sessions with future order lifecycle writes.
         return findOrder(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
     }
@@ -207,11 +220,13 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     @Override
     public void insertOrder(String tenant, StoredAcquireOrder value, OrderFee fee, String feePayload) {
         requireTransaction();
-        if (!value.order().id().equals(fee.orderId()) || !value.order().amount().equals(fee.baseAmount()))
+        if (!value.order().id().equals(fee.orderId()) || !value.order().amount().equals(fee.baseAmount())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var now = LocalDateTime.now(clock);
         var snapshot = converter.toSnapshotDO(tenant, value);
         snapshot.setCreatedAt(now);
@@ -223,7 +238,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :contractId, :contractRevision,
                     :contractGeneration, :snapshotHash, :compiledTermsHash, :schemaVersion, :configuration, :payloadHash, :admissionDigest)
                 """, new BeanPropertySqlParameterSource(snapshot));
-        if (snapshotCount != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (snapshotCount != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var row = converter.toOrderDO(tenant, value);
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
@@ -237,7 +254,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     :successfulPaymentCount, :reservedPaymentCount, :state, :admittedAt, :orderDueAt, :deadlineVersion, :closeEpoch,
                     :paidAt, :closedAt, :rowVersion)
                 """, new BeanPropertySqlParameterSource(row));
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var feeRow = converter.toFeeDO(tenant, fee, feePayload);
         feeRow.setCreatedAt(now);
         feeRow.setUpdatedAt(now);
@@ -249,7 +268,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     :feeAmountMinor, :feeRuleSnapshot, :refundBasisVersion, :refundBasisMinor, :adjustedAmountMinor,
                     :state, :confirmedAt, :rowVersion)
                 """, new BeanPropertySqlParameterSource(feeRow));
-        if (feeCount != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (feeCount != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private AcquireOrderDO order(String tenant, String id, boolean lock) {
@@ -267,7 +288,8 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

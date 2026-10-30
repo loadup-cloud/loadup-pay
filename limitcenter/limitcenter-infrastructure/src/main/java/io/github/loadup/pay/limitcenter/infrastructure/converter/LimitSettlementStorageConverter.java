@@ -25,10 +25,8 @@ import org.mapstruct.Mapping;
 public interface LimitSettlementStorageConverter {
     LimitSettlementReceipt toReceipt(LimitSettlementReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     LimitSettlementReceiptDO toDO(String tenant, LimitSettlementReceipt value);
-
 }

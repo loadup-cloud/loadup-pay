@@ -41,7 +41,6 @@ class PolicyActivationOutboxHandlerTest {
         return new OutboxEvent(
                 "event",
                 new OutboxMessage(
-                        tenant,
                         PolicyActivationDispatch.TYPE,
                         version,
                         businessId,

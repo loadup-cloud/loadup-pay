@@ -88,8 +88,9 @@ class PaymentAcceptanceTransactionsTest {
                 assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, manager.isolation);
                 int attempt = calls.incrementAndGet();
                 assertEquals(attempt - 1, manager.rollbacks);
-                if (attempt < 3)
+                if (attempt < 3) {
                     throw new io.github.loadup.pay.payment.app.port.PaymentWriteConflictException("Synthetic local race");
+                }
                 return "committed";
             }));
             assertEquals("outer", TenantUtil.getTenantId());

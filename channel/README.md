@@ -243,7 +243,8 @@ XML、独立版本密钥、命名 HTTP 配置已补；付款码/未知产品禁�
 ## 2026-10-28 官方账单来源
 
 独立 Statement Facade/Provider 复用注册表，微信按原 binding 和账户请求 ALL 账单，验签申请后限制下载目标、签名流式下载并核验原文件
-SHA1。私有凭证与原件有界传输，不暴露浏览器。payment 通过独立受权只读 Facade 提供来源；reconciliation 已补官方来源请求/任务/File/Transfer
+SHA1。私有凭证与原件有界传输，不暴露浏览器。payment 通过独立受权只读 Facade 提供来源；reconciliation
+已补官方来源请求/任务/File/Transfer
 与批次 CHANNEL 接线源码，仍待验证。该 privileged
 原版本读取不参与商户支付选路。设计及剩余项见 [官方来源](../design/WECHAT-STATEMENT-SOURCE.md)，均未运行验证。
 

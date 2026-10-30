@@ -66,11 +66,15 @@ public class CustomerCommandExecutor {
                 List.of(actor.tenantId(), actor.principalType().name(), actor.principalId(), requestKey)));
         String fingerprint = digest(JsonUtil.toJson(command));
         Optional<GlobalUniqueRecord> found = unique.find(operation, key);
-        if (found.isPresent()) return replay(found.get(), actor, fingerprint, responseType);
+        if (found.isPresent()) {
+            return replay(found.get(), actor, fingerprint, responseType);
+        }
         lockPayee.run();
         // A concurrent identical command can commit while this transaction waits for the payee lock.
         found = unique.find(operation, key);
-        if (found.isPresent()) return replay(found.get(), actor, fingerprint, responseType);
+        if (found.isPresent()) {
+            return replay(found.get(), actor, fingerprint, responseType);
+        }
         Prepared<T> prepared = prepare.get();
         Receipt receipt = new Receipt(fingerprint, JsonUtil.toJson(prepared.result()));
         if (!unique.claim(new GlobalUniqueClaim(operation, key, prepared.id(), JsonUtil.toJson(receipt)))) {
@@ -81,11 +85,10 @@ public class CustomerCommandExecutor {
     }
 
     private <T> T replay(GlobalUniqueRecord record, CustomerActor actor, String fingerprint, Class<T> type) {
-        if (!actor.tenantId().equals(record.tenantId()))
-            throw new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
         Receipt receipt = JsonUtil.fromJson(record.requestData(), Receipt.class);
-        if (!fingerprint.equals(receipt.fingerprint()))
+        if (!fingerprint.equals(receipt.fingerprint())) {
             throw new CommonException(CustomerResultCodeEnum.IDEMPOTENCY_CONFLICT);
+        }
         return JsonUtil.fromJson(receipt.response(), type);
     }
 

@@ -18,7 +18,6 @@ import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
-import io.github.loadup.pay.payment.rpc.PaymentCaptureRpcFields;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureCreateCommand;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureDTO;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureLinesQuery;
@@ -26,11 +25,6 @@ import io.github.loadup.pay.payment.rpc.proto.WirePaymentCapturePage;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureQuery;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentLedgerLineDTO;
-import java.time.DateTimeException;
-import java.time.ZoneId;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.BeforeMapping;
@@ -40,12 +34,16 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-@Mapper(config=LoadUpMapStructConfig.class, componentModel="default", uses={PaymentCaptureRpcFields.class, RpcScalarMapper.class}, nullValueCheckStrategy=NullValueCheckStrategy.ALWAYS)
-public interface PaymentCaptureRpcMapper {
-    PaymentCaptureRpcMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(PaymentCaptureRpcMapper.class);
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="captureId", source="captureId"), @Mapping(target="expectedTaskId", source="expectedTaskId")})
+@Mapper(config = LoadUpMapStructConfig.class, uses = {PaymentCaptureRpcFields.class, RpcScalarMapper.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
+public interface PaymentCaptureRpcMapper {
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "captureId", source = "captureId"), @Mapping(target = "expectedTaskId", source = "expectedTaskId")})
     public WirePaymentCaptureRetryCommand toWire(PaymentCaptureRetryCommand value);
 
     public PaymentCaptureRetryCommand fromWire(WirePaymentCaptureRetryCommand value);
@@ -62,44 +60,44 @@ public interface PaymentCaptureRpcMapper {
         this.text(value.getExpectedTaskId(), 64);
     }
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="requestKey", source="requestKey"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="billDate", source="billDate"), @Mapping(target="statementProfile", source="statementProfile")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "requestKey", source = "requestKey"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile")})
     public WirePaymentCaptureCreateCommand toWire(PaymentCaptureCreateCommand value);
 
     public PaymentCaptureCreateCommand fromWire(WirePaymentCaptureCreateCommand value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mapping(target="id", source="id")
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "id")
     public WirePaymentCaptureQuery toWire(IdQuery value);
 
     public IdQuery fromWire(WirePaymentCaptureQuery value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="captureId", source="captureId"), @Mapping(target="page", source="page"), @Mapping(target="size", source="size")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "captureId", source = "captureId"), @Mapping(target = "page", source = "page"), @Mapping(target = "size", source = "size")})
     public WirePaymentCaptureLinesQuery toWire(PaymentCaptureLinesQuery value);
 
     public PaymentCaptureLinesQuery fromWire(WirePaymentCaptureLinesQuery value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="captureId", source="captureId"), @Mapping(target="channel", source="channel"), @Mapping(target="accountScopeHash", source="accountScopeHash"), @Mapping(target="billDate", source="billDate"), @Mapping(target="statementProfile", source="statementProfile"), @Mapping(target="systemZone", source="systemZone"), @Mapping(target="state", source="state"), @Mapping(target="startedAt", source="startedAt"), @Mapping(target="finishedAt", source="finishedAt"), @Mapping(target="paymentCount", source="paymentCount"), @Mapping(target="paymentAmountMinor", source="paymentAmountMinor"), @Mapping(target="refundCount", source="refundCount"), @Mapping(target="refundAmountMinor", source="refundAmountMinor"), @Mapping(target="contentHash", source="contentHash"), @Mapping(target="blocker", source="blocker"), @Mapping(target="blockerSubjectId", source="blockerSubjectId"), @Mapping(target="version", source="version"), @Mapping(target="nativeTaskId", source="nativeTaskId"), @Mapping(target="nativeStatus", source="nativeStatus"), @Mapping(target="attempts", source="attempts"), @Mapping(target="maxAttempts", source="maxAttempts")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "captureId", source = "captureId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile"), @Mapping(target = "systemZone", source = "systemZone"), @Mapping(target = "state", source = "state"), @Mapping(target = "startedAt", source = "startedAt"), @Mapping(target = "finishedAt", source = "finishedAt"), @Mapping(target = "paymentCount", source = "paymentCount"), @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"), @Mapping(target = "refundCount", source = "refundCount"), @Mapping(target = "refundAmountMinor", source = "refundAmountMinor"), @Mapping(target = "contentHash", source = "contentHash"), @Mapping(target = "blocker", source = "blocker"), @Mapping(target = "blockerSubjectId", source = "blockerSubjectId"), @Mapping(target = "version", source = "version"), @Mapping(target = "nativeTaskId", source = "nativeTaskId"), @Mapping(target = "nativeStatus", source = "nativeStatus"), @Mapping(target = "attempts", source = "attempts"), @Mapping(target = "maxAttempts", source = "maxAttempts")})
     public WirePaymentCaptureDTO toWire(PaymentCaptureDTO value);
 
     public PaymentCaptureDTO fromWire(WirePaymentCaptureDTO value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="ordinal", source="ordinal"), @Mapping(target="kind", source="kind"), @Mapping(target="channelTransactionNo", source="channelTransactionNo"), @Mapping(target="channelRefundNo", source="channelRefundNo"), @Mapping(target="merchantPaymentNo", source="merchantPaymentNo"), @Mapping(target="amountMinor", source="amountMinor"), @Mapping(target="currency", source="currency"), @Mapping(target="status", source="status"), @Mapping(target="sourceAt", source="sourceAt"), @Mapping(target="sourceId", source="sourceId"), @Mapping(target="evidenceId", source="evidenceId"), @Mapping(target="sourceVersion", source="sourceVersion")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "ordinal", source = "ordinal"), @Mapping(target = "kind", source = "kind"), @Mapping(target = "channelTransactionNo", source = "channelTransactionNo"), @Mapping(target = "channelRefundNo", source = "channelRefundNo"), @Mapping(target = "merchantPaymentNo", source = "merchantPaymentNo"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "status", source = "status"), @Mapping(target = "sourceAt", source = "sourceAt"), @Mapping(target = "sourceId", source = "sourceId"), @Mapping(target = "evidenceId", source = "evidenceId"), @Mapping(target = "sourceVersion", source = "sourceVersion")})
     public WirePaymentLedgerLineDTO toWire(PaymentLedgerLineDTO value);
 
     public PaymentLedgerLineDTO fromWire(WirePaymentLedgerLineDTO value);
 
-    @BeanMapping(ignoreByDefault=true)
-    @Mappings(value={@Mapping(target="totalCount", source="pageInfo.totalCount"), @Mapping(target="page", expression="java(Math.toIntExact(value.getPageInfo().pageIndex()))"), @Mapping(target="size", expression="java(Math.toIntExact(value.getPageInfo().pageSize()))")})
+    @BeanMapping(ignoreByDefault = true)
+    @Mappings(value = {@Mapping(target = "totalCount", source = "pageInfo.totalCount"), @Mapping(target = "page", expression = "java(Math.toIntExact(value.getPageInfo().pageIndex()))"), @Mapping(target = "size", expression = "java(Math.toIntExact(value.getPageInfo().pageSize()))")})
     public WirePaymentCapturePage toWire(PageDTO<PaymentLedgerLineDTO> value);
 
-    @Mappings(value={@Mapping(target="data", source="dataList"), @Mapping(target="pageInfo", expression="java(metadata(value))")})
+    @Mappings(value = {@Mapping(target = "data", source = "dataList"), @Mapping(target = "pageInfo", expression = "java(metadata(value))")})
     public PageDTO<PaymentLedgerLineDTO> fromWire(WirePaymentCapturePage value);
 
-    @Mappings(value={@Mapping(target="totalCount", source="totalCount"), @Mapping(target="pageIndex", source="page"), @Mapping(target="pageSize", source="size")})
+    @Mappings(value = {@Mapping(target = "totalCount", source = "totalCount"), @Mapping(target = "pageIndex", source = "page"), @Mapping(target = "pageSize", source = "size")})
     public PageInfo metadata(WirePaymentCapturePage value);
 
     public List<WirePaymentLedgerLineDTO> toWireLines(Collection<PaymentLedgerLineDTO> value);
@@ -186,8 +184,7 @@ public interface PaymentCaptureRpcMapper {
             if (!ZoneId.of(value.getSystemZone()).getId().equals(value.getSystemZone())) {
                 this.invalid();
             }
-        }
-        catch (DateTimeException malformed) {
+        } catch (DateTimeException malformed) {
             this.invalid();
         }
         if (!Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.getNativeStatus()) || value.getAttempts() < 0 || value.getMaxAttempts() < 1 || value.getAttempts() > value.getMaxAttempts()) {
@@ -202,7 +199,7 @@ public interface PaymentCaptureRpcMapper {
         if (!initial) {
             this.timestamp(value.getStartedAt());
             this.timestamp(value.getFinishedAt());
-            if (RpcScalarMapper.offset((Timestamp)value.getFinishedAt()).isBefore(RpcScalarMapper.offset((Timestamp)value.getStartedAt()))) {
+            if (RpcScalarMapper.offset((Timestamp) value.getFinishedAt()).isBefore(RpcScalarMapper.offset((Timestamp) value.getStartedAt()))) {
                 this.invalid();
             }
         }
@@ -213,8 +210,7 @@ public interface PaymentCaptureRpcMapper {
             }
             try {
                 Math.addExact(value.getPaymentCount(), value.getRefundCount());
-            }
-            catch (ArithmeticException overflow) {
+            } catch (ArithmeticException overflow) {
                 this.invalid();
             }
         }
@@ -232,13 +228,15 @@ public interface PaymentCaptureRpcMapper {
         if (!(value.hasTotalCount() && value.hasPage() && value.hasSize() && value.getTotalCount() >= 0L && value.getPage() >= 1 && value.getSize() >= 1 && value.getSize() <= 100)) {
             this.invalid();
         }
-        long offset = (long)(value.getPage() - 1) * (long)value.getSize();
-        long expected = Math.min((long)value.getSize(), Math.max(0L, value.getTotalCount() - offset));
-        if ((long)value.getDataCount() != expected) {
+        long offset = (long) (value.getPage() - 1) * (long) value.getSize();
+        long expected = Math.min((long) value.getSize(), Math.max(0L, value.getTotalCount() - offset));
+        if ((long) value.getDataCount() != expected) {
             this.invalid();
         }
         for (WirePaymentLedgerLineDTO row : value.getDataList()) {
-            if (row.hasOrdinal() && row.getOrdinal() == ++offset) continue;
+            if (row.hasOrdinal() && row.getOrdinal() == ++offset) {
+                continue;
+            }
             this.invalid();
         }
     }
@@ -266,17 +264,16 @@ public interface PaymentCaptureRpcMapper {
 
     private void timestamp(Timestamp value) {
         try {
-            Timestamps.checkValid((Timestamp)value);
+            Timestamps.checkValid((Timestamp) value);
             if (value.getNanos() % 1000 != 0) {
                 this.invalid();
             }
-        }
-        catch (IllegalArgumentException malformed) {
+        } catch (IllegalArgumentException malformed) {
             this.invalid();
         }
     }
 
     private void invalid() {
-        throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+        throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
     }
 }

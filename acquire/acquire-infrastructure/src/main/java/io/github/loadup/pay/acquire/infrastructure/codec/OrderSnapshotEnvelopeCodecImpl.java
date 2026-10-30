@@ -37,10 +37,14 @@ public class OrderSnapshotEnvelopeCodecImpl implements OrderSnapshotEnvelopeCode
     @Override
     public EventEnvelope<OrderSnapshotEventDTO> decode(String payload) {
         try {
-            if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
+            if (payload == null || payload.length() > 65536) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var event = mapper.readValue(payload, new TypeReference<EventEnvelope<OrderSnapshotEventDTO>>() {
             });
-            if (event == null) throw new CommonException(SNAPSHOT_INVALID);
+            if (event == null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             event.data().requireEnvelope(event);
             return event;
         } catch (RuntimeException invalid) {

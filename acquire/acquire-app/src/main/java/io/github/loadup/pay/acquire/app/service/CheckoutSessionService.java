@@ -53,15 +53,23 @@ public class CheckoutSessionService implements CheckoutSessionFacade {
 
     @Override
     public CheckoutDTO create(CheckoutSessionCreateCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:session")) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!actor.permissions().contains("pay:acquire:session")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.requestKey(), 128);
             var order = orders.lockOrder(actor.tenantId(), command.orderId());
-            if (!actor.scopeHash().equals(order.callerScopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!actor.scopeHash().equals(order.callerScopeHash())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             return sessions.renew(actor, order, command);
         });
     }

@@ -31,7 +31,7 @@ public interface OrderClosureStorageConverter {
     @Mapping(target = "advanceCursor", ignore = true)
     OrderCloseIntent toIntent(OrderCloseIntentDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

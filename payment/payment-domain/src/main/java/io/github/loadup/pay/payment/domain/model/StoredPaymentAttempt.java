@@ -42,13 +42,17 @@ public record StoredPaymentAttempt(PaymentAttempt attempt, String limitOperation
         Objects.requireNonNull(preparedAt);
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}")
                 && paymentRequestDigest != null && paymentRequestDigest.matches("[0-9a-f]{64}") && rowVersion >= 0, INVALID_ARGUMENT);
-        if (preparedInputRef != null) DomainChecks.id(preparedInputRef);
+        if (preparedInputRef != null) {
+            DomainChecks.id(preparedInputRef);
+        }
         if (attempt.executionEpoch() == 0) {
             require(executionPermitHash == null && submissionStartedAt == null
                     && (attempt.state() == PaymentAttemptState.INIT || attempt.state() == PaymentAttemptState.CLOSED), INVALID_ARGUMENT);
-            if (attempt.state() == PaymentAttemptState.INIT)
+            if (attempt.state() == PaymentAttemptState.INIT) {
                 require(riskDecision == null && rowVersion == 0, INVALID_ARGUMENT);
-            else require(rowVersion > 0, INVALID_ARGUMENT);
+            } else {
+                require(rowVersion > 0, INVALID_ARGUMENT);
+            }
         } else {
             require(executionPermitHash != null && executionPermitHash.matches("[0-9a-f]{64}")
                     && submissionStartedAt != null && !submissionStartedAt.isBefore(preparedAt)
@@ -71,7 +75,9 @@ public record StoredPaymentAttempt(PaymentAttempt attempt, String limitOperation
 
     public StoredPaymentAttempt applyOutcome(ChannelPaymentOutcome outcome, boolean executionFenced) {
         var updated = attempt.recordOutcome(outcome, executionFenced);
-        if (updated.equals(attempt)) return this;
+        if (updated.equals(attempt)) {
+            return this;
+        }
         return new StoredPaymentAttempt(updated, limitOperationId, callerServiceId, requestKey, requestDigest,
                 paymentRequestDigest, preparedInputRef, riskDecision, executionPermitHash, preparedAt,
                 submissionStartedAt, Math.incrementExact(rowVersion));

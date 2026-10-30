@@ -47,18 +47,26 @@ public final class DefaultChannelStatementFacade implements ChannelStatementFaca
 
     @Override
     public VerifiedChannelStatement download(ChannelExecutionContext context, ChannelStatementRequest request) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || request == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
         var scope = request.scope();
-        if (scope.channel() != binding.channel() || !scope.accountScopeHash().equals(binding.accountScopeHash()))
+        if (scope.channel() != binding.channel() || !scope.accountScopeHash().equals(binding.accountScopeHash())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         var result = providers.require(scope.channel()).download(context, request);
         if (result == null || !binding.id().equals(result.bindingRevisionId()) || !scope.equals(result.scope()) || result.size() > request.maxBytes()
                 || !sha256(result.content()).equals(result.receipt().contentSha256())
-                || !sha256(result.receipt().evidence()).equals(result.receipt().evidenceSha256()))
+                || !sha256(result.receipt().evidence()).equals(result.receipt().evidenceSha256())) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         return result;
     }
 

@@ -38,12 +38,12 @@ import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.pay.realtime.infrastructure.codec.TradeProjectionCodecImpl;
 import io.github.loadup.pay.realtime.infrastructure.converter.TradeStorageConverter;
+import io.github.loadup.pay.realtime.infrastructure.mapper.ProjectionReceiptMapper;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -145,7 +145,9 @@ class ProjectionPersistenceIT {
         apply(fixture, "base", 1L, false);
         var results = race(() -> apply(fixture, "older", 2L, false),
                 () -> apply(fixture, "newer", 3L, true));
-        for (var result : results) assertNull(result.failure());
+        for (var result : results) {
+            assertNull(result.failure());
+        }
         assertEquals("APPLIED", results.getLast().ack().disposition());
         assertEquals(3L, results.getLast().ack().projectedVersion());
         var latest = row(fixture);
@@ -355,7 +357,7 @@ class ProjectionPersistenceIT {
     static final class FaultingReceipts extends ProjectionReceiptGatewayImpl {
         final AtomicBoolean failAfterInsert = new AtomicBoolean();
 
-        FaultingReceipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptRepository receipts,
+        FaultingReceipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptMapper receipts,
                          TradeStorageConverter converter, Clock clock) {
             super(jdbc, receipts, converter, clock);
         }
@@ -363,8 +365,9 @@ class ProjectionPersistenceIT {
         @Override
         public void insert(String tenant, ProjectionReceipt receipt) {
             super.insert(tenant, receipt);
-            if (failAfterInsert.compareAndSet(true, false))
+            if (failAfterInsert.compareAndSet(true, false)) {
                 throw new IllegalStateException("Injected after actual receipt insert");
+            }
         }
     }
 
@@ -379,9 +382,9 @@ class ProjectionPersistenceIT {
         }
 
         @Bean
-        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptRepository receipts,
+        FaultingReceipts receipts(NamedParameterJdbcTemplate jdbc, ProjectionReceiptMapper receipts,
                                   TradeStorageConverter converter,
-                                  @Qualifier("databaseClock") Clock clock) {
+                                  Clock clock) {
             return new FaultingReceipts(jdbc, receipts, converter, clock);
         }
 

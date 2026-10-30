@@ -85,8 +85,9 @@ class RealtimeTransactionsTest {
             assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
             int attempt = calls.incrementAndGet();
             assertEquals(attempt - 1, manager.rollbacks);
-            if (attempt < 3)
+            if (attempt < 3) {
                 throw new org.springframework.dao.ConcurrencyFailureException("Synthetic local contention");
+            }
             return "committed";
         }));
         assertEquals(3, manager.begins);

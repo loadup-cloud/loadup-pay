@@ -188,8 +188,12 @@ class WechatCodepayAdapterTest {
     private TreeMap<String, String> response(ChannelExecutionContext context, String result) {
         var account = (WechatAccountIdentity) context.binding().identity();
         var fields = new TreeMap<>(Map.of("return_code", "SUCCESS", "result_code", result, "appid", account.appId(), "mch_id", account.merchantId()));
-        if (account.subMerchantId() != null) fields.put("sub_mch_id", account.subMerchantId());
-        if (account.subAppId() != null) fields.put("sub_appid", account.subAppId());
+        if (account.subMerchantId() != null) {
+            fields.put("sub_mch_id", account.subMerchantId());
+        }
+        if (account.subAppId() != null) {
+            fields.put("sub_appid", account.subAppId());
+        }
         return fields;
     }
 }

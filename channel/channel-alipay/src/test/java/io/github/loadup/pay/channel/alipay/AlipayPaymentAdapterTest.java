@@ -85,8 +85,12 @@ class AlipayPaymentAdapterTest {
     private static String paid(String status, String sendPayDate, String currency) {
         var payload = "{\"code\":\"10000\",\"out_trade_no\":\"" + ORDER_NO + "\",\"total_amount\":\"1250.00\","
                 + "\"trade_no\":\"" + TRADE_NO + "\",\"trade_status\":\"" + status + "\"";
-        if (currency != null) payload += ",\"trans_currency\":\"" + currency + "\"";
-        if (sendPayDate != null) payload += ",\"send_pay_date\":\"" + sendPayDate + "\"";
+        if (currency != null) {
+            payload += ",\"trans_currency\":\"" + currency + "\"";
+        }
+        if (sendPayDate != null) {
+            payload += ",\"send_pay_date\":\"" + sendPayDate + "\"";
+        }
         return payload + "}";
     }
 

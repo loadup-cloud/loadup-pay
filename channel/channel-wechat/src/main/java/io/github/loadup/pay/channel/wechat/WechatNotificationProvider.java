@@ -48,7 +48,9 @@ public final class WechatNotificationProvider implements ChannelNotificationProv
 
     @Override
     public ChannelNotificationHint identify(ChannelExecutionContext context, ChannelNotificationInput input) {
-        if (context == null || context.binding().channel() != channel()) throw new CommonException(INVALID_ARGUMENT);
+        if (context == null || context.binding().channel() != channel()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return codec.identify(context, input);
     }
 
@@ -59,7 +61,9 @@ public final class WechatNotificationProvider implements ChannelNotificationProv
 
     @Override
     public ChannelRefundNotificationHint identifyRefund(ChannelExecutionContext context, ChannelNotificationInput input) {
-        if (context == null || context.binding().channel() != channel()) throw new CommonException(INVALID_ARGUMENT);
+        if (context == null || context.binding().channel() != channel()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return codec.identifyRefund(context, input);
     }
 
@@ -70,7 +74,9 @@ public final class WechatNotificationProvider implements ChannelNotificationProv
 
     @Override
     public ChannelNotificationAcknowledgement acknowledgement(Channel channel, boolean accepted) {
-        if (channel != channel()) throw new CommonException(INVALID_ARGUMENT);
+        if (channel != channel()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return new ChannelNotificationAcknowledgement(accepted ? 200 : 500, "application/json;charset=UTF-8",
                 accepted ? "{\"code\":\"SUCCESS\",\"message\":\"Success\"}" : "{\"code\":\"FAIL\",\"message\":\"Processing failed\"}");
     }

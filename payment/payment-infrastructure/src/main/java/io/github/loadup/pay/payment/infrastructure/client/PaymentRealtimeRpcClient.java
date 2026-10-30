@@ -12,7 +12,6 @@ import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
 import io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,14 +25,15 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 
 @Component
 public class PaymentRealtimeRpcClient implements PaymentRealtimeClient {
+    private final PaymentRealtimeProperties properties;
+    private final PaymentServiceTokenReader tokens;
+    private final RealtimeRpcMapper realtimeRpcMapper;
     @DubboReference(url = "tri://realtime-headless:50051")
     private RealtimeRpc realtimeRpc;
 
-    private final PaymentRealtimeProperties properties;
-    private final PaymentServiceTokenReader tokens;
-
-    public PaymentRealtimeRpcClient(JsonMapper mapper, PaymentRealtimeProperties properties,
-                                    @Qualifier("paymentClock") Clock clock) {
+    public PaymentRealtimeRpcClient(RealtimeRpcMapper realtimeRpcMapper, JsonMapper mapper, PaymentRealtimeProperties properties,
+                                    Clock clock) {
+        this.realtimeRpcMapper = realtimeRpcMapper;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
     }
@@ -45,29 +45,35 @@ public class PaymentRealtimeRpcClient implements PaymentRealtimeClient {
 
     @Override
     public ProjectionAckDTO apply(String tenant, EventEnvelope<PaymentSnapshotEventDTO> event) {
-        return exchange(tenant, () -> RealtimeRpcMapper.INSTANCE.fromWireProjectionAckDTO(realtimeRpc.payment(
-                RealtimeRpcMapper.INSTANCE.toWirePayEventEnvelopeOfPaymentSnapshotEventDTO(event))));
+        return exchange(tenant, () -> realtimeRpcMapper.fromWireProjectionAckDTO(realtimeRpc.payment(
+                realtimeRpcMapper.toWirePayEventEnvelopeOfPaymentSnapshotEventDTO(event))));
     }
 
     @Override
     public ProjectionAckDTO applyRefund(String tenant, EventEnvelope<RefundSnapshotEventDTO> event) {
-        return exchange(tenant, () -> RealtimeRpcMapper.INSTANCE.fromWireProjectionAckDTO(realtimeRpc.refund(
-                RealtimeRpcMapper.INSTANCE.toWirePayEventEnvelopeOfRefundSnapshotEventDTO(event))));
+        return exchange(tenant, () -> realtimeRpcMapper.fromWireProjectionAckDTO(realtimeRpc.refund(
+                realtimeRpcMapper.toWirePayEventEnvelopeOfRefundSnapshotEventDTO(event))));
     }
 
     @Override
     public ProjectionAckDTO applyRefundSummary(String tenant, EventEnvelope<OrderRefundSummaryEventDTO> event) {
-        return exchange(tenant, () -> RealtimeRpcMapper.INSTANCE.fromWireProjectionAckDTO(realtimeRpc.refundSummary(
-                RealtimeRpcMapper.INSTANCE.toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(event))));
+        return exchange(tenant, () -> realtimeRpcMapper.fromWireProjectionAckDTO(realtimeRpc.refundSummary(
+                realtimeRpcMapper.toWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(event))));
     }
 
     private ProjectionAckDTO exchange(String tenant, Supplier<ProjectionAckDTO> call) {
-        if (!supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
             var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
             var response = RpcTokenContext.call(token, call);
-            if (response == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (response == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return response;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

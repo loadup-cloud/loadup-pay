@@ -141,8 +141,8 @@ class ReconciliationVerificationServiceTest {
             nativeRow.set(row("PENDING", 0));
             return "delivery";
         });
-        when(outbox.find("tenant", "delivery")).thenAnswer(call -> Optional.ofNullable(nativeRow.get()));
-        when(outbox.replay(anyString(), anyString(), anyString(), anyString())).thenAnswer(call -> {
+        when(outbox.find("delivery")).thenAnswer(call -> Optional.ofNullable(nativeRow.get()));
+        when(outbox.replay(anyString(), anyString(), anyString())).thenAnswer(call -> {
             write();
             nativeRow.set(row("PENDING", 0));
             return true;
@@ -229,21 +229,22 @@ class ReconciliationVerificationServiceTest {
         service.submit(command);
         nativeRow.set(row("FAILED", 1));
         assertEquals(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.retry(new ReconciliationVerificationRetryCommand("request", "another-delivery", "reason"))).getResultCode());
-        verify(outbox, never()).replay(anyString(), anyString(), anyString(), anyString());
+        verify(outbox, never()).replay(anyString(), anyString(), anyString());
     }
 
     void deliver() {
-        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(new OutboxEvent("delivery", new OutboxMessage("tenant", ReconciliationVerificationMessages.TYPE, 1, "request", ReconciliationVerificationMessages.encode("request")), clock.instant(), null)));
+        TenantUtil.runWithTenant("tenant", () -> delivery.deliver(new OutboxEvent("delivery", new OutboxMessage(ReconciliationVerificationMessages.TYPE, 1, "request", ReconciliationVerificationMessages.encode("request")), clock.instant(), null)));
     }
 
     OutboxRecord row(String state, int attempts) {
-        return new OutboxRecord("delivery", "tenant", ReconciliationVerificationMessages.TYPE, "request", state, attempts, null);
+        return new OutboxRecord("delivery", ReconciliationVerificationMessages.TYPE, "request", state, attempts, null);
     }
 
     PaymentVerificationDTO result(PaymentVerificationQuery query, PaymentVerificationDisposition disposition) {
         var at = OffsetDateTime.now(clock);
-        if (disposition != PaymentVerificationDisposition.OBSERVED)
+        if (disposition != PaymentVerificationDisposition.OBSERVED) {
             return new PaymentVerificationDTO(query, disposition, null, null, null, null, null, null, null, null, null, null, null, null, at, at, null);
+        }
         return new PaymentVerificationDTO(query, disposition, "old-revision", "payment", "attempt", null, 3L, "UNKNOWN", PaymentVerificationOutcome.UNKNOWN, Money.ofMinor(100L, "CNY"), null, null, null, "c".repeat(64), at, at, null);
     }
 

@@ -74,7 +74,7 @@ class MerchantNotificationServiceTest {
 
     private static DelayedTask runningTask(String bizId, LocalDateTime executeAt, LocalDateTime nextExecuteAt,
                                            String id, int attempts, LocalDateTime leaseUntil) {
-        return new DelayedTask(id, TENANT, MerchantNotificationService.TYPE, bizId, executeAt, nextExecuteAt,
+        return new DelayedTask(id, MerchantNotificationService.TYPE, bizId, executeAt, nextExecuteAt,
                 DelayedTaskStatus.RUNNING, attempts, 5, leaseUntil, null);
     }
 

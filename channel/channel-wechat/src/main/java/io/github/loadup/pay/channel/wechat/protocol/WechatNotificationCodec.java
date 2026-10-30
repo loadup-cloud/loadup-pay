@@ -78,7 +78,9 @@ public final class WechatNotificationCodec {
     }
 
     public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target, ChannelNotificationInput input) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         WechatBindingGuard.require(context, target.identity());
         var decoded = decode(context, input, false);
         var payment = decoded.data();
@@ -94,49 +96,67 @@ public final class WechatNotificationCodec {
     }
 
     public VerifiedChannelRefundNotification verifyRefund(ChannelExecutionContext context, PreparedChannelRefund target, ChannelNotificationInput input) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         WechatBindingGuard.require(context, target.original());
         var decoded = decode(context, input, true);
         var data = decoded.data();
         responses.match(data, "out_trade_no", target.original().channelRequestNo());
         responses.match(data, "transaction_id", target.originalChannelTransactionNo());
         responses.match(data, "out_refund_no", target.channelRefundNo());
-        if (!(data.get("amount") instanceof Map<?, ?> amount)) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        if (!(data.get("amount") instanceof Map<?, ?> amount)) {
+            throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         responses.minorUnits(amount, "total", target.originalAmount().getCent());
         responses.minorUnits(amount, "refund", target.amount().getCent());
-        if (amount.get("currency") != null) responses.match(amount, "currency", "CNY");
+        if (amount.get("currency") != null) {
+            responses.match(amount, "currency", "CNY");
+        }
         return new VerifiedChannelRefundNotification(target, decoded.notificationId(), responses.text(data, "refund_id", 64),
                 responses.text(data, "refund_status", 32), decoded.digest());
     }
 
     private Decoded decode(ChannelExecutionContext context, ChannelNotificationInput input, boolean refund) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || input == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!(context.binding().identity() instanceof WechatAccountIdentity account))
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || input == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!(context.binding().identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         try {
             var type = MediaType.parseMediaType(input.contentType());
             if (!"application".equalsIgnoreCase(type.getType()) || !"json".equalsIgnoreCase(type.getSubtype())
-                    || type.getCharset() != null && !StandardCharsets.UTF_8.equals(type.getCharset()))
+                    || type.getCharset() != null && !StandardCharsets.UTF_8.equals(type.getCharset())) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
         } catch (RuntimeException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var headers = new HttpHeaders();
         input.headers().forEach(headers::addAll);
         var signatureType = input.headers().get("wechatpay-signature-type");
-        if (signatureType != null && (signatureType.size() != 1 || !"WECHATPAY2-SHA256-RSA2048".equals(signatureType.getFirst())))
+        if (signatureType != null && (signatureType.size() != 1 || !"WECHATPAY2-SHA256-RSA2048".equals(signatureType.getFirst()))) {
             throw new CommonException(CHANNEL_SIGNATURE_INVALID);
+        }
         byte[] body = input.body();
         // Verify the original bytes before parsing or unwrapping an APIv3 secret.
         signatures.verifySignature(credentials.read(context.tenantId(), context.binding()), headers, body);
         var envelope = parse(body);
         String event = responses.text(envelope, "event_type", 32);
         if (refund) {
-            if (!java.util.Set.of("REFUND.SUCCESS", "REFUND.CLOSED", "REFUND.ABNORMAL").contains(event))
+            if (!java.util.Set.of("REFUND.SUCCESS", "REFUND.CLOSED", "REFUND.ABNORMAL").contains(event)) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
-        } else responses.match(envelope, "event_type", "TRANSACTION.SUCCESS");
+            }
+        } else {
+            responses.match(envelope, "event_type", "TRANSACTION.SUCCESS");
+        }
         responses.match(envelope, "resource_type", "encrypt-resource");
         String notificationId = responses.text(envelope, "id", 128);
         try {
@@ -144,51 +164,61 @@ public final class WechatNotificationCodec {
         } catch (RuntimeException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
-        if (!(envelope.get("resource") instanceof Map<?, ?> resource))
+        if (!(envelope.get("resource") instanceof Map<?, ?> resource)) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         responses.match(resource, "algorithm", "AEAD_AES_256_GCM");
         responses.match(resource, "original_type", refund ? "refund" : "transaction");
         String associated = "";
         if (resource.get("associated_data") != null) {
             if (!(resource.get("associated_data") instanceof String text) || text.length() > 16
-                    || text.chars().anyMatch(Character::isISOControl))
+                    || text.chars().anyMatch(Character::isISOControl)) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             associated = text;
         }
         String nonce = responses.text(resource, "nonce", 16);
         byte[] key = null, ciphertext = null, plaintext = null;
         try {
             ciphertext = Base64.getDecoder().decode(responses.text(resource, "ciphertext", ChannelNotificationInput.MAX_BODY_BYTES));
-            if (ciphertext.length <= 16 || ciphertext.length > ChannelNotificationInput.MAX_BODY_BYTES)
+            if (ciphertext.length <= 16 || ciphertext.length > ChannelNotificationInput.MAX_BODY_BYTES) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             key = credentials.apiV3Key(context.tenantId(), context.binding());
-            if (key == null || key.length != 32) throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            if (key == null || key.length != 32) {
+                throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+            }
             var cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new GCMParameterSpec(128, nonce.getBytes(StandardCharsets.UTF_8)));
             cipher.updateAAD(associated.getBytes(StandardCharsets.UTF_8));
             plaintext = cipher.doFinal(ciphertext);
-            if (plaintext.length == 0 || plaintext.length > ChannelNotificationInput.MAX_BODY_BYTES)
+            if (plaintext.length == 0 || plaintext.length > ChannelNotificationInput.MAX_BODY_BYTES) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             var payment = parse(plaintext);
             if (refund) {
-                if (account.subMerchantId() == null) responses.match(payment, "mchid", account.merchantId());
-                else {
+                if (account.subMerchantId() == null) {
+                    responses.match(payment, "mchid", account.merchantId());
+                } else {
                     responses.match(payment, "sp_mchid", account.merchantId());
                     responses.match(payment, "sub_mchid", account.subMerchantId());
                 }
                 responses.match(payment, "refund_status", event.substring("REFUND.".length()));
                 responses.text(payment, "refund_id", 64);
-                if (!responses.text(payment, "out_refund_no", 64).matches("[A-Za-z0-9_\\-|*@]{1,64}"))
+                if (!responses.text(payment, "out_refund_no", 64).matches("[A-Za-z0-9_\\-|*@]{1,64}")) {
                     throw new CommonException(CHANNEL_RESPONSE_INVALID);
-                if ("REFUND.CLOSED".equals(event) && payment.get("success_time") != null)
+                }
+                if ("REFUND.CLOSED".equals(event) && payment.get("success_time") != null) {
                     throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                }
             } else {
                 responses.account(payment, account);
                 responses.match(payment, "trade_state", "SUCCESS");
             }
             responses.text(payment, "transaction_id", 64);
-            if (!responses.text(payment, "out_trade_no", 32).matches("[A-Za-z0-9_-]{1,32}"))
+            if (!responses.text(payment, "out_trade_no", 32).matches("[A-Za-z0-9_-]{1,32}")) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             if (!refund || "REFUND.SUCCESS".equals(event)) {
                 try {
                     OffsetDateTime.parse(responses.text(payment, "success_time", 64));
@@ -202,16 +232,24 @@ public final class WechatNotificationCodec {
         } catch (Exception invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         } finally {
-            if (key != null) Arrays.fill(key, (byte) 0);
-            if (ciphertext != null) Arrays.fill(ciphertext, (byte) 0);
-            if (plaintext != null) Arrays.fill(plaintext, (byte) 0);
+            if (key != null) {
+                Arrays.fill(key, (byte) 0);
+            }
+            if (ciphertext != null) {
+                Arrays.fill(ciphertext, (byte) 0);
+            }
+            if (plaintext != null) {
+                Arrays.fill(plaintext, (byte) 0);
+            }
         }
     }
 
     private Map<?, ?> parse(byte[] bytes) {
         try {
             var value = json.readValue(utf8(bytes), Map.class);
-            if (value == null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (value == null) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             return value;
         } catch (RuntimeException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);

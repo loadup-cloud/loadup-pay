@@ -12,32 +12,37 @@ import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureQuery;
 import io.github.loadup.pay.payment.rpc.proto.WirePaymentCaptureRetryCommand;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for reconciliation capture reads. */
+/**
+ * Protobuf IDL entry point for reconciliation capture reads.
+ */
 @DubboService(interfaceClass = PaymentCaptureRpc.class)
 public class PaymentCaptureRpcService extends DubboPaymentCaptureRpcTriple.PaymentCaptureRpcImplBase {
     private final PaymentCaptureFacade paymentCapture;
 
-    public PaymentCaptureRpcService(PaymentCaptureFacade paymentCapture) {
+    private final PaymentCaptureRpcMapper paymentCaptureRpcMapper;
+
+    public PaymentCaptureRpcService(PaymentCaptureRpcMapper paymentCaptureRpcMapper, PaymentCaptureFacade paymentCapture) {
+        this.paymentCaptureRpcMapper = paymentCaptureRpcMapper;
         this.paymentCapture = paymentCapture;
     }
 
     @Override
     public WirePaymentCaptureDTO create(WirePaymentCaptureCreateCommand request) {
-        return PaymentCaptureRpcMapper.INSTANCE.toWire(paymentCapture.create(PaymentCaptureRpcMapper.INSTANCE.fromWire(request)));
+        return paymentCaptureRpcMapper.toWire(paymentCapture.create(paymentCaptureRpcMapper.fromWire(request)));
     }
 
     @Override
     public WirePaymentCaptureDTO retry(WirePaymentCaptureRetryCommand request) {
-        return PaymentCaptureRpcMapper.INSTANCE.toWire(paymentCapture.retry(PaymentCaptureRpcMapper.INSTANCE.fromWire(request)));
+        return paymentCaptureRpcMapper.toWire(paymentCapture.retry(paymentCaptureRpcMapper.fromWire(request)));
     }
 
     @Override
     public WirePaymentCaptureDTO detail(WirePaymentCaptureQuery request) {
-        return PaymentCaptureRpcMapper.INSTANCE.toWire(paymentCapture.detail(PaymentCaptureRpcMapper.INSTANCE.fromWire(request)));
+        return paymentCaptureRpcMapper.toWire(paymentCapture.detail(paymentCaptureRpcMapper.fromWire(request)));
     }
 
     @Override
     public WirePaymentCapturePage lines(WirePaymentCaptureLinesQuery request) {
-        return PaymentCaptureRpcMapper.INSTANCE.toWire(paymentCapture.lines(PaymentCaptureRpcMapper.INSTANCE.fromWire(request)));
+        return paymentCaptureRpcMapper.toWire(paymentCapture.lines(paymentCaptureRpcMapper.fromWire(request)));
     }
 }

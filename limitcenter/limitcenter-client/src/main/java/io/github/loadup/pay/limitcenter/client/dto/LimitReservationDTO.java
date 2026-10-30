@@ -37,8 +37,9 @@ public record LimitReservationDTO(
         @Schema(description = "Initiated at") OffsetDateTime initiatedAt,
         @Schema(description = "Version") long version) {
     public LimitReservationDTO {
-        if (initiatedAt != null)
+        if (initiatedAt != null) {
             initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

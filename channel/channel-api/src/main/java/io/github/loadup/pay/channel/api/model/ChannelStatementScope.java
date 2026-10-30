@@ -31,8 +31,9 @@ public record ChannelStatementScope(Channel channel, String accountScopeHash, Lo
     public ChannelStatementScope {
         if (channel == null || accountScopeHash == null || !accountScopeHash.matches("[0-9a-f]{64}") || billDate == null
                 || billDate.getYear() < 1970 || billDate.getYear() > 9998 || statementProfile == null || statementProfile.isBlank()
-                || statementProfile.length() > 64 || statementProfile.chars().anyMatch(Character::isISOControl))
+                || statementProfile.length() > 64 || statementProfile.chars().anyMatch(Character::isISOControl)) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     @Override

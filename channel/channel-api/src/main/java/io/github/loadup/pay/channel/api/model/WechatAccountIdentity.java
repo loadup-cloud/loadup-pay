@@ -28,8 +28,12 @@ public record WechatAccountIdentity(String appId, String merchantId, String subA
     public WechatAccountIdentity {
         DomainChecks.text(appId, 32);
         DomainChecks.text(merchantId, 32);
-        if (subAppId != null) DomainChecks.text(subAppId, 32);
-        if (subMerchantId != null) DomainChecks.text(subMerchantId, 32);
+        if (subAppId != null) {
+            DomainChecks.text(subAppId, 32);
+        }
+        if (subMerchantId != null) {
+            DomainChecks.text(subMerchantId, 32);
+        }
         require(subAppId == null || subMerchantId != null, INVALID_ARGUMENT);
     }
 

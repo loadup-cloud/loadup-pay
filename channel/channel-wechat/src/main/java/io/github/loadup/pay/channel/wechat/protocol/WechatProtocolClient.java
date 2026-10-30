@@ -44,8 +44,12 @@ public class WechatProtocolClient {
 
     public WechatVerifiedResponse call(String tenant, ChannelBindingRevision binding, WechatMethod method,
                                        Map<String, String> path, Map<String, List<String>> query, String body) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (method == null) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (method == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var original = credentials.read(tenant, binding);
         var call = new HttpCall(path, query, Map.of("Accept", "application/json", "Content-Type", "application/json"), body);
         try {

@@ -51,10 +51,13 @@ public record PaymentAttemptBinding(StoredPaymentAcceptance accepted, StoredPaym
                                                             ChannelPaymentIdentity observedIdentity, Money observedAmount) {
         Objects.requireNonNull(accepted);
         Objects.requireNonNull(stored);
-        if (!stored.attempt().identity().equals(observedIdentity) || !samePayment(accepted, stored) || !active(accepted, stored))
+        if (!stored.attempt().identity().equals(observedIdentity) || !samePayment(accepted, stored) || !active(accepted, stored)) {
             return ObservationRejection.PAYMENT_IDENTITY_MISMATCH;
+        }
         new PaymentAttemptBinding(accepted, stored);
-        if (!stored.attempt().amount().equals(observedAmount)) return ObservationRejection.PAYMENT_AMOUNT_MISMATCH;
+        if (!stored.attempt().amount().equals(observedAmount)) {
+            return ObservationRejection.PAYMENT_AMOUNT_MISMATCH;
+        }
         return submitted(stored) ? null : ObservationRejection.OBSERVATION_BEFORE_SUBMISSION;
     }
 

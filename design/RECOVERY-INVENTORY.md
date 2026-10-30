@@ -25,7 +25,7 @@ Micrometer gauge 为浮点观测值，不承担精确分账、对账或余额计
 
 payment_order / refund_order 新增 first_unknown_at DATETIME (6) NULL，仅作为本地持久观测元数据，不加入公开
 Command、冻结意图、摘要或金融领域聚合。
-第一次从非 UNKNOWN 进入 UNKNOWN 时，实际金融 gateway 在既有锁序和版本 CAS 内，使用 paymentClock 的系统本地时间（截断至微秒）与状态同一
+第一次从非 UNKNOWN 进入 UNKNOWN 时，实际金融 gateway 在既有锁序和版本 CAS 内，使用 共享 Clock 的系统本地时间（截断至微秒）与状态同一
 UPDATE 保存；事务失败一起回滚。
 已存在的值保留，重复结果、传输失败、任务重领、generation 换代均不重置。以后进入终态也保留，但库存只聚合当前 UNKNOWN 行。
 数据库 CHECK 要求 UNKNOWN 必须有时间；不允许用 created_at/initiated_at 或当前采样时间静默兜底。

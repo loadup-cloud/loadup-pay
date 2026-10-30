@@ -3,7 +3,6 @@
 CREATE TABLE trade_order_projection
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -20,16 +19,15 @@ CREATE TABLE trade_order_projection
     CHECK (payload::json IS NOT NULL AND OCTET_LENGTH(payload) <= 1048576)
 );
 
-CREATE UNIQUE INDEX uk_order ON trade_order_projection (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_order ON trade_order_projection (order_id);
 
-CREATE INDEX ix_order_page ON trade_order_projection (tenant_id, payee_merchant_id, business_created_at, order_id);
+CREATE INDEX ix_order_page ON trade_order_projection (payee_merchant_id, business_created_at, order_id);
 
-CREATE UNIQUE INDEX uk_merchant_order ON trade_order_projection (tenant_id, payee_merchant_id, merchant_order_no);
+CREATE UNIQUE INDEX uk_merchant_order ON trade_order_projection (payee_merchant_id, merchant_order_no);
 
 CREATE TABLE trade_payment_projection
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -46,16 +44,15 @@ CREATE TABLE trade_payment_projection
     CHECK (payload::json IS NOT NULL AND OCTET_LENGTH(payload) <= 1048576)
 );
 
-CREATE UNIQUE INDEX uk_payment ON trade_payment_projection (tenant_id, payment_id);
+CREATE UNIQUE INDEX uk_payment ON trade_payment_projection (payment_id);
 
-CREATE INDEX ix_payment_page ON trade_payment_projection (tenant_id, payee_merchant_id, business_created_at, payment_id);
+CREATE INDEX ix_payment_page ON trade_payment_projection (payee_merchant_id, business_created_at, payment_id);
 
-CREATE INDEX ix_payment_order ON trade_payment_projection (tenant_id, payee_merchant_id, order_id, payment_id);
+CREATE INDEX ix_payment_order ON trade_payment_projection (payee_merchant_id, order_id, payment_id);
 
 CREATE TABLE trade_refund_projection
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -74,18 +71,17 @@ CREATE TABLE trade_refund_projection
     CHECK (payload::json IS NOT NULL AND OCTET_LENGTH(payload) <= 1048576)
 );
 
-CREATE UNIQUE INDEX uk_refund ON trade_refund_projection (tenant_id, refund_id);
+CREATE UNIQUE INDEX uk_refund ON trade_refund_projection (refund_id);
 
-CREATE INDEX ix_refund_page ON trade_refund_projection (tenant_id, payee_merchant_id, business_created_at, refund_id);
+CREATE INDEX ix_refund_page ON trade_refund_projection (payee_merchant_id, business_created_at, refund_id);
 
-CREATE INDEX ix_refund_order ON trade_refund_projection (tenant_id, payee_merchant_id, order_id, refund_id);
+CREATE INDEX ix_refund_order ON trade_refund_projection (payee_merchant_id, order_id, refund_id);
 
-CREATE INDEX ix_refund_request ON trade_refund_projection (tenant_id, payee_merchant_id, refund_request_id, refund_id);
+CREATE INDEX ix_refund_request ON trade_refund_projection (payee_merchant_id, refund_request_id, refund_id);
 
 CREATE TABLE trade_refund_summary
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -99,12 +95,11 @@ CREATE TABLE trade_refund_summary
     CHECK (payload::json IS NOT NULL AND OCTET_LENGTH(payload) <= 1048576)
 );
 
-CREATE UNIQUE INDEX uk_summary ON trade_refund_summary (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_summary ON trade_refund_summary (order_id);
 
 CREATE TABLE trade_projection_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -122,6 +117,6 @@ CREATE TABLE trade_projection_receipt
     CHECK (disposition IN ('APPLIED', 'DUPLICATE', 'STALE'))
 );
 
-CREATE UNIQUE INDEX uk_projection_delivery ON trade_projection_receipt (tenant_id, producer, delivery_id);
+CREATE UNIQUE INDEX uk_projection_delivery ON trade_projection_receipt (producer, delivery_id);
 
-CREATE INDEX ix_projection_source ON trade_projection_receipt (tenant_id, producer, aggregate_id, source_version);
+CREATE INDEX ix_projection_source ON trade_projection_receipt (producer, aggregate_id, source_version);

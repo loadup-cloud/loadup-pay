@@ -43,7 +43,9 @@ public record LimitPolicyRefDTO(
         @Schema(description = "Amount restore") @NotNull RefundAmountRestorePolicy amountRestore,
         @Schema(description = "Count restore") @NotNull RefundCountRestorePolicy countRestore) {
     public LimitPolicyRefDTO {
-        if (parentAggregationEnabled) DomainChecks.text(parentPolicyRef, 128);
+        if (parentAggregationEnabled) {
+            DomainChecks.text(parentPolicyRef, 128);
+        }
     }
 
     @Override

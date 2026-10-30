@@ -25,7 +25,6 @@ import io.github.loadup.pay.payment.app.port.PaymentCaptureReader;
 import io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash;
 import io.github.loadup.pay.payment.domain.gateway.PaymentCaptureGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -52,10 +51,12 @@ public class PaymentCaptureExecutionService {
     private final String reconciliationService;
 
     public PaymentCaptureExecutionService(PaymentCaptureGateway captures, PaymentCaptureReader reader, PaymentAcceptanceTransactions transactions,
-                                          PaymentCaptureConverter converter, DelayedTaskTemplate tasks, @Qualifier("paymentClock") Clock clock,
+                                          PaymentCaptureConverter converter, DelayedTaskTemplate tasks, Clock clock,
                                           @Value("${loadup.modules.payment.reconciliation.source-read-timeout-seconds:10}") int timeoutSeconds,
                                           @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
-        if (timeoutSeconds < 1 || timeoutSeconds > 60) throw new CommonException(INVALID_ARGUMENT);
+        if (timeoutSeconds < 1 || timeoutSeconds > 60) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         this.captures = captures;
         this.reader = reader;
         this.transactions = transactions;
@@ -67,29 +68,42 @@ public class PaymentCaptureExecutionService {
     }
 
     public void handle(DelayedTask task) {
-        if (TransactionSynchronizationManager.isActualTransactionActive() || task == null || task.tenantId() == null || !task.tenantId().equals(TenantUtil.getTenantId())
-                || !TYPE.equals(task.taskType()) || task.status() != DelayedTaskStatus.RUNNING || task.bizId() == null || task.id() == null || task.attempts() < 1)
+        if (TransactionSynchronizationManager.isActualTransactionActive() || task == null
+                || !TYPE.equals(task.taskType()) || task.status() != DelayedTaskStatus.RUNNING || task.bizId() == null || task.id() == null || task.attempts() < 1) {
             throw new CommonException(INVALID_STATE);
+        }
         var actual = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!Objects.equals(actual.id(), task.id()) || !Objects.equals(actual.tenantId(), task.tenantId()) || !TYPE.equals(actual.taskType())
+        if (!Objects.equals(actual.id(), task.id()) || !TYPE.equals(actual.taskType())
                 || !Objects.equals(actual.bizId(), task.bizId()) || actual.status() != DelayedTaskStatus.RUNNING || actual.attempts() != task.attempts()
                 || actual.maxAttempts() != task.maxAttempts() || actual.maxAttempts() < actual.attempts() || actual.executeAt() == null
                 || !Objects.equals(actual.executeAt(), task.executeAt()) || actual.nextExecuteAt() == null || !Objects.equals(actual.nextExecuteAt(), task.nextExecuteAt())
-                || actual.nextExecuteAt().isAfter(LocalDateTime.now(clock)) || actual.leaseUntil() == null || !actual.leaseUntil().isAfter(LocalDateTime.now(clock)))
+                || actual.nextExecuteAt().isAfter(LocalDateTime.now(clock)) || actual.leaseUntil() == null || !actual.leaseUntil().isAfter(LocalDateTime.now(clock))) {
             throw new CommonException(INVALID_STATE);
-        var original = transactions.readSnapshot(task.tenantId(), () -> captures.find(task.tenantId(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
-        if (!reconciliationService.equals(original.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (original.state() != PaymentCaptureState.INIT) return;
-        if (!original.scope().systemZone().equals(clock.getZone().getId())) throw new CommonException(INVALID_STATE);
-        var read = transactions.readSnapshot(task.tenantId(), timeoutSeconds, () -> reader.read(task.tenantId(), original.scope()));
+        }
+        String tenant = TenantUtil.getTenantId();
+        var original = transactions.readSnapshot(tenant, () -> captures.find(tenant, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+        if (!reconciliationService.equals(original.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (original.state() != PaymentCaptureState.INIT) {
+            return;
+        }
+        if (!original.scope().systemZone().equals(clock.getZone().getId())) {
+            throw new CommonException(INVALID_STATE);
+        }
+        var read = transactions.readSnapshot(tenant, timeoutSeconds, () -> reader.read(tenant, original.scope()));
         String hash = read.blocker() == null ? PaymentCaptureContentHash.compute(original.id(), original.scope().channel(), original.scope().accountScopeHash(),
                 original.scope().billDate(), original.scope().statementProfile(), original.scope().systemZone(), converter.offset(read.startedAt(), original.scope().systemZone()),
                 converter.offset(read.finishedAt(), original.scope().systemZone()), read.lines().stream().map(line -> converter.toDTO(line, original.scope().systemZone())).toList()) : null;
-        transactions.writeLocal(task.tenantId(), () -> {
-            var current = captures.lock(task.tenantId(), original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (current.state() != PaymentCaptureState.INIT) return false;
-            if (!current.equals(original)) throw new CommonException(SNAPSHOT_INVALID);
-            captures.complete(task.tenantId(), original, original.complete(read, hash), read);
+        transactions.writeLocal(tenant, () -> {
+            var current = captures.lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (current.state() != PaymentCaptureState.INIT) {
+                return false;
+            }
+            if (!current.equals(original)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            captures.complete(tenant, original, original.complete(read, hash), read);
             return true;
         });
     }

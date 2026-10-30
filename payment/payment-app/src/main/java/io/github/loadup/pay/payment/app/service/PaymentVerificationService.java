@@ -30,7 +30,6 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -61,7 +60,7 @@ public class PaymentVerificationService implements PaymentVerificationFacade {
     private final String reconciliationService;
 
     public PaymentVerificationService(PaymentActorProvider actors, PaymentVerificationTargetReader reader, PaymentChannelGateway channels,
-                                      PaymentAcceptanceTransactions transactions, PaymentVerificationConverter converter, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                      PaymentAcceptanceTransactions transactions, PaymentVerificationConverter converter, Validator validator, Clock clock,
                                       @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
         this.actors = actors;
         this.reader = reader;
@@ -75,43 +74,59 @@ public class PaymentVerificationService implements PaymentVerificationFacade {
 
     @Override
     public PaymentVerificationDTO verify(PaymentVerificationQuery query) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var actor = actors.current();
-        if (actor == null || !reconciliationService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:reconciliation:verify"))
+        if (actor == null || !reconciliationService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:reconciliation:verify")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var started = now();
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var target = transactions.readSnapshot(actor.tenantId(), 10, () -> reader.read(actor.tenantId(), query));
-            if (target == null) throw new CommonException(SNAPSHOT_INVALID);
-            if (target.disposition() != PaymentVerificationDisposition.OBSERVED)
+            if (target == null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            if (target.disposition() != PaymentVerificationDisposition.OBSERVED) {
                 return converter.missing(query, target.disposition(), started, now());
+            }
             if (query.kind() == PaymentLedgerKind.PAYMENT) {
-                if (target.payment() == null) throw new CommonException(SNAPSHOT_INVALID);
+                if (target.payment() == null) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 identity(query, target.payment().identity());
                 var observation = channel(() -> channels.query(target.payment()));
                 if (observation == null || observation.source() != PaymentObservation.Source.QUERY_RESPONSE || !target.payment().identity().equals(observation.identity())
-                        || !target.payment().amount().equals(observation.amount()))
+                        || !target.payment().amount().equals(observation.amount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 return converter.payment(query, target, observation, started, now(), clock);
             }
-            if (target.refund() == null) throw new CommonException(SNAPSHOT_INVALID);
-            identity(query, target.refund().original());
-            if (!query.channelRefundNo().equals(target.refund().channelRefundNo()))
+            if (target.refund() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
+            identity(query, target.refund().original());
+            if (!query.channelRefundNo().equals(target.refund().channelRefundNo())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var observation = channel(() -> channels.queryRefund(target.refund()));
             if (observation == null || observation.source() != RefundObservation.Source.QUERY_RESPONSE || !target.refund().refundId().equals(observation.refundId())
                     || !target.refund().original().equals(observation.original()) || !target.refund().channelRefundNo().equals(observation.channelRefundNo())
                     || !target.refund().originalChannelTransactionNo().equals(observation.originalChannelTransactionNo())
-                    || !target.refund().amount().equals(observation.amount()))
+                    || !target.refund().amount().equals(observation.amount())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.refund(query, target, observation, started, now(), clock);
         });
     }
 
     private void identity(PaymentVerificationQuery query, ChannelPaymentIdentity identity) {
-        if (identity.channel() != query.channel() || !identity.accountScopeHash().equals(query.accountScopeHash()) || !identity.channelRequestNo().equals(query.merchantPaymentNo()))
+        if (identity.channel() != query.channel() || !identity.accountScopeHash().equals(query.accountScopeHash()) || !identity.channelRequestNo().equals(query.merchantPaymentNo())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private <T> T channel(java.util.function.Supplier<T> action) {

@@ -228,8 +228,9 @@ class ReconciliationReviewPersistenceIT {
     }
 
     long count(String table, String tenant) {
-        if (!Set.of("reconciliation_review", "reconciliation_review_proposal", "reconciliation_review_event", "file_resource_reference", "reconciliation_difference").contains(table))
+        if (!Set.of("reconciliation_review", "reconciliation_review_proposal", "reconciliation_review_event", "file_resource_reference", "reconciliation_difference").contains(table)) {
             throw new AssertionError("Unexpected table");
+        }
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
     }
 
@@ -265,8 +266,9 @@ class ReconciliationReviewPersistenceIT {
         public void commit(String tenant, ReconciliationReview before, ReconciliationReview after, ReconciliationReviewProposal proposal, ReconciliationReviewEvent event) {
             super.commit(tenant, before, after, proposal, event);
             String target = failRequest.get();
-            if (event.requestKey().equals(target) && failRequest.compareAndSet(target, null))
+            if (event.requestKey().equals(target) && failRequest.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual review commit");
+            }
         }
     }
 
@@ -282,7 +284,7 @@ class ReconciliationReviewPersistenceIT {
         }
 
         @Bean
-        FaultingReviews reviews(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, @org.springframework.beans.factory.annotation.Qualifier("reconciliationClock") Clock clock) {
+        FaultingReviews reviews(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, Clock clock) {
             return new FaultingReviews(jdbc, converter, clock);
         }
 
@@ -301,8 +303,9 @@ class ReconciliationReviewPersistenceIT {
 
                 @Override
                 public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
-                    if (!Set.of("maker", "checker").contains(caller) || !"account".equals(code))
+                    if (!Set.of("maker", "checker").contains(caller) || !"account".equals(code)) {
                         throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
+                    }
                 }
 
                 @Override

@@ -82,7 +82,9 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
     @Override
     public String fingerprint(String tenant, String service, PaymentInputPrepareCommand command, String keyId) {
         String secret = properties.fingerprintKeys().get(keyId);
-        if (secret == null) throw new CommonException(INPUT_UNAVAILABLE);
+        if (secret == null) {
+            throw new CommonException(INPUT_UNAVAILABLE);
+        }
         return DigestUtils.hmacSha256(mapper.writeValueAsString(new FingerprintPayload(
                 "loadup-pay-input-v1", tenant, service, keyId, command)), secret);
     }
@@ -102,15 +104,18 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
     @Override
     public PaymentInteractionDTO decrypt(String tenant, PaymentInput stored) {
         requireNoTransaction();
-        if (!properties.encryptionKey().equals(stored.encryptionKey())) throw new CommonException(SNAPSHOT_INVALID);
+        if (!properties.encryptionKey().equals(stored.encryptionKey())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         byte[] bytes = template().decrypt(new KmsKeyRef(stored.encryptionKey(), stored.encryptionVersion()),
                 new KmsCiphertext(stored.encryptionKey(), stored.encryptionVersion(), stored.ciphertext()));
         try {
             CipherPayload payload = mapper.readValue(bytes, CipherPayload.class);
             if (payload == null || payload.schemaVersion() != 1 || !tenant.equals(payload.tenant())
                     || !stored.id().equals(payload.inputRef()) || !stored.callerServiceId().equals(payload.service())
-                    || payload.command() == null || !validator.validate(payload.command()).isEmpty())
+                    || payload.command() == null || !validator.validate(payload.command()).isEmpty()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var command = payload.command();
             if (!stored.paymentId().equals(command.paymentId()) || !stored.orderId().equals(command.orderId())
                     || !stored.allocationId().equals(command.allocationId())
@@ -118,10 +123,13 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
                     || stored.amount().getCent() != command.amountMinor()
                     || !stored.amount().getCurrencyValue().equals(command.currency())
                     || !stored.inputKey().equals(command.inputKey()) || stored.channel() != command.choice().channel()
-                    || stored.method() != command.choice().method()) throw new CommonException(SNAPSHOT_INVALID);
-            String digest = fingerprint(tenant, stored.callerServiceId(), command, stored.fingerprintKeyId());
-            if (!MessageDigest.isEqual(digest.getBytes(StandardCharsets.US_ASCII), stored.inputDigest().getBytes(StandardCharsets.US_ASCII)))
+                    || stored.method() != command.choice().method()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
+            String digest = fingerprint(tenant, stored.callerServiceId(), command, stored.fingerprintKeyId());
+            if (!MessageDigest.isEqual(digest.getBytes(StandardCharsets.US_ASCII), stored.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return command.interaction();
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -132,12 +140,16 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
 
     private KmsTemplate template() {
         var value = kms.getIfAvailable();
-        if (value == null) throw new CommonException(INPUT_UNAVAILABLE);
+        if (value == null) {
+            throw new CommonException(INPUT_UNAVAILABLE);
+        }
         return value;
     }
 
     private void requireNoTransaction() {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 
     private record FingerprintPayload(String protocol, String tenant, String service, String keyId,

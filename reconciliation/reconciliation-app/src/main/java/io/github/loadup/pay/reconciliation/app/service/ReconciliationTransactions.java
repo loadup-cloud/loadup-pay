@@ -51,13 +51,17 @@ public class ReconciliationTransactions {
      * REQUIRES_NEW/READ_COMMITTED, at most three local attempts after full rollback. No outer transaction or remote IO.
      */
     public <T> T writeLocal(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 try {
                     return writes.execute(status -> work.get());
                 } catch (ReconciliationWriteConflictException | TransientDataAccessException conflict) {
-                    if (attempt == 2) throw new CommonException(CONCURRENT_UPDATE);
+                    if (attempt == 2) {
+                        throw new CommonException(CONCURRENT_UPDATE);
+                    }
                 }
             }
             throw new AssertionError("Unreachable retry");
@@ -68,7 +72,9 @@ public class ReconciliationTransactions {
      * One REQUIRES_NEW/read-only/REPEATABLE_READ attempt; no outer transaction, row locks or remote IO.
      */
     public <T> T readSnapshot(String tenant, Supplier<T> work) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return withTenantContext(tenant, () -> reads.execute(status -> work.get()));
     }
 

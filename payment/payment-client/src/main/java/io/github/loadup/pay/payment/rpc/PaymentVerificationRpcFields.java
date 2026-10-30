@@ -18,10 +18,9 @@ public final class PaymentVerificationRpcFields {
 
     public static Channel channel(String value) {
         try {
-            return Channel.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+            return Channel.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -31,10 +30,9 @@ public final class PaymentVerificationRpcFields {
 
     public static PaymentLedgerKind kind(String value) {
         try {
-            return PaymentLedgerKind.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+            return PaymentLedgerKind.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -44,10 +42,9 @@ public final class PaymentVerificationRpcFields {
 
     public static PaymentVerificationDisposition disposition(String value) {
         try {
-            return PaymentVerificationDisposition.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+            return PaymentVerificationDisposition.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 
@@ -57,10 +54,9 @@ public final class PaymentVerificationRpcFields {
 
     public static PaymentVerificationOutcome outcome(String value) {
         try {
-            return PaymentVerificationOutcome.valueOf((String)value);
-        }
-        catch (IllegalArgumentException | NullPointerException invalid) {
-            throw new CommonException((ResultCode)PaymentResultCodeEnum.INVALID_ARGUMENT);
+            return PaymentVerificationOutcome.valueOf((String) value);
+        } catch (IllegalArgumentException | NullPointerException invalid) {
+            throw new CommonException((ResultCode) PaymentResultCodeEnum.INVALID_ARGUMENT);
         }
     }
 }

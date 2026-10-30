@@ -40,10 +40,14 @@ public class PaymentInitiationService implements PaymentInitiationFacade {
     @Override
     public PaymentStartDTO startPayment(PaymentStartCommand command) {
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:payment:start")) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.permissions().contains("pay:acquire:payment:start")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return operations.start(new PaymentInitiationPrincipal(actor.tenantId(), actor.scopeHash(), "merchant/" + actor.scopeHash(),
                 (order, creating) -> {
-                    if (!order.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+                    if (!order.callerScopeHash().equals(actor.scopeHash())) {
+                        throw new CommonException(ACTION_FORBIDDEN);
+                    }
                 }), command);
     }
 }

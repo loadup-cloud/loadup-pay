@@ -52,8 +52,9 @@ public record AcquireRecoveryRetryReceipt(String id, String requestKey, String c
                 && (!"ORDER_DEADLINE".equals(kind) || generation > 0), INVALID_ARGUMENT);
         require("PAYMENT_ALLOCATION".equals(kind) || subjectId.equals(orderId), INVALID_ARGUMENT);
         require(result != null && Set.of("RETRIED", "NO_LONGER_NEEDED").contains(result), INVALID_ARGUMENT);
-        for (var time : java.util.List.of(expectedNextExecuteAt, acceptedAt))
+        for (var time : java.util.List.of(expectedNextExecuteAt, acceptedAt)) {
             require(time.getNano() % 1000 == 0 && time.getYear() >= 1970 && time.getYear() <= 9998, INVALID_ARGUMENT);
+        }
     }
 
     @Override

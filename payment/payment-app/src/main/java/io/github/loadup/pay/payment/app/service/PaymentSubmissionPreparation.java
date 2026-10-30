@@ -40,7 +40,6 @@ import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.product.client.dto.LimitPolicyRefDTO;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -87,7 +86,7 @@ public class PaymentSubmissionPreparation {
                                         PaymentAttemptGateway attempts, PaymentExecutionLocks locks, PaymentInputAccess inputs, PaymentLimitClient limits,
                                         RiskConsultGateway risk, PaymentAcceptanceCodec codec, PaymentSubmissionConverter converter,
                                         PaymentControlConverter updates, PaymentAcceptanceTransactions transactions, IdGenerator ids,
-                                        @Qualifier("paymentClock") Clock clock, PaymentEvents events,
+                                        Clock clock, PaymentEvents events,
                                         io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels,
                                         io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs) {
         this.payments = payments;
@@ -112,20 +111,27 @@ public class PaymentSubmissionPreparation {
      * Only the returned in-memory winner may proceed to submit. Missing tickets mean observe/query, never resubmit.
      */
     public Optional<PaymentSubmissionTicket> prepare(String tenant, String paymentId, String attemptId) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!limits.supportsTenant(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!limits.supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(paymentId);
             DomainChecks.id(attemptId);
             var accepted = payments.find(tenant, paymentId).orElseThrow(() -> new CommonException(NOT_FOUND));
             var stored = attempts.find(tenant, attemptId).orElseThrow(() -> new CommonException(NOT_FOUND));
             requireBinding(accepted, stored);
-            if (stored.attempt().state() != PaymentAttemptState.INIT || accepted.payment().state() != PaymentState.PROCESSING)
+            if (stored.attempt().state() != PaymentAttemptState.INIT || accepted.payment().state() != PaymentState.PROCESSING) {
                 return Optional.empty();
+            }
             PaymentExecutionBindings.submittable(accepted, stored);
             var original = codec.decode(accepted);
             var decision = risk.consult(converter.toConsultation(accepted, stored));
-            if (decision == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (decision == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             if (decision.decision() == RiskDecisionType.DENY) {
                 rejectUnsubmitted(tenant, accepted, attemptId, decision);
                 return Optional.empty();
@@ -141,8 +147,9 @@ public class PaymentSubmissionPreparation {
                 var code = rejected.getResultCode();
                 if (code == INPUT_EXPIRED || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
                         || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
-                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH)
+                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
                     rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                }
                 throw rejected;
             }
             final LimitExecutionPermitDTO permit;
@@ -152,12 +159,14 @@ public class PaymentSubmissionPreparation {
                 permit = limits.begin(tenant, converter.toBegin(stored));
                 validatePermit(accepted, stored, permit);
                 var observation = limits.verify(tenant, converter.toVerify(accepted, permit));
-                if (observation == null || !observation.valid() || !"VALID".equals(observation.reasonCode()))
+                if (observation == null || !observation.valid() || !"VALID".equals(observation.reasonCode())) {
                     throw new CommonException(EXECUTION_PERMIT_INVALID);
+                }
             } catch (CommonException rejected) {
                 if (rejected.getResultCode() == LIMIT_EXCEEDED || rejected.getResultCode() == LIMIT_RESERVATION_EXPIRED
-                        || rejected.getResultCode() == EXECUTION_FENCED)
+                        || rejected.getResultCode() == EXECUTION_FENCED) {
                     rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                }
                 throw rejected;
             }
             String permitHash = codec.checksum(permit.permit());
@@ -166,18 +175,22 @@ public class PaymentSubmissionPreparation {
                     var locked = locks.lock(tenant, paymentId, accepted.callerServiceId());
                     var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     requireBinding(locked.payment(), current);
-                    if (current.attempt().state() != PaymentAttemptState.INIT) return Optional.empty();
+                    if (current.attempt().state() != PaymentAttemptState.INIT) {
+                        return Optional.empty();
+                    }
                     PaymentExecutionBindings.submittableContext(locked, current);
-                    if (!clock.instant().isBefore(original.payableUntil().toInstant()))
+                    if (!clock.instant().isBefore(original.payableUntil().toInstant())) {
                         throw new CommonException(PAYMENT_EXPIRED);
+                    }
                     inputs.bindToAttempt(tenant, locked.payment(), attemptId, now());
                     var started = current.beginSubmission(permit.executionEpoch(), permitHash, decision, now());
                     attempts.update(tenant, started, current.rowVersion());
                     return Optional.of(new PaymentSubmissionTicket(tenant, paymentId, attemptId, converter.toPrepared(started)));
                 });
             } catch (CommonException rejected) {
-                if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED)
+                if (rejected.getResultCode() == INPUT_EXPIRED || rejected.getResultCode() == PAYMENT_EXPIRED) {
                     rejectUnsubmitted(tenant, accepted, attemptId, decision);
+                }
                 throw rejected;
             }
         });
@@ -188,20 +201,27 @@ public class PaymentSubmissionPreparation {
                 || !accepted.payment().limitOperationId().equals(response.operationId())
                 || !accepted.payment().id().equals(response.paymentId()) || !policy.policyId().equals(response.policyId())
                 || policy.policyVersion() != response.policyVersion() || response.initiatedAt() == null
-                || !BusinessTime.external(accepted.payment().initiatedAt()).equals(response.initiatedAt()) || response.version() < 0)
+                || !BusinessTime.external(accepted.payment().initiatedAt()).equals(response.initiatedAt()) || response.version() < 0) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         DomainChecks.id(response.reservationId());
-        if (response.state() == LimitReservationState.EXPIRED) throw new CommonException(LIMIT_RESERVATION_EXPIRED);
-        if (response.state() == LimitReservationState.RELEASED) throw new CommonException(EXECUTION_FENCED);
-        if (response.state() != LimitReservationState.RESERVED && response.state() != LimitReservationState.EXECUTING)
+        if (response.state() == LimitReservationState.EXPIRED) {
+            throw new CommonException(LIMIT_RESERVATION_EXPIRED);
+        }
+        if (response.state() == LimitReservationState.RELEASED) {
+            throw new CommonException(EXECUTION_FENCED);
+        }
+        if (response.state() != LimitReservationState.RESERVED && response.state() != LimitReservationState.EXECUTING) {
             throw new CommonException(EXECUTION_PERMIT_INVALID);
+        }
     }
 
     private void validatePermit(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored, LimitExecutionPermitDTO permit) {
         if (permit == null || !accepted.payment().limitOperationId().equals(permit.operationId())
                 || !accepted.payment().id().equals(permit.paymentId()) || !stored.attempt().id().equals(permit.attemptId())
-                || permit.executionEpoch() < 1 || permit.permit() == null || !permit.permit().matches("[0-9a-f]{64}"))
+                || permit.executionEpoch() < 1 || permit.permit() == null || !permit.permit().matches("[0-9a-f]{64}")) {
             throw new CommonException(EXECUTION_PERMIT_INVALID);
+        }
     }
 
     private void requireBinding(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
@@ -215,9 +235,13 @@ public class PaymentSubmissionPreparation {
             var locked = locks.lock(tenant, original.payment().id(), original.callerServiceId());
             var current = attempts.lock(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(locked.payment(), current);
-            if (current.attempt().state() != PaymentAttemptState.INIT) return false;
+            if (current.attempt().state() != PaymentAttemptState.INIT) {
+                return false;
+            }
             var order = locked.payment().payment();
-            if (order.state() != PaymentState.PROCESSING && order.state() != PaymentState.CLOSING) return false;
+            if (order.state() != PaymentState.PROCESSING && order.state() != PaymentState.CLOSING) {
+                return false;
+            }
             PaymentExecutionBindings.closableContext(locked, current);
             String evidence = ids.generate();
             var gate = locked.gate();

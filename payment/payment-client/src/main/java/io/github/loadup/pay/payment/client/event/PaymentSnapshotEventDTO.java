@@ -68,11 +68,15 @@ public record PaymentSnapshotEventDTO(
         require((channel == null) == (accessMode == null), INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (succeededAt != null), INVALID_STATE);
         Objects.requireNonNull(initiatedAt);
-        if (succeededAt != null) require(channel != null && !succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
-        if (initiatedAt != null)
+        if (succeededAt != null) {
+            require(channel != null && !succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
+        }
+        if (initiatedAt != null) {
             initiatedAt = initiatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (succeededAt != null)
+        }
+        if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {

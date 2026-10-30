@@ -60,15 +60,23 @@ public enum WechatMethod {
     }
 
     public boolean matches(String actualPath) {
-        if (actualPath == null) return false;
+        if (actualPath == null) {
+            return false;
+        }
         String marker = this == REFUND_QUERY ? "{out_refund_no}" : "{out_trade_no}";
         int variable = path.indexOf(marker);
-        if (variable < 0) return path.equals(actualPath);
+        if (variable < 0) {
+            return path.equals(actualPath);
+        }
         String prefix = path.substring(0, variable), suffix = path.substring(variable + marker.length());
         if (!actualPath.startsWith(prefix) || !actualPath.endsWith(suffix)
-                || actualPath.length() <= prefix.length() + suffix.length()) return false;
+                || actualPath.length() <= prefix.length() + suffix.length()) {
+            return false;
+        }
         String encoded = actualPath.substring(prefix.length(), actualPath.length() - suffix.length());
-        if (encoded.indexOf('/') >= 0 || encoded.indexOf('+') >= 0) return false;
+        if (encoded.indexOf('/') >= 0 || encoded.indexOf('+') >= 0) {
+            return false;
+        }
         try {
             String value = URLDecoder.decode(encoded, StandardCharsets.UTF_8);
             return value.matches(this == REFUND_QUERY ? "[A-Za-z0-9_\\-|*@]{1,64}" : "[A-Za-z0-9_-]{1,32}");

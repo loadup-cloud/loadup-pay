@@ -47,8 +47,9 @@ public record OrderAdmissionAuthorizeCommand(
         @Schema(description = "Requested order checkpoint with an explicit offset and at most microsecond precision")
         OffsetDateTime requestedDueAt) {
     public OrderAdmissionAuthorizeCommand {
-        if (requestedDueAt != null)
+        if (requestedDueAt != null) {
             requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

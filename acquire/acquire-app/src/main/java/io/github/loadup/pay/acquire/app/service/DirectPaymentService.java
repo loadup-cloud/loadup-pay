@@ -64,12 +64,16 @@ public class DirectPaymentService implements DirectPaymentFacade {
     @Override
     public DirectPayDTO directPay(DirectPayCommand command) {
         if (command == null || !validator.validate(command).isEmpty()
-                || command.firstPaymentAmountMinor() > command.amountMinor())
+                || command.firstPaymentAmountMinor() > command.amountMinor()) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start", "pay:acquire:payment:recover")))
+        if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start", "pay:acquire:payment:recover"))) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         boolean valid = switch (command.choice().method()) {
             case H5 -> command.interaction() instanceof NoInteractionDTO
                     || command.interaction() instanceof H5SceneInteractionDTO;
@@ -77,14 +81,17 @@ public class DirectPaymentService implements DirectPaymentFacade {
             case JSAPI -> command.interaction() instanceof ChannelIdentityInteractionDTO identity
                     && identity.channel() == command.choice().channel();
         };
-        if (!valid) throw new CommonException(INVALID_ARGUMENT);
+        if (!valid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var metadata = converter.toRecovery(command);
         var created = orders.createDirectPay(metadata);
         var original = converter.toPaymentRecovery(metadata, created.orderId());
         var resolved = recovery.recover(original);
         if (resolved == null || resolved.state() == null || !created.orderId().equals(resolved.orderId())
-                || !command.actionKey().equals(resolved.actionKey()))
+                || !command.actionKey().equals(resolved.actionKey())) {
             throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+        }
         if (resolved.state() != PaymentRecoveryState.RESOLVED) {
             // Only the explicit original request may prepare input/start A2. Recovery never creates either.
             payments.startPayment(converter.toStart(command, created.orderId()));
@@ -92,8 +99,9 @@ public class DirectPaymentService implements DirectPaymentFacade {
         }
         if (resolved == null || resolved.state() != PaymentRecoveryState.RESOLVED || resolved.progress() == null
                 || resolved.progress().order() == null || !created.orderId().equals(resolved.orderId())
-                || !command.actionKey().equals(resolved.actionKey()))
+                || !command.actionKey().equals(resolved.actionKey())) {
             throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+        }
         return converter.toDTO(resolved.progress().order(), resolved);
     }
 }

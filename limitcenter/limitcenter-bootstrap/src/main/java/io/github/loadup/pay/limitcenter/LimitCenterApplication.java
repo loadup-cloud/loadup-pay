@@ -17,9 +17,7 @@ package io.github.loadup.pay.limitcenter;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 
-import java.time.Clock;
 
 @SpringBootApplication
 public class LimitCenterApplication {
@@ -27,8 +25,4 @@ public class LimitCenterApplication {
         SpringApplication.run(LimitCenterApplication.class, args);
     }
 
-    @Bean
-    Clock businessClock() {
-        return Clock.systemDefaultZone();
-    }
 }

@@ -59,12 +59,12 @@ class OrderSnapshotDeliveryTest {
             OrderSnapshotEvents.TYPE, 1, "order", 2, BusinessTime.external(CheckoutFixtures.NOW),
             new OrderSnapshotEventDTO("order", "merchant", "M001", 10000, "CNY", 4000, 2000, AcquireOrderState.PENDING,
                     BusinessTime.external(CheckoutFixtures.NOW.minusDays(1)), BusinessTime.external(CheckoutFixtures.NOW), 2));
-    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage("tenant", OrderSnapshotEvents.TYPE, 1, "order", "payload"),
+    final OutboxEvent event = new OutboxEvent("queue", new OutboxMessage(OrderSnapshotEvents.TYPE, 1, "order", "payload"),
             snapshot.occurredAt().toInstant(), null);
 
     @BeforeEach
     void setup() {
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", OrderSnapshotEvents.TYPE, "order", "PROCESSING", 1, null)));
+        when(outbox.find("queue")).thenReturn(Optional.of(new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "PROCESSING", 1, null)));
         when(codec.decode("payload")).thenReturn(snapshot);
         when(client.supportsTenant("tenant")).thenReturn(true);
         when(client.apply("tenant", snapshot)).thenAnswer(c -> {
@@ -101,7 +101,7 @@ class OrderSnapshotDeliveryTest {
     @Test
     void anotherTenantOrUnclaimedQueueCannotSend() {
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> delivery.deliver(event)));
-        when(outbox.find("tenant", "queue")).thenReturn(Optional.of(new OutboxRecord("queue", "tenant", OrderSnapshotEvents.TYPE, "order", "SUCCEEDED", 1, null)));
+        when(outbox.find("queue")).thenReturn(Optional.of(new OutboxRecord("queue", OrderSnapshotEvents.TYPE, "order", "SUCCEEDED", 1, null)));
         assertThrows(CommonException.class, this::send);
         verify(client, never()).apply(anyString(), any());
     }

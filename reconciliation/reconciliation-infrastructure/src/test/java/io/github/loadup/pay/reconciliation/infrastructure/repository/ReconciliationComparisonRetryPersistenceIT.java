@@ -49,7 +49,6 @@ import io.github.loadup.pay.reconciliation.infrastructure.statement.WechatTradeS
 import io.github.loadup.pay.reconciliation.infrastructure.task.ReconciliationTaskHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -160,7 +159,9 @@ class ReconciliationComparisonRetryPersistenceIT {
 
     private boolean retry(String tenant, ReconciliationBatchRetryCommand command, CountDownLatch ready, CountDownLatch go) throws Exception {
         ready.countDown();
-        if (!go.await(10, TimeUnit.SECONDS)) throw new AssertionError("Retry barrier timed out");
+        if (!go.await(10, TimeUnit.SECONDS)) {
+            throw new AssertionError("Retry barrier timed out");
+        }
         try {
             actors.call(tenant, () -> batches.retry(command));
             return true;
@@ -202,8 +203,9 @@ class ReconciliationComparisonRetryPersistenceIT {
         public void insert(String tenant, String batchId, String runId, ReconciliationResult result) {
             super.insert(tenant, batchId, runId, result);
             var target = failBatch.get();
-            if (batchId.equals(target) && failBatch.compareAndSet(target, null))
+            if (batchId.equals(target) && failBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after result insertion");
+            }
         }
     }
 
@@ -214,13 +216,9 @@ class ReconciliationComparisonRetryPersistenceIT {
         @Primary
         FaultingResults faultingResults(IdGenerator ids,
                                         org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationStorageConverter values,
-                                        ReconciliationDifferenceStorageConverter converter, @Qualifier("reconciliationClock") Clock clock) {
+                                        ReconciliationDifferenceStorageConverter converter, Clock clock) {
             return new FaultingResults(ids, jdbc, values, converter, clock);
         }
 
-        @Bean("delayedTaskClock")
-        Clock delayedTaskClock(@Qualifier("reconciliationClock") Clock clock) {
-            return clock;
-        }
     }
 }

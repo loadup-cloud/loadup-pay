@@ -35,19 +35,29 @@ final class ChannelStrategyRegistry<S> {
     private final Map<Channel, S> strategies;
 
     ChannelStrategyRegistry(Collection<S> candidates, Function<S, Channel> channelOf) {
-        if (candidates == null || channelOf == null) throw new CommonException(INVALID_ARGUMENT);
+        if (candidates == null || channelOf == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var registered = new EnumMap<Channel, S>(Channel.class);
         for (var candidate : candidates) {
-            if (candidate == null) throw new CommonException(INVALID_ARGUMENT);
+            if (candidate == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             var channel = channelOf.apply(candidate);
-            if (channel == null) throw new CommonException(INVALID_ARGUMENT);
-            if (registered.putIfAbsent(channel, candidate) != null) throw new CommonException(DUPLICATE_PROVIDER);
+            if (channel == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
+            if (registered.putIfAbsent(channel, candidate) != null) {
+                throw new CommonException(DUPLICATE_PROVIDER);
+            }
         }
         strategies = Map.copyOf(registered);
     }
 
     Optional<S> find(Channel channel) {
-        if (channel == null) throw new CommonException(INVALID_ARGUMENT);
+        if (channel == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return Optional.ofNullable(strategies.get(channel));
     }
 

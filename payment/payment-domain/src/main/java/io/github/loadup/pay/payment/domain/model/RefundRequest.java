@@ -62,28 +62,37 @@ public record RefundRequest(
                             && ids.add(child.id())
                             && payments.add(child.paymentId()),
                     CONFLICT);
-            if (unfinishedSeen) require(child.state() == RefundState.INIT, INVALID_STATE);
-            if (!child.terminal()) unfinishedSeen = true;
+            if (unfinishedSeen) {
+                require(child.state() == RefundState.INIT, INVALID_STATE);
+            }
+            if (!child.terminal()) {
+                unfinishedSeen = true;
+            }
             total = Math.addExact(total, child.amount().getCent());
         }
         require(total == amount.getCent(), CONFLICT);
-        if (state == RefundRequestState.PROCESSING)
+        if (state == RefundRequestState.PROCESSING) {
             require(
                     children.stream().anyMatch(c -> !c.terminal())
                             && children.stream().anyMatch(c -> c.state() != RefundState.INIT),
                     INVALID_STATE);
-        if (state == RefundRequestState.INIT)
+        }
+        if (state == RefundRequestState.INIT) {
             require(children.stream().allMatch(c -> c.state() == RefundState.INIT), INVALID_STATE);
-        if (state == RefundRequestState.SUCCEEDED)
+        }
+        if (state == RefundRequestState.SUCCEEDED) {
             require(children.stream().allMatch(c -> c.state() == RefundState.SUCCEEDED), INVALID_STATE);
-        if (state == RefundRequestState.FAILED)
+        }
+        if (state == RefundRequestState.FAILED) {
             require(children.stream().allMatch(c -> c.state() == RefundState.FAILED), INVALID_STATE);
-        if (state == RefundRequestState.PARTIAL_SUCCEEDED)
+        }
+        if (state == RefundRequestState.PARTIAL_SUCCEEDED) {
             require(
                     children.stream().allMatch(RefundOrder::terminal)
                             && children.stream().anyMatch(c -> c.state() == RefundState.SUCCEEDED)
                             && children.stream().anyMatch(c -> c.state() == RefundState.FAILED),
                     INVALID_STATE);
+        }
     }
 
     public static RefundRequest init(
@@ -132,7 +141,9 @@ public record RefundRequest(
                         && current.amount().equals(updated.amount())
                         && current.channelRefundNo().equals(updated.channelRefundNo()),
                 CONFLICT);
-        if (updated.version() < current.version()) return this;
+        if (updated.version() < current.version()) {
+            return this;
+        }
         if (updated.version() == current.version()) {
             require(current.equals(updated), CONFLICT);
             return this;
@@ -140,7 +151,9 @@ public record RefundRequest(
         require(!current.terminal(), CONFLICT);
         require(updated.state() != RefundState.INIT, INVALID_STATE);
         for (var child : children) {
-            if (child.id().equals(updated.id())) break;
+            if (child.id().equals(updated.id())) {
+                break;
+            }
             require(child.terminal(), OUTCOME_UNKNOWN);
         }
         var next = children.stream()

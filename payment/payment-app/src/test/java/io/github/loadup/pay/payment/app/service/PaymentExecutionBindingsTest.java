@@ -105,9 +105,10 @@ class PaymentExecutionBindingsTest {
     private StoredPaymentAttempt changed(StoredPaymentAttempt value, Changed changed) {
         var source = value.attempt();
         var route = source.binding();
-        if (changed == Changed.MERCHANT)
+        if (changed == Changed.MERCHANT) {
             route = new ChannelBindingRevision(route.id(), "other-merchant", route.channel(), route.accessMode(),
                     route.accountScopeHash(), route.credentialReference(), route.credentialVersion(), route.identity(), route.capabilities());
+        }
         var modified = new PaymentAttempt(source.id(), changed == Changed.PAYMENT ? "other-payment" : source.paymentId(), source.attemptNo(),
                 changed == Changed.AMOUNT ? Money.ofMinor(source.amount().getCent() + 1L, "CNY") : source.amount(), route,
                 source.method(), source.channelRequestNo(), source.state(), source.executionEpoch(), source.noCollectionEvidenceId());

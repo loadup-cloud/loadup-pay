@@ -36,8 +36,12 @@ class JwtMerchantNotificationActorProviderTest {
     void authenticate(String type, String subject, String merchant, String service) {
         var jwt = Jwt.withTokenValue("synthetic-token").header("alg", "RS256").subject(subject).claim("tenant_id", "tenant")
                 .claim("principal_type", type);
-        if (merchant != null) jwt.claim("merchant_id", merchant);
-        if (service != null) jwt.claim("service_id", service);
+        if (merchant != null) {
+            jwt.claim("merchant_id", merchant);
+        }
+        if (service != null) {
+            jwt.claim("service_id", service);
+        }
         SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", jwt.build(),
                 List.of(new SimpleGrantedAuthority("pay:acquire:notification:read"))));
     }

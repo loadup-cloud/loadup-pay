@@ -15,16 +15,17 @@
  */
 package io.github.loadup.pay.product.infrastructure.repository;
 
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
 import io.github.loadup.pay.product.domain.gateway.PolicyPublicationGateway;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import io.github.loadup.pay.product.infrastructure.converter.PolicyPublicationStorageConverter;
 import io.github.loadup.pay.product.infrastructure.dataobject.ContractLimitPublicationDO;
 import io.github.loadup.pay.product.infrastructure.exception.PublicationKeyConflictException;
+import io.github.loadup.pay.product.infrastructure.mapper.ContractLimitPublicationMapper;
 import org.postgresql.util.PSQLException;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -38,23 +39,24 @@ import java.util.Optional;
 import java.util.Set;
 
 @Repository
-public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
-    public static final String COLUMNS = "id, tenant_id, created_at, updated_at, contract_id, contract_revision, "
+public class PolicyPublicationGatewayImpl extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
+        implements PolicyPublicationGateway {
+    public static final String COLUMNS = "id, created_at, updated_at, contract_id, contract_revision, "
             + "policy_id, policy_version, policy_hash, state, activated_at, row_version, payee_merchant_id, "
             + "product_scope_key, snapshot_hash, activation_payload, outbox_event_id, requested_at, publication_schema_version";
     private final NamedParameterJdbcTemplate jdbc;
-    private final ContractLimitPublicationRepository publications;
     private final PolicyPublicationStorageConverter converter;
     private final Clock clock;
-    private final BeanPropertyRowMapper<ContractLimitPublicationDO> mapper = BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class);
+    private final BeanPropertyRowMapper<ContractLimitPublicationDO> rowMapper =
+            BeanPropertyRowMapper.newInstance(ContractLimitPublicationDO.class);
 
     public PolicyPublicationGatewayImpl(
             NamedParameterJdbcTemplate jdbc,
-            ContractLimitPublicationRepository publications,
+            ContractLimitPublicationMapper mapper,
             PolicyPublicationStorageConverter converter,
-            @Qualifier("databaseClock") Clock clock) {
+            Clock clock) {
         this.jdbc = jdbc;
-        this.publications = publications;
+        this.mapper = mapper;
         this.converter = converter;
         this.clock = clock;
     }
@@ -62,23 +64,19 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
     private static boolean businessCollision(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             if (cause instanceof PSQLException sql && "23505".equals(sql.getSQLState()) && sql.getServerErrorMessage() != null
-                    && sql.getServerErrorMessage().getConstraint() != null)
+                    && sql.getServerErrorMessage().getConstraint() != null) {
                 return Set.of("uk_contract_policy_publication", "uk_policy_publication_version", "uk_initial_policy_merchant")
                         .contains(sql.getServerErrorMessage().getConstraint());
+            }
         }
         return false;
     }
 
     private Optional<PolicyPublication> locked(String id) {
-        var tenant = TenantContext.tenantId();
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
+        var args = new MapSqlParameterSource("id", id);
         try {
-            return jdbc.query("SELECT " + COLUMNS + " FROM contract_limit_publication WHERE tenant_id = :tenant "
-                    + "AND deleted = FALSE AND id = :id FOR UPDATE", args, mapper).stream().findFirst().map(row -> {
-                if (!tenant.equals(row.getTenantId()))
-                    throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
-                return converter.toModel(row);
-            });
+            return jdbc.query("SELECT " + COLUMNS + " FROM contract_limit_publication "
+                    + "WHERE deleted = FALSE AND id = :id FOR UPDATE", args, rowMapper).stream().findFirst().map(converter::toModel);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
         }
@@ -86,7 +84,7 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
 
     @Override
     public Optional<PolicyPublication> findById(String tenant, String id) {
-        return read(() -> publications.findPublication(id));
+        return read(() -> Optional.ofNullable(getById(id)));
     }
 
     @Override
@@ -96,17 +94,21 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
 
     @Override
     public Optional<PolicyPublication> findByContract(String tenant, String contract, int revision) {
-        return read(() -> publications.findPublished(contract, revision));
+        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create()
+                .eq("contract_id", contract)
+                .eq("contract_revision", revision))));
     }
 
     @Override
     public Optional<PolicyPublication> findByMerchant(String tenant, String merchant) {
-        return read(() -> publications.findActiveByMerchant(merchant));
+        return read(() -> Optional.ofNullable(getOne(
+                QueryWrapper.create().eq("payee_merchant_id", merchant))));
     }
 
     @Override
     public Optional<PolicyPublication> findByPolicy(String tenant, String policy) {
-        return read(() -> publications.findActiveByPolicy(policy));
+        return read(() -> Optional.ofNullable(getOne(
+                QueryWrapper.create().eq("policy_id", policy))));
     }
 
     private Optional<PolicyPublication> read(
@@ -119,8 +121,6 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
     }
 
     private PolicyPublication map(ContractLimitPublicationDO row) {
-        var tenant = TenantContext.tenantId();
-        if (!tenant.equals(row.getTenantId())) throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
         return converter.toModel(row);
     }
 
@@ -132,17 +132,21 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
         row.setUpdatedAt(now);
         try {
             int changed = jdbc.update("""
-                    INSERT INTO contract_limit_publication (id, tenant_id, created_at, updated_at, deleted, contract_id,
+                    INSERT INTO contract_limit_publication (id, created_at, updated_at, deleted, contract_id,
                         contract_revision, policy_id, policy_version, policy_hash, state, activated_at, row_version,
                         payee_merchant_id, product_scope_key, snapshot_hash, activation_payload, outbox_event_id,
                         requested_at, publication_schema_version)
-                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :contractId, :contractRevision, :policyId,
+                    VALUES (:id, :createdAt, :updatedAt, FALSE, :contractId, :contractRevision, :policyId,
                         :policyVersion, :policyHash, :state, :activatedAt, :rowVersion, :payeeMerchantId, :productScopeKey,
                         :snapshotHash, :activationPayload, :outboxEventId, :requestedAt, :publicationSchemaVersion)
                     """, new BeanPropertySqlParameterSource(row));
-            if (changed != 1) throw new IllegalStateException("Unexpected publication insert count");
+            if (changed != 1) {
+                throw new IllegalStateException("Unexpected publication insert count");
+            }
         } catch (DuplicateKeyException failure) {
-            if (businessCollision(failure)) throw new PublicationKeyConflictException(failure);
+            if (businessCollision(failure)) {
+                throw new PublicationKeyConflictException(failure);
+            }
             throw failure;
         }
     }
@@ -153,7 +157,9 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
         row.setUpdatedAt(LocalDateTime.now(clock));
         var source = new BeanPropertySqlParameterSource(row);
         var args = new MapSqlParameterSource();
-        for (String name : source.getReadablePropertyNames()) args.addValue(name, source.getValue(name));
+        for (String name : source.getReadablePropertyNames()) {
+            args.addValue(name, source.getValue(name));
+        }
         args.addValue("expected", expectedVersion);
         int changed = jdbc.update("""
                 UPDATE contract_limit_publication SET contract_id = :contractId, contract_revision = :contractRevision,
@@ -162,8 +168,10 @@ public class PolicyPublicationGatewayImpl implements PolicyPublicationGateway {
                     product_scope_key = :productScopeKey, snapshot_hash = :snapshotHash, activation_payload = :activationPayload,
                     outbox_event_id = :outboxEventId, requested_at = :requestedAt,
                     publication_schema_version = :publicationSchemaVersion, updated_at = :updatedAt
-                WHERE tenant_id = :tenantId AND id = :id AND row_version = :expected AND deleted = FALSE
+                WHERE id = :id AND row_version = :expected AND deleted = FALSE
                 """, args);
-        if (changed != 1) throw new CommonException(ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT);
+        if (changed != 1) {
+            throw new CommonException(ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT);
+        }
     }
 }

@@ -25,8 +25,9 @@ public record AcquireActor(
         String tenantId, String scopeHash, @DiagnosticHidden String productAccessToken, Set<String> permissions) {
     public AcquireActor {
         DomainChecks.id(tenantId);
-        if (scopeHash == null || !scopeHash.matches("[0-9a-f]{64}"))
+        if (scopeHash == null || !scopeHash.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException("Invalid caller scope");
+        }
         permissions = Set.copyOf(permissions);
     }
 

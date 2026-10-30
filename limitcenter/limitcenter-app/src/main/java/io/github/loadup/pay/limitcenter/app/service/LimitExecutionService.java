@@ -39,7 +39,6 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -80,7 +79,7 @@ public class LimitExecutionService implements LimitExecutionFacade {
             LimitPolicyGateway policies,
             ExecutionPermitIssuer permits,
             LimitConverter converter,
-            @Qualifier("limitcenterClock") Clock clock) {
+            Clock clock) {
         this.transactions = transactions;
         this.reservations = reservations;
         this.policies = policies;
@@ -90,7 +89,9 @@ public class LimitExecutionService implements LimitExecutionFacade {
     }
 
     private static void owner(LimitActor actor, StoredLimitReservation stored) {
-        if (!actor.serviceId().equals(stored.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!actor.serviceId().equals(stored.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     private static boolean equalHash(String first, String second) {
@@ -107,20 +108,32 @@ public class LimitExecutionService implements LimitExecutionFacade {
             var stored = lockOperation(actor, command.operationId());
             var value = stored.reservation();
             if (value.state() == LimitReservationState.EXECUTING) {
-                if (!command.attemptId().equals(value.activeAttemptId())) throw new CommonException(OUTCOME_UNKNOWN);
+                if (!command.attemptId().equals(value.activeAttemptId())) {
+                    throw new CommonException(OUTCOME_UNKNOWN);
+                }
                 var grant = grant(actor.tenantId(), value);
-                if (!command.requestKey().equals(grant.requestKey()) || command.previousAttemptEvidenceId() != null)
+                if (!command.requestKey().equals(grant.requestKey()) || command.previousAttemptEvidenceId() != null) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 String permit = issue(actor, stored, grant);
-                if (!equalHash(grant.permitHash(), DigestUtils.sha256(permit)))
+                if (!equalHash(grant.permitHash(), DigestUtils.sha256(permit))) {
                     throw new CommonException(PERMIT_UNAVAILABLE);
+                }
                 return converter.toPermitDTO(grant, permit);
             }
-            if (value.state() == LimitReservationState.EXPIRED) throw new CommonException(RESERVATION_EXPIRED);
-            if (value.state() != LimitReservationState.RESERVED) throw new CommonException(INVALID_STATE);
-            if (command.previousAttemptEvidenceId() != null) throw new CommonException(INVALID_ARGUMENT);
+            if (value.state() == LimitReservationState.EXPIRED) {
+                throw new CommonException(RESERVATION_EXPIRED);
+            }
+            if (value.state() != LimitReservationState.RESERVED) {
+                throw new CommonException(INVALID_STATE);
+            }
+            if (command.previousAttemptEvidenceId() != null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             LocalDateTime now = now();
-            if (!now.isBefore(value.reserveExpiresAt())) throw new CommonException(RESERVATION_EXPIRED);
+            if (!now.isBefore(value.reserveExpiresAt())) {
+                throw new CommonException(RESERVATION_EXPIRED);
+            }
             // Public evidence identifiers never establish proof of a previous channel attempt's final outcome.
             var next = stored.transitionTo(value.beginExecution(command.attemptId(), now));
             String key = permits.activeKeyId();
@@ -153,8 +166,9 @@ public class LimitExecutionService implements LimitExecutionFacade {
             DomainChecks.id(command.attemptId());
             var stored = lockOperation(actor, command.operationId());
             var value = stored.reservation();
-            if (value.state() != LimitReservationState.EXECUTING)
+            if (value.state() != LimitReservationState.EXECUTING) {
                 return new LimitExecutionVerificationDTO(false, "NOT_EXECUTING");
+            }
             var grant = grant(actor.tenantId(), value);
             boolean valid = value.paymentId().equals(command.paymentId())
                     && value.activeAttemptId().equals(command.attemptId())
@@ -174,16 +188,18 @@ public class LimitExecutionService implements LimitExecutionFacade {
             var value = stored.reservation();
             LocalDateTime now = now();
             // No TTL recovery is ever applied to EXECUTING, including UNKNOWN channel outcomes.
-            if (value.state() != LimitReservationState.RESERVED || now.isBefore(value.reserveExpiresAt()))
+            if (value.state() != LimitReservationState.RESERVED || now.isBefore(value.reserveExpiresAt())) {
                 return converter.toDTO(value);
+            }
             var items = reservations.loadItems(actor.tenantId(), value.id());
             var policy = policies.findRevision(actor.tenantId(), value.policyId(), value.policyVersion())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!policy.policyHash().equals(stored.policyHash())
-                    || !policy.payeeMerchantId().equals(value.payeeMerchantId()))
+                    || !policy.payeeMerchantId().equals(value.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             Map<LimitBucketKey, Long> expected = new HashMap<>();
-            for (var rule : policy.rules())
+            for (var rule : policy.rules()) {
                 expected.put(
                         new LimitBucketKey(
                                 rule.ruleScopeId(),
@@ -193,14 +209,19 @@ public class LimitExecutionService implements LimitExecutionFacade {
                                 rule.window(),
                                 windows.at(rule.window(), value.initiatedAt(), rule.weekStart())),
                         rule.metric() == LimitMetric.AMOUNT ? value.amount().getCent() : 1L);
+            }
             var seen = new HashSet<LimitBucketKey>();
-            if (items.size() != expected.size()) throw new CommonException(SNAPSHOT_INVALID);
+            if (items.size() != expected.size()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             for (var item : items) {
                 if (!item.reservationId().equals(value.id())
                         || !seen.add(item.bucket())
                         || !Objects.equals(expected.get(item.bucket()), item.reserved())
                         || item.consumed() != 0
-                        || item.restored() != 0) throw new CommonException(SNAPSHOT_INVALID);
+                        || item.restored() != 0) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
             }
             var before = reservations.lockExistingBuckets(
                     actor.tenantId(),
@@ -223,23 +244,31 @@ public class LimitExecutionService implements LimitExecutionFacade {
                 .lockGate(actor.tenantId(), operation)
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!gate.operationId().equals(operation)
-                || !gate.paymentId().equals(first.reservation().paymentId()))
+                || !gate.paymentId().equals(first.reservation().paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (gate.state() == GateState.FENCED) throw new CommonException(EXECUTION_FENCED);
-        if (gate.state() != GateState.OPEN) throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (gate.state() == GateState.FENCED) {
+            throw new CommonException(EXECUTION_FENCED);
+        }
+        if (gate.state() != GateState.OPEN) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         // The gate serializes every operation mutation; read again after waiting for it.
         var stored = reservations
                 .findByOperation(actor.tenantId(), operation)
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         owner(actor, stored);
         var value = stored.reservation();
-        if (!operation.equals(value.operationId()) || !gate.paymentId().equals(value.paymentId()))
+        if (!operation.equals(value.operationId()) || !gate.paymentId().equals(value.paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var head = policies.lockHead(actor.tenantId(), value.policyId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.policyId().equals(head.policyId())
                 || !value.payeeMerchantId().equals(head.payeeMerchantId())
-                || value.policyVersion() > head.latestVersion()) throw new CommonException(SNAPSHOT_INVALID);
+                || value.policyVersion() > head.latestVersion()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return stored;
     }
 
@@ -250,7 +279,9 @@ public class LimitExecutionService implements LimitExecutionFacade {
         if (!grant.operationId().equals(value.operationId())
                 || !grant.paymentId().equals(value.paymentId())
                 || !grant.attemptId().equals(value.activeAttemptId())
-                || grant.executionEpoch() != value.executionEpoch()) throw new CommonException(SNAPSHOT_INVALID);
+                || grant.executionEpoch() != value.executionEpoch()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return grant;
     }
 

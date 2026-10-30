@@ -43,10 +43,12 @@ public record StoredPaymentAction(ChannelPaymentIdentity identity, Money amount,
         Objects.requireNonNull(source);
         require((source == PaymentActionSource.LOCAL_SIGNED)
                 == (action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction), INVALID_ARGUMENT);
-        if (source == PaymentActionSource.CHANNEL_RECEIPT) DomainChecks.id(receiptId);
-        else
+        if (source == PaymentActionSource.CHANNEL_RECEIPT) {
+            DomainChecks.id(receiptId);
+        } else {
             require(receiptId == null && action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction,
                     INVALID_ARGUMENT);
+        }
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(issuedAt);
         issuedAt = issuedAt.truncatedTo(ChronoUnit.MICROS);

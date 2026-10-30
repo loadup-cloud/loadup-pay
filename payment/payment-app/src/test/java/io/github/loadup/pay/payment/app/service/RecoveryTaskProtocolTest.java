@@ -41,10 +41,10 @@ class RecoveryTaskProtocolTest {
     void bothFlowsCheckTrustedEnvelopeAndCanonicalIdentityBeforeLookup(Flow flow) {
         var task = task(flow);
         assertEquals(new RecoveryTaskKey(flow.subject, 0L), RecoveryTaskProtocol.receive(flow.type, task, "tenant"));
-        assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive(flow.type, task, "other-tenant")).getResultCode());
+        assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive(flow.type, task, null)).getResultCode());
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive("other-type", task, "tenant")).getResultCode());
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive(flow.type, null, "tenant")).getResultCode());
-        var malformed = new DelayedTask(task.id(), task.tenantId(), task.taskType(), flow.subject + ".00", task.executeAt(), task.nextExecuteAt(),
+        var malformed = new DelayedTask(task.id(), task.taskType(), flow.subject + ".00", task.executeAt(), task.nextExecuteAt(),
                 task.status(), task.attempts(), task.maxAttempts(), task.leaseUntil(), null);
         assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class, () -> RecoveryTaskProtocol.receive(flow.type, malformed, "tenant")).getResultCode());
     }
@@ -54,7 +54,7 @@ class RecoveryTaskProtocolTest {
     void staleOrChangedClaimMetadataIsRejectedForEitherBusinessFlow(Flow flow) {
         var original = task(flow);
         for (var changed : Changed.values()) {
-            var altered = new DelayedTask(changed == Changed.ID ? "other-task" : original.id(), changed == Changed.TENANT ? "other-tenant" : original.tenantId(),
+            var altered = new DelayedTask(changed == Changed.ID ? "other-task" : original.id(),
                     changed == Changed.TYPE ? "other-type" : original.taskType(), changed == Changed.BIZ_ID ? "other-subject.0" : original.bizId(),
                     changed == Changed.EXECUTE_AT ? at.minusSeconds(1) : original.executeAt(), changed == Changed.NOT_DUE ? at.plusSeconds(1) : original.nextExecuteAt(),
                     changed == Changed.STATUS || changed == Changed.REGISTERED_STATUS ? DelayedTaskStatus.FAILED : original.status(),
@@ -72,7 +72,7 @@ class RecoveryTaskProtocolTest {
     @EnumSource(Flow.class)
     void activeHeartbeatsMayExtendTheLeaseWithoutChangingTheReceivedSnapshot(Flow flow) {
         var original = task(flow);
-        var extended = new DelayedTask(original.id(), original.tenantId(), original.taskType(), original.bizId(), original.executeAt(), original.nextExecuteAt(),
+        var extended = new DelayedTask(original.id(), original.taskType(), original.bizId(), original.executeAt(), original.nextExecuteAt(),
                 original.status(), original.attempts(), original.maxAttempts(), at.plusMinutes(10), null);
         assertDoesNotThrow(() -> RecoveryTaskProtocol.requireClaim(flow.type, original, extended, at));
         assertEquals(INVALID_STATE, assertThrows(CommonException.class,
@@ -93,7 +93,7 @@ class RecoveryTaskProtocolTest {
     }
 
     private DelayedTask task(Flow flow) {
-        return new DelayedTask("task", "tenant", flow.type, flow.subject + ".0", at, at, DelayedTaskStatus.RUNNING, 1, 5, at.plusMinutes(5), null);
+        return new DelayedTask("task", flow.type, flow.subject + ".0", at, at, DelayedTaskStatus.RUNNING, 1, 5, at.plusMinutes(5), null);
     }
 
     enum Flow {
@@ -106,5 +106,5 @@ class RecoveryTaskProtocolTest {
         }
     }
 
-    enum Changed {ID, TENANT, TYPE, BIZ_ID, EXECUTE_AT, STATUS, ATTEMPTS, MAX_ATTEMPTS, EXPIRED_LEASE, NOT_DUE, REGISTERED_STATUS}
+    enum Changed {ID, TYPE, BIZ_ID, EXECUTE_AT, STATUS, ATTEMPTS, MAX_ATTEMPTS, EXPIRED_LEASE, NOT_DUE, REGISTERED_STATUS}
 }

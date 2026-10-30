@@ -58,12 +58,16 @@ public interface ReconciliationDifferenceStorageConverter {
     }
 
     private void flag(Set<ReconciliationDifferenceReason> result, Boolean flag, ReconciliationDifferenceReason reason) {
-        if (flag == null) throw new CommonException(SNAPSHOT_INVALID);
-        if (flag) result.add(reason);
+        if (flag == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (flag) {
+            result.add(reason);
+        }
     }
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "batchId", source = "batchId")
     @Mapping(target = "runId", source = "runId")
     @Mapping(target = "matchKeyHash", expression = "java(value.key().fingerprint())")

@@ -45,8 +45,9 @@ public record OrderExtensionReceipt(
                 && expectedOrderVersion >= 0 && deadlineVersion > 1
                 && !originalDueAt.isAfter(previousDueAt)
                 && requestedDueAt.isAfter(previousDueAt) && requestedDueAt.isAfter(appliedAt), INVALID_ARGUMENT);
-        for (var time : java.util.List.of(originalDueAt, previousDueAt, requestedDueAt, appliedAt))
+        for (var time : java.util.List.of(originalDueAt, previousDueAt, requestedDueAt, appliedAt)) {
             require(time.getYear() >= 1970 && time.getYear() <= 9998 && time.getNano() % 1000 == 0, INVALID_ARGUMENT);
+        }
     }
 
     public void requireSameRequest(String callerScope, String digest, long expectedVersion, LocalDateTime due) {

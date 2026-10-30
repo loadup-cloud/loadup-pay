@@ -89,12 +89,24 @@ class AlipayRefundAdapterTest {
     private static String recoveryPayload(String code, String status, String trade, String outTrade, String outRequest,
                                           String refundAmount, String totalAmount) {
         var payload = new StringBuilder("{\"code\":\"").append(code).append('"');
-        if (status != null) payload.append(",\"refund_status\":\"").append(status).append('"');
-        if (trade != null) payload.append(",\"trade_no\":\"").append(trade).append('"');
-        if (outTrade != null) payload.append(",\"out_trade_no\":\"").append(outTrade).append('"');
-        if (outRequest != null) payload.append(",\"out_request_no\":\"").append(outRequest).append('"');
-        if (refundAmount != null) payload.append(",\"refund_amount\":\"").append(refundAmount).append('"');
-        if (totalAmount != null) payload.append(",\"total_amount\":\"").append(totalAmount).append('"');
+        if (status != null) {
+            payload.append(",\"refund_status\":\"").append(status).append('"');
+        }
+        if (trade != null) {
+            payload.append(",\"trade_no\":\"").append(trade).append('"');
+        }
+        if (outTrade != null) {
+            payload.append(",\"out_trade_no\":\"").append(outTrade).append('"');
+        }
+        if (outRequest != null) {
+            payload.append(",\"out_request_no\":\"").append(outRequest).append('"');
+        }
+        if (refundAmount != null) {
+            payload.append(",\"refund_amount\":\"").append(refundAmount).append('"');
+        }
+        if (totalAmount != null) {
+            payload.append(",\"total_amount\":\"").append(totalAmount).append('"');
+        }
         return payload.append('}').toString();
     }
 
@@ -242,9 +254,11 @@ class AlipayRefundAdapterTest {
                     .thenReturn(response);
             var result = TenantUtil.callWithTenant("tenant", () -> adapter.recover(direct, refund));
             assertEquals(RefundObservation.Source.QUERY_RESPONSE, result.source());
-            if (response.payload().contains("REFUND_SUCCESS"))
+            if (response.payload().contains("REFUND_SUCCESS")) {
                 assertEquals(ChannelRefundOutcome.Kind.SUCCEEDED, result.kind());
-            else assertEquals(ChannelRefundOutcome.Kind.UNKNOWN, result.kind());
+            } else {
+                assertEquals(ChannelRefundOutcome.Kind.UNKNOWN, result.kind());
+            }
             verify(client, times(1)).call(eq("tenant"), eq(direct.binding()), eq(AlipayMethod.REFUND_QUERY), anyString(), eq(Map.of()));
             verifyNoMoreInteractions(client);
         }

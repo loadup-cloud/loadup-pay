@@ -32,7 +32,9 @@ public class JwtProductActorProvider implements ProductActorProvider {
     private final String customerAudience;
 
     public JwtProductActorProvider(@Value("${loadup.modules.product.customer-audience}") String customerAudience) {
-        if (customerAudience.isBlank()) throw new IllegalArgumentException("Customer JWT audience is required");
+        if (customerAudience.isBlank()) {
+            throw new IllegalArgumentException("Customer JWT audience is required");
+        }
         this.customerAudience = customerAudience;
     }
 
@@ -45,7 +47,9 @@ public class JwtProductActorProvider implements ProductActorProvider {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
                 || !authentication.isAuthenticated()
-                || !(authentication.getCredentials() instanceof Jwt jwt)) throw forbidden();
+                || !(authentication.getCredentials() instanceof Jwt jwt)) {
+            throw forbidden();
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id");
             String type = jwt.getClaimAsString("principal_type");
@@ -54,9 +58,15 @@ public class JwtProductActorProvider implements ProductActorProvider {
                     || !tenant.equals(tenant.trim())
                     || type == null
                     || jwt.getSubject() == null
-                    || !Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) throw forbidden();
-            if (!"OPERATOR".equals(type) && (merchant == null || merchant.isBlank())) throw forbidden();
-            if ("MERCHANT".equals(type) && !jwt.getSubject().equals(merchant)) throw forbidden();
+                    || !Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
+                throw forbidden();
+            }
+            if (!"OPERATOR".equals(type) && (merchant == null || merchant.isBlank())) {
+                throw forbidden();
+            }
+            if ("MERCHANT".equals(type) && !jwt.getSubject().equals(merchant)) {
+                throw forbidden();
+            }
             String delegated = jwt.getAudience() != null && jwt.getAudience().contains(customerAudience)
                     ? jwt.getTokenValue()
                     : null;

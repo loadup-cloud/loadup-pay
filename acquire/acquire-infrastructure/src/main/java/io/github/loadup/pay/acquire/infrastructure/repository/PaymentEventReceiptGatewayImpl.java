@@ -17,13 +17,12 @@ package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentEventStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.PaymentEventReceiptDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -46,7 +45,7 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
     private final Clock clock;
     private final PaymentEventStorageConverter converter;
 
-    public PaymentEventReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentEventStorageConverter converter, @Qualifier("acquireClock") Clock clock) {
+    public PaymentEventReceiptGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentEventStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -73,8 +72,9 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
         scope(tenant);
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = converter.toDO(tenant, receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -87,11 +87,17 @@ public class PaymentEventReceiptGatewayImpl implements PaymentEventReceiptGatewa
                     :allocationId, :paymentVersion, :evidenceId, :requestDigest, :callerServiceId, :orderVersion, :acceptedAt)
                 ON CONFLICT (tenant_id, delivery_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Payment delivery already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Payment delivery already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void scope(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

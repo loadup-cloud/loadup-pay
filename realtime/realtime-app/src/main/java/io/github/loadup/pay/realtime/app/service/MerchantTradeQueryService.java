@@ -113,9 +113,12 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     }
 
     private TradeOrderDTO orderDTO(TradeOrderProjection order, TradeRefundSummary summary) {
-        if (summary == null) return converter.toOrderDTO(order, null, null, null, false);
-        if (!summary.payeeMerchantId().equals(order.payeeMerchantId()) || !summary.currency().equals(order.amount().getCurrencyValue()))
+        if (summary == null) {
+            return converter.toOrderDTO(order, null, null, null, false);
+        }
+        if (!summary.payeeMerchantId().equals(order.payeeMerchantId()) || !summary.currency().equals(order.amount().getCurrencyValue())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toOrderDTO(order, summary.refundedMinor(), order.paidMinor() - summary.refundedMinor(),
                 summary.source().number(), summary.refundedMinor() <= order.paidMinor());
     }
@@ -123,12 +126,16 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     private RealtimeActor actor(String payee) {
         var actor = actors.current();
         if (actor.merchantId() == null || !actor.merchantId().equals(payee)
-                || !actor.permissions().contains("pay:realtime:trade:read")) throw new CommonException(QUERY_FORBIDDEN);
+                || !actor.permissions().contains("pay:realtime:trade:read")) {
+            throw new CommonException(QUERY_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private String name(Enum<?> value) {

@@ -33,7 +33,9 @@ public record ReconciliationKey(ReconciliationRecordKind kind, @DiagnosticHidden
         Objects.requireNonNull(kind);
         DomainChecks.text(channelTransactionNo, 128);
         require((kind == ReconciliationRecordKind.REFUND) == (channelRefundNo != null), INVALID_ARGUMENT);
-        if (channelRefundNo != null) DomainChecks.text(channelRefundNo, 64);
+        if (channelRefundNo != null) {
+            DomainChecks.text(channelRefundNo, 64);
+        }
     }
 
     public String fingerprint() {
@@ -47,8 +49,12 @@ public record ReconciliationKey(ReconciliationRecordKind kind, @DiagnosticHidden
     @Override
     public int compareTo(ReconciliationKey other) {
         int result = kind.name().compareTo(other.kind.name());
-        if (result == 0) result = channelTransactionNo.compareTo(other.channelTransactionNo);
-        if (result == 0 && channelRefundNo != null) result = channelRefundNo.compareTo(other.channelRefundNo);
+        if (result == 0) {
+            result = channelTransactionNo.compareTo(other.channelTransactionNo);
+        }
+        if (result == 0 && channelRefundNo != null) {
+            result = channelRefundNo.compareTo(other.channelRefundNo);
+        }
         return result;
     }
 

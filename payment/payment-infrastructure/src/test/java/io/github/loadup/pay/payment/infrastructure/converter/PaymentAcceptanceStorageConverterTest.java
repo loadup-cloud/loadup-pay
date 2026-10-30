@@ -56,7 +56,6 @@ class PaymentAcceptanceStorageConverterTest {
         var firstUnknownAt = payment.initiatedAt().plusMinutes(2);
         assertEquals(firstUnknownAt, converter.toPaymentPatch("tenant", value, firstUnknownAt).getFirstUnknownAt());
         row.setFirstUnknownAt(firstUnknownAt);
-        assertEquals("tenant", row.getTenantId());
         assertEquals(value, converter.toStored(row, converter.toPayment(row)));
     }
 

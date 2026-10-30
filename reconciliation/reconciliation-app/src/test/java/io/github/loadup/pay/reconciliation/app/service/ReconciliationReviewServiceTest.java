@@ -159,7 +159,9 @@ class ReconciliationReviewServiceTest {
             write();
             ReconciliationReviewProposal proposed = call.getArgument(3);
             ReconciliationReviewEvent event = call.getArgument(4);
-            if (proposed != null) proposals.put(proposed.id(), proposed);
+            if (proposed != null) {
+                proposals.put(proposed.id(), proposed);
+            }
             events.put(event.id(), event);
             head.set(call.getArgument(2));
             return null;

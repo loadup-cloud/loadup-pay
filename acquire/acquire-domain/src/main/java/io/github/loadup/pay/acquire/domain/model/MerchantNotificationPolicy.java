@@ -49,9 +49,13 @@ public record MerchantNotificationPolicy(String targetRef, String signingIdentit
         var delay = BigDecimal.valueOf(retryInitialSeconds);
         int exponent = attempt - 1;
         while (exponent > 0) {
-            if ((exponent & 1) != 0) delay = delay.multiply(factor, context).min(cap);
+            if ((exponent & 1) != 0) {
+                delay = delay.multiply(factor, context).min(cap);
+            }
             exponent >>>= 1;
-            if (exponent > 0) factor = factor.multiply(factor, context).min(cap);
+            if (exponent > 0) {
+                factor = factor.multiply(factor, context).min(cap);
+            }
         }
         return delay.setScale(0, RoundingMode.CEILING).min(cap).longValueExact();
     }

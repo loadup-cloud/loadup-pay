@@ -63,7 +63,9 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         Objects.requireNonNull(channel);
         Objects.requireNonNull(method);
         Objects.requireNonNull(admittedTerms);
-        if (preparedInputRef != null) DomainChecks.id(preparedInputRef);
+        if (preparedInputRef != null) {
+            DomainChecks.id(preparedInputRef);
+        }
         DomainChecks.text(subject, 256);
         DomainChecks.text(payableUntil, 64);
         OffsetDateTime.parse(payableUntil);
@@ -212,7 +214,9 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
             hash(policyHash);
             require(policyVersion > 0 && amountRestore != null && countRestore != null, INVALID_ARGUMENT);
             optionalLength(parentPolicyRef, 128);
-            if (parentAggregationEnabled) DomainChecks.text(parentPolicyRef, 128);
+            if (parentAggregationEnabled) {
+                DomainChecks.text(parentPolicyRef, 128);
+            }
         }
 
         @Override

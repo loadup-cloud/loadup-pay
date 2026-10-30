@@ -33,9 +33,10 @@ public record CheckoutDTO(
 
         @Schema(description = "Session expires at") OffsetDateTime sessionExpiresAt) {
     public CheckoutDTO {
-        if (sessionExpiresAt != null)
+        if (sessionExpiresAt != null) {
             sessionExpiresAt =
                     sessionExpiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

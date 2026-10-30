@@ -91,12 +91,15 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
         guard(context, request);
         var account = (WechatAccountIdentity) context.binding().identity();
         var original = credentials.read(context.tenantId(), context.binding()); // One immutable credential/pin for the whole grant/download exchange.
-        if (original == null || !context.tenantId().equals(original.tenantId()) || !account.appId().equals(original.appId()) || !account.merchantId().equals(original.merchantId()))
+        if (original == null || !context.tenantId().equals(original.tenantId()) || !account.appId().equals(original.appId()) || !account.merchantId().equals(original.merchantId())) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
+        }
         var expected = new HashMap<String, String>();
         expected.put("bill_date", request.scope().billDate().toString());
         expected.put("bill_type", "ALL");
-        if (account.subMerchantId() != null) expected.put("sub_mchid", account.subMerchantId());
+        if (account.subMerchantId() != null) {
+            expected.put("sub_mchid", account.subMerchantId());
+        }
         var query = new HashMap<String, List<String>>();
         expected.forEach((key, value) -> query.put(key, List.of(value)));
         var target = new AtomicReference<String>();
@@ -104,8 +107,9 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
         try {
             var applied = http.exchange("wechat", WechatMethod.TRADE_BILL.operation(), new HttpCall(Map.of(), query, Map.of("Accept", "application/json", "Accept-Encoding", "identity"), null),
                     (method, uri, body) -> {
-                        if (!expected.equals(WechatStatementCodec.query(uri)))
+                        if (!expected.equals(WechatStatementCodec.query(uri))) {
                             throw new CommonException(INVALID_ARGUMENT);
+                        }
                         var headers = signatures.sign(WechatMethod.TRADE_BILL, original, method, uri, body);
                         target.set(uri.getRawPath() + "?" + uri.getRawQuery());
                         signed.set(headers);
@@ -115,16 +119,20 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
             var payload = reader.read(verified, WechatMethod.TRADE_BILL);
             if (verified.status() != 200) {
                 var code = reader.text(payload, "code", 64);
-                if (verified.status() == 400 && "STATEMENT_CREATING".equals(code))
+                if (verified.status() == 400 && "STATEMENT_CREATING".equals(code)) {
                     throw new CommonException(STATEMENT_NOT_READY);
-                if (verified.status() == 400 && "NO_STATEMENT_EXIST".equals(code))
+                }
+                if (verified.status() == 400 && "NO_STATEMENT_EXIST".equals(code)) {
                     throw new CommonException(STATEMENT_NOT_FOUND);
+                }
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             var receivedAt = now();
             var grant = WechatStatementCodec.grant(payload, reader);
             byte[] evidence = WechatStatementCodec.evidence(context, request.scope(), target.get(), signed.get(), applied.getHeaders(), applied.getBody(), receivedAt);
-            if (!now().isBefore(receivedAt.plusMinutes(5))) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (!now().isBefore(receivedAt.plusMinutes(5))) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             String client = WechatStatementCodec.PRIMARY.equals(grant.uri().getHost()) ? "wechat-bill-download" : "wechat-bill-download-backup";
             var output = new BoundedOutput(request.maxBytes());
             var downloaded = http.download(client, WechatMethod.BILL_DOWNLOAD.operation(),
@@ -133,15 +141,18 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
                         WechatStatementCodec.downloadTarget(grant, uri);
                         return signatures.sign(WechatMethod.BILL_DOWNLOAD, original, method, uri, body);
                     });
-            if (downloaded == null || downloaded.getStatusCode().value() != 200)
+            if (downloaded == null || downloaded.getStatusCode().value() != 200) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             var encodings = downloaded.getHeaders().get(HttpHeaders.CONTENT_ENCODING);
-            if (encodings != null && (encodings.size() != 1 || !"identity".equalsIgnoreCase(encodings.getFirst())))
+            if (encodings != null && (encodings.size() != 1 || !"identity".equalsIgnoreCase(encodings.getFirst()))) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             byte[] bytes = output.bytes();
             if (bytes.length == 0 || downloaded.getBody() == null || downloaded.getBody() != bytes.length
-                    || !grant.sha1().equals(WechatStatementCodec.digest("SHA-1", bytes)))
+                    || !grant.sha1().equals(WechatStatementCodec.digest("SHA-1", bytes))) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
             var proof = new ChannelStatementReceipt(WechatStatementCodec.FORMAT,
                     WechatStatementCodec.digest("SHA-256", target.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                     WechatStatementCodec.digest("SHA-256", evidence), "SHA1", grant.sha1(), WechatStatementCodec.digest("SHA-256", bytes), receivedAt, now(), evidence);
@@ -154,19 +165,29 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
     }
 
     private void guard(ChannelExecutionContext context, ChannelStatementRequest request) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (context == null || request == null) throw new CommonException(INVALID_ARGUMENT);
-        if (!context.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (context == null || request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (!context.tenantId().equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var binding = context.binding();
         if (binding.channel() != Channel.WECHAT || request.scope().channel() != Channel.WECHAT
-                || !binding.accountScopeHash().equals(request.scope().accountScopeHash()) || !(binding.identity() instanceof WechatAccountIdentity account))
+                || !binding.accountScopeHash().equals(request.scope().accountScopeHash()) || !(binding.identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
-        if (!WechatStatementCodec.PROFILE.equals(request.scope().statementProfile()))
+        }
+        if (!WechatStatementCodec.PROFILE.equals(request.scope().statementProfile())) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
-        if (!request.scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate()))
+        }
+        if (!request.scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
             throw new CommonException(INVALID_ARGUMENT);
-        if (binding.accessMode() == AccessMode.SERVICE_PROVIDER && (account.subMerchantId() == null || account.subMerchantId().isBlank()))
+        }
+        if (binding.accessMode() == AccessMode.SERVICE_PROVIDER && (account.subMerchantId() == null || account.subMerchantId().isBlank())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
     }
 
     private OffsetDateTime now() {
@@ -195,7 +216,9 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
         }
 
         private void ensure(int additional) {
-            if (additional > limit - bytes.size()) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            if (additional > limit - bytes.size()) {
+                throw new CommonException(CHANNEL_RESPONSE_INVALID);
+            }
         }
 
         byte[] bytes() {

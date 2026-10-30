@@ -47,7 +47,6 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -95,7 +94,7 @@ public class PaymentControlService implements PaymentControlFacade {
             IdGenerator ids,
             Validator validator,
             PaymentEvents events,
-            @Qualifier("paymentClock") Clock clock,
+            Clock clock,
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.gates = gates;
@@ -139,7 +138,9 @@ public class PaymentControlService implements PaymentControlFacade {
                 return status(actor, current, command.closeEpoch());
             }
             var next = fence(current, command.closeEpoch());
-            if (next != current) store.updateParent(actor.tenantId(), next, current.rowVersion());
+            if (next != current) {
+                store.updateParent(actor.tenantId(), next, current.rowVersion());
+            }
             store.insertReceipt(
                     actor.tenantId(),
                     new PaymentControlReceipt(
@@ -165,8 +166,12 @@ public class PaymentControlService implements PaymentControlFacade {
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.orderId());
             var current = gates.lockParent(actor.tenantId(), query.orderId());
-            if (current.isEmpty()) return converter.toParent(query.orderId(), 0, false, false, 0);
-            if (!actor.serviceId().equals(current.get().callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (current.isEmpty()) {
+                return converter.toParent(query.orderId(), 0, false, false, 0);
+            }
+            if (!actor.serviceId().equals(current.get().callerServiceId())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             return status(actor, current.get(), query.closeEpoch());
         });
     }
@@ -195,7 +200,9 @@ public class PaymentControlService implements PaymentControlFacade {
         prior.ifPresent(value -> checked(value, actor, digest));
         var parent = parent(actor, command.orderId(), command.payeeMerchantId(), prior.isPresent());
         var current = gates.lockPayment(actor.tenantId(), command.paymentId());
-        if (current.isEmpty() && prior.isPresent()) throw new CommonException(SNAPSHOT_INVALID);
+        if (current.isEmpty() && prior.isPresent()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         StoredPaymentGate next;
         if (current.isPresent()) {
             checkBinding(current.get(), actor, command.orderId(), command.payeeMerchantId(), command.paymentId());
@@ -220,7 +227,9 @@ public class PaymentControlService implements PaymentControlFacade {
             return response(command, next, payment.orElse(null), prior.get().noCollectionEvidenceId());
         }
         var fenced = fence(next, command.fenceEpoch());
-        if (fenced != next) store.updateGate(actor.tenantId(), fenced, next.rowVersion());
+        if (fenced != next) {
+            store.updateGate(actor.tenantId(), fenced, next.rowVersion());
+        }
         String evidence = null;
         if (payment.isEmpty()) {
             if (current.isPresent()) {
@@ -229,10 +238,13 @@ public class PaymentControlService implements PaymentControlFacade {
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 if (!proof.orderId().equals(command.orderId())
                         || !proof.payeeMerchantId().equals(command.payeeMerchantId())
-                        || !proof.callerServiceId().equals(actor.serviceId()))
+                        || !proof.callerServiceId().equals(actor.serviceId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 evidence = proof.noCollectionEvidenceId();
-            } else evidence = ids.generate();
+            } else {
+                evidence = ids.generate();
+            }
         } else {
             var previous = payment.get();
             var order = previous.payment();
@@ -259,12 +271,15 @@ public class PaymentControlService implements PaymentControlFacade {
                 }
                 var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
                 store.updatePayment(actor.tenantId(), updated, order.version());
-                if (updatedOrder.state() == PaymentState.CLOSED)
+                if (updatedOrder.state() == PaymentState.CLOSED) {
                     events.publish(actor.tenantId(), updated, true, now());
-                else events.publishSnapshot(actor.tenantId(), updated, now());
+                } else {
+                    events.publishSnapshot(actor.tenantId(), updated, now());
+                }
                 payment = Optional.of(updated);
-            } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED)
+            } else if (order.state() == PaymentState.CLOSED || order.state() == PaymentState.FAILED) {
                 evidence = previous.terminalEvidenceId();
+            }
         }
         store.insertReceipt(
                 actor.tenantId(),
@@ -292,10 +307,13 @@ public class PaymentControlService implements PaymentControlFacade {
         if (payment != null) {
             boolean noCollection = payment.payment().state() == PaymentState.CLOSED
                     || payment.payment().state() == PaymentState.FAILED;
-            if (receiptEvidence != null && (!noCollection || !receiptEvidence.equals(payment.terminalEvidenceId())))
+            if (receiptEvidence != null && (!noCollection || !receiptEvidence.equals(payment.terminalEvidenceId()))) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             evidence = noCollection ? payment.terminalEvidenceId() : null;
-        } else if (receiptEvidence == null) throw new CommonException(SNAPSHOT_INVALID);
+        } else if (receiptEvidence == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toClose(
                 command.paymentId(),
                 command.orderId(),
@@ -327,32 +345,40 @@ public class PaymentControlService implements PaymentControlFacade {
             var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
             var input = inputs.lock(actor.tenantId(), command.inputRef())
                     .orElseThrow(() -> new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND));
-            if (!input.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!input.callerServiceId().equals(actor.serviceId())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             if (!input.id().equals(command.inputRef()) || !input.paymentId().equals(command.paymentId())
                     || !input.orderId().equals(command.orderId()) || !input.allocationId().equals(command.allocationId())
                     || !input.payeeMerchantId().equals(command.payeeMerchantId()) || !input.inputKey().equals(command.inputKey())
                     || input.amount().getCent() != command.amountMinor() || !input.amount().getCurrencyValue().equals(command.currency())
-                    || input.channel() != command.choice().channel() || input.method() != command.choice().method())
+                    || input.channel() != command.choice().channel() || input.method() != command.choice().method()) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
             if (accepted.isPresent()) {
                 var current = accepted.get();
                 checkPayment(current, actor, close);
                 var original = codec.decode(current);
                 if (gate.isEmpty() || !Objects.equals(original.preparedInputRef(), command.inputRef())
                         || !original.allocationId().equals(command.allocationId()) || original.amountMinor() != command.amountMinor()
-                        || !original.currency().equals(command.currency()) || !original.choice().equals(command.choice()))
+                        || !original.currency().equals(command.currency()) || !original.choice().equals(command.choice())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 // Input expiry cannot revoke an already accepted payment, including one currently in flight.
                 return converter.toInputExpiry(command, PaymentInputExpiryDisposition.PAYMENT_EXISTS, null);
             }
-            if (input.state() != PaymentInputState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+            if (input.state() != PaymentInputState.INIT) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var prior = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
-            if (!input.expired(now()) && prior.isEmpty())
+            if (!input.expired(now()) && prior.isEmpty()) {
                 return converter.toInputExpiry(command, PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
+            }
             // The same deterministic receipt also recovers a committed close whose reply was lost.
             var closed = closeLocked(actor, close);
-            if (!closed.fenced() || closed.payment() != null || closed.noCollectionEvidenceId() == null)
+            if (!closed.fenced() || closed.payment() != null || closed.noCollectionEvidenceId() == null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toInputExpiry(command, PaymentInputExpiryDisposition.EXPIRED_CLOSED, closed);
         });
     }
@@ -363,7 +389,9 @@ public class PaymentControlService implements PaymentControlFacade {
             checkBinding(existing.get(), actor, orderId, payee, null);
             return existing.get();
         }
-        if (replay) throw new CommonException(SNAPSHOT_INVALID);
+        if (replay) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var gate = new StoredPaymentGate(
                 ids.generate(),
                 payee,
@@ -392,29 +420,37 @@ public class PaymentControlService implements PaymentControlFacade {
     }
 
     private void requireFence(StoredPaymentGate gate, long epoch) {
-        if (gate.gate().state() != GateState.FENCED || gate.gate().fenceEpoch() < epoch)
+        if (gate.gate().state() != GateState.FENCED || gate.gate().fenceEpoch() < epoch) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void checkBinding(StoredPaymentGate gate, PaymentActor actor, String order, String payee, String payment) {
         if (!gate.gate().orderId().equals(order)
                 || !Objects.equals(gate.gate().paymentId(), payment)
                 || !gate.payeeMerchantId().equals(payee)
-                || !gate.callerServiceId().equals(actor.serviceId())) throw new CommonException(IDEMPOTENCY_CONFLICT);
+                || !gate.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
     }
 
     private void checkPayment(StoredPaymentAcceptance payment, PaymentActor actor, PaymentCloseCommand command) {
         if (!payment.payment().id().equals(command.paymentId())
                 || !payment.payment().orderId().equals(command.orderId())
                 || !payment.payment().payeeMerchantId().equals(command.payeeMerchantId())
-                || !payment.callerServiceId().equals(actor.serviceId()))
+                || !payment.callerServiceId().equals(actor.serviceId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         codec.decode(payment);
     }
 
     private void checked(PaymentControlReceipt value, PaymentActor actor, String digest) {
-        if (!value.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!value.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!value.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!value.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
     }
 
     private String digest(
@@ -438,25 +474,30 @@ public class PaymentControlService implements PaymentControlFacade {
                 key,
                 Long.toString(epoch),
                 reason)) {
-            if (field == null) canonical.append("-1:");
-            else
+            if (field == null) {
+                canonical.append("-1:");
+            } else {
                 canonical
                         .append(field.getBytes(StandardCharsets.UTF_8).length)
                         .append(':')
                         .append(field);
+            }
         }
         return codec.checksum(canonical.toString());
     }
 
     private PaymentActor actor(String permission) {
         var actor = actors.current();
-        if (!actor.serviceId().equals(acquireService) || !actor.permissions().contains(permission))
+        if (!actor.serviceId().equals(acquireService) || !actor.permissions().contains(permission)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {

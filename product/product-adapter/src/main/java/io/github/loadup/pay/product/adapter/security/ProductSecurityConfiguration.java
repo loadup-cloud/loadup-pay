@@ -29,12 +29,15 @@ public class ProductSecurityConfiguration implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false))
+        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Product business HTTP requires the verified JWT resource server");
-        if (!environment.getProperty("loadup.outbox.enabled", Boolean.class, false))
+        }
+        if (!environment.getProperty("loadup.outbox.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Product publication requires the framework transactional Outbox");
-        if (environment.getProperty("loadup.modules.contract.enabled", Boolean.class, true))
+        }
+        if (environment.getProperty("loadup.modules.contract.enabled", Boolean.class, true)) {
             throw new IllegalStateException(
                     "Product admission imports only the required framework contract storage and codec beans");
+        }
     }
 }

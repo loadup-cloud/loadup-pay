@@ -76,8 +76,9 @@ class MerchantNotificationQueryServiceTest {
         assertEquals(3, result.maxAttempts());
         assertEquals("INIT", result.state().name());
         String json = JsonUtil.toJson(result);
-        for (String secret : List.of("frozen-body", "original-target", "original-key", "bodyDigest", "routeFingerprint", "nativeTaskId"))
+        for (String secret : List.of("frozen-body", "original-target", "original-key", "bodyDigest", "routeFingerprint", "nativeTaskId")) {
             assertFalse(json.contains(secret));
+        }
     }
 
     @Test

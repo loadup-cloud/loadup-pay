@@ -8,8 +8,13 @@ import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
 import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.infrastructure.config.AcquireRealtimeProperties;
+import io.github.loadup.pay.acquire.rpc.AcquireRpcMapperImpl;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
+import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
+import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapperImpl;
 import io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcException;
@@ -41,6 +46,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class AcquireRealtimeRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), BusinessTime.zone());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
+    final PaymentRpcMapper paymentRpcMapper = new PaymentRpcMapperImpl(new ProductRpcMapperImpl());
+    final RealtimeRpcMapper realtimeRpcMapper =
+            new RealtimeRpcMapperImpl(new AcquireRpcMapperImpl(paymentRpcMapper), paymentRpcMapper);
     final RealtimeRpc realtimeRpc = mock(RealtimeRpc.class);
     final List<String> attachments = new ArrayList<>();
     final EventEnvelope<OrderSnapshotEventDTO> event = new EventEnvelope<>("delivery", "change", "acquire", "pay.acquire.snapshot.realtime.v1",
@@ -65,11 +73,11 @@ class AcquireRealtimeRpcClientTest {
     void setup() throws Exception {
         file = directory.resolve("realtime.jwt");
         credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
-        client = new AcquireRealtimeRpcClient(mapper, new AcquireRealtimeProperties("tenant", "acquire", "realtime", file), clock);
+        client = new AcquireRealtimeRpcClient(realtimeRpcMapper, mapper, new AcquireRealtimeProperties("tenant", "acquire", "realtime", file), clock);
         ReflectionTestUtils.setField(client, "realtimeRpc", realtimeRpc);
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(new ProjectionAckDTO(
+            return realtimeRpcMapper.toWireProjectionAckDTO(new ProjectionAckDTO(
                     "delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
         }).when(realtimeRpc).order(any());
     }

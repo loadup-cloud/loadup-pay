@@ -49,29 +49,38 @@ public class RefundMerchantDelivery {
     }
 
     public void deliver(OutboxEvent event) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         if (event == null || event.message() == null || event.message().version() != 1
-                || !RefundProjectionEvents.MERCHANT.equals(event.message().type())
-                || !event.message().tenantId().equals(TenantUtil.getTenantId()))
+                || !RefundProjectionEvents.MERCHANT.equals(event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var message = event.message();
-        var row = outbox.find(message.tenantId(), event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!row.id().equals(event.id()) || !row.tenantId().equals(message.tenantId())
+        String tenant = TenantUtil.getTenantId();
+        var row = outbox.find(event.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        if (!row.id().equals(event.id())
                 || !message.type().equals(row.type()) || !message.businessId().equals(row.businessId())
-                || !"PROCESSING".equals(row.status())) throw new CommonException(SNAPSHOT_INVALID);
-        if (!acquire.supportsTenant(row.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        var envelope = codec.merchant(message.payload());
-        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType()))
+                || !"PROCESSING".equals(row.status())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
+        if (!acquire.supportsTenant(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        var envelope = codec.merchant(message.payload());
+        if (!row.businessId().equals(envelope.aggregateId()) || !row.type().equals(envelope.eventType())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var data = envelope.data();
         data.requireEnvelope(envelope);
-        String expectedEventId = DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", row.tenantId(),
+        String expectedEventId = DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", tenant,
                 data.merchantEventType(), envelope.aggregateId(), envelope.aggregateVersion())));
-        var ack = acquire.acceptRefundNotification(row.tenantId(), envelope);
+        var ack = acquire.acceptRefundNotification(tenant, envelope);
         if (ack == null || !envelope.deliveryId().equals(ack.deliveryId())
                 || !envelope.businessEventId().equals(ack.businessEventId()) || !envelope.aggregateId().equals(ack.aggregateId())
                 || envelope.aggregateVersion() != ack.sourceVersion() || !expectedEventId.equals(ack.merchantEventId())
-                || !java.util.Set.of("ENQUEUED", "DISABLED").contains(ack.disposition()))
+                || !java.util.Set.of("ENQUEUED", "DISABLED").contains(ack.disposition())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
     }
 }

@@ -37,19 +37,22 @@ public class JwtRefundActorProvider implements RefundActorProvider {
     @Override
     public RefundActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt))
+        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id"), type = jwt.getClaimAsString("principal_type");
             String subject = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
             if (!Set.of("MERCHANT", "MERCHANT_APP").contains(type) || jwt.getIssuer() == null
                     || tenant == null || !tenant.equals(tenant.trim()) || subject == null || subject.isBlank()
                     || merchant == null || !merchant.equals(merchant.trim())
-                    || "MERCHANT".equals(type) && !subject.equals(merchant))
+                    || "MERCHANT".equals(type) && !subject.equals(merchant)) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             var framed = new StringBuilder();
-            for (var value : List.of(jwt.getIssuer().toString(), type, subject, merchant))
+            for (var value : List.of(jwt.getIssuer().toString(), type, subject, merchant)) {
                 framed.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+            }
             String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(framed.toString().getBytes(StandardCharsets.UTF_8)));
             return new RefundActor(tenant, merchant, hash, auth.getAuthorities().stream()
                     .map(authority -> authority.getAuthority()).collect(Collectors.toUnmodifiableSet()));

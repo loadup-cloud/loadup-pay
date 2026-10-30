@@ -166,7 +166,9 @@ class PaymentChannelCallbackControllerTest {
         var names = java.util.stream.IntStream.rangeClosed(0, ChannelNotificationInput.MAX_HEADER_NAMES)
                 .mapToObj(index -> "X-Header-" + index).toList();
         when(request.getHeaderNames()).thenReturn(Collections.enumeration(names));
-        for (var name : names) when(request.getHeaders(name)).thenReturn(Collections.enumeration(List.of("value")));
+        for (var name : names) {
+            when(request.getHeaders(name)).thenReturn(Collections.enumeration(List.of("value")));
+        }
 
         assertEquals(HttpStatus.BAD_REQUEST, controller.receive(ENDPOINT_REF, request).getStatusCode());
         verify(callbacks, never()).receive(anyString(), any());

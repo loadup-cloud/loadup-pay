@@ -65,8 +65,9 @@ public record DirectPayRecoverCommand(
         PaymentInteractionKind interactionKind) {
     public DirectPayRecoverCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);
-        if (requestedDueAt != null)
+        if (requestedDueAt != null) {
             requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

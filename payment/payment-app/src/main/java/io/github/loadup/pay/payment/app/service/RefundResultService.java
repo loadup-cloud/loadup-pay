@@ -33,7 +33,6 @@ import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -68,7 +67,7 @@ public class RefundResultService {
 
     public RefundResultService(RefundResultGateway results, RefundExecutionLocks locks, PaymentAcceptanceTransactions transactions,
                                RefundResultCodec codec, RefundExecutionConverter converter, RefundPlanningConverter views, IdGenerator ids,
-                               @Qualifier("paymentClock") Clock clock, RefundProjectionEvents projections,
+                               Clock clock, RefundProjectionEvents projections,
                                io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances) {
         this.results = results;
         this.locks = locks;
@@ -83,8 +82,12 @@ public class RefundResultService {
     }
 
     public RefundResultApplication record(String tenant, RefundObservation observation) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (observation == null) throw new CommonException(INVALID_ARGUMENT);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (observation == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(tenant);
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
@@ -100,38 +103,51 @@ public class RefundResultService {
         var known = results.receipt(tenant, current.id(), observation.source(), observation.receiptKey());
         if (known.isPresent()) {
             var receipt = known.get();
-            if (!receipt.factsDigest().equals(digest))
+            if (!receipt.factsDigest().equals(digest)) {
                 return anomaly(tenant, request, receipt.id(), observation, digest, payload, "RECEIPT_FACTS_CONFLICT");
+            }
             return present(receipt.disposition(), receipt.id(), request);
         }
         String id = ids.generate();
         String mismatch = mismatch(facts, observation);
-        if (mismatch != null) return reject(tenant, request, id, observation, digest, payload, mismatch);
+        if (mismatch != null) {
+            return reject(tenant, request, id, observation, digest, payload, mismatch);
+        }
         if (observation.kind() == ChannelRefundOutcome.Kind.SUCCEEDED) {
-            if (current.state() == RefundState.FAILED)
+            if (current.state() == RefundState.FAILED) {
                 return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
+            }
             var claimed = results.transaction(observation.original().channel(), observation.original().accountScopeHash(), observation.channelRefundTransactionNo());
             var own = results.claim(tenant, current.id());
-            if (claimed.isPresent() && !matches(tenant, claimed.get(), observation))
+            if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
-            if (own.isPresent() && !matches(tenant, own.get(), observation))
+            }
+            if (own.isPresent() && !matches(tenant, own.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_CONFLICT");
+            }
             if (current.state() == RefundState.SUCCEEDED) {
                 if (own.isEmpty() || claimed.isEmpty() || !own.get().id().equals(claimed.get().id())
                         || !Objects.equals(current.terminalEvidenceId(), own.get().receiptId())
                         || !observation.channelRefundTransactionNo().equals(facts.channelRefundTransactionNo())
-                        || !observation.succeededAt().equals(facts.succeededAt()) || locked.capacity().refundedMinor() < current.amount().getCent())
+                        || !observation.succeededAt().equals(facts.succeededAt()) || locked.capacity().refundedMinor() < current.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
             }
-            if (own.isPresent() || claimed.isPresent()) throw new CommonException(SNAPSHOT_INVALID);
+            if (own.isPresent() || claimed.isPresent()) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             results.insertClaim(converter.toClaim(ids.generate(), tenant, observation, id));
-        } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND && current.state() == RefundState.SUCCEEDED)
+        } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND && current.state() == RefundState.SUCCEEDED) {
             return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
-        if (current.terminal()) return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
-        var changed = locked.capacity().applyOutcome(current, converter.toOutcome(observation, id));
-        if (changed.refund().equals(current))
+        }
+        if (current.terminal()) {
             return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
+        }
+        var changed = locked.capacity().applyOutcome(current, converter.toOutcome(observation, id));
+        if (changed.refund().equals(current)) {
+            return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
+        }
         var next = request.request().apply(changed.refund());
         var change = new RefundProgressChange(facts, changed.refund(), request.request(), next, locked.capacity(), changed.capacity(),
                 facts.submissionStartedAt(), observation.channelRefundTransactionNo(), observation.succeededAt());
@@ -150,8 +166,12 @@ public class RefundResultService {
         transactions.writeLocal(tenant, () -> {
             var locked = locks.lock(tenant, requestId, refundId);
             var current = locked.child().child().refund();
-            if (current.terminal() || current.state() == RefundState.UNKNOWN) return true;
-            if (locked.child().submissionStartedAt() == null) throw new CommonException(INVALID_STATE);
+            if (current.terminal() || current.state() == RefundState.UNKNOWN) {
+                return true;
+            }
+            if (locked.child().submissionStartedAt() == null) {
+                throw new CommonException(INVALID_STATE);
+            }
             var nextChild = current.recordOutcome(new ChannelRefundOutcome(refundId, ChannelRefundOutcome.Kind.UNKNOWN, current.amount(), null));
             var next = locked.request().request().apply(nextChild);
             var change = new RefundProgressChange(locked.child(), nextChild, locked.request().request(), next,
@@ -165,13 +185,21 @@ public class RefundResultService {
     private String mismatch(RefundExecutionFacts facts, RefundObservation o) {
         var child = facts.child();
         if (!child.original().equals(o.original()) || !child.channelTransactionNo().equals(o.originalChannelTransactionNo())
-                || !child.refund().channelRefundNo().equals(o.channelRefundNo())) return "REFUND_IDENTITY_MISMATCH";
-        if (!child.refund().amount().equals(o.amount())) return "REFUND_AMOUNT_MISMATCH";
-        if (facts.submissionStartedAt() == null) return "OBSERVATION_BEFORE_SUBMISSION";
-        if (o.acceptedAt() != null && o.acceptedAt().isBefore(child.originalSucceededAt()))
+                || !child.refund().channelRefundNo().equals(o.channelRefundNo())) {
+            return "REFUND_IDENTITY_MISMATCH";
+        }
+        if (!child.refund().amount().equals(o.amount())) {
+            return "REFUND_AMOUNT_MISMATCH";
+        }
+        if (facts.submissionStartedAt() == null) {
+            return "OBSERVATION_BEFORE_SUBMISSION";
+        }
+        if (o.acceptedAt() != null && o.acceptedAt().isBefore(child.originalSucceededAt())) {
             return "REFUND_ACCEPTANCE_TIME_MISMATCH";
-        if (o.succeededAt() != null && o.succeededAt().isBefore(child.originalSucceededAt()))
+        }
+        if (o.succeededAt() != null && o.succeededAt().isBefore(child.originalSucceededAt())) {
             return "REFUND_SUCCESS_TIME_MISMATCH";
+        }
         return null;
     }
 
@@ -198,9 +226,10 @@ public class RefundResultService {
         if (disposition != CONFLICT && o.acceptedAt() != null) {
             var child = request.allocations().stream().filter(value -> value.refund().id().equals(o.refundId())).findFirst()
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!acceptances.remember(tenant, converter.toAcceptance(o, id), child.refund().version()))
+            if (!acceptances.remember(tenant, converter.toAcceptance(o, id), child.refund().version())) {
                 results.recordAnomaly(tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id,
                         "REFUND_ACCEPTANCE_TIME_CONFLICT", digest, payload, now()));
+            }
         }
         return present(disposition, id, request);
     }

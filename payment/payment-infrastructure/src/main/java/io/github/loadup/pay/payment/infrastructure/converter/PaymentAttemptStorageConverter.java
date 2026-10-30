@@ -46,7 +46,7 @@ public interface PaymentAttemptStorageConverter {
     @Mapping(target = "riskDecision", source = "risk")
     StoredPaymentAttempt toStored(PaymentAttemptDO row, PaymentAttempt attempt, RiskDecision risk);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.attempt.id")
     @Mapping(target = "paymentId", source = "value.attempt.paymentId")
     @Mapping(target = "attemptNo", source = "value.attempt.attemptNo")

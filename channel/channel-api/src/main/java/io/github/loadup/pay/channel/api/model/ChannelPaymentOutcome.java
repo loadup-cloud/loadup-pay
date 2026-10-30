@@ -26,8 +26,9 @@ public record ChannelPaymentOutcome(Kind kind, ChannelPaymentIdentity identity, 
         Objects.requireNonNull(kind);
         Objects.requireNonNull(identity);
         DomainChecks.cnyAmount(amount);
-        if (kind == Kind.SUCCEEDED || kind == Kind.NO_COLLECTION || kind == Kind.CLOSED_WITH_FUNDS_RETURNED)
+        if (kind == Kind.SUCCEEDED || kind == Kind.NO_COLLECTION || kind == Kind.CLOSED_WITH_FUNDS_RETURNED) {
             DomainChecks.id(evidenceId);
+        }
     }
 
     @Override

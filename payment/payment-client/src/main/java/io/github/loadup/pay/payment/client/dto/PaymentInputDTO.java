@@ -32,8 +32,9 @@ public record PaymentInputDTO(
 
         @Schema(description = "Expires at") OffsetDateTime expiresAt) {
     public PaymentInputDTO {
-        if (expiresAt != null)
+        if (expiresAt != null) {
             expiresAt = expiresAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

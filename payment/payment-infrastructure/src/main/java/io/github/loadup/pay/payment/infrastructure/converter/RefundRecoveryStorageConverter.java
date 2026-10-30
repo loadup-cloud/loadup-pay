@@ -28,7 +28,7 @@ public interface RefundRecoveryStorageConverter {
     RefundRecoveryCursor toDomain(RefundRecoveryCursorDO row);
 
     @Mapping(target = "id", source = "value.requestId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

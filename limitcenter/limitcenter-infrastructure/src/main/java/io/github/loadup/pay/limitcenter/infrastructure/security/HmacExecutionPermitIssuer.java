@@ -51,7 +51,9 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
             String requestKey,
             String permitKeyId) {
         String secret = properties.keys().get(permitKeyId);
-        if (secret == null) throw new CommonException(PERMIT_UNAVAILABLE);
+        if (secret == null) {
+            throw new CommonException(PERMIT_UNAVAILABLE);
+        }
         var value = stored.reservation();
         var data = new StringBuilder();
         Object[] fields = {

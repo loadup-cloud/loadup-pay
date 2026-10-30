@@ -39,11 +39,14 @@ public final class ReconciliationVerificationMessages {
     }
 
     public static String decode(String payload) {
-        if (payload == null || payload.length() > 512 || !payload.startsWith(FORMAT))
+        if (payload == null || payload.length() > 512 || !payload.startsWith(FORMAT)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         try {
             var id = new String(Base64.getUrlDecoder().decode(payload.substring(FORMAT.length())), StandardCharsets.UTF_8);
-            if (!encode(id).equals(payload)) throw new CommonException(SNAPSHOT_INVALID);
+            if (!encode(id).equals(payload)) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return id;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);

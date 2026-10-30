@@ -46,31 +46,41 @@ public class WechatV2Client {
 
     public WechatV2VerifiedResponse call(String tenant, ChannelBindingRevision binding, WechatV2Method method,
                                          Map<String, String> fields) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (method == null || fields == null) throw new CommonException(INVALID_ARGUMENT);
-        if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId()))
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (method == null || fields == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (binding == null || binding.channel() != io.github.loadup.commons.payment.Channel.WECHAT
-                || !(binding.identity() instanceof io.github.loadup.pay.channel.api.model.WechatAccountIdentity account))
+                || !(binding.identity() instanceof io.github.loadup.pay.channel.api.model.WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         if (!account.appId().equals(fields.get("appid")) || !account.merchantId().equals(fields.get("mch_id"))
                 || !java.util.Objects.equals(account.subMerchantId(), fields.get("sub_mch_id"))
-                || !java.util.Objects.equals(account.subAppId(), fields.get("sub_appid")))
+                || !java.util.Objects.equals(account.subAppId(), fields.get("sub_appid"))) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
+        }
         byte[] key = credentials.apiV2Key(tenant, binding);
         try {
             var body = codec.encode(fields, key);
             var response = http.exchange("wechat-v2", method.operation(), new HttpCall(Map.of(), Map.of(),
                     Map.of("Content-Type", "application/xml;charset=UTF-8", "Accept", "application/xml"), body));
-            if (response == null || !response.getStatusCode().is2xxSuccessful())
+            if (response == null || !response.getStatusCode().is2xxSuccessful()) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return codec.verify(method, response.getBody(), key);
         } catch (CommonException failure) {
             throw failure;
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         } finally {
-            if (key != null) Arrays.fill(key, (byte) 0);
+            if (key != null) {
+                Arrays.fill(key, (byte) 0);
+            }
         }
     }
 }

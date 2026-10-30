@@ -36,7 +36,6 @@ import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -63,7 +62,7 @@ public class PaymentActionService {
     private final ChannelActionCodec actionCodec;
 
     public PaymentActionService(PaymentActionGateway actions, PaymentAttemptGateway attempts, PaymentAcceptanceCodec codec,
-                                PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, @Qualifier("paymentClock") Clock clock, ChannelActionCodec actionCodec) {
+                                PaymentAcceptanceConverter views, PaymentChannelInputConverter channelViews, Clock clock, ChannelActionCodec actionCodec) {
         this.actions = actions;
         this.attempts = attempts;
         this.codec = codec;
@@ -77,30 +76,41 @@ public class PaymentActionService {
                        ChannelPaymentSubmission result, String receiptId) {
         writable(tenant);
         if (original == null || result == null || !original.identity().equals(result.identity())
-                || !original.amount().equals(result.amount())) throw new CommonException(INVALID_ARGUMENT);
-        if (result.action() == null) return;
+                || !original.amount().equals(result.amount())) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (result.action() == null) {
+            return;
+        }
         boolean local = result.observation() == null;
         if (local ? receiptId != null || !(result.action() instanceof AlipayH5ChannelAction)
                 || !(original instanceof PreparedChannelPayment)
-                : receiptId == null || result.observation().kind() != ChannelPaymentOutcome.Kind.ACCEPTED)
+                : receiptId == null || result.observation().kind() != ChannelPaymentOutcome.Kind.ACCEPTED) {
             throw new CommonException(INVALID_ARGUMENT);
-        if (!active(locked) || !original.identity().attemptId().equals(locked.payment().payment().activeAttemptId()))
+        }
+        if (!active(locked) || !original.identity().attemptId().equals(locked.payment().payment().activeAttemptId())) {
             return;
+        }
         var attempt = attempts.find(tenant, original.identity().attemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         validate(locked, attempt);
         if (!attempt.attempt().identity().equals(original.identity())
                 || attempt.attempt().executionEpoch() != original.executionEpoch()
-                || attempt.attempt().method() != original.method() || !attempt.attempt().amount().equals(original.amount()))
+                || attempt.attempt().method() != original.method() || !attempt.attempt().amount().equals(original.amount())) {
             throw new CommonException(OUTCOME_UNKNOWN);
+        }
         if (original instanceof PreparedChannelPayment prepared
-                && !java.util.Objects.equals(prepared.preparedInputRef(), attempt.preparedInputRef()))
+                && !java.util.Objects.equals(prepared.preparedInputRef(), attempt.preparedInputRef())) {
             throw new CommonException(OUTCOME_UNKNOWN);
+        }
         var command = codec.decode(locked.payment());
         var action = result.action();
-        if (action.method() != original.method() || action.expiresAt().isAfter(command.payableUntil()))
+        if (action.method() != original.method() || action.expiresAt().isAfter(command.payableUntil())) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         var issued = clock.instant();
-        if (!issued.isBefore(action.expiresAt().toInstant())) return;
+        if (!issued.isBefore(action.expiresAt().toInstant())) {
+            return;
+        }
         var proposed = new StoredPaymentAction(original.identity(), original.amount(), original.executionEpoch(), action,
                 local ? PaymentActionSource.LOCAL_SIGNED : PaymentActionSource.CHANNEL_RECEIPT, receiptId,
                 local ? actionCodec.checksum(actionCodec.encode(action)) : result.observation().sourceDigest(),
@@ -110,8 +120,9 @@ public class PaymentActionService {
             var prior = existing.get();
             if (!prior.identity().equals(proposed.identity()) || !prior.amount().equals(proposed.amount())
                     || prior.executionEpoch() != proposed.executionEpoch() || prior.source() != proposed.source()
-                    || !prior.action().equals(proposed.action()))
+                    || !prior.action().equals(proposed.action())) {
                 throw new CommonException(OUTCOME_UNKNOWN);
+            }
             return;
         }
         actions.insert(tenant, proposed);
@@ -120,19 +131,28 @@ public class PaymentActionService {
     public PaymentExecutionDTO present(String tenant, LockedPayment locked) {
         readable(tenant);
         var base = views.toDTO(locked.payment());
-        if (!active(locked)) return base;
+        if (!active(locked)) {
+            return base;
+        }
         var attemptId = locked.payment().payment().activeAttemptId();
-        if (attemptId == null) return base;
+        if (attemptId == null) {
+            return base;
+        }
         var stored = actions.find(tenant, attemptId);
-        if (stored.isEmpty()) return base;
+        if (stored.isEmpty()) {
+            return base;
+        }
         var current = attempts.find(tenant, attemptId).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         validate(locked, current);
         var action = stored.get();
         if (!action.identity().equals(current.attempt().identity()) || !action.amount().equals(current.attempt().amount())
                 || action.executionEpoch() != current.attempt().executionEpoch() || action.action().method() != current.attempt().method()
-                || action.action().expiresAt().isAfter(codec.decode(locked.payment()).payableUntil()))
+                || action.action().expiresAt().isAfter(codec.decode(locked.payment()).payableUntil())) {
             throw new CommonException(SNAPSHOT_INVALID);
-        if (!clock.instant().isBefore(action.action().expiresAt().toInstant())) return base;
+        }
+        if (!clock.instant().isBefore(action.action().expiresAt().toInstant())) {
+            return base;
+        }
         return views.withAction(base, channelViews.toAction(action.action()));
     }
 
@@ -148,18 +168,25 @@ public class PaymentActionService {
         var attempt = stored.attempt();
         if (attempt.executionEpoch() <= 0
                 || (attempt.state() != PaymentAttemptState.SUBMITTING && attempt.state() != PaymentAttemptState.PENDING
-                && attempt.state() != PaymentAttemptState.UNKNOWN))
+                && attempt.state() != PaymentAttemptState.UNKNOWN)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void readable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 
     private void writable(String tenant) {
         readable(tenant);
-        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 }
 

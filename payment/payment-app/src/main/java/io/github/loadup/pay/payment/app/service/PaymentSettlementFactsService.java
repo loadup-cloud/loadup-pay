@@ -67,25 +67,30 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(IdQuery query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
         boolean limitAccess = limitService.equals(actor.serviceId()) && actor.permissions().contains("pay:payment:limit-facts");
         boolean acquireAccess = acquireService.equals(actor.serviceId()) && actor.permissions().contains("pay:payment:acquire-facts");
-        if (!limitAccess && !acquireAccess)
+        if (!limitAccess && !acquireAccess) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var first = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (acquireAccess && !actor.serviceId().equals(first.callerServiceId()))
+            if (acquireAccess && !actor.serviceId().equals(first.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             var parent = store.lockParent(actor.tenantId(), first.payment().orderId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var gate = store.lockPayment(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var current = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             codec.decode(current);
-            if (acquireAccess && !actor.serviceId().equals(current.callerServiceId()))
+            if (acquireAccess && !actor.serviceId().equals(current.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
+            }
             check(parent, current, null);
             check(gate, current, query.id());
             return converter.toSettlementFacts(current, converter.toDTO(current), gate.gate().state() == GateState.FENCED);
@@ -95,7 +100,8 @@ public class PaymentSettlementFactsService implements PaymentSettlementFactsFaca
     private void check(StoredPaymentGate gate, StoredPaymentAcceptance current, String paymentId) {
         if (!gate.gate().orderId().equals(current.payment().orderId()) || !Objects.equals(gate.gate().paymentId(), paymentId)
                 || !gate.payeeMerchantId().equals(current.payment().payeeMerchantId())
-                || !gate.callerServiceId().equals(current.callerServiceId()) || gate.gate().state() == GateState.INIT)
+                || !gate.callerServiceId().equals(current.callerServiceId()) || gate.gate().state() == GateState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 }

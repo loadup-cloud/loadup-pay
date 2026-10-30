@@ -27,9 +27,10 @@ public record PolicyPublicationTransportProperties(
         String tenantId, @DiagnosticHidden Path tokenFile) {
     public PolicyPublicationTransportProperties {
         DomainChecks.id(tenantId);
-        if (!tenantId.equals(tenantId.trim()) || tokenFile == null || !tokenFile.isAbsolute())
+        if (!tenantId.equals(tenantId.trim()) || tokenFile == null || !tokenFile.isAbsolute()) {
             throw new IllegalStateException(
                     "Publication requires one trusted tenant and an absolute mounted service token file");
+        }
     }
 
     @Override

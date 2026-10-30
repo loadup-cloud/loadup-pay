@@ -7,14 +7,19 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
+import io.github.loadup.pay.acquire.rpc.AcquireRpcMapperImpl;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentRealtimeProperties;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
+import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
+import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
+import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapperImpl;
 import io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcException;
@@ -49,6 +54,9 @@ class PaymentRealtimeRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), BusinessTime.zone());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final RealtimeRpc realtimeRpc = mock(RealtimeRpc.class);
+    final PaymentRpcMapper paymentRpcMapper = new PaymentRpcMapperImpl(new ProductRpcMapperImpl());
+    final RealtimeRpcMapper realtimeRpcMapper =
+            new RealtimeRpcMapperImpl(new AcquireRpcMapperImpl(paymentRpcMapper), paymentRpcMapper);
     final List<String> attachments = new ArrayList<>();
     final EventEnvelope<PaymentSnapshotEventDTO> event = new EventEnvelope<>("delivery", "proof", "payment", "pay.payment.snapshot.realtime.v1",
             1, "payment", 2, OffsetDateTime.now(clock), new PaymentSnapshotEventDTO("payment", "order", "merchant", 1000, "CNY",
@@ -70,11 +78,11 @@ class PaymentRealtimeRpcClientTest {
     void setup() throws Exception {
         file = directory.resolve("realtime.jwt");
         credential("realtime");
-        client = new PaymentRealtimeRpcClient(mapper, new PaymentRealtimeProperties("tenant", "payment", "realtime", file), clock);
+        client = new PaymentRealtimeRpcClient(realtimeRpcMapper, mapper, new PaymentRealtimeProperties("tenant", "payment", "realtime", file), clock);
         ReflectionTestUtils.setField(client, "realtimeRpc", realtimeRpc);
         doAnswer(invocation -> {
             attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(new ProjectionAckDTO(
+            return realtimeRpcMapper.toWireProjectionAckDTO(new ProjectionAckDTO(
                     "delivery", "proof", "payment", "payment", 2, 2, "APPLIED", true));
         }).when(realtimeRpc).payment(any());
     }
@@ -96,9 +104,9 @@ class PaymentRealtimeRpcClientTest {
                 new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 0, 1000, 1));
         var refundAck = new ProjectionAckDTO("refund-delivery", "refund-change", "payment", "refund", 0, 0, "APPLIED", true);
         var summaryAck = new ProjectionAckDTO("summary-delivery", "summary-change", "payment", "order", 1, 1, "APPLIED", true);
-        doAnswer(invocation -> RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(refundAck))
+        doAnswer(invocation -> realtimeRpcMapper.toWireProjectionAckDTO(refundAck))
                 .when(realtimeRpc).refund(any());
-        doAnswer(invocation -> RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(summaryAck))
+        doAnswer(invocation -> realtimeRpcMapper.toWireProjectionAckDTO(summaryAck))
                 .when(realtimeRpc).refundSummary(any());
         assertEquals(refundAck, client.applyRefund("tenant", refund));
         assertEquals(summaryAck, client.applyRefundSummary("tenant", summary));

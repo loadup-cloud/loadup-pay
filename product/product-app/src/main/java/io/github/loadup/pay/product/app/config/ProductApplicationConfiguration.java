@@ -15,15 +15,9 @@
  */
 package io.github.loadup.pay.product.app.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 public class ProductApplicationConfiguration {
-    @Bean
-    public Clock productClock() {
-        return Clock.systemDefaultZone();
-    }
 }

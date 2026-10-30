@@ -33,7 +33,6 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -71,7 +70,7 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
     public FeeRefundOutcomeService(AcquireServiceActorProvider actors, PaymentOutcomeClient payment, OrderCreationGateway orders,
                                    OrderFeeGateway fees, FeeRefundReceiptGateway receipts, OrderCreationCodec codec, AcquireOrderConverter policies,
                                    FeeRefundConverter converter, OrderCreationTransactions transactions, IdGenerator ids,
-                                   @Qualifier("acquireClock") Clock clock, @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
+                                   Clock clock, @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.payment = payment;
         this.orders = orders;
@@ -89,21 +88,29 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
     @Override
     public FeeRefundAckDTO accept(EventEnvelope<OrderRefundSummaryEventDTO> event) {
         var actor = actors.current();
-        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:fee:refund"))
+        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:fee:refund")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
-            if (event == null || event.data() == null || !TYPE.equals(event.eventType()) || event.aggregateVersion() <= 0)
+            if (event == null || event.data() == null || !TYPE.equals(event.eventType()) || event.aggregateVersion() <= 0) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             event.data().requireEnvelope(event);
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = digest(actor, event);
             var known = receipts.find(actor.tenantId(), event.deliveryId());
-            if (known.isPresent()) return replay(actor, known.get(), digest);
+            if (known.isPresent()) {
+                return replay(actor, known.get(), digest);
+            }
             var incoming = event.data();
             var original = orders.findOrder(actor.tenantId(), incoming.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
             var verified = payment.refundSummary(actor.tenantId(), incoming.orderId()); // No database transaction or locks.
@@ -115,19 +122,24 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
                     || verified.refundReservedMinor() > original.order().amount().getCent() - verified.refundedMinor()
                     || incoming.refundedMinor() > original.order().amount().getCent()
                     || incoming.refundReservedMinor() > original.order().amount().getCent() - incoming.refundedMinor()
-                    || verified.refundSummaryVersion() == incoming.refundSummaryVersion() && !verified.equals(incoming))
+                    || verified.refundSummaryVersion() == incoming.refundSummaryVersion() && !verified.equals(incoming)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
-                if (existing.isPresent()) return replay(actor, existing.get(), digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), digest);
+                }
                 var stored = orders.lockOrder(actor.tenantId(), verified.orderId());
                 if (!stored.order().payeeMerchantId().equals(verified.payeeMerchantId())
-                        || !stored.order().amount().equals(original.order().amount()))
+                        || !stored.order().amount().equals(original.order().amount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var admission = codec.decodeAdmission(stored.admissionPayload(), stored.payloadHash());
                 if (!admission.orderId().equals(stored.order().id()) || !admission.payeeMerchantId().equals(stored.order().payeeMerchantId())
-                        || !admission.admissionId().equals(stored.admission().admissionId()))
+                        || !admission.admissionId().equals(stored.admission().admissionId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var at = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
                 fees.applyRefundBasis(actor.tenantId(), stored.order(), policies.toFeePolicy(admission.terms().fee()),
                         verified.refundSummaryVersion(), verified.refundedMinor(), event.businessEventId(), at);
@@ -139,8 +151,12 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
     }
 
     private FeeRefundAckDTO replay(AcquireServiceActor actor, FeeRefundReceipt receipt, String digest) {
-        if (!actor.serviceId().equals(receipt.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.requestDigest().equals(digest)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!actor.serviceId().equals(receipt.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.requestDigest().equals(digest)) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toAck(receipt);
     }
 
@@ -149,8 +165,9 @@ public class FeeRefundOutcomeService implements FeeRefundOutcomeFacade {
         var framed = new StringBuilder("fee-refund-v1/");
         for (var value : List.of(actor.tenantId(), actor.serviceId(), e.deliveryId(), e.businessEventId(), e.producer(), e.eventType(),
                 Integer.toString(e.schemaVersion()), e.aggregateId(), Long.toString(e.aggregateVersion()), e.occurredAt().toInstant().toString(),
-                d.orderId(), d.payeeMerchantId(), d.currency(), Long.toString(d.refundedMinor()), Long.toString(d.refundReservedMinor()), Long.toString(d.refundSummaryVersion())))
+                d.orderId(), d.payeeMerchantId(), d.currency(), Long.toString(d.refundedMinor()), Long.toString(d.refundReservedMinor()), Long.toString(d.refundSummaryVersion()))) {
             framed.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+        }
         return codec.checksum(framed.toString());
     }
 }

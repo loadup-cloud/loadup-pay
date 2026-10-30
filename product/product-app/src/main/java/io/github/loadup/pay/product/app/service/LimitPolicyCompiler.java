@@ -52,24 +52,34 @@ public class LimitPolicyCompiler {
 
     private static String text(Map<String, TypedValue> values, String key) {
         var value = values.get(key);
-        if (value == null || value.type() != ValueType.STRING) throw new CommonException(UNSUPPORTED_POLICY);
+        if (value == null || value.type() != ValueType.STRING) {
+            throw new CommonException(UNSUPPORTED_POLICY);
+        }
         return value.value();
     }
 
     private static boolean bool(Map<String, TypedValue> values, String key, boolean fallback) {
         var value = values.get(key);
-        if (value == null) return fallback;
-        if (value.type() != ValueType.BOOLEAN) throw new CommonException(UNSUPPORTED_POLICY);
+        if (value == null) {
+            return fallback;
+        }
+        if (value.type() != ValueType.BOOLEAN) {
+            throw new CommonException(UNSUPPORTED_POLICY);
+        }
         return Boolean.parseBoolean(value.value());
     }
 
     private static Long integer(Map<String, TypedValue> values, String key, Long fallback) {
         var value = values.get(key);
         if (value == null) {
-            if (fallback == null) throw new CommonException(UNSUPPORTED_POLICY);
+            if (fallback == null) {
+                throw new CommonException(UNSUPPORTED_POLICY);
+            }
             return fallback;
         }
-        if (value.type() != ValueType.INTEGER) throw new CommonException(UNSUPPORTED_POLICY);
+        if (value.type() != ValueType.INTEGER) {
+            throw new CommonException(UNSUPPORTED_POLICY);
+        }
         return new BigInteger(value.value()).longValueExact();
     }
 
@@ -80,25 +90,31 @@ public class LimitPolicyCompiler {
             DomainChecks.id(policy);
             if (!"CNY".equals(text(values, "trade.defaultCurrency"))
                     || !"INITIATED_AT".equals(text(values, "limit.countingBasis"))
-                    || bool(values, "limit.parentAggregationEnabled", false))
+                    || bool(values, "limit.parentAggregationEnabled", false)) {
                 throw new CommonException(UNSUPPORTED_POLICY);
+            }
             int weekStart = Math.toIntExact(integer(values, "limit.weekStart", null));
-            if (weekStart < 1 || weekStart > 7) throw new CommonException(UNSUPPORTED_POLICY);
+            if (weekStart < 1 || weekStart > 7) {
+                throw new CommonException(UNSUPPORTED_POLICY);
+            }
             DomainChecks.id(tenant);
             DomainChecks.id(payee);
             String scope = DigestUtils.sha256("merchant-acquiring-quota-v1:"
                     + tenant.getBytes(StandardCharsets.UTF_8).length + ":" + tenant
                     + payee.getBytes(StandardCharsets.UTF_8).length + ":" + payee);
             List<LimitRuleDTO> rules = new ArrayList<>();
-            for (var window : LimitWindowType.values())
+            for (var window : LimitWindowType.values()) {
                 for (var metric : LimitMetric.values()) {
                     String prefix = "limit." + window.name() + "." + metric.name();
                     boolean enabled = bool(values, prefix + ".enabled", false);
                     Long threshold = integer(values, prefix + ".threshold", enabled ? null : 0L);
-                    if (threshold < 0) throw new CommonException(UNSUPPORTED_POLICY);
+                    if (threshold < 0) {
+                        throw new CommonException(UNSUPPORTED_POLICY);
+                    }
                     rules.add(
                             new LimitRuleDTO(scope, payee, metric, "CNY", window, weekStart, threshold, enabled, true));
                 }
+            }
             var unsigned = new LimitPolicyActivateCommand(
                     policy,
                     1,

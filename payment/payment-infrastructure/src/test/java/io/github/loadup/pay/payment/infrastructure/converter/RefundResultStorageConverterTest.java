@@ -51,10 +51,9 @@ class RefundResultStorageConverterTest {
         var claim = new RefundTransactionClaim("claim", "tenant", "refund", original, "refund-request", "original-transaction",
                 DomainChecks.cnyAmount(300, "CNY"), "refund-transaction", now, "receipt");
         var row = converter.toClaimDO(claim);
-        assertEquals(claim, converter.toClaim(row, converter.toIdentity(row)));
+        assertEquals(claim, converter.toClaim("tenant", row, converter.toIdentity(row)));
         assertNull(row.getCreatedAt());
         assertNull(row.getUpdatedAt());
-        assertEquals("tenant", row.getTenantId());
     }
 
     @Test

@@ -46,8 +46,9 @@ public record ReconciliationStatementRequest(String id, String batchId, String c
         require(requestDigest != null && requestDigest.matches("[0-9a-f]{64}") && maxBytes > 0 && maxBytes <= 16777216, INVALID_ARGUMENT);
         require(state != null && version == (state == ReconciliationStatementState.INIT ? 0L : 1L), INVALID_STATE);
         require((state == ReconciliationStatementState.READY) == (receipt != null), INVALID_STATE);
-        if (receipt != null)
+        if (receipt != null) {
             require(bindingRevisionId.equals(receipt.bindingRevisionId()) && receipt.content().size() <= maxBytes, CONFLICT);
+        }
     }
 
     public static ReconciliationStatementRequest init(String id, String batchId, String caller, String key, String digest,
@@ -67,7 +68,9 @@ public record ReconciliationStatementRequest(String id, String batchId, String c
     }
 
     public ReconciliationStatementRequest supersede() {
-        if (state == ReconciliationStatementState.SUPERSEDED) return this;
+        if (state == ReconciliationStatementState.SUPERSEDED) {
+            return this;
+        }
         require(state == ReconciliationStatementState.INIT, INVALID_STATE);
         return new ReconciliationStatementRequest(id, batchId, callerServiceId, requestKey, requestDigest, scope, statementAccount,
                 bindingRevisionId, maxBytes, taskId, ReconciliationStatementState.SUPERSEDED, null, 1L);

@@ -155,7 +155,7 @@ class AcquireRecoveryOperationsServiceTest {
             var key = c.getArgument(0) + "/" + c.getArgument(1);
             var before = nativeTasks.get(key);
             assertEquals(DelayedTaskStatus.FAILED, before.status());
-            nativeTasks.put(key, new DelayedTask(before.id(), "tenant", before.taskType(), before.bizId(), before.executeAt(), NOW,
+            nativeTasks.put(key, new DelayedTask(before.id(), before.taskType(), before.bizId(), before.executeAt(), NOW,
                     DelayedTaskStatus.PENDING, 0, before.maxAttempts(), null, null));
             return null;
         }).when(tasks).retryFailed(anyString(), anyString());
@@ -185,7 +185,7 @@ class AcquireRecoveryOperationsServiceTest {
     }
 
     void put(String type, String biz, LocalDateTime due, LocalDateTime next, DelayedTaskStatus status) {
-        nativeTasks.put(type + "/" + biz, new DelayedTask("native-task", "tenant", type, biz, due, next, status, 5, 5, null, "secret-channel-error"));
+        nativeTasks.put(type + "/" + biz, new DelayedTask("native-task", type, biz, due, next, status, 5, 5, null, "secret-channel-error"));
     }
 
     @Test

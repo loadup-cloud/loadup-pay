@@ -36,7 +36,6 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitReservationItem;
 import io.github.loadup.pay.limitcenter.domain.model.RuntimeLimitRule;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -72,10 +71,11 @@ public class LimitReservationService implements LimitReservationFacade {
             MerchantLimitGateway reservations,
             LimitConverter converter,
             IdGenerator ids,
-            @Qualifier("limitcenterClock") Clock clock,
+            Clock clock,
             @Value("${loadup.modules.limitcenter.reserve-seconds:120}") long reserveSeconds) {
-        if (reserveSeconds < 1 || reserveSeconds > 86400)
+        if (reserveSeconds < 1 || reserveSeconds > 86400) {
             throw new IllegalArgumentException("Reservation duration must be 1 to 86400 seconds");
+        }
         this.transactions = transactions;
         this.policies = policies;
         this.reservations = reservations;
@@ -86,7 +86,9 @@ public class LimitReservationService implements LimitReservationFacade {
     }
 
     private static void requireOwner(LimitActor actor, StoredLimitReservation stored) {
-        if (!stored.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!stored.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     @Override
@@ -104,12 +106,17 @@ public class LimitReservationService implements LimitReservationFacade {
         DomainChecks.id(command.policyId());
         var amount = DomainChecks.cnyAmount(command.amountMinor(), command.currency());
         LocalDateTime initiated = BusinessTime.local(command.initiatedAt());
-        if (initiated.getNano() % 1000 != 0 || initiated.getYear() < 1970 || initiated.getYear() >= 9999)
+        if (initiated.getNano() % 1000 != 0 || initiated.getYear() < 1970 || initiated.getYear() >= 9999) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         var gate = reservations.lockOrCreateGate(tenant, command.operationId(), command.paymentId());
         if (!gate.operationId().equals(command.operationId())
-                || !gate.paymentId().equals(command.paymentId())) throw new CommonException(IDEMPOTENCY_CONFLICT);
-        if (gate.state() == GateState.FENCED) throw new CommonException(EXECUTION_FENCED);
+                || !gate.paymentId().equals(command.paymentId())) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
+        if (gate.state() == GateState.FENCED) {
+            throw new CommonException(EXECUTION_FENCED);
+        }
         var prior = reservations.findByOperation(tenant, command.operationId());
         if (prior.isPresent()) {
             var stored = prior.get();
@@ -124,14 +131,19 @@ public class LimitReservationService implements LimitReservationFacade {
                             command.policyVersion(),
                             initiated);
             if (!stored.policyHash().equals(command.policyHash())
-                    || !stored.requestDigest().equals(command.requestDigest()))
+                    || !stored.requestDigest().equals(command.requestDigest())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
             gate.requireOpen();
             return converter.toDTO(stored.reservation());
         }
-        if (gate.state() != GateState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+        if (gate.state() != GateState.INIT) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
-        if (initiated.isAfter(now)) throw new CommonException(INVALID_ARGUMENT);
+        if (initiated.isAfter(now)) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var head =
                 policies.lockHead(tenant, command.policyId()).orElseThrow(() -> new CommonException(POLICY_NOT_ACTIVE));
         var policy = policies.findRevision(tenant, command.policyId(), command.policyVersion())
@@ -139,13 +151,16 @@ public class LimitReservationService implements LimitReservationFacade {
         if (head.latestVersion() < command.policyVersion()
                 || !head.payeeMerchantId().equals(command.payeeMerchantId())
                 || !policy.payeeMerchantId().equals(command.payeeMerchantId())
-                || !policy.policyHash().equals(command.policyHash())) throw new CommonException(POLICY_NOT_ACTIVE);
+                || !policy.policyHash().equals(command.policyHash())) {
+            throw new CommonException(POLICY_NOT_ACTIVE);
+        }
         List<LimitBucketChange> changes = new ArrayList<>();
         for (var rule : policy.rules()) {
             var runtime = policies.lockRule(tenant, rule).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             RuntimeLimitRule.requireSameShape(rule, runtime.rule());
-            if (!runtime.ownerPolicyId().equals(policy.policyId()) || runtime.policyVersion() != head.latestVersion())
+            if (!runtime.ownerPolicyId().equals(policy.policyId()) || runtime.policyVersion() != head.latestVersion()) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var key = new LimitBucketKey(
                     rule.ruleScopeId(),
                     rule.merchantId(),

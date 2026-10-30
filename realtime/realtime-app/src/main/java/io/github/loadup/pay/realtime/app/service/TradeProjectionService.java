@@ -35,7 +35,6 @@ import io.github.loadup.pay.realtime.domain.gateway.TradeProjectionGateway;
 import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -63,7 +62,7 @@ public class TradeProjectionService implements TradeProjectionFacade {
 
     public TradeProjectionService(RealtimeActorProvider actors, TradeProjectionGateway projections, ProjectionReceiptGateway receipts,
                                   TradeProjectionCodec codec, TradeProjectionConverter converter, RealtimeTransactions transactions, IdGenerator ids,
-                                  @Qualifier("realtimeClock") Clock clock, @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
+                                  Clock clock, @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
                                   @Value("${loadup.modules.realtime.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.projections = projections;
@@ -118,8 +117,9 @@ public class TradeProjectionService implements TradeProjectionFacade {
         var actor = actor(paymentService, "pay:realtime:projection:refund-summary");
         validate(() -> {
             event.data().requireEnvelope(event);
-            if (!"pay.payment.refund-summary.realtime.v1".equals(event.eventType()))
+            if (!"pay.payment.refund-summary.realtime.v1".equals(event.eventType())) {
                 throw new CommonException(INVALID_ARGUMENT);
+            }
             return true;
         });
         var value = converter.toSummary(event.data(), new SourceVersion("payment", "OrderRefundSummary", event.aggregateId(), event.aggregateVersion()), now());
@@ -133,8 +133,9 @@ public class TradeProjectionService implements TradeProjectionFacade {
             var prior = receipts.find(actor.tenantId(), event.producer(), event.deliveryId());
             if (prior.isPresent()) {
                 var receipt = prior.get();
-                if (!receipt.callerServiceId().equals(actor.serviceId()) || !receipt.requestDigest().equals(digest))
+                if (!receipt.callerServiceId().equals(actor.serviceId()) || !receipt.requestDigest().equals(digest)) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 return converter.toAck(receipt);
             }
             var advance = apply.get();
@@ -147,8 +148,9 @@ public class TradeProjectionService implements TradeProjectionFacade {
 
     private RealtimeActor actor(String service, String permission) {
         var actor = actors.current();
-        if (!service.equals(actor.serviceId()) || !actor.permissions().contains(permission))
+        if (!service.equals(actor.serviceId()) || !actor.permissions().contains(permission)) {
             throw new CommonException(QUERY_FORBIDDEN);
+        }
         return actor;
     }
 

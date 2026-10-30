@@ -44,7 +44,6 @@ import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -88,7 +87,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                                             PaymentAcceptanceGateway payments, PaymentExecutionLocks paymentLocks, PaymentRecoveryGateway paymentCursors,
                                             RefundExecutionLocks refundLocks, RefundGateway refunds, RefundRecoveryGateway refundCursors, DelayedTaskTemplate tasks,
                                             PaymentRecoveryOperationsConverter converter, PaymentAcceptanceTransactions transactions,
-                                            IdGenerator ids, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                            IdGenerator ids, Validator validator, Clock clock,
                                             @Value("${loadup.modules.payment.recovery-operations-service-id:pay-ops}") String operationsService) {
         this.actors = actors;
         this.receipts = receipts;
@@ -127,34 +126,48 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             throw new CommonException(INVALID_ARGUMENT);
         }
         var expectedAt = BusinessTime.local(command.expectedNextExecuteAt());
-        if (expectedAt.getNano() % 1000 != 0 || expectedAt.getYear() < 1970 || expectedAt.getYear() > 9998)
+        if (expectedAt.getNano() % 1000 != 0 || expectedAt.getYear() < 1970 || expectedAt.getYear() > 9998) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("payment-recovery-operator-v1", actor.tenantId(), actor.serviceId())));
         String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("payment-recovery-retry-v1", actor.tenantId(), scope,
                 command.kind().name(), command.subjectId(), command.generation(), command.expectedTaskId(), command.expectedAttempts(),
                 expectedAt.toString(), command.requestKey(), command.reason())));
         return transactions.withTenantContext(actor.tenantId(), () -> {
             var known = receipts.find(actor.tenantId(), scope, command.requestKey());
-            if (known.isPresent()) return replay(actor, known.get(), scope, digest);
+            if (known.isPresent()) {
+                return replay(actor, known.get(), scope, digest);
+            }
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), scope, command.requestKey());
-                if (existing.isPresent()) return replay(actor, existing.get(), scope, digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), scope, digest);
+                }
                 var inspection = lockForRetry(actor.tenantId(), command.kind(), command.subjectId(), command.generation());
                 // Serializes competing retry requests for the same order; the ledger uniqueness also covers cross-order key reuse.
                 existing = receipts.find(actor.tenantId(), scope, command.requestKey());
-                if (existing.isPresent()) return replay(actor, existing.get(), scope, digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), scope, digest);
+                }
                 var task = inspection.task();
                 if (!task.id().equals(command.expectedTaskId()) || task.attempts() != command.expectedAttempts()
-                        || !task.nextExecuteAt().equals(expectedAt)) throw new CommonException(VERSION_CONFLICT);
-                if (task.status() != DelayedTaskStatus.FAILED) throw new CommonException(INVALID_STATE);
+                        || !task.nextExecuteAt().equals(expectedAt)) {
+                    throw new CommonException(VERSION_CONFLICT);
+                }
+                if (task.status() != DelayedTaskStatus.FAILED) {
+                    throw new CommonException(INVALID_STATE);
+                }
                 String result = "NO_LONGER_NEEDED";
                 if (inspection.businessCurrent()) {
-                    if (!inspection.retryable()) throw new CommonException(INVALID_STATE);
+                    if (!inspection.retryable()) {
+                        throw new CommonException(INVALID_STATE);
+                    }
                     try {
                         tasks.retryFailed(task.taskType(), task.bizId());
                     } catch (CommonException changed) {
-                        if (changed.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE)
+                        if (changed.getResultCode() == DelayedTaskResultCodeEnum.INVALID_STATE) {
                             throw new CommonException(CONCURRENT_UPDATE);
+                        }
                         throw changed;
                     }
                     result = "RETRIED";
@@ -178,10 +191,13 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
                 var initial = payments.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND));
                 // The persisted calling service only validates the original binding; it is not the operator's authority.
                 var original = paymentLocks.lock(tenant, subject, initial.callerServiceId()).payment();
-                if (!original.payment().id().equals(subject) || !original.payment().orderId().equals(initial.payment().orderId()))
+                if (!original.payment().id().equals(subject) || !original.payment().orderId().equals(initial.payment().orderId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var cursor = paymentCursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!cursor.paymentId().equals(subject)) throw new CommonException(SNAPSHOT_INVALID);
+                if (!cursor.paymentId().equals(subject)) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 orderId = original.payment().orderId();
                 cursorGeneration = cursor.generation();
                 dueAt = cursor.dueAt();
@@ -190,9 +206,13 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             }
             case REFUND_REQUEST -> {
                 var original = refundLocks.request(tenant, subject);
-                if (!original.request().id().equals(subject)) throw new CommonException(SNAPSHOT_INVALID);
+                if (!original.request().id().equals(subject)) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var cursor = refundCursors.lock(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!cursor.requestId().equals(subject)) throw new CommonException(SNAPSHOT_INVALID);
+                if (!cursor.requestId().equals(subject)) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 orderId = original.request().orderId();
                 cursorGeneration = cursor.generation();
                 dueAt = cursor.dueAt();
@@ -213,16 +233,18 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             case COLLECTION -> {
                 var original = payments.find(tenant, subject).orElseThrow(() -> new CommonException(NOT_FOUND));
                 var cursor = paymentCursors.find(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!subject.equals(original.payment().id()) || !subject.equals(cursor.paymentId()))
+                if (!subject.equals(original.payment().id()) || !subject.equals(cursor.paymentId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 view = new RecoveryView(original.payment().orderId(), cursor.generation(), cursor.dueAt(), cursor.completed(),
                         PaymentExecutionService.terminal(original.payment().state()));
             }
             case REFUND_REQUEST -> {
                 var original = refunds.load(tenant, subject);
                 var cursor = refundCursors.find(tenant, subject).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!subject.equals(original.request().id()) || !subject.equals(cursor.requestId()))
+                if (!subject.equals(original.request().id()) || !subject.equals(cursor.requestId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 view = new RecoveryView(original.request().orderId(), cursor.generation(), cursor.dueAt(), cursor.completed(),
                         original.request().children().stream().allMatch(RefundOrder::terminal));
             }
@@ -232,37 +254,47 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
     }
 
     private PaymentRecoveryInspection inspection(String tenant, PaymentRecoveryKind kind, String subject, long generation, RecoveryView view) {
-        if (generation > view.generation() || view.completed() && !view.terminal())
+        if (generation > view.generation() || view.completed() && !view.terminal()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         String type = kind == PaymentRecoveryKind.COLLECTION ? PaymentRecoveryService.TYPE : RefundRecoveryService.TYPE;
         String bizId = kind == PaymentRecoveryKind.COLLECTION ? new PaymentRecoveryKey(subject, generation).bizId()
                 : new RefundRecoveryKey(subject, generation).bizId();
         var task = tasks.find(type, bizId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!tenant.equals(task.tenantId()) || !type.equals(task.taskType()) || !bizId.equals(task.bizId()) || task.status() == null
-                || generation == view.generation() && !view.dueAt().equals(task.executeAt()))
+        if (!type.equals(task.taskType()) || !bizId.equals(task.bizId()) || task.status() == null
+                || generation == view.generation() && !view.dueAt().equals(task.executeAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         boolean current = generation == view.generation() && !view.completed() && !view.terminal();
         return new PaymentRecoveryInspection(kind, subject, generation, view.orderId(), task, current,
                 current && task.status() == DelayedTaskStatus.FAILED && !LocalDateTime.now(clock).isBefore(task.executeAt()));
     }
 
     private PaymentRecoveryRetryDTO replay(PaymentActor actor, PaymentRecoveryRetryReceipt receipt, String scope, String digest) {
-        if (!actor.serviceId().equals(receipt.callerServiceId()) || !scope.equals(receipt.callerScopeHash()))
+        if (!actor.serviceId().equals(receipt.callerServiceId()) || !scope.equals(receipt.callerScopeHash())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (!digest.equals(receipt.requestDigest())) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
+        if (!digest.equals(receipt.requestDigest())) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toDTO(receipt);
     }
 
     private PaymentActor actor(String permission) {
         var actor = actors.current();
-        if (!operationsService.equals(actor.serviceId()) || !actor.permissions().contains(permission))
+        if (!operationsService.equals(actor.serviceId()) || !actor.permissions().contains(permission)) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private void identifier(String subject) {

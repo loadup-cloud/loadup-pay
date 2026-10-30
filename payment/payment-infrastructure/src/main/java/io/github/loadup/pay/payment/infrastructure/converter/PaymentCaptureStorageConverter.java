@@ -52,7 +52,7 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "blockerSubjectId", source = "value.blockerSubjectId")
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "id", source = "value.id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -63,7 +63,7 @@ public interface PaymentCaptureStorageConverter {
 
     @Mapping(target = "id", expression = "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.rowId(captureId, value.ordinal()))")
     @Mapping(target = "keyHash", expression = "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.key(value.kind().name(), value.channelTransactionNo(), value.channelRefundNo()))")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "captureId", source = "captureId")
     @Mapping(target = "ordinal", source = "value.ordinal")
     @Mapping(target = "kind", source = "value.kind")

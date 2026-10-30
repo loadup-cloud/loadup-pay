@@ -14,7 +14,6 @@ import io.github.loadup.pay.payment.rpc.proto.PaymentCaptureRpc;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentCaptures;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
 import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,49 +31,56 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 @Component
 public class PaymentCaptureRpcClient implements ReconciliationPaymentCaptures {
+    private final ReconciliationPaymentProperties properties;
+    private final ReconciliationServiceTokenReader tokens;
+    private final PaymentCaptureRpcMapper paymentCaptureRpcMapper;
     @DubboReference(url = "tri://payment-headless:50051")
     private PaymentCaptureRpc paymentCaptureRpc;
 
-    private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
-
-    public PaymentCaptureRpcClient(ReconciliationPaymentProperties properties,
-                                   JsonMapper mapper, @Qualifier("reconciliationClock") Clock clock) {
+    public PaymentCaptureRpcClient(PaymentCaptureRpcMapper paymentCaptureRpcMapper, ReconciliationPaymentProperties properties,
+                                   JsonMapper mapper, Clock clock) {
+        this.paymentCaptureRpcMapper = paymentCaptureRpcMapper;
         this.properties = properties;
         this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
     }
 
     @Override
     public PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command) {
-        return call(tenant, () -> PaymentCaptureRpcMapper.INSTANCE.fromWire(paymentCaptureRpc.create(
-                PaymentCaptureRpcMapper.INSTANCE.toWire(command))));
+        return call(tenant, () -> paymentCaptureRpcMapper.fromWire(paymentCaptureRpc.create(
+                paymentCaptureRpcMapper.toWire(command))));
     }
 
     @Override
     public PaymentCaptureDTO retry(String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) {
-        return call(tenant, () -> PaymentCaptureRpcMapper.INSTANCE.fromWire(paymentCaptureRpc.retry(
-                PaymentCaptureRpcMapper.INSTANCE.toWire(command))));
+        return call(tenant, () -> paymentCaptureRpcMapper.fromWire(paymentCaptureRpc.retry(
+                paymentCaptureRpcMapper.toWire(command))));
     }
 
     @Override
     public PaymentCaptureDTO detail(String tenant, String captureId) {
-        return call(tenant, () -> PaymentCaptureRpcMapper.INSTANCE.fromWire(paymentCaptureRpc.detail(
-                PaymentCaptureRpcMapper.INSTANCE.toWire(new IdQuery(captureId)))));
+        return call(tenant, () -> paymentCaptureRpcMapper.fromWire(paymentCaptureRpc.detail(
+                paymentCaptureRpcMapper.toWire(new IdQuery(captureId)))));
     }
 
     @Override
     public PageDTO<PaymentLedgerLineDTO> lines(String tenant, PaymentCaptureLinesQuery query) {
-        return call(tenant, () -> PaymentCaptureRpcMapper.INSTANCE.fromWire(paymentCaptureRpc.lines(
-                PaymentCaptureRpcMapper.INSTANCE.toWire(query))));
+        return call(tenant, () -> paymentCaptureRpcMapper.fromWire(paymentCaptureRpc.lines(
+                paymentCaptureRpcMapper.toWire(query))));
     }
 
     private <R> R call(String tenant, Supplier<R> request) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!properties.tenantId().equals(tenant)) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!properties.tenantId().equals(tenant)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         try {
             var result = RpcTokenContext.call(
                     tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()), request);
-            if (result == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            if (result == null) {
+                throw new CommonException(DEPENDENCY_UNAVAILABLE);
+            }
             return result;
         } catch (RuntimeException failure) {
             throw new CommonException(switch (RpcExceptionCodes.resultCode(failure)) {

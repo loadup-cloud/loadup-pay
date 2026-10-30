@@ -42,8 +42,9 @@ public record AcquireOrderCreateCommand(
         @Schema(description = "Requested due at") OffsetDateTime requestedDueAt) {
     public AcquireOrderCreateCommand {
         currency = currency == null ? "CNY" : currency.toUpperCase(Locale.ROOT);
-        if (requestedDueAt != null)
+        if (requestedDueAt != null) {
             requestedDueAt = requestedDueAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

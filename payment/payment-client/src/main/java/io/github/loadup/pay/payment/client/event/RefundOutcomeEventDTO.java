@@ -51,9 +51,12 @@ public record RefundOutcomeEventDTO(
                 amountMinor > 0 && refundVersion > 0 && state != null && cumulativePaymentRefundedMinor >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.cnyAmount(amountMinor, currency);
-        if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) DomainChecks.id(evidenceId);
-        if (state == RefundState.SUCCEEDED)
+        if (state == RefundState.SUCCEEDED || state == RefundState.FAILED) {
+            DomainChecks.id(evidenceId);
+        }
+        if (state == RefundState.SUCCEEDED) {
             DomainViolation.require(cumulativePaymentRefundedMinor >= amountMinor, DomainViolation.Reason.CONFLICT);
+        }
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {

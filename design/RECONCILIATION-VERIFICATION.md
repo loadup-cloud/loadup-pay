@@ -4,7 +4,8 @@
 
 ## 目标与边界
 
-获批复核可以登记一个持久化查证请求，由 reconciliation 的 Outbox 调用 payment 自有的 Dubbo Triple；payment 从自己的原始已提交对象发起只读渠道查询。
+获批复核可以登记一个持久化查证请求，由 reconciliation 的 Outbox 调用 payment 自有的 Dubbo Triple；payment
+从自己的原始已提交对象发起只读渠道查询。
 返回的观察独立留档，不修改原对账输入、差错、批次结果、复核结论或任何付款/退款/费用/额度状态。
 RECORDED 表示一次查询结果已经持久化，不表示差错解决、查询证明未收款或资金修正成功。
 
@@ -75,7 +76,8 @@ attempt。
 
 ## payment 提供方契约
 
-`PaymentVerificationFacade.verify(PaymentVerificationQuery)`，跨进程由 `payment-client` 的 `PaymentVerificationRpc.Verify` 承载。
+`PaymentVerificationFacade.verify(PaymentVerificationQuery)`，跨进程由 `payment-client` 的
+`PaymentVerificationRpc.Verify` 承载。
 只允许配置的 reconciliation SERVICE 和 `pay:payment:reconciliation:verify`；原挂载 Token 需由发行方增加该权限，当前未签发或修改凭证。
 没有商户 HTTP 入口，也没有内部 HTTP 回退。
 

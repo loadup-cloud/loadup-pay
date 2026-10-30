@@ -143,7 +143,9 @@ class RecoveryPersistenceIT {
                 await(start);
                 return transactions.writeLocal(tenant, () -> {
                     var before = cursors.lock(tenant, payment).orElseThrow();
-                    if (before.generation() != 0L) return false;
+                    if (before.generation() != 0L) {
+                        return false;
+                    }
                     var after = before.schedule(AT.plusSeconds(30), 0L);
                     cursors.update(tenant, before, after);
                     tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());

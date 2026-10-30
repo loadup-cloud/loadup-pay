@@ -81,8 +81,12 @@ public record PaymentRefundCapacity(
                         .equals(current.amount().getCurrencyValue()),
                 CONFLICT);
         var updated = current.recordOutcome(outcome);
-        if (!current.terminal()) require(current.amount().getCent() <= reservedMinor, CONFLICT);
-        if (current.terminal() || !updated.terminal()) return new RefundCapacityChange(this, updated);
+        if (!current.terminal()) {
+            require(current.amount().getCent() <= reservedMinor, CONFLICT);
+        }
+        if (current.terminal() || !updated.terminal()) {
+            return new RefundCapacityChange(this, updated);
+        }
         long minor = current.amount().getCent();
         require(reservedMinor >= minor, CONFLICT);
         var next = new PaymentRefundCapacity(

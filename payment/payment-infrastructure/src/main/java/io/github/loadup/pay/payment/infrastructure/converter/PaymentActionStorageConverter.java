@@ -39,7 +39,7 @@ public interface PaymentActionStorageConverter {
     ChannelPaymentIdentity toIdentity(PaymentActionDO row);
 
     @Mapping(target = "id", source = "value.identity.attemptId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "paymentId", source = "value.identity.paymentId")
     @Mapping(target = "channel", expression = "java(value.identity().channel().name())")
     @Mapping(target = "bindingRevisionId", source = "value.identity.bindingRevisionId")

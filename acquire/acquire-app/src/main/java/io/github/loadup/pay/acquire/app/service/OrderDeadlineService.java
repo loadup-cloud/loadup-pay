@@ -26,7 +26,6 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -53,7 +52,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     public OrderDeadlineService(DelayedTaskTemplate tasks, OrderCreationGateway orders,
                                 io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions, OrderClosureGateway closes,
                                 OrderClosureOperations operations, OrderCreationTransactions transactions, OrderSnapshotEvents snapshots,
-                                @Qualifier("acquireClock") Clock clock) {
+                                Clock clock) {
         this.tasks = tasks;
         this.orders = orders;
         this.extensions = extensions;
@@ -72,21 +71,32 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     @Override
     public void handle(DelayedTask task) {
         var key = validate(task);
-        if (key.generation() < 1) throw new CommonException(SNAPSHOT_INVALID);
-        transactions.writeLocal(task.tenantId(), () -> {
-            var order = orders.lockOrder(task.tenantId(), key.orderId());
-            if (!order.order().id().equals(key.orderId())) throw new CommonException(SNAPSHOT_INVALID);
-            long version = extensions.deadlineVersion(task.tenantId(), order.order());
-            if (key.generation() < version) return true;
-            if (key.generation() > version || !task.executeAt().equals(order.order().orderDueAt()))
+        if (key.generation() < 1) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
+        String tenant = TenantUtil.getTenantId();
+        transactions.writeLocal(tenant, () -> {
+            var order = orders.lockOrder(tenant, key.orderId());
+            if (!order.order().id().equals(key.orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
-            var at = LocalDateTime.now(clock);
-            if (at.isBefore(order.order().orderDueAt())) throw new CommonException(INVALID_STATE);
-            var scope = new OrderPaymentScope(task.tenantId(), order.callerScopeHash());
-            if (order.order().state() == AcquireOrderState.PAID || order.order().state() == AcquireOrderState.CLOSED)
+            }
+            long version = extensions.deadlineVersion(tenant, order.order());
+            if (key.generation() < version) {
                 return true;
+            }
+            if (key.generation() > version || !task.executeAt().equals(order.order().orderDueAt())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
+            var at = LocalDateTime.now(clock);
+            if (at.isBefore(order.order().orderDueAt())) {
+                throw new CommonException(INVALID_STATE);
+            }
+            var scope = new OrderPaymentScope(tenant, order.callerScopeHash());
+            if (order.order().state() == AcquireOrderState.PAID || order.order().state() == AcquireOrderState.CLOSED) {
+                return true;
+            }
             if (order.order().state() == AcquireOrderState.CLOSING) {
-                var original = closes.findIntent(task.tenantId(), key.orderId())
+                var original = closes.findIntent(tenant, key.orderId())
                         .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 operations.isCurrent(scope, order, original, original.rowVersion());
                 return true;
@@ -96,17 +106,20 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                 operations.startLocked(scope, order, new io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand(
                         key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
             } else if (!due.equals(order.order())) {
-                closes.keepPending(task.tenantId(), order.order(), due);
-                snapshots.publish(task.tenantId(), due.id(), due.version());
+                closes.keepPending(tenant, order.order(), due);
+                snapshots.publish(tenant, due.id(), due.version());
             }
             return true;
         });
     }
 
     private OrderTaskKey validate(DelayedTask task) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (task == null || task.tenantId() == null || !taskType().equals(task.taskType())
-                || !task.tenantId().equals(TenantUtil.getTenantId())) throw new CommonException(SNAPSHOT_INVALID);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (task == null || !taskType().equals(task.taskType())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         final OrderTaskKey key;
         try {
             key = OrderTaskKey.parse(task.bizId());
@@ -115,12 +128,13 @@ public class OrderDeadlineService implements DelayedTaskHandler {
         }
         var nativeTask = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = LocalDateTime.now(clock);
-        if (!task.id().equals(nativeTask.id()) || !task.tenantId().equals(nativeTask.tenantId())
+        if (!task.id().equals(nativeTask.id())
                 || !taskType().equals(nativeTask.taskType()) || !task.bizId().equals(nativeTask.bizId())
                 || !task.executeAt().equals(nativeTask.executeAt()) || nativeTask.status() != DelayedTaskStatus.RUNNING
                 || nativeTask.attempts() != task.attempts() || nativeTask.leaseUntil() == null
-                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt()))
+                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
+        }
         return key;
     }
 }

@@ -60,7 +60,9 @@ public record PaymentInput(
         require(method == PaymentMethod.PAYMENT_CODE || method == PaymentMethod.JSAPI || method == PaymentMethod.H5, INVALID_ARGUMENT);
         require(inputDigest != null && inputDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         require(encryptionVersion > 0 && expiresAt.isAfter(preparedAt) && rowVersion >= 0, INVALID_ARGUMENT);
-        if (boundAttemptId != null) DomainChecks.id(boundAttemptId);
+        if (boundAttemptId != null) {
+            DomainChecks.id(boundAttemptId);
+        }
         require((state == PaymentInputState.INIT && boundAttemptId == null && rowVersion == 0)
                 || (state == PaymentInputState.BOUND && boundAttemptId != null && rowVersion == 1), INVALID_ARGUMENT);
     }
@@ -73,7 +75,9 @@ public record PaymentInput(
         DomainChecks.id(attemptId);
         require(!expired(now), INVALID_ARGUMENT);
         require(boundAttemptId == null || boundAttemptId.equals(attemptId), DomainViolation.Reason.CONFLICT);
-        if (state == PaymentInputState.BOUND) return this;
+        if (state == PaymentInputState.BOUND) {
+            return this;
+        }
         return new PaymentInput(id, paymentId, orderId, allocationId, payeeMerchantId, amount, inputKey,
                 channel, method, callerServiceId, fingerprintKeyId, inputDigest, encryptionKey, encryptionVersion,
                 ciphertext, preparedAt, expiresAt, PaymentInputState.BOUND, attemptId, 1);

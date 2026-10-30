@@ -17,9 +17,7 @@ package io.github.loadup.pay.payment;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 
-import java.time.Clock;
 
 @SpringBootApplication
 public class PaymentApplication {
@@ -27,8 +25,4 @@ public class PaymentApplication {
         SpringApplication.run(PaymentApplication.class, args);
     }
 
-    @Bean
-    Clock businessClock() {
-        return Clock.systemDefaultZone();
-    }
 }

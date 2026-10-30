@@ -36,7 +36,9 @@ public record WechatH5ChannelAction(@DiagnosticHidden String redirectUrl,
     }
 
     private static boolean validUrl(String value) {
-        if (value == null || value.length() > 4096 || value.chars().anyMatch(Character::isISOControl)) return false;
+        if (value == null || value.length() > 4096 || value.chars().anyMatch(Character::isISOControl)) {
+            return false;
+        }
         try {
             var uri = URI.create(value);
             return "https".equals(uri.getScheme()) && "wx.tenpay.com".equals(uri.getHost())

@@ -3,7 +3,6 @@
 CREATE TABLE limit_policy_head
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -15,12 +14,11 @@ CREATE TABLE limit_policy_head
     CHECK (latest_version >= 0 AND row_version >= 0)
 );
 
-CREATE UNIQUE INDEX uk_limit_policy_head ON limit_policy_head (tenant_id, policy_id);
+CREATE UNIQUE INDEX uk_limit_policy_head ON limit_policy_head (policy_id);
 
 CREATE TABLE limit_policy_revision
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -33,12 +31,11 @@ CREATE TABLE limit_policy_revision
     PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX uk_limit_policy_version ON limit_policy_revision (tenant_id, policy_id, policy_version);
+CREATE UNIQUE INDEX uk_limit_policy_version ON limit_policy_revision (policy_id, policy_version);
 
 CREATE TABLE limit_rule_runtime
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -60,12 +57,11 @@ CREATE TABLE limit_rule_runtime
     CHECK (currency = 'CNY' AND CHAR_LENGTH(timezone) > 0)
 );
 
-CREATE UNIQUE INDEX uk_limit_runtime_scope ON limit_rule_runtime (tenant_id, rule_scope_id, merchant_id, metric, currency, window_type);
+CREATE UNIQUE INDEX uk_limit_runtime_scope ON limit_rule_runtime (rule_scope_id, merchant_id, metric, currency, window_type);
 
 CREATE TABLE limit_bucket
 (
     id            VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id     VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at    TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at    TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted       BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -84,16 +80,15 @@ CREATE TABLE limit_bucket
     CHECK (window_start < window_end)
 );
 
-CREATE UNIQUE INDEX uk_limit_bucket ON limit_bucket (tenant_id, rule_scope_id, merchant_id, metric, currency,
+CREATE UNIQUE INDEX uk_limit_bucket ON limit_bucket (rule_scope_id, merchant_id, metric, currency,
                                                      window_type, window_start,
                                                      window_end);
 
-CREATE INDEX ix_bucket_merchant ON limit_bucket (tenant_id, merchant_id, window_type, window_start);
+CREATE INDEX ix_bucket_merchant ON limit_bucket (merchant_id, window_type, window_start);
 
 CREATE TABLE limit_operation_gate
 (
     id                        VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id                 VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                   BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -106,14 +101,13 @@ CREATE TABLE limit_operation_gate
     PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX uk_limit_gate_operation ON limit_operation_gate (tenant_id, operation_id);
+CREATE UNIQUE INDEX uk_limit_gate_operation ON limit_operation_gate (operation_id);
 
-CREATE UNIQUE INDEX uk_limit_gate_payment ON limit_operation_gate (tenant_id, payment_id);
+CREATE UNIQUE INDEX uk_limit_gate_payment ON limit_operation_gate (payment_id);
 
 CREATE TABLE limit_reservation
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -140,16 +134,15 @@ CREATE TABLE limit_reservation
     CHECK (execution_epoch >= 0 AND payment_source_version >= 0 AND row_version >= 0)
 );
 
-CREATE UNIQUE INDEX uk_limit_operation ON limit_reservation (tenant_id, operation_id);
+CREATE UNIQUE INDEX uk_limit_operation ON limit_reservation (operation_id);
 
-CREATE UNIQUE INDEX uk_limit_payment ON limit_reservation (tenant_id, payment_id);
+CREATE UNIQUE INDEX uk_limit_payment ON limit_reservation (payment_id);
 
-CREATE INDEX ix_reservation_expire ON limit_reservation (tenant_id, state, reserve_expires_at, id);
+CREATE INDEX ix_reservation_expire ON limit_reservation (state, reserve_expires_at, id);
 
 CREATE TABLE limit_reservation_item
 (
     id             VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id      VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at     TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at     TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted        BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -163,12 +156,11 @@ CREATE TABLE limit_reservation_item
     CHECK (consumed_value <= reserved_value AND restored_value <= consumed_value)
 );
 
-CREATE UNIQUE INDEX uk_limit_item_bucket ON limit_reservation_item (tenant_id, reservation_id, bucket_id);
+CREATE UNIQUE INDEX uk_limit_item_bucket ON limit_reservation_item (reservation_id, bucket_id);
 
 CREATE TABLE limit_execution_grant
 (
     id              VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id       VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at      TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at      TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted         BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -183,14 +175,13 @@ CREATE TABLE limit_execution_grant
     CHECK (execution_epoch > 0)
 );
 
-CREATE UNIQUE INDEX uk_limit_grant_epoch ON limit_execution_grant (tenant_id, operation_id, execution_epoch);
+CREATE UNIQUE INDEX uk_limit_grant_epoch ON limit_execution_grant (operation_id, execution_epoch);
 
-CREATE UNIQUE INDEX uk_limit_grant_request ON limit_execution_grant (tenant_id, operation_id, request_key);
+CREATE UNIQUE INDEX uk_limit_grant_request ON limit_execution_grant (operation_id, request_key);
 
 CREATE TABLE limit_settlement_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -205,14 +196,13 @@ CREATE TABLE limit_settlement_receipt
     CHECK (kind IN ('CONFIRM', 'RELEASE') AND payment_version > 0)
 );
 
-CREATE UNIQUE INDEX uk_limit_settlement_operation ON limit_settlement_receipt (tenant_id, operation_id);
+CREATE UNIQUE INDEX uk_limit_settlement_operation ON limit_settlement_receipt (operation_id);
 
-CREATE UNIQUE INDEX uk_limit_settlement_event ON limit_settlement_receipt (tenant_id, business_event_id);
+CREATE UNIQUE INDEX uk_limit_settlement_event ON limit_settlement_receipt (business_event_id);
 
 CREATE TABLE limit_refund_receipt
 (
     id                                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -246,6 +236,6 @@ CREATE TABLE limit_refund_receipt
         )
 );
 
-CREATE UNIQUE INDEX uk_limit_refund_receipt_refund ON limit_refund_receipt (tenant_id, refund_id);
+CREATE UNIQUE INDEX uk_limit_refund_receipt_refund ON limit_refund_receipt (refund_id);
 
-CREATE INDEX ix_limit_refund_receipt_operation ON limit_refund_receipt (tenant_id, operation_id);
+CREATE INDEX ix_limit_refund_receipt_operation ON limit_refund_receipt (operation_id);

@@ -31,7 +31,6 @@ import io.github.loadup.pay.acquire.domain.gateway.RefundNotificationReceiptGate
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -68,7 +67,7 @@ public class RefundNotificationService implements RefundNotificationFacade {
     public RefundNotificationService(AcquireServiceActorProvider actors, OrderCreationGateway orders,
                                      PaymentOutcomeGateway payments, RefundNotificationReceiptGateway receipts, MerchantNotificationEvents notifications,
                                      RefundNotificationConverter converter, OrderCreationTransactions transactions, IdGenerator ids,
-                                     @Qualifier("acquireClock") Clock clock, @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
+                                     Clock clock, @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.orders = orders;
         this.payments = payments;
@@ -84,38 +83,54 @@ public class RefundNotificationService implements RefundNotificationFacade {
     @Override
     public RefundNotificationAckDTO accept(EventEnvelope<RefundMerchantEventDTO> event) {
         var actor = actors.current();
-        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:refund:notification"))
+        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:refund:notification")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         try {
-            if (event == null || event.data() == null) throw new CommonException(INVALID_ARGUMENT);
+            if (event == null || event.data() == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             event.data().requireEnvelope(event);
-            if (event.occurredAt().getNano() % 1000 != 0) throw new CommonException(INVALID_ARGUMENT);
+            if (event.occurredAt().getNano() % 1000 != 0) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
             var known = receipts.find(actor.tenantId(), event.deliveryId());
-            if (known.isPresent()) return replay(actor, known.get(), digest);
+            if (known.isPresent()) {
+                return replay(actor, known.get(), digest);
+            }
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var existing = receipts.find(actor.tenantId(), event.deliveryId());
-                if (existing.isPresent()) return replay(actor, existing.get(), digest);
+                if (existing.isPresent()) {
+                    return replay(actor, existing.get(), digest);
+                }
                 var data = event.data();
                 var order = orders.lockOrder(actor.tenantId(), data.orderId()).order();
                 if (!order.id().equals(data.orderId()) || !order.payeeMerchantId().equals(data.payeeMerchantId())
-                        || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.amount().getCent())
+                        || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 // The payment-success projection may arrive after the refund projection; retry until it is durable.
-                if (data.amountMinor() > order.paidAmountMinor()) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                if (data.amountMinor() > order.paidAmountMinor()) {
+                    throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                }
                 if ("RefundOrder".equals(data.aggregateType())) {
                     var allocation = payments.lockPayment(actor.tenantId(), data.orderId(), data.paymentId())
                             .orElseThrow(() -> new CommonException(DEPENDENCY_UNAVAILABLE)).allocation();
                     if (!allocation.orderId().equals(data.orderId()) || !allocation.paymentId().equals(data.paymentId())
-                            || !allocation.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > allocation.amount().getCent())
+                            || !allocation.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > allocation.amount().getCent()) {
                         throw new CommonException(SNAPSHOT_INVALID);
-                    if (allocation.state() != AllocationState.CONSUMED)
+                    }
+                    if (allocation.state() != AllocationState.CONSUMED) {
                         throw new CommonException(DEPENDENCY_UNAVAILABLE);
+                    }
                 }
                 var registration = notifications.refund(actor.tenantId(), event);
                 var receipt = converter.toReceipt(ids.generate(), event, registration, digest, actor.serviceId(),
@@ -127,8 +142,12 @@ public class RefundNotificationService implements RefundNotificationFacade {
     }
 
     private RefundNotificationAckDTO replay(AcquireServiceActor actor, RefundNotificationReceipt receipt, String digest) {
-        if (!actor.serviceId().equals(receipt.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!digest.equals(receipt.requestDigest())) throw new CommonException(IDEMPOTENCY_CONFLICT);
+        if (!actor.serviceId().equals(receipt.callerServiceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!digest.equals(receipt.requestDigest())) {
+            throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         return converter.toAck(receipt);
     }
 }

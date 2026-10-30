@@ -38,9 +38,12 @@ public record StoredPaymentAcceptance(
         DomainChecks.id(admissionId);
         DomainChecks.id(callerServiceId);
         DomainChecks.text(intentPayload, 262144);
-        if (terminalEvidenceId != null) DomainChecks.id(terminalEvidenceId);
-        if (payment.state() == PaymentState.CLOSED || payment.state() == PaymentState.FAILED)
+        if (terminalEvidenceId != null) {
+            DomainChecks.id(terminalEvidenceId);
+        }
+        if (payment.state() == PaymentState.CLOSED || payment.state() == PaymentState.FAILED) {
             require(terminalEvidenceId != null, INVALID_ARGUMENT);
+        }
         require(
                 requestDigest != null
                         && requestDigest.matches("[0-9a-f]{64}")

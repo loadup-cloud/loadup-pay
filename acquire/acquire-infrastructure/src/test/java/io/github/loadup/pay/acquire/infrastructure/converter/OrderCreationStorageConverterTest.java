@@ -59,7 +59,6 @@ class OrderCreationStorageConverterTest {
         var completed = initial.finish("COMPLETED", "admission", LocalDateTime.of(2026, 10, 22, 12, 0), "SUCCESS");
         for (var value : java.util.List.of(initial, completed)) {
             var row = converter.toIntentDO("tenant", value);
-            assertEquals("tenant", row.getTenantId());
             assertEquals("CHECKOUT", row.getEntryMode());
             assertEquals("initial-session", row.getInitialSessionId());
             assertEquals(value, converter.toIntent(row));

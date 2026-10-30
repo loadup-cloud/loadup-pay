@@ -54,9 +54,15 @@ public record PaymentOrder(
         Objects.requireNonNull(state);
         require(amount.getCent() > 0 && version >= 0, INVALID_ARGUMENT);
         require((state == PaymentState.SUCCEEDED) == (successfulAttemptId != null), INVALID_STATE);
-        if (successfulAttemptId != null) DomainChecks.id(successfulAttemptId);
-        if (activeAttemptId != null) DomainChecks.id(activeAttemptId);
-        if (state == PaymentState.SUCCEEDED) require(successfulAttemptId.equals(activeAttemptId), INVALID_STATE);
+        if (successfulAttemptId != null) {
+            DomainChecks.id(successfulAttemptId);
+        }
+        if (activeAttemptId != null) {
+            DomainChecks.id(activeAttemptId);
+        }
+        if (state == PaymentState.SUCCEEDED) {
+            require(successfulAttemptId.equals(activeAttemptId), INVALID_STATE);
+        }
     }
 
     public static PaymentOrder init(
@@ -84,7 +90,7 @@ public record PaymentOrder(
                         && next.binding().payeeMerchantId().equals(payeeMerchantId)
                         && next.state() == PaymentAttemptState.INIT,
                 CONFLICT);
-        if (activeAttemptId != null)
+        if (activeAttemptId != null) {
             require(
                     previous != null
                             && activeAttemptId.equals(previous.id())
@@ -95,7 +101,9 @@ public record PaymentOrder(
                             && !next.channelRequestNo().equals(previous.channelRequestNo())
                             && next.attemptNo() == previous.attemptNo() + 1,
                     OUTCOME_UNKNOWN);
-        else require(next.attemptNo() == 1, INVALID_ARGUMENT);
+        } else {
+            require(next.attemptNo() == 1, INVALID_ARGUMENT);
+        }
         return new PaymentOrder(
                 id,
                 orderId,
@@ -130,12 +138,16 @@ public record PaymentOrder(
                 || state == PaymentState.UNKNOWN && !attempt.canSafelyReplace()
                 ? PaymentState.UNKNOWN
                 : PaymentState.PROCESSING;
-        if (nextState == state) return this;
+        if (nextState == state) {
+            return this;
+        }
         return copy(nextState, nextState == PaymentState.SUCCEEDED ? attempt.id() : null);
     }
 
     public PaymentOrder requestClose() {
-        if (state == PaymentState.CLOSING) return this;
+        if (state == PaymentState.CLOSING) {
+            return this;
+        }
         require(
                 state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
                 INVALID_STATE);
@@ -144,7 +156,9 @@ public record PaymentOrder(
 
     public PaymentOrder close(NoCollectionEvidence evidence) {
         require(id.equals(evidence.paymentId()), CONFLICT);
-        if (state == PaymentState.CLOSED) return this;
+        if (state == PaymentState.CLOSED) {
+            return this;
+        }
         require(state == PaymentState.CLOSING, INVALID_STATE);
         return copy(PaymentState.CLOSED, null);
     }
@@ -154,7 +168,9 @@ public record PaymentOrder(
      */
     public PaymentOrder fail(NoCollectionEvidence evidence) {
         require(id.equals(evidence.paymentId()), CONFLICT);
-        if (state == PaymentState.FAILED) return this;
+        if (state == PaymentState.FAILED) {
+            return this;
+        }
         require(
                 state == PaymentState.INIT || state == PaymentState.PROCESSING || state == PaymentState.UNKNOWN,
                 INVALID_STATE);

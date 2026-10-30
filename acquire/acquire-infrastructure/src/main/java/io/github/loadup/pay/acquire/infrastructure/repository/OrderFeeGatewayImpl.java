@@ -19,6 +19,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -28,8 +29,6 @@ import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeAdjustmentStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderFeeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -58,7 +57,7 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     private final JsonMapper mapper;
 
     public OrderFeeGatewayImpl(NamedParameterJdbcTemplate jdbc, OrderFeeStorageConverter converter,
-                               FeeAdjustmentStorageConverter adjustmentConverter, IdGenerator ids, JsonMapper mapper, @Qualifier("acquireClock") Clock clock) {
+                               FeeAdjustmentStorageConverter adjustmentConverter, IdGenerator ids, JsonMapper mapper, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -70,11 +69,14 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     @Override
     public void confirmPaid(String tenant, AcquireOrder paid, OrderFeePolicy expectedPolicy, LocalDateTime confirmedAt) {
         writable(tenant);
-        if (paid.state() != AcquireOrderState.PAID || paid.paidAmountMinor() != paid.amount().getCent() || confirmedAt == null)
+        if (paid.state() != AcquireOrderState.PAID || paid.paidAmountMinor() != paid.amount().getCent() || confirmedAt == null) {
             throw new CommonException(INVALID_STATE);
+        }
         var row = lock(tenant, paid.id());
         var current = decode(row, paid, expectedPolicy);
-        if (current.state() == FeeState.CONFIRMED) return;
+        if (current.state() == FeeState.CONFIRMED) {
+            return;
+        }
         var confirmed = current.confirm();
         adjust(tenant, row, confirmed, "FEE_CONFIRMED", current.id(), confirmedAt);
         save(tenant, row, confirmed.acknowledgeAdjustment(), confirmedAt);
@@ -85,11 +87,15 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                                  long cumulativeMinor, String sourceEventId, LocalDateTime appliedAt) {
         writable(tenant);
         DomainChecks.id(sourceEventId);
-        if (sourceVersion <= 0 || appliedAt == null) throw new CommonException(INVALID_ARGUMENT);
+        if (sourceVersion <= 0 || appliedAt == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var row = lock(tenant, order.id());
         var current = decode(row, order, expectedPolicy);
         var based = current.recordRefundBasis(sourceVersion, cumulativeMinor);
-        if (based.equals(current)) return;
+        if (based.equals(current)) {
+            return;
+        }
         adjust(tenant, row, based, "REFUND_SUMMARY:" + sourceVersion, sourceEventId, appliedAt);
         save(tenant, row, based.acknowledgeAdjustment(), row.getConfirmedAt());
     }
@@ -101,7 +107,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                        fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
                 FROM order_fee WHERE tenant_id = :tenant AND order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
                 """, args, BeanPropertyRowMapper.newInstance(OrderFeeDO.class)).stream().findFirst().orElse(null);
-        if (row == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (row == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return row;
     }
 
@@ -111,8 +119,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
             var value = converter.toFee(row, policy);
             if (!policy.equals(expected) || !value.baseAmount().equals(order.amount()) || !value.orderId().equals(order.id())
                     || row.getRowVersion() == null || row.getRowVersion() < 0
-                    || (value.state() == FeeState.CONFIRMED) != (row.getConfirmedAt() != null))
+                    || (value.state() == FeeState.CONFIRMED) != (row.getConfirmedAt() != null)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return value;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -120,7 +129,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     }
 
     private void adjust(String tenant, OrderFeeDO row, OrderFee based, String trigger, String eventId, LocalDateTime at) {
-        if (based.adjustmentDueMinor() == 0) return;
+        if (based.adjustmentDueMinor() == 0) {
+            return;
+        }
         var adjustment = adjustmentConverter.toAdjustment(ids.generate(), based, trigger);
         var record = adjustmentConverter.toDO(tenant, adjustment, eventId, based.refundBasisMinor(), row.getFeeRuleSnapshot(), at);
         var now = LocalDateTime.now(clock);
@@ -132,7 +143,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                 VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
                     :sourceVersion, :adjustmentMinor, :currency, :cumulativeRefundedMinor, :ruleSnapshot, :appliedAt)
                 """, new BeanPropertySqlParameterSource(record));
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void save(String tenant, OrderFeeDO before, OrderFee next, LocalDateTime confirmedAt) {
@@ -145,14 +158,19 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
                 UPDATE order_fee SET state = :state, refund_basis_version = :basisVersion, refund_basis_minor = :basis,
                     adjusted_amount_minor = :adjusted, row_version = :version, confirmed_at = COALESCE(:confirmed, confirmed_at), updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
-                """, args) != 1) throw new CommonException(CONCURRENT_UPDATE);
+                """, args) != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
-        if (!tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 }

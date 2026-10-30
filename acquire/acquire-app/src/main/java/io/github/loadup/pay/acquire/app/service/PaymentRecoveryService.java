@@ -51,14 +51,24 @@ public class PaymentRecoveryService implements PaymentRecoveryFacade {
 
     @Override
     public PaymentRecoveryDTO recover(PaymentRecoverCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:payment:recover")) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!actor.permissions().contains("pay:acquire:payment:recover")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         var original = initiation.recover(new PaymentInitiationPrincipal(actor.tenantId(), actor.scopeHash(), "merchant/" + actor.scopeHash(),
                 (order, creating) -> {
-                    if (!order.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
-                    if (creating) throw new CommonException(INVALID_STATE);
+                    if (!order.callerScopeHash().equals(actor.scopeHash())) {
+                        throw new CommonException(ACTION_FORBIDDEN);
+                    }
+                    if (creating) {
+                        throw new CommonException(INVALID_STATE);
+                    }
                 }), command.orderId(), command.actionKey(), command.amountMinor(), command.choice());
         PaymentProgressDTO progress = null;
         if (original.state() == PaymentIntentRecovery.State.RESOLVED) {
@@ -66,7 +76,9 @@ public class PaymentRecoveryService implements PaymentRecoveryFacade {
             progress = original.closed() == null
                     ? outcomes.refresh(scope, new PaymentProgressRefreshCommand(command.orderId(), original.paymentId()))
                     : outcomes.applyInputExpiry(scope, command.orderId(), original.paymentId(), original.closed());
-            if (progress == null) throw new CommonException(SNAPSHOT_INVALID);
+            if (progress == null) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
         }
         return converter.toDTO(command, original, progress);
     }

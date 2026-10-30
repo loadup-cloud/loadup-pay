@@ -35,7 +35,6 @@ import io.github.loadup.pay.payment.domain.model.ChannelBindingState;
 import io.github.loadup.pay.payment.domain.model.ChannelMerchantBinding;
 import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -66,7 +65,7 @@ public class ChannelBindingService implements ChannelBindingFacade {
 
     public ChannelBindingService(PaymentActorProvider actors, ChannelBindingManagementGateway store,
                                  ChannelBindingConverter converter, ChannelBindingCodec codec, PaymentAcceptanceTransactions transactions,
-                                 IdGenerator ids, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                 IdGenerator ids, Validator validator, Clock clock,
                                  @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
         this.actors = actors;
         this.store = store;
@@ -94,15 +93,24 @@ public class ChannelBindingService implements ChannelBindingFacade {
                 var prior = store.lock(actor.tenantId(), command.payeeMerchantId(), command.bindingCode());
                 if (prior.isPresent()) {
                     var receipt = store.receipt(actor.tenantId(), prior.get().id(), command.requestKey());
-                    if (receipt.isPresent()) return replay(actor, prior.get(), receipt.get(), "PUBLISH", digest);
+                    if (receipt.isPresent()) {
+                        return replay(actor, prior.get(), receipt.get(), "PUBLISH", digest);
+                    }
                 }
                 var head = prior.orElseGet(() -> new ChannelMerchantBinding(ids.generate(), command.payeeMerchantId(),
                         command.bindingCode(), command.channel(), command.accessMode(), ChannelBindingState.INIT, null, 0, 0, 0));
-                if (head.rowVersion() != command.expectedVersion()) throw new CommonException(CONCURRENT_UPDATE);
-                if (head.state() == ChannelBindingState.REVOKED) throw new CommonException(INVALID_STATE);
-                if (head.channel() != command.channel() || head.accessMode() != command.accessMode())
+                if (head.rowVersion() != command.expectedVersion()) {
+                    throw new CommonException(CONCURRENT_UPDATE);
+                }
+                if (head.state() == ChannelBindingState.REVOKED) {
+                    throw new CommonException(INVALID_STATE);
+                }
+                if (head.channel() != command.channel() || head.accessMode() != command.accessMode()) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
-                if (prior.isPresent()) requireRevision(actor.tenantId(), head);
+                }
+                if (prior.isPresent()) {
+                    requireRevision(actor.tenantId(), head);
+                }
                 String revisionId = ids.generate();
                 var binding = converter.toBinding(command, revisionId, candidate.accountScopeHash());
                 int ordinal = Math.incrementExact(head.currentRevision());
@@ -111,8 +119,11 @@ public class ChannelBindingService implements ChannelBindingFacade {
                 var revision = converter.toStored(binding, head.id(), ordinal, codec.checksum(payload), actor.serviceId(), publishedAt);
                 var updated = head.publish(binding, ordinal, command.priority());
                 store.insertRevision(actor.tenantId(), revision);
-                if (prior.isPresent()) store.updateHead(actor.tenantId(), updated, head.rowVersion());
-                else store.insertHead(actor.tenantId(), updated);
+                if (prior.isPresent()) {
+                    store.updateHead(actor.tenantId(), updated, head.rowVersion());
+                } else {
+                    store.insertHead(actor.tenantId(), updated);
+                }
                 var receipt = receipt(actor, updated, "PUBLISH", command.requestKey(), digest, publishedAt);
                 store.insertReceipt(actor.tenantId(), receipt);
                 return converter.toChange(receipt);
@@ -144,10 +155,15 @@ public class ChannelBindingService implements ChannelBindingFacade {
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var head = store.lock(actor.tenantId(), payee, bindingCode).orElseThrow(() -> new CommonException(NOT_FOUND));
                 var prior = store.receipt(actor.tenantId(), head.id(), key);
-                if (prior.isPresent()) return replay(actor, head, prior.get(), kind, digest);
-                if (head.rowVersion() != expectedVersion) throw new CommonException(CONCURRENT_UPDATE);
-                if (head.state() == ChannelBindingState.REVOKED && "SUSPEND".equals(kind))
+                if (prior.isPresent()) {
+                    return replay(actor, head, prior.get(), kind, digest);
+                }
+                if (head.rowVersion() != expectedVersion) {
+                    throw new CommonException(CONCURRENT_UPDATE);
+                }
+                if (head.state() == ChannelBindingState.REVOKED && "SUSPEND".equals(kind)) {
                     throw new CommonException(INVALID_STATE);
+                }
                 requireRevision(actor.tenantId(), head);
                 var updated = "REVOKE".equals(kind) ? head.revoke() : head.suspend();
                 store.updateHead(actor.tenantId(), updated, head.rowVersion());
@@ -175,24 +191,31 @@ public class ChannelBindingService implements ChannelBindingFacade {
         var revision = store.revision(tenant, head.currentRevisionId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!head.id().equals(revision.bindingId()) || head.currentRevision() != revision.revision()
                 || !head.payeeMerchantId().equals(revision.binding().payeeMerchantId())
-                || head.channel() != revision.binding().channel() || head.accessMode() != revision.binding().accessMode())
+                || head.channel() != revision.binding().channel() || head.accessMode() != revision.binding().accessMode()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return revision;
     }
 
     private ChannelBindingChangeDTO replay(PaymentActor actor, ChannelMerchantBinding head, ChannelBindingChangeReceipt receipt,
                                            String kind, String digest) {
-        if (!receipt.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!receipt.kind().equals(kind) || !receipt.requestDigest().equals(digest))
+        if (!receipt.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!receipt.kind().equals(kind) || !receipt.requestDigest().equals(digest)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
+        }
         if (!head.id().equals(receipt.bindingId()) || head.rowVersion() < receipt.appliedVersion()
-                || head.currentRevision() < receipt.revision()) throw new CommonException(SNAPSHOT_INVALID);
+                || head.currentRevision() < receipt.revision()) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         requireRevision(actor.tenantId(), head);
         var original = store.revision(actor.tenantId(), receipt.bindingRevisionId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!head.id().equals(original.bindingId()) || original.revision() != receipt.revision()
-                || !head.payeeMerchantId().equals(original.binding().payeeMerchantId()))
+                || !head.payeeMerchantId().equals(original.binding().payeeMerchantId())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return converter.toChange(receipt);
     }
 
@@ -204,14 +227,19 @@ public class ChannelBindingService implements ChannelBindingFacade {
 
     private PaymentActor actor(String permission) {
         var actor = actors.current();
-        if (!managementService.equals(actor.serviceId()) || !actor.permissions().contains(permission))
+        if (!managementService.equals(actor.serviceId()) || !actor.permissions().contains(permission)) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return actor;
     }
 
     private void validate(Object value) {
-        if (value == null || !validator.validate(value).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (value == null || !validator.validate(value).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private LocalDateTime now() {

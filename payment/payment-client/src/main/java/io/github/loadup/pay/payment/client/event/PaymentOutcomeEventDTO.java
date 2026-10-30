@@ -45,10 +45,12 @@ public record PaymentOutcomeEventDTO(
         DomainViolation.require(
                 amountMinor > 0 && paymentVersion > 0 && state != null, DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.cnyAmount(amountMinor, currency);
-        if (state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED)
+        if (state == PaymentState.SUCCEEDED || state == PaymentState.FAILED || state == PaymentState.CLOSED) {
             DomainChecks.id(evidenceId);
-        if (state == PaymentState.FAILED || state == PaymentState.CLOSED)
+        }
+        if (state == PaymentState.FAILED || state == PaymentState.CLOSED) {
             DomainViolation.require(executionFenced, DomainViolation.Reason.OUTCOME_UNKNOWN);
+        }
     }
 
     public void requireEnvelope(EventEnvelope<?> envelope) {

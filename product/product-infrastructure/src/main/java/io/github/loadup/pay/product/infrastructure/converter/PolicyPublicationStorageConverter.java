@@ -27,7 +27,6 @@ public interface PolicyPublicationStorageConverter {
     @Mapping(target = "publishing", ignore = true)
     PolicyPublication toModel(ContractLimitPublicationDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

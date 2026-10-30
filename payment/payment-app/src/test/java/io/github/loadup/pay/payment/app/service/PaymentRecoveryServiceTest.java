@@ -72,7 +72,7 @@ class PaymentRecoveryServiceTest {
     final Clock clock = Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone());
     final PaymentRecoveryService recovery = new PaymentRecoveryService(cursors, tasks, locks, execution, payments,
             transactions, clock, new RecoveryPollingPolicy(30, 1800, 900, 0));
-    final DelayedTask task = new DelayedTask("task", "tenant", PaymentRecoveryService.TYPE, "payment.0",
+    final DelayedTask task = new DelayedTask("task", PaymentRecoveryService.TYPE, "payment.0",
             AttemptFixtures.NOW, AttemptFixtures.NOW, DelayedTaskStatus.RUNNING, 1, 5,
             AttemptFixtures.NOW.plusMinutes(5), null);
 
@@ -169,7 +169,7 @@ class PaymentRecoveryServiceTest {
         assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () -> recovery.handle(task)));
 
-        var expired = new DelayedTask(task.id(), task.tenantId(), task.taskType(), task.bizId(), task.executeAt(),
+        var expired = new DelayedTask(task.id(), task.taskType(), task.bizId(), task.executeAt(),
                 task.nextExecuteAt(), task.status(), task.attempts(), task.maxAttempts(), AttemptFixtures.NOW, null);
         when(tasks.find(PaymentRecoveryService.TYPE, "payment.0")).thenReturn(Optional.of(expired));
         assertSame(INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());
@@ -192,7 +192,7 @@ class PaymentRecoveryServiceTest {
     void oldUnresolvedPaymentBacksOffWithoutFinishingOrChangingItsRequest() {
         var late = AttemptFixtures.NOW.plusDays(1);
         var lateClock = Clock.fixed(late.atZone(clock.getZone()).toInstant(), clock.getZone());
-        var delayed = new DelayedTask(task.id(), task.tenantId(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
+        var delayed = new DelayedTask(task.id(), task.taskType(), task.bizId(), task.executeAt(), task.nextExecuteAt(),
                 task.status(), task.attempts(), task.maxAttempts(), late.plusMinutes(5), null);
         when(tasks.find(PaymentRecoveryService.TYPE, task.bizId())).thenReturn(Optional.of(delayed));
         var handler = new PaymentRecoveryService(cursors, tasks, locks, execution, payments, transactions, lateClock,

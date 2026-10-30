@@ -36,7 +36,7 @@ public interface PaymentInitiationStorageConverter {
     @Mapping(target = "allocation", source = "allocation")
     StoredPaymentAllocation toStored(OrderPaymentAllocationDO row, OrderPaymentAllocation allocation);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.allocation.id")
     @Mapping(target = "orderId", source = "value.allocation.orderId")
     @Mapping(target = "paymentId", source = "value.allocation.paymentId")

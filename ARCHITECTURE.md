@@ -15,7 +15,8 @@ CNY。**
 
 术语见 [GLOSSARY.md](GLOSSARY.md)，已确认决策及实施基线见 [DESIGN-DECISIONS.md](DESIGN-DECISIONS.md)
 。六服务已有
-app/infrastructure/adapter、Dubbo Triple、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)
+app/infrastructure/adapter、Dubbo
+Triple、渠道插件与后台恢复源码；当前能力、测试运行和环境验收分开记录于 [根矩阵](README.md#当前能力矩阵)
 。不能将历史启动验收视为当前交易闭环通过。
 
 详细设计已细化为[COLA DDD与事务流程](DETAILED-DESIGN.md)、[数据库](design/DATABASE.md)、[Client API](design/CLIENT-API.md)
@@ -638,18 +639,18 @@ channel+接入模式+渠道商户作用域定义唯一性。索引覆盖商户�
 
 ## 14. LoadUp 复用与工程组织
 
-| 能力         | 复用方向                                               | 收单平台负责的新增设计                                       |
-|--------------|--------------------------------------------------------|--------------------------------------------------------------|
-| 基础栈       | Java 25、Spring Boot 4.1.1、LoadUp BOM                 | 各部署单元装配                                               |
-| 业务分层     | COLA、Spring Data JDBC、Spring JDBC、Flyway、Spring MapStruct | 订单/多笔付款/占用、事务与迁移                         |
-| Dubbo Triple | loadup-components-rpc-binder-dubbo + Protobuf IDL     | 身份、超时、幂等/结果/关闭协议                               |
-| 商户与合约   | merchant-*、contract-*                                 | 子商户授权关系、双模式绑定、OrderAdmission、多付款与计费策略 |
-| 可靠性       | Outbox/Inbox、DelayedTask、Scheduler                   | 独立投递、查证、占用差异核对                                 |
-| 安全与观测   | 授权、资源服务、signature/KMS 按需、LogUtil/Micrometer | 实际收款身份、商户通知、敏感材料与审计                       |
-| 收银交互     | Vue/TypeScript、既有 Web 能力                          | cashier 与薄 SDK、同一订单多次合法动作                       |
-| 风控接口预留 | 现有 HTTP/Dubbo Triple 与可靠投递能力                  | 咨询/确认语义及外部协议适配，不引入厂商 SDK 作为业务公共契约 |
-| 文件对账预留 | 现有文件存储/任务/数据库能力按需                       | reconciliation 独立解析、核对、差错闭环，后续再选具体适配    |
-| 商户限额     | 数据库本地事务、可靠任务                               | 日/周/月/终生全部规则原子预占及恢复                          |
+| 能力         | 复用方向                                                      | 收单平台负责的新增设计                                       |
+|--------------|---------------------------------------------------------------|--------------------------------------------------------------|
+| 基础栈       | Java 25、Spring Boot 4.1.1、LoadUp BOM                        | 各部署单元装配                                               |
+| 业务分层     | COLA、Spring Data JDBC、Spring JDBC、Flyway、Spring MapStruct | 订单/多笔付款/占用、事务与迁移                               |
+| Dubbo Triple | loadup-components-rpc-binder-dubbo + Protobuf IDL             | 身份、超时、幂等/结果/关闭协议                               |
+| 商户与合约   | merchant-*、contract-*                                        | 子商户授权关系、双模式绑定、OrderAdmission、多付款与计费策略 |
+| 可靠性       | Outbox/Inbox、DelayedTask、Scheduler                          | 独立投递、查证、占用差异核对                                 |
+| 安全与观测   | 授权、资源服务、signature/KMS 按需、LogUtil/Micrometer        | 实际收款身份、商户通知、敏感材料与审计                       |
+| 收银交互     | Vue/TypeScript、既有 Web 能力                                 | cashier 与薄 SDK、同一订单多次合法动作                       |
+| 风控接口预留 | 现有 HTTP/Dubbo Triple 与可靠投递能力                         | 咨询/确认语义及外部协议适配，不引入厂商 SDK 作为业务公共契约 |
+| 文件对账预留 | 现有文件存储/任务/数据库能力按需                              | reconciliation 独立解析、核对、差错闭环，后续再选具体适配    |
+| 商户限额     | 数据库本地事务、可靠任务                                      | 日/周/月/终生全部规则原子预占及恢复                          |
 
 ```text
 loadup-pay/
@@ -668,7 +669,8 @@ loadup-pay/
 内部应用交互统一使用 Dubbo Triple 的 Protobuf 纯 IDL 模式。各服务的 `*-client` 模块维护 Java Facade、
 Command/Query/DTO 和结果码，`*-client` 模块维护 `.proto`、`dubbo-maven-plugin` 生成的存根和 Wire↔DTO mapper；
 `*-adapter` 实现生成的 `ImplBase` 并用 `@DubboService` 暴露，`*-infrastructure` 用 `@DubboReference` 引用生成的接口。
-框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc` 子包，domain/app 不直接引用 protobuf 或 rpc 类型。
+框架 binder 提供令牌传播、安全上下文重建与错误码映射；IDL 代码隔离在 client 的 `rpc` 子包，domain/app 不直接引用 protobuf 或
+rpc 类型。
 身份与业务接口绑定随业务 profile 装配，当前运行验收仍待完成。
 
 金额类型直接复用loadup-commons-dto的Money，收单边界另校验CNY与非负数；不重新定义Money。业务record与事件信封的诊断输出统一使用loadup-commons-json的ToStringAsJson，敏感引用与payload通过DiagnosticHidden屏蔽；诊断策略不改变HTTP/渠道报文。
@@ -680,7 +682,8 @@ Service/DNS、Headlamp；新增服务和子商户管理能力需显式配置
 RBAC/应用权限，当前 Headlamp 仅能修改 acquire/payment，不能把它当商户业务授权。
 
 容器与 JVM 沿用系统默认时区，不设置固定 TZ/user.timezone；数据库会话、Clock、JDBC/任务与日/周/月边界保持一致。业务
-DATETIME (6) 使用本地时间；跨服务 OffsetDateTime 携带实际偏移，`Instant`/`OffsetDateTime` 表达绝对时刻。渠道 epoch/签名时间和 K8s
+DATETIME (6) 使用本地时间；跨服务 OffsetDateTime 携带实际偏移，`Instant`/`OffsetDateTime` 表达绝对时刻。渠道 epoch/签名时间和
+K8s
 标准时间戳按原协议保留绝对时间语义，不为改变显示破坏签名。
 
 技术配置使用 ConfigMap/Secret，业务策略使用 product 合约；Nacos 不作为本期注册前提。生产使用不可变镜像及可拉取策略，本地
@@ -810,7 +813,7 @@ review 首批补了只读运营详情与金融/任务/投影 MySQL IT 源码；�
 | 退款不改原付款金额                | 固定计划、RefundExecution/ResultService、容量与独立汇总             | 多付款串行组合、真实退款幂等与金融回滚                                       |
 | 恢复 claim 不授予额外扣款权       | DelayedTask + 业务 cursor/generation + 实际 handler                 | 租约/新旧代并发运行、长期 UNKNOWN 运营策略                                   |
 | 查询投影不参与主交易裁定          | realtime 四类快照/receipt/版本 Gateway                              | 真实版本竞争、重建/检查点与新鲜度                                            |
-| 编排与存储/协议边界可维护         | COLA 分层、channel-api、provider-owned Facade                         | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
+| 编排与存储/协议边界可维护         | COLA 分层、channel-api、provider-owned Facade                       | [源码/POM 门禁](design/ARCHITECTURE-GATES.md) 运行、字节码证明与剩余接口收敛 |
 
 银联具体产品/接入机构、支付宝 H5、微信付款码、托管 JSAPI 授权与后置对账等仍按完整目标推进。
 历史启动/Headlamp/RPC 记录不证明当前身份、数据库、渠道或业务可用性；旧测试 Ping RPC 已删除。
@@ -895,7 +898,8 @@ gate/claim/金额规则。当前支付宝签名通知源码已接，其他渠道
 
 ## 退款商户通知统一投递（2026-10-24）
 
-payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 Dubbo Triple 调用交 acquire 登记。acquire
+payment 保有退款证据与结果的唯一写入权；原退款结果事务冻结独立商户 Outbox，经过认证的 Dubbo Triple 调用交 acquire
+登记。acquire
 统一管理原订单通知条款、签名、固定正文、任务、重试与语义 ACK，另存专用接收回执；两个服务无跨库事务，不重复实现 payment
 通知表。接收方仅投影退款事实并核对本地原交易绑定，不据此修改原订单或付款成功金额。
 

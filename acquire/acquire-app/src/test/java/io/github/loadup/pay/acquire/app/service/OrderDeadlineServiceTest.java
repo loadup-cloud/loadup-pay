@@ -65,7 +65,7 @@ class OrderDeadlineServiceTest {
             transactions, snapshots, clock(NOW));
     final AtomicReference<StoredAcquireOrder> order = new AtomicReference<>(
             CheckoutFixtures.order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW));
-    final DelayedTask task = new DelayedTask("due-task", "tenant", OrderDeadlineTasks.TYPE, "order.1", NOW, NOW,
+    final DelayedTask task = new DelayedTask("due-task", OrderDeadlineTasks.TYPE, "order.1", NOW, NOW,
             DelayedTaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
 
     @BeforeEach

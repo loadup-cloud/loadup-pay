@@ -49,7 +49,6 @@ public interface AdmissionStorageConverter {
     ActivatedLimitPolicy toPolicy(ContractLimitPublicationDO row);
 
     @Mapping(target = "id", source = "value.admission.id")
-    @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "orderId", source = "value.intent.orderId")
     @Mapping(target = "payeeMerchantId", source = "value.intent.payeeMerchantId")
     @Mapping(target = "productScopeKey", source = "value.intent.productScopeKey")
@@ -78,5 +77,5 @@ public interface AdmissionStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    OrderAdmissionDO toDO(String tenant, StoredOrderAdmission value);
+    OrderAdmissionDO toDO(StoredOrderAdmission value);
 }

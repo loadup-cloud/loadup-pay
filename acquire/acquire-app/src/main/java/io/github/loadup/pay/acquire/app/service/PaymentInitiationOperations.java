@@ -41,7 +41,6 @@ import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -86,7 +85,7 @@ public class PaymentInitiationOperations {
             OrderCreationTransactions transactions,
             IdGenerator ids,
             Validator validator,
-            @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, AllocationRecoveryQueue recovery) {
+            Clock clock, OrderSnapshotEvents snapshots, AllocationRecoveryQueue recovery) {
         this.orders = orders;
         this.allocations = allocations;
         this.ordersCodec = ordersCodec;
@@ -103,10 +102,16 @@ public class PaymentInitiationOperations {
     }
 
     PaymentStartDTO start(PaymentInitiationPrincipal actor, PaymentStartCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         validateInteraction(command);
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.orderId());
             DomainChecks.text(command.actionKey(), 128);
@@ -119,7 +124,9 @@ public class PaymentInitiationOperations {
                         allocations.findAction(actor.tenantId(), command.orderId(), actorScope, command.actionKey());
                 if (prior.isPresent()) {
                     var value = prior.get();
-                    if (!value.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+                    if (!value.callerScopeHash().equals(actor.scopeHash())) {
+                        throw new CommonException(ACTION_FORBIDDEN);
+                    }
                     var intent = converter.toIntent(
                             command,
                             value.allocation().id(),
@@ -130,26 +137,35 @@ public class PaymentInitiationOperations {
                     value.allocation().requireSameAction(command.orderId(), intent);
                     var frozen = codec.decode(value);
                     var original = ordersCodec.decodeAdmission(order.admissionPayload(), order.payloadHash());
-                    if (!frozen.admittedTerms().equals(converter.toAdmitted(order, original)))
+                    if (!frozen.admittedTerms().equals(converter.toAdmitted(order, original))) {
                         throw new CommonException(SNAPSHOT_INVALID);
-                    if (!frozen.choice().equals(command.choice())) throw new CommonException(IDEMPOTENCY_CONFLICT);
-                    if (value.allocation().state() == AllocationState.INIT) throw new CommonException(SNAPSHOT_INVALID);
+                    }
+                    if (!frozen.choice().equals(command.choice())) {
+                        throw new CommonException(IDEMPOTENCY_CONFLICT);
+                    }
+                    if (value.allocation().state() == AllocationState.INIT) {
+                        throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     if (value.allocation().state() == AllocationState.HELD
                             && (order.order().paymentReservedMinor()
                             < value.allocation().amount().getCent()
-                            || order.order().reservedPaymentCount() < 1))
+                            || order.order().reservedPaymentCount() < 1)) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     return value;
                 }
                 actor.authorize(order, true);
                 var initiated = now();
-                if (!order.order().canAcceptNewPayment(initiated)) throw new CommonException(ORDER_NOT_PAYABLE);
+                if (!order.order().canAcceptNewPayment(initiated)) {
+                    throw new CommonException(ORDER_NOT_PAYABLE);
+                }
                 var admission = ordersCodec.decodeAdmission(order.admissionPayload(), order.payloadHash());
                 var choice = command.choice();
                 if (admission.terms().capabilities().stream()
                         .noneMatch(c ->
-                                c.channel() == choice.channel() && c.methods().contains(choice.method())))
+                                c.channel() == choice.channel() && c.methods().contains(choice.method()))) {
                     throw new CommonException(UNSUPPORTED_CAPABILITY);
+                }
                 var intent = converter.toIntent(
                         command,
                         ids.generate(),
@@ -160,7 +176,9 @@ public class PaymentInitiationOperations {
                 var change = order.order().reservePayment(intent, initiated);
                 var execute = converter.toExecute(
                         order, change.allocation(), command, converter.toAdmitted(order, admission));
-                if (!validator.validate(execute).isEmpty()) throw new CommonException(SNAPSHOT_INVALID);
+                if (!validator.validate(execute).isEmpty()) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 String payload = codec.encode(execute);
                 var allocation = converter.toStored(
                         change.allocation(), actor.scopeHash(), payload, ordersCodec.checksum(payload));
@@ -176,11 +194,13 @@ public class PaymentInitiationOperations {
             // No transaction spans the network. Failure leaves the original hold and exact command recoverable.
             PaymentExecuteCommand execute = codec.decode(stored);
             if (stored.allocation().state() == AllocationState.RELEASED
-                    && stored.allocation().paymentSourceVersion() == 0)
+                    && stored.allocation().paymentSourceVersion() == 0) {
                 throw new CommonException(ORDER_NOT_PAYABLE);
+            }
             if (!(command.interaction() instanceof NoInteractionDTO)) {
-                if (stored.allocation().state() != AllocationState.HELD && execute.preparedInputRef() == null)
+                if (stored.allocation().state() != AllocationState.HELD && execute.preparedInputRef() == null) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 var prepared = payment.prepareInput(actor.tenantId(), converter.toInputPreparation(
                         execute, command.actionKey(), command.interaction()));
                 validatePrepared(prepared);
@@ -189,12 +209,15 @@ public class PaymentInitiationOperations {
                     var reference = prepared.inputRef();
                     stored = transactions.writeLocal(actor.tenantId(), () -> attachInput(actor, command.orderId(), command.actionKey(), reference));
                     execute = codec.decode(stored);
-                } else if (!execute.preparedInputRef().equals(prepared.inputRef()))
+                } else if (!execute.preparedInputRef().equals(prepared.inputRef())) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
             }
             // Preparation may race with a committed close while the network call is in flight.
             if (stored.allocation().state() == AllocationState.RELEASED
-                    && stored.allocation().paymentSourceVersion() == 0) throw new CommonException(ORDER_NOT_PAYABLE);
+                    && stored.allocation().paymentSourceVersion() == 0) {
+                throw new CommonException(ORDER_NOT_PAYABLE);
+            }
             var result = stored.allocation().state() == AllocationState.HELD
                     ? payment.accept(actor.tenantId(), execute)
                     : payment.detail(actor.tenantId(), stored.allocation().paymentId());
@@ -207,50 +230,71 @@ public class PaymentInitiationOperations {
      * Resume a committed intent using its frozen command, without preparing another input or reserving money.
      */
     PaymentIntentRecovery recover(PaymentInitiationPrincipal actor, String orderId, String actionKey, long amountMinor, PaymentChoiceDTO choice) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (!payment.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (!payment.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(orderId);
             DomainChecks.text(actionKey, 128);
-            if (amountMinor <= 0 || choice == null) throw new CommonException(INVALID_ARGUMENT);
+            if (amountMinor <= 0 || choice == null) {
+                throw new CommonException(INVALID_ARGUMENT);
+            }
             var known = transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), orderId);
                 actor.authorize(order, false);
                 var prior = allocations.findAction(actor.tenantId(), orderId, actor.actionScope(), actionKey);
-                if (prior.isEmpty()) return java.util.Optional.<PaymentRecoveryPlan>empty();
+                if (prior.isEmpty()) {
+                    return java.util.Optional.<PaymentRecoveryPlan>empty();
+                }
                 var stored = prior.get();
                 var allocation = stored.allocation();
                 var execute = codec.decode(stored);
-                if (!stored.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+                if (!stored.callerScopeHash().equals(actor.scopeHash())) {
+                    throw new CommonException(ACTION_FORBIDDEN);
+                }
                 if (!allocation.orderId().equals(orderId) || !allocation.actorScope().equals(actor.actionScope())
                         || !allocation.actionKey().equals(actionKey) || allocation.state() == AllocationState.INIT
-                        || !execute.orderId().equals(orderId) || !execute.payeeMerchantId().equals(order.order().payeeMerchantId()))
+                        || !execute.orderId().equals(orderId) || !execute.payeeMerchantId().equals(order.order().payeeMerchantId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
-                if (allocation.amount().getCent() != amountMinor || !execute.choice().equals(choice))
+                }
+                if (allocation.amount().getCent() != amountMinor || !execute.choice().equals(choice)) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
+                }
                 var admission = ordersCodec.decodeAdmission(order.admissionPayload(), order.payloadHash());
-                if (!execute.admittedTerms().equals(converter.toAdmitted(order, admission)))
+                if (!execute.admittedTerms().equals(converter.toAdmitted(order, admission))) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 if (allocation.state() == AllocationState.HELD && (order.order().paymentReservedMinor() < amountMinor
-                        || order.order().reservedPaymentCount() < 1)) throw new CommonException(SNAPSHOT_INVALID);
+                        || order.order().reservedPaymentCount() < 1)) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 // The v1 digest already commits the interaction kind. Only an exact NONE digest proves input was intentionally absent.
                 boolean inputless = choice.method() == io.github.loadup.commons.payment.PaymentMethod.H5
                         && allocation.requestDigest().equals(digest(actor, actor.actionScope(),
                         converter.toInputlessStart(orderId, actionKey, amountMinor, choice), order));
-                if (inputless && execute.preparedInputRef() != null) throw new CommonException(SNAPSHOT_INVALID);
+                if (inputless && execute.preparedInputRef() != null) {
+                    throw new CommonException(SNAPSHOT_INVALID);
+                }
                 return java.util.Optional.of(new PaymentRecoveryPlan(stored, !inputless));
             });
-            if (known.isEmpty()) return new PaymentIntentRecovery(PaymentIntentRecovery.State.NOT_OBSERVED, null, null);
+            if (known.isEmpty()) {
+                return new PaymentIntentRecovery(PaymentIntentRecovery.State.NOT_OBSERVED, null, null);
+            }
             var plan = known.get();
             var stored = plan.allocation();
             var execute = codec.decode(stored);
             if (stored.allocation().state() == AllocationState.HELD && plan.inputRequired() && execute.preparedInputRef() == null) {
                 var lookup = payment.lookupInput(actor.tenantId(), converter.toInputLookup(execute, actionKey));
-                if (lookup == null || lookup.found() != (lookup.input() != null))
+                if (lookup == null || lookup.found() != (lookup.input() != null)) {
                     throw new CommonException(SNAPSHOT_INVALID);
+                }
                 if (!lookup.found()) {
-                    if (clock.instant().isBefore(execute.payableUntil().toInstant()))
+                    if (clock.instant().isBefore(execute.payableUntil().toInstant())) {
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null, null);
+                    }
                     return closeExpiredPreparation(actor, execute);
                 }
                 validatePrepared(lookup.input());
@@ -262,24 +306,30 @@ public class PaymentInitiationOperations {
             // Released/tombstoned intents are resolved by the existing outcome receipt, never accepted again.
             if (stored.allocation().state() == AllocationState.HELD) {
                 if (plan.inputRequired()) {
-                    if (execute.preparedInputRef() == null)
+                    if (execute.preparedInputRef() == null) {
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.INPUT_REQUIRED, null, null);
+                    }
                     var resolution = payment.expireInput(actor.tenantId(), converter.toInputExpiry(execute, actionKey));
                     if (resolution == null || !validator.validate(resolution).isEmpty() || resolution.disposition() == null
-                            || !execute.paymentId().equals(resolution.paymentId()) || !execute.orderId().equals(resolution.orderId()))
+                            || !execute.paymentId().equals(resolution.paymentId()) || !execute.orderId().equals(resolution.orderId())) {
                         throw new CommonException(SNAPSHOT_INVALID);
+                    }
                     if (resolution.disposition() == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
                         var proof = resolution.closed();
                         if (proof == null || !validator.validate(proof).isEmpty() || !proof.fenced()
                                 || proof.fenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH
                                 || proof.payment() != null || proof.noCollectionEvidenceId() == null || proof.noCollectionEvidenceId().isBlank()
-                                || !execute.paymentId().equals(proof.paymentId()) || !execute.orderId().equals(proof.orderId()))
+                                || !execute.paymentId().equals(proof.paymentId()) || !execute.orderId().equals(proof.orderId())) {
                             throw new CommonException(SNAPSHOT_INVALID);
+                        }
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), proof);
                     }
-                    if (resolution.closed() != null) throw new CommonException(SNAPSHOT_INVALID);
-                    if (resolution.disposition() == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.PAYMENT_EXISTS)
+                    if (resolution.closed() != null) {
+                        throw new CommonException(SNAPSHOT_INVALID);
+                    }
+                    if (resolution.disposition() == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.PAYMENT_EXISTS) {
                         return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
+                    }
                 }
                 // Exact original idempotent acceptance; no current route, interaction or financial identity is substituted.
                 var result = payment.accept(actor.tenantId(), execute);
@@ -290,19 +340,23 @@ public class PaymentInitiationOperations {
     }
 
     private PaymentIntentRecovery closeExpiredPreparation(PaymentInitiationPrincipal actor, PaymentExecuteCommand execute) {
-        if (!closure.supportsTenant(actor.tenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!closure.supportsTenant(actor.tenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         // Absence is not evidence. The original close serializes with acceptance and fences any late preparation.
         var response = closure.close(actor.tenantId(), converter.toPreparationExpiryClose(execute));
         if (response == null || !validator.validate(response).isEmpty() || !response.fenced()
                 || !execute.paymentId().equals(response.paymentId()) || !execute.orderId().equals(response.orderId())
-                || response.fenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH)
+                || response.fenceEpoch() < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (response.payment() != null) {
             validateResult(execute, response.payment());
             return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
         }
-        if (response.noCollectionEvidenceId() == null || response.noCollectionEvidenceId().isBlank())
+        if (response.noCollectionEvidenceId() == null || response.noCollectionEvidenceId().isBlank()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         return new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), response);
     }
 
@@ -313,15 +367,20 @@ public class PaymentInitiationOperations {
         var current = allocations.findAction(actor.tenantId(), orderId, actor.actionScope(), actionKey)
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!current.callerScopeHash().equals(actor.scopeHash()) || !current.allocation().orderId().equals(orderId)
-                || !current.allocation().actorScope().equals(actor.actionScope()) || !current.allocation().actionKey().equals(actionKey))
+                || !current.allocation().actorScope().equals(actor.actionScope()) || !current.allocation().actionKey().equals(actionKey)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var original = codec.decode(current);
         if (original.preparedInputRef() != null) {
-            if (!original.preparedInputRef().equals(inputRef)) throw new CommonException(IDEMPOTENCY_CONFLICT);
+            if (!original.preparedInputRef().equals(inputRef)) {
+                throw new CommonException(IDEMPOTENCY_CONFLICT);
+            }
             return current;
         }
         if (current.allocation().state() != AllocationState.HELD || current.allocation().paymentSourceVersion() != 0
-                || order.order().state() != AcquireOrderState.PENDING) throw new CommonException(ORDER_NOT_PAYABLE);
+                || order.order().state() != AcquireOrderState.PENDING) {
+            throw new CommonException(ORDER_NOT_PAYABLE);
+        }
         String payload = codec.encode(converter.withPreparedInput(original, inputRef));
         var prepared = converter.withPreparedIntent(current, payload, ordersCodec.checksum(payload));
         allocations.attachInput(actor.tenantId(), current, prepared);
@@ -331,7 +390,9 @@ public class PaymentInitiationOperations {
     private void validatePrepared(PaymentInputDTO prepared) {
         if (prepared == null || !validator.validate(prepared).isEmpty() || prepared.inputRef() == null
                 || prepared.inputDigest() == null || !prepared.inputDigest().matches("[0-9a-f]{64}")
-                || prepared.expiresAt() == null) throw new CommonException(SNAPSHOT_INVALID);
+                || prepared.expiresAt() == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         DomainChecks.id(prepared.inputRef());
     }
 
@@ -343,7 +404,9 @@ public class PaymentInitiationOperations {
             case JSAPI -> command.interaction() instanceof ChannelIdentityInteractionDTO identity
                     && identity.channel() == command.choice().channel();
         };
-        if (!valid) throw new CommonException(INVALID_ARGUMENT);
+        if (!valid) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
     }
 
     private String digest(PaymentInitiationPrincipal actor, String scope, PaymentStartCommand command, StoredAcquireOrder order) {
@@ -365,11 +428,12 @@ public class PaymentInitiationOperations {
                     case ChannelIdentityInteractionDTO ignored -> "CHANNEL_IDENTITY";
                     case H5SceneInteractionDTO ignored -> "H5_SCENE";
                 },
-                order.admission().requestDigest()))
+                order.admission().requestDigest())) {
             canonical
                     .append(field.getBytes(StandardCharsets.UTF_8).length)
                     .append(':')
                     .append(field);
+        }
         return ordersCodec.checksum(canonical.toString());
     }
 
@@ -383,16 +447,22 @@ public class PaymentInitiationOperations {
                 || !execute.orderId().equals(result.orderId())
                 || !execute.allocationId().equals(result.allocationId())
                 || execute.amountMinor() != result.amountMinor()
-                || !execute.currency().equals(result.currency())) throw new CommonException(SNAPSHOT_INVALID);
+                || !execute.currency().equals(result.currency())) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         if (result.state() == PaymentState.INIT
                 && (result.activeAttemptId() != null
                 || result.action() != null
                 || result.terminalEvidenceId() != null
-                || result.version() != 0)) throw new CommonException(SNAPSHOT_INVALID);
+                || result.version() != 0)) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         if ((result.state() == PaymentState.CLOSED
                 || result.state() == PaymentState.FAILED
                 || result.state() == PaymentState.SUCCEEDED)
-                && result.terminalEvidenceId() == null) throw new CommonException(SNAPSHOT_INVALID);
+                && result.terminalEvidenceId() == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private LocalDateTime now() {

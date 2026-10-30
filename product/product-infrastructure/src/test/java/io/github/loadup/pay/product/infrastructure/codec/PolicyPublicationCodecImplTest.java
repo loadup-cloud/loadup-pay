@@ -48,10 +48,12 @@ class PolicyPublicationCodecImplTest {
 
     LimitPolicyActivateCommand command() {
         var rules = new ArrayList<LimitRuleDTO>();
-        for (var window : LimitWindowType.values())
-            for (var metric : LimitMetric.values())
+        for (var window : LimitWindowType.values()) {
+            for (var metric : LimitMetric.values()) {
                 rules.add(new LimitRuleDTO(
                         "stable", "merchant", metric, "CNY", window, 1, 9007199254740993L, true, true));
+            }
+        }
         var unsigned = new LimitPolicyActivateCommand(
                 "policy",
                 1,

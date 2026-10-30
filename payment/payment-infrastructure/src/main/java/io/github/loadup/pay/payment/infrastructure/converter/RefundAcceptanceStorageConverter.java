@@ -32,7 +32,7 @@ public interface RefundAcceptanceStorageConverter {
     RefundAcceptanceEvidence toModel(RefundAcceptanceDO row);
 
     @Mapping(target = "id", source = "value.refundId")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "paymentId", source = "value.original.paymentId")
     @Mapping(target = "attemptId", source = "value.original.attemptId")
     @Mapping(target = "channel", source = "value.original.channel")

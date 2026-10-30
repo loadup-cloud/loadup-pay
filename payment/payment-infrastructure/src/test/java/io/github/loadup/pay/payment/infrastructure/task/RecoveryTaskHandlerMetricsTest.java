@@ -46,7 +46,7 @@ class RecoveryTaskHandlerMetricsTest {
 
     private static DelayedTask task(String type) {
         var at = LocalDateTime.of(2026, 10, 27, 12, 0);
-        return new DelayedTask("task", "tenant", type, "original.0", at, at, DelayedTaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
+        return new DelayedTask("task", type, "original.0", at, at, DelayedTaskStatus.RUNNING, 1, 3, at.plusMinutes(5), null);
     }
 
     @Test

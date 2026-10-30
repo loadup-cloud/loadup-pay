@@ -30,17 +30,20 @@ public record PaymentInputProperties(@DefaultValue("120") int lifetimeSeconds,
                                      @DefaultValue("payment-input") String encryptionKey, String activeFingerprintKeyId,
                                      @DiagnosticHidden Map<String, String> fingerprintKeys) {
     public PaymentInputProperties {
-        if (lifetimeSeconds < 1 || lifetimeSeconds > 600)
+        if (lifetimeSeconds < 1 || lifetimeSeconds > 600) {
             throw new IllegalStateException("Payment input lifetime must be between 1 and 600 seconds");
+        }
         KmsKeyRef.latest(encryptionKey);
         DomainChecks.id(activeFingerprintKeyId);
-        if (fingerprintKeys == null || !fingerprintKeys.containsKey(activeFingerprintKeyId))
+        if (fingerprintKeys == null || !fingerprintKeys.containsKey(activeFingerprintKeyId)) {
             throw new IllegalStateException("Active payment input fingerprint key must be configured");
+        }
         fingerprintKeys = Map.copyOf(fingerprintKeys);
         fingerprintKeys.forEach((id, key) -> {
             DomainChecks.id(id);
-            if (key.isBlank() || key.getBytes(StandardCharsets.UTF_8).length < 32)
+            if (key.isBlank() || key.getBytes(StandardCharsets.UTF_8).length < 32) {
                 throw new IllegalStateException("Payment input fingerprint keys require at least 32 random UTF-8 bytes");
+            }
         });
     }
 

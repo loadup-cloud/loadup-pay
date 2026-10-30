@@ -316,7 +316,7 @@ acquire 实际迁移为 V20261024180000__merchant_notification_delivery.sql；�
 
 ### payment
 
-DDL草案：[payment.sql](schema/payment.sql)。
+DDL草案：[payment.sql](schema/payment.sql)。租户通过 schema 隔离，表内不包含 `tenant_id` 列。
 
 #### `payment_parent_gate`
 
@@ -336,7 +336,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_parent_gate (tenant_id,order_id)`
+- `UNIQUE KEY uk_parent_gate (order_id)`
 
 #### `payment_gate`
 
@@ -355,8 +355,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_payment_gate (tenant_id,payment_id)`
-- `KEY ix_payment_gate_order (tenant_id,order_id)`
+- `UNIQUE KEY uk_payment_gate (payment_id)`
+- `KEY ix_payment_gate_order (order_id)`
 
 #### `payment_order`
 
@@ -385,10 +385,10 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_payment_allocation (tenant_id,allocation_id)`
-- `UNIQUE KEY uk_payment_limit_op (tenant_id,limit_operation_id)`
-- `KEY ix_payment_order (tenant_id,order_id,id)`
-- `KEY ix_payment_payee_page (tenant_id,payee_merchant_id,created_at,id)`
+- `UNIQUE KEY uk_payment_allocation (allocation_id)`
+- `UNIQUE KEY uk_payment_limit_op (limit_operation_id)`
+- `KEY ix_payment_order (order_id,id)`
+- `KEY ix_payment_payee_page (payee_merchant_id,created_at,id)`
 - CHECK `amount_minor > 0`
 
 #### `payment_attempt`
@@ -424,9 +424,9 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_attempt_no (tenant_id,payment_id,attempt_no)`
+- `UNIQUE KEY uk_attempt_no (payment_id,attempt_no)`
 - `UNIQUE KEY uk_attempt_request (channel,account_scope_hash,channel_request_no)`
-- `KEY ix_attempt_query (tenant_id,state,next_query_at,id)`
+- `KEY ix_attempt_query (state,next_query_at,id)`
 - CHECK `attempt_no > 0`
 
 #### `channel_transaction_claim`
@@ -446,7 +446,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 约束/索引：
 
 - `UNIQUE KEY uk_channel_txn (channel,account_scope_hash,channel_transaction_no)`
-- `UNIQUE KEY uk_claim_attempt (tenant_id,attempt_id)`
+- `UNIQUE KEY uk_claim_attempt (attempt_id)`
 
 #### `channel_merchant_binding`
 
@@ -466,8 +466,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_binding_code (tenant_id,payee_merchant_id,binding_code)`
-- `KEY ix_binding_route (tenant_id,payee_merchant_id,channel,access_mode,state)`
+- `UNIQUE KEY uk_binding_code (payee_merchant_id,binding_code)`
+- `KEY ix_binding_route (payee_merchant_id,channel,access_mode,state)`
 
 #### `channel_binding_revision`
 
@@ -489,7 +489,7 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_binding_revision (tenant_id,binding_id,revision)`
+- `UNIQUE KEY uk_binding_revision (binding_id,revision)`
 
 #### `payment_input_secret`
 
@@ -510,8 +510,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_input_key (tenant_id,payment_id,input_key)`
-- `KEY ix_input_expiry (tenant_id,state,expires_at,id)`
+- `UNIQUE KEY uk_input_key (payment_id,input_key)`
+- `KEY ix_input_expiry (state,expires_at,id)`
 
 #### `channel_receipt`
 
@@ -536,9 +536,9 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_receipt (tenant_id,channel,account_scope_hash,receipt_key)`
-- `KEY ix_receipt_payment (tenant_id,payment_id,received_at,id)`
-- `KEY ix_receipt_refund (tenant_id,refund_id,received_at,id)`
+- `UNIQUE KEY uk_receipt (channel,account_scope_hash,receipt_key)`
+- `KEY ix_receipt_payment (payment_id,received_at,id)`
+- `KEY ix_receipt_refund (refund_id,received_at,id)`
 
 #### `payment_anomaly`
 
@@ -558,8 +558,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_anomaly_receipt_type (tenant_id,receipt_id,anomaly_type)`
-- `KEY ix_anomaly_pending (tenant_id,state,created_at,id)`
+- `UNIQUE KEY uk_anomaly_receipt_type (receipt_id,anomaly_type)`
+- `KEY ix_anomaly_pending (state,created_at,id)`
 
 #### `payment_refund_capacity`
 
@@ -580,8 +580,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_refund_capacity_payment (tenant_id,payment_id)`
-- `KEY ix_refund_capacity_fifo (tenant_id,order_id,succeeded_at,payment_id)`
+- `UNIQUE KEY uk_refund_capacity_payment (payment_id)`
+- `KEY ix_refund_capacity_fifo (order_id,succeeded_at,payment_id)`
 - CHECK `succeeded_amount_minor > 0 AND refunded_minor >= 0 AND reserved_minor >= 0`
 - CHECK `refunded_minor <= succeeded_amount_minor AND reserved_minor <= succeeded_amount_minor - refunded_minor`
 
@@ -610,8 +610,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_refund_merchant (tenant_id,payee_merchant_id,merchant_refund_no)`
-- `KEY ix_refund_request_order (tenant_id,order_id,created_at,id)`
+- `UNIQUE KEY uk_refund_merchant (payee_merchant_id,merchant_refund_no)`
+- `KEY ix_refund_request_order (order_id,created_at,id)`
 - CHECK `amount_minor > 0 AND succeeded_minor >= 0 AND failed_minor >= 0`
 - CHECK `succeeded_minor <= amount_minor AND failed_minor <= amount_minor - succeeded_minor`
 
@@ -632,9 +632,9 @@ DDL草案：[payment.sql](schema/payment.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_refund_plan_seq (tenant_id,refund_request_id,plan_version,sequence_no)`
-- `UNIQUE KEY uk_refund_plan_payment (tenant_id,refund_request_id,plan_version,payment_id)`
-- `UNIQUE KEY uk_refund_plan_child (tenant_id,refund_id)`
+- `UNIQUE KEY uk_refund_plan_seq (refund_request_id,plan_version,sequence_no)`
+- `UNIQUE KEY uk_refund_plan_payment (refund_request_id,plan_version,payment_id)`
+- `UNIQUE KEY uk_refund_plan_child (refund_id)`
 - CHECK `amount_minor > 0`
 
 #### `refund_order`
@@ -665,8 +665,8 @@ DDL草案：[payment.sql](schema/payment.sql)。
 约束/索引：
 
 - `UNIQUE KEY uk_refund_channel_no (channel,account_scope_hash,channel_refund_no)`
-- `KEY ix_refund_child_request (tenant_id,refund_request_id,id)`
-- `KEY ix_refund_query (tenant_id,state,next_query_at,id)`
+- `KEY ix_refund_child_request (refund_request_id,id)`
+- `KEY ix_refund_query (state,next_query_at,id)`
 - CHECK `amount_minor > 0`
 
 #### 退款商户通知所有权
@@ -685,25 +685,26 @@ DDL草案：[customer.sql](schema/customer.sql)。
 平台父子关系；不代表渠道服务商关系或完整代操作权限。
 
 关系与授权的撤销历史不覆盖。同一业务对象只允许一条INIT/ACTIVE记录，撤销后可用新ID、新幂等键显式新建。过期但尚未撤销的记录仍占用唯一槽，必须先撤销，不能因到期或软删除自动复用。customer首批实际迁移见
-`customer-infrastructure/src/main/resources/db/migration/`，本节SQL草案与其保持一致。
+`customer-infrastructure/src/main/resources/db/migration/`，本节SQL草案与其保持一致。租户通过 schema 隔离，表内不包含
+`tenant_id` 列。
 
 以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
 
-| 列                   | 类型/约束                       | 说明                                        |
-|----------------------|---------------------------------|---------------------------------------------|
-| `parent_merchant_id` | `VARCHAR(64) NOT NULL`          | 平台父商户                                  |
-| `child_merchant_id`  | `VARCHAR(64) NOT NULL`          | 独立实际商户                                |
-| `relation_type`      | `VARCHAR(24) NOT NULL`          | MANAGEMENT                                  |
-| `state`              | `VARCHAR(24) NOT NULL`          | INIT / ACTIVE / REVOKED                     |
-| `valid_from`         | `DATETIME(6) NOT NULL`          | 生效区间                                    |
-| `valid_to`           | `DATETIME(6) NULL`              | 空表示无固定终点                            |
-| `row_version`        | `BIGINT NOT NULL DEFAULT 0`     | 关系版本                                    |
-| `active_slot`        | `TINYINT GENERATED STORED NULL` | INIT/ACTIVE为1，REVOKED为NULL；由数据库计算 |
+| 列                   | 类型/约束                   | 说明                    |
+|----------------------|-----------------------------|-------------------------|
+| `parent_merchant_id` | `VARCHAR(64) NOT NULL`      | 平台父商户              |
+| `child_merchant_id`  | `VARCHAR(64) NOT NULL`      | 独立实际商户            |
+| `relation_type`      | `VARCHAR(24) NOT NULL`      | MANAGEMENT              |
+| `state`              | `VARCHAR(24) NOT NULL`      | INIT / ACTIVE / REVOKED |
+| `valid_from`         | `DATETIME(6) NOT NULL`      | 生效区间                |
+| `valid_to`           | `DATETIME(6) NULL`          | 空表示无固定终点        |
+| `row_version`        | `BIGINT NOT NULL DEFAULT 0` | 关系版本                |
 
 约束/索引：
 
-- `UNIQUE KEY uk_merchant_relationship (tenant_id,parent_merchant_id,child_merchant_id,relation_type,active_slot)`
-- `KEY ix_relationship_child (tenant_id,child_merchant_id,state)`
+-
+`UNIQUE INDEX uk_merchant_relationship (parent_merchant_id,child_merchant_id,relation_type) WHERE state IN ('INIT','ACTIVE')`
+- `INDEX ix_relationship_child (child_merchant_id,state)`
 - CHECK `parent_merchant_id <> child_merchant_id`
 
 #### `merchant_action_grant`
@@ -712,23 +713,23 @@ DDL草案：[customer.sql](schema/customer.sql)。
 
 以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
 
-| 列                  | 类型/约束                       | 说明                                             |
-|---------------------|---------------------------------|--------------------------------------------------|
-| `principal_type`    | `VARCHAR(24) NOT NULL`          | MERCHANT_APP / MERCHANT / OPERATOR               |
-| `principal_id`      | `VARCHAR(128) NOT NULL`         | 认证系统稳定主体                                 |
-| `payee_merchant_id` | `VARCHAR(64) NOT NULL`          | 被授权商户                                       |
-| `relationship_id`   | `VARCHAR(64) NULL`              | 代子商户操作时的关系依据                         |
-| `action`            | `VARCHAR(32) NOT NULL`          | CREATE_ORDER / REFUND / QUERY / MANAGE_BINDING等 |
-| `state`             | `VARCHAR(24) NOT NULL`          | INIT / ACTIVE / REVOKED                          |
-| `valid_from`        | `DATETIME(6) NOT NULL`          | 有效起点                                         |
-| `valid_to`          | `DATETIME(6) NULL`              | 有效终点                                         |
-| `row_version`       | `BIGINT NOT NULL DEFAULT 0`     | 授权版本                                         |
-| `active_slot`       | `TINYINT GENERATED STORED NULL` | INIT/ACTIVE为1，REVOKED为NULL；由数据库计算      |
+| 列                  | 类型/约束                   | 说明                                             |
+|---------------------|-----------------------------|--------------------------------------------------|
+| `principal_type`    | `VARCHAR(24) NOT NULL`      | MERCHANT_APP / MERCHANT / OPERATOR               |
+| `principal_id`      | `VARCHAR(128) NOT NULL`     | 认证系统稳定主体                                 |
+| `payee_merchant_id` | `VARCHAR(64) NOT NULL`      | 被授权商户                                       |
+| `relationship_id`   | `VARCHAR(64) NULL`          | 代子商户操作时的关系依据                         |
+| `action`            | `VARCHAR(32) NOT NULL`      | CREATE_ORDER / REFUND / QUERY / MANAGE_BINDING等 |
+| `state`             | `VARCHAR(24) NOT NULL`      | INIT / ACTIVE / REVOKED                          |
+| `valid_from`        | `DATETIME(6) NOT NULL`      | 有效起点                                         |
+| `valid_to`          | `DATETIME(6) NULL`          | 有效终点                                         |
+| `row_version`       | `BIGINT NOT NULL DEFAULT 0` | 授权版本                                         |
 
 约束/索引：
 
-- `UNIQUE KEY uk_merchant_action (tenant_id,principal_type,principal_id,payee_merchant_id,action,active_slot)`
-- `KEY ix_grant_payee (tenant_id,payee_merchant_id,state)`
+-
+`UNIQUE INDEX uk_merchant_action (principal_type,principal_id,payee_merchant_id,action) WHERE state IN ('INIT','ACTIVE')`
+- `INDEX ix_grant_payee (payee_merchant_id,state)`
 
 ### product（2张新增表）
 
@@ -736,7 +737,7 @@ DDL草案：[product.sql](schema/product.sql)。
 
 #### `order_admission`
 
-当前合约的新订单持久准入；同orderId重试先回原决定。
+当前合约的新订单持久准入；同orderId重试先回原决定。租户通过 schema 隔离，表内不包含 `tenant_id` 列。
 
 以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
 
@@ -765,15 +766,15 @@ DDL草案：[product.sql](schema/product.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_admission_order (tenant_id,order_id)`
-- `KEY ix_admission_contract (tenant_id,contract_id,created_at,id)`
+- `UNIQUE INDEX uk_admission_order (order_id)`
+- `INDEX ix_admission_contract (contract_id,created_at,id)`
 
 本批实际迁移位于`product-infrastructure/src/main/resources/db/migration/`
 。所有意图字段单独保存并参与重放比对；调用者保持requestDigest不变不能绕过金额或产品范围检查。允许结果的可空字段组由CHECK要求完整，拒绝结果要求全部为空；唯一键冲突后先回滚，再读原结果。
 
 #### `contract_limit_publication`
 
-原合约policy发布和limitcenter激活ACK；无ACK不放行新单。
+原合约policy发布和limitcenter激活ACK；无ACK不放行新单。租户通过 schema 隔离，表内不包含 `tenant_id` 列。
 
 以下为公共五字段以外的完整列。未写DEFAULT的列由业务显式写入；NULL只用于尚未产生的事实。
 
@@ -797,14 +798,15 @@ DDL草案：[product.sql](schema/product.sql)。
 
 约束/索引：
 
-- `UNIQUE KEY uk_contract_policy_publication (tenant_id,contract_id,contract_revision)`
-- `UNIQUE KEY uk_policy_publication_version (tenant_id,policy_id,policy_version)`
-- `UNIQUE KEY uk_initial_policy_merchant (tenant_id,payee_merchant_id)`
-- `UNIQUE KEY uk_publication_outbox (tenant_id,outbox_event_id)`
+- `UNIQUE INDEX uk_contract_policy_publication (contract_id,contract_revision)`
+- `UNIQUE INDEX uk_policy_publication_version (policy_id,policy_version)`
+- `UNIQUE INDEX uk_initial_policy_merchant (payee_merchant_id)`
+- `UNIQUE INDEX uk_publication_outbox (outbox_event_id)`
 
 ### limitcenter（10张目标表，分批实现8张）
 
-DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许可一表分别形成加法迁移，差异及执行边界见第7、8节；退款恢复及历史两表仍为设计。
+DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许可一表分别形成加法迁移，差异及执行边界见第7、8节；退款恢复及历史两表仍为设计。租户通过
+schema 隔离，表内不包含 `tenant_id` 列。
 
 #### `limit_policy_head`
 
@@ -827,7 +829,7 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_policy_version (tenant_id,policy_id,policy_version)`
+- `UNIQUE KEY uk_limit_policy_version (policy_id,policy_version)`
 
 #### `limit_rule_runtime`
 
@@ -853,7 +855,7 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_runtime_scope (tenant_id,rule_scope_id,merchant_id,metric,currency,window_type)`
+- `UNIQUE KEY uk_limit_runtime_scope (rule_scope_id,merchant_id,metric,currency,window_type)`
 - CHECK `current_limit >= 0 AND week_start BETWEEN 1 AND 7`
 
 #### `limit_bucket`
@@ -877,8 +879,8 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_bucket (tenant_id,rule_scope_id,merchant_id,metric,currency,window_type,window_start,window_end)`
-- `KEY ix_bucket_merchant (tenant_id,merchant_id,window_type,window_start)`
+- `UNIQUE KEY uk_limit_bucket (rule_scope_id,merchant_id,metric,currency,window_type,window_start,window_end)`
+- `KEY ix_bucket_merchant (merchant_id,window_type,window_start)`
 - CHECK `used_value >= 0 AND held_value >= 0`
 - CHECK `window_start < window_end`
 
@@ -897,8 +899,8 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_gate_operation (tenant_id,operation_id)`
-- `UNIQUE KEY uk_limit_gate_payment (tenant_id,payment_id)`
+- `UNIQUE KEY uk_limit_gate_operation (operation_id)`
+- `UNIQUE KEY uk_limit_gate_payment (payment_id)`
 
 #### `limit_reservation`
 
@@ -929,9 +931,9 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_operation (tenant_id,operation_id)`
-- `UNIQUE KEY uk_limit_payment (tenant_id,payment_id)`
-- `KEY ix_reservation_expire (tenant_id,state,reserve_expires_at,id)`
+- `UNIQUE KEY uk_limit_operation (operation_id)`
+- `UNIQUE KEY uk_limit_payment (payment_id)`
+- `KEY ix_reservation_expire (state,reserve_expires_at,id)`
 - CHECK `amount_minor > 0`
 
 #### `limit_reservation_item`
@@ -950,7 +952,7 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_item_bucket (tenant_id,reservation_id,bucket_id)`
+- `UNIQUE KEY uk_limit_item_bucket (reservation_id,bucket_id)`
 - CHECK `reserved_value > 0 AND consumed_value >= 0 AND restored_value >= 0`
 - CHECK `consumed_value <= reserved_value AND restored_value <= consumed_value`
 
@@ -969,7 +971,7 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_refund_restore (tenant_id,refund_id,reservation_item_id)`
+- `UNIQUE KEY uk_limit_refund_restore (refund_id,reservation_item_id)`
 - CHECK `restore_value >= 0`
 
 #### `limit_operation_history`
@@ -990,12 +992,12 @@ DDL草案：[limitcenter.sql](schema/limitcenter.sql)。预占七表与执行许
 
 约束/索引：
 
-- `UNIQUE KEY uk_limit_history_transition (tenant_id,operation_id,transition_key)`
-- `KEY ix_limit_history (tenant_id,operation_id,created_at,id)`
+- `UNIQUE KEY uk_limit_history_transition (operation_id,transition_key)`
+- `KEY ix_limit_history (operation_id,created_at,id)`
 
 ### realtime（5张新增表）
 
-DDL草案：[realtime.sql](schema/realtime.sql)。
+DDL草案：[realtime.sql](schema/realtime.sql)。租户通过 schema 隔离，表内不包含 `tenant_id` 列。
 
 #### `trade_order_projection`
 
@@ -1020,9 +1022,9 @@ acquire完整订单投影，不放refund字段混写来源。
 
 约束/索引：
 
-- `UNIQUE KEY uk_trade_order (tenant_id,order_id)`
-- `UNIQUE KEY uk_trade_merchant_order (tenant_id,payee_merchant_id,merchant_order_no)`
-- `KEY ix_trade_order_page (tenant_id,payee_merchant_id,order_created_at,order_id)`
+- `UNIQUE KEY uk_trade_order (order_id)`
+- `UNIQUE KEY uk_trade_merchant_order (payee_merchant_id,merchant_order_no)`
+- `KEY ix_trade_order_page (payee_merchant_id,order_created_at,order_id)`
 
 #### `trade_payment_projection`
 
@@ -1046,9 +1048,9 @@ acquire完整订单投影，不放refund字段混写来源。
 
 约束/索引：
 
-- `UNIQUE KEY uk_trade_payment (tenant_id,payment_id)`
-- `KEY ix_trade_payment_order (tenant_id,order_id,payment_id)`
-- `KEY ix_trade_payment_page (tenant_id,payee_merchant_id,created_at,payment_id)`
+- `UNIQUE KEY uk_trade_payment (payment_id)`
+- `KEY ix_trade_payment_order (order_id,payment_id)`
+- `KEY ix_trade_payment_page (payee_merchant_id,created_at,payment_id)`
 
 #### `trade_refund_projection`
 
@@ -1072,9 +1074,9 @@ acquire完整订单投影，不放refund字段混写来源。
 
 约束/索引：
 
-- `UNIQUE KEY uk_trade_refund (tenant_id,refund_id)`
-- `KEY ix_trade_refund_order (tenant_id,order_id,refund_id)`
-- `KEY ix_trade_refund_request (tenant_id,refund_request_id,refund_id)`
+- `UNIQUE KEY uk_trade_refund (refund_id)`
+- `KEY ix_trade_refund_order (order_id,refund_id)`
+- `KEY ix_trade_refund_request (refund_request_id,refund_id)`
 
 #### `trade_refund_summary`
 
@@ -1093,7 +1095,7 @@ payment按orderId发送独立完整退款汇总，版本不与acquire比较。
 
 约束/索引：
 
-- `UNIQUE KEY uk_trade_refund_summary (tenant_id,order_id)`
+- `UNIQUE KEY uk_trade_refund_summary (order_id)`
 
 #### `projection_checkpoint`
 
@@ -1112,7 +1114,7 @@ payment按orderId发送独立完整退款汇总，版本不与acquire比较。
 
 约束/索引：
 
-- `UNIQUE KEY uk_projection_checkpoint (tenant_id,producer,stream_key)`
+- `UNIQUE KEY uk_projection_checkpoint (producer,stream_key)`
 
 ## 4. 本地事务与固定锁顺序
 
@@ -1405,7 +1407,7 @@ V20261022100000__channel_bindings.sql 新增 payment 的第6—8表：
 - channel_binding_change_receipt：tenant/bindingId/requestKey 唯一且不含 deleted，固定
   PUBLISH/SUSPEND/REVOKE、request_digest、服务身份、原 revisionId/ordinal、applied state/version/时间。重放不能修改当前路由或生成另一版本。
 
-公共字段由持久化路径显式维护，时间使用 PostgreSQL timestamp(6)，ID 按模块约定生成。MapStruct 转换
+公共字段由持久化路径显式维护，时间使用 PostgreSQL timestamp (6)，ID 按模块约定生成。MapStruct 转换
 domain/DO/DTO，查询和更新显式维护 tenant/deleted 与 CAS 条件。管理事务先锁 head，再写
 revision/头/回执；选路在持有父/单笔门禁之后按 head.id 稳定加锁，读取不可变 revision，再按 priority/id 排候选。管理操作不持有
 payment 锁或发网络请求。
@@ -1993,7 +1995,7 @@ mapper 聚合映射尚未运行验证。
 payment_order / refund_order 增加 first_unknown_at DATETIME (6) NULL，并 CHECK (state <> 'UNKNOWN' OR first_unknown_at IS
 NOT NULL)。
 初始非 UNKNOWN 记录为空；进入 UNKNOWN 的状态更新和首次时间由同一版本 CAS 提交，失败一起回滚；后续和终态保留。
-时间来自既有 paymentClock 的系统本地时区，截断微秒，不改变原资金意图/公开协议/摘要/额度语义。该列不是新增金融结果裁定来源。
+时间来自共享 Clock 的系统本地时区，截断微秒，不改变原资金意图/公开协议/摘要/额度语义。该列不是新增金融结果裁定来源。
 开发期直接同步 V20261022020000__payment_acceptance.sql 和
 V20261023030000__refund_planning.sql；不提供旧记录回填/兼容默认，已有开发库按新结构重建。
 仅 schema 与测试源码变更，没有执行任何数据库操作或生成 TableDef；运行、迁移和并发证明仍待用户验收。

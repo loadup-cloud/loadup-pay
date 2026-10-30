@@ -5,7 +5,6 @@
 CREATE TABLE trade_order_projection
 (
     id                     VARCHAR(64) NOT NULL,
-    tenant_id              VARCHAR(64) NOT NULL,
     created_at             DATETIME(6) NOT NULL,
     updated_at             DATETIME(6) NOT NULL,
     deleted                TINYINT     NOT NULL DEFAULT 0,
@@ -22,9 +21,9 @@ CREATE TABLE trade_order_projection
     order_created_at       DATETIME(6) NOT NULL,
     snapshot_at            DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_trade_order (tenant_id, order_id),
-    UNIQUE KEY uk_trade_merchant_order (tenant_id, payee_merchant_id, merchant_order_no),
-    KEY                    ix_trade_order_page(tenant_id, payee_merchant_id, order_created_at, order_id)
+    UNIQUE KEY uk_trade_order (order_id),
+    UNIQUE KEY uk_trade_merchant_order (payee_merchant_id, merchant_order_no),
+    KEY                    ix_trade_order_page(payee_merchant_id, order_created_at, order_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -32,7 +31,6 @@ CREATE TABLE trade_order_projection
 CREATE TABLE trade_payment_projection
 (
     id                VARCHAR(64) NOT NULL,
-    tenant_id         VARCHAR(64) NOT NULL,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,
     deleted           TINYINT     NOT NULL DEFAULT 0,
@@ -48,9 +46,9 @@ CREATE TABLE trade_payment_projection
     source_version    BIGINT      NOT NULL,
     snapshot_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_trade_payment (tenant_id, payment_id),
-    KEY               ix_trade_payment_order(tenant_id, order_id, payment_id),
-    KEY               ix_trade_payment_page(tenant_id, payee_merchant_id, created_at, payment_id)
+    UNIQUE KEY uk_trade_payment (payment_id),
+    KEY               ix_trade_payment_order(order_id, payment_id),
+    KEY               ix_trade_payment_page(payee_merchant_id, created_at, payment_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -58,7 +56,6 @@ CREATE TABLE trade_payment_projection
 CREATE TABLE trade_refund_projection
 (
     id                VARCHAR(64) NOT NULL,
-    tenant_id         VARCHAR(64) NOT NULL,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,
     deleted           TINYINT     NOT NULL DEFAULT 0,
@@ -74,9 +71,9 @@ CREATE TABLE trade_refund_projection
     source_version    BIGINT      NOT NULL,
     snapshot_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_trade_refund (tenant_id, refund_id),
-    KEY               ix_trade_refund_order(tenant_id, order_id, refund_id),
-    KEY               ix_trade_refund_request(tenant_id, refund_request_id, refund_id)
+    UNIQUE KEY uk_trade_refund (refund_id),
+    KEY               ix_trade_refund_order(order_id, refund_id),
+    KEY               ix_trade_refund_request(refund_request_id, refund_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -84,7 +81,6 @@ CREATE TABLE trade_refund_projection
 CREATE TABLE trade_refund_summary
 (
     id                    VARCHAR(64) NOT NULL,
-    tenant_id             VARCHAR(64) NOT NULL,
     created_at            DATETIME(6) NOT NULL,
     updated_at            DATETIME(6) NOT NULL,
     deleted               TINYINT     NOT NULL DEFAULT 0,
@@ -95,7 +91,7 @@ CREATE TABLE trade_refund_summary
     source_version        BIGINT      NOT NULL,
     snapshot_at           DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_trade_refund_summary (tenant_id, order_id)
+    UNIQUE KEY uk_trade_refund_summary (order_id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;
@@ -103,7 +99,6 @@ CREATE TABLE trade_refund_summary
 CREATE TABLE projection_checkpoint
 (
     id              VARCHAR(64)  NOT NULL,
-    tenant_id       VARCHAR(64)  NOT NULL,
     created_at      DATETIME(6)  NOT NULL,
     updated_at      DATETIME(6)  NOT NULL,
     deleted         TINYINT      NOT NULL DEFAULT 0,
@@ -114,7 +109,7 @@ CREATE TABLE projection_checkpoint
     state           VARCHAR(24)  NOT NULL,
     row_version     BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_projection_checkpoint (tenant_id, producer, stream_key)
+    UNIQUE KEY uk_projection_checkpoint (producer, stream_key)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_bin;

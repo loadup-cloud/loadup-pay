@@ -54,10 +54,11 @@ public record OrderFee(
                         && adjustedMinor <= feeAmount.getCent(),
                 INVALID_ARGUMENT);
         require(state == FeeState.CONFIRMED || adjustedMinor == 0, INVALID_STATE);
-        if (state == FeeState.CONFIRMED)
+        if (state == FeeState.CONFIRMED) {
             require(
                     adjustedMinor <= policy.refundableFee(feeAmount.getCent(), baseAmount.getCent(), refundBasisMinor),
                     CONFLICT);
+        }
     }
 
     public static OrderFee init(String id, String orderId, Money base, OrderFeePolicy policy) {

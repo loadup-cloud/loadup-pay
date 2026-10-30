@@ -80,39 +80,56 @@ public class AcquiringTermsCompiler {
             r.exact("refund.allocationPolicy", "FIFO");
             r.exact("limit.countingBasis", "INITIATED_AT");
             long weekStart = r.integer("limit.weekStart");
-            if (weekStart < 1 || weekStart > 7) throw unsupported();
+            if (weekStart < 1 || weekStart > 7) {
+                throw unsupported();
+            }
             String policyId = r.text("limit.policyRef");
-            if (!policyId.equals(policy.policyId())) throw unsupported();
+            if (!policyId.equals(policy.policyId())) {
+                throw unsupported();
+            }
             boolean parent = r.bool("limit.parentAggregationEnabled");
             String parentRef = r.optionalText("limit.parentPolicyRef");
-            if (parent && (parentRef == null || parentRef.isBlank())) throw unsupported();
+            if (parent && (parentRef == null || parentRef.isBlank())) {
+                throw unsupported();
+            }
             for (String window : List.of("DAY", "WEEK", "MONTH", "LIFETIME")) {
                 for (String metric : List.of("AMOUNT", "PAYMENT_COUNT")) {
                     String prefix = "limit." + window + "." + metric;
                     boolean enabled = r.optionalBool(prefix + ".enabled");
                     Long threshold = r.optionalInteger(prefix + ".threshold");
-                    if (enabled && threshold == null || threshold != null && threshold < 0) throw unsupported();
+                    if (enabled && threshold == null || threshold != null && threshold < 0) {
+                        throw unsupported();
+                    }
                 }
             }
             boolean countEnabled = r.bool("payment.maxSuccessfulPaymentsEnabled");
             Long count = r.optionalInteger("payment.maxSuccessfulPayments");
-            if (countEnabled && count == null || count != null && count <= 0) throw unsupported();
+            if (countEnabled && count == null || count != null && count <= 0) {
+                throw unsupported();
+            }
             boolean maximumEnabled = r.bool("fee.maximumEnabled");
             Long maximum = r.optionalInteger("fee.maximumMinor");
-            if (maximumEnabled && maximum == null || maximum != null && maximum < 0) throw unsupported();
+            if (maximumEnabled && maximum == null || maximum != null && maximum < 0) {
+                throw unsupported();
+            }
             List<ChannelCapabilityDTO> capabilities = new ArrayList<>();
             for (Channel channel : Channel.values()) {
                 for (AccessMode mode : AccessMode.values()) {
                     Set<PaymentMethod> methods = EnumSet.noneOf(PaymentMethod.class);
                     for (PaymentMethod method : PaymentMethod.values()) {
                         if (r.optionalBool(
-                                "channel." + channel.name() + "." + mode.name() + "." + method.name() + ".enabled"))
+                                "channel." + channel.name() + "." + mode.name() + "." + method.name() + ".enabled")) {
                             methods.add(method);
+                        }
                     }
-                    if (!methods.isEmpty()) capabilities.add(new ChannelCapabilityDTO(channel, mode, methods));
+                    if (!methods.isEmpty()) {
+                        capabilities.add(new ChannelCapabilityDTO(channel, mode, methods));
+                    }
                 }
             }
-            if ("UNNECESSARY".equals(r.text("fee.rounding"))) throw unsupported();
+            if ("UNNECESSARY".equals(r.text("fee.rounding"))) {
+                throw unsupported();
+            }
             var terms = new AcquiringTermsDTO(
                     1,
                     new OrderTermsDTO(
@@ -161,7 +178,9 @@ public class AcquiringTermsCompiler {
                     r.text("channel.routingProfileRef"),
                     r.text("checkout.returnTargetCode"));
             r.requireAllConsumed();
-            if (!validator.validate(terms).isEmpty()) throw unsupported();
+            if (!validator.validate(terms).isEmpty()) {
+                throw unsupported();
+            }
             return terms;
         } catch (IllegalArgumentException | ArithmeticException failure) {
             throw unsupported();
@@ -179,8 +198,12 @@ public class AcquiringTermsCompiler {
         private TypedValue get(String key, ValueType type, boolean optional) {
             consumed.add(key);
             TypedValue value = values.get(key);
-            if (value == null && optional) return null;
-            if (value == null || value.type() != type) throw unsupported();
+            if (value == null && optional) {
+                return null;
+            }
+            if (value == null || value.type() != type) {
+                throw unsupported();
+            }
             return value;
         }
 
@@ -216,11 +239,15 @@ public class AcquiringTermsCompiler {
         }
 
         void exact(String key, String expected) {
-            if (!expected.equals(text(key))) throw unsupported();
+            if (!expected.equals(text(key))) {
+                throw unsupported();
+            }
         }
 
         void requireAllConsumed() {
-            if (!consumed.containsAll(values.keySet())) throw unsupported();
+            if (!consumed.containsAll(values.keySet())) {
+                throw unsupported();
+            }
         }
     }
 }

@@ -56,7 +56,9 @@ public record MerchantRelationship(
     }
 
     public MerchantRelationship activate() {
-        if (state == GrantState.ACTIVE) return this;
+        if (state == GrantState.ACTIVE) {
+            return this;
+        }
         require(state == GrantState.INIT, INVALID_STATE);
         return new MerchantRelationship(
                 id,
@@ -69,7 +71,9 @@ public record MerchantRelationship(
     }
 
     public MerchantRelationship revoke() {
-        if (state == GrantState.REVOKED) return this;
+        if (state == GrantState.REVOKED) {
+            return this;
+        }
         return new MerchantRelationship(
                 id,
                 parentMerchantId,

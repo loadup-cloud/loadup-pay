@@ -34,7 +34,6 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -70,7 +69,7 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
     public OrderExtensionService(AcquireActorProvider actors, OrderCreationGateway orders, OrderExtensionGateway store,
                                  OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
                                  OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-                                 @Qualifier("acquireClock") Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
+                                 Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -87,23 +86,33 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
 
     @Override
     public AcquireOrderDTO extend(AcquireOrderExtendCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (command == null || !validator.validate(command).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!actor.permissions().contains("pay:acquire:extend")) throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (!actor.permissions().contains("pay:acquire:extend")) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
             var requested = inputTime(command.requestedDueAt());
             String digest = digest(actor, command, requested);
             var stored = orders.lockOrder(actor.tenantId(), command.id());
-            if (!stored.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+            if (!stored.callerScopeHash().equals(actor.scopeHash())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             var order = stored.order();
             long deadlineVersion = store.deadlineVersion(actor.tenantId(), order);
             var previous = store.findReceipt(actor.tenantId(), command.id(), command.requestKey());
             if (previous.isPresent()) {
                 var receipt = previous.get();
-                if (!receipt.callerScopeHash().equals(actor.scopeHash())) throw new CommonException(ACTION_FORBIDDEN);
+                if (!receipt.callerScopeHash().equals(actor.scopeHash())) {
+                    throw new CommonException(ACTION_FORBIDDEN);
+                }
                 receipt.requireSameRequest(actor.scopeHash(), digest, command.expectedVersion(), requested);
                 try {
                     receipt.requireAppliedTo(order, deadlineVersion);
@@ -112,12 +121,18 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 }
                 return orderConverter.toDTO(stored, now());
             }
-            if (order.version() != command.expectedVersion()) throw new CommonException(VERSION_CONFLICT);
+            if (order.version() != command.expectedVersion()) {
+                throw new CommonException(VERSION_CONFLICT);
+            }
             var admission = codec.decodeAdmission(stored.admissionPayload(), stored.payloadHash());
             var terms = admission.terms().order();
             var appliedAt = now();
-            if (!order.canAcceptNewPayment(appliedAt)) throw new CommonException(ORDER_NOT_PAYABLE);
-            if (!terms.extensionAllowed()) throw new CommonException(ACTION_FORBIDDEN);
+            if (!order.canAcceptNewPayment(appliedAt)) {
+                throw new CommonException(ORDER_NOT_PAYABLE);
+            }
+            if (!terms.extensionAllowed()) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
             var originalDue = originalDue(actor, stored, terms);
             var extended = order.extend(requested, originalDue, terms.extensionAllowed(), terms.extensionMaxSeconds(), appliedAt);
             var receipt = converter.toReceipt(command, order, ids.generate(), actor.scopeHash(), digest,
@@ -136,8 +151,9 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (!"COMPLETED".equals(intent.state()) || !order.order().id().equals(intent.orderId())
                     || !actor.scopeHash().equals(intent.callerScopeHash())
-                    || !order.admission().requestDigest().equals(intent.requestDigest()))
+                    || !order.admission().requestDigest().equals(intent.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             AcquireOrderCreateCommand original;
             String digest;
             if ("ORDER".equals(intent.entryMode())) {
@@ -151,13 +167,16 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 var direct = codec.decodeDirectPay(intent);
                 original = orderConverter.toOrderCreate(direct);
                 digest = codec.directPayDigest(actor.tenantId(), actor.scopeHash(), direct);
-            } else throw new CommonException(SNAPSHOT_INVALID);
+            } else {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             var due = original.requestedDueAt() == null
                     ? order.admittedAt().plusSeconds(terms.waitSeconds()) : inputTime(original.requestedDueAt());
             if (!digest.equals(intent.requestDigest()) || !due.isAfter(order.admittedAt())
                     || due.isAfter(order.admittedAt().plusSeconds(terms.maxWaitSeconds()))
-                    || due.isAfter(order.order().orderDueAt()) || due.getYear() > 9998)
+                    || due.isAfter(order.order().orderDueAt()) || due.getYear() > 9998) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return due;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -166,16 +185,18 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
 
     private LocalDateTime inputTime(OffsetDateTime value) {
         var time = BusinessTime.local(value);
-        if (time.getYear() < 1970 || time.getYear() > 9998 || time.getNano() % 1000 != 0)
+        if (time.getYear() < 1970 || time.getYear() > 9998 || time.getNano() % 1000 != 0) {
             throw new CommonException(INVALID_ARGUMENT);
+        }
         return time;
     }
 
     private String digest(AcquireActor actor, AcquireOrderExtendCommand command, LocalDateTime requested) {
         var framed = new StringBuilder();
         for (String field : List.of("acquire.order-extend.v1", actor.tenantId(), actor.scopeHash(), command.id(),
-                command.requestKey(), requested.toString(), Long.toString(command.expectedVersion())))
+                command.requestKey(), requested.toString(), Long.toString(command.expectedVersion()))) {
             framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        }
         return codec.checksum(framed.toString());
     }
 

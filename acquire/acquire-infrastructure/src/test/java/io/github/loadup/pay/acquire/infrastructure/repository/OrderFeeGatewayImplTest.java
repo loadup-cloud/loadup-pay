@@ -74,7 +74,6 @@ class OrderFeeGatewayImplTest {
         when(adjustments.getJdbcTemplate()).thenReturn(jdbcTemplate);
         when(jdbcTemplate.getDataSource()).thenReturn(dataSource);
         row.setId("fee");
-        row.setTenantId("tenant");
         row.setOrderId("order");
         row.setFeeType("ORDER_AMOUNT");
         row.setCurrency("CNY");
@@ -100,7 +99,9 @@ class OrderFeeGatewayImplTest {
             row.setRefundBasisMinor((Long) patch.getValue("basis"));
             row.setAdjustedAmountMinor((Long) patch.getValue("adjusted"));
             row.setRowVersion((Long) patch.getValue("version"));
-            if (patch.getValue("confirmed") != null) row.setConfirmedAt((LocalDateTime) patch.getValue("confirmed"));
+            if (patch.getValue("confirmed") != null) {
+                row.setConfirmedAt((LocalDateTime) patch.getValue("confirmed"));
+            }
             return 1;
         });
     }

@@ -67,31 +67,42 @@ public class PaymentInputPublication {
     public void requireNew(PaymentActor actor, PaymentInputPrepareCommand command, StoredPaymentGate parent) {
         writable(actor);
         bound(parent, actor, command, null);
-        if (parent.gate().state() != GateState.OPEN) throw new CommonException(EXECUTION_FENCED);
+        if (parent.gate().state() != GateState.OPEN) {
+            throw new CommonException(EXECUTION_FENCED);
+        }
         var child = payments.lockPayment(actor.tenantId(), command.paymentId());
         if (child.isPresent()) {
             bound(child.get(), actor, command, command.paymentId());
-            if (child.get().gate().state() == GateState.FENCED) throw new CommonException(EXECUTION_FENCED);
+            if (child.get().gate().state() == GateState.FENCED) {
+                throw new CommonException(EXECUTION_FENCED);
+            }
             // A published input cannot be retrofitted into an already accepted inputless payment.
-            if (payments.find(actor.tenantId(), command.paymentId()).isPresent())
+            if (payments.find(actor.tenantId(), command.paymentId()).isPresent()) {
                 throw new CommonException(INVALID_STATE);
+            }
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        if (payments.find(actor.tenantId(), command.paymentId()).isPresent())
+        if (payments.find(actor.tenantId(), command.paymentId()).isPresent()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void bound(StoredPaymentGate value, PaymentActor actor, PaymentInputPrepareCommand command, String paymentId) {
-        if (!value.callerServiceId().equals(actor.serviceId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (!value.callerServiceId().equals(actor.serviceId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!value.payeeMerchantId().equals(command.payeeMerchantId()) || !value.gate().orderId().equals(command.orderId())
-                || !Objects.equals(value.gate().paymentId(), paymentId) || value.gate().state() == GateState.INIT)
+                || !Objects.equals(value.gate().paymentId(), paymentId) || value.gate().state() == GateState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void writable(PaymentActor actor) {
-        if (actor == null || !actor.tenantId().equals(TenantUtil.getTenantId()))
+        if (actor == null || !actor.tenantId().equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+        }
+        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

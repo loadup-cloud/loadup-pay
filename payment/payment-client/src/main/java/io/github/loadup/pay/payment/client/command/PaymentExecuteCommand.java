@@ -63,8 +63,10 @@ public record PaymentExecuteCommand(
 
         @Schema(description = "Frozen order payment deadline") @NotNull java.time.OffsetDateTime payableUntil) {
     public PaymentExecuteCommand {
-        if (payableUntil != null) payableUntil = payableUntil.atZoneSameInstant(
-                io.github.loadup.commons.time.BusinessTime.zone()).toOffsetDateTime();
+        if (payableUntil != null) {
+            payableUntil = payableUntil.atZoneSameInstant(
+                    io.github.loadup.commons.time.BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

@@ -65,7 +65,6 @@ class CustomerCommandExecutorTest {
                     key,
                     new GlobalUniqueRecord(
                             "claim",
-                            "tenant",
                             claim.bizType(),
                             claim.uniqueKey(),
                             claim.bizId(),
@@ -182,26 +181,6 @@ class CustomerCommandExecutorTest {
                 },
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         assertEquals(2, writes.get());
-    }
-
-    @Test
-    void receiptFromAnotherTenantIsRejectedBeforeReadingItsResponse() {
-        when(unique.find(anyString(), anyString()))
-                .thenReturn(Optional.of(new GlobalUniqueRecord(
-                        "claim", "other-tenant", "create.v1", "key", "relation", null, null, null)));
-        CommonException failure = assertThrows(
-                CommonException.class,
-                () -> executor.execute(
-                        actor,
-                        "create.v1",
-                        "request",
-                        command,
-                        MerchantRelationshipDTO.class,
-                        () -> fail("Must reject before locking"),
-                        () -> {
-                            throw new AssertionError();
-                        }));
-        assertSame(CustomerResultCodeEnum.ACTION_FORBIDDEN, failure.getResultCode());
     }
 
     @Test

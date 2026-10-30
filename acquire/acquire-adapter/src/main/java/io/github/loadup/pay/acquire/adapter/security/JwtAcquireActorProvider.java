@@ -40,24 +40,36 @@ public class JwtAcquireActorProvider implements AcquireActorProvider {
     private final String productAudience;
 
     public JwtAcquireActorProvider(@Value("${loadup.modules.acquire.product-audience}") String productAudience) {
-        if (productAudience.isBlank()) throw new IllegalArgumentException("Product JWT audience is required");
+        if (productAudience.isBlank()) {
+            throw new IllegalArgumentException("Product JWT audience is required");
+        }
         this.productAudience = productAudience;
     }
 
     @Override
     public AcquireActor current() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) throw forbidden();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getCredentials() instanceof Jwt jwt)) {
+            throw forbidden();
+        }
         try {
             String tenant = jwt.getClaimAsString("tenant_id"), type = jwt.getClaimAsString("principal_type");
             String principal = jwt.getSubject(), merchant = jwt.getClaimAsString("merchant_id");
             DomainChecks.id(tenant);
             DomainChecks.text(principal, 128);
             if (!tenant.equals(tenant.trim())
-                    || !Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) throw forbidden();
-            if (merchant != null) DomainChecks.id(merchant);
-            if (!"OPERATOR".equals(type) && merchant == null) throw forbidden();
-            if ("MERCHANT".equals(type) && !principal.equals(merchant)) throw forbidden();
+                    || !Set.of("MERCHANT_APP", "MERCHANT", "OPERATOR").contains(type)) {
+                throw forbidden();
+            }
+            if (merchant != null) {
+                DomainChecks.id(merchant);
+            }
+            if (!"OPERATOR".equals(type) && merchant == null) {
+                throw forbidden();
+            }
+            if ("MERCHANT".equals(type) && !principal.equals(merchant)) {
+                throw forbidden();
+            }
             // Same immutable principal tuple as product; bearer token rotations do not change ownership.
             String scope = HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256")

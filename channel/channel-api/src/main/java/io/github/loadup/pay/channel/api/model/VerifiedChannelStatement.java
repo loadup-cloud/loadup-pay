@@ -28,8 +28,9 @@ public record VerifiedChannelStatement(String bindingRevisionId, ChannelStatemen
                                        ChannelStatementReceipt receipt, @DiagnosticHidden byte[] content) {
     public VerifiedChannelStatement {
         if (bindingRevisionId == null || bindingRevisionId.isBlank() || bindingRevisionId.length() > 64 || scope == null || receipt == null
-                || content == null || content.length == 0 || content.length > ChannelStatementRequest.MAX_BYTES)
+                || content == null || content.length == 0 || content.length > ChannelStatementRequest.MAX_BYTES) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
+        }
         content = content.clone();
     }
 

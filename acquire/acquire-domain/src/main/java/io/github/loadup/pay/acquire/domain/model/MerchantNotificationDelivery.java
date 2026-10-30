@@ -81,7 +81,9 @@ public record MerchantNotificationDelivery(String id, String eventId, String ord
         int started = Math.incrementExact(attemptCount);
         // A successor is durable before HTTP. Crashes consume a permit, not a new event identity.
         var due = now.plusNanos(Math.multiplyExact((long) policy.timeoutMillis(), 1_000_000L)).plusSeconds(policy.delaySeconds(started));
-        if (due.isAfter(expiresAt)) due = expiresAt;
+        if (due.isAfter(expiresAt)) {
+            due = expiresAt;
+        }
         return copy(due, started, MerchantNotificationState.PENDING,
                 routeFingerprint == null ? fingerprint : routeFingerprint, null);
     }
@@ -92,7 +94,9 @@ public record MerchantNotificationDelivery(String id, String eventId, String ord
     }
 
     public MerchantNotificationDelivery exhaust() {
-        if (finished()) return this;
+        if (finished()) {
+            return this;
+        }
         return copy(nextAttemptAt, attemptCount, MerchantNotificationState.EXHAUSTED, routeFingerprint, null);
     }
 

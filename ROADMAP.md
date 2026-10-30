@@ -8,7 +8,8 @@
 
 ## Review 队列
 
-- [ ] R0：Spring Data JDBC Repository 已覆盖简单单表读取，租户统一从 `TenantContext` 解析；需在真实 PostgreSQL 验证 Repository 装配、租户隔离、行锁/版本条件、分页与批量路径，并补充自动装配与租户上下文测试。编译通过不等于运行通过。
+- [ ] R0：Spring Data JDBC Repository 已覆盖简单单表读取，租户统一从 `TenantContext` 解析；需在真实 PostgreSQL 验证
+  Repository 装配、租户隔离、行锁/版本条件、分页与批量路径，并补充自动装配与租户上下文测试。编译通过不等于运行通过。
 - [ ] R1：实际运行并评估 acquire A2/A3、payment Y2/Y3/退款/恢复、realtime 投影 MySQL IT；源码已补不代表原子性已证明。多付款
   FIFO、实际扫描及跨进程网络故障仍需独立覆盖。
 - [ ] R2：只读详情/加锁重试源码已分离；仍需真实锁竞争和过时详情重试验收。

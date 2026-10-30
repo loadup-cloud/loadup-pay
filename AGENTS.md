@@ -193,7 +193,7 @@ loadup-modules-{mod}/
 | 2  | 将 HTTP 映射直接写在业务 Service 中                     | 在可选 Web 适配模块中使用 Spring MVC Controller 调用 Service                                                                                                                  |
 | 3  | 集成测试中用 `@MockBean` 替代 DB                        | `@EnableTestContainers(ContainerType.POSTGRESQL)` 启动真实容器                                                                                                                |
 | 4  | `@Autowired` 字段注入                                   | 构造器注入：显式 `public XxxService(XxxGateway gw) { this.gw = gw; }`                                                                                                         |
-| 5  | 字符串拼接 SQL                                          | 参数化 Spring JDBC SQL                                                                                                                                                   |
+| 5  | 字符串拼接 SQL                                          | 参数化 Spring JDBC SQL                                                                                                                                                        |
 | 6  | `@Table` 放在 domain 层                                 | DO（`XxxDO extends BaseDO`）只放在 `infrastructure.dataobject`                                                                                                                |
 | 7  | 子模块 `<parent>` 指向模块自身 pom                      | 所有子模块 `<parent>` 统一指向根 `loadup-parent`                                                                                                                              |
 | 8  | 子模块内写 `<version>` 引用同项目模块                   | 版本由 `loadup-dependencies` BOM 统一管理                                                                                                                                     |
@@ -361,10 +361,10 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 
 ## 关键参考文件
 
-| 文件                                                                | 用途                        |
-|---------------------------------------------------------------------|-----------------------------|
+| 文件                                                          | 用途                     |
+|---------------------------------------------------------------|--------------------------|
 | `loadup-components/data/loadup-components-database/README.md` | JDBC 配置、ID 与租户约定 |
-| `loadup-modules/loadup-modules-upms/ARCHITECTURE.md`                | 业务模块 COLA 分层参考      |
+| `loadup-modules/loadup-modules-upms/ARCHITECTURE.md`          | 业务模块 COLA 分层参考   |
 
 ---
 
@@ -467,7 +467,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
 - Public business pagination defaults to page 1 and size 20; explicit invalid values are rejected and size is capped at
     100. Sort fields use declared whitelists and fixed SQL columns; never pass user input to SQL ordering.
          Audit Controller and Facade share AuditPageQuery; trusted tenant identity is supplied by the application layer.
-- JDBC writes explicitly maintain persistence createdAt/updatedAt. Business event and expiry timestamps use injected Clock with
+- JDBC writes explicitly maintain persistence createdAt/updatedAt. Business event and expiry timestamps use injected
+  Clock with
   Clock.systemDefaultZone () defaults and convert using clock.getZone (). Each module qualifies its named
   `<module>Clock`; infrastructure lease clocks are separately qualified. Verification-code createdAt is an in-memory
   business timestamp and must still be initialized.
@@ -539,7 +540,8 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   `ImplBase`，`*-infrastructure` 用 `@DubboReference` 引用生成的接口。domain 不依赖 client，app 不直接引用 rpc
   类型，跨服务只复用源服务的 Wire 类型。
 - 通用数据契约放现有 `loadup-commons`，通用 RPC 支持放现有 `loadup-components-rpc-binder-dubbo`
-  （`RpcTokenContext`、`RpcExceptionCodes`、provider filter）与 `loadup-components-rpc-proto`（Wire 标量转换）；commons 不反向依赖 components，不另建
+  （`RpcTokenContext`、`RpcExceptionCodes`、provider filter）与 `loadup-components-rpc-proto`（Wire 标量转换）；commons 不反向依赖
+  components，不另建
   pay-common/pay-rpc。
 - 跨进程只传 Protobuf 消息，使用 Dubbo Triple 的 IDL 分支，不产生 Wrapper 信封。`*-client` 用 `dubbo-maven-plugin`
   生成消息与存根；MapStruct mapper 负责 Wire↔record DTO，`RpcScalarMapper` 处理 `Timestamp`/`Instant`/`BigDecimal`。

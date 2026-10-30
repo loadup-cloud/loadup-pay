@@ -138,13 +138,13 @@ class ReconciliationImportServiceTest {
             batch.set(call.getArgument(1));
             return null;
         }).when(batches).update(eq("tenant"), any(), anyLong());
-        when(tasks.submit(eq("tenant"), eq("ops"), eq(TransferKind.IMPORT), eq(ReconciliationImportExecutionService.HANDLER_KEY), eq("file"), eq(Map.of("importId", "import"))))
+        when(tasks.submit(eq("ops"), eq(TransferKind.IMPORT), eq(ReconciliationImportExecutionService.HANDLER_KEY), eq("file"), eq(Map.of("importId", "import"))))
                 .thenAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                     return task(TransferStatus.QUEUED);
                 });
-        when(tasks.get("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.QUEUED));
+        when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.QUEUED));
     }
 
     @AfterEach
@@ -165,14 +165,14 @@ class ReconciliationImportServiceTest {
         clearInvocations(files, tasks, imports);
         assertEquals(first, service.submit(command("file")));
         verifyNoInteractions(files);
-        verify(tasks, never()).submit(anyString(), anyString(), any(), anyString(), anyString(), anyMap());
+        verify(tasks, never()).submit(anyString(), any(), anyString(), anyString(), anyMap());
         assertEquals(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.submit(command("different-file"))).getResultCode());
     }
 
     @Test
     void changedExpectedHashAndAnotherActiveImportCannotEnqueueANewTask() {
         assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> service.submit(new ReconciliationChannelImportCommand("batch", "request", "file", "d".repeat(64)))).getResultCode());
-        verify(tasks, never()).submit(anyString(), anyString(), any(), anyString(), anyString(), anyMap());
+        verify(tasks, never()).submit(anyString(), any(), anyString(), anyString(), anyMap());
         var another = ReconciliationImportRequest.init("other-import", "batch", "ops", "other-request", "e".repeat(64), scope, account, source, "other-task");
         when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.of(another));
         assertEquals(IMPORT_IN_PROGRESS, assertThrows(CommonException.class, () -> service.submit(command("file"))).getResultCode());
@@ -181,7 +181,7 @@ class ReconciliationImportServiceTest {
 
     @Test
     void nativeEnqueueFailureCannotInsertALogicalImport() {
-        when(tasks.submit(anyString(), anyString(), any(), anyString(), anyString(), anyMap())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(tasks.submit(anyString(), any(), anyString(), anyString(), anyMap())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.submit(command("file")));
         assertNull(stored.get());
         verify(imports, never()).insert(anyString(), any());
@@ -191,7 +191,7 @@ class ReconciliationImportServiceTest {
     @Test
     void parsedRowsSealTogetherThenDuplicateHandlerInvocationDoesNotParseAgain() {
         service.submit(command("file"));
-        when(tasks.get("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
+        when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         var data = data("b".repeat(64));
         when(parser.parse(any(), any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
@@ -211,7 +211,7 @@ class ReconciliationImportServiceTest {
     @Test
     void changedBytesRejectWholeInputWhileTransientParserFailureLeavesItPending() {
         service.submit(command("file"));
-        when(tasks.get("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
+        when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         when(parser.parse(any(), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         var execution = execution();
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream())));
@@ -227,19 +227,19 @@ class ReconciliationImportServiceTest {
     @Test
     void arbitraryOptionsOrWrongNativeBindingCannotReachTheParserAndRunningTaskIsNeverReclaimed() {
         service.submit(command("file"));
-        when(tasks.get("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
+        when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         var execution = execution();
-        var forged = new TransferContext("other-task", "tenant", "ops", Map.of("importId", "import"), (done, total) -> {
+        var forged = new TransferContext("other-task", "ops", Map.of("importId", "import"), (done, total) -> {
         });
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(forged, InputStream.nullInputStream())));
-        var extra = new TransferContext("task", "tenant", "ops", Map.of("importId", "import", "complete", "true"), (done, total) -> {
+        var extra = new TransferContext("task", "ops", Map.of("importId", "import", "complete", "true"), (done, total) -> {
         });
         assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(extra, InputStream.nullInputStream())));
         assertThrows(CommonException.class, () -> service.retry(new ReconciliationImportRetryCommand("import", "task")));
         verify(parser, never()).parse(any(), any());
-        verify(tasks, never()).retry(anyString(), anyString(), anyString(), anyBoolean());
-        when(tasks.get("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.FAILED));
-        when(tasks.retry("tenant", "task", "ops", false)).thenReturn(task(TransferStatus.QUEUED));
+        verify(tasks, never()).retry(anyString(), anyString(), anyBoolean());
+        when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.FAILED));
+        when(tasks.retry("task", "ops", false)).thenReturn(task(TransferStatus.QUEUED));
         assertEquals("QUEUED", service.retry(new ReconciliationImportRetryCommand("import", "task")).taskStatus());
         verify(files).verify("tenant", "ops", source, "import");
     }
@@ -261,12 +261,12 @@ class ReconciliationImportServiceTest {
     }
 
     private TransferContext nativeContext() {
-        return new TransferContext("task", "tenant", "ops", Map.of("importId", "import"), (done, total) -> {
+        return new TransferContext("task", "ops", Map.of("importId", "import"), (done, total) -> {
         });
     }
 
     private TransferTaskDTO task(TransferStatus state) {
-        return new TransferTaskDTO("task", "tenant", "ops", TransferKind.IMPORT,
+        return new TransferTaskDTO("task", "ops", TransferKind.IMPORT,
                 ReconciliationImportExecutionService.HANDLER_KEY, "file", null, state, 0L, 0L, null, LocalDateTime.of(2026, 10, 27, 12, 0), null, null);
     }
 

@@ -50,7 +50,9 @@ public record TradePaymentProjection(
         Objects.requireNonNull(snapshotAt);
         Objects.requireNonNull(initiatedAt);
         require("SUCCEEDED".equals(state) == (succeededAt != null), INVALID_STATE);
-        if (succeededAt != null) require(!succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
+        if (succeededAt != null) {
+            require(!succeededAt.isBefore(initiatedAt), INVALID_ARGUMENT);
+        }
         require(
                 amount.getCent() > 0
                         && state != null

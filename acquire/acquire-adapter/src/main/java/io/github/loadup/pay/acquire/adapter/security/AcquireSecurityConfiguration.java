@@ -29,10 +29,12 @@ public class AcquireSecurityConfiguration implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false))
+        if (!environment.getProperty("loadup.security.resource-server.enabled", Boolean.class, false)) {
             throw new IllegalStateException("Acquire business HTTP requires the verified JWT resource server");
+        }
         if (!environment.getProperty("loadup.database.multi-tenant.enabled", Boolean.class, false)
-                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false))
+                || !environment.getProperty("loadup.database.multi-tenant.required", Boolean.class, false)) {
             throw new IllegalStateException("Acquire business storage requires trusted tenant isolation");
+        }
     }
 }

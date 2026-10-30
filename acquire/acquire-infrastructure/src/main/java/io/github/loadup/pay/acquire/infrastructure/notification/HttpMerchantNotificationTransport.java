@@ -85,32 +85,42 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
 
     @Override
     public boolean send(String tenant, MerchantNotificationDelivery delivery) {
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (delivery.state() != io.github.loadup.pay.acquire.domain.model.MerchantNotificationState.PENDING || delivery.attemptCount() <= 0)
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
+        }
+        if (delivery.state() != io.github.loadup.pay.acquire.domain.model.MerchantNotificationState.PENDING || delivery.attemptCount() <= 0) {
+            throw new CommonException(INVALID_STATE);
+        }
         long started = System.nanoTime();
-        if (delivery.routeFingerprint() == null || !delivery.routeFingerprint().equals(fingerprint(tenant, delivery)))
+        if (delivery.routeFingerprint() == null || !delivery.routeFingerprint().equals(fingerprint(tenant, delivery))) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var target = target(tenant, delivery);
         var identity = signing(tenant, delivery).identity();
         configuration(target, delivery.policy().timeoutMillis());
         var template = http.getIfAvailable();
         var signer = signers.getIfAvailable();
-        if (template == null || signer == null) throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        if (template == null || signer == null) {
+            throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         byte[] body = delivery.body().getBytes(StandardCharsets.UTF_8);
-        if (body.length > 65536 || !checksum(body).equals(delivery.bodyDigest()))
+        if (body.length > 65536 || !checksum(body).equals(delivery.bodyDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         validateBody(delivery, body);
         var response = template.exchange(target.client(), target.operation(), new HttpCall(Map.of(), Map.of(),
                 Map.of("Content-Type", CONTENT_TYPE, "Accept", CONTENT_TYPE), body), (method, uri, sent) -> {
             if (method != HttpMethod.POST || !target.uri().toASCIIString().equals(uri.toASCIIString())
-                    || !checksum(sent).equals(delivery.bodyDigest())) throw new CommonException(SNAPSHOT_INVALID);
+                    || !checksum(sent).equals(delivery.bodyDigest())) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             String rawTarget = uri.getRawPath() + (uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery());
             return signer.sign(identity, new RequestContent(method.name(), rawTarget, CONTENT_TYPE, sent)).toHeaders();
         });
         if (response == null || !response.getStatusCode().is2xxSuccessful() || response.getBody() == null
-                || response.getBody().length > 4096 || System.nanoTime() - started >= (long) delivery.policy().timeoutMillis() * 1_000_000L)
+                || response.getBody().length > 4096 || System.nanoTime() - started >= (long) delivery.policy().timeoutMillis() * 1_000_000L) {
             return false;
+        }
         try {
             String ack = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(response.getBody())).toString();
@@ -134,7 +144,9 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                 });
                 metadata(delivery, frozen, "acquire");
                 orderData(delivery, frozen);
-            } else throw new CommonException(SNAPSHOT_INVALID);
+            } else {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -145,8 +157,9 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                 || !delivery.eventId().equals(frozen.eventId()) || !delivery.eventType().equals(frozen.eventType())
                 || !delivery.aggregateId().equals(frozen.aggregateId()) || delivery.sourceVersion() != frozen.aggregateVersion()
                 || frozen.data() == null || frozen.occurredAt() == null || !frozen.occurredAt().toInstant().equals(
-                io.github.loadup.commons.time.BusinessTime.external(delivery.occurredAt()).toInstant()))
+                io.github.loadup.commons.time.BusinessTime.external(delivery.occurredAt()).toInstant())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void orderData(MerchantNotificationDelivery delivery, MerchantNotificationBody<MerchantNotificationData> frozen) {
@@ -161,8 +174,9 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                 && data.paymentId() == null && data.amountMinor() == data.orderAmountMinor())
                 || "OrderFullyPaid".equals(frozen.eventType()) && (!"PAID".equals(data.orderState())
                 || data.orderPaidAmountMinor() != data.orderAmountMinor())
-                || "OrderClosed".equals(frozen.eventType()) && !"CLOSED".equals(data.orderState()))
+                || "OrderClosed".equals(frozen.eventType()) && !"CLOSED".equals(data.orderState())) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private void refundData(MerchantNotificationDelivery delivery, MerchantNotificationBody<MerchantRefundNotificationData> frozen) {
@@ -173,25 +187,29 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
         DomainChecks.text(data.merchantRefundNo(), 64);
         if (!delivery.orderId().equals(data.orderId()) || !delivery.payeeMerchantId().equals(data.payeeMerchantId())
                 || !"CNY".equals(data.currency()) || data.amountMinor() <= 0 || data.succeededMinor() < 0
-                || data.succeededMinor() > data.amountMinor() || data.failedMinor() != data.amountMinor() - data.succeededMinor())
+                || data.succeededMinor() > data.amountMinor() || data.failedMinor() != data.amountMinor() - data.succeededMinor()) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         if ("RefundRequestCompleted".equals(frozen.eventType())) {
             if (!"RefundRequest".equals(frozen.aggregateType()) || !frozen.aggregateId().equals(data.refundRequestId())
                     || data.refundId() != null || data.paymentId() != null || data.succeededAt() != null
-                    || data.state() == null || !java.util.Set.of("SUCCEEDED", "FAILED", "PARTIAL_SUCCEEDED").contains(data.state()))
+                    || data.state() == null || !java.util.Set.of("SUCCEEDED", "FAILED", "PARTIAL_SUCCEEDED").contains(data.state())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
         } else {
             DomainChecks.id(data.refundId());
             DomainChecks.id(data.paymentId());
             boolean success = "RefundSucceeded".equals(frozen.eventType());
             if (!"RefundOrder".equals(frozen.aggregateType()) || !frozen.aggregateId().equals(data.refundId())
-                    || !(success ? "SUCCEEDED" : "FAILED").equals(data.state()) || success != (data.succeededAt() != null))
+                    || !(success ? "SUCCEEDED" : "FAILED").equals(data.state()) || success != (data.succeededAt() != null)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
         }
         if ("SUCCEEDED".equals(data.state()) && data.succeededMinor() != data.amountMinor()
                 || "FAILED".equals(data.state()) && data.failedMinor() != data.amountMinor()
-                || "PARTIAL_SUCCEEDED".equals(data.state()) && (data.succeededMinor() == 0 || data.failedMinor() == 0))
+                || "PARTIAL_SUCCEEDED".equals(data.state()) && (data.succeededMinor() == 0 || data.failedMinor() == 0)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
     }
 
     private HttpProperties.Client configuration(MerchantNotificationProperties.Target target, int timeout) {
@@ -201,7 +219,9 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
         if (client == null || operation == null || operation.method() != HttpMethod.POST || client.allowPrivateAddresses()
                 || client.credentialRef() != null || client.proxy() != null || client.maxResponseBytes() > 4096
                 || client.maxRequestBytes() < 65536 || client.connectTimeout().toMillis() + client.acquireTimeout().toMillis()
-                + client.readTimeout().toMillis() > timeout) throw new CommonException(SNAPSHOT_INVALID);
+                + client.readTimeout().toMillis() > timeout) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return client;
     }
 
@@ -214,17 +234,21 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
     }
 
     private MerchantNotificationProperties.Target target(String tenant, MerchantNotificationDelivery delivery) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         var target = properties.targets().getOrDefault(tenant, Map.of()).get(delivery.policy().targetRef());
-        if (target == null || !delivery.payeeMerchantId().equals(target.payeeMerchantId()))
+        if (target == null || !delivery.payeeMerchantId().equals(target.payeeMerchantId())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         return target;
     }
 
     private MerchantNotificationProperties.Signing signing(String tenant, MerchantNotificationDelivery delivery) {
         var identity = properties.signingIdentities().getOrDefault(tenant, Map.of()).get(delivery.policy().signingIdentityRef());
-        if (identity == null || !delivery.payeeMerchantId().equals(identity.payeeMerchantId()))
+        if (identity == null || !delivery.payeeMerchantId().equals(identity.payeeMerchantId())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
+        }
         return identity;
     }
 }

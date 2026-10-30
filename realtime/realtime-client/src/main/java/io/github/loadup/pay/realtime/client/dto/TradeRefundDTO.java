@@ -47,12 +47,15 @@ public record TradeRefundDTO(
         @Schema(description = "Source version") long sourceVersion,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeRefundDTO {
-        if (refundCreatedAt != null)
+        if (refundCreatedAt != null) {
             refundCreatedAt = refundCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (succeededAt != null)
+        }
+        if (succeededAt != null) {
             succeededAt = succeededAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (snapshotAt != null)
+        }
+        if (snapshotAt != null) {
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

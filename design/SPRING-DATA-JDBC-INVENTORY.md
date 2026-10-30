@@ -5,30 +5,47 @@
 
 ## 当前核查补充（覆盖下方历史快照）
 
-- 已完成 Spring Data JDBC Repository 集成：`loadup` 根包在 Boot 单次 Repository 扫描前注册为自动配置包；框架与 Pay 的简单单表读取改为 Repository 默认方法，复杂条件、行锁、批量与状态围栏仍使用显式 Spring JDBC。Pay 的 `customer`、`product`、`realtime`、`limitcenter`、`payment` 及框架的 UPMS、Merchant、Contract、Dictionary、File、Notification、Transfer、Gotone、DFS 已增加 Repository 并替换普通按键读取。主源码与测试源码已通过框架和 Pay 的 `clean test-compile`；测试用例、数据库执行与装配运行未验证。
+- 已完成 Spring Data JDBC Repository 集成：`loadup` 根包在 Boot 单次 Repository 扫描前注册为自动配置包；框架与 Pay
+  的简单单表读取改为 Repository 默认方法，复杂条件、行锁、批量与状态围栏仍使用显式 Spring JDBC。Pay 的 `customer`、`product`、
+  `realtime`、`limitcenter`、`payment` 及框架的 UPMS、Merchant、Contract、Dictionary、File、Notification、Transfer、Gotone、DFS
+  已增加 Repository 并替换普通按键读取。主源码与测试源码已通过框架和 Pay 的 `clean test-compile`；测试用例、数据库执行与装配运行未验证。
 
-- 租户条件不再由调用方传入 Repository 查询。`TenantContext.tenantId()` 从 `DatabaseTenant` 解析可信租户；Repository 对外暴露 `findById`、`findByUsername`、`findByOrder` 等无租户参数方法，内部派生查询使用上下文租户。显式 SQL 的租户绑定也改为从 `TenantContext` 读取。调用方传入的租户参数仅保留在既有 Gateway/Facade 签名中，不再作为查询值；跨租户维护扫描（如 Transfer 后台领取、File 待清理扫描）继续使用显式跨租户查询。
+- 租户条件不再由调用方传入 Repository 查询。`TenantContext.tenantId()` 从 `DatabaseTenant` 解析可信租户；Repository 对外暴露
+  `findById`、`findByUsername`、`findByOrder` 等无租户参数方法，内部派生查询使用上下文租户。显式 SQL 的租户绑定也改为从
+  `TenantContext` 读取。调用方传入的租户参数仅保留在既有 Gateway/Facade 签名中，不再作为查询值；跨租户维护扫描（如 Transfer
+  后台领取、File 待清理扫描）继续使用显式跨租户查询。
 
-- `BaseDO.deleted` 已从 `Integer` 改为 `Boolean`，与 PostgreSQL `BOOLEAN` 列和 Spring Data JDBC 映射一致；MapStruct 中 `deleted` 常量同步改为 `false`。该变更尚未在数据库执行验证。
-- 已将当前九个带 `@Table` 的 Spring Data JDBC record 的显式 `@Column` 名称与对应初始表静态比对，未发现不存在的列；此检查不验证类型、映射、SQL 生成或数据库执行。
+- `BaseDO.deleted` 已从 `Integer` 改为 `Boolean`，与 PostgreSQL `BOOLEAN` 列和 Spring Data JDBC 映射一致；MapStruct 中
+  `deleted` 常量同步改为 `false`。该变更尚未在数据库执行验证。
+- 已将当前九个带 `@Table` 的 Spring Data JDBC record 的显式 `@Column` 名称与对应初始表静态比对，未发现不存在的列；此检查不验证类型、映射、SQL
+  生成或数据库执行。
 
-- Customer 商户关系及授权的按 ID 与业务键普通读取使用 Spring Data JDBC，先校验可信租户并过滤软删除；业务键仅查询 INIT/ACTIVE，行锁及条件写入仍使用 Spring JDBC。测试源码覆盖行模型转换及租户不匹配的拒绝；测试、装配和数据库读取尚未运行验证。
+- Customer 商户关系及授权的按 ID 与业务键普通读取使用 Spring Data JDBC，先校验可信租户并过滤软删除；业务键仅查询
+  INIT/ACTIVE，行锁及条件写入仍使用 Spring JDBC。测试源码覆盖行模型转换及租户不匹配的拒绝；测试、装配和数据库读取尚未运行验证。
 
-- File、Audit、DFS 和 Gotone 的聚合模板消费者声明在 Boot Data JDBC 自动配置之后；Gotone 默认存储要求存在单数据源候选。实际 Bean 装配尚未运行验证。
+- File、Audit、DFS 和 Gotone 的聚合模板消费者声明在 Boot Data JDBC 自动配置之后；Gotone 默认存储要求存在单数据源候选。实际
+  Bean 装配尚未运行验证。
 
-- Gotone 的服务与渠道配置读取使用 Spring Data JDBC，包含服务编码、启用、软删除和当前租户（含 NULL）条件，渠道按优先级排序；通知记录逐接收者显式 insert。JSON 字面量 null 按空配置处理；已补充 PostgreSQL 集成测试源码，覆盖跨租户配置、排序及记录写入，新装配和读写尚未运行验证。
+- Gotone 的服务与渠道配置读取使用 Spring Data JDBC，包含服务编码、启用、软删除和当前租户（含 NULL）条件，渠道按优先级排序；通知记录逐接收者显式
+  insert。JSON 字面量 null 按空配置处理；已补充 PostgreSQL 集成测试源码，覆盖跨租户配置、排序及记录写入，新装配和读写尚未运行验证。
 
-- Framework 数据库 DFS 的文件新增与普通读取使用 Spring Data JDBC 独立行模型，查询保留租户（包括 NULL）及软删除条件；软删除更新仍使用条件 SQL。旧 FileStorageDO 已移除，相关测试源码改用直接插入测试数据。BYTEA 映射、装配和运行行为尚未验证。
+- Framework 数据库 DFS 的文件新增与普通读取使用 Spring Data JDBC 独立行模型，查询保留租户（包括 NULL）及软删除条件；软删除更新仍使用条件
+  SQL。旧 FileStorageDO 已移除，相关测试源码改用直接插入测试数据。BYTEA 映射、装配和运行行为尚未验证。
 
 - File 与 Audit 的 Spring Data JDBC 行模型对全部列显式指定 PostgreSQL 小写名称，避免依赖带引号标识符的默认命名策略；实际数据库映射仍未运行验证。
 
-- Framework File 的单行资源与引用新增使用 Spring Data JDBC `JdbcAggregateTemplate.insert`，显式插入应用生成的 ID 和布尔删除标记；普通读取、资源分页、待清理扫描及引用列表、计数使用 Spring Data JDBC，父记录行锁、按租户与业务键删除引用及条件状态变更仍使用 Spring JDBC。测试源码覆盖资源插入与读取转换；新装配及读写尚未构建或运行验证。
+- Framework File 的单行资源与引用新增使用 Spring Data JDBC `JdbcAggregateTemplate.insert`，显式插入应用生成的 ID
+  和布尔删除标记；普通读取、资源分页、待清理扫描及引用列表、计数使用 Spring Data JDBC，父记录行锁、按租户与业务键删除引用及条件状态变更仍使用
+  Spring JDBC。测试源码覆盖资源插入与读取转换；新装配及读写尚未构建或运行验证。
 
-- Outbox 与 DelayedTask 的静态领取路径均使用短事务和 SKIP LOCKED，确认更新匹配 token 与未过期租约；Outbox 配置限制租约毫秒转微秒时不能溢出。真实并发、锁与恢复行为仍未验证。
+- Outbox 与 DelayedTask 的静态领取路径均使用短事务和 SKIP LOCKED，确认更新匹配 token 与未过期租约；Outbox
+  配置限制租约毫秒转微秒时不能溢出。真实并发、锁与恢复行为仍未验证。
 
-- Framework File 调用 DFS 上传、下载及清理时绑定对应资源租户；流式下载异步线程不再依赖原请求线程的租户上下文。新增测试源码覆盖下载租户传递与上下文恢复；数据库 DFS 的 content_type 长度与 File 的 255 字符限制一致。测试、实际装配、迁移执行和异步下载尚未运行验证。
+- Framework File 调用 DFS 上传、下载及清理时绑定对应资源租户；流式下载异步线程不再依赖原请求线程的租户上下文。新增测试源码覆盖下载租户传递与上下文恢复；数据库
+  DFS 的 content_type 长度与 File 的 255 字符限制一致。测试、实际装配、迁移执行和异步下载尚未运行验证。
 
-- Framework 主源码中 24 条可静态识别且能匹配 Flyway 表的 INSERT 列清单，与 34 张可识别初始表的列名比对后未发现缺失列；testify 示例 `users` 表不在这些初始迁移中。动态 SQL、值绑定、约束和实际执行未由此检查证明。
+- Framework 主源码中 24 条可静态识别且能匹配 Flyway 表的 INSERT 列清单，与 34 张可识别初始表的列名比对后未发现缺失列；testify
+  示例 `users` 表不在这些初始迁移中。动态 SQL、值绑定、约束和实际执行未由此检查证明。
 
 - Framework File 的父文件锁要求当前线程存在绑定文件数据源的可写事务；引用创建、移除及删除请求均在持锁状态下检查父文件。实际事务代理与锁竞争尚未运行验证。
 
@@ -36,9 +53,12 @@
 
 - Framework Merchant 的资料更新要求新版本为预期版本加一，并在条件中匹配不可变的商户编码；零行仍映射为冲突。实际数据库并发和更新尚未验证。
 
-- 工作空间非 Markdown 源码、构建文件和配置中搜索 Flex/MyBatis 标识（排除 target 与 .git）：Pay 的架构边界测试保留禁止引入旧依赖的规则；其他位置未发现匹配。工作空间消费者 loadup-application 的旧 Flex 专用规则已移除，其 domain 禁止依赖 Spring 的规则仍保留。该搜索不覆盖外部消费者、依赖树或动态生成产物。
+- 工作空间非 Markdown 源码、构建文件和配置中搜索 Flex/MyBatis 标识（排除 target 与 .git）：Pay
+  的架构边界测试保留禁止引入旧依赖的规则；其他位置未发现匹配。工作空间消费者 loadup-application 的旧 Flex 专用规则已移除，其
+  domain 禁止依赖 Spring 的规则仍保留。该搜索不覆盖外部消费者、依赖树或动态生成产物。
 
-- Customer 的关系及操作授权创建允许 INIT 版本 0 或 ACTIVE 版本 1；更新通过版本、原有身份和有效期以及状态转换条件限制写入。新增测试源码覆盖创建、撤销和版本校验；测试及 PostgreSQL 执行均未运行。
+- Customer 的关系及操作授权创建允许 INIT 版本 0 或 ACTIVE 版本 1；更新通过版本、原有身份和有效期以及状态转换条件限制写入。新增测试源码覆盖创建、撤销和版本校验；测试及
+  PostgreSQL 执行均未运行。
 
 - 已将 Pay 七个服务主源码中可静态识别的 ON CONFLICT 列目标与各自初始脚本中可识别的主键和唯一索引比对，未发现不匹配；动态语句及数据库执行仍待验证。
 
@@ -60,7 +80,8 @@
 
 - 对账输入清单在锁定读取与主记录写入前验证数据源事务；差异批量写入先通过批次锁定路径验证事务。实际回滚及锁行为尚未验证。
 
-- 对账导入、对账单、审核事件和验证请求的请求键冲突目标与各自的 (tenant_id, caller_service_id, request_key) 唯一索引一致；其他唯一约束和真实并发异常仍需数据库验证。
+- 对账导入、对账单、审核事件和验证请求的请求键冲突目标与各自的 (tenant_id, caller_service_id, request_key)
+  唯一索引一致；其他唯一约束和真实并发异常仍需数据库验证。
 
 - 对账差异记录的两处实体查询投影覆盖数据对象业务字段，包括全部五个 Boolean 差异标志；尚未验证驱动转换与数据库执行。
 
@@ -70,31 +91,44 @@
 
 - 对账导入与验证请求的数据对象业务字段已与各自显式查询投影静态比对，未发现字段遗漏；字段转换、数据库约束与实际运行仍待验证。
 
-- 对账单请求的两处 JDBC 查询投影已与 ReconciliationStatementDO 的业务字段比对，包含 request_sha256、source_sha256 和 proof_sha256；实际驱动映射仍待数据库验证。
+- 对账单请求的两处 JDBC 查询投影已与 ReconciliationStatementDO 的业务字段比对，包含 request_sha256、source_sha256 和
+  proof_sha256；实际驱动映射仍待数据库验证。
 
-- 对账明细 reconciliation_entry 的查询投影已与当前数据对象的业务字段和初始表结构逐项比对；共享审计字段包含在查询中，布尔 deleted 不进入整数属性映射。其他对账表仍需逐项核查及数据库验证。
+- 对账明细 reconciliation_entry 的查询投影已与当前数据对象的业务字段和初始表结构逐项比对；共享审计字段包含在查询中，布尔
+  deleted 不进入整数属性映射。其他对账表仍需逐项核查及数据库验证。
 
-- Framework 与 Pay 的 POM、properties、YAML 和自动配置 imports 中静态搜索未发现 MyBatis、iBATIS 或旧 database-processor 引用；该检查不能代替 Maven 依赖树。
+- Framework 与 Pay 的 POM、properties、YAML 和自动配置 imports 中静态搜索未发现 MyBatis、iBATIS 或旧 database-processor
+  引用；该检查不能代替 Maven 依赖树。
 
-- UPMS 测试模块声明了 infrastructure 与 database 测试依赖；其 SQL 初始化引用的 UPMS 和 sequence 迁移文件均存在于对应模块主资源中。测试 classpath 的实际解析与脚本执行尚未验证。
+- UPMS 测试模块声明了 infrastructure 与 database 测试依赖；其 SQL 初始化引用的 UPMS 和 sequence 迁移文件均存在于对应模块主资源中。测试
+  classpath 的实际解析与脚本执行尚未验证。
 
-- UPMS 测试建表脚本包含主要用户、角色、权限、关联和 OAuth 表，但与生产迁移并不完全相同：此前生产包含 user_social、password_reset_token 和 user_config 而测试包含旧 operation_log；测试建表内容现已与生产初始迁移对齐。测试脚本不能替代生产 Flyway 验证。
+- UPMS 测试建表脚本包含主要用户、角色、权限、关联和 OAuth 表，但与生产迁移并不完全相同：此前生产包含
+  user_social、password_reset_token 和 user_config 而测试包含旧 operation_log；测试建表内容现已与生产初始迁移对齐。测试脚本不能替代生产
+  Flyway 验证。
 
-- Gotone 和 DFS 的初始迁移版本已分别调整为 V20261002000005 和 V20261002000006；下方旧文件名属于盘点时的历史快照。UPMS 测试配置同时关闭 Boot 与 LoadUp 的 Flyway，使用显式测试建表脚本。
+- Gotone 和 DFS 的初始迁移版本已分别调整为 V20261002000005 和 V20261002000006；下方旧文件名属于盘点时的历史快照。UPMS
+  测试配置同时关闭 Boot 与 LoadUp 的 Flyway，使用显式测试建表脚本。
 
 - 通知收件箱写入以 (tenant_id, recipient_id, request_key) 为冲突目标，返回实际插入行数；已读与归档路径区分条件更新和已存在记录。尚需验证并发和事务行为。
 
-- DelayedTask 的手写行映射未读取 deleted 布尔列；GlobalUnique 的租户解析在单租户模式使用默认租户，多租户必需模式拒绝缺失上下文。Pay 主源码静态搜索未发现对已检查布尔列使用 ResultSet.getInt。此证据不覆盖全部字段。
+- DelayedTask 的手写行映射未读取 deleted 布尔列；GlobalUnique 的租户解析在单租户模式使用默认租户，多租户必需模式拒绝缺失上下文。Pay
+  主源码静态搜索未发现对已检查布尔列使用 ResultSet.getInt。此证据不覆盖全部字段。
 
-- acquire、payment、limitcenter、product、realtime 的基础设施主源码中，未发现同一文件同时使用 BeanPropertyRowMapper 和 SELECT *；仍须逐个核对显式列、转换和 PostgreSQL 驱动行为。
+- acquire、payment、limitcenter、product、realtime 的基础设施主源码中，未发现同一文件同时使用 BeanPropertyRowMapper 和
+  SELECT *；仍须逐个核对显式列、转换和 PostgreSQL 驱动行为。
 
-- 对账 Gateway 的实体查询已改用显式列清单，不再把 PostgreSQL 布尔 deleted 映射到 BaseDO 的整数属性；差异标志使用 Boolean 属性。结果读取和 SQL 列清单尚未经过数据库验证。
+- 对账 Gateway 的实体查询已改用显式列清单，不再把 PostgreSQL 布尔 deleted 映射到 BaseDO 的整数属性；差异标志使用 Boolean
+  属性。结果读取和 SQL 列清单尚未经过数据库验证。
 
-- 跨 Framework 与 Pay 主资源目录静态核对了 Flyway 版本，未发现重复版本；自动配置 imports 中属于工作空间的类名均能在主源码中找到。此检查不覆盖依赖可解析性或运行时装配。
+- 跨 Framework 与 Pay 主资源目录静态核对了 Flyway 版本，未发现重复版本；自动配置 imports
+  中属于工作空间的类名均能在主源码中找到。此检查不覆盖依赖可解析性或运行时装配。
 
-- UPMS PostgreSQL 表结构已加入基础设施的 Flyway 初始迁移；独立 schema.sql 中的本地初始化账号和授权数据不随迁移自动写入。尚未执行 Flyway。
+- UPMS PostgreSQL 表结构已加入基础设施的 Flyway 初始迁移；独立 schema.sql 中的本地初始化账号和授权数据不随迁移自动写入。尚未执行
+  Flyway。
 
-- 当前静态核查：customer、product、limitcenter、realtime、acquire、payment、reconciliation 的主资源目录各有一份初始 SQL；这些脚本未发现 MySQL 的 ENGINE、TINYINT、DATETIME、AUTO_INCREMENT、INSERT IGNORE 或 FOREIGN KEY 语法。该检查不证明 SQL 可执行或业务约束完整。
+- 当前静态核查：customer、product、limitcenter、realtime、acquire、payment、reconciliation 的主资源目录各有一份初始 SQL；这些脚本未发现
+  MySQL 的 ENGINE、TINYINT、DATETIME、AUTO_INCREMENT、INSERT IGNORE 或 FOREIGN KEY 语法。该检查不证明 SQL 可执行或业务约束完整。
 
 - Framework 与 Pay 生产 Java 中已静态搜索不到 Flex API、生成 Mapper 或 TableDef 引用；Pay 的边界测试保留禁止依赖规则。已清理
   Framework 的 Flex BOM、注解处理器、旧监听器与相关自动配置引用。
@@ -159,6 +193,7 @@
 - `loadup-framework/loadup-commons/loadup-commons-dto/src/main/java/io/github/loadup/commons/dataobject/BaseDO.java`
 - `loadup-framework/loadup-components/data/loadup-components-database-processor/pom.xml`
 -
+
 `loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/java/io/github/loadup/components/database/processor/LoadUpMyBatisFlexProcessor.java`
 -
 `loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/resources/META-INF/services/javax.annotation.processing.Processor`
@@ -166,8 +201,10 @@
 `loadup-framework/loadup-components/data/loadup-components-database-processor/src/main/resources/io/github/loadup/components/database/processor/mybatis-flex.config`
 -
 `loadup-framework/loadup-components/data/loadup-components-database-processor/src/test/java/io/github/loadup/components/database/processor/LoadUpMyBatisFlexProcessorTest.java`
+
 - `loadup-framework/loadup-components/data/loadup-components-database/pom.xml`
 -
+
 `loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/autoconfigure/JdbcTransactionAutoConfiguration.java`
 -
 `loadup-framework/loadup-components/data/loadup-components-database/src/main/java/io/github/loadup/components/database/autoconfigure/MyBatisFlexAutoConfiguration.java`
@@ -189,8 +226,10 @@
 `loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/autoconfigure/PersistenceConventionGuardTest.java`
 -
 `loadup-framework/loadup-components/data/loadup-components-database/src/test/java/io/github/loadup/components/database/listener/BaseEntityListenerTest.java`
+
 - `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/pom.xml`
 -
+
 `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/DatabaseDfsProvider.java`
 -
 `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/autoconfigure/DatabaseDfsAutoConfiguration.java`
@@ -198,8 +237,10 @@
 `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/java/io/github/loadup/components/dfs/database/dataobject/FileStorageDO.java`
 -
 `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-test/src/test/java/io/github/loadup/components/dfs/test/TestApplication.java`
+
 - `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/pom.xml`
 -
+
 `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/config/GotoneStoreJdbcAutoConfiguration.java`
 -
 `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-store-jdbc/src/main/java/io/github/loadup/components/gotone/store/config/JdbcChannelConfigProvider.java`
@@ -215,8 +256,10 @@
 `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-test/src/test/java/io/github/loadup/components/gotone/test/store/JdbcStoreBoundaryTest.java`
 -
 `loadup-framework/loadup-components/integration/loadup-components-gotone/loadup-components-gotone-test/src/test/java/io/github/loadup/components/gotone/test/store/JdbcStoreIT.java`
+
 - `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/pom.xml`
 -
+
 `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskAutoConfiguration.java`
 -
 `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/main/java/io/github/loadup/components/delayedtask/DelayedTaskStore.java`
@@ -228,8 +271,10 @@
 `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/test/java/io/github/loadup/components/delayedtask/DelayedTaskBoundaryTest.java`
 -
 `loadup-framework/loadup-components/reliability/loadup-components-delayedtask/src/test/java/io/github/loadup/components/delayedtask/DelayedTaskIT.java`
+
 - `loadup-framework/loadup-components/reliability/loadup-components-globalunique/pom.xml`
 -
+
 `loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/DefaultGlobalUniqueTemplate.java`
 -
 `loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/autoconfigure/GlobalUniqueAutoConfiguration.java`
@@ -237,9 +282,11 @@
 `loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/main/java/io/github/loadup/components/globalunique/dataobject/GlobalUniqueDO.java`
 -
 `loadup-framework/loadup-components/reliability/loadup-components-globalunique/src/test/java/io/github/loadup/components/globalunique/GlobalUniqueContractTest.java`
+
 - `loadup-framework/loadup-dependencies/pom.xml`
 - `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/autoconfigure/AuditPersistenceAutoConfiguration.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/dataobject/AuditEventDO.java`
@@ -247,8 +294,10 @@
 `loadup-framework/loadup-modules/loadup-modules-audit/loadup-modules-audit-infrastructure/src/main/java/io/github/loadup/modules/audit/infrastructure/repository/AuditGatewayImpl.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-app/src/main/java/io/github/loadup/modules/contract/app/autoconfigure/ContractAutoConfiguration.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/dataobject/CatalogVersionDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-infrastructure/src/main/java/io/github/loadup/modules/contract/infrastructure/dataobject/ContractRevisionDO.java`
@@ -262,8 +311,10 @@
 `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-test/src/test/resources/application-ci.yml`
 -
 `loadup-framework/loadup-modules/loadup-modules-contract/loadup-modules-contract-test/src/test/resources/application-test.yml`
+
 - `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/autoconfigure/DictionaryPersistenceAutoConfiguration.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/dataobject/DictionaryItemDO.java`
@@ -271,8 +322,10 @@
 `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/dataobject/DictionaryTypeDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-dictionary/loadup-modules-dictionary-infrastructure/src/main/java/io/github/loadup/modules/dictionary/infrastructure/repository/DictionaryGatewayImpl.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/autoconfigure/FilePersistenceAutoConfiguration.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/dataobject/FileReferenceDO.java`
@@ -282,8 +335,10 @@
 `loadup-framework/loadup-modules/loadup-modules-file/loadup-modules-file-infrastructure/src/main/java/io/github/loadup/modules/file/infrastructure/repository/FileResourceGatewayImpl.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-app/src/main/java/io/github/loadup/modules/merchant/app/autoconfigure/MerchantAutoConfiguration.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/java/io/github/loadup/modules/merchant/infrastructure/dataobject/MerchantDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-infrastructure/src/main/java/io/github/loadup/modules/merchant/infrastructure/repository/MerchantGatewayImpl.java`
@@ -291,15 +346,19 @@
 `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-test/src/test/resources/application-ci.yml`
 -
 `loadup-framework/loadup-modules/loadup-modules-merchant/loadup-modules-merchant-test/src/test/resources/application-test.yml`
+
 - `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/autoconfigure/NotificationPersistenceAutoConfiguration.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/dataobject/InboxMessageDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-notification/loadup-modules-notification-infrastructure/src/main/java/io/github/loadup/modules/notification/infrastructure/repository/InboxGatewayImpl.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/autoconfigure/TransferPersistenceAutoConfiguration.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/dataobject/TransferTaskDO.java`
@@ -307,8 +366,10 @@
 `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/dataobject/TransferTaskOptionDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-transfer/loadup-modules-transfer-infrastructure/src/main/java/io/github/loadup/modules/transfer/infrastructure/repository/TransferGatewayImpl.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/pom.xml`
 -
+
 `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/DepartmentDO.java`
 -
 `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/java/io/github/loadup/modules/upms/infrastructure/dataobject/LoginLogDO.java`
@@ -342,11 +403,13 @@
 `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-infrastructure/src/main/resources/META-INF/services/javax.annotation.processing.Processor`
 -
 `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/java/io/github/loadup/modules/upms/MyBatisTestConfig.java`
+
 - `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/resources/application-ci.yml`
 - `loadup-framework/loadup-modules/loadup-modules-upms/loadup-modules-upms-test/src/test/resources/application-test.yml`
 - `loadup-framework/pom.xml`
 - `loadup-pay/acquire/acquire-infrastructure/pom.xml`
 -
+
 `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/AcquireOrderDO.java`
 -
 `loadup-pay/acquire/acquire-infrastructure/src/main/java/io/github/loadup/pay/acquire/infrastructure/dataobject/AcquireRecoveryRetryReceiptDO.java`
@@ -418,9 +481,11 @@
 `loadup-pay/acquire/acquire-infrastructure/src/test/java/io/github/loadup/pay/acquire/infrastructure/repository/AcquiringFinancialPersistenceIT.java`
 -
 `loadup-pay/acquire/acquire-infrastructure/src/test/java/io/github/loadup/pay/acquire/infrastructure/repository/OrderFeeGatewayImplTest.java`
+
 - `loadup-pay/channel/channel-core/src/test/java/io/github/loadup/pay/channel/core/PayModuleBoundaryTest.java`
 - `loadup-pay/customer/customer-infrastructure/pom.xml`
 -
+
 `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/dataobject/MerchantActionGrantDO.java`
 -
 `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/dataobject/MerchantRelationshipDO.java`
@@ -428,8 +493,10 @@
 `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantAuthorizationGatewayImpl.java`
 -
 `loadup-pay/customer/customer-infrastructure/src/main/java/io/github/loadup/pay/customer/infrastructure/repository/MerchantFactsGatewayImpl.java`
+
 - `loadup-pay/limitcenter/limitcenter-infrastructure/pom.xml`
 -
+
 `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitBucketDO.java`
 -
 `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/dataobject/LimitExecutionGrantDO.java`
@@ -457,9 +524,11 @@
 `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/LimitSettlementGatewayImpl.java`
 -
 `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/java/io/github/loadup/pay/limitcenter/infrastructure/repository/MerchantLimitGatewayImpl.java`
+
 - `loadup-pay/payment/payment-app/src/test/java/io/github/loadup/pay/payment/app/service/RoutingProfileServiceTest.java`
 - `loadup-pay/payment/payment-infrastructure/pom.xml`
 -
+
 `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelBindingChangeReceiptDO.java`
 -
 `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/dataobject/ChannelBindingRevisionDO.java`
@@ -565,8 +634,10 @@
 `loadup-pay/payment/payment-infrastructure/src/main/java/io/github/loadup/pay/payment/infrastructure/repository/UnknownRecoveryReaderImpl.java`
 -
 `loadup-pay/payment/payment-infrastructure/src/test/java/io/github/loadup/pay/payment/infrastructure/repository/FinancialPersistenceIT.java`
+
 - `loadup-pay/product/product-infrastructure/pom.xml`
 -
+
 `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/dataobject/ContractLimitPublicationDO.java`
 -
 `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/dataobject/OrderAdmissionDO.java`
@@ -576,8 +647,10 @@
 `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/OrderAdmissionGatewayImpl.java`
 -
 `loadup-pay/product/product-infrastructure/src/main/java/io/github/loadup/pay/product/infrastructure/repository/PolicyPublicationGatewayImpl.java`
+
 - `loadup-pay/realtime/realtime-infrastructure/pom.xml`
 -
+
 `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/ProjectionReceiptDO.java`
 -
 `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/dataobject/TradeOrderDO.java`
@@ -591,8 +664,10 @@
 `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/ProjectionReceiptGatewayImpl.java`
 -
 `loadup-pay/realtime/realtime-infrastructure/src/main/java/io/github/loadup/pay/realtime/infrastructure/repository/TradeProjectionGatewayImpl.java`
+
 - `loadup-pay/reconciliation/reconciliation-infrastructure/pom.xml`
 -
+
 `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationBatchDO.java`
 -
 `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/java/io/github/loadup/pay/reconciliation/infrastructure/dataobject/ReconciliationDifferenceDO.java`
@@ -788,6 +863,7 @@
 ## 主资源 Flyway 脚本（22）
 
 -
+
 `loadup-framework/loadup-components/data/loadup-components-database/src/main/resources/db/migration/V2026101201__sequence_allocation.sql`
 -
 `loadup-framework/loadup-components/data/loadup-components-dfs/loadup-components-dfs-binder-database/src/main/resources/db/migration/V1__create_file_storage.sql`
@@ -823,11 +899,15 @@
 `loadup-pay/customer/customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql`
 -
 `loadup-pay/limitcenter/limitcenter-infrastructure/src/main/resources/db/migration/V20261021180000__limitcenter_policy_and_reservation.sql`
+
 - `loadup-pay/payment/payment-infrastructure/src/main/resources/db/migration/V20261022020000__payment_acceptance.sql`
 -
+
 `loadup-pay/product/product-infrastructure/src/main/resources/db/migration/V20261021170000__create_product_admission.sql`
+
 - `loadup-pay/realtime/realtime-infrastructure/src/main/resources/db/migration/V20261023020000__trade_projections.sql`
 -
+
 `loadup-pay/reconciliation/reconciliation-infrastructure/src/main/resources/db/migration/V20261027000000__reconciliation_core.sql`
 
 ## 未完成与证据边界

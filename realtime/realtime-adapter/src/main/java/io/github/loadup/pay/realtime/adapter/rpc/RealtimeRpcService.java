@@ -11,36 +11,41 @@ import io.github.loadup.pay.realtime.rpc.proto.WirePayEventEnvelopeOfRefundSnaps
 import io.github.loadup.pay.realtime.rpc.proto.WireProjectionAckDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/** Protobuf IDL entry point for the realtime projection. */
+/**
+ * Protobuf IDL entry point for the realtime projection.
+ */
 @DubboService(interfaceClass = RealtimeRpc.class)
 public class RealtimeRpcService extends DubboRealtimeRpcTriple.RealtimeRpcImplBase {
     private final TradeProjectionFacade tradeProjection;
 
-    public RealtimeRpcService(TradeProjectionFacade tradeProjection) {
+    private final RealtimeRpcMapper realtimeRpcMapper;
+
+    public RealtimeRpcService(RealtimeRpcMapper realtimeRpcMapper, TradeProjectionFacade tradeProjection) {
+        this.realtimeRpcMapper = realtimeRpcMapper;
         this.tradeProjection = tradeProjection;
     }
 
     @Override
     public WireProjectionAckDTO order(WirePayEventEnvelopeOfOrderSnapshotEventDTO request) {
-        return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(tradeProjection.applyOrder(
-                RealtimeRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfOrderSnapshotEventDTO(request)));
+        return realtimeRpcMapper.toWireProjectionAckDTO(tradeProjection.applyOrder(
+                realtimeRpcMapper.fromWirePayEventEnvelopeOfOrderSnapshotEventDTO(request)));
     }
 
     @Override
     public WireProjectionAckDTO payment(WirePayEventEnvelopeOfPaymentSnapshotEventDTO request) {
-        return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(tradeProjection.applyPayment(
-                RealtimeRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfPaymentSnapshotEventDTO(request)));
+        return realtimeRpcMapper.toWireProjectionAckDTO(tradeProjection.applyPayment(
+                realtimeRpcMapper.fromWirePayEventEnvelopeOfPaymentSnapshotEventDTO(request)));
     }
 
     @Override
     public WireProjectionAckDTO refund(WirePayEventEnvelopeOfRefundSnapshotEventDTO request) {
-        return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(tradeProjection.applyRefund(
-                RealtimeRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfRefundSnapshotEventDTO(request)));
+        return realtimeRpcMapper.toWireProjectionAckDTO(tradeProjection.applyRefund(
+                realtimeRpcMapper.fromWirePayEventEnvelopeOfRefundSnapshotEventDTO(request)));
     }
 
     @Override
     public WireProjectionAckDTO refundSummary(WirePayEventEnvelopeOfOrderRefundSummaryEventDTO request) {
-        return RealtimeRpcMapper.INSTANCE.toWireProjectionAckDTO(tradeProjection.applyRefundSummary(
-                RealtimeRpcMapper.INSTANCE.fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(request)));
+        return realtimeRpcMapper.toWireProjectionAckDTO(tradeProjection.applyRefundSummary(
+                realtimeRpcMapper.fromWirePayEventEnvelopeOfOrderRefundSummaryEventDTO(request)));
     }
 }

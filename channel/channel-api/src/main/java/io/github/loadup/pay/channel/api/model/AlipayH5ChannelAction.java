@@ -50,19 +50,27 @@ public record AlipayH5ChannelAction(@DiagnosticHidden String redirectUrl, Offset
     }
 
     private static boolean validUrl(String value) {
-        if (value == null || value.length() > 6144 || value.chars().anyMatch(Character::isISOControl)) return false;
+        if (value == null || value.length() > 6144 || value.chars().anyMatch(Character::isISOControl)) {
+            return false;
+        }
         try {
             var uri = URI.create(value);
-            if (!isGateway(uri) || uri.getRawQuery() == null) return false;
+            if (!isGateway(uri) || uri.getRawQuery() == null) {
+                return false;
+            }
             var parameters = new HashMap<String, String>();
             for (var part : uri.getRawQuery().split("&", -1)) {
                 int separator = part.indexOf('=');
-                if (separator <= 0) return false;
+                if (separator <= 0) {
+                    return false;
+                }
                 var key = URLDecoder.decode(part.substring(0, separator), StandardCharsets.UTF_8);
                 var decoded = URLDecoder.decode(part.substring(separator + 1), StandardCharsets.UTF_8);
                 if ((!REQUIRED.contains(key) && !Set.of("notify_url", "return_url").contains(key))
                         || decoded.isBlank() || decoded.chars().anyMatch(Character::isISOControl)
-                        || parameters.putIfAbsent(key, decoded) != null) return false;
+                        || parameters.putIfAbsent(key, decoded) != null) {
+                    return false;
+                }
             }
             return parameters.keySet().containsAll(REQUIRED) && "alipay.trade.wap.pay".equals(parameters.get("method"))
                     && "RSA2".equals(parameters.get("sign_type")) && "utf-8".equals(parameters.get("charset"))

@@ -159,10 +159,14 @@ class PaymentControlServiceTest {
                         .findFirst());
         when(store.childrenStatus("tenant", "order")).thenAnswer(c -> {
             var current = payment.get();
-            if (current == null) return new PaymentChildrenStatus(0, 0);
+            if (current == null) {
+                return new PaymentChildrenStatus(0, 0);
+            }
             if (Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
                     .contains(current.payment().state())
-                    && current.terminalEvidenceId() != null) return new PaymentChildrenStatus(0, 0);
+                    && current.terminalEvidenceId() != null) {
+                return new PaymentChildrenStatus(0, 0);
+            }
             return new PaymentChildrenStatus(1, current.payment().activeAttemptId() == null ? 0 : 1);
         });
         when(codec.decode(any())).thenReturn(PaymentFixtures.command());

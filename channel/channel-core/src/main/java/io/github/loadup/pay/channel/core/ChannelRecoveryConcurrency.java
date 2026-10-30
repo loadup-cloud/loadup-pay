@@ -40,8 +40,9 @@ public final class ChannelRecoveryConcurrency {
         var values = new EnumMap<Channel, Bulkhead>(Channel.class);
         for (var channel : Channel.values()) {
             var limit = registries.bulkheadRegistry().bulkhead(instanceName(channel));
-            if (!limit.getBulkheadConfig().getMaxWaitDuration().isZero())
+            if (!limit.getBulkheadConfig().getMaxWaitDuration().isZero()) {
                 throw new CommonException(RECOVERY_CONFIGURATION_INVALID);
+            }
             values.put(channel, limit);
         }
         limits = Map.copyOf(values);
@@ -54,7 +55,9 @@ public final class ChannelRecoveryConcurrency {
     public <T> T execute(Channel channel, Supplier<T> work) {
         var limit = limits.get(Objects.requireNonNull(channel));
         Objects.requireNonNull(work);
-        if (!limit.tryAcquirePermission()) throw new CommonException(RECOVERY_BUSY);
+        if (!limit.tryAcquirePermission()) {
+            throw new CommonException(RECOVERY_BUSY);
+        }
         try {
             return work.get();
         } finally {

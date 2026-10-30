@@ -9,15 +9,15 @@
 protobuf 消息/存根和 Wire↔DTO MapStruct mapper。IDL 代码固定在 `rpc` 子包（`io.github.loadup.pay.<svc>.rpc`），
 与 `client` 业务契约隔离；domain 不依赖 client，app 不直接引用 rpc 类型，适配器负责 Wire↔DTO 转换。
 
-| 提供方         | 契约模块            | Proto service / 方法                                                                                                       |
-|----------------|---------------------|----------------------------------------------------------------------------------------------------------------------------|
-| customer       | customer-client     | `CustomerRpc.Authorize`                                                                                                    |
-| product        | product-client      | `ProductRpc.Authorize/Detail`                                                                                              |
-| limitcenter    | limitcenter-client  | `LimitCenterRpc.Activate/Reserve/Detail/Begin/Verify/Expire/Confirm/Release/RestoreRefund`                                 |
-| payment        | payment-client      | `PaymentRpc.*`（13 个方法）、`PaymentCaptureRpc.*`、`PaymentStatementRpc.Download`、`PaymentVerificationRpc.Verify`         |
-| acquire        | acquire-client      | `AcquireRpc.PaymentOutcome/FeeRefund/RefundNotification`                                                                   |
-| realtime       | realtime-client     | `RealtimeRpc.Order/Payment/Refund/RefundSummary`                                                                           |
-| reconciliation | reconciliation-client | `ReconciliationRpc.Create/Attach/Start/Retry/Task/Detail`                                                                  |
+| 提供方         | 契约模块              | Proto service / 方法                                                                                                |
+|----------------|-----------------------|---------------------------------------------------------------------------------------------------------------------|
+| customer       | customer-client       | `CustomerRpc.Authorize`                                                                                             |
+| product        | product-client        | `ProductRpc.Authorize/Detail`                                                                                       |
+| limitcenter    | limitcenter-client    | `LimitCenterRpc.Activate/Reserve/Detail/Begin/Verify/Expire/Confirm/Release/RestoreRefund`                          |
+| payment        | payment-client        | `PaymentRpc.*`（13 个方法）、`PaymentCaptureRpc.*`、`PaymentStatementRpc.Download`、`PaymentVerificationRpc.Verify` |
+| acquire        | acquire-client        | `AcquireRpc.PaymentOutcome/FeeRefund/RefundNotification`                                                            |
+| realtime       | realtime-client       | `RealtimeRpc.Order/Payment/Refund/RefundSummary`                                                                    |
+| reconciliation | reconciliation-client | `ReconciliationRpc.Create/Attach/Start/Retry/Task/Detail`                                                           |
 
 `payment-client` 依赖 `product-client`（AdmittedTerms 转换）；`acquire-client` 依赖 `payment-client`；`realtime-client` 依赖
 `acquire-client` + `payment-client`。跨服务只复用源服务的 Wire 类型，不复制消息定义。
@@ -124,13 +124,13 @@ MapStruct mapper 只做 Wire↔client DTO 转换：
 
 ## 消费方 → 提供方
 
-| 消费方         | 依赖的提供方                                  |
-|----------------|-----------------------------------------------|
-| acquire        | payment、product、realtime                    |
-| product        | customer、limitcenter                         |
-| limitcenter    | payment                                       |
-| payment        | realtime、limitcenter、acquire                |
-| reconciliation | payment                                       |
+| 消费方         | 依赖的提供方                   |
+|----------------|--------------------------------|
+| acquire        | payment、product、realtime     |
+| product        | customer、limitcenter          |
+| limitcenter    | payment                        |
+| payment        | realtime、limitcenter、acquire |
+| reconciliation | payment                        |
 
 ## 构建与依赖
 

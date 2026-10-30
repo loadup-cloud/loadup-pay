@@ -42,10 +42,12 @@ public record TradeOrderDTO(
         @Schema(description = "Independent source amounts currently agree") boolean amountsConsistent,
         @Schema(description = "Snapshot at") OffsetDateTime snapshotAt) {
     public TradeOrderDTO {
-        if (orderCreatedAt != null)
+        if (orderCreatedAt != null) {
             orderCreatedAt = orderCreatedAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
-        if (snapshotAt != null)
+        }
+        if (snapshotAt != null) {
             snapshotAt = snapshotAt.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
+        }
     }
 
     @Override

@@ -195,7 +195,7 @@ class ReconciliationStatementServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return ((String) call.getArgument(2)).endsWith(".csv") ? file : evidence;
         });
-        when(transfers.submit(eq("tenant"), eq("ops"), eq(TransferKind.IMPORT), eq(ReconciliationImportExecutionService.HANDLER_KEY), eq("file"), eq(Map.of("importId", "source"))))
+        when(transfers.submit(eq("ops"), eq(TransferKind.IMPORT), eq(ReconciliationImportExecutionService.HANDLER_KEY), eq("file"), eq(Map.of("importId", "source"))))
                 .thenAnswer(call -> {
                     assertWrite();
                     return transfer();
@@ -228,7 +228,7 @@ class ReconciliationStatementServiceTest {
         verify(files).attach("tenant", "ops", evidence, "source");
         handle();
         verify(payment, times(1)).download(eq("tenant"), any());
-        verify(transfers, times(1)).submit(anyString(), anyString(), any(), anyString(), anyString(), anyMap());
+        verify(transfers, times(1)).submit(anyString(), any(), anyString(), anyString(), anyMap());
         nativeTask.set(task(DelayedTaskStatus.FAILED));
         doAnswer(call -> {
             nativeTask.set(task(DelayedTaskStatus.PENDING));
@@ -263,7 +263,7 @@ class ReconciliationStatementServiceTest {
         when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.empty());
         var running = nativeTask.get();
         doAnswer(call -> {
-            nativeTask.set(new DelayedTask(running.id(), running.tenantId(), running.taskType(), running.bizId(), running.executeAt(), running.nextExecuteAt(), DelayedTaskStatus.RUNNING, 2, 5, now.plusMinutes(2), null));
+            nativeTask.set(new DelayedTask(running.id(), running.taskType(), running.bizId(), running.executeAt(), running.nextExecuteAt(), DelayedTaskStatus.RUNNING, 2, 5, now.plusMinutes(2), null));
             return downloaded("revision");
         }).when(payment).download(anyString(), any());
         assertEquals(INVALID_STATE, assertThrows(CommonException.class, this::handle).getResultCode());
@@ -294,11 +294,11 @@ class ReconciliationStatementServiceTest {
     }
 
     DelayedTask task(DelayedTaskStatus status) {
-        return new DelayedTask("download-task", "tenant", ReconciliationStatementExecutionService.TYPE, "source", now, now, status, status == DelayedTaskStatus.RUNNING || status == DelayedTaskStatus.FAILED ? 1 : 0, 5, status == DelayedTaskStatus.RUNNING ? now.plusMinutes(1) : null, null);
+        return new DelayedTask("download-task", ReconciliationStatementExecutionService.TYPE, "source", now, now, status, status == DelayedTaskStatus.RUNNING || status == DelayedTaskStatus.FAILED ? 1 : 0, 5, status == DelayedTaskStatus.RUNNING ? now.plusMinutes(1) : null, null);
     }
 
     TransferTaskDTO transfer() {
-        return new TransferTaskDTO("transfer-task", "tenant", "ops", TransferKind.IMPORT, ReconciliationImportExecutionService.HANDLER_KEY, "file", null, TransferStatus.QUEUED, 0L, 0L, null, now, null, null);
+        return new TransferTaskDTO("transfer-task", "ops", TransferKind.IMPORT, ReconciliationImportExecutionService.HANDLER_KEY, "file", null, TransferStatus.QUEUED, 0L, 0L, null, now, null, null);
     }
 
     static class Tx extends AbstractPlatformTransactionManager {

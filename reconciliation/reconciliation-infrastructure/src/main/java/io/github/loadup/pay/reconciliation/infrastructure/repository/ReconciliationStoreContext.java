@@ -27,12 +27,18 @@ final class ReconciliationStoreContext {
     }
 
     static void readable(String tenant) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 
     static void writable(String tenant) {
         readable(tenant);
-        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) throw new CommonException(INVALID_STATE);
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new CommonException(INVALID_STATE);
+        }
     }
 }

@@ -40,12 +40,16 @@ public class OrderDeadlineTasks {
     }
 
     public void register(String tenant, AcquireOrder order, long deadlineVersion) {
-        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) throw new CommonException(ACTION_FORBIDDEN);
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
-        if (deadlineVersion < 1 || order.state() != AcquireOrderState.INIT && order.state() != AcquireOrderState.PENDING)
+        }
+        if (deadlineVersion < 1 || order.state() != AcquireOrderState.INIT && order.state() != AcquireOrderState.PENDING) {
             throw new CommonException(INVALID_STATE);
+        }
         tasks.register(TYPE, new OrderTaskKey(order.id(), deadlineVersion).bizId(), order.orderDueAt());
     }
 }

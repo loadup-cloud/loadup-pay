@@ -33,7 +33,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface TradeStorageConverter {
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.orderCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -50,7 +50,7 @@ public interface TradeStorageConverter {
     TradeOrderDO toPatch(TradeOrderProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.initiatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -67,7 +67,7 @@ public interface TradeStorageConverter {
     TradePaymentDO toPatch(TradePaymentProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.refundCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -84,7 +84,7 @@ public interface TradeStorageConverter {
     TradeRefundDO toPatch(TradeRefundProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -100,7 +100,7 @@ public interface TradeStorageConverter {
 
     ProjectionReceipt toReceipt(ProjectionReceiptDO row);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")

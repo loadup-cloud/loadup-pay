@@ -59,19 +59,26 @@ public class RefundSummaryFactsService implements RefundSummaryFactsFacade {
 
     @Override
     public OrderRefundSummaryEventDTO refundSummary(IdQuery query) {
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var actor = actors.current();
-        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-summary:read"))
+        if (!acquireService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:refund-summary:read")) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
             var parent = payments.lockParent(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (!actor.serviceId().equals(parent.callerServiceId())) throw new CommonException(ACTION_FORBIDDEN);
-            if (!query.id().equals(parent.gate().orderId()) || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT)
+            if (!actor.serviceId().equals(parent.callerServiceId())) {
+                throw new CommonException(ACTION_FORBIDDEN);
+            }
+            if (!query.id().equals(parent.gate().orderId()) || parent.gate().paymentId() != null || parent.gate().state() == GateState.INIT) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             var value = summaries.lock(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            if (!value.orderId().equals(query.id()) || !value.payeeMerchantId().equals(parent.payeeMerchantId()))
+            if (!value.orderId().equals(query.id()) || !value.payeeMerchantId().equals(parent.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return converter.toEvent(value);
         });
     }

@@ -71,7 +71,11 @@ public record PaymentCaptureRead(PaymentCaptureScope scope, LocalDateTime starte
 
     private long total(PaymentLedgerKind kind) {
         long total = 0;
-        for (var line : lines) if (line.kind() == kind) total = Math.addExact(total, line.amount().getCent());
+        for (var line : lines) {
+            if (line.kind() == kind) {
+                total = Math.addExact(total, line.amount().getCent());
+            }
+        }
         return total;
     }
 

@@ -60,14 +60,15 @@ public interface ReconciliationReviewStorageConverter {
 
     default ReconciliationFileSnapshot evidence(ReconciliationReviewProposalDO row) {
         if (row.getEvidenceFileId() == null) {
-            if (row.getEvidenceStorageId() != null || row.getEvidenceSize() != null || row.getEvidenceSha256() != null)
+            if (row.getEvidenceStorageId() != null || row.getEvidenceSize() != null || row.getEvidenceSha256() != null) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             return null;
         }
         return toEvidence(row);
     }
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.reference.differenceId")
     @Mapping(target = "batchId", source = "value.reference.batchId")
     @Mapping(target = "runId", source = "value.reference.runId")
@@ -82,7 +83,7 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     ReconciliationReviewDO toDO(String tenant, ReconciliationReview value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.id")
     @Mapping(target = "differenceId", source = "value.reference.differenceId")
     @Mapping(target = "batchId", source = "value.reference.batchId")
@@ -102,7 +103,7 @@ public interface ReconciliationReviewStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     ReconciliationReviewProposalDO toDO(String tenant, ReconciliationReviewProposal value);
 
-    @Mapping(target = "tenantId", source = "tenant")
+
     @Mapping(target = "id", source = "value.id")
     @Mapping(target = "differenceId", source = "value.reference.differenceId")
     @Mapping(target = "batchId", source = "value.reference.batchId")

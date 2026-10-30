@@ -97,7 +97,6 @@ class OrderSnapshotEventsTest {
         var message = capture.getValue();
         Map<?, ?> envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
         var data = (Map<?, ?>) envelope.get("data");
-        assertEquals("tenant", message.tenantId());
         assertEquals("order", message.businessId());
         assertEquals(OrderSnapshotEvents.TYPE, message.type());
         assertEquals("acquire", envelope.get("producer"));

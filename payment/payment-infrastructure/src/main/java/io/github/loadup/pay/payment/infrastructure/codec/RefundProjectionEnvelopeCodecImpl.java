@@ -74,9 +74,13 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     }
 
     private <T> T decode(String payload, TypeReference<T> type) {
-        if (payload == null || payload.length() > 65536) throw new CommonException(SNAPSHOT_INVALID);
+        if (payload == null || payload.length() > 65536) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var event = json.readValue(payload, type);
-        if (event == null) throw new CommonException(SNAPSHOT_INVALID);
+        if (event == null) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         return event;
     }
 
@@ -86,7 +90,9 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
             var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {
             });
             event.data().requireEnvelope(event);
-            if (event.data().state() != RefundState.SUCCEEDED) throw new CommonException(SNAPSHOT_INVALID);
+            if (event.data().state() != RefundState.SUCCEEDED) {
+                throw new CommonException(SNAPSHOT_INVALID);
+            }
             return event;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);

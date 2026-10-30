@@ -66,15 +66,17 @@ public record AcquireOrder(
                         && version >= 0,
                 INVALID_ARGUMENT);
         require((state == AcquireOrderState.PAID) == (paidAmountMinor == amount.getCent()), INVALID_STATE);
-        if (state == AcquireOrderState.CLOSED)
+        if (state == AcquireOrderState.CLOSED) {
             require(paymentReservedMinor == 0 && reservedPaymentCount == 0, INVALID_STATE);
-        if (state == AcquireOrderState.INIT)
+        }
+        if (state == AcquireOrderState.INIT) {
             require(
                     paidAmountMinor == 0
                             && paymentReservedMinor == 0
                             && successfulPaymentCount == 0
                             && reservedPaymentCount == 0,
                     INVALID_STATE);
+        }
     }
 
     public static AcquireOrder init(
@@ -136,15 +138,20 @@ public record AcquireOrder(
                         && current.paymentId().equals(outcome.paymentId())
                         && current.amount().equals(outcome.amount()),
                 CONFLICT);
-        if (outcome.kind() == VerifiedPaymentOutcome.Kind.UNKNOWN) return new OrderPaymentChange(this, current);
-        if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED)
-            require(current.paymentSourceVersion() == 0, CONFLICT);
-        else if (outcome.paymentVersion() <= current.paymentSourceVersion())
+        if (outcome.kind() == VerifiedPaymentOutcome.Kind.UNKNOWN) {
             return new OrderPaymentChange(this, current);
+        }
+        if (outcome.kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED) {
+            require(current.paymentSourceVersion() == 0, CONFLICT);
+        } else if (outcome.paymentVersion() <= current.paymentSourceVersion()) {
+            return new OrderPaymentChange(this, current);
+        }
         var target = outcome.kind() == VerifiedPaymentOutcome.Kind.SUCCEEDED
                 ? AllocationState.CONSUMED
                 : AllocationState.RELEASED;
-        if (current.state() == target) return new OrderPaymentChange(this, current);
+        if (current.state() == target) {
+            return new OrderPaymentChange(this, current);
+        }
         require(
                 current.state() == AllocationState.HELD
                         && state != AcquireOrderState.PAID
@@ -176,7 +183,9 @@ public record AcquireOrder(
     }
 
     public AcquireOrder requestClose() {
-        if (state == AcquireOrderState.CLOSING) return this;
+        if (state == AcquireOrderState.CLOSING) {
+            return this;
+        }
         require(state == AcquireOrderState.INIT || state == AcquireOrderState.PENDING, INVALID_STATE);
         return new AcquireOrder(
                 id,
@@ -197,7 +206,9 @@ public record AcquireOrder(
     public AcquireOrder finishClose(ParentCloseEvidence evidence) {
         Objects.requireNonNull(evidence);
         require(id.equals(evidence.orderId()) && closeEpoch == evidence.closeEpoch(), CONFLICT);
-        if (state == AcquireOrderState.CLOSED) return this;
+        if (state == AcquireOrderState.CLOSED) {
+            return this;
+        }
         require(
                 state == AcquireOrderState.CLOSING && paymentReservedMinor == 0 && reservedPaymentCount == 0,
                 OUTCOME_UNKNOWN);
@@ -222,10 +233,15 @@ public record AcquireOrder(
      */
     public AcquireOrder checkDue(LocalDateTime now) {
         Objects.requireNonNull(now);
-        if (now.isBefore(orderDueAt) || state != AcquireOrderState.INIT && state != AcquireOrderState.PENDING)
+        if (now.isBefore(orderDueAt) || state != AcquireOrderState.INIT && state != AcquireOrderState.PENDING) {
             return this;
-        if (unpaidAction == UnpaidOrderAction.CLOSE) return requestClose();
-        if (state == AcquireOrderState.PENDING) return this;
+        }
+        if (unpaidAction == UnpaidOrderAction.CLOSE) {
+            return requestClose();
+        }
+        if (state == AcquireOrderState.PENDING) {
+            return this;
+        }
         return new AcquireOrder(
                 id,
                 payeeMerchantId,

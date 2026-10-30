@@ -78,7 +78,9 @@ public final class AlipayPaymentAdapter {
                 }
                 kind = ChannelPaymentOutcome.Kind.SUCCEEDED;
             } else if ("WAIT_BUYER_PAY".equals(status)) {
-                if (response.get("send_pay_date") != null) throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                if (response.get("send_pay_date") != null) {
+                    throw new CommonException(CHANNEL_RESPONSE_INVALID);
+                }
                 kind = ChannelPaymentOutcome.Kind.ACCEPTED;
             }
             // TRADE_CLOSED also means fully refunded after collection. It cannot prove NO_COLLECTION.
@@ -89,7 +91,9 @@ public final class AlipayPaymentAdapter {
     }
 
     public ChannelPaymentSubmission recover(ChannelExecutionContext context, ChannelPaymentRecovery request) {
-        if (request == null) throw new CommonException(INVALID_ARGUMENT);
+        if (request == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var observed = query(context, new ChannelPaymentTarget(request.identity(), request.amount()));
         // Both the initial CREATE and recovery use the original second-truncated deadline, never a new window.
         var expiry = request.payableUntil().withNano(0);
@@ -102,7 +106,9 @@ public final class AlipayPaymentAdapter {
     public PaymentObservation close(ChannelExecutionContext context, ChannelPaymentTarget target) {
         // Establish an unpaid original transaction before invoking the provider's unpaid-only close.
         var before = query(context, target);
-        if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) return before;
+        if (before.kind() != ChannelPaymentOutcome.Kind.ACCEPTED) {
+            return before;
+        }
         var verified = client.call(context.tenantId(), context.binding(), AlipayMethod.CLOSE,
                 json.writeValueAsString(Map.of("out_trade_no", target.identity().channelRequestNo(),
                         "trade_no", before.channelTransactionNo())), Map.of());
@@ -122,7 +128,9 @@ public final class AlipayPaymentAdapter {
     }
 
     private void requireTarget(ChannelExecutionContext context, ChannelPaymentTarget target) {
-        if (target == null) throw new CommonException(INVALID_ARGUMENT);
+        if (target == null) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         AlipayBindingGuard.require(context, target.identity());
     }
 }

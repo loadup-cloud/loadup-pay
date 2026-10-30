@@ -29,7 +29,6 @@ import io.github.loadup.pay.payment.client.facade.PaymentUnknownRecoveryFacade;
 import io.github.loadup.pay.payment.client.query.PaymentUnknownRecoveryQuery;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -62,7 +61,7 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
 
     public PaymentUnknownRecoveryService(PaymentActorProvider actors, UnknownRecoveryReader reader,
                                          UnknownRecoveryOperationsConverter converter, RecoveryEscalationPolicy policy,
-                                         PaymentAcceptanceTransactions transactions, Validator validator, @Qualifier("paymentClock") Clock clock,
+                                         PaymentAcceptanceTransactions transactions, Validator validator, Clock clock,
                                          @Value("${loadup.modules.payment.recovery-operations-service-id:pay-ops}") String operationsService) {
         this.actors = actors;
         this.reader = reader;
@@ -77,10 +76,15 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
     @Override
     public PaymentUnknownRecoveryPageDTO list(PaymentUnknownRecoveryQuery query) {
         var actor = actors.current();
-        if (!operationsService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:recovery:read"))
+        if (!operationsService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:recovery:read")) {
             throw new CommonException(ACTION_FORBIDDEN);
-        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new CommonException(INVALID_STATE);
-        if (query == null || !validator.validate(query).isEmpty()) throw new CommonException(INVALID_ARGUMENT);
+        }
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new CommonException(INVALID_STATE);
+        }
+        if (query == null || !validator.validate(query).isEmpty()) {
+            throw new CommonException(INVALID_ARGUMENT);
+        }
         var now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         final UnknownRecoveryWindow window;
         try {
@@ -103,15 +107,18 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
     }
 
     private void requireWindow(List<UnknownRecoveryEntry> rows, PaymentUnknownRecoveryQuery query, UnknownRecoveryWindow window) {
-        if (rows == null || rows.size() > query.limit() + 1) throw new CommonException(SNAPSHOT_INVALID);
+        if (rows == null || rows.size() > query.limit() + 1) {
+            throw new CommonException(SNAPSHOT_INVALID);
+        }
         var previousAt = window.afterFirstUnknownAt();
         var previousId = window.afterRecordId();
         for (var row : rows) {
             if (row == null || row.kind() != query.kind() || window.cutoff() != null && row.firstUnknownAt().isAfter(window.cutoff())
                     || previousAt != null && (row.firstUnknownAt().isBefore(previousAt)
                     || row.firstUnknownAt().equals(previousAt) && Arrays.compareUnsigned(row.recordId().getBytes(StandardCharsets.UTF_8),
-                    previousId.getBytes(StandardCharsets.UTF_8)) <= 0))
+                    previousId.getBytes(StandardCharsets.UTF_8)) <= 0)) {
                 throw new CommonException(SNAPSHOT_INVALID);
+            }
             previousAt = row.firstUnknownAt();
             previousId = row.recordId();
         }

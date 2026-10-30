@@ -16,6 +16,7 @@
 package io.github.loadup.pay.acquire.infrastructure.repository;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
@@ -29,8 +30,6 @@ import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationSt
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentOutcomeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
-import io.github.loadup.components.database.tenant.TenantContext;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -55,7 +54,7 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     private final PaymentInitiationCodec codec;
 
     public PaymentOutcomeGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentInitiationStorageConverter allocationConverter,
-                                     PaymentOutcomeStorageConverter converter, PaymentInitiationCodec codec, @Qualifier("acquireClock") Clock clock) {
+                                     PaymentOutcomeStorageConverter converter, PaymentInitiationCodec codec, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.allocationConverter = allocationConverter;
@@ -82,7 +81,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                         FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND payment_id = :payment AND deleted = FALSE
                         """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class))
                 .stream().findFirst().orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             var value = allocationConverter.toStored(row, allocationConverter.toAllocation(row));
             codec.decode(value);
@@ -100,7 +101,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                        outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
                 FROM order_payment_outcome WHERE tenant_id = :tenant AND allocation_id = :allocation AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(OrderPaymentOutcomeDO.class)).stream().findFirst().orElse(null);
-        if (row == null) return Optional.empty();
+        if (row == null) {
+            return Optional.empty();
+        }
         try {
             return Optional.of(converter.toReceipt(row, converter.toOutcome(row)));
         } catch (RuntimeException corrupt) {
@@ -123,8 +126,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 ? original.allocation().paymentSourceVersion() != 0
                 : receipt.outcome().paymentVersion() <= original.allocation().paymentSourceVersion())
                 || order.version() != Math.incrementExact(expectedOrderVersion)
-                || !(order.state() == AcquireOrderState.PENDING || order.state() == AcquireOrderState.CLOSING || order.state() == AcquireOrderState.PAID))
+                || !(order.state() == AcquireOrderState.PENDING || order.state() == AcquireOrderState.CLOSING || order.state() == AcquireOrderState.PAID)) {
             throw new CommonException(SNAPSHOT_INVALID);
+        }
         var orderPatch = converter.toOrderPatch(order, order.state() == AcquireOrderState.PAID ? receipt.observedAt() : null);
         var orderArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id()).addValue("expected", expectedOrderVersion)
                 .addValue("paid", orderPatch.getPaidAmountMinor()).addValue("reserved", orderPatch.getPaymentReservedMinor())
@@ -137,7 +141,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                     row_version = :version, paid_at = COALESCE(:paidAt, paid_at), updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state IN ('PENDING', 'CLOSING') AND deleted = FALSE
                 """, orderArgs);
-        if (orderChanged != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (orderChanged != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var patch = converter.toAllocationPatch(allocation, Math.incrementExact(original.rowVersion()));
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", allocation.id()).addValue("order", order.id())
                 .addValue("payment", allocation.paymentId()).addValue("expected", original.rowVersion())
@@ -149,7 +155,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                     row_version = :version, updated_at = :updated WHERE tenant_id = :tenant AND id = :id AND order_id = :order
                     AND payment_id = :payment AND state = 'HELD' AND row_version = :expected AND payment_source_version = :source AND deleted = FALSE
                 """, args);
-        if (allocationChanged != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (allocationChanged != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
         var row = converter.toDO(tenant, receipt);
         var now = LocalDateTime.now(clock);
         row.setCreatedAt(now);
@@ -161,14 +169,19 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                     :currency, :outcomeKind, :paymentSourceVersion, :evidenceId, :executionFenced, :observedAt)
                 ON CONFLICT (tenant_id, allocation_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
-        if (count == 0) throw new AcquireWriteConflictException("Payment outcome allocation already exists");
-        if (count != 1) throw new CommonException(CONCURRENT_UPDATE);
+        if (count == 0) {
+            throw new AcquireWriteConflictException("Payment outcome allocation already exists");
+        }
+        if (count != 1) {
+            throw new CommonException(CONCURRENT_UPDATE);
+        }
     }
 
     private void requireTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))
+                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
+        }
     }
 }

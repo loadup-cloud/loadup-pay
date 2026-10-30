@@ -48,8 +48,9 @@ public class ConfiguredReconciliationAccountDirectory implements ReconciliationA
     public void authorize(String tenant, String caller, String code, ReconciliationScope original) {
         var account = account(tenant, caller, code);
         // A parser/profile change does not rewrite old sealed inputs. Account identity and caller grants still apply.
-        if (original == null || account.channel() != original.channel() || !account.accountScopeHash().equals(original.accountScopeHash()))
+        if (original == null || account.channel() != original.channel() || !account.accountScopeHash().equals(original.accountScopeHash())) {
             throw new CommonException(ACTION_FORBIDDEN);
+        }
     }
 
     @Override
@@ -62,13 +63,17 @@ public class ConfiguredReconciliationAccountDirectory implements ReconciliationA
     public String statementBindingRevision(String tenant, String caller, String code, ReconciliationScope original) {
         authorize(tenant, caller, code, original);
         var revision = account(tenant, caller, code).statementBindingRevisionId();
-        if (revision == null) throw new CommonException(ACTION_FORBIDDEN);
+        if (revision == null) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return revision;
     }
 
     private ReconciliationAccountsProperties.Account account(String tenant, String caller, String code) {
         var account = properties.tenants().getOrDefault(tenant, Map.of()).get(code);
-        if (account == null || !account.serviceIds().contains(caller)) throw new CommonException(ACTION_FORBIDDEN);
+        if (account == null || !account.serviceIds().contains(caller)) {
+            throw new CommonException(ACTION_FORBIDDEN);
+        }
         return account;
     }
 }
