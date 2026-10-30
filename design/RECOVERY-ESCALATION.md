@@ -49,8 +49,7 @@ nextFirstUnknownAt/nextRecordId 原值，游标必须成对且为微秒时间。
 查询用当前时点判断年龄，返回 observedAt 与当次阈值，跨页保持 kind/minimumLevel；每一页是独立 RR
 快照，交易终结/配置变更/新记录可使队列变化，不是完整导出的固定快照。
 
-实际 Reader 使用生成
-Mapper/TableDef + [MyBatis-Flex 查询与关联接口](https://mybatis-flex.com/zh/base/querywrapper.html)，
+实际 Reader 使用参数化 Spring JDBC 查询，
 付款联 payment_recovery_cursor，子退款联原 refund_request/refund_recovery_cursor，所有表明确当前 tenant 和未删除条件。
 缺失退款父数据/非法映射明确失败，不能隐藏该条而伪装完整结果；缺失游标允许显式 null。
 实际 REQUIRES_NEW / readOnly / REPEATABLE_READ 内读取，无 FOR UPDATE、写入、跨服务 IO 或每行 native 查询；不调用任务、渠道或退款推进。

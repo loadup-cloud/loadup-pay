@@ -9,7 +9,7 @@ IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测�
 
 本批补齐 COLA 的 product-app、product-infrastructure、product-adapter，落地 OrderAdmissionFacade 的持久化准入/原决定查询，以及
 LimitPolicyPublicationFacade 的初始额度可靠发布、ACK与失败重放。复用框架合约主档、不可变
-revision、ContractCodec、ContractRuntimeResolver、MyBatis-Flex、ID、HTTP、JWT 与统一响应；不复制 merchant_contract 主档。
+revision、ContractCodec、ContractRuntimeResolver、Spring JDBC、ID、HTTP、JWT 与统一响应；不复制 merchant_contract 主档。
 
 ## 能力与边界
 

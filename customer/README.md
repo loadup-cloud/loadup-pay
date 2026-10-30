@@ -7,7 +7,7 @@
 要求由该规范取代；商户/运营 HTTP 入口继续保留。实际业务 gRPC 随本应用 `*-business` 构建和运行 profile 装配，端口50051；本批通过
 IDEA MCP 完成六业务应用及依赖的 `clean test-compile`；未执行测试或部署。
 
-本批实现商户逐项授权这一条 COLA 业务链路：HTTP adapter → app Facade → domain → MyBatis-Flex Gateway。完整商户主档复用框架
+商户逐项授权的 COLA 业务链路为：HTTP adapter → app Facade → domain → Spring JDBC Gateway。完整商户主档复用框架
 merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 的订单准入和业务 gRPC 仍为后续批次。
 
 ## 能力与入口
@@ -53,15 +53,13 @@ OPERATOR 在直接授权时可无 merchant_id；绑定父子关系的代操作�
   `customer-infrastructure/src/main/resources/db/migration/V20261021160000__create_customer_authorization.sql`
   ；设计草案同步更新，不能重复执行草案。
 - 创建、授权、撤销、资格判断均使用主库 READ_COMMITTED 事务。以收款商户主档行锁串行化该商户的授权变更和资格判断；撤销另校验原资源版本。数据库唯一索引作为最终约束。
-- 撤销保留原ID和版本历史。生成列 active_slot 在 INIT/ACTIVE 时为1，REVOKED
-  时为NULL，只限制一个未撤销记录。撤销后可用新ID和新幂等键重新授予；到期记录仍需显式撤销。旧关系绑定的授权不会自动改绑到新关系。
+- 撤销保留原ID和版本历史。PostgreSQL 部分唯一索引限制每个业务键最多存在一个 INIT 或 ACTIVE 记录。撤销后可用新ID和新幂等键重新授予；到期记录仍需显式撤销。旧关系绑定的授权不会自动改绑到新关系。
 - 有效窗口是左闭右开；授权与关系同时满足才可代操作。入参统一转为上海偏移，拒绝超过微秒精度的有效时间，避免 DATETIME (6)
   截断改变边界。
 - requestKey 按租户、操作版本、主体类型和主体ID隔离。执行器保存参数 SHA-256 与首次响应快照；同键同参返回首次快照，同键异参报
   CUSTOMER_IDEMPOTENCY_CONFLICT。租户同时进入哈希键，回放再次核对租户精确一致，避免依赖表的大小写不敏感排序规则混淆租户。获取商户行锁后再次检查，处理并发重试。
 - GlobalUnique claim 与业务写入使用同一数据源、同一事务；失败一起回滚。重复请求返回首次结果，即使资源后来被撤销，下一次资格判断仍读取最新状态。幂等记录不设置TTL，不通过软删除复用键。
-- DO 继承 BaseDO；Mapper/Tables 由 LoadUpMyBatisFlexProcessor 生成；MapStruct 使用框架共享配置。没有手写空 Mapper、SQL
-  Mapper 或内存生产实现。
+- 关系与授权使用参数化 Spring JDBC SQL，显式维护租户、时间、状态和版本；MapStruct 使用框架共享配置。
 
 ## 构建与启动
 
@@ -83,14 +81,14 @@ java \
 
 | 环境变量                                        | 用途                                                              |
 |-------------------------------------------------|-------------------------------------------------------------------|
-| CUSTOMER_JDBC_URL                               | 专属 MySQL 数据库 JDBC URL，使用支持 CHECK 的 MySQL 8.0.16 及以上 |
+| CUSTOMER_JDBC_URL                               | 专属 PostgreSQL 数据库 JDBC URL |
 | CUSTOMER_JDBC_USERNAME / CUSTOMER_JDBC_PASSWORD | 通过外部 Secret 注入的数据库凭证                                  |
 | CUSTOMER_JWT_ISSUER_URI                         | 可信令牌签发方 issuer                                             |
 | CUSTOMER_JWT_AUDIENCE                           | 本业务 API audience                                               |
 | CUSTOMER_JWT_JWK_SET_URI                        | 签发方公钥 JWK Set 地址                                           |
 
 业务配置开启框架 Flyway，扫描依赖内的 db/migration，包含框架主档、序列、幂等表及本次两个表；启动会执行尚未应用的迁移。使用专属业务库，不把其他服务的迁移目录混入
-customer。MySQL 会话使用 +08:00；JVM 与业务 Clock 使用本地上海时间，JWT epoch 仍保持绝对时间。
+customer。数据库会话、JVM 与业务 Clock 使用一致的部署时区，JWT epoch 仍保持绝对时间。
 
 现有 deploy/pay.yml 仍部署基础骨架，没有注入数据库和签发方配置。业务镜像用于 Kubernetes 前，应由配置覆盖层注入上述
 Secret、ConfigMap 与 SPRING_PROFILES_ACTIVE=customer-business；本批未更改运行中的部署或数据库。
@@ -101,5 +99,5 @@ Secret、ConfigMap 与 SPRING_PROFILES_ACTIVE=customer-business；本批未更�
 Spring MapStruct 转换。
 
 按仓库构建纪律未执行 Maven、JUnit、Flyway 或部署；IDE 批量检查超时，不能视为通过。源码和依赖核对、git diff --check
-已完成。仍需开发者运行上面的窄范围构建，并在真实 MySQL 上验收：并发相同/冲突幂等键、写入失败同时回滚
+已完成。仍需开发者运行上面的窄范围构建，并在真实 PostgreSQL 上验收：并发相同/冲突幂等键、写入失败同时回滚
 claim、跨租户隔离、撤销后重授、资格判断与撤销并发，以及真实签名 JWT 的 HTTP 成功/失败响应。

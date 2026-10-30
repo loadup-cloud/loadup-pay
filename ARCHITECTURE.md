@@ -641,7 +641,7 @@ channel+接入模式+渠道商户作用域定义唯一性。索引覆盖商户�
 | 能力         | 复用方向                                               | 收单平台负责的新增设计                                       |
 |--------------|--------------------------------------------------------|--------------------------------------------------------------|
 | 基础栈       | Java 25、Spring Boot 4.1.1、LoadUp BOM                 | 各部署单元装配                                               |
-| 业务分层     | COLA、MyBatis-Flex、Flyway、Spring MapStruct           | 订单/多笔付款/占用、事务与迁移                               |
+| 业务分层     | COLA、Spring Data JDBC、Spring JDBC、Flyway、Spring MapStruct | 订单/多笔付款/占用、事务与迁移                         |
 | gRPC         | loadup-components-rpc-binder-grpc 与生成 stub          | 身份、deadline、幂等/结果/关闭协议                           |
 | 商户与合约   | merchant-*、contract-*                                 | 子商户授权关系、双模式绑定、OrderAdmission、多付款与计费策略 |
 | 可靠性       | Outbox/Inbox、DelayedTask、Scheduler                   | 独立投递、查证、占用差异核对                                 |

@@ -68,9 +68,7 @@ configuration 保存 product 当前返回的完整 OrderAdmissionDTO 和强类�
 product 内部字段来源，不能由当前 DTO 独立重算，因此不将本地 payload_hash 冒充原编译哈希。字段来源仍由 product 的原
 compiled_terms 保存。快照格式当前为1；前期按当前模型直接演进。
 
-DO 继承 BaseDO，仓储仅使用生成 Mapper 和 Tables 常量，显式添加 tenant/deleted 条件。各类 DO 的 Mapper/TableDef/Tables 由
-LoadUp 包装处理器生成。POM 显式提供其上游 mybatis-flex-processor 的隔离处理器路径，仅执行包装处理器一次，不增加业务
-mybatis-flex.config。
+仓储使用参数化 Spring JDBC SQL，显式维护 tenant/deleted 条件以及业务状态、版本和审计字段。
 
 ## 构建与运行
 

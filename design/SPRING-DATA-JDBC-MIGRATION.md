@@ -1,6 +1,6 @@
 # 移除 MyBatis-Flex 并迁移到 Spring Data JDBC
 
-状态：方案待实施。本文件描述下一阶段的目标和工作顺序，不表示迁移已经完成或经过运行验证。
+状态：实施中。本文件描述迁移目标和工作顺序，不表示迁移已经完成或经过运行验证；当前静态进展见 [迁移盘点](SPRING-DATA-JDBC-INVENTORY.md)。
 
 ## 目标和范围
 
@@ -18,7 +18,7 @@ client 和 domain 重复定义枚举。
 
 ## 技术选择
 
-- **Spring Data JDBC**：负责简单、聚合边界明确的持久化，以及适合派生查询的简单读取。持久化实体留在基础设施层，不把 Spring
+- **Spring Data JDBC**：优先负责简单、聚合边界明确的持久化，以及适合派生查询的简单读取。持久化实体留在基础设施层，不把 Spring
   Data 注解引入 domain 或 client。
 - **Spring JDBC**：使用 `JdbcClient` 或 `NamedParameterJdbcTemplate` 执行参数化
   SQL，负责支付、对账、可靠性组件等需要明确控制锁、条件更新、批量操作、PostgreSQL 特性和返回行数的路径。针对结果映射复杂度选择明确的

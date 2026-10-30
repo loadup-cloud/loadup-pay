@@ -14,7 +14,7 @@ reconciliation 拥有独立数据库，后置运行，不参与 acquire/payment 
 差错不会直接修改付款/退款表、成功金额或额度，更不会因缺失快照自动退款、放行新付款或释放 UNKNOWN 占用。
 
 集成复用 LoadUp FileResourceFacade 管理原文件与业务引用、TransferHandler/TransferContext 运行导入与报告任务、
-生成 Mapper/MyBatis-Flex/MapStruct 管理本服务数据、DelayedTask 负责持久执行、Outbox 负责后续证据查证请求。
+Spring Data JDBC / Spring JDBC 与 MapStruct 管理本服务数据、DelayedTask 负责持久执行、Outbox 负责后续证据查证请求。
 已有 Transfer 不代表核对业务已经接入；不能把 Transfer 的任务成功、最大已见事件时间或下载 404 当作对账完成证据。
 
 当前 root reactor 与源码/POM 门禁纳入 reconciliation 七层模块；构建/部署选择器、Docker 允许路径与第七组

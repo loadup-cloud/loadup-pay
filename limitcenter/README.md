@@ -78,9 +78,8 @@ BeginExecution 门禁；当前提供显式 expire 入口，自动扫描器尚待
 
 实际迁移 `V20261021180000__limitcenter_policy_and_reservation.sql`
 新增7表：policy_head、policy_revision、rule_runtime、bucket、operation_gate、reservation、reservation_item（表名前缀均为 limit_
-）。后续加法迁移 V20261021190000__limitcenter_execution_grant.sql 再新增 limit_execution_grant，实际合计8张表。BaseDO
-与数据库组件管理审计/ID。MyBatis-Flex Mapper/Tables 通过框架 wrapper processor 生成；无手写空 Mapper、JdbcTemplate
-或内存生产实现。compiled_rules 使用 LONGTEXT 保存完整 payload，并在诊断输出中隐藏。
+）。当前 PostgreSQL 初始迁移已合并后续表结构。仓储使用参数化 Spring JDBC SQL，显式维护 ID、租户和审计字段；
+compiled_rules 使用 TEXT 保存完整 payload，并在诊断输出中隐藏。
 
 ## 执行门禁与过期
 

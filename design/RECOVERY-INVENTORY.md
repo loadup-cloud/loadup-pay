@@ -17,8 +17,7 @@ RecoveryInventoryReaderImpl 使用当前服务生成的 PaymentOrderDOMapper / R
 最老时间取当前 UNKNOWN 记录各自首次进入该状态的 first_unknown_at；不是创单、收款成功或最后查询时间。
 Micrometer gauge 为浮点观测值，不承担精确分账、对账或余额计算。
 
-聚合使用 [MyBatis-Flex 查询映射](https://mybatis-flex.com/zh/base/query.html)
-及 [官方 SQL 函数接口](https://mybatis-flex.com/zh/base/querywrapper.html)，
+聚合使用参数化 Spring JDBC SQL 的 COUNT、SUM 和 MIN，
 投影对象为非表模型，再由 Spring MapStruct 转为只读 cell。空结果由 COUNT=0、SUM/MIN=NULL 形成显式空 cell；缺失/损坏结果或精确数值溢出不伪造成
 0。
 

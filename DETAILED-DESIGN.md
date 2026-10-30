@@ -56,7 +56,7 @@ flowchart LR
 - domain 为普通Java对象；不使用 Spring/ORM 注解，不依赖传输 DTO 或生成的 proto。复用LoadUp
   commons-dto的Money与commons-json的ToStringAsJson/DiagnosticHidden基础能力；收单层保留CNY/非负金额规则。聚合执行状态与金额规则；app
   管理权限、事务、跨服务调用和恢复编排。
-- infrastructure 实现 domain Gateway，用 MyBatis-Flex、生成的 Tables/Mapper 和 MapStruct 完成持久化；远程 Gateway
+- infrastructure 实现 domain Gateway，用 Spring Data JDBC、Spring JDBC 和 MapStruct 完成持久化；远程 Gateway
   将本地领域入参映射为被调用方 client/proto，不把目标服务仓储引入本地。
 - adapter 验证请求、建立可信租户/调用者上下文，再调用 Facade；出站 RPC 由 infrastructure 持有。app 可装配 infrastructure
   的自动配置，业务源码依赖 domain 接口。
@@ -347,8 +347,7 @@ realtime分别按订单/付款/退款sourceVersion更新完整快照，较旧版
 |------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | [merchant](../loadup-framework/loadup-modules/loadup-modules-merchant/README.md)                                                   | MerchantFacade、MerchantQueryFacade、merchant_profile            | customer远程事实、关系和逐项授权；不另建重复商户主档                                         |
 | [contract](../loadup-framework/loadup-modules/loadup-modules-contract/ARCHITECTURE.md)                                             | catalog/contract/revision、ContractResolveFacade和强类型配置合并 | OrderAdmission持久决策、合约停单锁、收单参数编译、limit激活协议；现有resolve不能直接代替准入 |
-| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                        | BaseDO、MyBatis-Flex、IdGenerator、sequence、Flyway              | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
-| [database-processor](../loadup-framework/loadup-components/data/loadup-components-database-processor/README.md)                    | wrapper processor生成Mapper/Tables                               | 不编写空Mapper或重复处理器配置                                                               |
+| [database](../loadup-framework/loadup-components/data/loadup-components-database/README.md)                                        | Spring Data JDBC、Spring JDBC、IdGenerator、sequence、Flyway     | 收单平台DO/Gateway、金额CAS/锁顺序；独立数据库配置稳定site，不复制序列表DDL                  |
 | [Outbox](../loadup-framework/loadup-components/reliability/loadup-components-outbox/README.md)                                     | OutboxTemplate/Message/Inbox/Handler及组件迁移                   | 目标类型、业务事实ID、事件内容、重投/差异流程                                                |
 | [DelayedTask](../loadup-framework/loadup-components/reliability/loadup-components-delayedtask/README.md)                           | 事务register、handler、失败管理                                  | 关单/查证/恢复任务；Scheduler仅唤醒扫描，不用内存定时替代持久任务                            |
 | [gRPC binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-grpc/README.md) | 原生spring.grpc、BindableService、GrpcChannelFactory             | 生成proto/stub、身份和tenant拦截器、deadline/幂等/业务结果映射                               |

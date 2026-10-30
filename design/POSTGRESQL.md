@@ -14,10 +14,9 @@ Flyway clean、repair 或数据搬迁。
 merchant、contract、File 和 Transfer 迁移由各自模块拥有。安装 JAR 时应先 clean：旧构建输出可能仍含已删除的 MySQL
 或增量迁移，即使源码目录已经干净也会被 Flyway 扫描。
 
-单数据源装配使用 Spring JDBC 事务管理器和 MyBatis Spring 事务工厂，让 Mapper、Outbox 和本地 JDBC
-使用同一数据源；不匹配的事务管理器会在启动时拒绝。GlobalUnique 和 DelayedTask 在调用方已有事务时使用该事务绑定的 JDBC
-连接设置保存点，重复键回滚到保存点后才读取已有记录。必须使用与 Mapper 相同的数据源；保存点创建、回滚或释放失败时，整个业务事务应失败并回滚。Inbox
-使用指定业务唯一键的 `ON CONFLICT DO NOTHING`。这些源码设计仍需真实数据库并发和事务验收。
+单数据源装配使用 Spring JDBC 事务管理器，让业务写入、Outbox 和本地 JDBC 使用同一数据源；Outbox 会拒绝不匹配的事务管理器。
+GlobalUnique、DelayedTask 和 Inbox 的幂等插入使用指定业务唯一键的 `ON CONFLICT DO NOTHING`，不将其他约束错误当作重复请求。
+事务中必须使用绑定到相同数据源的 Spring 管理连接；真实数据库并发、回滚及事务装配仍需验收。
 
 时间字段使用 `timestamp(6) without time zone`，JVM、业务 Clock、JDBC 和数据库会话采用同一部署本地时区；显式偏移的协议时间仍表示绝对时间。字符串列使用
 `C` collation；金额、版本和序列保持整数，证据 JSON 保持 TEXT。迁移不承诺与原 MySQL

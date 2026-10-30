@@ -1143,8 +1143,8 @@ channel_receipt的receiptKey在通知中取渠道稳定事件ID（或适配器�
   gate持独立退款summaryVersion并发完整退款汇总，原payment_order成功事实和acquire_order均不写。
 - 额度：同operation的item、bucket、reservation/history同事务。`used+held<=currentLimit`是新预占条件，不做数据库CHECK，因为合法降阈值后历史累计可能超阈值。
 
-以上是事务逻辑说明；实现使用MyBatis-Flex QueryWrapper/UpdateEntity和生成Mapper，经domain
-Gateway封装，不在业务层引入JdbcTemplate或拼接SQL。
+以上是事务逻辑说明；基础设施经 domain Gateway 封装 Spring Data JDBC 或参数化 Spring JDBC，
+状态、版本及金额条件更新使用明确 SQL 与受影响行数检查。
 
 退费结果先锁order_fee，按refund_basis_version更新完整累计依据；费用未确认也提交依据。确认费用时同锁读取依据计算累计应退，按trigger_key插入独立fee_adjustment并更新adjusted_amount_minor。退款汇总先到或后到均不会丢失退费；调整不更新acquire_order。累计已退费须满足0≤adjusted_amount_minor≤已确认F。
 
@@ -1405,8 +1405,8 @@ V20261022100000__channel_bindings.sql 新增 payment 的第6—8表：
 - channel_binding_change_receipt：tenant/bindingId/requestKey 唯一且不含 deleted，固定
   PUBLISH/SUSPEND/REVOKE、request_digest、服务身份、原 revisionId/ordinal、applied state/version/时间。重放不能修改当前路由或生成另一版本。
 
-所有表均有 BaseDO 公共五字段，时间为本地 DATETIME (6)，主键为框架 IdGenerator；不手写 Mapper。MapStruct 转换
-domain/DO/DTO，MyBatis-Flex 使用生成列、显式 tenant/deleted 约束及 CAS 白名单。管理事务先锁 head，再写
+公共字段由持久化路径显式维护，时间使用 PostgreSQL timestamp(6)，ID 按模块约定生成。MapStruct 转换
+domain/DO/DTO，查询和更新显式维护 tenant/deleted 与 CAS 条件。管理事务先锁 head，再写
 revision/头/回执；选路在持有父/单笔门禁之后按 head.id 稳定加锁，读取不可变 revision，再按 priority/id 排候选。管理操作不持有
 payment 锁或发网络请求。
 

@@ -23,7 +23,12 @@ import io.github.loadup.pay.customer.domain.model.MerchantAction;
 import io.github.loadup.pay.customer.domain.model.MerchantActionGrant;
 import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
+import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantRelationshipRow;
+import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantActionGrantRow;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.jdbc.core.JdbcAggregateTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -39,10 +44,13 @@ import java.util.Optional;
 @Repository
 public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGateway {
     private final JdbcTemplate jdbc;
+    private final JdbcAggregateTemplate aggregates;
     private final Clock clock;
 
-    public MerchantAuthorizationGatewayImpl(JdbcTemplate jdbc, @Qualifier("databaseClock") Clock clock) {
+    public MerchantAuthorizationGatewayImpl(JdbcTemplate jdbc, JdbcAggregateTemplate aggregates,
+            @Qualifier("databaseClock") Clock clock) {
         this.jdbc = jdbc;
+        this.aggregates = aggregates;
         this.clock = clock;
     }
 
@@ -63,15 +71,20 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public Optional<MerchantRelationship> findRelationship(String tenant, String id) {
-        return relationship("SELECT * FROM merchant_relationship WHERE tenant_id = ? AND id = ? AND deleted = FALSE", tenant, id);
+        tenant(tenant);
+        if (id == null) return Optional.empty();
+        return aggregates.findOne(byId(tenant, id), MerchantRelationshipRow.class)
+                .map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
     @Override
     public Optional<MerchantRelationship> findLiveRelationship(String tenant, String parent, String child) {
-        return relationship("""
-                SELECT * FROM merchant_relationship WHERE tenant_id = ? AND parent_merchant_id = ?
-                    AND child_merchant_id = ? AND relation_type = 'MANAGEMENT' AND state <> 'REVOKED' AND deleted = FALSE
-                """, tenant, parent, child);
+        tenant(tenant);
+        if (parent == null || child == null) return Optional.empty();
+        var query = Query.query(Criteria.where("tenantId").is(tenant).and("parentMerchantId").is(parent)
+                .and("childMerchantId").is(child).and("relationType").is("MANAGEMENT")
+                .and("state").in("INIT", "ACTIVE").and("deleted").is(false));
+        return aggregates.findOne(query, MerchantRelationshipRow.class).map(MerchantAuthorizationGatewayImpl::mapRelationship);
     }
 
     @Override
@@ -83,7 +96,10 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public Optional<MerchantActionGrant> findGrantById(String tenant, String id) {
-        return grant("SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND id = ? AND deleted = FALSE", tenant, id);
+        tenant(tenant);
+        if (id == null) return Optional.empty();
+        return aggregates.findOne(byId(tenant, id), MerchantActionGrantRow.class)
+                .map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
     @Override
@@ -95,16 +111,18 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
 
     @Override
     public Optional<MerchantActionGrant> findGrant(String tenant, PrincipalType type, String principal, String payee, MerchantAction action) {
-        return grant("""
-                SELECT * FROM merchant_action_grant WHERE tenant_id = ? AND principal_type = ? AND principal_id = ?
-                    AND payee_merchant_id = ? AND action = ? AND state <> 'REVOKED' AND deleted = FALSE
-                """, tenant, type.name(), principal, payee, action.name());
+        tenant(tenant);
+        if (principal == null || payee == null) return Optional.empty();
+        var query = Query.query(Criteria.where("tenantId").is(tenant).and("principalType").is(type.name())
+                .and("principalId").is(principal).and("payeeMerchantId").is(payee).and("action").is(action.name())
+                .and("state").in("INIT", "ACTIVE").and("deleted").is(false));
+        return aggregates.findOne(query, MerchantActionGrantRow.class).map(MerchantAuthorizationGatewayImpl::mapGrant);
     }
 
     @Override
     public void saveRelationship(String tenant, MerchantRelationship model, long expected) {
         writable(tenant);
-        if (model == null || (expected == -1 ? model.version() != 0
+        if (model == null || (expected == -1 ? !initialVersion(model.state(), model.version())
                 : expected < 0 || expected == Long.MAX_VALUE || model.version() != expected + 1))
             throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         LocalDateTime now = LocalDateTime.now(clock);
@@ -121,11 +139,15 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
             if (changed == 0) throw new CommonException(CustomerResultCodeEnum.RELATIONSHIP_CONFLICT);
         } else {
             changed = jdbc.update("""
-                            UPDATE merchant_relationship SET parent_merchant_id = ?, child_merchant_id = ?, state = ?,
-                                valid_from = ?, valid_to = ?, row_version = ?, updated_at = ?
+                            UPDATE merchant_relationship SET state = ?, row_version = ?, updated_at = ?
                             WHERE tenant_id = ? AND id = ? AND row_version = ? AND deleted = FALSE
-                            """, model.parentMerchantId(), model.childMerchantId(), model.state().name(), model.validFrom(),
-                    model.validTo(), model.version(), now, tenant, model.id(), expected);
+                                AND parent_merchant_id = ? AND child_merchant_id = ?
+                                AND valid_from = ? AND valid_to IS NOT DISTINCT FROM ?
+                                AND ((state = 'INIT' AND ? IN ('ACTIVE', 'REVOKED'))
+                                    OR (state = 'ACTIVE' AND ? = 'REVOKED'))
+                            """, model.state().name(), model.version(), now, tenant, model.id(), expected,
+                    model.parentMerchantId(), model.childMerchantId(), model.validFrom(), model.validTo(),
+                    model.state().name(), model.state().name());
             if (changed == 0) throw new CommonException(CustomerResultCodeEnum.CONFLICT);
         }
         if (changed != 1) throw new IllegalStateException("Unexpected relationship write count");
@@ -134,7 +156,7 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
     @Override
     public void saveGrant(String tenant, MerchantActionGrant model, long expected) {
         writable(tenant);
-        if (model == null || (expected == -1 ? model.version() != 0
+        if (model == null || (expected == -1 ? !initialVersion(model.state(), model.version())
                 : expected < 0 || expected == Long.MAX_VALUE || model.version() != expected + 1))
             throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         LocalDateTime now = LocalDateTime.now(clock);
@@ -152,15 +174,39 @@ public class MerchantAuthorizationGatewayImpl implements MerchantAuthorizationGa
             if (changed == 0) throw new CommonException(CustomerResultCodeEnum.GRANT_CONFLICT);
         } else {
             changed = jdbc.update("""
-                            UPDATE merchant_action_grant SET principal_type = ?, principal_id = ?, payee_merchant_id = ?,
-                                relationship_id = ?, action = ?, state = ?, valid_from = ?, valid_to = ?, row_version = ?, updated_at = ?
+                            UPDATE merchant_action_grant SET state = ?, row_version = ?, updated_at = ?
                             WHERE tenant_id = ? AND id = ? AND row_version = ? AND deleted = FALSE
-                            """, model.principalType().name(), model.principalId(), model.payeeMerchantId(), model.relationshipId(),
-                    model.action().name(), model.state().name(), model.validFrom(), model.validTo(), model.version(), now,
-                    tenant, model.id(), expected);
+                                AND principal_type = ? AND principal_id = ? AND payee_merchant_id = ?
+                                AND relationship_id IS NOT DISTINCT FROM ? AND action = ?
+                                AND valid_from = ? AND valid_to IS NOT DISTINCT FROM ?
+                                AND ((state = 'INIT' AND ? IN ('ACTIVE', 'REVOKED'))
+                                    OR (state = 'ACTIVE' AND ? = 'REVOKED'))
+                            """, model.state().name(), model.version(), now, tenant, model.id(), expected,
+                    model.principalType().name(), model.principalId(), model.payeeMerchantId(), model.relationshipId(),
+                    model.action().name(), model.validFrom(), model.validTo(), model.state().name(), model.state().name());
             if (changed == 0) throw new CommonException(CustomerResultCodeEnum.CONFLICT);
         }
         if (changed != 1) throw new IllegalStateException("Unexpected grant write count");
+    }
+
+    private static boolean initialVersion(GrantState state, long version) {
+        return state == GrantState.INIT && version == 0 || state == GrantState.ACTIVE && version == 1;
+    }
+
+    private static Query byId(String tenant, String id) {
+        return Query.query(Criteria.where("tenantId").is(tenant).and("id").is(id).and("deleted").is(false));
+    }
+
+    private static MerchantRelationship mapRelationship(MerchantRelationshipRow row) {
+        return new MerchantRelationship(row.id(), row.parentMerchantId(), row.childMerchantId(),
+                GrantState.valueOf(row.state()), row.validFrom(), row.validTo(), row.rowVersion());
+    }
+
+    private static MerchantActionGrant mapGrant(MerchantActionGrantRow row) {
+        return new MerchantActionGrant(row.id(), PrincipalType.valueOf(row.principalType()),
+                row.principalId(), row.payeeMerchantId(), row.relationshipId(),
+                MerchantAction.valueOf(row.action()), GrantState.valueOf(row.state()),
+                row.validFrom(), row.validTo(), row.rowVersion());
     }
 
     private static void tenant(String tenant) {
