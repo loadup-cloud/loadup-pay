@@ -17,7 +17,7 @@
 
 支付宝启用时注册 Provider，已有付款码/JSAPI submit、直连 H5 本地动作、退款提交/查询和支付 query/close
 源码。动作持久化/商户返回、自动驱动、异步回调已有源码；服务商 H5 授权承载、证书模式与真实渠道验收仍待完成。直连 H5
-当前契约见 [H5 设计](../../design/ALIPAY-H5.md)。
+当前契约见 [H5 设计](../../ARCHITECTURE.md)。
 
 协议依据：[支付宝官方 Java SDK](https://github.com/alipay/alipay-sdk-java-all/tree/master/v2)、[支付宝退款查询说明](https://aipay.alipay.com/docs/vibe-pay/ai-web-app-payment-qianyi/api-list/alipay-trade-fastpay-refund-query.html)
 。协议成功不等于资金成功；退款查询仍需核验退款状态和原请求身份。
@@ -45,7 +45,7 @@ NOT_FOUND 作为失败释放容量。
 
 ## 可选运行配置
 
-payment-business 构建已包含插件。运行需显式组合 payment-business,payment-alipay，后者配置支付宝 HTTPS 网关及
+payment 默认构建已包含插件。启用支付宝需选择 payment-alipay，后者配置支付宝 HTTPS 网关及
 trade-pay/trade-create/trade-query/trade-close/trade-refund/refund-query 六个命名操作，参见
 application-payment-alipay.yml；仅显式激活该运行 profile 才启用支付宝插件。凭证/授权 reference→version→绝对文件路径映射由可信
 Secret/外部配置注入，私钥仍由 KMS 持有。仅添加 profile 文件，未改动运行中 Kubernetes 配置。
@@ -92,7 +92,7 @@ out_trade_no，不自动重提或换号扣款。协议请求使用 GMT+8 的绝�
   open_id 跨应用使用。直连/服务商的商户授权凭证继续由原版本化绑定和 KMS 解析。
 - 商户 API 需先在自身应用完成授权并取得上述渠道标识；平台不新增用户主档。标识只走原短期加密输入，不对外提供解密接口。托管
   cashier 的授权流程仍待接入。
-- H5 直连已补本地签名动作；无渠道受理观察，按 [H5 设计](../../design/ALIPAY-H5.md) 独立落库。服务商长期 app_auth_token
+- H5 直连已补本地签名动作；无渠道受理观察，按 [H5 设计](../../ARCHITECTURE.md) 独立落库。服务商长期 app_auth_token
   不进入前端跳转；服务商 H5 仍待确定授权承载。
 
 依据：[官方付款码模型](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/domain/AlipayTradePayModel.java)、[官方 JSAPI 创单与应用作用域字段](https://github.com/alipay/alipay-sdk-java-all/blob/master/v2/src/main/java/com/alipay/api/domain/AlipayTradeCreateModel.java)。
@@ -144,7 +144,7 @@ out_request_no 的幂等保证。提交即使成功也只受理，查询/提交�
 
 ## 2026-10-27 当前 H5 增量
 
-直连手机网站支付、本地动作独立来源及 UNKNOWN 原动作返回已补源码，配置与边界统一见 [H5 设计](../../design/ALIPAY-H5.md)
+直连手机网站支付、本地动作独立来源及 UNKNOWN 原动作返回已补源码，配置与边界统一见 [H5 设计](../../ARCHITECTURE.md)
 。历史章节的 H5 未实现记录不代表当前源码。没有运行验证、部署、安装 SDK 或发起渠道调用。
 
 ## 交易日账单地址申请（2026-10-28）
@@ -153,5 +153,5 @@ out_request_no 的幂等保证。提交即使成功也只受理，查询/提交�
 trade/账单日，明确缺失/限流错误，30 秒从请求发出计时；服务商 token 不进入凭证正文。仅返回隐藏 URL 的临时 grant，空文件标记不代表成功账单。
 
 实际 HTTPS 下载目标及可变明细 CSV 头尾尚待确认，未注册支付宝
-StatementProvider；现有官方来源仍仅微信。详见 [支付宝账单来源](../../design/ALIPAY-STATEMENT-SOURCE.md)
+StatementProvider；现有官方来源仍仅微信。详见 [支付宝账单来源](../../ARCHITECTURE.md)
 。测试源码已补，未执行编译、测试或真实账单调用。

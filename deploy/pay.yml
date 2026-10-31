@@ -29,11 +29,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: payment-config
+            - secretRef:
+                name: payment-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -48,6 +57,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: payment-secret
 ---
 # Payment ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -98,11 +111,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: acquire-config
+            - secretRef:
+                name: acquire-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -117,6 +139,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: acquire-secret
 ---
 # Acquire ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -167,11 +193,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: customer-config
+            - secretRef:
+                name: customer-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -186,6 +221,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: customer-secret
 ---
 # Customer ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -236,11 +275,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: limitcenter-config
+            - secretRef:
+                name: limitcenter-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -255,6 +303,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: limitcenter-secret
 ---
 # LimitCenter ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -305,11 +357,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: product-config
+            - secretRef:
+                name: product-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -324,6 +385,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: product-secret
 ---
 # Product ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -374,11 +439,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: realtime-config
+            - secretRef:
+                name: realtime-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -393,6 +467,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: realtime-secret
 ---
 # Realtime ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -443,11 +521,20 @@ spec:
           ports:
             - { name: http, containerPort: 8080 }
             - { name: dubbo, containerPort: 50051 }
+          envFrom:
+            - configMapRef:
+                name: reconciliation-config
+            - secretRef:
+                name: reconciliation-secret
           env:
             - name: METRICS_ENABLED
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
+          volumeMounts:
+            - name: service-secrets
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: http }
             failureThreshold: 60
@@ -462,6 +549,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: service-secrets
+          secret:
+            secretName: reconciliation-secret
 ---
 # Reconciliation ClusterIP - HTTP only for client routing
 apiVersion: v1

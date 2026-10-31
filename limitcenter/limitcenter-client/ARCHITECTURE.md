@@ -13,4 +13,4 @@ rpc 类型。
 `@DubboService(interfaceClass = LimitCenterRpc.class)`；消费方在 `*-infrastructure` 用
 `@DubboReference(url = "tri://limitcenter-headless:50051")` 引用生成的 `LimitCenterRpc`。
 Wire↔DTO 转换由 `limitcenter-client` 的 `LimitCenterRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../design/RPC.md)。
+[RPC 规范](../../ARCHITECTURE.md)。

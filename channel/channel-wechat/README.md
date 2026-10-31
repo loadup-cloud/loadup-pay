@@ -1,7 +1,7 @@
 # WeChat 渠道适配
 
 本模块实现独立的微信支付策略，业务契约只依赖 channel-api，复用 loadup HTTP/KMS 等技术组件，不依赖 payment。由
-payment-bootstrap 的 payment-business profile 引入；启用 payment-wechat 运行配置后条件注册 WechatChannelProvider。
+payment-bootstrap 默认引入；启用 payment-wechat 运行配置后条件注册 WechatChannelProvider。
 
 | 能力              | 当前源码范围                                                                                                                     |
 |-------------------|----------------------------------------------------------------------------------------------------------------------------------|
@@ -229,7 +229,7 @@ Pod
 
 微信官方当前付款码入口仍要求 V2。新增独立 WechatCodepayAdapter/V2Client/V2Codec、APIv2 密钥读取、直连/服务商固定账户首提和原号
 V3 查询接线；复用统一 Facade，不改 payment
-为渠道实现。安全输入、错误观察与关闭产品门禁见 [付款码设计](../../design/WECHAT-CODEPAY.md)
+为渠道实现。安全输入、错误观察与关闭产品门禁见 [付款码设计](../../ARCHITECTURE.md)
 。付款码撤销/mTLS/持久补偿仍未实现，UNKNOWN/CLOSING 不会因此释放容量。测试源码已补，均未运行；历史“付款码待补”记录由本节细化，不能据此宣称完整付款码能力。
 
 退款提交与查询的 create_time 现为必需验签响应字段，规范化为 RefundObservation.acceptedAt，原号恢复保留该值。
@@ -241,5 +241,5 @@ V3 查询接线；复用统一 Facade，不改 payment
 条件装配 WechatStatementProvider；payment-wechat 增加 trade-bill 与 wechat-bill-download / wechat-bill-download-backup
 固定命名客户端。只请求原账户 ALL、不传 tar_type；服务商显式 sub_mchid，不扩大为全服务商文件。先验签原申请响应，再签名下载固定
 /v3/billdownload/file，文件响应无需平台签名但必须匹配已验签 SHA1。原件最大 16 MiB、私有凭证最大 32
-KiB，按请求可进一步收紧；无账单/生成中均明确失败。详见 [来源契约与官方依据](../../design/WECHAT-STATEMENT-SOURCE.md)
+KiB，按请求可进一步收紧；无账单/生成中均明确失败。详见 [来源契约与官方依据](../../ARCHITECTURE.md)
 。复用框架新增签名 download overload，其 artifact 尚未构建；全部新增源码和测试未执行。

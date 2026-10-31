@@ -116,7 +116,7 @@ loadup-testify  → 仅 test scope，深度依赖框架内部类型
 
 ## 组件设计规范
 
-> 项目概况见 [README.md](README.md)，待办事项见 [ROADMAP.md](ROADMAP.md)，组件设计以对应 `ARCHITECTURE.md` 为准。
+> 项目概况见 [README.md](README.md)，当前架构见 [ARCHITECTURE.md](ARCHITECTURE.md)，组件设计以对应 `ARCHITECTURE.md` 为准。
 > 核心原则：底层 OSS + 薄集成；业务侧 API 尽量采用业界标准接口（Spring Cache、S3、OpenTelemetry、Spring MVC
 > 等）；自创接口仅限标准表达不了的语义；每个组件 README 必须维护能力矩阵契约表。
 
@@ -403,7 +403,7 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   `LogUtil.getLogger` 获取。保留参数化占位符，异常作为最后参数，敏感字段显式脱敏。
 - 指标和追踪使用 Spring Boot 管理的 `MeterRegistry`、`ObservationRegistry` 和 Micrometer Tracing；组件注入共享实例，基础
   HTTP/JVM 观测由 Boot 提供。自定义指标以 `loadup.<domain>.*` 命名，仅使用低基数标签，配置使用标准 `management.*`。
-- 每完成一项任务立即更新根 `ROADMAP.md`：移除已完成的实现项，把未执行的测试或部署验收单独保留为待办；源码或测试已编写不等于运行验证通过。
+- 保持对应模块 `README.md` 与 `ARCHITECTURE.md` 反映当前接入方式和实现边界；未执行的测试或部署验收须明确标注，源码或测试已编写不等于运行验证通过。
 
 ## 执行链共享数据
 
@@ -556,5 +556,5 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   只按本地白名单映射；未知远端错误映射为依赖失败，不输出凭证/载荷。网络调用不跨本地事务，写操作保留幂等键。
 - 业务时间采用 `ZoneId.systemDefault()`、`Clock.systemDefaultZone()` 或已注入 Clock 的 zone；不在代码、JVM 参数、
   JDBC 初始化 SQL 或 K8s 清单强制指定时区。JWT epoch、`Instant` 等协议边界保持绝对时间语义。
-- 修改 RPC 契约、认证或部署时，读取 [RPC 规范](design/RPC.md)；源码编译、测试执行与真实 RPC 验收分别报告，遵守
+- 修改 RPC 契约、认证或部署时，读取 [RPC 规范](ARCHITECTURE.md)；源码编译、测试执行与真实 RPC 验收分别报告，遵守
   现有窄范围 clean 构建约定。

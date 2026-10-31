@@ -25,7 +25,7 @@ ALIPAY/WECHAT，payment 在合约和商户绑定允许范围内冻结选路；PA
 ```
 
 渠道 API、引擎和适配模块均不依赖 payment-client/domain/app/infrastructure。payment-domain 只依赖 channel-api；
-payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facade；payment-bootstrap 的 payment-business profile 通过
+payment-infrastructure 仅依赖 channel-api，通过构造器注入统一 Facade；payment-bootstrap 默认通过
 runtime 依赖显式装配 channel-core 和具体插件。它们当前随 payment 进程运行，不增加独立部署单元，也不增加测试 RPC。
 
 模块依赖、模式职责与扩展步骤见 [渠道架构](ARCHITECTURE.md)。
@@ -198,7 +198,7 @@ refund_status
 
 现有 ChannelModuleBoundaryTest 之外新增 PayModuleBoundaryTest，覆盖六服务源码/直接及 profile POM 依赖：client/domain
 纯净、app 不依赖实现、跨服务只依赖公开契约/适配所需 rpc、渠道插件仅 runtime 装配，以及数据适配器的 app 依赖角色。
-包括合成违规/合法用例，尚未编译或运行；不构成架构已通过证明。范围、局限和待补字节码/入站适配边界见 [门禁说明](../design/ARCHITECTURE-GATES.md)。
+包括合成违规/合法用例，尚未编译或运行；不构成架构已通过证明。范围、局限和待补字节码/入站适配边界见 [门禁说明](../ARCHITECTURE.md)。
 
 ## Review R3：共享渠道恢复并发预算
 
@@ -206,7 +206,7 @@ channel-core 新增 ChannelRecoveryConcurrency，复用 LoadUp ResilienceRegistr
 DefaultChannelPaymentFacade 在原 tenant/binding/能力校验后，对 query、recover、close、queryRefund、recoverRefund 使用每渠道共享预算。
 单个 Provider 内部可能执行多步查证或原号幂等退款恢复，整个操作占一个预算；不是逐 HTTP 请求限流。
 
-| native Bulkhead 实例          | payment-business 默认并发 | 环境变量                                 |
+| native Bulkhead 实例          | payment 业务服务 默认并发 | 环境变量                                 |
 |-------------------------------|---------------------------|------------------------------------------|
 | pay-channel-recovery-alipay   | 16                        | PAYMENT_ALIPAY_RECOVERY_MAX_CONCURRENT   |
 | pay-channel-recovery-wechat   | 16                        | PAYMENT_WECHAT_RECOVERY_MAX_CONCURRENT   |
@@ -221,7 +221,7 @@ DefaultChannelPaymentFacade 在原 tenant/binding/能力校验后，对 query、
 validate/canRefund 仍是本地能力预检，不消费网络恢复预算；canRefund 仍可在退款锁内执行。
 首次提交并发控制需要在其持久提交边界前取得权限，作为后续切片实现，不能直接套 Retry 或这个恢复限流器。
 
-channel-core 只编译依赖 loadup-components-resilience4j-api；payment-business 的 bootstrap runtime 装配
+channel-core 只编译依赖 loadup-components-resilience4j-api；payment 业务服务 的 bootstrap runtime 装配
 binder-core，配置后自动取得原生 registry 和 Micrometer 绑定。
 默认 Facade 必须有 registry，不以缺少组件静默旁路。独立使用 channel-core 时也需提供该 registry/binder；只装 API 不代表具备运行装配。
 
@@ -232,13 +232,13 @@ binder-core，配置后自动取得原生 registry 和 Micrometer 绑定。
 
 新增 ALIPAY_H5 强类型原始跳转动作，经现有 REDIRECT DTO 返回。仅本地动作准备无 observation，不制造渠道回执；payment_action 记录
 LOCAL_SIGNED 来源，UNKNOWN 也可读取原有效动作。服务商 H5
-仍受长期令牌不可交付浏览器的约束，未实现。配置、官方依据、落库与恢复边界见 [H5 设计](../design/ALIPAY-H5.md)。未执行验证。
+仍受长期令牌不可交付浏览器的约束，未实现。配置、官方依据、落库与恢复边界见 [H5 设计](../ARCHITECTURE.md)。未执行验证。
 
 ## 2026-10-27 微信付款码增量
 
 WechatChannelProvider 在独立插件内按 PAYMENT_CODE 交给 V2 适配器，JSAPI/H5 保持 V3。首提与原号查证源码、HMAC/严格
 XML、独立版本密钥、命名 HTTP 配置已补；付款码/未知产品禁止走 V3 未付款关闭。V2
-撤销及补偿仍待完成，详见 [付款码设计](../design/WECHAT-CODEPAY.md)。未运行验证或真实渠道调用。
+撤销及补偿仍待完成，详见 [付款码设计](../ARCHITECTURE.md)。未运行验证或真实渠道调用。
 
 ## 2026-10-28 官方账单来源
 
@@ -246,7 +246,7 @@ XML、独立版本密钥、命名 HTTP 配置已补；付款码/未知产品禁�
 SHA1。私有凭证与原件有界传输，不暴露浏览器。payment 通过独立受权只读 Facade 提供来源；reconciliation
 已补官方来源请求/任务/File/Transfer
 与批次 CHANNEL 接线源码，仍待验证。该 privileged
-原版本读取不参与商户支付选路。设计及剩余项见 [官方来源](../design/WECHAT-STATEMENT-SOURCE.md)，均未运行验证。
+原版本读取不参与商户支付选路。设计及剩余项见 [官方来源](../ARCHITECTURE.md)，均未运行验证。
 
 支付宝账单目前增加了原绑定的后端 trade grant 申请、原始响应验签及私有凭证源码；下载/CSV/统一 StatementProvider
-还未接入。不会以申请成功或空文件标记直接生成对账输入，见 [来源设计](../design/ALIPAY-STATEMENT-SOURCE.md)。
+还未接入。不会以申请成功或空文件标记直接生成对账输入，见 [来源设计](../ARCHITECTURE.md)。

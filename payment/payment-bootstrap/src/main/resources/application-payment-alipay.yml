@@ -1,4 +1,4 @@
-# Optional runtime profile, combined with payment-business. No credential values belong here.
+# Optional runtime profile for payment. No credential values belong here.
 loadup:
   pay:
     channel:

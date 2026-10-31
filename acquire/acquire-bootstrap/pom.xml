@@ -10,7 +10,7 @@
     </parent>
     <artifactId>acquire-bootstrap</artifactId>
     <name>LoadUp Pay Acquire Bootstrap</name>
-    <description>Independent Spring Boot assembly for acquire without business adapters.</description>
+    <description>Spring Boot assembly for the acquire service.</description>
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -37,40 +37,33 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-components-scheduler-binder-local</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-adapter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>acquire-infrastructure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
-    <profiles>
-        <profile>
-            <id>acquire-business</id>
-            <dependencies>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>loadup-components-scheduler-binder-local</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>acquire-adapter</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>acquire-infrastructure</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-flyway</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.flywaydb</groupId>
-                    <artifactId>flyway-database-postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
     <build>
         <plugins>
             <plugin>

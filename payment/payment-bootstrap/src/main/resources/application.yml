@@ -1,4 +1,8 @@
 spring:
+  datasource:
+    url: ${PAYMENT_JDBC_URL}
+    username: ${PAYMENT_JDBC_USERNAME}
+    password: ${PAYMENT_JDBC_PASSWORD}
   application:
     name: payment
 server:
@@ -29,6 +33,11 @@ management:
         include: health,prometheus
   endpoint:
     health:
+      group:
+        readiness:
+          include: [ readinessState, db ]
+
+# Shared recovery/query/close admission per JVM and channel; no first-submit decoration.
       probes:
         enabled: true
   otlp:
@@ -47,3 +56,104 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+
+loadup:
+  resilience4j:
+    enabled: true
+    binder-type: core
+  modules:
+    payment:
+      reconciliation-service-id: ${PAYMENT_RECONCILIATION_SERVICE_ID:reconciliation}
+      reconciliation:
+        max-records: ${PAYMENT_RECONCILIATION_MAX_RECORDS:10000}
+        source-read-timeout-seconds: ${PAYMENT_RECONCILIATION_READ_TIMEOUT_SECONDS:10}
+      limitcenter-service-id: ${PAYMENT_LIMITCENTER_SERVICE_ID:limitcenter}
+      acquire-service-id: ${PAYMENT_ACQUIRE_SERVICE_ID:acquire}
+      recovery-operations-service-id: ${PAYMENT_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
+      channel-management-service-id: ${PAYMENT_CHANNEL_MANAGEMENT_SERVICE_ID:pay-ops}
+      recovery-polling:
+        initial-delay-seconds: ${PAYMENT_RECOVERY_INITIAL_DELAY_SECONDS:30}
+        maximum-delay-seconds: ${PAYMENT_RECOVERY_MAXIMUM_DELAY_SECONDS:1800}
+        backoff-every-seconds: ${PAYMENT_RECOVERY_BACKOFF_EVERY_SECONDS:900}
+        jitter-percent: ${PAYMENT_RECOVERY_JITTER_PERCENT:20}
+      recovery-escalation:
+        review-after-seconds: ${PAYMENT_RECOVERY_REVIEW_AFTER_SECONDS:900}
+        urgent-after-seconds: ${PAYMENT_RECOVERY_URGENT_AFTER_SECONDS:86400}
+      recovery-inventory:
+        enabled: ${PAYMENT_RECOVERY_INVENTORY_ENABLED:false}
+        tenant-ids: ${PAYMENT_RECOVERY_INVENTORY_TENANTS:${PAYMENT_LIMITCENTER_TENANT_ID}}
+        interval-seconds: ${PAYMENT_RECOVERY_INVENTORY_INTERVAL_SECONDS:300}
+      realtime:
+        tenant-id: ${PAYMENT_REALTIME_TENANT_ID:${PAYMENT_LIMITCENTER_TENANT_ID}}
+        service-id: ${PAYMENT_SERVICE_ID:payment}
+        audience: ${REALTIME_JWT_AUDIENCE}
+        token-file: ${PAYMENT_REALTIME_TOKEN_FILE}
+      acquire:
+        tenant-id: ${PAYMENT_ACQUIRE_TENANT_ID:${PAYMENT_LIMITCENTER_TENANT_ID}}
+        service-id: ${PAYMENT_SERVICE_ID:payment}
+        audience: ${ACQUIRE_JWT_AUDIENCE}
+        token-file: ${PAYMENT_ACQUIRE_TOKEN_FILE}
+      limitcenter:
+        tenant-id: ${PAYMENT_LIMITCENTER_TENANT_ID}
+        service-id: ${PAYMENT_SERVICE_ID:payment}
+        audience: ${LIMITCENTER_JWT_AUDIENCE}
+        token-file: ${PAYMENT_LIMITCENTER_TOKEN_FILE}
+      input:
+        lifetime-seconds: ${PAYMENT_INPUT_LIFETIME_SECONDS:120}
+        encryption-key: ${PAYMENT_INPUT_ENCRYPTION_KEY:payment-input}
+        active-fingerprint-key-id: ${PAYMENT_INPUT_FINGERPRINT_KEY_ID:v1}
+        fingerprint-keys:
+          v1: ${PAYMENT_INPUT_FINGERPRINT_KEY}
+  kms:
+    enabled: true
+    endpoint: ${PAYMENT_KMS_ENDPOINT}
+    token-env: PAYMENT_KMS_TOKEN
+    management-enabled: false
+    allow-insecure-http: ${PAYMENT_KMS_ALLOW_INSECURE_HTTP:false}
+    connect-timeout: 2s
+    read-timeout: 2s
+    max-input-bytes: 65536
+  delayedtask:
+    enabled: true
+    batch-size: ${PAYMENT_TASK_BATCH_SIZE:100}
+    max-attempts: ${PAYMENT_TASK_MAX_ATTEMPTS:5}
+    lease: ${PAYMENT_TASK_LEASE:PT5M}
+    retry-delay: ${PAYMENT_TASK_RETRY_DELAY:PT1M}
+  scheduler:
+    binder-type: local
+    local:
+      interval: ${PAYMENT_SCAN_INTERVAL:PT30S}
+  database:
+    multi-tenant:
+      enabled: true
+      required: true
+      request:
+        header-name: ""
+        parameter-name: ""
+        subdomain-enabled: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/migration
+  security:
+    resource-server:
+      enabled: true
+      permit-all:
+        - /api/payment/channel-callbacks/*
+        - /api/payment/channel-callbacks/*/refund
+      issuer-uri: ${PAYMENT_JWT_ISSUER_URI}
+      audience: ${PAYMENT_JWT_AUDIENCE}
+      jwk-set-uri: ${PAYMENT_JWT_JWK_SET_URI}
+
+resilience4j:
+  bulkhead:
+    instances:
+      pay-channel-recovery-alipay:
+        max-concurrent-calls: ${PAYMENT_ALIPAY_RECOVERY_MAX_CONCURRENT:16}
+        max-wait-duration: 0ms
+      pay-channel-recovery-wechat:
+        max-concurrent-calls: ${PAYMENT_WECHAT_RECOVERY_MAX_CONCURRENT:16}
+        max-wait-duration: 0ms
+      pay-channel-recovery-unionpay:
+        max-concurrent-calls: ${PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT:16}
+        max-wait-duration: 0ms

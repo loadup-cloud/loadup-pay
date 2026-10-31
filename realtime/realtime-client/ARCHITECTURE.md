@@ -13,4 +13,4 @@ rpc 类型。
 提供方在 `realtime-adapter` 实现生成的 `ImplBase` 并标注 `@DubboService(interfaceClass = RealtimeRpc.class)`；
 消费方在 `*-infrastructure` 用 `@DubboReference(url = "tri://realtime-headless:50051")` 引用生成的 `RealtimeRpc`。
 Wire↔DTO 转换由 `realtime-client` 的 `RealtimeRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../design/RPC.md)。
+[RPC 规范](../../ARCHITECTURE.md)。

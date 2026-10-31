@@ -1,7 +1,6 @@
 # Reconciliation 后置交易对账
 
-> 当前开发基线正切换至 PostgreSQL；各服务业务迁移已合并为单文件，RPC 协议位于各服务
-> client。下方历史验收描述保留其当时的数据库和运行状态；新基线尚需编译与真实 PostgreSQL 验证。
+> 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
 首期支付宝/微信官方交易日账单，按实际收款账户与账单日期核对收款、退款；银联待产品明确后接入。
 
@@ -14,9 +13,12 @@ File/Transfer 手工来源导入；微信官方下载与 payment 只读 RPC 已�
 应用间调用已迁移为 Dubbo Triple；所有新增源码未启动服务、执行真实 RPC 或部署，不代表当前业务环境已可用。官方来源真实环境验收、支付宝解析、
 差错独立复核/审批源码已补，显式可信源端只读查询/留档源码已补，受控金融处置仍待继续；payment 微信权威采集快照与完整导入已有源码，不直接改交易资金状态。
 
+
+实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
+
 ## 业务装配
 
-- 构建入口 `./reconciliation/build.sh -Preconciliation-business`；运行时启用 `reconciliation-business`。
+- 构建入口 `./reconciliation/build.sh`；运行前准备数据库、认证和存储配置。
 - 独立 `RECONCILIATION_JDBC_URL/USERNAME/PASSWORD`、`RECONCILIATION_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI`。
 - 导入与比较上限 `RECONCILIATION_MAX_RECORDS` 默认 10000；解析原字节上限 `RECONCILIATION_STATEMENT_MAX_BYTES` 默认 16
   MiB。
@@ -57,17 +59,6 @@ loadup:
 本服务只有经受信导入/导出适配器完整验证并封存的 artifact 才能 attach。普通文件上传不是封存证明；当前不开放直接上传规范化行或成功结果。
 微信解析器不能证明下载来源真实性；不支持的 REVOKED 明细明确拒绝整份输入，等待独立撤销补偿身份接入，不会被跳过。
 
-## 数据与执行
-
-五张业务表和 Flyway 迁移源码位于 infrastructure，DO 继承 BaseDO，Mapper/TableDef 由处理器生成。
-create/attach/start 是独立本地写事务；start 的原 runId 与原生任务同事务提交。执行按“只读 RR 取封存输入 → 事务外纯比较 →
-本地写事务锁批次并提交全部差错/完成摘要”分段。
-原生领取/租约/ACK 由 DelayedTask 管理；批次原运行和确定性结果保证业务幂等，不把元数据检查称为原生 token fencing。
-同一批次不能换源重跑；更正文件/profile 应新建输入和批次。查询与计数处于同一次只读 RR 快照。
-
-`deploy/pay.yml` 的第七组清单仍是骨架，业务镜像需额外准备 Secret/配置覆盖层；健康检查或 DNS 就绪不代表真实对账通过。
-本轮没有执行构建、脚本、数据库或外部金融调用。详见 [对账设计](../design/RECONCILIATION.md)、[SQL](../design/sql/reconciliation-draft.sql)。
-
 ## 手工渠道文件导入
 
 当前支持微信 API ALL 格式的原始 UTF-8 文本文件（非 xlsx、ZIP 或 GZIP）。入口是 POST /api/reconciliation/imports：
@@ -106,7 +97,7 @@ IMPORT_MAX_REQUEST_SIZE。
 
 ## payment 权威采集快照（P1 源码）
 
-当前仅 WECHAT / `wechat-trade-all-20260116`。使用 [采集契约](../design/PAYMENT-RECONCILIATION-CAPTURE.md)，
+当前仅 WECHAT / `wechat-trade-all-20260116`。使用 [采集契约](../ARCHITECTURE.md)，
 调用 payment 的 Dubbo Triple；不读 realtime，不跨数据库，不接受上传 LEDGER CSV。
 
 - `POST /api/reconciliation/ledger/prepare`：batchId/requestKey；按原批次 scope 请求异步源端快照，重复 requestKey 查询原结果。
@@ -141,7 +132,7 @@ payment 官方来源读取权限。
 
 来源表为 reconciliation_statement_request；原件/凭证留 FileResource，不将 URL/令牌原文放进业务表。
 未附着对象清理、来源专用 MySQL 原子性/并发测试、支付宝解析、真实查询验收及受控金融处置仍待完成。新源码、迁移和测试均未运行。
-详见 [来源契约](../design/WECHAT-STATEMENT-SOURCE.md)。
+详见 [来源契约](../ARCHITECTURE.md)。
 
 ## 差错独立复核（P1）
 
@@ -151,7 +142,7 @@ upload/propose/decide/read；独立审批服务必须获得相同账户目录授
 
 未提案时为虚拟 INIT0；原子提案后 PROPOSED1，独立审批为 APPROVED2 或 REJECTED2，驳回可在当前版本重新提案。原提案和命令回执不覆盖，重放返回原
 ACK，当前状态使用 detail。备注诊断隐藏，File 证据永久引用与 proposal/event/head 同库提交。三表迁移、领域/应用/映射和真实
-MySQL 故障注入/并发 IT 测试源码已补，均未运行。详见 [复核设计](../design/RECONCILIATION-REVIEW.md)
+MySQL 故障注入/并发 IT 测试源码已补，均未运行。详见 [复核设计](../ARCHITECTURE.md)
 ；源端只读查询/观察留档源码已补，实际验收与金融修正仍待继续。
 
 ## 获批差错的显式源端查询
@@ -164,4 +155,4 @@ APPROVED/NEEDS_SOURCE_VERIFICATION 提案及精确审批事件/版本。请求�
 源回执与原请求完全关联后首次有效提交独立留档，RECORDED 不等于差错解决；ACK 丢失或原 FAILED
 重放不再覆盖回执/重复查询。收款/退款金额、结果与批次/复核均无写入口。复用框架 Outbox、60s 的独立 payment-verification 引用超时
 与原 SERVICE Token（需新增 payment 读取权限）。两侧 Client
-API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。见 [查证设计](../design/RECONCILIATION-VERIFICATION.md)。
+API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。见 [查证设计](../ARCHITECTURE.md)。

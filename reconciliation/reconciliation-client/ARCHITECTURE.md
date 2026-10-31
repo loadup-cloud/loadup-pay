@@ -15,4 +15,4 @@ rpc 类型。
 `@DubboService(interfaceClass = ReconciliationRpc.class)`；消费方在 `*-infrastructure` 用
 `@DubboReference(url = "tri://reconciliation-headless:50051")` 引用生成的 `ReconciliationRpc`。
 Wire↔DTO 转换由 `reconciliation-client` 的 `ReconciliationRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../design/RPC.md)。
+[RPC 规范](../../ARCHITECTURE.md)。

@@ -1,6 +1,6 @@
 # LoadUp Pay 指标与 Grafana
 
-链路：六个 Spring Boot 应用 `/actuator/prometheus` → Prometheus → Grafana。
+链路：七个 Spring Boot 应用 `/actuator/prometheus` → Prometheus → Grafana。
 Loki 存储日志；现有 `otel-collector-logs.yml` 的 logs/traces pipeline 输出到 debug，没有 metrics pipeline。
 本方案由 Prometheus 直接抓取应用，不需要修改已安装的 Collector，也不向 Loki 写入 metrics。
 
@@ -8,19 +8,19 @@ Loki 存储日志；现有 `otel-collector-logs.yml` 的 logs/traces pipeline �
 
 本地开发默认关闭指标注册及 Prometheus exporter，不向 localhost:4318 推送 OTLP metrics。
 需要本地查看指标时，设置环境变量 `METRICS_ENABLED=true` 后重启应用。
-`pay.yml` 已为六个 Kubernetes Deployment 设置此变量为 true，启用 Prometheus 抓取。
+`pay.yml` 已为七个 Kubernetes Deployment 设置此变量为 true，启用 Prometheus 抓取。
 OTLP metrics exporter 在所有环境默认关闭，指标通过 Prometheus 拉取；不影响日志和 tracing 配置。
 
-六个 bootstrap 引入 `micrometer-registry-prometheus`，版本沿用 Spring Boot BOM，开放 health 和 prometheus。
+七个 bootstrap 引入 `micrometer-registry-prometheus`，版本沿用 Spring Boot BOM，开放 health 和 prometheus。
 统一附加 application 标签，启用 HTTP 延迟直方图用于 P95。指标包含 Actuator 自动采集的 JVM、进程、HTTP 指标；
 支付成功率、订单金额等业务指标需要另行埋点，HTTP 5xx 比例不代表支付失败率。
 
-按项目现有方式重新构建六个应用镜像并更新部署。`pay.yml` 的 Pod 模板已声明抓取注解，指标端口沿用 8080。
+按项目现有方式重新构建七个应用镜像并更新部署。`pay.yml` 的 Pod 模板已声明抓取注解，指标端口沿用 8080。
 镜像仍使用本地 bootstrap 标签及 `imagePullPolicy: Never`，构建后需确保目标节点镜像已更新并重建 Pod。
 
 ```bash
 kubectl apply -f loadup-pay/deploy/pay.yml
-kubectl -n loadup-pay rollout restart deployment/payment deployment/acquire deployment/customer deployment/limitcenter deployment/product deployment/realtime
+kubectl -n loadup-pay rollout restart deployment/payment deployment/acquire deployment/customer deployment/limitcenter deployment/product deployment/realtime deployment/reconciliation
 kubectl -n loadup-pay port-forward service/payment 18080:8080
 # 在另一个终端执行，应返回 Prometheus 文本格式，包含 application="payment"
 curl -fsS http://localhost:18080/actuator/prometheus
@@ -85,7 +85,7 @@ Collector 日志接入 Loki 是独立链路，当前仓库的 debug exporter 不
 rule_files 加载，当前没有修改现有监控 release。
 规则按本进程阈值、采样间隔及完整样本新鲜度判断 REVIEW/URGENT，旧/未初始化库存单独告警，不把缺失当零库存。默认仍需显式启用
 PAYMENT_RECOVERY_INVENTORY_ENABLED 和可信租户范围。
-指标来源、运营 API 及限制见 [分级查证](../design/RECOVERY-ESCALATION.md)。现有 Alertmanager 关闭，没有配置接收方或实际通知送达。
+指标来源、运营 API 及限制见 [分级查证](../payment/ARCHITECTURE.md)。现有 Alertmanager 关闭，没有配置接收方或实际通知送达。
 [promtool 用例](payment-recovery-alerts-test.yml) 覆盖阈值与互斥、新鲜度/初始化、禁用和 target-down；可后续在 deploy 目录运行
 promtool test rules payment-recovery-alerts-test.yml，本轮不执行。
 exporter 实际名称、PromQL 匹配、规则触发/恢复、多副本重复与真实通知均待运行验收；本文不将规则源码视为已上线告警。

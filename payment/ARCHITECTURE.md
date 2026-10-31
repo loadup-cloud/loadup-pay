@@ -1,6 +1,5 @@
 # 恢复任务的运营语义
 
-更新：2026-10-27。对应 review R3；只将下述已写源码标为实现，其余明确保留待办。没有运行验证。
 
 ## 当前业务轮询
 
@@ -28,7 +27,7 @@
 每次推进可包含不止一次外部协议操作，native 失败重试/运营重试另计；并发限制与保留策略不能省略。
 
 配置修改只影响之后登记的后继，不重写既有 executeAt。删除旧 payment/refund-recovery.poll-delay-seconds 及其环境变量，不提供开发期兼容分支。
-所有时间沿用系统本地时区，数据库业务时间为现有 local DATETIME；不更改机器时区或绝对协议时间。
+所有时间沿用系统本地时区，数据库业务时间为 timestamp(6) without time zone；不更改机器时区或绝对协议时间。
 
 ## 失败重试与资金事实
 
@@ -44,7 +43,7 @@ R2 已分离运营只读快照与加锁 retry；这不授予绕过预检或人�
 
 统一 ChannelPaymentFacade 在原路由/租户/绑定/能力检查后，以标准 Bulkhead 保护
 query/recover/close/queryRefund/recoverRefund。
-LoadUp ResilienceRegistries 由 payment-business 的 runtime core binder 提供，channel-core 仅依赖 API。
+LoadUp ResilienceRegistries 由 payment 业务服务 的 runtime core binder 提供，channel-core 仅依赖 API。
 每个 Channel 共用一个 pay-channel-recovery-<channel> 实例，部署配置默认各 16、等待 0ms；非零等待在装配时拒绝。
 使用原生许可/释放，满额在 Provider 前抛 CHANNEL_RECOVERY_BUSY，finally 归还名额，不创建线程池或任何新的金融请求。
 
@@ -74,25 +73,16 @@ RecoveryExecutionMetrics 使用共享 MeterRegistry，不建立私有 SimpleMete
 指标写入的常规 RuntimeException 不覆盖原业务异常，诊断只含固定 kind/outcome 与异常类型；不据指标改写资金或重试。
 这些指标是调用流量、耗时及本进程在途量，不是 UNKNOWN 库存、最老年龄、真实 held 金额、FAILED 任务存量或 Outbox 新鲜度的替代品。
 
-## R3 尚未完成
 
-- 首次提交边界前的并发准入、集群/渠道总请求配额、QPS 与公平性，以及扫描/原生重试/运营唤醒在真实副本数下的验证。单 JVM
-  恢复舱壁源码已补，不代表这些都已实现。
-- 未收敛真实额度 held、FAILED 任务库存、Outbox 最老未交付和投影新鲜度。UNKNOWN 行数/名义金额/首次 UNKNOWN
-  最老年龄的独立只读库存源码已补（默认未启用），见 [库存说明](RECOVERY-INVENTORY.md)；不把它们等同于真实资金占用。
-- 长期未知分级阈值、受控原身份查证列表与告警规则源码已补，见 [分级查证](RECOVERY-ESCALATION.md)
-  。实际规则/通知路由、人工工单认领/确认及升级运行证据仍待补；超阈值不能自动失败、释放或重扣。
-- 调度历史、幂等回执、资金证据分别定义保留/归档；不能统一按 TTL 删除。现阶段没有实现清理金融证据的作业。
-- 实际 Scheduler/Dispatcher、多实例故障、查询负载、任务生成量及长期运行演练。
+## 存量观测与升级查证
 
-## 源码及证据
+UNKNOWN 库存只统计当前未知付款/子退款的笔数、名义金额与首次未知时间，不等于额度 held 或可释放金额。采样由后台定期执行，不在 Prometheus scrape 时查库。当前适配通过参数化 Spring JDBC 聚合；以首次 UNKNOWN 时间判断 REVIEW/URGENT，缺失、过期或未初始化库存不能伪装为零。
 
-RecoveryPollingPolicyTest 覆盖年龄档位、上限、长龄不溢出、固定偏移及窗口、配置非法和时钟回拨。
-RecoveryPollingConfigurationTest 覆盖默认/显式配置和错误装配。
-PaymentRecoveryServiceTest / RefundRecoveryServiceTest 补长期未终结保持原业务并登记上限后继；租约交错 IT
-显式关闭抖动，以免混淆时序与策略测试。
-渠道 Facade 另补共享预算、真实线程交错、跨渠道隔离、名额释放、鉴权优先及首提/本地能力边界测试源码；依赖门禁补 API/binder
-runtime 归属。
-RecoveryExecutionMetricsTest / RecoveryTaskHandlerMetricsTest 另补固定标签、调用结束后计数、异常原样传播、并发归零、无共享
-registry 仍执行及两类实际 adapter 的指标接线源码；恢复服务单测同步了已提交决策。
-以上只有源码，没有 IDE/编译/测试/数据库/部署运行证据。R1/R2 验收继续独立保留，不用本切片替代前序证明或宣称 review 已完成。
+配置入口为 `loadup.modules.payment.recovery-inventory` 与 `recovery-escalation`，默认库存采样关闭，启用时必须限定可信租户。只读查证和原 FAILED 任务重试不允许人工注入成功事实。详见 [模块接入](README.md) 与 [监控部署](../deploy/README.md)。
+
+## 关单 ACK 独立保存
+
+PaymentCloseService 已接原执行/恢复流程：只有已验证的 NO_COLLECTION/CLOSE_RESPONSE 才保存不可变的原 attempt 关单确认，独立提交后再交
+Y3。Y3 失败后的原任务优先应用旧确认，避免把随后模糊的 CLOSED 当成新证据；没有收到或没有保存成功 ACK
+时仍不制造未收款结论。独立表、MapStruct、原账户/epoch
+防线与测试源码已补，未执行迁移或验证。详见 [恢复设计](../ARCHITECTURE.md)。

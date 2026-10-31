@@ -1,4 +1,4 @@
-# Optional profile with acquire-business. Catalog references and HTTP clients must be immutable versions.
+# Optional profile for acquire. Catalog references and HTTP clients must be immutable versions.
 # Configure loadup.modules.acquire.merchant-notifications.targets.<tenant>.<target-v1>:
 #   payee-merchant-id: merchant-id
 #   client: merchant-v1

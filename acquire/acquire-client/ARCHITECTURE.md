@@ -13,4 +13,4 @@ rpc 类型。
 提供方在 `acquire-adapter` 实现生成的 `ImplBase` 并标注 `@DubboService(interfaceClass = AcquireRpc.class)`；
 消费方在 `*-infrastructure` 用 `@DubboReference(url = "tri://acquire-headless:50051")` 引用生成的 `AcquireRpc`。
 Wire↔DTO 转换由 `acquire-client` 的 `AcquireRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../design/RPC.md)。
+[RPC 规范](../../ARCHITECTURE.md)。

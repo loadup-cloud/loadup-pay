@@ -10,8 +10,7 @@
     </parent>
     <artifactId>customer-bootstrap</artifactId>
     <name>LoadUp Pay Customer Bootstrap</name>
-    <description>Independent Spring Boot assembly with an optional authenticated database business profile.
-    </description>
+    <description>Spring Boot assembly for the customer service.</description>
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -38,40 +37,33 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>customer-adapter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>customer-infrastructure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>loadup-modules-merchant-app</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
-    <profiles>
-        <profile>
-            <id>customer-business</id>
-            <dependencies>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>customer-adapter</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>customer-infrastructure</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>loadup-modules-merchant-app</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-flyway</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.flywaydb</groupId>
-                    <artifactId>flyway-database-postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
     <build>
         <plugins>
             <plugin>

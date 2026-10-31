@@ -10,7 +10,7 @@
     </parent>
     <artifactId>limitcenter-bootstrap</artifactId>
     <name>LoadUp Pay LimitCenter Bootstrap</name>
-    <description>Independent Spring Boot assembly with an optional durable merchant limit profile.</description>
+    <description>Spring Boot assembly for the limitcenter service.</description>
     <dependencies>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>
@@ -37,36 +37,29 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>limitcenter-adapter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.loadup-cloud</groupId>
+            <artifactId>limitcenter-infrastructure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
-    <profiles>
-        <profile>
-            <id>limitcenter-business</id>
-            <dependencies>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>limitcenter-adapter</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.loadup-cloud</groupId>
-                    <artifactId>limitcenter-infrastructure</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-flyway</artifactId>
-                </dependency>
-                <dependency>
-                    <groupId>org.flywaydb</groupId>
-                    <artifactId>flyway-database-postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
     <build>
         <plugins>
             <plugin>

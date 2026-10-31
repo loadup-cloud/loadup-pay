@@ -108,8 +108,8 @@ ChannelStatementFacade/Provider 使用独立 Registry，复用原 ChannelExecuti
 和不可变账户作用域，不把账单读取作为付款/退款动作。渠道插件拥有申请/下载/验签/校验和，core 复核 scope/摘要；payment
 解析原历史绑定并提供受权服务契约。下载不跨本地数据库事务，结果不认定批次完成。当前微信 strategy 返回有界私有原件和来源凭证；File/Transfer
 封存与首次有效提交属于 reconciliation，相关接线源码已补，仍待验收，不复用 MANUAL_UPLOAD
-冒充官方来源。详见 [官方来源设计](../design/WECHAT-STATEMENT-SOURCE.md)。
+冒充官方来源。详见 [官方来源设计](../ARCHITECTURE.md)。
 
 支付宝新增独立后端账单 grant 申请和私有原始响应凭证源码，下载/解析/StatementProvider 尚未实现；不会把 grant 当成
 ChannelStatement 结果。现有微信 receipt 的官方 SHA1 字段不能为支付宝伪造，后续须连同
-RPC/来源表显式扩展完整性模型。见 [支付宝来源边界](../design/ALIPAY-STATEMENT-SOURCE.md)。
+RPC/来源表显式扩展完整性模型。见 [支付宝来源边界](../ARCHITECTURE.md)。

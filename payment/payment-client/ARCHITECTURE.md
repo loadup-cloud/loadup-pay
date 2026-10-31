@@ -20,4 +20,4 @@ rpc 类型。
 `@DubboReference(url = "tri://payment-headless:50051")` 引用对应生成的接口。
 `PaymentStatementRpc` 的引用超时为 60 秒，其余按全局 3 秒。Wire↔DTO 转换由 `payment-client` 的 mapper 负责。
 `payment-client` 依赖 `product-client` 以复用 AdmittedTerms 的 Wire 映射。通用 channel/JWT 支持见
-[RPC 规范](../../design/RPC.md)。
+[RPC 规范](../../ARCHITECTURE.md)。

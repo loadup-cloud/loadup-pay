@@ -59,44 +59,28 @@ Service），单应用选择4个资源。Headless 名称固定为 `<app>-headles
 rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator基础健康入口。脚本不创建业务订单或调用测试RPC，也不部署Headlamp；Headlamp仍由独立
 `headlamp.sh`管理。
 
-已部署版本、实际检查结果与未执行项目见[实施说明](../IMPLEMENTATION.md)。
+已部署版本、实际检查结果与未执行项目见[实施说明](../ARCHITECTURE.md)。
 
-## Customer 业务镜像
+## 业务配置
 
-`./customer/build.sh -Pcustomer-business` 可选择新增业务装配；默认构建继续生成基础骨架。业务运行需要激活同名 Spring
-profile，并注入数据库/JWT配置，见[customer说明](../customer/README.md)。现有 deploy/pay.yml 未包含这些配置，业务镜像须准备相应配置覆盖层后再发布。
+各服务默认构建业务镜像；部署前在 `loadup-pay` namespace 准备 `<服务名>-config` ConfigMap 和 `<服务名>-secret` Secret，提供相应服务 README 所列配置。Secret 同时只读挂载到 `/var/run/loadup/secrets`；服务令牌文件路径应指向该目录中的 Secret key。配置和密钥由部署环境提供，仓库不生成凭据。
 
-## Product 业务镜像
-
-`./product/build.sh -Pproduct-business` 选择准入业务装配；运行时需同名Spring
-profile、product数据库/JWT及customer业务地址与委托audience。现有清单未注入这些配置，发布前准备配置覆盖层；参见[product说明](../product/README.md)
-。本批没有自动生成额度激活回执或发布真实合约。
-
-limitcenter 业务 JAR/镜像可沿用 `./limitcenter/build.sh -Plimitcenter-business`
-；需另行注入数据库、签发方和同名运行时profile，见[业务说明](../limitcenter/README.md)。默认部署清单仍为基础骨架，本批没有发布业务镜像。
-
-acquire 普通创单业务包使用 `./acquire/build.sh -Pacquire-business`，运行时同时设置
-`SPRING_PROFILES_ACTIVE=acquire-business`；独立数据库、JWT 与 product gRPC 配置见[acquire说明](../acquire/README.md)
-。现有部署清单仍需业务 Secret/ConfigMap 覆盖层，本轮未构建或部署该业务镜像。
-
-acquire-business 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、
+acquire 业务服务 现还需注入 `ACQUIRE_CHECKOUT_PAGE_URL` 与外部 Secret `ACQUIRE_CHECKOUT_SECRET`，并同源路由 `/checkout`、
 `/checkout.js`、`/checkout.css` 和 `/api/cashier/order/summary`。仅提供会话签发及只读摘要，不代表付款链路已部署。
 
-payment 业务 JAR/镜像使用 `./payment/build.sh -Ppayment-business`，运行时启用同名 Spring profile 并注入 PAYMENT_JDBC_
-*、PAYMENT_JWT_* 和可选 PAYMENT_ACQUIRE_SERVICE_ID。当前受理只持久化
-INIT，未对接渠道；现有部署清单仍需配置覆盖层，详见[payment说明](../payment/README.md)。本批仅完成窄范围源码/测试源码编译，没有打包部署业务镜像。
+payment 业务 JAR/镜像使用 `./payment/build.sh`，运行时需提供 PAYMENT_JDBC_*、PAYMENT_JWT_* 及其他业务配置，详见 [payment 说明](../payment/README.md)。
 
-acquire-business 付款发起/结果刷新还需
+acquire 业务服务 付款发起/结果刷新还需
 PAYMENT_JWT_AUDIENCE、ACQUIRE_PAYMENT_TENANT_ID、ACQUIRE_SERVICE_ID（默认 acquire）和
 ACQUIRE_PAYMENT_TOKEN_FILE。服务 JWT 由外部 Secret 文件挂载并轮换，需包含受信 SERVICE/sub/service_id/tenant_id/aud 与 pay:
-payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。部署清单尚未补业务覆盖层，本批未打包或部署。最新
+payment:accept/read 权限；不把商户 JWT 用于 payment 内部接口。服务配置由 ConfigMap 和 Secret 提供。最新
 outcome/refresh 源码按用户要求暂不检查或构建。
 
 acquire 显式关单继续使用同一挂载服务 JWT，新增需要 pay:payment:close、pay:payment:fence 和 pay:payment:fence:read 权限；固定
 payment gRPC 客户端已增加 close/fence-parent/parent-fence-status 操作。新增 order_close_intent
-迁移，服务实际8表。当前仍需业务配置覆盖层，本批没有打包、部署或执行迁移。
+迁移，服务实际8表。当前仍需准备业务配置，本批没有打包、部署或执行迁移。
 
-acquire-business 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增
+acquire 业务服务 新增订单延期入口，商户凭证需 pay:acquire:extend 权限；无新增出站服务配置。新增
 V20261022070000__order_extension_receipt.sql，实际9表。未在本批打包部署或执行迁移，自动到期任务尚未启用。
 
 LimitCenter 额度终态业务新增 payment 事实 gRPC 客户端，配置
@@ -104,7 +88,7 @@ PAYMENT_JWT_AUDIENCE、LIMITCENTER_PAYMENT_TENANT_ID、LIMITCENTER_SERVICE_ID �
 LIMITCENTER_PAYMENT_TOKEN_FILE；令牌挂载文件需 pay:payment:limit-facts。payment 使用 PAYMENT_LIMITCENTER_SERVICE_ID
 限定读取者（默认 limitcenter）。新 V20261022080000 尚未执行，镜像/业务部署仍未运行。
 
-payment-business 的短期输入准备新增必需环境 PAYMENT_INPUT_FINGERPRINT_KEY（至少32随机UTF-8字节）、PAYMENT_KMS_ENDPOINT（HTTPS
+payment 业务服务 的短期输入准备新增必需环境 PAYMENT_INPUT_FINGERPRINT_KEY（至少32随机UTF-8字节）、PAYMENT_KMS_ENDPOINT（HTTPS
 origin）和运行 Secret PAYMENT_KMS_TOKEN。默认 Transit key 名 payment-input，须在 OpenBao 预先创建并授予
 encrypt/decrypt；框架管理权限关闭。输入 TTL 默认为120秒；默认 fingerprint map key=v1，轮换同时覆盖 active id 与保留旧 key 的
 map。acquire SERVICE JWT 新增 pay:payment:input:prepare 权限。新 payment_input 迁移和相关业务镜像部署尚未执行。
@@ -125,8 +109,7 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 `dubbo.registry.address: N/A`，
 `consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
 
-业务镜像构建须选择相应 `-P<app>-business`，运行时启用同名 Spring profile，并准备该应用的数据库、JWT、挂载 SERVICE token 和生产
-TLS 配置。默认骨架构建不包含业务 adapter，也没有 Triple 监听；只声明 Headless Service 与 containerPort 不会启动监听。
+各应用默认装配业务 adapter；部署需准备各自数据库、JWT、挂载 SERVICE token 和生产 TLS 配置。
 
 `pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 Dubbo Triple Headless Service。`verify.sh`
 目前仅检查
@@ -136,10 +119,10 @@ Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真�
 双向依赖链在首次部署时须先就绪全部提供方，再进行真实业务验收。现有协议切换不保留内部 HTTP 或 gRPC 兼容通道；旧镜像与新
 Dubbo Triple 镜像不能混用，统一切换整套业务部署。失败时恢复上一套匹配镜像及配置，不单独回滚一侧协议。
 
-协议与调用关系见[RPC 规范](../design/RPC.md)；binder 设计与配置见
-[Dubbo binder](../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md)。
+协议与调用关系见[RPC 规范](../ARCHITECTURE.md)；binder 设计与配置见
+[Dubbo binder](../../loadup-framework/loadup-components/integration/loadup-components-rpc/loadup-components-rpc-binder-dubbo/README.md)。
 
-渠道插件由 payment-business 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的
+渠道插件由 payment 业务服务 装配：channel-api/core/alipay/wechat 是普通库模块，不生成独立镜像/Service。原 payment 构建脚本的
 -am 会随依赖包含这些模块；无需新增渠道部署脚本。本批未执行构建或部署。支付宝启用配置迁移为 loadup.pay.channel.alipay，支付宝退款
 Provider 源码已补；可选 payment-alipay profile 配置付款码/JSAPI、支付查单/关闭与退款 HTTP 操作，真实资金链路未验收。
 
@@ -156,7 +139,7 @@ node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 
 ## Reconciliation 业务镜像
 
-`./reconciliation/build.sh -Preconciliation-business` 选择独立对账装配，运行时启用同名 Spring profile。
+`./reconciliation/build.sh` 构建独立对账服务。
 配置独立 RECONCILIATION_JDBC_*、RECONCILIATION_JWT_* 和受控账户目录，详见 [对账服务](../reconciliation/README.md)。
 七应用清单、镜像允许路径、选择器及 Headless 命名已同步为源码；本轮未构建镜像或运行渲染、部署、就绪脚本。
 当前批次/查询/核对源码不包含已完成的实际账单下载与权威数据导入；不能将 Pod 就绪当成对账业务验收。
@@ -164,4 +147,4 @@ node --test acquire/acquire-adapter/src/test/javascript/checkout-core.test.mjs
 Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码；除 JDBC/JWT/账户目录，还需私有 RECONCILIATION_S3_BUCKET，
 可选 REGION/ENDPOINT/PATH_STYLE 和一对 S3_ACCESS_KEY/S3_SECRET_KEY（或默认凭证链）。不自动创建 bucket；statement-account
 显式配置实际主/子商户。
-源码部署清单没有注入这些业务 Secret 或存储策略，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。
+部署所需 Secret 内容及存储策略需由部署环境提供，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。

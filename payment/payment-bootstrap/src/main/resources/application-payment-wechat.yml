@@ -1,4 +1,4 @@
-# Optional runtime profile combined with payment-business. Credentials and callback URLs come from trusted configuration.
+# Optional runtime profile for payment. Credentials and callback URLs come from trusted configuration.
 loadup:
   pay:
     channel:
