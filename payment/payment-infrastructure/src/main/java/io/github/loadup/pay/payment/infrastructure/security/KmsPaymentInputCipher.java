@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.security;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
@@ -29,22 +37,17 @@ import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentInputProperties;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class KmsPaymentInputCipher implements PaymentInputCipher {
@@ -54,12 +57,17 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
     private final Validator validator;
     private final SecureRandom random = new SecureRandom();
 
-    public KmsPaymentInputCipher(ObjectProvider<KmsTemplate> kms, PaymentInputProperties properties,
-                                 JsonMapper mapper, Validator validator) {
+    public KmsPaymentInputCipher(
+            ObjectProvider<KmsTemplate> kms,
+            PaymentInputProperties properties,
+            JsonMapper mapper,
+            Validator validator) {
         this.kms = kms;
         this.properties = properties;
         this.validator = validator;
-        this.mapper = mapper.rebuild().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+        this.mapper = mapper.rebuild()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
     }
 
     @Override
@@ -85,12 +93,15 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
         if (secret == null) {
             throw new CommonException(INPUT_UNAVAILABLE);
         }
-        return DigestUtils.hmacSha256(mapper.writeValueAsString(new FingerprintPayload(
-                "loadup-pay-input-v1", tenant, service, keyId, command)), secret);
+        return DigestUtils.hmacSha256(
+                mapper.writeValueAsString(
+                        new FingerprintPayload("loadup-pay-input-v1", tenant, service, keyId, command)),
+                secret);
     }
 
     @Override
-    public EncryptedPaymentInput encrypt(String tenant, String service, String inputRef, PaymentInputPrepareCommand command) {
+    public EncryptedPaymentInput encrypt(
+            String tenant, String service, String inputRef, PaymentInputPrepareCommand command) {
         requireNoTransaction();
         byte[] bytes = mapper.writeValueAsBytes(new CipherPayload(1, tenant, service, inputRef, command));
         try {
@@ -107,27 +118,37 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
         if (!properties.encryptionKey().equals(stored.encryptionKey())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        byte[] bytes = template().decrypt(new KmsKeyRef(stored.encryptionKey(), stored.encryptionVersion()),
-                new KmsCiphertext(stored.encryptionKey(), stored.encryptionVersion(), stored.ciphertext()));
+        byte[] bytes = template()
+                .decrypt(
+                        new KmsKeyRef(stored.encryptionKey(), stored.encryptionVersion()),
+                        new KmsCiphertext(stored.encryptionKey(), stored.encryptionVersion(), stored.ciphertext()));
         try {
             CipherPayload payload = mapper.readValue(bytes, CipherPayload.class);
-            if (payload == null || payload.schemaVersion() != 1 || !tenant.equals(payload.tenant())
-                    || !stored.id().equals(payload.inputRef()) || !stored.callerServiceId().equals(payload.service())
-                    || payload.command() == null || !validator.validate(payload.command()).isEmpty()) {
+            if (payload == null
+                    || payload.schemaVersion() != 1
+                    || !tenant.equals(payload.tenant())
+                    || !stored.id().equals(payload.inputRef())
+                    || !stored.callerServiceId().equals(payload.service())
+                    || payload.command() == null
+                    || !validator.validate(payload.command()).isEmpty()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var command = payload.command();
-            if (!stored.paymentId().equals(command.paymentId()) || !stored.orderId().equals(command.orderId())
+            if (!stored.paymentId().equals(command.paymentId())
+                    || !stored.orderId().equals(command.orderId())
                     || !stored.allocationId().equals(command.allocationId())
                     || !stored.payeeMerchantId().equals(command.payeeMerchantId())
                     || stored.amount().getCent() != command.amountMinor()
                     || !stored.amount().getCurrencyValue().equals(command.currency())
-                    || !stored.inputKey().equals(command.inputKey()) || stored.channel() != command.choice().channel()
+                    || !stored.inputKey().equals(command.inputKey())
+                    || stored.channel() != command.choice().channel()
                     || stored.method() != command.choice().method()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             String digest = fingerprint(tenant, stored.callerServiceId(), command, stored.fingerprintKeyId());
-            if (!MessageDigest.isEqual(digest.getBytes(StandardCharsets.US_ASCII), stored.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
+            if (!MessageDigest.isEqual(
+                    digest.getBytes(StandardCharsets.US_ASCII),
+                    stored.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return command.interaction();
@@ -152,16 +173,24 @@ public class KmsPaymentInputCipher implements PaymentInputCipher {
         }
     }
 
-    private record FingerprintPayload(String protocol, String tenant, String service, String keyId,
-                                      @DiagnosticHidden PaymentInputPrepareCommand command) {
+    private record FingerprintPayload(
+            String protocol,
+            String tenant,
+            String service,
+            String keyId,
+            @DiagnosticHidden PaymentInputPrepareCommand command) {
         @Override
         public String toString() {
             return ToStringAsJson.reflectionToString(this);
         }
     }
 
-    private record CipherPayload(int schemaVersion, String tenant, String service, @DiagnosticHidden String inputRef,
-                                 @DiagnosticHidden PaymentInputPrepareCommand command) {
+    private record CipherPayload(
+            int schemaVersion,
+            String tenant,
+            String service,
+            @DiagnosticHidden String inputRef,
+            @DiagnosticHidden PaymentInputPrepareCommand command) {
         @Override
         public String toString() {
             return ToStringAsJson.reflectionToString(this);

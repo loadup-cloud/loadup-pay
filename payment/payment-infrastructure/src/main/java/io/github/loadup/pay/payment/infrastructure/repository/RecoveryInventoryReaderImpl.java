@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -21,18 +29,13 @@ import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
 import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
 import io.github.loadup.pay.payment.infrastructure.converter.RecoveryInventoryConverter;
 import io.github.loadup.pay.payment.infrastructure.model.RecoveryInventoryAggregate;
+import java.util.List;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.List;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
@@ -46,11 +49,13 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
 
     @Override
     public List<RecoveryInventoryCell> read(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
-                .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
+                        .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
@@ -66,7 +71,8 @@ public class RecoveryInventoryReaderImpl implements RecoveryInventoryReader {
                 SELECT COUNT(id) AS row_count, SUM(amount_minor) AS amount_minor, MIN(first_unknown_at) AS oldest_at
                 FROM refund_order WHERE deleted = FALSE AND state = 'UNKNOWN'
                 """, args, mapper);
-        return List.of(cell(RecoveryInventoryCell.Kind.PAYMENT, collection), cell(RecoveryInventoryCell.Kind.REFUND, refund));
+        return List.of(
+                cell(RecoveryInventoryCell.Kind.PAYMENT, collection), cell(RecoveryInventoryCell.Kind.REFUND, refund));
     }
 
     private RecoveryInventoryCell cell(RecoveryInventoryCell.Kind kind, List<RecoveryInventoryAggregate> rows) {

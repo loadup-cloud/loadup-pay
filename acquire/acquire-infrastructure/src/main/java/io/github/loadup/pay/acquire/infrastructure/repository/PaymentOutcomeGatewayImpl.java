@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.tenant.TenantContext;
@@ -30,20 +38,15 @@ import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationSt
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentOutcomeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentAllocationDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderPaymentOutcomeDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
@@ -53,8 +56,12 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     private final PaymentOutcomeStorageConverter converter;
     private final PaymentInitiationCodec codec;
 
-    public PaymentOutcomeGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentInitiationStorageConverter allocationConverter,
-                                     PaymentOutcomeStorageConverter converter, PaymentInitiationCodec codec, Clock clock) {
+    public PaymentOutcomeGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentInitiationStorageConverter allocationConverter,
+            PaymentOutcomeStorageConverter converter,
+            PaymentInitiationCodec codec,
+            Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.allocationConverter = allocationConverter;
@@ -73,14 +80,23 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
         return readAllocation(tenant, orderId, paymentId, true);
     }
 
-    private Optional<StoredPaymentAllocation> readAllocation(String tenant, String orderId, String paymentId, boolean lock) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId).addValue("payment", paymentId);
-        var row = jdbc.query("""
+    private Optional<StoredPaymentAllocation> readAllocation(
+            String tenant, String orderId, String paymentId, boolean lock) {
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("order", orderId)
+                .addValue("payment", paymentId);
+        var row = jdbc
+                .query(
+                        """
                         SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key, request_digest,
                                caller_scope_hash, amount_minor, currency, state, payment_source_version, intent_payload, payload_hash, row_version
                         FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND payment_id = :payment AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class))
-                .stream().findFirst().orElse(null);
+                        """ + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }
@@ -100,7 +116,9 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
                 SELECT id, tenant_id, created_at, updated_at, allocation_id, order_id, payment_id, amount_minor, currency,
                        outcome_kind, payment_source_version, evidence_id, execution_fenced, observed_at
                 FROM order_payment_outcome WHERE tenant_id = :tenant AND allocation_id = :allocation AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentOutcomeDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(OrderPaymentOutcomeDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }
@@ -112,28 +130,45 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     }
 
     @Override
-    public void apply(String tenant, OrderPaymentChange change, StoredPaymentAllocation original,
-                      PaymentOutcomeReceipt receipt, long expectedOrderVersion) {
+    public void apply(
+            String tenant,
+            OrderPaymentChange change,
+            StoredPaymentAllocation original,
+            PaymentOutcomeReceipt receipt,
+            long expectedOrderVersion) {
         requireTransaction();
         var order = change.order();
         var allocation = change.allocation();
         receipt.requireBoundTo(allocation);
         var expectedState = receipt.outcome().kind() == VerifiedPaymentOutcome.Kind.SUCCEEDED
-                ? AllocationState.CONSUMED : AllocationState.RELEASED;
+                ? AllocationState.CONSUMED
+                : AllocationState.RELEASED;
         if (original.allocation().state() != AllocationState.HELD
-                || !original.allocation().transition(expectedState, receipt.outcome().paymentVersion()).equals(allocation)
+                || !original.allocation()
+                        .transition(expectedState, receipt.outcome().paymentVersion())
+                        .equals(allocation)
                 || (receipt.outcome().kind() == VerifiedPaymentOutcome.Kind.NOT_ACCEPTED
-                ? original.allocation().paymentSourceVersion() != 0
-                : receipt.outcome().paymentVersion() <= original.allocation().paymentSourceVersion())
+                        ? original.allocation().paymentSourceVersion() != 0
+                        : receipt.outcome().paymentVersion()
+                                <= original.allocation().paymentSourceVersion())
                 || order.version() != Math.incrementExact(expectedOrderVersion)
-                || !(order.state() == AcquireOrderState.PENDING || order.state() == AcquireOrderState.CLOSING || order.state() == AcquireOrderState.PAID)) {
+                || !(order.state() == AcquireOrderState.PENDING
+                        || order.state() == AcquireOrderState.CLOSING
+                        || order.state() == AcquireOrderState.PAID)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var orderPatch = converter.toOrderPatch(order, order.state() == AcquireOrderState.PAID ? receipt.observedAt() : null);
-        var orderArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id()).addValue("expected", expectedOrderVersion)
-                .addValue("paid", orderPatch.getPaidAmountMinor()).addValue("reserved", orderPatch.getPaymentReservedMinor())
-                .addValue("successCount", orderPatch.getSuccessfulPaymentCount()).addValue("reservedCount", orderPatch.getReservedPaymentCount())
-                .addValue("state", orderPatch.getState()).addValue("version", orderPatch.getRowVersion()).addValue("paidAt", orderPatch.getPaidAt())
+        var orderPatch =
+                converter.toOrderPatch(order, order.state() == AcquireOrderState.PAID ? receipt.observedAt() : null);
+        var orderArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", order.id())
+                .addValue("expected", expectedOrderVersion)
+                .addValue("paid", orderPatch.getPaidAmountMinor())
+                .addValue("reserved", orderPatch.getPaymentReservedMinor())
+                .addValue("successCount", orderPatch.getSuccessfulPaymentCount())
+                .addValue("reservedCount", orderPatch.getReservedPaymentCount())
+                .addValue("state", orderPatch.getState())
+                .addValue("version", orderPatch.getRowVersion())
+                .addValue("paidAt", orderPatch.getPaidAt())
                 .addValue("updated", LocalDateTime.now(clock));
         int orderChanged = jdbc.update("""
                 UPDATE acquire_order SET paid_amount_minor = :paid, payment_reserved_minor = :reserved,
@@ -145,10 +180,15 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
             throw new CommonException(CONCURRENT_UPDATE);
         }
         var patch = converter.toAllocationPatch(allocation, Math.incrementExact(original.rowVersion()));
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", allocation.id()).addValue("order", order.id())
-                .addValue("payment", allocation.paymentId()).addValue("expected", original.rowVersion())
-                .addValue("source", original.allocation().paymentSourceVersion()).addValue("state", patch.getState())
-                .addValue("newSource", patch.getPaymentSourceVersion()).addValue("version", patch.getRowVersion())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", allocation.id())
+                .addValue("order", order.id())
+                .addValue("payment", allocation.paymentId())
+                .addValue("expected", original.rowVersion())
+                .addValue("source", original.allocation().paymentSourceVersion())
+                .addValue("state", patch.getState())
+                .addValue("newSource", patch.getPaymentSourceVersion())
+                .addValue("version", patch.getRowVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int allocationChanged = jdbc.update("""
                 UPDATE order_payment_allocation SET state = :state, payment_source_version = :newSource,
@@ -178,9 +218,11 @@ public class PaymentOutcomeGatewayImpl implements PaymentOutcomeGateway {
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

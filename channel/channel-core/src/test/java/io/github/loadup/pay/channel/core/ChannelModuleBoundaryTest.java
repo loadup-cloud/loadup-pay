@@ -1,43 +1,46 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Core
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *     Unless required by applicable law or agreed to in writing, software
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.core;
-
-import org.junit.jupiter.api.Test;
-import org.w3c.dom.Element;
-
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
+import org.junit.jupiter.api.Test;
+import org.w3c.dom.Element;
+
 /**
  * Source architecture gate: only the executable assembly may depend on channel implementations.
  */
 class ChannelModuleBoundaryTest {
-    private static final Pattern CHANNEL_IMPLEMENTATION_REFERENCE = Pattern.compile(
-            "\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\.)[A-Za-z_$][\\w$]*\\.");
+    private static final Pattern CHANNEL_IMPLEMENTATION_REFERENCE =
+            Pattern.compile("\\bio\\.github\\.loadup\\.pay\\.channel\\.(?!api\\.)[A-Za-z_$][\\w$]*\\.");
     private static final Pattern BUSINESS_REFERENCE = Pattern.compile(
             "\\bio\\.github\\.loadup\\.pay\\.(acquire|payment|customer|product|limitcenter|realtime)\\.");
 
@@ -54,7 +57,8 @@ class ChannelModuleBoundaryTest {
 
     private static List<Path> modules(Path parent) throws Exception {
         try (var children = Files.list(parent)) {
-            return children.filter(path -> Files.isRegularFile(path.resolve("pom.xml"))).toList();
+            return children.filter(path -> Files.isRegularFile(path.resolve("pom.xml")))
+                    .toList();
         }
     }
 
@@ -76,16 +80,20 @@ class ChannelModuleBoundaryTest {
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-        var document = factory.newDocumentBuilder().parse(module.resolve("pom.xml").toFile());
+        var document =
+                factory.newDocumentBuilder().parse(module.resolve("pom.xml").toFile());
         var xpath = XPathFactory.newInstance().newXPath();
         var nodes = (org.w3c.dom.NodeList) xpath.evaluate(
                 "/project/dependencies/dependency | /project/profiles/profile/dependencies/dependency",
-                document, XPathConstants.NODESET);
+                document,
+                XPathConstants.NODESET);
         var result = new ArrayList<Dependency>();
         for (int i = 0; i < nodes.getLength(); i++) {
             var element = (Element) nodes.item(i);
-            result.add(new Dependency(xpath.evaluate("groupId", element).trim(),
-                    xpath.evaluate("artifactId", element).trim(), xpath.evaluate("scope", element).trim()));
+            result.add(new Dependency(
+                    xpath.evaluate("groupId", element).trim(),
+                    xpath.evaluate("artifactId", element).trim(),
+                    xpath.evaluate("scope", element).trim()));
         }
         return List.copyOf(result);
     }
@@ -94,7 +102,10 @@ class ChannelModuleBoundaryTest {
     void paymentProductionSourcesCannotBypassTheChannelApi() throws Exception {
         for (var module : modules(repositoryRoot().resolve("payment"))) {
             for (var source : productionSources(module)) {
-                assertFalse(CHANNEL_IMPLEMENTATION_REFERENCE.matcher(Files.readString(source)).find(),
+                assertFalse(
+                        CHANNEL_IMPLEMENTATION_REFERENCE
+                                .matcher(Files.readString(source))
+                                .find(),
                         source + " must call channel-api instead of importing or naming a plugin implementation");
             }
         }
@@ -104,7 +115,8 @@ class ChannelModuleBoundaryTest {
     void channelProductionSourcesCannotReachBackIntoBusinessServices() throws Exception {
         for (var module : modules(repositoryRoot().resolve("channel"))) {
             for (var source : productionSources(module)) {
-                assertFalse(BUSINESS_REFERENCE.matcher(Files.readString(source)).find(),
+                assertFalse(
+                        BUSINESS_REFERENCE.matcher(Files.readString(source)).find(),
                         source + " must receive channel-api values instead of accessing business internals");
             }
         }
@@ -124,8 +136,11 @@ class ChannelModuleBoundaryTest {
             }
         }
         for (var name : List.of("payment-domain", "payment-app", "payment-infrastructure")) {
-            assertTrue(dependencies(root.resolve("payment").resolve(name)).stream()
-                    .anyMatch(dependency -> dependency.local() && dependency.artifact().equals("channel-api")), name);
+            assertTrue(
+                    dependencies(root.resolve("payment").resolve(name)).stream()
+                            .anyMatch(dependency ->
+                                    dependency.local() && dependency.artifact().equals("channel-api")),
+                    name);
         }
     }
 
@@ -148,12 +163,16 @@ class ChannelModuleBoundaryTest {
     void bootstrapLoadsTheEngineAndVendorPluginsAtRuntime() throws Exception {
         var dependencies = dependencies(repositoryRoot().resolve("payment/payment-bootstrap"));
         var implementationArtifacts = dependencies.stream()
-                .filter(dependency -> dependency.local() && dependency.artifact().startsWith("channel-")
+                .filter(dependency -> dependency.local()
+                        && dependency.artifact().startsWith("channel-")
                         && !dependency.artifact().equals("channel-api"))
                 .toList();
-        assertTrue(implementationArtifacts.stream().anyMatch(dependency -> dependency.artifact().equals("channel-core")));
-        assertTrue(implementationArtifacts.stream().anyMatch(dependency -> dependency.artifact().equals("channel-alipay")));
-        assertTrue(implementationArtifacts.stream().anyMatch(dependency -> dependency.artifact().equals("channel-wechat")));
+        assertTrue(implementationArtifacts.stream()
+                .anyMatch(dependency -> dependency.artifact().equals("channel-core")));
+        assertTrue(implementationArtifacts.stream()
+                .anyMatch(dependency -> dependency.artifact().equals("channel-alipay")));
+        assertTrue(implementationArtifacts.stream()
+                .anyMatch(dependency -> dependency.artifact().equals("channel-wechat")));
         for (var dependency : implementationArtifacts) {
             assertEquals("runtime", dependency.scope(), dependency.artifact());
         }
@@ -163,11 +182,15 @@ class ChannelModuleBoundaryTest {
     void recoveryConcurrencyUsesTheFrameworkApiWithItsBinderOwnedByBootstrap() throws Exception {
         var root = repositoryRoot();
         var core = dependencies(root.resolve("channel/channel-core"));
-        assertTrue(core.stream().anyMatch(dependency -> dependency.local()
-                && dependency.artifact().equals("loadup-components-resilience4j-api")));
-        assertFalse(core.stream().anyMatch(dependency -> dependency.artifact().equals("loadup-components-resilience4j-binder-core")));
-        assertTrue(dependencies(root.resolve("payment/payment-bootstrap")).stream().anyMatch(dependency -> dependency.local()
-                && dependency.artifact().equals("loadup-components-resilience4j-binder-core") && dependency.scope().equals("runtime")));
+        assertTrue(core.stream()
+                .anyMatch(dependency ->
+                        dependency.local() && dependency.artifact().equals("loadup-components-resilience4j-api")));
+        assertFalse(core.stream()
+                .anyMatch(dependency -> dependency.artifact().equals("loadup-components-resilience4j-binder-core")));
+        assertTrue(dependencies(root.resolve("payment/payment-bootstrap")).stream()
+                .anyMatch(dependency -> dependency.local()
+                        && dependency.artifact().equals("loadup-components-resilience4j-binder-core")
+                        && dependency.scope().equals("runtime")));
     }
 
     private record Dependency(String group, String artifact, String scope) {

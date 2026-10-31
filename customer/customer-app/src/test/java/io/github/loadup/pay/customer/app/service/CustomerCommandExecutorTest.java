@@ -1,37 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Customer App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.customer.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.globalunique.GlobalUniqueTemplate;
-import io.github.loadup.components.globalunique.model.GlobalUniqueClaim;
-import io.github.loadup.components.globalunique.model.GlobalUniqueRecord;
-import io.github.loadup.pay.customer.app.security.CustomerActor;
-import io.github.loadup.pay.customer.client.command.MerchantRelationshipCreateCommand;
-import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
-import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
-import io.github.loadup.pay.customer.domain.model.GrantState;
-import io.github.loadup.pay.customer.domain.model.PrincipalType;
-import org.junit.jupiter.api.Test;
-
-import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -43,6 +29,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.globalunique.GlobalUniqueTemplate;
+import io.github.loadup.components.globalunique.model.GlobalUniqueClaim;
+import io.github.loadup.components.globalunique.model.GlobalUniqueRecord;
+import io.github.loadup.pay.customer.app.security.CustomerActor;
+import io.github.loadup.pay.customer.client.command.MerchantRelationshipCreateCommand;
+import io.github.loadup.pay.customer.client.dto.MerchantRelationshipDTO;
+import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
+import io.github.loadup.pay.customer.domain.model.GrantState;
+import io.github.loadup.pay.customer.domain.model.PrincipalType;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
 
 class CustomerCommandExecutorTest {
     private final GlobalUniqueTemplate unique = mock(GlobalUniqueTemplate.class);
@@ -62,15 +65,15 @@ class CustomerCommandExecutorTest {
             GlobalUniqueClaim claim = call.getArgument(0);
             String key = claim.bizType() + claim.uniqueKey();
             return records.putIfAbsent(
-                    key,
-                    new GlobalUniqueRecord(
-                            "claim",
-                            claim.bizType(),
-                            claim.uniqueKey(),
-                            claim.bizId(),
-                            claim.requestData(),
-                            null,
-                            null))
+                            key,
+                            new GlobalUniqueRecord(
+                                    "claim",
+                                    claim.bizType(),
+                                    claim.uniqueKey(),
+                                    claim.bizId(),
+                                    claim.requestData(),
+                                    null,
+                                    null))
                     == null;
         });
     }
@@ -85,8 +88,7 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
+                () -> {},
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         MerchantRelationshipDTO replay = executor.execute(
                 actor,
@@ -112,10 +114,8 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
-                }));
+                () -> {},
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
         var changed = new MerchantRelationshipCreateCommand("different", "child", from, null, "request");
         CommonException failure = assertThrows(
                 CommonException.class,
@@ -142,17 +142,14 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
-                }));
+                () -> {},
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
         GlobalUniqueRecord stored = records.values().iterator().next();
         when(unique.find(anyString(), anyString())).thenReturn(Optional.empty(), Optional.of(stored));
         assertEquals(
                 original,
                 executor.execute(
-                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {
-                        }, () -> {
+                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {}, () -> {
                             throw new AssertionError("Already committed");
                         }));
     }
@@ -167,8 +164,7 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
+                () -> {},
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         CustomerActor other = new CustomerActor("TENANT", PrincipalType.OPERATOR, "operator", null, true);
         executor.execute(
@@ -177,8 +173,7 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
+                () -> {},
                 () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, writes::incrementAndGet));
         assertEquals(2, writes.get());
     }
@@ -189,8 +184,7 @@ class CustomerCommandExecutorTest {
         assertThrows(
                 CommonException.class,
                 () -> executor.execute(
-                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {
-                        }, () -> {
+                        actor, "create.v1", "request", command, MerchantRelationshipDTO.class, () -> {}, () -> {
                             throw new CommonException(CustomerResultCodeEnum.MERCHANT_INACTIVE);
                         }));
         verify(unique, never()).claim(any(GlobalUniqueClaim.class));
@@ -206,10 +200,8 @@ class CustomerCommandExecutorTest {
                 "request",
                 command,
                 MerchantRelationshipDTO.class,
-                () -> {
-                },
-                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {
-                }));
+                () -> {},
+                () -> new CustomerCommandExecutor.Prepared<>(original.id(), original, () -> {}));
         GlobalUniqueRecord stored = records.values().iterator().next();
         when(unique.find(anyString(), anyString())).thenReturn(Optional.empty(), Optional.empty(), Optional.of(stored));
         when(unique.claim(any(GlobalUniqueClaim.class))).thenReturn(false);
@@ -221,8 +213,7 @@ class CustomerCommandExecutorTest {
                         "request",
                         command,
                         MerchantRelationshipDTO.class,
-                        () -> {
-                        },
+                        () -> {},
                         () -> new CustomerCommandExecutor.Prepared<>(
                                 "loser", original, () -> fail("Losing candidate must not persist"))));
     }

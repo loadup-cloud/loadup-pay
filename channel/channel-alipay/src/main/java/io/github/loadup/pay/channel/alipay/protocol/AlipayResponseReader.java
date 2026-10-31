@@ -1,31 +1,34 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Alipay
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.alipay.protocol;
 
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
-import tools.jackson.core.StreamReadFeature;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Strict typed field access after the protocol client has verified the original response bytes.
@@ -34,15 +37,20 @@ public final class AlipayResponseReader {
     private final JsonMapper json;
 
     public AlipayResponseReader(JsonMapper json) {
-        this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
+        this.json = json.rebuild()
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
     }
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> read(AlipayVerifiedResponse response, AlipayMethod expected) {
-        if (response == null || response.method() != expected || response.payload() == null
+        if (response == null
+                || response.method() != expected
+                || response.payload() == null
                 || response.payload().getBytes(StandardCharsets.UTF_8).length > 1048576
-                || response.sourceDigest() == null || !response.sourceDigest().equals(DigestUtils.sha256(response.payload()))) {
+                || response.sourceDigest() == null
+                || !response.sourceDigest().equals(DigestUtils.sha256(response.payload()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         try {
@@ -100,4 +108,3 @@ public final class AlipayResponseReader {
         }
     }
 }
-

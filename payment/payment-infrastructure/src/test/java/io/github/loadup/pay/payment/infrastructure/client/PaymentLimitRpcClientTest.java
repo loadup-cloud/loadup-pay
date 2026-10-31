@@ -1,40 +1,23 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.infrastructure.client;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.json.JsonUtil;
-import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
-import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
-import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
-import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
-import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
-import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
-import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
-import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
-import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
-import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
-import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapperImpl;
-import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
-import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
-import org.apache.dubbo.rpc.RpcContext;
-import org.apache.dubbo.rpc.RpcException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -51,19 +34,57 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
+import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
+import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapperImpl;
+import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
+import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
 class PaymentLimitRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
     final LimitCenterRpc limitCenterRpc = mock(LimitCenterRpc.class);
     final LimitCenterRpcMapper limitCenterRpcMapper = new LimitCenterRpcMapperImpl();
     final List<String> attachments = new ArrayList<>();
-    final LimitConfirmCommand confirm = new LimitConfirmCommand("operation", "payment", 2, "evidence", "evidence", 1000, "CNY",
-            OffsetDateTime.now(clock));
-    final LimitReleaseCommand release = new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED");
-    final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand("operation", "payment", "refund", 3,
-            "refund-event", 1000, 1500, "CNY", "refund-evidence");
+    final LimitConfirmCommand confirm = new LimitConfirmCommand(
+            "operation", "payment", 2, "evidence", "evidence", 1000, "CNY", OffsetDateTime.now(clock));
+    final LimitReleaseCommand release =
+            new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED");
+    final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand(
+            "operation", "payment", "refund", 3, "refund-event", 1000, 1500, "CNY", "refund-evidence");
+
     @TempDir
     Path directory;
+
     PaymentLimitRpcClient client;
     Path tokenFile;
 
@@ -72,8 +93,19 @@ class PaymentLimitRpcClientTest {
     }
 
     Map<String, Object> claims() {
-        return new HashMap<>(Map.of("tenant_id", "tenant", "principal_type", "SERVICE", "sub", "payment", "service_id", "payment",
-                "aud", List.of("limitcenter"), "exp", clock.instant().getEpochSecond() + 300));
+        return new HashMap<>(Map.of(
+                "tenant_id",
+                "tenant",
+                "principal_type",
+                "SERVICE",
+                "sub",
+                "payment",
+                "service_id",
+                "payment",
+                "aud",
+                List.of("limitcenter"),
+                "exp",
+                clock.instant().getEpochSecond() + 300));
     }
 
     String token(Map<String, Object> claims) throws Exception {
@@ -85,30 +117,47 @@ class PaymentLimitRpcClientTest {
     }
 
     LimitReservationDTO confirmed() {
-        return new LimitReservationDTO("reservation", "operation", "payment", LimitReservationState.CONFIRMED, "policy", 1,
-                OffsetDateTime.now(clock), 2);
+        return new LimitReservationDTO(
+                "reservation",
+                "operation",
+                "payment",
+                LimitReservationState.CONFIRMED,
+                "policy",
+                1,
+                OffsetDateTime.now(clock),
+                2);
     }
 
     @BeforeEach
     void setup() throws Exception {
         tokenFile = directory.resolve("limitcenter.jwt");
         token(claims());
-        client = new PaymentLimitRpcClient(limitCenterRpcMapper, mapper, new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile), clock);
+        client = new PaymentLimitRpcClient(
+                limitCenterRpcMapper,
+                mapper,
+                new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile),
+                clock);
         ReflectionTestUtils.setField(client, "limitCenterRpc", limitCenterRpc);
         doAnswer(invocation -> {
-            attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return limitCenterRpcMapper.toWireLimitReservationDTO(confirmed());
-        }).when(limitCenterRpc).confirm(any());
+                    attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return limitCenterRpcMapper.toWireLimitReservationDTO(confirmed());
+                })
+                .when(limitCenterRpc)
+                .confirm(any());
         doAnswer(invocation -> {
-            attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return limitCenterRpcMapper.toWireLimitReleaseDTO(
-                    new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
-        }).when(limitCenterRpc).release(any());
+                    attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return limitCenterRpcMapper.toWireLimitReleaseDTO(
+                            new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
+                })
+                .when(limitCenterRpc)
+                .release(any());
     }
 
     @Test
     void confirmUsesTheConfiguredOperationAndOriginalTypedCommand() {
-        assertEquals(LimitReservationState.CONFIRMED, client.confirm("tenant", confirm).state());
+        assertEquals(
+                LimitReservationState.CONFIRMED,
+                client.confirm("tenant", confirm).state());
         verify(limitCenterRpc).confirm(any());
         assertEquals(1, attachments.size());
         assertTrue(attachments.getFirst().startsWith("Bearer "));
@@ -125,13 +174,27 @@ class PaymentLimitRpcClientTest {
 
     @Test
     void refundRestoreUsesItsNamedOperationAndOriginalTypedCommandWithMountedCredential() throws Exception {
-        var ack = new LimitRestoreDTO("operation", "payment", "refund", 3, "refund-event", "refund-evidence",
-                1500, 1500, 4, LimitRestoreResult.RESTORED, 1000, true);
+        var ack = new LimitRestoreDTO(
+                "operation",
+                "payment",
+                "refund",
+                3,
+                "refund-event",
+                "refund-evidence",
+                1500,
+                1500,
+                4,
+                LimitRestoreResult.RESTORED,
+                1000,
+                true);
         doAnswer(invocation -> {
-            assertEquals("Bearer " + Files.readString(tokenFile),
-                    RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return limitCenterRpcMapper.toWireLimitRestoreDTO(ack);
-        }).when(limitCenterRpc).restoreRefund(any());
+                    assertEquals(
+                            "Bearer " + Files.readString(tokenFile),
+                            RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return limitCenterRpcMapper.toWireLimitRestoreDTO(ack);
+                })
+                .when(limitCenterRpc)
+                .restoreRefund(any());
         assertEquals(ack, client.restoreRefund("tenant", refundRestore));
         verify(limitCenterRpc).restoreRefund(any());
     }
@@ -149,26 +212,37 @@ class PaymentLimitRpcClientTest {
 
     @Test
     void anotherTenantOrWrongAudienceDoesNotReachTheNetwork() throws Exception {
-        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> client.confirm("other-tenant", confirm)).getResultCode());
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> client.confirm("other-tenant", confirm))
+                        .getResultCode());
         var wrong = claims();
         wrong.put("aud", "acquire");
         token(wrong);
-        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.release("tenant", release)).getResultCode());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.release("tenant", release))
+                        .getResultCode());
         verifyNoInteractions(limitCenterRpc);
     }
 
     @Test
     void transportFailureCannotBeInterpretedAsSuccessfulSettlement() {
         doThrow(remoteFailure("LIMIT_EXCEEDED")).when(limitCenterRpc).confirm(any());
-        assertSame(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
-                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm)).getResultCode());
+        assertSame(
+                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                        .getResultCode());
     }
 
     @Test
     void localTransactionCannotRemainOpenAcrossTheSettlementCall() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> client.release("tenant", release)).getResultCode());
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> client.release("tenant", release))
+                            .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -179,7 +253,10 @@ class PaymentLimitRpcClientTest {
     void refundRestoreCannotRunInsideAnOuterTransaction() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> client.restoreRefund("tenant", refundRestore)).getResultCode());
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> client.restoreRefund("tenant", refundRestore))
+                            .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }

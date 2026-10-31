@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.security;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
@@ -23,10 +34,6 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.client.CheckoutPresentationImpl;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
-import org.junit.jupiter.api.Test;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -34,13 +41,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.junit.jupiter.api.Test;
 
 class HmacCheckoutTokensTest {
     final String oldSecret = "synthetic-v1-" + "a".repeat(32), newSecret = "synthetic-v2-" + "b".repeat(32);
@@ -67,8 +70,10 @@ class HmacCheckoutTokensTest {
                 "checkout",
                 "v1",
                 "https://pay.example",
-                new CheckoutSessionScope(1, "b".repeat(64), "return-v1", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
-                null, 0);
+                new CheckoutSessionScope(
+                        1, "b".repeat(64), "return-v1", Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS")),
+                null,
+                0);
     }
 
     @Test
@@ -80,8 +85,8 @@ class HmacCheckoutTokensTest {
         mac.init(new SecretKeySpec(oldSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         String expected = "session."
                 + Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
+                        .withoutPadding()
+                        .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
         assertEquals(expected, tokens.issue(session, nonce, "checkout", "v1"));
         assertTrue(tokens.matches(expected, stored(tokens, expected)));
     }

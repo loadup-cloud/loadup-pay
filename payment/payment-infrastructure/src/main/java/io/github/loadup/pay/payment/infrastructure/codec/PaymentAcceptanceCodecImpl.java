@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
@@ -22,18 +28,15 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentIntentSnapshotConverter;
 import io.github.loadup.pay.payment.infrastructure.model.PaymentIntentSnapshot;
 import jakarta.validation.Validator;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
@@ -42,11 +45,16 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
     private final PaymentIntentSnapshotConverter snapshots;
 
     public PaymentAcceptanceCodecImpl(Validator validator, PaymentIntentSnapshotConverter snapshots) {
-        this.mapper = JsonMapper.builder().disable(MapperFeature.USE_ANNOTATIONS)
+        this.mapper = JsonMapper.builder()
+                .disable(MapperFeature.USE_ANNOTATIONS)
                 .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
-                        DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT).build();
+                .enable(
+                        DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                                DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
+                        DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,
+                                DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+                .build();
         this.validator = validator;
         this.snapshots = snapshots;
     }
@@ -70,7 +78,8 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
     @Override
     public String checksum(String payload) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8)));
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new ExceptionInInitializerError(impossible);
         }
@@ -85,10 +94,15 @@ public class PaymentAcceptanceCodecImpl implements PaymentAcceptanceCodec {
             }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
             var payment = stored.payment();
-            if (value == null || !payment.id().equals(value.paymentId()) || !payment.orderId().equals(value.orderId())
-                    || !payment.allocationId().equals(value.allocationId()) || !payment.payeeMerchantId().equals(value.payeeMerchantId())
-                    || payment.amount().getCent() != value.amountMinor() || !payment.amount().getCurrencyValue().equals(value.currency())
-                    || !stored.admissionId().equals(value.admissionId()) || !stored.requestDigest().equals(value.requestDigest())) {
+            if (value == null
+                    || !payment.id().equals(value.paymentId())
+                    || !payment.orderId().equals(value.orderId())
+                    || !payment.allocationId().equals(value.allocationId())
+                    || !payment.payeeMerchantId().equals(value.payeeMerchantId())
+                    || payment.amount().getCent() != value.amountMinor()
+                    || !payment.amount().getCurrencyValue().equals(value.currency())
+                    || !stored.admissionId().equals(value.admissionId())
+                    || !stored.requestDigest().equals(value.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             // Storage constructors validate the frozen format. Current public Bean Validation is ingress-only.

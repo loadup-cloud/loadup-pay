@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -22,10 +26,9 @@ import io.github.loadup.pay.payment.client.dto.RoutingRuleDTO;
 import io.github.loadup.pay.payment.domain.model.RoutingProfile;
 import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
+import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RoutingProfileConverter {
@@ -40,6 +43,12 @@ public interface RoutingProfileConverter {
     RoutingProfileDTO toDTO(RoutingProfile value);
 
     @Mapping(target = "spec", source = "spec")
-    RoutingProfile toStored(String id, RoutingProfileSpec spec, String contentHash, String callerServiceId,
-                            String requestKey, String requestDigest, LocalDateTime publishedAt);
+    RoutingProfile toStored(
+            String id,
+            RoutingProfileSpec spec,
+            String contentHash,
+            String callerServiceId,
+            String requestKey,
+            String requestDigest,
+            LocalDateTime publishedAt);
 }

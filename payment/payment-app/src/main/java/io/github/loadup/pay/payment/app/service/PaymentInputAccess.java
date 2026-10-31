@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
@@ -29,21 +42,11 @@ import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_ALREADY_BOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Internal input lifecycle. Decryption does not grant a channel submission or retry permit.
@@ -57,9 +60,13 @@ public class PaymentInputAccess {
     private final PaymentAcceptanceTransactions transactions;
     private final Clock clock;
 
-    public PaymentInputAccess(PaymentInputGateway inputs, PaymentAcceptanceGateway payments,
-                              PaymentAcceptanceCodec codec, PaymentInputCipher cipher, PaymentAcceptanceTransactions transactions,
-                              Clock clock) {
+    public PaymentInputAccess(
+            PaymentInputGateway inputs,
+            PaymentAcceptanceGateway payments,
+            PaymentAcceptanceCodec codec,
+            PaymentInputCipher cipher,
+            PaymentAcceptanceTransactions transactions,
+            Clock clock) {
         this.inputs = inputs;
         this.payments = payments;
         this.codec = codec;
@@ -96,7 +103,8 @@ public class PaymentInputAccess {
         if (!requiresInput(command)) {
             return;
         }
-        var input = inputs.lock(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var input = inputs.lock(tenant, command.preparedInputRef())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         requireBinding(accepted.callerServiceId(), command, input);
         if (input.expired(now)) {
             throw new CommonException(INPUT_EXPIRED);
@@ -129,7 +137,8 @@ public class PaymentInputAccess {
             if (!requiresInput(command)) {
                 return new NoInteractionDTO();
             }
-            var input = inputs.find(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var input = inputs.find(tenant, command.preparedInputRef())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(accepted.callerServiceId(), command, input);
             if (input.state() != PaymentInputState.BOUND || !attemptId.equals(input.boundAttemptId())) {
                 throw new CommonException(INPUT_ALREADY_BOUND);
@@ -153,7 +162,8 @@ public class PaymentInputAccess {
             throw new CommonException(INVALID_STATE);
         }
         return transactions.withTenantContext(tenant, () -> {
-            var accepted = payments.find(tenant, original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted =
+                    payments.find(tenant, original.payment().id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (accepted.payment().state() != PaymentState.PROCESSING
                     || !attemptId.equals(accepted.payment().activeAttemptId())
                     || !accepted.requestDigest().equals(original.requestDigest())
@@ -164,7 +174,8 @@ public class PaymentInputAccess {
             if (!requiresInput(command)) {
                 return new NoInteractionDTO();
             }
-            var input = inputs.find(tenant, command.preparedInputRef()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var input = inputs.find(tenant, command.preparedInputRef())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             requireBinding(accepted.callerServiceId(), command, input);
             if (input.state() != PaymentInputState.INIT || input.boundAttemptId() != null) {
                 throw new CommonException(INPUT_ALREADY_BOUND);
@@ -195,12 +206,15 @@ public class PaymentInputAccess {
         if (!service.equals(input.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        if (!input.id().equals(command.preparedInputRef()) || !input.paymentId().equals(command.paymentId())
-                || !input.orderId().equals(command.orderId()) || !input.allocationId().equals(command.allocationId())
+        if (!input.id().equals(command.preparedInputRef())
+                || !input.paymentId().equals(command.paymentId())
+                || !input.orderId().equals(command.orderId())
+                || !input.allocationId().equals(command.allocationId())
                 || !input.payeeMerchantId().equals(command.payeeMerchantId())
                 || input.amount().getCent() != command.amountMinor()
                 || !input.amount().getCurrencyValue().equals(command.currency())
-                || input.channel() != command.choice().channel() || input.method() != command.choice().method()) {
+                || input.channel() != command.choice().channel()
+                || input.method() != command.choice().method()) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
     }

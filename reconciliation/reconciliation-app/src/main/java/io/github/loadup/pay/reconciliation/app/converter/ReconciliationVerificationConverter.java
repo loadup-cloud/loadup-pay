@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.converter;
 
@@ -24,14 +28,13 @@ import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerification
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationReceiptDTO;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationReceipt;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationVerificationConverter {
@@ -51,7 +54,13 @@ public interface ReconciliationVerificationConverter {
     @Mapping(target = "receipt", ignore = true)
     @Mapping(target = "version", constant = "0L")
     @Mapping(target = "complete", ignore = true)
-    ReconciliationVerificationRequest toRequest(ApprovedReconciliationReview approved, String id, String callerServiceId, String requestKey, String requestDigest, String deliveryId);
+    ReconciliationVerificationRequest toRequest(
+            ApprovedReconciliationReview approved,
+            String id,
+            String callerServiceId,
+            String requestKey,
+            String requestDigest,
+            String deliveryId);
 
     @Mapping(target = "sourceRequestId", source = "id")
     @Mapping(target = "channel", source = "scope.channel")
@@ -85,7 +94,8 @@ public interface ReconciliationVerificationConverter {
     @Mapping(target = "deliveryId", source = "value.deliveryId")
     @Mapping(target = "deliveryStatus", source = "delivery.status")
     @Mapping(target = "attempts", source = "delivery.attempts")
-    ReconciliationVerificationDTO toDTO(ReconciliationVerificationRequest value, OutboxRecord delivery, @Context Clock clock);
+    ReconciliationVerificationDTO toDTO(
+            ReconciliationVerificationRequest value, OutboxRecord delivery, @Context Clock clock);
 
     @Named("verificationMicros")
     default Long micros(OffsetDateTime value) {
@@ -93,13 +103,18 @@ public interface ReconciliationVerificationConverter {
             return null;
         }
         if (value.getNano() % 1000 != 0) {
-            throw new io.github.loadup.commons.error.CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
+            throw new io.github.loadup.commons.error.CommonException(
+                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
         }
         return Math.addExact(Math.multiplyExact(value.toEpochSecond(), 1000000L), value.getNano() / 1000L);
     }
 
     @Named("verificationExternal")
     default OffsetDateTime external(Long value, @Context Clock clock) {
-        return value == null ? null : OffsetDateTime.ofInstant(Instant.ofEpochSecond(Math.floorDiv(value, 1000000L), Math.floorMod(value, 1000000L) * 1000L), clock.getZone());
+        return value == null
+                ? null
+                : OffsetDateTime.ofInstant(
+                        Instant.ofEpochSecond(Math.floorDiv(value, 1000000L), Math.floorMod(value, 1000000L) * 1000L),
+                        clock.getZone());
     }
 }

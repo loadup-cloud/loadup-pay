@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.REFUND_AMOUNT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -48,9 +61,6 @@ import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
 import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -58,15 +68,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.REFUND_AMOUNT_EXCEEDED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class RefundPlanningService implements RefundFacade {
@@ -85,10 +88,20 @@ public class RefundPlanningService implements RefundFacade {
     private final RefundProjectionEvents projections;
     private final RefundRecoveryService recovery;
 
-    public RefundPlanningService(RefundActorProvider actors, RefundGateway refunds, PaymentAcceptanceGateway payments,
-                                 PaymentResultGateway results, PaymentAttemptGateway attempts, PaymentAcceptanceCodec codec, RefundPlanningConverter converter,
-                                 PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator, Clock clock,
-                                 RefundProjectionEvents projections, RefundRecoveryService recovery) {
+    public RefundPlanningService(
+            RefundActorProvider actors,
+            RefundGateway refunds,
+            PaymentAcceptanceGateway payments,
+            PaymentResultGateway results,
+            PaymentAttemptGateway attempts,
+            PaymentAcceptanceCodec codec,
+            RefundPlanningConverter converter,
+            PaymentAcceptanceTransactions transactions,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            RefundProjectionEvents projections,
+            RefundRecoveryService recovery) {
         this.actors = actors;
         this.refunds = refunds;
         this.payments = payments;
@@ -142,12 +155,16 @@ public class RefundPlanningService implements RefundFacade {
             var claims = new HashMap<String, ChannelTransactionClaim>();
             var eligible = new ArrayList<PaymentRefundCapacity>();
             for (var capacity : capacities) {
-                var accepted = payments.find(actor.tenantId(), capacity.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var accepted = payments.find(actor.tenantId(), capacity.paymentId())
+                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                 var payment = accepted.payment();
                 var original = codec.decode(accepted);
-                if (!actor.merchantId().equals(capacity.payeeMerchantId()) || !command.orderId().equals(capacity.orderId())
-                        || payment.state() != PaymentState.SUCCEEDED || !payment.orderId().equals(command.orderId())
-                        || !payment.payeeMerchantId().equals(actor.merchantId()) || !payment.amount().equals(capacity.succeededAmount())) {
+                if (!actor.merchantId().equals(capacity.payeeMerchantId())
+                        || !command.orderId().equals(capacity.orderId())
+                        || payment.state() != PaymentState.SUCCEEDED
+                        || !payment.orderId().equals(command.orderId())
+                        || !payment.payeeMerchantId().equals(actor.merchantId())
+                        || !payment.amount().equals(capacity.succeededAmount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 if (admitted == null) {
@@ -159,17 +176,24 @@ public class RefundPlanningService implements RefundFacade {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 grossCollected += capacity.succeededAmount().getCent();
-                var claim = results.attemptClaim(actor.tenantId(), payment.successfulAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                var attempt = attempts.find(actor.tenantId(), payment.successfulAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                if (!claim.tenantId().equals(actor.tenantId()) || !claim.identity().paymentId().equals(payment.id())
-                        || !claim.identity().attemptId().equals(payment.successfulAttemptId()) || !claim.amount().equals(payment.amount())
-                        || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED || !attempt.attempt().identity().equals(claim.identity())
+                var claim = results.attemptClaim(actor.tenantId(), payment.successfulAttemptId())
+                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                var attempt = attempts.find(actor.tenantId(), payment.successfulAttemptId())
+                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                if (!claim.tenantId().equals(actor.tenantId())
+                        || !claim.identity().paymentId().equals(payment.id())
+                        || !claim.identity().attemptId().equals(payment.successfulAttemptId())
+                        || !claim.amount().equals(payment.amount())
+                        || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED
+                        || !attempt.attempt().identity().equals(claim.identity())
                         || !attempt.attempt().amount().equals(claim.amount())
-                        || !claim.succeededAt().equals(capacity.succeededAt()) || now.isBefore(claim.succeededAt())) {
+                        || !claim.succeededAt().equals(capacity.succeededAt())
+                        || now.isBefore(claim.succeededAt())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 claims.put(payment.id(), claim);
-                if (now.isBefore(capacity.succeededAt().plusSeconds(admitted.terms().refund().windowSeconds()))) {
+                if (now.isBefore(capacity.succeededAt()
+                        .plusSeconds(admitted.terms().refund().windowSeconds()))) {
                     eligible.add(capacity);
                 }
             }
@@ -182,8 +206,12 @@ public class RefundPlanningService implements RefundFacade {
             }
             final List<RefundPlanItem> plan;
             try {
-                plan = fifo.plan(command.orderId(), actor.merchantId(), DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
-                        terms.partialAllowed(), eligible);
+                plan = fifo.plan(
+                        command.orderId(),
+                        actor.merchantId(),
+                        DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
+                        terms.partialAllowed(),
+                        eligible);
             } catch (DomainViolation invalid) {
                 if (invalid.reason() == DomainViolation.Reason.AMOUNT_EXCEEDED) {
                     throw new CommonException(REFUND_AMOUNT_EXCEEDED);
@@ -198,18 +226,35 @@ public class RefundPlanningService implements RefundFacade {
             for (var item : plan) {
                 String refundId = ids.generate();
                 // Stable channel request numbers are independent of UUID formatting and always fit provider limits.
-                String channelNo = codec.checksum("refund/" + actor.tenantId() + "/" + refundId).substring(0, 32);
+                String channelNo = codec.checksum("refund/" + actor.tenantId() + "/" + refundId)
+                        .substring(0, 32);
                 var child = RefundOrder.init(refundId, requestId, item.paymentId(), item.amount(), channelNo);
                 children.add(converter.toChild(child, item.sequenceNo(), claims.get(item.paymentId())));
                 var previous = byPayment.get(item.paymentId());
-                reservations.add(new RefundCapacityReservation(previous, previous.reserve(item.amount().getCent())));
+                reservations.add(new RefundCapacityReservation(
+                        previous, previous.reserve(item.amount().getCent())));
             }
-            var request = RefundRequest.init(requestId, command.orderId(), actor.merchantId(), command.merchantRefundNo(),
-                    DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()), children.stream().map(StoredRefundChild::refund).toList());
+            var request = RefundRequest.init(
+                    requestId,
+                    command.orderId(),
+                    actor.merchantId(),
+                    command.merchantRefundNo(),
+                    DomainChecks.cnyAmount(command.amountMinor(), admitted.currency()),
+                    children.stream().map(StoredRefundChild::refund).toList());
             String payload = JsonUtil.toJson(admitted);
-            var stored = converter.toStored(request, command, digest, actor.subjectHash(), admitted.admissionId(), payload, codec.checksum(payload), now, children);
+            var stored = converter.toStored(
+                    request,
+                    command,
+                    digest,
+                    actor.subjectHash(),
+                    admitted.admissionId(),
+                    payload,
+                    codec.checksum(payload),
+                    now,
+                    children);
             refunds.insertPlan(actor.tenantId(), stored, reservations);
-            projections.planned(actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
+            projections.planned(
+                    actor.tenantId(), stored, DomainChecks.cnyAmount(admitted.orderAmountMinor(), admitted.currency()));
             recovery.register(actor.tenantId(), stored);
             return dto(stored);
         });
@@ -223,7 +268,8 @@ public class RefundPlanningService implements RefundFacade {
         var actor = actor("pay:payment:refund:read");
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var reference = refunds.reference(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var reference =
+                    refunds.reference(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.merchantId().equals(reference.payeeMerchantId())) {
                 throw new CommonException(NOT_FOUND);
             }
@@ -240,12 +286,14 @@ public class RefundPlanningService implements RefundFacade {
         return replayLocked(actor, reference, reference.orderId(), digest);
     }
 
-    private RefundRequestDTO replayLocked(RefundActor actor, RefundRequestReference reference, String lockedOrder, String digest) {
+    private RefundRequestDTO replayLocked(
+            RefundActor actor, RefundRequestReference reference, String lockedOrder, String digest) {
         if (!reference.requestDigest().equals(digest) || !reference.orderId().equals(lockedOrder)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         var stored = refunds.load(actor.tenantId(), reference.id());
-        if (!stored.requestDigest().equals(digest) || !actor.merchantId().equals(stored.request().payeeMerchantId())) {
+        if (!stored.requestDigest().equals(digest)
+                || !actor.merchantId().equals(stored.request().payeeMerchantId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return dto(stored);
@@ -256,7 +304,9 @@ public class RefundPlanningService implements RefundFacade {
         if (!actor.merchantId().equals(parent.payeeMerchantId())) {
             throw new CommonException(NOT_FOUND);
         }
-        if (parent.gate().state() == GateState.INIT || !parent.gate().orderId().equals(order) || parent.gate().paymentId() != null) {
+        if (parent.gate().state() == GateState.INIT
+                || !parent.gate().orderId().equals(order)
+                || parent.gate().paymentId() != null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         // FENCED stops collection. It does not prohibit refunding a completed or closed order.
@@ -279,8 +329,16 @@ public class RefundPlanningService implements RefundFacade {
 
     private String digest(RefundActor actor, RefundCreateCommand c) {
         var framed = new StringBuilder("refund-v1/");
-        for (var value : List.of(actor.tenantId(), actor.merchantId(), c.orderId(), c.merchantRefundNo(), Long.toString(c.amountMinor()), c.reasonCode())) {
-            framed.append(value.getBytes(StandardCharsets.UTF_8).length).append(':').append(value);
+        for (var value : List.of(
+                actor.tenantId(),
+                actor.merchantId(),
+                c.orderId(),
+                c.merchantRefundNo(),
+                Long.toString(c.amountMinor()),
+                c.reasonCode())) {
+            framed.append(value.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(value);
         }
         return codec.checksum(framed.toString());
     }

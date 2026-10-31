@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -31,22 +35,19 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundResultAnomalyDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundTransactionClaimDO;
+import java.time.LocalDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundResultStorageConverter {
     RefundChannelReceipt toReceipt(RefundChannelReceiptDO row);
 
-
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     RefundChannelReceiptDO toReceiptDO(String tenant, RefundChannelReceipt value);
-
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -57,7 +58,10 @@ public interface RefundResultStorageConverter {
 
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "original", source = "original")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     RefundTransactionClaim toClaim(String tenant, RefundTransactionClaimDO row, ChannelPaymentIdentity original);
 
     @Mapping(target = "paymentId", source = "original.paymentId")

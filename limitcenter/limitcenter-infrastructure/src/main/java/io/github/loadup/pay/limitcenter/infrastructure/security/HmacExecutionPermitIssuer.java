@@ -1,30 +1,33 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay LimitCenter Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.limitcenter.infrastructure.security;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.pay.limitcenter.app.port.ExecutionPermitIssuer;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.infrastructure.config.LimitPermitProperties;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
-
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.PERMIT_UNAVAILABLE;
+import org.springframework.stereotype.Component;
 
 /**
  * Protocol v1 uses length-framed UTF-8 fields and the framework HMAC implementation.
@@ -57,25 +60,25 @@ public class HmacExecutionPermitIssuer implements ExecutionPermitIssuer {
         var value = stored.reservation();
         var data = new StringBuilder();
         Object[] fields = {
-                "loadup-pay-limit-execution-v1",
-                tenant,
-                stored.callerServiceId(),
-                value.id(),
-                value.operationId(),
-                value.paymentId(),
-                value.orderId(),
-                value.payeeMerchantId(),
-                value.amount().getCent(),
-                value.amount().getCurrencyValue(),
-                value.policyId(),
-                value.policyVersion(),
-                stored.policyHash(),
-                stored.requestDigest(),
-                value.initiatedAt(),
-                attemptId,
-                executionEpoch,
-                requestKey,
-                permitKeyId
+            "loadup-pay-limit-execution-v1",
+            tenant,
+            stored.callerServiceId(),
+            value.id(),
+            value.operationId(),
+            value.paymentId(),
+            value.orderId(),
+            value.payeeMerchantId(),
+            value.amount().getCent(),
+            value.amount().getCurrencyValue(),
+            value.policyId(),
+            value.policyVersion(),
+            stored.policyHash(),
+            stored.requestDigest(),
+            value.initiatedAt(),
+            attemptId,
+            executionEpoch,
+            requestKey,
+            permitKeyId
         };
         for (Object field : fields) {
             String text = field.toString();

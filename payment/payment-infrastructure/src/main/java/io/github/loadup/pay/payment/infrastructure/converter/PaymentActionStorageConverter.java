@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -26,7 +30,10 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentActionStorageConverter {
     @Mapping(target = "identity", source = "row")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "executionEpoch", source = "row.executionEpoch")
     @Mapping(target = "action", source = "action")
     @Mapping(target = "source", source = "row.source")
@@ -39,7 +46,6 @@ public interface PaymentActionStorageConverter {
     ChannelPaymentIdentity toIdentity(PaymentActionDO row);
 
     @Mapping(target = "id", source = "value.identity.attemptId")
-
     @Mapping(target = "paymentId", source = "value.identity.paymentId")
     @Mapping(target = "channel", expression = "java(value.identity().channel().name())")
     @Mapping(target = "bindingRevisionId", source = "value.identity.bindingRevisionId")
@@ -59,6 +65,11 @@ public interface PaymentActionStorageConverter {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
-    PaymentActionDO toDO(String tenant, StoredPaymentAction value, String kind, String payload,
-                         String payloadHash, java.time.LocalDateTime expiresAt);
+    PaymentActionDO toDO(
+            String tenant,
+            StoredPaymentAction value,
+            String kind,
+            String payload,
+            String payloadHash,
+            java.time.LocalDateTime expiresAt);
 }

@@ -1,32 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
-import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
-import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
-import io.github.loadup.pay.payment.domain.model.PaymentOrder;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
@@ -43,12 +34,25 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 class PaymentExecutionLocksTest {
     final PaymentAcceptanceGateway gates = mock(PaymentAcceptanceGateway.class);
     final PaymentControlGateway payments = mock(PaymentControlGateway.class);
     final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     final PaymentExecutionLocks locks = new PaymentExecutionLocks(gates, payments, codec);
-    final PaymentAcceptanceTransactions transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
+    final PaymentAcceptanceTransactions transactions =
+            new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
     final StoredPaymentAcceptance accepted = AttemptFixtures.accepted(true);
 
     @BeforeEach
@@ -81,9 +85,15 @@ class PaymentExecutionLocksTest {
 
     @Test
     void missingOrReadonlyTransactionIsRejectedBeforeAnyGatewayOrCodecAccess() {
-        assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire")).getResultCode());
+        assertEquals(
+                INVALID_STATE,
+                assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire"))
+                        .getResultCode());
         transactions.readSnapshot("tenant", () -> {
-            assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire")).getResultCode());
+            assertEquals(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> locks.lock("tenant", "payment", "acquire"))
+                            .getResultCode());
             return true;
         });
         verifyNoInteractions(gates, payments, codec);
@@ -91,7 +101,9 @@ class PaymentExecutionLocksTest {
 
     @Test
     void unexpectedOriginalCallerCannotAcquireAnyFinancialLocks() {
-        var rejected = assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "other-service")));
+        var rejected = assertThrows(
+                CommonException.class,
+                () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "other-service")));
         assertEquals(ACTION_FORBIDDEN, rejected.getResultCode());
         verify(gates, never()).lockParent(anyString(), anyString());
         verify(gates, never()).lockPayment(anyString(), anyString());
@@ -101,19 +113,52 @@ class PaymentExecutionLocksTest {
     @Test
     void incorrectGateMerchantOrACompleteViewForAnotherRequestedIdIsStillCorrupt() {
         var original = AttemptFixtures.gate(false);
-        var wrongMerchant = new StoredPaymentGate(original.id(), "other-merchant", original.callerServiceId(), original.gate(), original.rowVersion());
+        var wrongMerchant = new StoredPaymentGate(
+                original.id(), "other-merchant", original.callerServiceId(), original.gate(), original.rowVersion());
         when(gates.lockPayment("tenant", "payment")).thenReturn(Optional.of(wrongMerchant));
-        assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "acquire"))).getResultCode());
+        assertEquals(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> transactions.writeLocal(
+                                        "tenant", () -> locks.lock("tenant", "payment", "acquire")))
+                        .getResultCode());
         var order = accepted.payment();
-        var another = new PaymentOrder("other-payment", order.orderId(), order.allocationId(), order.payeeMerchantId(), order.amount(), order.limitOperationId(),
-                order.initiatedAt(), order.state(), order.activeAttemptId(), order.successfulAttemptId(), order.version());
-        var unrelated = new StoredPaymentAcceptance(another, accepted.admissionId(), accepted.requestDigest(), accepted.callerServiceId(), accepted.intentPayload(),
-                accepted.payloadHash(), accepted.terminalEvidenceId());
+        var another = new PaymentOrder(
+                "other-payment",
+                order.orderId(),
+                order.allocationId(),
+                order.payeeMerchantId(),
+                order.amount(),
+                order.limitOperationId(),
+                order.initiatedAt(),
+                order.state(),
+                order.activeAttemptId(),
+                order.successfulAttemptId(),
+                order.version());
+        var unrelated = new StoredPaymentAcceptance(
+                another,
+                accepted.admissionId(),
+                accepted.requestDigest(),
+                accepted.callerServiceId(),
+                accepted.intentPayload(),
+                accepted.payloadHash(),
+                accepted.terminalEvidenceId());
         when(payments.lockPayment("tenant", "payment")).thenReturn(Optional.of(unrelated));
-        when(gates.lockPayment("tenant", "payment")).thenReturn(Optional.of(new StoredPaymentGate(original.id(), original.payeeMerchantId(), original.callerServiceId(),
-                PaymentExecutionGate.init(order.orderId(), "other-payment").open(), original.rowVersion())));
-        assertEquals(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> transactions.writeLocal("tenant", () -> locks.lock("tenant", "payment", "acquire"))).getResultCode());
+        when(gates.lockPayment("tenant", "payment"))
+                .thenReturn(Optional.of(new StoredPaymentGate(
+                        original.id(),
+                        original.payeeMerchantId(),
+                        original.callerServiceId(),
+                        PaymentExecutionGate.init(order.orderId(), "other-payment")
+                                .open(),
+                        original.rowVersion())));
+        assertEquals(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> transactions.writeLocal(
+                                        "tenant", () -> locks.lock("tenant", "payment", "acquire")))
+                        .getResultCode());
     }
 }

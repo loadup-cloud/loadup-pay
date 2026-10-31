@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_PAGE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.dto.PageQuery;
@@ -25,6 +35,9 @@ import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationWakeGatew
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.MerchantNotificationWakeReceiptStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationWakeReceiptDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -32,23 +45,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_PAGE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class MerchantNotificationWakeGatewayImpl implements MerchantNotificationWakeGateway {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final MerchantNotificationWakeReceiptStorageConverter converter;
 
-    public MerchantNotificationWakeGatewayImpl(NamedParameterJdbcTemplate jdbc, MerchantNotificationWakeReceiptStorageConverter converter, Clock clock) {
+    public MerchantNotificationWakeGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, MerchantNotificationWakeReceiptStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -57,23 +61,32 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     @Override
     public Optional<MerchantNotificationWakeReceipt> find(String tenant, String scope, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", scope).addValue("key", requestKey);
-        var row = jdbc.query("""
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("caller", scope)
+                .addValue("key", requestKey);
+        var row =
+                jdbc
+                        .query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
                 FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant AND deleted = FALSE
                     AND caller_scope_hash = :caller AND request_key = :key
-                """, args, BeanPropertyRowMapper.newInstance(MerchantNotificationWakeReceiptDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(MerchantNotificationWakeReceiptDO.class))
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
         return Optional.ofNullable(row).map(this::decode);
     }
 
     @Override
     public void insert(String tenant, MerchantNotificationWakeReceipt value) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         var row = converter.toDO(tenant, value);
@@ -97,10 +110,15 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
     public PageResult<MerchantNotificationWakeReceipt> page(String tenant, String deliveryId, int page, int size) {
         PageQuery.normalized(page, size, INVALID_PAGE);
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("subject", deliveryId)
-                .addValue("limit", size).addValue("offset", (long) (page - 1) * size);
-        var total = jdbc.queryForObject("SELECT COUNT(*) FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant "
-                + "AND deleted = FALSE AND delivery_id = :subject", args, Long.class);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("subject", deliveryId)
+                .addValue("limit", size)
+                .addValue("offset", (long) (page - 1) * size);
+        var total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant "
+                        + "AND deleted = FALSE AND delivery_id = :subject",
+                args,
+                Long.class);
         var rows = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
                 FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND delivery_id = :subject

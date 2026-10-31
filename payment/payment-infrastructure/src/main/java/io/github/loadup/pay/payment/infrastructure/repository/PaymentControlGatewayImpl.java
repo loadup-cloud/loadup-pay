@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -33,22 +42,16 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentControlStora
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentControlReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentControlReceiptMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceiptMapper, PaymentControlReceiptDO>
@@ -85,9 +88,15 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     public Optional<StoredPaymentAcceptance> lockPayment(String tenant, String paymentId) {
         gateTransaction(tenant);
         var args = new MapSqlParameterSource().addValue("id", paymentId);
-        var row = jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
-                        + "id = :id AND deleted = FALSE FOR UPDATE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
-                .stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
+                                + "id = :id AND deleted = FALSE FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }
@@ -109,21 +118,36 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
         LocalDateTime firstUnknownAt = null;
         if (value.payment().state() == PaymentState.UNKNOWN) {
             // The caller holds the financial locks; the version predicate also rejects stale patches.
-            var query = new MapSqlParameterSource().addValue("id", value.payment().id()).addValue("version", expectedVersion);
-            var row = jdbc.query("SELECT id, first_unknown_at FROM payment_order WHERE "
-                            + "id = :id AND row_version = :version AND deleted = FALSE", query,
-                    BeanPropertyRowMapper.newInstance(PaymentOrderDO.class)).stream().findFirst().orElse(null);
+            var query = new MapSqlParameterSource()
+                    .addValue("id", value.payment().id())
+                    .addValue("version", expectedVersion);
+            var row = jdbc
+                    .query(
+                            "SELECT id, first_unknown_at FROM payment_order WHERE "
+                                    + "id = :id AND row_version = :version AND deleted = FALSE",
+                            query,
+                            BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
             if (row == null) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
             firstUnknownAt = row.getFirstUnknownAt() == null
-                    ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS) : row.getFirstUnknownAt();
+                    ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS)
+                    : row.getFirstUnknownAt();
         }
         var row = converter.toPaymentPatch(tenant, value, firstUnknownAt);
-        var args = new MapSqlParameterSource().addValue("id", value.payment().id()).addValue("expected", expectedVersion)
-                .addValue("state", row.getState()).addValue("active", row.getActiveAttemptId()).addValue("success", row.getSuccessfulAttemptId())
-                .addValue("unknown", row.getFirstUnknownAt()).addValue("evidence", row.getTerminalEvidenceId())
-                .addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(databaseClock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", value.payment().id())
+                .addValue("expected", expectedVersion)
+                .addValue("state", row.getState())
+                .addValue("active", row.getActiveAttemptId())
+                .addValue("success", row.getSuccessfulAttemptId())
+                .addValue("unknown", row.getFirstUnknownAt())
+                .addValue("evidence", row.getTerminalEvidenceId())
+                .addValue("version", row.getRowVersion())
+                .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
                 UPDATE payment_order SET state = :state, active_attempt_id = COALESCE(:active, active_attempt_id),
                     successful_attempt_id = COALESCE(:success, successful_attempt_id),
@@ -140,9 +164,13 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     public void updateParent(String tenant, StoredPaymentGate value, long expectedVersion) {
         gateTransaction(tenant);
         checkGateVersion(value, expectedVersion);
-        var args = new MapSqlParameterSource().addValue("id", value.id()).addValue("orderId", value.gate().orderId())
-                .addValue("epoch", value.gate().fenceEpoch()).addValue("version", value.rowVersion())
-                .addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(databaseClock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", value.id())
+                .addValue("orderId", value.gate().orderId())
+                .addValue("epoch", value.gate().fenceEpoch())
+                .addValue("version", value.rowVersion())
+                .addValue("expected", expectedVersion)
+                .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
                 UPDATE payment_parent_gate SET state = 'FENCED', close_epoch = :epoch, row_version = :version, updated_at = :updated
                 WHERE id = :id AND order_id = :orderId AND row_version = :expected AND deleted = FALSE
@@ -156,9 +184,13 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     public void updateGate(String tenant, StoredPaymentGate value, long expectedVersion) {
         gateTransaction(tenant);
         checkGateVersion(value, expectedVersion);
-        var args = new MapSqlParameterSource().addValue("id", value.id()).addValue("payment", value.gate().paymentId())
-                .addValue("epoch", value.gate().fenceEpoch()).addValue("version", value.rowVersion())
-                .addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(databaseClock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", value.id())
+                .addValue("payment", value.gate().paymentId())
+                .addValue("epoch", value.gate().fenceEpoch())
+                .addValue("version", value.rowVersion())
+                .addValue("expected", expectedVersion)
+                .addValue("updated", LocalDateTime.now(databaseClock));
         int changed = jdbc.update("""
                 UPDATE payment_gate SET state = 'FENCED', fence_epoch = :epoch, row_version = :version, updated_at = :updated
                 WHERE id = :id AND payment_id = :payment AND row_version = :expected AND deleted = FALSE
@@ -178,10 +210,8 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     @Override
     public Optional<PaymentControlReceipt> findReceipt(String tenant, String kind, String targetId, String requestKey) {
         scope(tenant);
-        return receipt(getOne(QueryWrapper.create()
-                .eq("kind", kind)
-                .eq("target_id", targetId)
-                .eq("request_key", requestKey)));
+        return receipt(getOne(
+                QueryWrapper.create().eq("kind", kind).eq("target_id", targetId).eq("request_key", requestKey)));
     }
 
     @Override
@@ -230,21 +260,26 @@ public class PaymentControlGatewayImpl extends ServiceImpl<PaymentControlReceipt
     public PaymentChildrenStatus childrenStatus(String tenant, String orderId) {
         gateTransaction(tenant);
         var args = new MapSqlParameterSource().addValue("order", orderId);
-        return jdbc.queryForObject("""
+        return jdbc.queryForObject(
+                """
                 SELECT COUNT(*) FILTER (WHERE state IN ('INIT', 'PROCESSING', 'UNKNOWN', 'CLOSING')) AS active,
                     COUNT(*) FILTER (WHERE state IN ('SUCCEEDED', 'FAILED', 'CLOSED') AND terminal_evidence_id IS NULL) AS missing_proof,
                     COUNT(*) FILTER (WHERE state IN ('PROCESSING', 'UNKNOWN', 'CLOSING') AND active_attempt_id IS NOT NULL) AS uncertain
                 FROM payment_order WHERE order_id = :order AND deleted = FALSE
-                """, args, (rs, index) -> new PaymentChildrenStatus(
-                Math.addExact(rs.getLong("active"), rs.getLong("missing_proof")),
-                Math.addExact(rs.getLong("uncertain"), rs.getLong("missing_proof"))));
+                """,
+                args,
+                (rs, index) -> new PaymentChildrenStatus(
+                        Math.addExact(rs.getLong("active"), rs.getLong("missing_proof")),
+                        Math.addExact(rs.getLong("uncertain"), rs.getLong("missing_proof"))));
     }
 
     private void gateTransaction(String tenant) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

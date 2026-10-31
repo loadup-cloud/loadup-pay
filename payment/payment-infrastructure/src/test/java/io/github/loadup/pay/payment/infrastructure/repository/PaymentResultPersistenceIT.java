@@ -1,19 +1,50 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.Fixture;
+import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -79,6 +110,19 @@ import io.github.loadup.pay.payment.infrastructure.codec.PaymentResultCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.task.PaymentRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,53 +138,18 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.AT;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.Fixture;
-import static io.github.loadup.pay.payment.infrastructure.repository.FinancialPersistenceFixtures.id;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 /**
  * Actual Y3 and recovery handler with native claims; the original Y2 is a persisted boundary precondition.
  */
-@SpringBootTest(classes = PaymentResultPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {"loadup.delayedtask.max-attempts=3", "loadup.delayedtask.lease=PT5S", "loadup.delayedtask.batch-size=1",
-                "loadup.modules.payment.recovery-polling.jitter-percent=0"})
+@SpringBootTest(
+        classes = PaymentResultPersistenceIT.Application.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = {
+            "loadup.delayedtask.max-attempts=3",
+            "loadup.delayedtask.lease=PT5S",
+            "loadup.delayedtask.batch-size=1",
+            "loadup.modules.payment.recovery-polling.jitter-percent=0"
+        })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class PaymentResultPersistenceIT {
     private final PaymentAcceptanceTransactions transactions;
@@ -170,14 +179,32 @@ class PaymentResultPersistenceIT {
     private final UnknownRecoveryReader unknowns;
 
     @Autowired
-    PaymentResultPersistenceIT(PaymentAcceptanceTransactions transactions, PaymentAcceptanceGateway payments,
-                               PaymentAttemptGateway attempts, PaymentControlGateway changes, ChannelBindingManagementGateway bindings,
-                               PaymentResultGateway results, PaymentResultService resultService, PaymentExecutionService execution,
-                               PaymentAcceptanceCodec codec, ChannelBindingCodec bindingCodec, PaymentControlConverter updates,
-                               Faults faults, RemoteChannel remote, JdbcTemplate jdbc, TestScenario scenario,
-                               PaymentRecoveryService recovery, PaymentRecoveryGateway cursors, PaymentRecoveryTaskHandler handler,
-                               DelayedTaskTemplate tasks, DelayedTaskStore taskStore, DelayedTaskProperties taskProperties,
-                               DelayedTaskConverter taskConverter, ControlledClock clock, RecoveryInventoryReader inventory, UnknownRecoveryReader unknowns) {
+    PaymentResultPersistenceIT(
+            PaymentAcceptanceTransactions transactions,
+            PaymentAcceptanceGateway payments,
+            PaymentAttemptGateway attempts,
+            PaymentControlGateway changes,
+            ChannelBindingManagementGateway bindings,
+            PaymentResultGateway results,
+            PaymentResultService resultService,
+            PaymentExecutionService execution,
+            PaymentAcceptanceCodec codec,
+            ChannelBindingCodec bindingCodec,
+            PaymentControlConverter updates,
+            Faults faults,
+            RemoteChannel remote,
+            JdbcTemplate jdbc,
+            TestScenario scenario,
+            PaymentRecoveryService recovery,
+            PaymentRecoveryGateway cursors,
+            PaymentRecoveryTaskHandler handler,
+            DelayedTaskTemplate tasks,
+            DelayedTaskStore taskStore,
+            DelayedTaskProperties taskProperties,
+            DelayedTaskConverter taskConverter,
+            ControlledClock clock,
+            RecoveryInventoryReader inventory,
+            UnknownRecoveryReader unknowns) {
         this.transactions = transactions;
         this.payments = payments;
         this.attempts = attempts;
@@ -227,7 +254,9 @@ class PaymentResultPersistenceIT {
         var fixture = seedSubmitted();
         var original = remote.observations.get(fixture.attempt().attempt().id());
         faults.next.set(failure);
-        assertThrows(IllegalStateException.class, () -> execution.progress(fixture.tenant(), fixture.command().paymentId()));
+        assertThrows(
+                IllegalStateException.class,
+                () -> execution.progress(fixture.tenant(), fixture.command().paymentId()));
         assertNull(faults.next.get());
         assertUnsettled(fixture);
         assertCounts(fixture, 0L, 0L, 0L, 0L, 0L);
@@ -241,9 +270,11 @@ class PaymentResultPersistenceIT {
         assertEquals(committed, resultService.record(fixture.tenant(), original));
         execution.progress(fixture.tenant(), fixture.command().paymentId());
         assertSettledOnce(fixture);
-        verify(remote.channels, times(2)).recover(argThat(request -> original.identity().equals(request.identity())
-                && request.executionEpoch() == 1L && request.method() == fixture.attempt().attempt().method()
-                && request.payableUntil().equals(fixture.command().payableUntil())));
+        verify(remote.channels, times(2))
+                .recover(argThat(request -> original.identity().equals(request.identity())
+                        && request.executionEpoch() == 1L
+                        && request.method() == fixture.attempt().attempt().method()
+                        && request.payableUntil().equals(fixture.command().payableUntil())));
         verify(remote.channels, never()).close(any());
     }
 
@@ -272,8 +303,15 @@ class PaymentResultPersistenceIT {
         var fixture = seedSubmitted();
         var fact = remote.observations.get(fixture.attempt().attempt().id());
         var first = resultService.record(fixture.tenant(), fact);
-        var later = new PaymentObservation(fact.identity(), fact.kind(), fact.amount(), fact.channelTransactionNo(),
-                fact.succeededAt(), PaymentObservation.Source.CALLBACK, "same-success-callback", "e".repeat(64));
+        var later = new PaymentObservation(
+                fact.identity(),
+                fact.kind(),
+                fact.amount(),
+                fact.channelTransactionNo(),
+                fact.succeededAt(),
+                PaymentObservation.Source.CALLBACK,
+                "same-success-callback",
+                "e".repeat(64));
         var duplicate = resultService.record(fixture.tenant(), later);
         assertEquals(IGNORED, duplicate.disposition());
         assertNotEquals(first.receiptId(), duplicate.receiptId());
@@ -289,8 +327,15 @@ class PaymentResultPersistenceIT {
         var fixture = seedSubmitted();
         var fact = remote.observations.get(fixture.attempt().attempt().id());
         var applied = resultService.record(fixture.tenant(), fact);
-        var changed = new PaymentObservation(fact.identity(), fact.kind(), fact.amount(), id("conflicting-transaction"),
-                fact.succeededAt(), fact.source(), fact.receiptKey(), "f".repeat(64));
+        var changed = new PaymentObservation(
+                fact.identity(),
+                fact.kind(),
+                fact.amount(),
+                id("conflicting-transaction"),
+                fact.succeededAt(),
+                fact.source(),
+                fact.receiptKey(),
+                "f".repeat(64));
         var conflict = resultService.record(fixture.tenant(), changed);
         assertEquals(CONFLICT, conflict.disposition());
         assertEquals(applied.receiptId(), conflict.receiptId());
@@ -300,8 +345,11 @@ class PaymentResultPersistenceIT {
         assertCounts(fixture, 1L, 1L, 1L, 1L, 4L);
         assertTargetCounts(fixture);
         transactions.readSnapshot(fixture.tenant(), () -> {
-            scenario.assertDb("payment_result_anomaly").where("tenant_id", fixture.tenant())
-                    .where("receipt_id", applied.receiptId()).exists().has("reason_code", "RECEIPT_FACTS_CONFLICT");
+            scenario.assertDb("payment_result_anomaly")
+                    .where("tenant_id", fixture.tenant())
+                    .where("receipt_id", applied.receiptId())
+                    .exists()
+                    .has("reason_code", "RECEIPT_FACTS_CONFLICT");
             return true;
         });
     }
@@ -315,8 +363,15 @@ class PaymentResultPersistenceIT {
         var otherFact = remote.observations.get(other.attempt().attempt().id());
         assertEquals(fact.identity().accountScopeHash(), otherFact.identity().accountScopeHash());
         resultService.record(winner.tenant(), fact);
-        var alias = new PaymentObservation(otherFact.identity(), fact.kind(), otherFact.amount(), fact.channelTransactionNo(),
-                fact.succeededAt(), otherFact.source(), otherFact.receiptKey(), otherFact.sourceDigest());
+        var alias = new PaymentObservation(
+                otherFact.identity(),
+                fact.kind(),
+                otherFact.amount(),
+                fact.channelTransactionNo(),
+                fact.succeededAt(),
+                otherFact.source(),
+                otherFact.receiptKey(),
+                otherFact.sourceDigest());
         var rejected = resultService.record(other.tenant(), alias);
         assertEquals(CONFLICT, rejected.disposition());
         assertEquals(rejected, resultService.record(other.tenant(), alias));
@@ -324,8 +379,11 @@ class PaymentResultPersistenceIT {
         assertUnsettled(other);
         assertCounts(other, 0L, 0L, 1L, 1L, 0L);
         transactions.readSnapshot(other.tenant(), () -> {
-            scenario.assertDb("payment_result_anomaly").where("tenant_id", other.tenant())
-                    .where("receipt_id", rejected.receiptId()).exists().has("reason_code", "CHANNEL_TRANSACTION_ALREADY_CLAIMED");
+            scenario.assertDb("payment_result_anomaly")
+                    .where("tenant_id", other.tenant())
+                    .where("receipt_id", rejected.receiptId())
+                    .exists()
+                    .has("reason_code", "CHANNEL_TRANSACTION_ALREADY_CLAIMED");
             return true;
         });
     }
@@ -334,33 +392,48 @@ class PaymentResultPersistenceIT {
     void authoritativeCloseResponseCanCommitItsReceiptAndTerminalOutboxWithoutCreatingCapacity() {
         var fixture = seedSubmitted();
         transactions.writeLocal(fixture.tenant(), () -> {
-            var parent = payments.lockParent(fixture.tenant(), fixture.command().orderId()).orElseThrow();
-            changes.updateParent(fixture.tenant(), updates.withGate(parent, parent.gate().fence(1L)), parent.rowVersion());
+            var parent = payments.lockParent(fixture.tenant(), fixture.command().orderId())
+                    .orElseThrow();
+            changes.updateParent(
+                    fixture.tenant(), updates.withGate(parent, parent.gate().fence(1L)), parent.rowVersion());
             return true;
         });
         var submitted = fixture.attempt().attempt();
-        var closed = new PaymentObservation(submitted.identity(), ChannelPaymentOutcome.Kind.NO_COLLECTION,
-                submitted.amount(), null, null, PaymentObservation.Source.CLOSE_RESPONSE, "authoritative-close", "a".repeat(64));
+        var closed = new PaymentObservation(
+                submitted.identity(),
+                ChannelPaymentOutcome.Kind.NO_COLLECTION,
+                submitted.amount(),
+                null,
+                null,
+                PaymentObservation.Source.CLOSE_RESPONSE,
+                "authoritative-close",
+                "a".repeat(64));
         remote.observations.put(submitted.id(), closed);
         execution.progress(fixture.tenant(), fixture.command().paymentId());
         execution.progress(fixture.tenant(), fixture.command().paymentId());
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var payment = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var payment = payments.find(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(PaymentState.CLOSED, payment.payment().state());
             assertEquals(3L, payment.payment().version());
             var attempt = attempts.find(fixture.tenant(), submitted.id()).orElseThrow();
             assertEquals(PaymentAttemptState.FAILED, attempt.attempt().state());
             assertEquals(1L, attempt.attempt().executionEpoch());
-            var receipt = results.receipt(fixture.tenant(), submitted.id(), closed.source(), closed.receiptKey()).orElseThrow();
+            var receipt = results.receipt(fixture.tenant(), submitted.id(), closed.source(), closed.receiptKey())
+                    .orElseThrow();
             assertEquals(APPLIED, receipt.disposition());
             assertEquals(payment.terminalEvidenceId(), receipt.id());
-            scenario.assertDb("payment_gate").where("tenant_id", fixture.tenant())
-                    .where("payment_id", fixture.command().paymentId()).exists().has("state", "FENCED");
+            scenario.assertDb("payment_gate")
+                    .where("tenant_id", fixture.tenant())
+                    .where("payment_id", fixture.command().paymentId())
+                    .exists()
+                    .has("state", "FENCED");
             return true;
         });
         assertCounts(fixture, 0L, 0L, 1L, 0L, 5L);
         assertTargetCounts(fixture, 2L);
-        verify(remote.channels, times(1)).close(argThat(target -> submitted.identity().equals(target.identity())));
+        verify(remote.channels, times(1))
+                .close(argThat(target -> submitted.identity().equals(target.identity())));
         verify(remote.channels, never()).recover(any());
     }
 
@@ -368,40 +441,73 @@ class PaymentResultPersistenceIT {
     void acknowledgedCloseSurvivesY3RollbackAndRecoveryDoesNotCallTheChannelAgain() {
         var fixture = seedSubmitted();
         transactions.writeLocal(fixture.tenant(), () -> {
-            var parent = payments.lockParent(fixture.tenant(), fixture.command().orderId()).orElseThrow();
-            changes.updateParent(fixture.tenant(), updates.withGate(parent, parent.gate().fence(1L)), parent.rowVersion());
+            var parent = payments.lockParent(fixture.tenant(), fixture.command().orderId())
+                    .orElseThrow();
+            changes.updateParent(
+                    fixture.tenant(), updates.withGate(parent, parent.gate().fence(1L)), parent.rowVersion());
             return true;
         });
         var submitted = fixture.attempt().attempt();
-        var closed = new PaymentObservation(submitted.identity(), ChannelPaymentOutcome.Kind.NO_COLLECTION,
-                submitted.amount(), null, null, PaymentObservation.Source.CLOSE_RESPONSE, "durable-authoritative-close", "a".repeat(64));
+        var closed = new PaymentObservation(
+                submitted.identity(),
+                ChannelPaymentOutcome.Kind.NO_COLLECTION,
+                submitted.amount(),
+                null,
+                null,
+                PaymentObservation.Source.CLOSE_RESPONSE,
+                "durable-authoritative-close",
+                "a".repeat(64));
         remote.observations.put(submitted.id(), closed);
         faults.next.set(FailurePoint.AFTER_RECEIPT);
-        assertThrows(IllegalStateException.class, () -> execution.progress(fixture.tenant(), fixture.command().paymentId()));
+        assertThrows(
+                IllegalStateException.class,
+                () -> execution.progress(fixture.tenant(), fixture.command().paymentId()));
         transactions.readSnapshot(fixture.tenant(), () -> {
-            assertEquals(PaymentState.CLOSING, payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow().payment().state());
-            assertEquals(PaymentAttemptState.SUBMITTING, attempts.find(fixture.tenant(), submitted.id()).orElseThrow().attempt().state());
+            assertEquals(
+                    PaymentState.CLOSING,
+                    payments.find(fixture.tenant(), fixture.command().paymentId())
+                            .orElseThrow()
+                            .payment()
+                            .state());
+            assertEquals(
+                    PaymentAttemptState.SUBMITTING,
+                    attempts.find(fixture.tenant(), submitted.id())
+                            .orElseThrow()
+                            .attempt()
+                            .state());
             assertEquals(1L, count("payment_close_evidence", fixture));
             assertEquals(0L, count("payment_channel_receipt", fixture));
             assertEquals(0L, count("payment_refund_capacity", fixture));
             return true;
         });
         // The provider can now return ambiguous CLOSED/UNKNOWN. Recovery must consume the earlier acknowledged proof.
-        remote.observations.put(submitted.id(), new PaymentObservation(submitted.identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
-                submitted.amount(), null, null, PaymentObservation.Source.QUERY_RESPONSE, "ambiguous-after-close", "b".repeat(64)));
+        remote.observations.put(
+                submitted.id(),
+                new PaymentObservation(
+                        submitted.identity(),
+                        ChannelPaymentOutcome.Kind.UNKNOWN,
+                        submitted.amount(),
+                        null,
+                        null,
+                        PaymentObservation.Source.QUERY_RESPONSE,
+                        "ambiguous-after-close",
+                        "b".repeat(64)));
         execution.progress(fixture.tenant(), fixture.command().paymentId());
         execution.progress(fixture.tenant(), fixture.command().paymentId());
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var payment = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var payment = payments.find(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(PaymentState.CLOSED, payment.payment().state());
-            var receipt = results.receipt(fixture.tenant(), submitted.id(), closed.source(), closed.receiptKey()).orElseThrow();
+            var receipt = results.receipt(fixture.tenant(), submitted.id(), closed.source(), closed.receiptKey())
+                    .orElseThrow();
             assertEquals(APPLIED, receipt.disposition());
             assertEquals(payment.terminalEvidenceId(), receipt.id());
             assertEquals(1L, count("payment_close_evidence", fixture));
             return true;
         });
         assertCounts(fixture, 0L, 0L, 1L, 0L, 5L);
-        verify(remote.channels, times(1)).close(argThat(target -> submitted.identity().equals(target.identity())));
+        verify(remote.channels, times(1))
+                .close(argThat(target -> submitted.identity().equals(target.identity())));
         verify(remote.channels, never()).recover(any());
     }
 
@@ -439,8 +545,15 @@ class PaymentResultPersistenceIT {
     void oldInflightWorkerCannotOverwriteTheNewGenerationOrAcknowledgeItsExpiredClaim() throws Exception {
         var fixture = seedSubmitted(true);
         var original = remote.observations.get(fixture.attempt().attempt().id());
-        var unknown = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.UNKNOWN, original.amount(),
-                null, null, PaymentObservation.Source.QUERY_RESPONSE, "original-unknown", "b".repeat(64));
+        var unknown = new PaymentObservation(
+                original.identity(),
+                ChannelPaymentOutcome.Kind.UNKNOWN,
+                original.amount(),
+                null,
+                null,
+                PaymentObservation.Source.QUERY_RESPONSE,
+                "original-unknown",
+                "b".repeat(64));
         remote.observations.put(original.identity().attemptId(), unknown);
         var paused = new PausedQuery();
         remote.pause.set(paused);
@@ -481,7 +594,8 @@ class PaymentResultPersistenceIT {
             assertEquals(DelayedTaskStatus.SUCCEEDED, nativeTask(fixture, 0L).status());
             assertEquals(DelayedTaskStatus.SUCCEEDED, nativeTask(fixture, 1L).status());
             transactions.readSnapshot(fixture.tenant(), () -> {
-                assertTrue(tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 2L)).isEmpty());
+                assertTrue(tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, 2L))
+                        .isEmpty());
                 return true;
             });
             verify(remote.channels, times(3)).recover(any());
@@ -523,22 +637,42 @@ class PaymentResultPersistenceIT {
     void unknownStateSnapshotAndReceiptRollBackTogetherAndReplaysDoNotDuplicateTheVersion() {
         var fixture = seedSubmitted();
         var original = remote.observations.get(fixture.attempt().attempt().id());
-        var unknown = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.UNKNOWN, original.amount(),
-                null, null, PaymentObservation.Source.QUERY_RESPONSE, "unknown-with-snapshot", "b".repeat(64));
+        var unknown = new PaymentObservation(
+                original.identity(),
+                ChannelPaymentOutcome.Kind.UNKNOWN,
+                original.amount(),
+                null,
+                null,
+                PaymentObservation.Source.QUERY_RESPONSE,
+                "unknown-with-snapshot",
+                "b".repeat(64));
         faults.next.set(FailurePoint.AFTER_OUTBOX);
         assertThrows(IllegalStateException.class, () -> resultService.record(fixture.tenant(), unknown));
         assertUnsettled(fixture);
         assertCounts(fixture, 0L, 0L, 0L, 0L, 0L);
-        assertNull(jdbc.queryForObject("SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
-                LocalDateTime.class, fixture.tenant(), fixture.command().paymentId()));
+        assertNull(jdbc.queryForObject(
+                "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                LocalDateTime.class,
+                fixture.tenant(),
+                fixture.command().paymentId()));
 
         var first = resultService.record(fixture.tenant(), unknown);
         assertEquals(first, resultService.record(fixture.tenant(), unknown));
-        resultService.record(fixture.tenant(), new PaymentObservation(unknown.identity(), unknown.kind(), unknown.amount(),
-                null, null, unknown.source(), "another-same-state-query", "c".repeat(64)));
+        resultService.record(
+                fixture.tenant(),
+                new PaymentObservation(
+                        unknown.identity(),
+                        unknown.kind(),
+                        unknown.amount(),
+                        null,
+                        null,
+                        unknown.source(),
+                        "another-same-state-query",
+                        "c".repeat(64)));
         assertCounts(fixture, 0L, 0L, 2L, 0L, 1L);
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var stored = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var stored = payments.find(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(PaymentState.UNKNOWN, stored.payment().state());
             assertEquals(2L, stored.payment().version());
             return true;
@@ -554,43 +688,93 @@ class PaymentResultPersistenceIT {
         var first = seedSubmitted();
         var other = seedSubmitted();
         var original = remote.observations.get(first.attempt().attempt().id());
-        var firstUnknown = new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
-                original.amount(), null, null, PaymentObservation.Source.QUERY_RESPONSE, "inventory-unknown", "b".repeat(64));
+        var firstUnknown = new PaymentObservation(
+                original.identity(),
+                ChannelPaymentOutcome.Kind.UNKNOWN,
+                original.amount(),
+                null,
+                null,
+                PaymentObservation.Source.QUERY_RESPONSE,
+                "inventory-unknown",
+                "b".repeat(64));
         faults.next.set(FailurePoint.AFTER_RECEIPT);
         assertThrows(IllegalStateException.class, () -> resultService.record(first.tenant(), firstUnknown));
         assertUnsettled(first);
-        assertNull(jdbc.queryForObject("SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
-                LocalDateTime.class, first.tenant(), first.command().paymentId()));
+        assertNull(jdbc.queryForObject(
+                "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                LocalDateTime.class,
+                first.tenant(),
+                first.command().paymentId()));
         clock.advance(Duration.ofMinutes(2));
         var firstUnknownAt = now();
         for (var fixture : List.of(first, other)) {
             var attempt = fixture.attempt().attempt();
-            resultService.record(fixture.tenant(), new PaymentObservation(attempt.identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
-                    attempt.amount(), null, null, PaymentObservation.Source.QUERY_RESPONSE, "inventory-unknown", "b".repeat(64)));
+            resultService.record(
+                    fixture.tenant(),
+                    new PaymentObservation(
+                            attempt.identity(),
+                            ChannelPaymentOutcome.Kind.UNKNOWN,
+                            attempt.amount(),
+                            null,
+                            null,
+                            PaymentObservation.Source.QUERY_RESPONSE,
+                            "inventory-unknown",
+                            "b".repeat(64)));
         }
         clock.advance(Duration.ofMinutes(1));
-        resultService.record(first.tenant(), new PaymentObservation(firstUnknown.identity(), firstUnknown.kind(), firstUnknown.amount(),
-                null, null, firstUnknown.source(), "inventory-unknown-again", "b".repeat(64)));
+        resultService.record(
+                first.tenant(),
+                new PaymentObservation(
+                        firstUnknown.identity(),
+                        firstUnknown.kind(),
+                        firstUnknown.amount(),
+                        null,
+                        null,
+                        firstUnknown.source(),
+                        "inventory-unknown-again",
+                        "b".repeat(64)));
         transactions.readSnapshot(first.tenant(), () -> {
             var cells = inventory.read(first.tenant());
-            var payments = cells.stream().filter(value -> value.kind() == RecoveryInventoryCell.Kind.PAYMENT).findFirst().orElseThrow();
+            var payments = cells.stream()
+                    .filter(value -> value.kind() == RecoveryInventoryCell.Kind.PAYMENT)
+                    .findFirst()
+                    .orElseThrow();
             assertEquals(1L, payments.unknownCount());
             assertEquals(10000L, payments.nominalAmountMinor());
             assertEquals(firstUnknownAt, payments.oldestUnknownAt());
-            assertEquals(RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.REFUND), cells.stream()
-                    .filter(value -> value.kind() == RecoveryInventoryCell.Kind.REFUND).findFirst().orElseThrow());
+            assertEquals(
+                    RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.REFUND),
+                    cells.stream()
+                            .filter(value -> value.kind() == RecoveryInventoryCell.Kind.REFUND)
+                            .findFirst()
+                            .orElseThrow());
             return true;
         });
-        assertEquals(INVALID_STATE, assertThrows(io.github.loadup.commons.error.CommonException.class,
-                () -> inventory.read(first.tenant())).getResultCode());
-        assertEquals(INVALID_STATE, assertThrows(io.github.loadup.commons.error.CommonException.class,
-                () -> transactions.writeLocal(first.tenant(), () -> inventory.read(first.tenant()))).getResultCode());
+        assertEquals(
+                INVALID_STATE,
+                assertThrows(io.github.loadup.commons.error.CommonException.class, () -> inventory.read(first.tenant()))
+                        .getResultCode());
+        assertEquals(
+                INVALID_STATE,
+                assertThrows(
+                                io.github.loadup.commons.error.CommonException.class,
+                                () -> transactions.writeLocal(first.tenant(), () -> inventory.read(first.tenant())))
+                        .getResultCode());
         resultService.record(first.tenant(), original);
-        assertEquals(firstUnknownAt, jdbc.queryForObject("SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
-                LocalDateTime.class, first.tenant(), first.command().paymentId()));
+        assertEquals(
+                firstUnknownAt,
+                jdbc.queryForObject(
+                        "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                        LocalDateTime.class,
+                        first.tenant(),
+                        first.command().paymentId()));
         transactions.readSnapshot(first.tenant(), () -> {
-            assertEquals(RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.PAYMENT), inventory.read(first.tenant()).stream()
-                    .filter(value -> value.kind() == RecoveryInventoryCell.Kind.PAYMENT).findFirst().orElseThrow());
+            assertEquals(
+                    RecoveryInventoryCell.empty(RecoveryInventoryCell.Kind.PAYMENT),
+                    inventory.read(first.tenant()).stream()
+                            .filter(value -> value.kind() == RecoveryInventoryCell.Kind.PAYMENT)
+                            .findFirst()
+                            .orElseThrow());
             return true;
         });
     }
@@ -599,20 +783,42 @@ class PaymentResultPersistenceIT {
     void unknownInvestigationKeepsTenantAndKeysetBoundariesAndDoesNotBlockFinancialWrites() {
         var first = seedSubmitted(true);
         var generated = FinancialPersistenceFixtures.prepared(codec, bindingCodec);
-        var second = persistSubmitted(new Fixture(first.tenant(), generated.command(), generated.payment(), generated.attempt(),
-                generated.head(), generated.revision()), true);
+        var second = persistSubmitted(
+                new Fixture(
+                        first.tenant(),
+                        generated.command(),
+                        generated.payment(),
+                        generated.attempt(),
+                        generated.head(),
+                        generated.revision()),
+                true);
         var outsider = seedSubmitted(true);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             for (var fixture : List.of(first, second, outsider)) {
-                var original = remote.observations.get(fixture.attempt().attempt().id());
-                resultService.record(fixture.tenant(), new PaymentObservation(original.identity(), ChannelPaymentOutcome.Kind.UNKNOWN,
-                        original.amount(), null, null, PaymentObservation.Source.QUERY_RESPONSE, "list-unknown", "b".repeat(64)));
+                var original =
+                        remote.observations.get(fixture.attempt().attempt().id());
+                resultService.record(
+                        fixture.tenant(),
+                        new PaymentObservation(
+                                original.identity(),
+                                ChannelPaymentOutcome.Kind.UNKNOWN,
+                                original.amount(),
+                                null,
+                                null,
+                                PaymentObservation.Source.QUERY_RESPONSE,
+                                "list-unknown",
+                                "b".repeat(64)));
             }
             transactions.readSnapshot(first.tenant(), () -> {
                 var query = new UnknownRecoveryWindow(AT, null, null, 1);
                 var rows = unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION, query);
-                var expected = List.of(first.command().paymentId(), second.command().paymentId()).stream().sorted().toList();
-                assertEquals(expected, rows.stream().map(value -> value.recordId()).toList());
+                var expected = List.of(
+                                first.command().paymentId(), second.command().paymentId())
+                        .stream()
+                        .sorted()
+                        .toList();
+                assertEquals(
+                        expected, rows.stream().map(value -> value.recordId()).toList());
                 assertEquals(2, rows.size()); // limit + 1, without a total-count query.
                 for (var row : rows) {
                     assertEquals(row.recordId(), row.subjectId());
@@ -621,34 +827,77 @@ class PaymentResultPersistenceIT {
                     assertFalse(row.recoveryCompleted());
                 }
                 var cursor = rows.getFirst();
-                var following = unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION,
+                var following = unknowns.list(
+                        first.tenant(),
+                        PaymentRecoveryKind.COLLECTION,
                         new UnknownRecoveryWindow(AT, cursor.firstUnknownAt(), cursor.recordId(), 1));
-                assertEquals(List.of(expected.getLast()), following.stream().map(value -> value.recordId()).toList());
+                assertEquals(
+                        List.of(expected.getLast()),
+                        following.stream().map(value -> value.recordId()).toList());
                 var last = following.getLast();
-                assertTrue(unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION,
-                        new UnknownRecoveryWindow(AT, last.firstUnknownAt(), last.recordId(), 1)).isEmpty());
-                assertTrue(unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION,
-                        new UnknownRecoveryWindow(AT.minusNanos(1000), null, null, 10)).isEmpty());
-                assertTrue(unknowns.list(first.tenant(), PaymentRecoveryKind.REFUND_REQUEST, query).isEmpty());
-                assertEquals(ACTION_FORBIDDEN, assertThrows(CommonException.class,
-                        () -> unknowns.list(outsider.tenant(), PaymentRecoveryKind.COLLECTION, query)).getResultCode());
+                assertTrue(unknowns.list(
+                                first.tenant(),
+                                PaymentRecoveryKind.COLLECTION,
+                                new UnknownRecoveryWindow(AT, last.firstUnknownAt(), last.recordId(), 1))
+                        .isEmpty());
+                assertTrue(unknowns.list(
+                                first.tenant(),
+                                PaymentRecoveryKind.COLLECTION,
+                                new UnknownRecoveryWindow(AT.minusNanos(1000), null, null, 10))
+                        .isEmpty());
+                assertTrue(unknowns.list(first.tenant(), PaymentRecoveryKind.REFUND_REQUEST, query)
+                        .isEmpty());
+                assertEquals(
+                        ACTION_FORBIDDEN,
+                        assertThrows(
+                                        CommonException.class,
+                                        () -> unknowns.list(outsider.tenant(), PaymentRecoveryKind.COLLECTION, query))
+                                .getResultCode());
 
                 var original = remote.observations.get(first.attempt().attempt().id());
                 var committed = workers.submit(() -> resultService.record(first.tenant(), original));
                 assertDoesNotThrow(() -> committed.get(10, TimeUnit.SECONDS));
                 // The same RR view stays consistent while the financial transaction commits independently.
-                assertEquals(expected, unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION, query).stream().map(value -> value.recordId()).toList());
+                assertEquals(
+                        expected,
+                        unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION, query).stream()
+                                .map(value -> value.recordId())
+                                .toList());
                 return true;
             });
             transactions.readSnapshot(first.tenant(), () -> {
-                assertEquals(List.of(second.command().paymentId()), unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION,
-                        new UnknownRecoveryWindow(AT, null, null, 10)).stream().map(value -> value.recordId()).toList());
+                assertEquals(
+                        List.of(second.command().paymentId()),
+                        unknowns
+                                .list(
+                                        first.tenant(),
+                                        PaymentRecoveryKind.COLLECTION,
+                                        new UnknownRecoveryWindow(AT, null, null, 10))
+                                .stream()
+                                .map(value -> value.recordId())
+                                .toList());
                 return true;
             });
-            assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION,
-                    new UnknownRecoveryWindow(AT, null, null, 10))).getResultCode());
-            assertEquals(INVALID_STATE, assertThrows(CommonException.class, () -> transactions.writeLocal(first.tenant(),
-                    () -> unknowns.list(first.tenant(), PaymentRecoveryKind.COLLECTION, new UnknownRecoveryWindow(AT, null, null, 10)))).getResultCode());
+            assertEquals(
+                    INVALID_STATE,
+                    assertThrows(
+                                    CommonException.class,
+                                    () -> unknowns.list(
+                                            first.tenant(),
+                                            PaymentRecoveryKind.COLLECTION,
+                                            new UnknownRecoveryWindow(AT, null, null, 10)))
+                            .getResultCode());
+            assertEquals(
+                    INVALID_STATE,
+                    assertThrows(
+                                    CommonException.class,
+                                    () -> transactions.writeLocal(
+                                            first.tenant(),
+                                            () -> unknowns.list(
+                                                    first.tenant(),
+                                                    PaymentRecoveryKind.COLLECTION,
+                                                    new UnknownRecoveryWindow(AT, null, null, 10))))
+                            .getResultCode());
         } finally {
             for (var fixture : List.of(first, second, outsider)) {
                 cancelRemainingTasks(fixture);
@@ -668,16 +917,43 @@ class PaymentResultPersistenceIT {
         transactions.writeLocal(fixture.tenant(), () -> {
             bindings.insertHead(fixture.tenant(), fixture.head());
             bindings.insertRevision(fixture.tenant(), fixture.revision());
-            payments.insertParent(fixture.tenant(), new StoredPaymentGate(id("parent"), fixture.command().payeeMerchantId(), "acquire",
-                    PaymentExecutionGate.init(fixture.command().orderId(), null).open(), 0L));
-            payments.insertPaymentGate(fixture.tenant(), new StoredPaymentGate(id("gate"), fixture.command().payeeMerchantId(), "acquire",
-                    PaymentExecutionGate.init(fixture.command().orderId(), fixture.command().paymentId()).open(), 0L));
+            payments.insertParent(
+                    fixture.tenant(),
+                    new StoredPaymentGate(
+                            id("parent"),
+                            fixture.command().payeeMerchantId(),
+                            "acquire",
+                            PaymentExecutionGate.init(fixture.command().orderId(), null)
+                                    .open(),
+                            0L));
+            payments.insertPaymentGate(
+                    fixture.tenant(),
+                    new StoredPaymentGate(
+                            id("gate"),
+                            fixture.command().payeeMerchantId(),
+                            "acquire",
+                            PaymentExecutionGate.init(
+                                            fixture.command().orderId(),
+                                            fixture.command().paymentId())
+                                    .open(),
+                            0L));
             if (registerRecovery) {
                 var prepared = fixture.payment();
-                var initial = new StoredPaymentAcceptance(PaymentOrder.init(prepared.payment().id(), prepared.payment().orderId(),
-                        prepared.payment().allocationId(), prepared.payment().payeeMerchantId(), prepared.payment().amount(),
-                        prepared.payment().limitOperationId(), prepared.payment().initiatedAt()), prepared.admissionId(),
-                        prepared.requestDigest(), prepared.callerServiceId(), prepared.intentPayload(), prepared.payloadHash(), null);
+                var initial = new StoredPaymentAcceptance(
+                        PaymentOrder.init(
+                                prepared.payment().id(),
+                                prepared.payment().orderId(),
+                                prepared.payment().allocationId(),
+                                prepared.payment().payeeMerchantId(),
+                                prepared.payment().amount(),
+                                prepared.payment().limitOperationId(),
+                                prepared.payment().initiatedAt()),
+                        prepared.admissionId(),
+                        prepared.requestDigest(),
+                        prepared.callerServiceId(),
+                        prepared.intentPayload(),
+                        prepared.payloadHash(),
+                        null);
                 payments.insert(fixture.tenant(), initial);
                 recovery.register(fixture.tenant(), initial);
                 changes.updatePayment(fixture.tenant(), prepared, 0L);
@@ -690,8 +966,15 @@ class PaymentResultPersistenceIT {
             return true;
         });
         var attempt = fixture.attempt().attempt();
-        var success = new PaymentObservation(attempt.identity(), ChannelPaymentOutcome.Kind.SUCCEEDED, attempt.amount(),
-                id("channel-transaction"), AT, PaymentObservation.Source.QUERY_RESPONSE, "original-success", "c".repeat(64));
+        var success = new PaymentObservation(
+                attempt.identity(),
+                ChannelPaymentOutcome.Kind.SUCCEEDED,
+                attempt.amount(),
+                id("channel-transaction"),
+                AT,
+                PaymentObservation.Source.QUERY_RESPONSE,
+                "original-success",
+                "c".repeat(64));
         remote.observations.put(attempt.id(), success);
         remote.originals.put(attempt.id(), fixture);
         return fixture;
@@ -699,12 +982,19 @@ class PaymentResultPersistenceIT {
 
     private void assertUnsettled(Fixture fixture) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            assertEquals(fixture.payment(), payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow());
-            var attempt = attempts.find(fixture.tenant(), fixture.attempt().attempt().id()).orElseThrow();
+            assertEquals(
+                    fixture.payment(),
+                    payments.find(fixture.tenant(), fixture.command().paymentId())
+                            .orElseThrow());
+            var attempt = attempts.find(
+                            fixture.tenant(), fixture.attempt().attempt().id())
+                    .orElseThrow();
             assertEquals(PaymentAttemptState.SUBMITTING, attempt.attempt().state());
             assertEquals(1L, attempt.attempt().executionEpoch());
             assertEquals(1L, attempt.rowVersion());
-            assertEquals(fixture.attempt().attempt().channelRequestNo(), attempt.attempt().channelRequestNo());
+            assertEquals(
+                    fixture.attempt().attempt().channelRequestNo(),
+                    attempt.attempt().channelRequestNo());
             return true;
         });
     }
@@ -721,44 +1011,65 @@ class PaymentResultPersistenceIT {
 
     private void assertSuccessfulState(Fixture fixture, long paymentVersion, long attemptVersion) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var payment = payments.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var payment = payments.find(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(PaymentState.SUCCEEDED, payment.payment().state());
             assertEquals(paymentVersion, payment.payment().version());
-            var attempt = attempts.find(fixture.tenant(), fixture.attempt().attempt().id()).orElseThrow();
+            var attempt = attempts.find(
+                            fixture.tenant(), fixture.attempt().attempt().id())
+                    .orElseThrow();
             assertEquals(PaymentAttemptState.SUCCEEDED, attempt.attempt().state());
             assertEquals(1L, attempt.attempt().executionEpoch());
             assertEquals(attemptVersion, attempt.rowVersion());
-            assertEquals(fixture.attempt().attempt().channelRequestNo(), attempt.attempt().channelRequestNo());
-            var claim = results.attemptClaim(fixture.tenant(), attempt.attempt().id()).orElseThrow();
+            assertEquals(
+                    fixture.attempt().attempt().channelRequestNo(),
+                    attempt.attempt().channelRequestNo());
+            var claim = results.attemptClaim(fixture.tenant(), attempt.attempt().id())
+                    .orElseThrow();
             assertEquals(payment.terminalEvidenceId(), claim.receiptId());
             assertEquals(attempt.attempt().identity(), claim.identity());
-            var capacity = results.capacity(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var capacity = results.capacity(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(10000L, capacity.succeededAmount().getCent());
             assertEquals(10000L, capacity.availableMinor());
             assertEquals(0L, capacity.refundedMinor());
             assertEquals(0L, capacity.reservedMinor());
             assertEquals(0L, capacity.version());
-            scenario.assertDb("payment_order").where("tenant_id", fixture.tenant())
-                    .where("id", fixture.command().paymentId()).exists().has("state", "SUCCEEDED").has("row_version", paymentVersion);
+            scenario.assertDb("payment_order")
+                    .where("tenant_id", fixture.tenant())
+                    .where("id", fixture.command().paymentId())
+                    .exists()
+                    .has("state", "SUCCEEDED")
+                    .has("row_version", paymentVersion);
             return true;
         });
     }
 
-    private void assertCounts(Fixture fixture, long claims, long capacities, long receipts, long anomalies, long outbox) {
+    private void assertCounts(
+            Fixture fixture, long claims, long capacities, long receipts, long anomalies, long outbox) {
         transactions.readSnapshot(fixture.tenant(), () -> {
             assertEquals(claims, count("channel_transaction_claim", fixture));
             assertEquals(capacities, count("payment_refund_capacity", fixture));
             assertEquals(receipts, count("payment_channel_receipt", fixture));
             assertEquals(anomalies, count("payment_result_anomaly", fixture));
-            assertEquals(outbox, jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event WHERE tenant_id = ? AND business_id = ?",
-                    Long.class, fixture.tenant(), fixture.command().paymentId()).longValue());
+            assertEquals(
+                    outbox,
+                    jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM loadup_outbox_event WHERE tenant_id = ? AND business_id = ?",
+                                    Long.class,
+                                    fixture.tenant(),
+                                    fixture.command().paymentId())
+                            .longValue());
             return true;
         });
     }
 
     private long count(String table, Fixture fixture) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ? AND payment_id = ?",
-                Long.class, fixture.tenant(), fixture.command().paymentId());
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ? AND payment_id = ?",
+                Long.class,
+                fixture.tenant(),
+                fixture.command().paymentId());
     }
 
     private void assertTargetCounts(Fixture fixture) {
@@ -767,11 +1078,18 @@ class PaymentResultPersistenceIT {
 
     private void assertTargetCounts(Fixture fixture, long realtimeSnapshots) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            for (String type : List.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.RISK, PaymentEvents.REALTIME)) {
-                assertEquals(type.equals(PaymentEvents.REALTIME) ? realtimeSnapshots : 1L,
-                        jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event"
-                                        + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
-                                Long.class, fixture.tenant(), fixture.command().paymentId(), type).longValue());
+            for (String type :
+                    List.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.RISK, PaymentEvents.REALTIME)) {
+                assertEquals(
+                        type.equals(PaymentEvents.REALTIME) ? realtimeSnapshots : 1L,
+                        jdbc.queryForObject(
+                                        "SELECT COUNT(*) FROM loadup_outbox_event"
+                                                + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
+                                        Long.class,
+                                        fixture.tenant(),
+                                        fixture.command().paymentId(),
+                                        type)
+                                .longValue());
             }
             return true;
         });
@@ -792,24 +1110,37 @@ class PaymentResultPersistenceIT {
     }
 
     private DelayedTask nativeTask(Fixture fixture, long generation) {
-        return transactions.readSnapshot(fixture.tenant(), () -> tasks.find(PaymentRecoveryService.TYPE,
-                recoveryKey(fixture, generation)).orElseThrow());
+        return transactions.readSnapshot(
+                fixture.tenant(),
+                () -> tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, generation))
+                        .orElseThrow());
     }
 
     private void assertCursor(Fixture fixture, long generation, boolean completed) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            var cursor = cursors.find(fixture.tenant(), fixture.command().paymentId()).orElseThrow();
+            var cursor = cursors.find(fixture.tenant(), fixture.command().paymentId())
+                    .orElseThrow();
             assertEquals(generation, cursor.generation());
             assertEquals(completed, cursor.completed());
-            assertEquals(cursor.dueAt(), tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, generation)).orElseThrow().executeAt());
+            assertEquals(
+                    cursor.dueAt(),
+                    tasks.find(PaymentRecoveryService.TYPE, recoveryKey(fixture, generation))
+                            .orElseThrow()
+                            .executeAt());
             return true;
         });
     }
 
     private void assertNativeCount(Fixture fixture, long expected) {
         transactions.readSnapshot(fixture.tenant(), () -> {
-            assertEquals(expected, jdbc.queryForObject("SELECT COUNT(*) FROM delayed_task WHERE tenant_id = ? AND task_type = ?",
-                    Long.class, fixture.tenant(), PaymentRecoveryService.TYPE).longValue());
+            assertEquals(
+                    expected,
+                    jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM delayed_task WHERE tenant_id = ? AND task_type = ?",
+                                    Long.class,
+                                    fixture.tenant(),
+                                    PaymentRecoveryService.TYPE)
+                            .longValue());
             return true;
         });
     }
@@ -831,7 +1162,13 @@ class PaymentResultPersistenceIT {
         return LocalDateTime.now(clock);
     }
 
-    enum FailurePoint {AFTER_CLAIM, AFTER_CAPACITY, AFTER_SUCCESS_STATE, AFTER_RECEIPT, AFTER_OUTBOX}
+    enum FailurePoint {
+        AFTER_CLAIM,
+        AFTER_CAPACITY,
+        AFTER_SUCCESS_STATE,
+        AFTER_RECEIPT,
+        AFTER_OUTBOX
+    }
 
     /**
      * Virtual business/native time, independent of persistence audit timestamps and the machine clock.
@@ -897,8 +1234,11 @@ class PaymentResultPersistenceIT {
     static class FaultingResults extends PaymentResultGatewayImpl {
         private final Faults faults;
 
-        FaultingResults(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                        PaymentResultStorageConverter converter, Clock databaseClock, Faults faults) {
+        FaultingResults(
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                PaymentResultStorageConverter converter,
+                Clock databaseClock,
+                Faults faults) {
             super(jdbc, converter, databaseClock);
             this.faults = faults;
         }
@@ -916,7 +1256,8 @@ class PaymentResultPersistenceIT {
         }
 
         @Override
-        public void completeSuccess(String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt) {
+        public void completeSuccess(
+                String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt) {
             super.completeSuccess(tenant, payment, expectedVersion, succeededAt);
             faults.after(FailurePoint.AFTER_SUCCESS_STATE);
         }
@@ -931,8 +1272,14 @@ class PaymentResultPersistenceIT {
     static class FaultingEvents extends PaymentEvents {
         private final Faults faults;
 
-        FaultingEvents(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids, PaymentAttemptGateway attempts,
-                       PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
+        FaultingEvents(
+                OutboxTemplate outbox,
+                PaymentResultConverter converter,
+                IdGenerator ids,
+                PaymentAttemptGateway attempts,
+                PaymentResultGateway results,
+                PaymentRealtimeConverter snapshots,
+                Faults faults) {
             super(outbox, converter, ids, attempts, results, snapshots);
             this.faults = faults;
         }
@@ -993,12 +1340,28 @@ class PaymentResultPersistenceIT {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @ComponentScan(basePackageClasses = {PaymentResultStorageConverter.class, PaymentAcceptanceConverter.class})
-    @Import({PaymentAcceptanceGatewayImpl.class, PaymentControlGatewayImpl.class, PaymentAttemptGatewayImpl.class,
-            ChannelBindingGatewayImpl.class, PaymentAcceptanceCodecImpl.class, ChannelBindingCodecImpl.class,
-            PaymentResultCodecImpl.class, PaymentExecutionLocks.class, PaymentAcceptanceTransactions.class,
-            PaymentResultService.class, PaymentExecutionService.class, PaymentCloseService.class, PaymentCloseEvidenceGatewayImpl.class, PaymentRecoveryGatewayImpl.class,
-            PaymentRecoveryService.class, PaymentRecoveryTaskHandler.class, RecoveryPollingConfiguration.class, RecoveryExecutionMetrics.class,
-            RecoveryInventoryReaderImpl.class, UnknownRecoveryReaderImpl.class})
+    @Import({
+        PaymentAcceptanceGatewayImpl.class,
+        PaymentControlGatewayImpl.class,
+        PaymentAttemptGatewayImpl.class,
+        ChannelBindingGatewayImpl.class,
+        PaymentAcceptanceCodecImpl.class,
+        ChannelBindingCodecImpl.class,
+        PaymentResultCodecImpl.class,
+        PaymentExecutionLocks.class,
+        PaymentAcceptanceTransactions.class,
+        PaymentResultService.class,
+        PaymentExecutionService.class,
+        PaymentCloseService.class,
+        PaymentCloseEvidenceGatewayImpl.class,
+        PaymentRecoveryGatewayImpl.class,
+        PaymentRecoveryService.class,
+        PaymentRecoveryTaskHandler.class,
+        RecoveryPollingConfiguration.class,
+        RecoveryExecutionMetrics.class,
+        RecoveryInventoryReaderImpl.class,
+        UnknownRecoveryReaderImpl.class
+    })
     static class Application {
         @Bean({"paymentClock", "delayedTaskClock"})
         ControlledClock paymentClock() {
@@ -1036,15 +1399,23 @@ class PaymentResultPersistenceIT {
         }
 
         @Bean
-        FaultingResults results(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                                PaymentResultStorageConverter converter,
-                                Clock databaseClock, Faults faults) {
+        FaultingResults results(
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                PaymentResultStorageConverter converter,
+                Clock databaseClock,
+                Faults faults) {
             return new FaultingResults(jdbc, converter, databaseClock, faults);
         }
 
         @Bean
-        PaymentEvents events(OutboxTemplate outbox, PaymentResultConverter converter, IdGenerator ids,
-                             PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentRealtimeConverter snapshots, Faults faults) {
+        PaymentEvents events(
+                OutboxTemplate outbox,
+                PaymentResultConverter converter,
+                IdGenerator ids,
+                PaymentAttemptGateway attempts,
+                PaymentResultGateway results,
+                PaymentRealtimeConverter snapshots,
+                Faults faults) {
             return new FaultingEvents(outbox, converter, ids, attempts, results, snapshots, faults);
         }
     }

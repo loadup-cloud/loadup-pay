@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.infrastructure.converter;
 
@@ -33,7 +37,6 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface TradeStorageConverter {
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.orderCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -50,7 +53,6 @@ public interface TradeStorageConverter {
     TradeOrderDO toPatch(TradeOrderProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.initiatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -67,7 +69,6 @@ public interface TradeStorageConverter {
     TradePaymentDO toPatch(TradePaymentProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "businessCreatedAt", source = "value.refundCreatedAt")
     @Mapping(target = "createdAt", ignore = true)
@@ -84,7 +85,6 @@ public interface TradeStorageConverter {
     TradeRefundDO toPatch(TradeRefundProjection value, String contentHash, String payload);
 
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "sourceVersion", source = "value.source.number")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -99,7 +99,6 @@ public interface TradeStorageConverter {
     TradeSummaryDO toPatch(TradeRefundSummary value, String contentHash, String payload);
 
     ProjectionReceipt toReceipt(ProjectionReceiptDO row);
-
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

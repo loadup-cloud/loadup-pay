@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -52,18 +56,25 @@ public interface PaymentCaptureStorageConverter {
     @Mapping(target = "blockerSubjectId", source = "value.blockerSubjectId")
     @Mapping(target = "rowVersion", source = "value.version")
     @Mapping(target = "id", source = "value.id")
-
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     PaymentCaptureDO toDO(String tenant, PaymentCapture value);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     PaymentLedgerLine toLine(PaymentCaptureLineDO row);
 
-    @Mapping(target = "id", expression = "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.rowId(captureId, value.ordinal()))")
-    @Mapping(target = "keyHash", expression = "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.key(value.kind().name(), value.channelTransactionNo(), value.channelRefundNo()))")
-
+    @Mapping(
+            target = "id",
+            expression =
+                    "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.rowId(captureId, value.ordinal()))")
+    @Mapping(
+            target = "keyHash",
+            expression =
+                    "java(io.github.loadup.pay.payment.client.support.PaymentCaptureContentHash.key(value.kind().name(), value.channelTransactionNo(), value.channelRefundNo()))")
     @Mapping(target = "captureId", source = "captureId")
     @Mapping(target = "ordinal", source = "value.ordinal")
     @Mapping(target = "kind", source = "value.kind")

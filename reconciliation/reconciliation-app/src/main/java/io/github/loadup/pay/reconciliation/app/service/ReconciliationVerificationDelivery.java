@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.service;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SCOPE_MISMATCH;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -25,14 +33,9 @@ import io.github.loadup.pay.reconciliation.app.security.ReconciliationActor;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationVerificationGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.Set;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SCOPE_MISMATCH;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 /**
  * Read-only owner RPC outside the local transaction; first valid observation wins independently of native ACK.
@@ -46,8 +49,13 @@ public class ReconciliationVerificationDelivery {
     private final ReconciliationPaymentVerification payment;
     private final ReconciliationVerificationConverter converter;
 
-    public ReconciliationVerificationDelivery(OutboxTemplate outbox, ReconciliationVerificationGateway requests, ReconciliationTransactions transactions,
-                                              ReconciliationReviewService reviews, ReconciliationPaymentVerification payment, ReconciliationVerificationConverter converter) {
+    public ReconciliationVerificationDelivery(
+            OutboxTemplate outbox,
+            ReconciliationVerificationGateway requests,
+            ReconciliationTransactions transactions,
+            ReconciliationReviewService reviews,
+            ReconciliationPaymentVerification payment,
+            ReconciliationVerificationConverter converter) {
         this.outbox = outbox;
         this.requests = requests;
         this.transactions = transactions;
@@ -60,8 +68,12 @@ public class ReconciliationVerificationDelivery {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (event == null || event.message() == null || event.id() == null || event.message().version() != 1
-                || !ReconciliationVerificationMessages.TYPE.equals(event.message().type())) {
+        if (event == null
+                || event.message() == null
+                || event.id() == null
+                || event.message().version() != 1
+                || !ReconciliationVerificationMessages.TYPE.equals(
+                        event.message().type())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var message = event.message();
@@ -70,9 +82,12 @@ public class ReconciliationVerificationDelivery {
         if (!id.equals(message.businessId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var original = transactions.readSnapshot(tenant, () -> requests.find(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+        var original = transactions.readSnapshot(
+                tenant, () -> requests.find(tenant, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
         var nativeRow = ReconciliationVerificationService.delivery(outbox, original);
-        if (!event.id().equals(original.deliveryId()) || !"PROCESSING".equals(nativeRow.status()) || nativeRow.attempts() < 1) {
+        if (!event.id().equals(original.deliveryId())
+                || !"PROCESSING".equals(nativeRow.status())
+                || nativeRow.attempts() < 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (original.state() == ReconciliationVerificationState.RECORDED) {
@@ -105,8 +120,17 @@ public class ReconciliationVerificationDelivery {
 
     private boolean approved(String tenant, ReconciliationVerificationRequest value, boolean lock) {
         var actor = new ReconciliationActor(tenant, value.callerServiceId(), Set.of());
-        var original = reviews.approvedForVerification(actor, value.reference().batchId(), value.reference().differenceId(), value.proposalId(), value.approvalEventId(), value.reviewVersion(), lock);
-        if (!value.reference().equals(original.reference()) || !value.scope().equals(original.scope()) || !value.key().equals(original.key())
+        var original = reviews.approvedForVerification(
+                actor,
+                value.reference().batchId(),
+                value.reference().differenceId(),
+                value.proposalId(),
+                value.approvalEventId(),
+                value.reviewVersion(),
+                lock);
+        if (!value.reference().equals(original.reference())
+                || !value.scope().equals(original.scope())
+                || !value.key().equals(original.key())
                 || !value.merchantPaymentNo().equals(original.merchantPaymentNo())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

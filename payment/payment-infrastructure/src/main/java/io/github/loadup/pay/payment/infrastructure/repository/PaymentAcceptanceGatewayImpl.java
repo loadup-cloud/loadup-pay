@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -26,22 +36,15 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentAcceptanceSt
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentGateDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
@@ -54,9 +57,11 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     private final PaymentAcceptanceStorageConverter converter;
     private final PaymentAcceptanceCodec codec;
 
-    public PaymentAcceptanceGatewayImpl(NamedParameterJdbcTemplate jdbc,
-                                        PaymentAcceptanceStorageConverter converter, PaymentAcceptanceCodec codec,
-                                        Clock clock) {
+    public PaymentAcceptanceGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            PaymentAcceptanceStorageConverter converter,
+            PaymentAcceptanceCodec codec,
+            Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -67,18 +72,29 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
     public Optional<StoredPaymentAcceptance> find(String tenant, String id) {
         scope(tenant);
         var args = new MapSqlParameterSource().addValue("id", id);
-        return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
-                        + "id = :id AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
-                .stream().findFirst().orElse(null));
+        return stored(jdbc
+                .query(
+                        "SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE " + "id = :id AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null));
     }
 
     @Override
     public Optional<StoredPaymentAcceptance> findAllocation(String tenant, String id) {
         scope(tenant);
         var args = new MapSqlParameterSource().addValue("allocation", id);
-        return stored(jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
-                        + "allocation_id = :allocation AND deleted = FALSE", args, BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
-                .stream().findFirst().orElse(null));
+        return stored(jdbc
+                .query(
+                        "SELECT " + PAYMENT_COLUMNS + " FROM payment_order WHERE "
+                                + "allocation_id = :allocation AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentOrderDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null));
     }
 
     private Optional<StoredPaymentAcceptance> stored(PaymentOrderDO row) {
@@ -102,9 +118,12 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
                 SELECT id, created_at, updated_at, order_id, payee_merchant_id, caller_service_id,
                        state, close_epoch, row_version FROM payment_parent_gate
                 WHERE order_id = :orderId AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentParentGateDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(PaymentParentGateDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         try {
-            return Optional.ofNullable(row).map(value -> converter.toStoredParent(value, converter.toParentGate(value)));
+            return Optional.ofNullable(row)
+                    .map(value -> converter.toStoredParent(value, converter.toParentGate(value)));
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -118,7 +137,9 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
                 SELECT id, created_at, updated_at, order_id, payment_id, payee_merchant_id, caller_service_id,
                        state, fence_epoch, reason_code, row_version FROM payment_gate
                 WHERE payment_id = :payment AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentGateDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(PaymentGateDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         try {
             return Optional.ofNullable(row).map(value -> converter.toStoredGate(value, converter.toPaymentGate(value)));
         } catch (RuntimeException invalid) {
@@ -210,9 +231,11 @@ public class PaymentAcceptanceGatewayImpl implements PaymentAcceptanceGateway {
 
     private void gateTransaction(String tenant) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

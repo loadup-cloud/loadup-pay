@@ -1,19 +1,39 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Product App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.product.app.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.contract.ContractReference;
 import io.github.loadup.commons.error.CommonException;
@@ -47,6 +67,12 @@ import io.github.loadup.pay.product.domain.model.OrderAdmission;
 import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -56,29 +82,6 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 class OrderAdmissionServiceTest {
     private final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -113,8 +116,7 @@ class OrderAdmissionServiceTest {
             return new MerchantEligibilityDTO(
                     true,
                     "ALLOWED",
-                    new MerchantProfileDTO(
-                            "merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
+                    new MerchantProfileDTO("merchant", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true),
                     2,
                     "grant",
                     1L);
@@ -322,9 +324,7 @@ class OrderAdmissionServiceTest {
             assertEquals(1, transactions.rollbacks);
             return Optional.of(denied("WINNER"));
         });
-        doThrow(new Exception(""))
-                .when(admissions)
-                .insert(anyString(), any());
+        doThrow(new Exception("")).when(admissions).insert(anyString(), any());
         assertEquals("WINNER", service.authorize(command(100)).reasonCode());
     }
 
@@ -347,12 +347,10 @@ class OrderAdmissionServiceTest {
         }
 
         @Override
-        protected void doBegin(Object transaction, TransactionDefinition definition) {
-        }
+        protected void doBegin(Object transaction, TransactionDefinition definition) {}
 
         @Override
-        protected void doCommit(DefaultTransactionStatus status) {
-        }
+        protected void doCommit(DefaultTransactionStatus status) {}
 
         @Override
         protected void doRollback(DefaultTransactionStatus status) {

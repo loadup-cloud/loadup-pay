@@ -1,4 +1,27 @@
+/*
+ * #%L
+ * LoadUp Pay Product Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.product.infrastructure.client;
+
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.rpc.dubbo.RpcExceptionCodes;
@@ -15,14 +38,11 @@ import org.apache.dubbo.config.annotation.DubboReference;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
-
 @Component
 public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
     private final ProductActorProvider actors;
     private final CustomerRpcMapper customerRpcMapper;
+
     @DubboReference(url = "tri://customer-headless:50051")
     private CustomerRpc customerRpc;
 
@@ -46,8 +66,8 @@ public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
             var command = new MerchantActionAuthorizeCommand(payee, MerchantAction.CREATE_ORDER);
             MerchantEligibilityDTO data = RpcTokenContext.call(
                     actor.customerAccessToken(),
-                    () -> customerRpcMapper.fromWireMerchantEligibilityDTO(customerRpc.authorize(
-                            customerRpcMapper.toWireMerchantActionAuthorizeCommand(command))));
+                    () -> customerRpcMapper.fromWireMerchantEligibilityDTO(
+                            customerRpc.authorize(customerRpcMapper.toWireMerchantActionAuthorizeCommand(command))));
             if (data == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
@@ -74,9 +94,9 @@ public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 }
             } else if (!(CustomerResultCodeEnum.ACTION_FORBIDDEN.getCode().equals(data.reasonCode())
-                    || CustomerResultCodeEnum.MERCHANT_INACTIVE
-                    .getCode()
-                    .equals(data.reasonCode()))
+                            || CustomerResultCodeEnum.MERCHANT_INACTIVE
+                                    .getCode()
+                                    .equals(data.reasonCode()))
                     || data.merchant() != null
                     || data.grantId() != null
                     || data.grantVersion() != null) {
@@ -85,7 +105,8 @@ public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
             return data;
         } catch (RuntimeException failure) {
             if (CustomerResultCodeEnum.NOT_FOUND.getCode().equals(RpcExceptionCodes.resultCode(failure))) {
-                return new MerchantEligibilityDTO(false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
+                return new MerchantEligibilityDTO(
+                        false, CustomerResultCodeEnum.NOT_FOUND.getCode(), null, 0, null, null);
             }
             // Never expose remote descriptions or arbitrary codes.
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

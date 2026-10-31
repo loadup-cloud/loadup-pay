@@ -1,19 +1,26 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.model;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
@@ -26,7 +33,6 @@ import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
 import io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy;
 import io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy;
 import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
@@ -36,18 +42,25 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.require;
-
 /**
  * Owner-local storage format. No public Command, DTO, credentials or raw interaction objects are serialized here.
  */
-public record PaymentIntentSnapshot(String format, String paymentId, String orderId, String allocationId,
-                                    String admissionId,
-                                    String payeeMerchantId, long amountMinor, String currency, String requestDigest,
-                                    Channel channel, PaymentMethod method,
-                                    @DiagnosticHidden String preparedInputRef,
-                                    @DiagnosticHidden Admission admittedTerms, String subject, String payableUntil) {
+public record PaymentIntentSnapshot(
+        String format,
+        String paymentId,
+        String orderId,
+        String allocationId,
+        String admissionId,
+        String payeeMerchantId,
+        long amountMinor,
+        String currency,
+        String requestDigest,
+        Channel channel,
+        PaymentMethod method,
+        @DiagnosticHidden String preparedInputRef,
+        @DiagnosticHidden Admission admittedTerms,
+        String subject,
+        String payableUntil) {
     public static final String FORMAT = "pay.payment.intent.v1";
 
     public PaymentIntentSnapshot {
@@ -69,9 +82,13 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         DomainChecks.text(subject, 256);
         DomainChecks.text(payableUntil, 64);
         OffsetDateTime.parse(payableUntil);
-        require(admissionId.equals(admittedTerms.admissionId()) && orderId.equals(admittedTerms.orderId())
-                && payeeMerchantId.equals(admittedTerms.payeeMerchantId()) && currency.equals(admittedTerms.currency())
-                && amountMinor <= admittedTerms.orderAmountMinor(), INVALID_ARGUMENT);
+        require(
+                admissionId.equals(admittedTerms.admissionId())
+                        && orderId.equals(admittedTerms.orderId())
+                        && payeeMerchantId.equals(admittedTerms.payeeMerchantId())
+                        && currency.equals(admittedTerms.currency())
+                        && amountMinor <= admittedTerms.orderAmountMinor(),
+                INVALID_ARGUMENT);
     }
 
     private static void hash(String value) {
@@ -87,10 +104,18 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         return ToStringAsJson.reflectionToString(this);
     }
 
-    public record Admission(String admissionId, String orderId, String payeeMerchantId, long orderAmountMinor,
-                            String currency,
-                            String contractId, int revision, long generation, String snapshotHash,
-                            String compiledTermsHash, @DiagnosticHidden Terms terms) {
+    public record Admission(
+            String admissionId,
+            String orderId,
+            String payeeMerchantId,
+            long orderAmountMinor,
+            String currency,
+            String contractId,
+            int revision,
+            long generation,
+            String snapshotHash,
+            String compiledTermsHash,
+            @DiagnosticHidden Terms terms) {
         public Admission {
             DomainChecks.id(admissionId);
             DomainChecks.id(orderId);
@@ -109,9 +134,17 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record Terms(int schemaVersion, OrderPolicy order, PaymentPolicy payment, FeePolicy fee, RefundPolicy refund,
-                        NotificationPolicy notification, LimitPolicy limits, List<Capability> capabilities,
-                        String routingProfileRef, String returnTargetCode) {
+    public record Terms(
+            int schemaVersion,
+            OrderPolicy order,
+            PaymentPolicy payment,
+            FeePolicy fee,
+            RefundPolicy refund,
+            NotificationPolicy notification,
+            LimitPolicy limits,
+            List<Capability> capabilities,
+            String routingProfileRef,
+            String returnTargetCode) {
         public Terms {
             require(schemaVersion == 1, INVALID_ARGUMENT);
             Objects.requireNonNull(order);
@@ -132,12 +165,22 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record OrderPolicy(long waitSeconds, long maxWaitSeconds, UnpaidOrderAction unpaidAction,
-                              boolean extensionAllowed,
-                              long extensionMaxSeconds, long sessionSeconds) {
+    public record OrderPolicy(
+            long waitSeconds,
+            long maxWaitSeconds,
+            UnpaidOrderAction unpaidAction,
+            boolean extensionAllowed,
+            long extensionMaxSeconds,
+            long sessionSeconds) {
         public OrderPolicy {
-            require(waitSeconds > 0 && maxWaitSeconds >= waitSeconds && sessionSeconds > 0 && extensionMaxSeconds >= 0
-                    && (extensionAllowed ? extensionMaxSeconds > 0 : extensionMaxSeconds == 0) && unpaidAction != null, INVALID_ARGUMENT);
+            require(
+                    waitSeconds > 0
+                            && maxWaitSeconds >= waitSeconds
+                            && sessionSeconds > 0
+                            && extensionMaxSeconds >= 0
+                            && (extensionAllowed ? extensionMaxSeconds > 0 : extensionMaxSeconds == 0)
+                            && unpaidAction != null,
+                    INVALID_ARGUMENT);
         }
 
         @Override
@@ -146,10 +189,17 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record PaymentPolicy(long minAmountMinor, long maxAmountMinor, Integer maxSuccessfulPayments,
-                                boolean allowExactRemainderBelowMin) {
+    public record PaymentPolicy(
+            long minAmountMinor,
+            long maxAmountMinor,
+            Integer maxSuccessfulPayments,
+            boolean allowExactRemainderBelowMin) {
         public PaymentPolicy {
-            require(minAmountMinor > 0 && maxAmountMinor >= minAmountMinor && (maxSuccessfulPayments == null || maxSuccessfulPayments > 0), INVALID_ARGUMENT);
+            require(
+                    minAmountMinor > 0
+                            && maxAmountMinor >= minAmountMinor
+                            && (maxSuccessfulPayments == null || maxSuccessfulPayments > 0),
+                    INVALID_ARGUMENT);
         }
 
         @Override
@@ -158,11 +208,23 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record FeePolicy(BigDecimal rate, long fixedMinor, RoundingMode rounding, long minimumMinor,
-                            Long maximumMinor, FeeRefundPolicy refundPolicy) {
+    public record FeePolicy(
+            BigDecimal rate,
+            long fixedMinor,
+            RoundingMode rounding,
+            long minimumMinor,
+            Long maximumMinor,
+            FeeRefundPolicy refundPolicy) {
         public FeePolicy {
-            require(rate != null && rate.signum() >= 0 && fixedMinor >= 0 && minimumMinor >= 0
-                    && (maximumMinor == null || maximumMinor >= minimumMinor) && rounding != null && refundPolicy != null, INVALID_ARGUMENT);
+            require(
+                    rate != null
+                            && rate.signum() >= 0
+                            && fixedMinor >= 0
+                            && minimumMinor >= 0
+                            && (maximumMinor == null || maximumMinor >= minimumMinor)
+                            && rounding != null
+                            && refundPolicy != null,
+                    INVALID_ARGUMENT);
         }
 
         @Override
@@ -171,8 +233,8 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record RefundPolicy(boolean enabled, boolean partialAllowed, long windowSeconds,
-                               RefundAllocationPolicy allocationPolicy) {
+    public record RefundPolicy(
+            boolean enabled, boolean partialAllowed, long windowSeconds, RefundAllocationPolicy allocationPolicy) {
         public RefundPolicy {
             require(windowSeconds > 0 && allocationPolicy != null, INVALID_ARGUMENT);
         }
@@ -183,20 +245,35 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record NotificationPolicy(boolean enabled, @DiagnosticHidden String targetRef,
-                                     @DiagnosticHidden String signingIdentityRef,
-                                     int timeoutMillis, long retryInitialSeconds, BigDecimal retryMultiplier,
-                                     long retryMaximumSeconds, int retryMaxAttempts, long retryWindowSeconds) {
+    public record NotificationPolicy(
+            boolean enabled,
+            @DiagnosticHidden String targetRef,
+            @DiagnosticHidden String signingIdentityRef,
+            int timeoutMillis,
+            long retryInitialSeconds,
+            BigDecimal retryMultiplier,
+            long retryMaximumSeconds,
+            int retryMaxAttempts,
+            long retryWindowSeconds) {
         public NotificationPolicy {
             optionalLength(targetRef, 128);
             optionalLength(signingIdentityRef, 128);
-            require(timeoutMillis > 0 && retryInitialSeconds > 0 && retryMaximumSeconds >= retryInitialSeconds && retryMaxAttempts > 0
-                    && retryWindowSeconds > 0 && retryMultiplier != null && retryMultiplier.compareTo(BigDecimal.ONE) >= 0, INVALID_ARGUMENT);
+            require(
+                    timeoutMillis > 0
+                            && retryInitialSeconds > 0
+                            && retryMaximumSeconds >= retryInitialSeconds
+                            && retryMaxAttempts > 0
+                            && retryWindowSeconds > 0
+                            && retryMultiplier != null
+                            && retryMultiplier.compareTo(BigDecimal.ONE) >= 0,
+                    INVALID_ARGUMENT);
             if (enabled) {
                 DomainChecks.text(targetRef, 128);
                 DomainChecks.text(signingIdentityRef, 128);
                 var normalized = retryMultiplier.stripTrailingZeros();
-                require((long) normalized.precision() - normalized.scale() <= 20 && normalized.scale() <= 18, INVALID_ARGUMENT);
+                require(
+                        (long) normalized.precision() - normalized.scale() <= 20 && normalized.scale() <= 18,
+                        INVALID_ARGUMENT);
             }
         }
 
@@ -206,9 +283,14 @@ public record PaymentIntentSnapshot(String format, String paymentId, String orde
         }
     }
 
-    public record LimitPolicy(String policyId, int policyVersion, String policyHash, boolean parentAggregationEnabled,
-                              String parentPolicyRef, RefundAmountRestorePolicy amountRestore,
-                              RefundCountRestorePolicy countRestore) {
+    public record LimitPolicy(
+            String policyId,
+            int policyVersion,
+            String policyHash,
+            boolean parentAggregationEnabled,
+            String parentPolicyRef,
+            RefundAmountRestorePolicy amountRestore,
+            RefundCountRestorePolicy countRestore) {
         public LimitPolicy {
             DomainChecks.id(policyId);
             hash(policyHash);

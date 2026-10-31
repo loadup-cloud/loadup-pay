@@ -1,19 +1,37 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.notification;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -35,12 +53,6 @@ import io.github.loadup.components.signature.request.RequestSigningIdentity;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.infrastructure.config.MerchantNotificationProperties;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -50,20 +62,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import tools.jackson.databind.json.JsonMapper;
 
 class HttpMerchantNotificationTransportTest {
     private static final String TENANT = "tenant-a";
@@ -80,20 +83,59 @@ class HttpMerchantNotificationTransportTest {
             + "\"orderAmountMinor\":1250,\"orderState\":\"PAID\"}}";
     private static final byte[] BODY_BYTES = BODY.getBytes(StandardCharsets.UTF_8);
     private static final RequestSigningIdentity IDENTITY = new RequestSigningIdentity(
-            "merchant-app", "merchant-notifications", new KmsKeyRef("notify-key", 3), KmsSignatureAlgorithm.RSA_SHA256_PSS);
+            "merchant-app",
+            "merchant-notifications",
+            new KmsKeyRef("notify-key", 3),
+            KmsSignatureAlgorithm.RSA_SHA256_PSS);
 
-    private static String refundBody(String type, String aggregateType, String aggregate, String state, long succeeded, long failed) {
+    private static String refundBody(
+            String type, String aggregateType, String aggregate, String state, long succeeded, long failed) {
         boolean child = "RefundOrder".equals(aggregateType);
-        return JsonUtil.toJson(new io.github.loadup.pay.acquire.app.model.MerchantNotificationBody<>(EVENT, type, 1, "payment",
-                aggregateType, aggregate, 7, BusinessTime.external(NOW), new io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData(
-                "order-a", "request-a", "R001", child ? "refund-a" : null, child ? "payment-a" : null, MERCHANT,
-                1250, "CNY", state, succeeded, failed, child && "SUCCEEDED".equals(state) ? BusinessTime.external(NOW.minusSeconds(1)) : null)));
+        return JsonUtil.toJson(new io.github.loadup.pay.acquire.app.model.MerchantNotificationBody<>(
+                EVENT,
+                type,
+                1,
+                "payment",
+                aggregateType,
+                aggregate,
+                7,
+                BusinessTime.external(NOW),
+                new io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData(
+                        "order-a",
+                        "request-a",
+                        "R001",
+                        child ? "refund-a" : null,
+                        child ? "payment-a" : null,
+                        MERCHANT,
+                        1250,
+                        "CNY",
+                        state,
+                        succeeded,
+                        failed,
+                        child && "SUCCEEDED".equals(state) ? BusinessTime.external(NOW.minusSeconds(1)) : null)));
     }
 
-    private static MerchantNotificationDelivery refundDelivery(MerchantNotificationDelivery original, String type, String aggregate, String body) {
-        return new MerchantNotificationDelivery(original.id(), original.eventId(), original.orderId(), original.payeeMerchantId(), type,
-                aggregate, original.sourceVersion(), body, digest(bytes(body)), original.policy(), original.occurredAt(), original.expiresAt(),
-                original.nextAttemptAt(), original.attemptCount(), original.state(), original.routeFingerprint(), original.acknowledgedAt(), original.rowVersion());
+    private static MerchantNotificationDelivery refundDelivery(
+            MerchantNotificationDelivery original, String type, String aggregate, String body) {
+        return new MerchantNotificationDelivery(
+                original.id(),
+                original.eventId(),
+                original.orderId(),
+                original.payeeMerchantId(),
+                type,
+                aggregate,
+                original.sourceVersion(),
+                body,
+                digest(bytes(body)),
+                original.policy(),
+                original.occurredAt(),
+                original.expiresAt(),
+                original.nextAttemptAt(),
+                original.attemptCount(),
+                original.state(),
+                original.routeFingerprint(),
+                original.acknowledgedAt(),
+                original.rowVersion());
     }
 
     private static Fixture fixture(MerchantNotificationProperties properties, HttpProperties httpProperties) {
@@ -104,12 +146,26 @@ class HttpMerchantNotificationTransportTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<RequestSigner> signerProvider = mock(ObjectProvider.class);
         when(signerProvider.getIfAvailable()).thenAnswer(call -> signerHolder.get());
-        var transport = new HttpMerchantNotificationTransport(properties, httpProvider, httpPropertiesProvider,
-                signerProvider, JsonUtil.customize(JsonMapper.builder()).build());
-        var policy = new MerchantNotificationPolicy("target-a", "identity-a", 10000, 5,
-                java.math.BigDecimal.ONE, 60, 5, 3600);
-        var initial = MerchantNotificationDelivery.init("delivery-a", EVENT, "order-a", MERCHANT,
-                "PaymentSucceeded", "payment-a", 7, BODY, digest(BODY_BYTES), policy, NOW);
+        var transport = new HttpMerchantNotificationTransport(
+                properties,
+                httpProvider,
+                httpPropertiesProvider,
+                signerProvider,
+                JsonUtil.customize(JsonMapper.builder()).build());
+        var policy = new MerchantNotificationPolicy(
+                "target-a", "identity-a", 10000, 5, java.math.BigDecimal.ONE, 60, 5, 3600);
+        var initial = MerchantNotificationDelivery.init(
+                "delivery-a",
+                EVENT,
+                "order-a",
+                MERCHANT,
+                "PaymentSucceeded",
+                "payment-a",
+                7,
+                BODY,
+                digest(BODY_BYTES),
+                policy,
+                NOW);
         String route = TenantUtil.callWithTenant(TENANT, () -> {
             try {
                 return transport.fingerprint(TENANT, initial);
@@ -122,29 +178,62 @@ class HttpMerchantNotificationTransportTest {
     }
 
     private static MerchantNotificationDelivery withRoute(MerchantNotificationDelivery delivery, String route) {
-        return new MerchantNotificationDelivery(delivery.id(), delivery.eventId(), delivery.orderId(),
-                delivery.payeeMerchantId(), delivery.eventType(), delivery.aggregateId(), delivery.sourceVersion(),
-                delivery.body(), delivery.bodyDigest(), delivery.policy(), delivery.occurredAt(), delivery.expiresAt(),
-                delivery.nextAttemptAt(), delivery.attemptCount(), delivery.state(), route,
-                delivery.acknowledgedAt(), delivery.rowVersion());
+        return new MerchantNotificationDelivery(
+                delivery.id(),
+                delivery.eventId(),
+                delivery.orderId(),
+                delivery.payeeMerchantId(),
+                delivery.eventType(),
+                delivery.aggregateId(),
+                delivery.sourceVersion(),
+                delivery.body(),
+                delivery.bodyDigest(),
+                delivery.policy(),
+                delivery.occurredAt(),
+                delivery.expiresAt(),
+                delivery.nextAttemptAt(),
+                delivery.attemptCount(),
+                delivery.state(),
+                route,
+                delivery.acknowledgedAt(),
+                delivery.rowVersion());
     }
 
     private static MerchantNotificationDelivery withBody(MerchantNotificationDelivery delivery, String body) {
-        return new MerchantNotificationDelivery(delivery.id(), delivery.eventId(), delivery.orderId(),
-                delivery.payeeMerchantId(), delivery.eventType(), delivery.aggregateId(), delivery.sourceVersion(),
-                body, digest(bytes(body)), delivery.policy(), delivery.occurredAt(), delivery.expiresAt(),
-                delivery.nextAttemptAt(), delivery.attemptCount(), delivery.state(), delivery.routeFingerprint(),
-                delivery.acknowledgedAt(), delivery.rowVersion());
+        return new MerchantNotificationDelivery(
+                delivery.id(),
+                delivery.eventId(),
+                delivery.orderId(),
+                delivery.payeeMerchantId(),
+                delivery.eventType(),
+                delivery.aggregateId(),
+                delivery.sourceVersion(),
+                body,
+                digest(bytes(body)),
+                delivery.policy(),
+                delivery.occurredAt(),
+                delivery.expiresAt(),
+                delivery.nextAttemptAt(),
+                delivery.attemptCount(),
+                delivery.state(),
+                delivery.routeFingerprint(),
+                delivery.acknowledgedAt(),
+                delivery.rowVersion());
     }
 
     private static MerchantNotificationProperties validProperties() {
-        return properties(Map.of(TENANT, Map.of("target-a", new MerchantNotificationProperties.Target(
-                MERCHANT, "merchant-hook", "deliver", TARGET_URI))));
+        return properties(Map.of(
+                TENANT,
+                Map.of(
+                        "target-a",
+                        new MerchantNotificationProperties.Target(MERCHANT, "merchant-hook", "deliver", TARGET_URI))));
     }
 
-    private static MerchantNotificationProperties properties(Map<String, Map<String, MerchantNotificationProperties.Target>> targets) {
-        return new MerchantNotificationProperties(targets, Map.of(TENANT, Map.of("identity-a",
-                new MerchantNotificationProperties.Signing(MERCHANT, IDENTITY))));
+    private static MerchantNotificationProperties properties(
+            Map<String, Map<String, MerchantNotificationProperties.Target>> targets) {
+        return new MerchantNotificationProperties(
+                targets,
+                Map.of(TENANT, Map.of("identity-a", new MerchantNotificationProperties.Signing(MERCHANT, IDENTITY))));
     }
 
     private static HttpProperties validHttpProperties() {
@@ -153,9 +242,21 @@ class HttpMerchantNotificationTransportTest {
 
     private static HttpProperties httpProperties(boolean allowPrivate, boolean timeoutTooLarge) {
         Duration ordinary = Duration.ofMillis(timeoutTooLarge ? 4000 : 100);
-        var client = new HttpProperties.Client(URI.create("https://hooks.example.test"), ordinary,
-                ordinary, ordinary, 10, 10, 65536, 4096L, null, null, allowPrivate, null,
-                Map.of(), Map.of("deliver", new HttpProperties.Operation(HttpMethod.POST, "/v1/events", Map.of())));
+        var client = new HttpProperties.Client(
+                URI.create("https://hooks.example.test"),
+                ordinary,
+                ordinary,
+                ordinary,
+                10,
+                10,
+                65536,
+                4096L,
+                null,
+                null,
+                allowPrivate,
+                null,
+                Map.of(),
+                Map.of("deliver", new HttpProperties.Operation(HttpMethod.POST, "/v1/events", Map.of())));
         return new HttpProperties(Map.of("merchant-hook", client));
     }
 
@@ -176,7 +277,8 @@ class HttpMerchantNotificationTransportTest {
 
     private static String digest(byte[] value) {
         try {
-            return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+            return java.util.HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value));
         } catch (java.security.NoSuchAlgorithmException unavailable) {
             throw new IllegalStateException(unavailable);
         }
@@ -195,20 +297,22 @@ class HttpMerchantNotificationTransportTest {
         fixture.signers().set(signer);
         var content = new ArrayList<RequestContent>();
         doAnswer(call -> {
-            String client = call.getArgument(0);
-            String operation = call.getArgument(1);
-            HttpCall request = call.getArgument(2);
-            HttpRequestSigner callback = call.getArgument(3);
-            assertEquals("merchant-hook", client);
-            assertEquals("deliver", operation);
-            assertEquals("application/json", request.headers().get("Content-Type"));
-            assertEquals("application/json", request.headers().get("Accept"));
-            assertTrue(request.query().isEmpty());
-            assertArrayEquals(BODY_BYTES, (byte[]) request.body());
-            var headers = callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone());
-            assertEquals("signed", headers.get("X-Test-Signature"));
-            return ok(ack(EVENT));
-        }).when(fixture.httpTemplate()).exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
+                    String client = call.getArgument(0);
+                    String operation = call.getArgument(1);
+                    HttpCall request = call.getArgument(2);
+                    HttpRequestSigner callback = call.getArgument(3);
+                    assertEquals("merchant-hook", client);
+                    assertEquals("deliver", operation);
+                    assertEquals("application/json", request.headers().get("Content-Type"));
+                    assertEquals("application/json", request.headers().get("Accept"));
+                    assertTrue(request.query().isEmpty());
+                    assertArrayEquals(BODY_BYTES, (byte[]) request.body());
+                    var headers = callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone());
+                    assertEquals("signed", headers.get("X-Test-Signature"));
+                    return ok(ack(EVENT));
+                })
+                .when(fixture.httpTemplate())
+                .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
         when(signer.sign(eq(IDENTITY), any(RequestContent.class))).thenAnswer(call -> {
             content.add(call.getArgument(1));
             return signature;
@@ -233,14 +337,20 @@ class HttpMerchantNotificationTransportTest {
         var fixture = fixture(validProperties(), validHttpProperties());
         var kms = mock(KmsTemplate.class);
         when(kms.sign(eq(IDENTITY.key()), eq(IDENTITY.algorithm()), any(byte[].class)))
-                .thenAnswer(call -> new KmsSignature("notify-key", 3, KmsSignatureAlgorithm.RSA_SHA256_PSS, new byte[256]));
-        fixture.signers().set(new RequestSigner(kms, java.time.Clock.systemUTC(), new RequestSignatureProperties(null, null, null)));
+                .thenAnswer(
+                        call -> new KmsSignature("notify-key", 3, KmsSignatureAlgorithm.RSA_SHA256_PSS, new byte[256]));
+        fixture.signers()
+                .set(new RequestSigner(
+                        kms, java.time.Clock.systemUTC(), new RequestSignatureProperties(null, null, null)));
         var nonces = new ArrayList<String>();
         doAnswer(call -> {
-            HttpRequestSigner callback = call.getArgument(3);
-            nonces.add(callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone()).get("X-Nonce"));
-            return ok(ack(EVENT));
-        }).when(fixture.httpTemplate()).exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
+                    HttpRequestSigner callback = call.getArgument(3);
+                    nonces.add(callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone())
+                            .get("X-Nonce"));
+                    return ok(ack(EVENT));
+                })
+                .when(fixture.httpTemplate())
+                .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
 
         TenantUtil.runWithTenant(TENANT, () -> {
             assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
@@ -261,10 +371,12 @@ class HttpMerchantNotificationTransportTest {
         fixture.signers().set(signer);
         var response = new AtomicReference<>(ok(ack(EVENT)));
         doAnswer(call -> {
-            HttpRequestSigner callback = call.getArgument(3);
-            callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone());
-            return response.get();
-        }).when(fixture.httpTemplate()).exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
+                    HttpRequestSigner callback = call.getArgument(3);
+                    callback.sign(HttpMethod.POST, TARGET_URI, BODY_BYTES.clone());
+                    return response.get();
+                })
+                .when(fixture.httpTemplate())
+                .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
 
         TenantUtil.runWithTenant(TENANT, () -> {
             assertTrue(fixture.transport().send(TENANT, fixture.delivery()));
@@ -275,7 +387,7 @@ class HttpMerchantNotificationTransportTest {
                     bytes("{\"eventId\":\"event-a\",\"eventId\":\"event-a\",\"result\":\"SUCCESS\"}"),
                     bytes("{\"eventId\":\"event-a\",\"result\":\"SUCCESS\"} {\"extra\":1}"),
                     bytes("{broken"),
-                    new byte[]{(byte) 0xc3, 0x28},
+                    new byte[] {(byte) 0xc3, 0x28},
                     bytes("{\"eventId\":\"event-a\",\"result\":1}"));
             for (byte[] body : rejected) {
                 response.set(ok(body));
@@ -294,24 +406,38 @@ class HttpMerchantNotificationTransportTest {
         assertThrows(CommonException.class, () -> valid.transport().send(TENANT, valid.delivery()));
         verify(valid.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
-        TenantUtil.runWithTenant("foreign-tenant", () -> assertThrows(CommonException.class,
-                () -> valid.transport().fingerprint(TENANT, valid.delivery())));
+        TenantUtil.runWithTenant(
+                "foreign-tenant",
+                () -> assertThrows(
+                        CommonException.class, () -> valid.transport().fingerprint(TENANT, valid.delivery())));
 
         var disabled = fixture(properties(Map.of()), validHttpProperties());
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                () -> disabled.transport().send(TENANT, disabled.delivery())));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(
+                        TENANT, () -> disabled.transport().send(TENANT, disabled.delivery())));
         verify(disabled.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
-        var wrongMerchant = fixture(properties(Map.of(TENANT, Map.of("target-a",
-                new MerchantNotificationProperties.Target("merchant-b", "merchant-hook", "deliver", TARGET_URI)))), validHttpProperties());
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                () -> wrongMerchant.transport().send(TENANT, wrongMerchant.delivery())));
+        var wrongMerchant = fixture(
+                properties(Map.of(
+                        TENANT,
+                        Map.of(
+                                "target-a",
+                                new MerchantNotificationProperties.Target(
+                                        "merchant-b", "merchant-hook", "deliver", TARGET_URI)))),
+                validHttpProperties());
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(
+                        TENANT, () -> wrongMerchant.transport().send(TENANT, wrongMerchant.delivery())));
         verify(wrongMerchant.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         for (HttpProperties bad : List.of(httpProperties(true, false), httpProperties(false, true))) {
             var rejected = fixture(validProperties(), bad);
-            assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                    () -> rejected.transport().send(TENANT, rejected.delivery())));
+            assertThrows(
+                    CommonException.class,
+                    () -> TenantUtil.runWithTenant(
+                            TENANT, () -> rejected.transport().send(TENANT, rejected.delivery())));
             verify(rejected.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
         }
     }
@@ -320,28 +446,36 @@ class HttpMerchantNotificationTransportTest {
     void rejectsMismatchedFingerprintAndTamperedFinalRequestBeforeSigning() {
         var valid = fixture(validProperties(), validHttpProperties());
         var changed = withRoute(valid.delivery(), "0".repeat(64));
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                () -> valid.transport().send(TENANT, changed)));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, changed)));
         verify(valid.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
 
         var signer = mock(RequestSigner.class);
         valid.signers().set(signer);
         doAnswer(call -> {
-            HttpRequestSigner callback = call.getArgument(3);
-            return callback.sign(HttpMethod.POST, URI.create("https://other.example.test/v1/events"), BODY_BYTES.clone());
-        }).when(valid.httpTemplate()).exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                () -> valid.transport().send(TENANT, valid.delivery())));
+                    HttpRequestSigner callback = call.getArgument(3);
+                    return callback.sign(
+                            HttpMethod.POST, URI.create("https://other.example.test/v1/events"), BODY_BYTES.clone());
+                })
+                .when(valid.httpTemplate())
+                .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, valid.delivery())));
         verify(signer, never()).sign(any(), any(RequestContent.class));
 
         doAnswer(call -> {
-            HttpRequestSigner callback = call.getArgument(3);
-            byte[] changedBody = BODY_BYTES.clone();
-            changedBody[0] = '[';
-            return callback.sign(HttpMethod.POST, TARGET_URI, changedBody);
-        }).when(valid.httpTemplate()).exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant(TENANT,
-                () -> valid.transport().send(TENANT, valid.delivery())));
+                    HttpRequestSigner callback = call.getArgument(3);
+                    byte[] changedBody = BODY_BYTES.clone();
+                    changedBody[0] = '[';
+                    return callback.sign(HttpMethod.POST, TARGET_URI, changedBody);
+                })
+                .when(valid.httpTemplate())
+                .exchange(eq("merchant-hook"), eq("deliver"), any(HttpCall.class), any(HttpRequestSigner.class));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(TENANT, () -> valid.transport().send(TENANT, valid.delivery())));
         verify(signer, never()).sign(any(), any(RequestContent.class));
     }
 
@@ -357,8 +491,9 @@ class HttpMerchantNotificationTransportTest {
 
         TenantUtil.runWithTenant(TENANT, () -> {
             for (String body : invalidBodies) {
-                assertThrows(CommonException.class, () -> fixture.transport().send(TENANT,
-                        withBody(fixture.delivery(), body)));
+                assertThrows(
+                        CommonException.class,
+                        () -> fixture.transport().send(TENANT, withBody(fixture.delivery(), body)));
             }
         });
         verify(fixture.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
@@ -366,8 +501,13 @@ class HttpMerchantNotificationTransportTest {
 
     @Test
     void rejectsQueryBearingTargetUri() {
-        assertThrows(IllegalArgumentException.class, () -> new MerchantNotificationProperties.Target(
-                MERCHANT, "merchant-hook", "deliver", URI.create("https://hooks.example.test/v1/events?tenant=tenant-a")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new MerchantNotificationProperties.Target(
+                        MERCHANT,
+                        "merchant-hook",
+                        "deliver",
+                        URI.create("https://hooks.example.test/v1/events?tenant=tenant-a")));
     }
 
     @Test
@@ -376,15 +516,22 @@ class HttpMerchantNotificationTransportTest {
         fixture.signers().set(mock(RequestSigner.class));
         var sent = new ArrayList<byte[]>();
         doAnswer(call -> {
-            HttpCall request = call.getArgument(2);
-            sent.add((byte[]) request.body());
-            return ok(ack(EVENT));
-        }).when(fixture.httpTemplate()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
+                    HttpCall request = call.getArgument(2);
+                    sent.add((byte[]) request.body());
+                    return ok(ack(EVENT));
+                })
+                .when(fixture.httpTemplate())
+                .exchange(any(), any(), any(), any(HttpRequestSigner.class));
         var successBody = refundBody("RefundSucceeded", "RefundOrder", "refund-a", "SUCCEEDED", 1250, 0);
-        var requestBody = refundBody("RefundRequestCompleted", "RefundRequest", "request-a", "PARTIAL_SUCCEEDED", 1000, 250);
+        var requestBody =
+                refundBody("RefundRequestCompleted", "RefundRequest", "request-a", "PARTIAL_SUCCEEDED", 1000, 250);
         TenantUtil.runWithTenant(TENANT, () -> {
-            assertTrue(fixture.transport().send(TENANT, refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", successBody)));
-            assertTrue(fixture.transport().send(TENANT, refundDelivery(fixture.delivery(), "RefundRequestCompleted", "request-a", requestBody)));
+            assertTrue(fixture.transport()
+                    .send(TENANT, refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", successBody)));
+            assertTrue(fixture.transport()
+                    .send(
+                            TENANT,
+                            refundDelivery(fixture.delivery(), "RefundRequestCompleted", "request-a", requestBody)));
         });
         assertEquals(2, sent.size());
         assertArrayEquals(bytes(successBody), sent.get(0));
@@ -397,19 +544,26 @@ class HttpMerchantNotificationTransportTest {
         fixture.signers().set(mock(RequestSigner.class));
         String valid = refundBody("RefundSucceeded", "RefundOrder", "refund-a", "SUCCEEDED", 1250, 0);
         TenantUtil.runWithTenant(TENANT, () -> {
-            for (var corrupt : List.of(valid.replace("\"producer\":\"payment\"", "\"producer\":\"acquire\""),
+            for (var corrupt : List.of(
+                    valid.replace("\"producer\":\"payment\"", "\"producer\":\"acquire\""),
                     valid.replace("\"succeededMinor\":1250", "\"succeededMinor\":1249"),
                     valid.replace("\"payeeMerchantId\":\"merchant-a\"", "\"payeeMerchantId\":\"other\""),
                     valid.replace("\"aggregateType\":\"RefundOrder\"", "\"aggregateType\":\"RefundRequest\""),
                     valid.replace("\"state\":\"SUCCEEDED\"", "\"state\":\"UNKNOWN\""))) {
-                assertThrows(CommonException.class, () -> fixture.transport().send(TENANT,
-                        refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", corrupt)));
+                assertThrows(
+                        CommonException.class,
+                        () -> fixture.transport()
+                                .send(
+                                        TENANT,
+                                        refundDelivery(fixture.delivery(), "RefundSucceeded", "refund-a", corrupt)));
             }
         });
         verify(fixture.httpTemplate(), never()).exchange(any(), any(), any(), any(HttpRequestSigner.class));
     }
 
-    private record Fixture(HttpMerchantNotificationTransport transport, HttpTemplate httpTemplate,
-                           AtomicReference<RequestSigner> signers, MerchantNotificationDelivery delivery) {
-    }
+    private record Fixture(
+            HttpMerchantNotificationTransport transport,
+            HttpTemplate httpTemplate,
+            AtomicReference<RequestSigner> signers,
+            MerchantNotificationDelivery delivery) {}
 }

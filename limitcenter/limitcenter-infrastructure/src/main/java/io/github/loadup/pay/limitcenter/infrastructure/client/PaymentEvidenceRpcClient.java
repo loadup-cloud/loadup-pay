@@ -1,4 +1,27 @@
+/*
+ * #%L
+ * LoadUp Pay LimitCenter Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.limitcenter.infrastructure.client;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -9,12 +32,6 @@ import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
-import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -25,10 +42,11 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Supplier;
-
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import org.apache.dubbo.config.annotation.DubboReference;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
@@ -36,11 +54,12 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
     private final PaymentEvidenceProperties properties;
     private final Clock clock;
     private final PaymentRpcMapper paymentRpcMapper;
+
     @DubboReference(url = "tri://payment-headless:50051")
     private PaymentRpc paymentRpc;
 
-    public PaymentEvidenceRpcClient(PaymentRpcMapper paymentRpcMapper, JsonMapper mapper, PaymentEvidenceProperties properties,
-                                    Clock clock) {
+    public PaymentEvidenceRpcClient(
+            PaymentRpcMapper paymentRpcMapper, JsonMapper mapper, PaymentEvidenceProperties properties, Clock clock) {
         this.paymentRpcMapper = paymentRpcMapper;
         this.mapper = mapper;
         this.properties = properties;
@@ -54,14 +73,18 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
 
     @Override
     public PaymentSettlementFactsDTO paymentFacts(String tenant, String paymentId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
-                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))));
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(
+                        paymentRpc.facts(paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))));
     }
 
     @Override
     public RefundSettlementFactsDTO refundFacts(String tenant, String refundId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWireRefundSettlementFactsDTO(paymentRpc.refundFacts(
-                paymentRpcMapper.toWireIdQuery(new IdQuery(refundId)))));
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWireRefundSettlementFactsDTO(
+                        paymentRpc.refundFacts(paymentRpcMapper.toWireIdQuery(new IdQuery(refundId)))));
     }
 
     private <R> R exchange(String tenant, Supplier<R> call) {
@@ -95,8 +118,7 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             var claims = mapper.readValue(
-                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
-                    });
+                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {});
             Object audience = claims.get("aud");
             boolean expectedAudience = properties.audience().equals(audience)
                     || audience instanceof Collection<?> values && values.contains(properties.audience());

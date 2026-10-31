@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -37,14 +45,11 @@ import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-
 @Component
 public class RefundProjectionEvents {
     public static final String CHILD = "pay.payment.refund.realtime.v1";
-    public static final String SUMMARY = io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.REALTIME_TYPE;
+    public static final String SUMMARY =
+            io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.REALTIME_TYPE;
     public static final String FEE = io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.FEE_TYPE;
     public static final String LIMIT = "pay.payment.refund.limit.v1";
     public static final String MERCHANT = io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE;
@@ -56,8 +61,14 @@ public class RefundProjectionEvents {
     private final PaymentAcceptanceGateway payments;
     private final RefundSettlementConverter financial;
 
-    public RefundProjectionEvents(RefundSummaryGateway summaries, RefundSnapshotReader reader, RefundProjectionConverter converter,
-                                  OutboxTemplate outbox, IdGenerator ids, PaymentAcceptanceGateway payments, RefundSettlementConverter financial) {
+    public RefundProjectionEvents(
+            RefundSummaryGateway summaries,
+            RefundSnapshotReader reader,
+            RefundProjectionConverter converter,
+            OutboxTemplate outbox,
+            IdGenerator ids,
+            PaymentAcceptanceGateway payments,
+            RefundSettlementConverter financial) {
         this.summaries = summaries;
         this.reader = reader;
         this.converter = converter;
@@ -71,8 +82,10 @@ public class RefundProjectionEvents {
         writable(tenant);
         var aggregate = request.request();
         var prior = summaries.lock(tenant, aggregate.orderId());
-        var before = prior.orElseGet(() -> OrderRefundSummary.init(aggregate.orderId(), aggregate.payeeMerchantId(), orderAmount));
-        if (!before.payeeMerchantId().equals(aggregate.payeeMerchantId()) || !before.orderAmount().equals(orderAmount)) {
+        var before = prior.orElseGet(
+                () -> OrderRefundSummary.init(aggregate.orderId(), aggregate.payeeMerchantId(), orderAmount));
+        if (!before.payeeMerchantId().equals(aggregate.payeeMerchantId())
+                || !before.orderAmount().equals(orderAmount)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var next = before.reserve(aggregate.amount().getCent());
@@ -82,53 +95,89 @@ public class RefundProjectionEvents {
             summaries.update(tenant, before, next);
         }
         for (var child : request.allocations()) {
-            publishChild(tenant, aggregate.orderId(), aggregate.payeeMerchantId(), child.refund().id(), child.refund().version());
+            publishChild(
+                    tenant,
+                    aggregate.orderId(),
+                    aggregate.payeeMerchantId(),
+                    child.refund().id(),
+                    child.refund().version());
         }
         publishSummary(tenant, next);
     }
 
     public void changed(String tenant, RefundProgressChange change) {
         writable(tenant);
-        var facts = publishChild(tenant, change.request().orderId(), change.request().payeeMerchantId(), change.refund().id(), change.refund().version());
+        var facts = publishChild(
+                tenant,
+                change.request().orderId(),
+                change.request().payeeMerchantId(),
+                change.refund().id(),
+                change.refund().version());
         if (!change.refund().terminal()) {
             return;
         }
-        if (!facts.refundRequestId().equals(change.request().id()) || !facts.paymentId().equals(change.refund().paymentId())
-                || !facts.state().equals(change.refund().state().name()) || !facts.amount().equals(change.refund().amount())
+        if (!facts.refundRequestId().equals(change.request().id())
+                || !facts.paymentId().equals(change.refund().paymentId())
+                || !facts.state().equals(change.refund().state().name())
+                || !facts.amount().equals(change.refund().amount())
                 || !java.util.Objects.equals(facts.succeededAt(), change.succeededAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var before = summaries.lock(tenant, change.request().orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var before = summaries
+                .lock(tenant, change.request().orderId())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!before.payeeMerchantId().equals(change.request().payeeMerchantId())
-                || !before.orderAmount().getCurrencyValue().equals(change.refund().amount().getCurrencyValue())) {
+                || !before.orderAmount()
+                        .getCurrencyValue()
+                        .equals(change.refund().amount().getCurrencyValue())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var next = before.settle(change.refund().amount().getCent(), change.refund().state() == RefundState.SUCCEEDED);
+        var next = before.settle(
+                change.refund().amount().getCent(), change.refund().state() == RefundState.SUCCEEDED);
         summaries.update(tenant, before, next);
         publishSummary(tenant, next);
-        send(MERCHANT, change.refund().id(), change.refund().version(), facts.sourceUpdatedAt(),
+        send(
+                MERCHANT,
+                change.refund().id(),
+                change.refund().version(),
+                facts.sourceUpdatedAt(),
                 converter.toMerchantEvent(facts, change.request().merchantRefundNo()));
-        if (change.request().children().stream().allMatch(io.github.loadup.pay.payment.domain.model.RefundOrder::terminal)) {
-            send(MERCHANT, change.request().id(), change.request().version(), facts.sourceUpdatedAt(),
+        if (change.request().children().stream()
+                .allMatch(io.github.loadup.pay.payment.domain.model.RefundOrder::terminal)) {
+            send(
+                    MERCHANT,
+                    change.request().id(),
+                    change.request().version(),
+                    facts.sourceUpdatedAt(),
                     converter.toMerchantEvent(change.request()));
         }
         if (change.refund().state() == RefundState.SUCCEEDED) {
-            var original = payments.find(tenant, change.refund().paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var original = payments.find(tenant, change.refund().paymentId())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var payment = original.payment();
             if (payment.state() != io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED
-                    || original.terminalEvidenceId() == null || !payment.orderId().equals(change.request().orderId())
+                    || original.terminalEvidenceId() == null
+                    || !payment.orderId().equals(change.request().orderId())
                     || !payment.payeeMerchantId().equals(change.request().payeeMerchantId())
                     || !payment.amount().equals(change.capacity().succeededAmount())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            send(LIMIT, change.refund().id(), change.refund().version(), facts.sourceUpdatedAt(),
+            send(
+                    LIMIT,
+                    change.refund().id(),
+                    change.refund().version(),
+                    facts.sourceUpdatedAt(),
                     financial.toOutcome(change.refund(), change.request(), payment, change.capacity()));
         }
     }
 
-    private RefundSnapshotFacts publishChild(String tenant, String order, String merchant, String refundId, long version) {
+    private RefundSnapshotFacts publishChild(
+            String tenant, String order, String merchant, String refundId, long version) {
         var facts = reader.child(tenant, refundId);
-        if (facts == null || !refundId.equals(facts.refundId()) || !order.equals(facts.orderId()) || !merchant.equals(facts.payeeMerchantId())
+        if (facts == null
+                || !refundId.equals(facts.refundId())
+                || !order.equals(facts.orderId())
+                || !merchant.equals(facts.payeeMerchantId())
                 || facts.sourceVersion() != version) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -147,17 +196,24 @@ public class RefundProjectionEvents {
         if (facts == null || !expected.equals(facts.summary())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        send(SUMMARY, expected.orderId(), expected.version(), facts.sourceUpdatedAt(), converter.toEvent(facts.summary()));
+        send(
+                SUMMARY,
+                expected.orderId(),
+                expected.version(),
+                facts.sourceUpdatedAt(),
+                converter.toEvent(facts.summary()));
         send(FEE, expected.orderId(), expected.version(), facts.sourceUpdatedAt(), converter.toEvent(facts.summary()));
     }
 
     private <T> void send(String type, String id, long version, java.time.LocalDateTime at, T data) {
-        var envelope = new EventEnvelope<>(ids.generate(), ids.generate(), "payment", type, 1, id, version, BusinessTime.external(at), data);
+        var envelope = new EventEnvelope<>(
+                ids.generate(), ids.generate(), "payment", type, 1, id, version, BusinessTime.external(at), data);
         outbox.publish(new OutboxMessage(type, 1, id, JsonUtil.toJson(envelope)));
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
         if (!tenant.equals(TenantUtil.getTenantId())) {

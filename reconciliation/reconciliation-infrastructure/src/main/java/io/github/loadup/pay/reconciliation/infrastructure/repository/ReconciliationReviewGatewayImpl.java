@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
@@ -29,6 +37,9 @@ import io.github.loadup.pay.reconciliation.infrastructure.converter.Reconciliati
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewEventDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationReviewProposalDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -36,22 +47,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGateway {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final ReconciliationReviewStorageConverter converter;
 
-    public ReconciliationReviewGatewayImpl(NamedParameterJdbcTemplate jdbc,
-                                           ReconciliationReviewStorageConverter converter, Clock clock) {
+    public ReconciliationReviewGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -74,7 +77,9 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("caller", caller)
+                .addValue("key", requestKey);
         return event(eventRow("caller_service_id = :caller AND request_key = :key", args));
     }
 
@@ -82,7 +87,8 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     public Optional<ReconciliationReviewEvent> event(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return event(eventRow("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id)));
+        return event(
+                eventRow("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id)));
     }
 
     @Override
@@ -90,8 +96,14 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
-        var row = jdbc.query("SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM reconciliation_review_proposal WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE",
-                args, BeanPropertyRowMapper.newInstance(ReconciliationReviewProposalDO.class)).stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, proposer_service_id, conclusion, note, evidence_file_id, evidence_storage_id, evidence_size, evidence_sha256, proposed_at FROM reconciliation_review_proposal WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(ReconciliationReviewProposalDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }
@@ -109,24 +121,47 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
         if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || page < 1 || size < 1 || size > 100) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("difference", differenceId).addValue("limit", size)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("difference", differenceId)
+                .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
-        long total = jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE", args, Long.class);
-        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE "
-                + "ORDER BY source_version ASC LIMIT :limit OFFSET :offset", args, BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class));
-        return PageResult.of(rows.stream().map(row -> event(row).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID))).toList(), total, page, size);
+        long total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE",
+                args,
+                Long.class);
+        var rows = jdbc.query(
+                "SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :difference AND deleted = FALSE "
+                        + "ORDER BY source_version ASC LIMIT :limit OFFSET :offset",
+                args,
+                BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class));
+        return PageResult.of(
+                rows.stream()
+                        .map(row -> event(row).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)))
+                        .toList(),
+                total,
+                page,
+                size);
     }
 
     @Override
-    public void commit(String tenant, ReconciliationReview previous, ReconciliationReview next,
-                       ReconciliationReviewProposal proposed, ReconciliationReviewEvent event) {
+    public void commit(
+            String tenant,
+            ReconciliationReview previous,
+            ReconciliationReview next,
+            ReconciliationReviewProposal proposed,
+            ReconciliationReviewEvent event) {
         ReconciliationStoreContext.writable(tenant);
-        if (previous == null || next == null || event == null || !previous.reference().equals(next.reference()) || next.version() != Math.incrementExact(previous.version())) {
+        if (previous == null
+                || next == null
+                || event == null
+                || !previous.reference().equals(next.reference())
+                || next.version() != Math.incrementExact(previous.version())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         final ReconciliationReview expected;
         if (proposed != null) {
-            if (event.operation() != ReconciliationReviewOperation.PROPOSE || !proposed.proposerServiceId().equals(event.callerServiceId())
+            if (event.operation() != ReconciliationReviewOperation.PROPOSE
+                    || !proposed.proposerServiceId().equals(event.callerServiceId())
                     || !proposed.proposedAt().equals(event.occurredAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -135,20 +170,29 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             if (event.operation() == ReconciliationReviewOperation.PROPOSE) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var proposal = proposal(tenant, previous.proposalId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            expected = previous.decide(proposal, event.callerServiceId(), event.id(), event.operation() == ReconciliationReviewOperation.APPROVE, previous.version());
+            var proposal =
+                    proposal(tenant, previous.proposalId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            expected = previous.decide(
+                    proposal,
+                    event.callerServiceId(),
+                    event.id(),
+                    event.operation() == ReconciliationReviewOperation.APPROVE,
+                    previous.version());
         }
         if (!expected.equals(next)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         event.verifyHead(next);
         var current = lock(tenant, previous.reference().differenceId());
-        if (previous.version() == 0L ? current.isPresent() : current.isEmpty() || !current.get().equals(previous)) {
+        if (previous.version() == 0L
+                ? current.isPresent()
+                : current.isEmpty() || !current.get().equals(previous)) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
         if (proposed != null) {
             if (jdbc.getJdbcTemplate().getDataSource() == null
-                    || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                    || !TransactionSynchronizationManager.hasResource(
+                            jdbc.getJdbcTemplate().getDataSource())) {
                 throw new CommonException(INVALID_STATE);
             }
             var row = converter.toDO(tenant, proposed);
@@ -167,7 +211,8 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
             }
         }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         var eventRow = converter.toDO(tenant, event);
@@ -205,9 +250,14 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
                 throw new CommonException(CONCURRENT_UPDATE);
             }
         } else {
-            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", previous.reference().differenceId())
-                    .addValue("expected", previous.version()).addValue("state", row.getState()).addValue("proposal", row.getProposalId())
-                    .addValue("event", row.getLastEventId()).addValue("version", row.getRowVersion()).addValue("updated", now);
+            var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                    .addValue("id", previous.reference().differenceId())
+                    .addValue("expected", previous.version())
+                    .addValue("state", row.getState())
+                    .addValue("proposal", row.getProposalId())
+                    .addValue("event", row.getLastEventId())
+                    .addValue("version", row.getRowVersion())
+                    .addValue("updated", now);
             if (jdbc.update("""
                     UPDATE reconciliation_review SET state = :state, proposal_id = :proposal, last_event_id = :event,
                         row_version = :version, updated_at = :updated
@@ -219,8 +269,12 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
     }
 
     private Optional<ReconciliationReview> headOrInitial(String tenant, String id, ReconciliationReviewDO row) {
-        if (row == null && jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :id AND deleted = FALSE",
-                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), Long.class) != 0) {
+        if (row == null
+                && jdbc.queryForObject(
+                                "SELECT COUNT(*) FROM reconciliation_review_event WHERE tenant_id = :tenant AND difference_id = :id AND deleted = FALSE",
+                                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id),
+                                Long.class)
+                        != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return head(row);
@@ -256,18 +310,33 @@ public class ReconciliationReviewGatewayImpl implements ReconciliationReviewGate
 
     private ReconciliationReviewDO headRow(String tenant, String id, boolean lock) {
         DomainChecks.id(id);
-        if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))) {
+        if (lock
+                && (jdbc.getJdbcTemplate().getDataSource() == null
+                        || !TransactionSynchronizationManager.hasResource(
+                                jdbc.getJdbcTemplate().getDataSource()))) {
             throw new CommonException(INVALID_STATE);
         }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
-        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state, proposal_id, last_event_id, row_version FROM reconciliation_review WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
-                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationReviewDO.class))
-                .stream().findFirst().orElse(null);
+        return jdbc
+                .query(
+                        "SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, result_hash, match_key_hash, state, proposal_id, last_event_id, row_version FROM reconciliation_review WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+                                + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(ReconciliationReviewDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private ReconciliationReviewEventDO eventRow(String predicate, MapSqlParameterSource args) {
-        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE tenant_id = :tenant AND deleted = FALSE AND " + predicate,
-                args, BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class)).stream().findFirst().orElse(null);
+        return jdbc
+                .query(
+                        "SELECT id, tenant_id, created_at, updated_at, difference_id, batch_id, run_id, result_hash, match_key_hash, caller_service_id, request_key, request_digest, operation, proposal_id, state, source_version, note, occurred_at FROM reconciliation_review_event WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                                + predicate,
+                        args,
+                        BeanPropertyRowMapper.newInstance(ReconciliationReviewEventDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 }

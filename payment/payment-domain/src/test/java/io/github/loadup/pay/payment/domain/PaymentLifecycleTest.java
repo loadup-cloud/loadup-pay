@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.domain;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
@@ -27,15 +36,9 @@ import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class PaymentLifecycleTest {
 
@@ -55,7 +58,8 @@ class PaymentLifecycleTest {
                 "a".repeat(64),
                 "secret-reference",
                 "v1",
-                new io.github.loadup.pay.channel.api.model.AlipayAccountIdentity("app", "seller", null, "auth-reference", "v1"),
+                new io.github.loadup.pay.channel.api.model.AlipayAccountIdentity(
+                        "app", "seller", null, "auth-reference", "v1"),
                 Set.of(PaymentMethod.H5));
         return PaymentAttempt.init(
                 id, "payment", number, Money.ofMinor(1000, "CNY"), binding, PaymentMethod.H5, "req-" + id);

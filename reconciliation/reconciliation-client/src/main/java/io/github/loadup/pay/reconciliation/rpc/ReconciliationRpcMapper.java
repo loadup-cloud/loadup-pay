@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Reconciliation Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.reconciliation.rpc;
 
 import io.github.loadup.commons.error.CommonException;
@@ -21,6 +40,7 @@ import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchStar
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTaskDTO;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputDTO;
+import java.util.Set;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.BeforeMapping;
 import org.mapstruct.Mapper;
@@ -28,18 +48,29 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-import java.util.Set;
-
-@Mapper(config = LoadUpMapStructConfig.class, uses = {ReconciliationRpcFields.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
+@Mapper(
+        config = LoadUpMapStructConfig.class,
+        uses = {ReconciliationRpcFields.class},
+        nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
 public interface ReconciliationRpcMapper {
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "requestKey", source = "requestKey"), @Mapping(target = "channelAccountCode", source = "channelAccountCode"), @Mapping(target = "billDate", source = "billDate")})
+    @Mappings(
+            value = {
+                @Mapping(target = "requestKey", source = "requestKey"),
+                @Mapping(target = "channelAccountCode", source = "channelAccountCode"),
+                @Mapping(target = "billDate", source = "billDate")
+            })
     public WireReconciliationBatchCreateCommand toWire(ReconciliationBatchCreateCommand value);
 
     public ReconciliationBatchCreateCommand fromWire(WireReconciliationBatchCreateCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "side", source = "side"), @Mapping(target = "artifactId", source = "artifactId")})
+    @Mappings(
+            value = {
+                @Mapping(target = "batchId", source = "batchId"),
+                @Mapping(target = "side", source = "side"),
+                @Mapping(target = "artifactId", source = "artifactId")
+            })
     public WireReconciliationInputAttachCommand toWire(ReconciliationInputAttachCommand value);
 
     public ReconciliationInputAttachCommand fromWire(WireReconciliationInputAttachCommand value);
@@ -51,25 +82,64 @@ public interface ReconciliationRpcMapper {
     public ReconciliationBatchStartCommand fromWire(WireReconciliationBatchStartCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "runId", source = "runId"), @Mapping(target = "expectedTaskId", source = "expectedTaskId")})
+    @Mappings(
+            value = {
+                @Mapping(target = "batchId", source = "batchId"),
+                @Mapping(target = "runId", source = "runId"),
+                @Mapping(target = "expectedTaskId", source = "expectedTaskId")
+            })
     public WireReconciliationBatchRetryCommand toWire(ReconciliationBatchRetryCommand value);
 
     public ReconciliationBatchRetryCommand fromWire(WireReconciliationBatchRetryCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "runId", source = "runId"), @Mapping(target = "taskId", source = "taskId"), @Mapping(target = "nativeStatus", source = "nativeStatus")})
+    @Mappings(
+            value = {
+                @Mapping(target = "runId", source = "runId"),
+                @Mapping(target = "taskId", source = "taskId"),
+                @Mapping(target = "nativeStatus", source = "nativeStatus")
+            })
     public WireReconciliationBatchTaskDTO toWire(ReconciliationBatchTaskDTO value);
 
     public ReconciliationBatchTaskDTO fromWire(WireReconciliationBatchTaskDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "batchId", source = "batchId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "billDate", source = "billDate"), @Mapping(target = "statementProfile", source = "statementProfile"), @Mapping(target = "state", source = "state"), @Mapping(target = "channelInput", source = "channelInput"), @Mapping(target = "ledgerInput", source = "ledgerInput"), @Mapping(target = "runId", source = "runId"), @Mapping(target = "matchedCount", source = "matchedCount"), @Mapping(target = "differenceCount", source = "differenceCount"), @Mapping(target = "resultHash", source = "resultHash"), @Mapping(target = "version", source = "version"), @Mapping(target = "taskId", source = "taskId"), @Mapping(target = "nativeStatus", source = "nativeStatus")})
+    @Mappings(
+            value = {
+                @Mapping(target = "batchId", source = "batchId"),
+                @Mapping(target = "channel", source = "channel"),
+                @Mapping(target = "accountScopeHash", source = "accountScopeHash"),
+                @Mapping(target = "billDate", source = "billDate"),
+                @Mapping(target = "statementProfile", source = "statementProfile"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "channelInput", source = "channelInput"),
+                @Mapping(target = "ledgerInput", source = "ledgerInput"),
+                @Mapping(target = "runId", source = "runId"),
+                @Mapping(target = "matchedCount", source = "matchedCount"),
+                @Mapping(target = "differenceCount", source = "differenceCount"),
+                @Mapping(target = "resultHash", source = "resultHash"),
+                @Mapping(target = "version", source = "version"),
+                @Mapping(target = "taskId", source = "taskId"),
+                @Mapping(target = "nativeStatus", source = "nativeStatus")
+            })
     public WireReconciliationBatchDTO toWire(ReconciliationBatchDTO value);
 
     public ReconciliationBatchDTO fromWire(WireReconciliationBatchDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "side", source = "side"), @Mapping(target = "artifactId", source = "artifactId"), @Mapping(target = "artifactSha256", source = "artifactSha256"), @Mapping(target = "normalizedSha256", source = "normalizedSha256"), @Mapping(target = "sourceCaptureId", source = "sourceCaptureId"), @Mapping(target = "parserRevision", source = "parserRevision"), @Mapping(target = "paymentCount", source = "paymentCount"), @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"), @Mapping(target = "refundCount", source = "refundCount"), @Mapping(target = "refundAmountMinor", source = "refundAmountMinor")})
+    @Mappings(
+            value = {
+                @Mapping(target = "side", source = "side"),
+                @Mapping(target = "artifactId", source = "artifactId"),
+                @Mapping(target = "artifactSha256", source = "artifactSha256"),
+                @Mapping(target = "normalizedSha256", source = "normalizedSha256"),
+                @Mapping(target = "sourceCaptureId", source = "sourceCaptureId"),
+                @Mapping(target = "parserRevision", source = "parserRevision"),
+                @Mapping(target = "paymentCount", source = "paymentCount"),
+                @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"),
+                @Mapping(target = "refundCount", source = "refundCount"),
+                @Mapping(target = "refundAmountMinor", source = "refundAmountMinor")
+            })
     public WireReconciliationInputDTO toWire(ReconciliationInputDTO value);
 
     public ReconciliationInputDTO fromWire(WireReconciliationInputDTO value);
@@ -81,53 +151,66 @@ public interface ReconciliationRpcMapper {
     public IdQuery fromWire(WireReconciliationBatchQuery value);
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchCreateCommand value) {
+    public default void required(WireReconciliationBatchCreateCommand value) {
         if (!(value == null || value.hasRequestKey() && value.hasChannelAccountCode() && value.hasBillDate())) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationInputAttachCommand value) {
+    public default void required(WireReconciliationInputAttachCommand value) {
         if (!(value == null || value.hasBatchId() && value.hasSide() && value.hasArtifactId())) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchStartCommand value) {
+    public default void required(WireReconciliationBatchStartCommand value) {
         if (value != null && !value.hasBatchId()) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchRetryCommand value) {
+    public default void required(WireReconciliationBatchRetryCommand value) {
         if (!(value == null || value.hasBatchId() && value.hasRunId() && value.hasExpectedTaskId())) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchTaskDTO value) {
+    public default void required(WireReconciliationBatchTaskDTO value) {
         if (!(value == null || value.hasRunId() && value.hasTaskId() && value.hasNativeStatus())) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchQuery value) {
+    public default void required(WireReconciliationBatchQuery value) {
         if (value != null && !value.hasId()) {
             this.invalid();
         }
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationInputDTO value) {
+    public default void required(WireReconciliationInputDTO value) {
         if (value == null) {
             return;
         }
-        if (!(value.hasSide() && value.hasArtifactId() && value.hasArtifactSha256() && value.hasNormalizedSha256() && value.hasSourceCaptureId() && value.hasParserRevision() && value.hasPaymentCount() && value.hasPaymentAmountMinor() && value.hasRefundCount() && value.hasRefundAmountMinor() && value.getPaymentCount() >= 0L && value.getRefundCount() >= 0L && value.getPaymentAmountMinor() >= 0L && value.getRefundAmountMinor() >= 0L)) {
+        if (!(value.hasSide()
+                && value.hasArtifactId()
+                && value.hasArtifactSha256()
+                && value.hasNormalizedSha256()
+                && value.hasSourceCaptureId()
+                && value.hasParserRevision()
+                && value.hasPaymentCount()
+                && value.hasPaymentAmountMinor()
+                && value.hasRefundCount()
+                && value.hasRefundAmountMinor()
+                && value.getPaymentCount() >= 0L
+                && value.getRefundCount() >= 0L
+                && value.getPaymentAmountMinor() >= 0L
+                && value.getRefundAmountMinor() >= 0L)) {
             this.invalid();
         }
         this.text(value.getArtifactId(), 64);
@@ -135,7 +218,10 @@ public interface ReconciliationRpcMapper {
         this.text(value.getParserRevision(), 64);
         this.hash(value.getArtifactSha256());
         this.hash(value.getNormalizedSha256());
-        if (value.getPaymentCount() == 0L != (value.getPaymentAmountMinor() == 0L) || value.getRefundCount() == 0L != (value.getRefundAmountMinor() == 0L) || value.getPaymentAmountMinor() < value.getPaymentCount() || value.getRefundAmountMinor() < value.getRefundCount()) {
+        if (value.getPaymentCount() == 0L != (value.getPaymentAmountMinor() == 0L)
+                || value.getRefundCount() == 0L != (value.getRefundAmountMinor() == 0L)
+                || value.getPaymentAmountMinor() < value.getPaymentCount()
+                || value.getRefundAmountMinor() < value.getRefundCount()) {
             this.invalid();
         }
         try {
@@ -146,13 +232,20 @@ public interface ReconciliationRpcMapper {
     }
 
     @BeforeMapping
-    default public void required(WireReconciliationBatchDTO value) {
+    public default void required(WireReconciliationBatchDTO value) {
         boolean started;
         ReconciliationState state;
         if (value == null) {
             return;
         }
-        if (!(value.hasBatchId() && value.hasChannel() && value.hasAccountScopeHash() && value.hasBillDate() && value.hasStatementProfile() && value.hasState() && value.hasVersion() && value.getVersion() >= 0L)) {
+        if (!(value.hasBatchId()
+                && value.hasChannel()
+                && value.hasAccountScopeHash()
+                && value.hasBillDate()
+                && value.hasStatementProfile()
+                && value.hasState()
+                && value.hasVersion()
+                && value.getVersion() >= 0L)) {
             this.invalid();
         }
         if (value.hasTaskId() != value.hasNativeStatus() || value.hasTaskId() && !value.hasRunId()) {
@@ -160,13 +253,19 @@ public interface ReconciliationRpcMapper {
         }
         if (value.hasTaskId()) {
             this.text(value.getTaskId(), 64);
-            if (!Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(value.getNativeStatus())) {
+            if (!Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
+                    .contains(value.getNativeStatus())) {
                 this.invalid();
             }
         }
-        boolean complete = (state = ReconciliationRpcFields.state(value.getState())) == ReconciliationState.MATCHED || state == ReconciliationState.DIFFERENCES;
+        boolean complete = (state = ReconciliationRpcFields.state(value.getState())) == ReconciliationState.MATCHED
+                || state == ReconciliationState.DIFFERENCES;
         boolean bl = started = complete || state == ReconciliationState.RUNNING;
-        if (started != value.hasRunId() || complete != value.hasMatchedCount() || complete != value.hasDifferenceCount() || complete != value.hasResultHash() || state == ReconciliationState.INIT == (value.hasChannelInput() && value.hasLedgerInput())) {
+        if (started != value.hasRunId()
+                || complete != value.hasMatchedCount()
+                || complete != value.hasDifferenceCount()
+                || complete != value.hasResultHash()
+                || state == ReconciliationState.INIT == (value.hasChannelInput() && value.hasLedgerInput())) {
             this.invalid();
         }
         this.text(value.getBatchId(), 64);
@@ -178,19 +277,34 @@ public interface ReconciliationRpcMapper {
         if (complete) {
             this.hash(value.getResultHash());
         }
-        if (value.hasChannelInput() && value.hasLedgerInput() && (value.getChannelInput().getArtifactId().equals(value.getLedgerInput().getArtifactId()) || value.getChannelInput().getSourceCaptureId().equals(value.getLedgerInput().getSourceCaptureId()))) {
+        if (value.hasChannelInput()
+                && value.hasLedgerInput()
+                && (value.getChannelInput()
+                                .getArtifactId()
+                                .equals(value.getLedgerInput().getArtifactId())
+                        || value.getChannelInput()
+                                .getSourceCaptureId()
+                                .equals(value.getLedgerInput().getSourceCaptureId()))) {
             this.invalid();
         }
-        if (complete && (value.getMatchedCount() < 0L || value.getDifferenceCount() < 0L || state == ReconciliationState.MATCHED != (value.getDifferenceCount() == 0L))) {
+        if (complete
+                && (value.getMatchedCount() < 0L
+                        || value.getDifferenceCount() < 0L
+                        || state == ReconciliationState.MATCHED != (value.getDifferenceCount() == 0L))) {
             this.invalid();
         }
-        if (value.hasChannelInput() && !"CHANNEL".equals(value.getChannelInput().getSide()) || value.hasLedgerInput() && !"LEDGER".equals(value.getLedgerInput().getSide())) {
+        if (value.hasChannelInput() && !"CHANNEL".equals(value.getChannelInput().getSide())
+                || value.hasLedgerInput()
+                        && !"LEDGER".equals(value.getLedgerInput().getSide())) {
             this.invalid();
         }
     }
 
     private void text(String value, int max) {
-        if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl)) {
+        if (value == null
+                || value.isBlank()
+                || value.length() > max
+                || value.chars().anyMatch(Character::isISOControl)) {
             this.invalid();
         }
     }

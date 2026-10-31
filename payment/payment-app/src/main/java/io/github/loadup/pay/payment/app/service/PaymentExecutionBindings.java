@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -29,21 +37,16 @@ import io.github.loadup.pay.payment.domain.model.PaymentGateBinding;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
-
 import java.util.function.Supplier;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 /**
  * Payment-local error mapping for the pure binding. No persistence, codecs, actor lookup or execution side effects.
  */
 public final class PaymentExecutionBindings {
-    private PaymentExecutionBindings() {
-    }
+    private PaymentExecutionBindings() {}
 
-    public static LockedPayment locked(StoredPaymentAcceptance accepted, StoredPaymentGate parent, StoredPaymentGate gate) {
+    public static LockedPayment locked(
+            StoredPaymentAcceptance accepted, StoredPaymentGate parent, StoredPaymentGate gate) {
         return checked(() -> new LockedPayment(new PaymentGateBinding(accepted, parent, gate)), SNAPSHOT_INVALID);
     }
 
@@ -52,7 +55,10 @@ public final class PaymentExecutionBindings {
     }
 
     public static PaymentExecutionContext context(LockedPayment locked, StoredPaymentAttempt stored) {
-        return checked(() -> new PaymentExecutionContext(locked.binding(), new PaymentAttemptBinding(locked.payment(), stored)), SNAPSHOT_INVALID);
+        return checked(
+                () -> new PaymentExecutionContext(
+                        locked.binding(), new PaymentAttemptBinding(locked.payment(), stored)),
+                SNAPSHOT_INVALID);
     }
 
     public static PaymentExecutionContext activeContext(LockedPayment locked, StoredPaymentAttempt stored) {
@@ -95,17 +101,23 @@ public final class PaymentExecutionBindings {
         return checked(() -> new PaymentAttemptBinding(accepted, stored).requireClosable(), SNAPSHOT_INVALID);
     }
 
-    public static PaymentAttemptBinding submissionRequest(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
+    public static PaymentAttemptBinding submissionRequest(
+            StoredPaymentAcceptance accepted, StoredPaymentAttempt stored) {
         return checked(() -> new PaymentAttemptBinding(accepted, stored).requireSubmissionRequest(), INVALID_STATE);
     }
 
-    public static PaymentAttemptBinding route(PaymentAttemptBinding binding, Channel channel, PaymentMethod method, String preparedInputRef) {
+    public static PaymentAttemptBinding route(
+            PaymentAttemptBinding binding, Channel channel, PaymentMethod method, String preparedInputRef) {
         return checked(() -> binding.requireRoute(channel, method, preparedInputRef), SNAPSHOT_INVALID);
     }
 
-    public static PaymentAttemptBinding.ObservationRejection observationRejection(StoredPaymentAcceptance accepted, StoredPaymentAttempt stored,
-                                                                                  ChannelPaymentIdentity identity, Money amount) {
-        return checked(() -> PaymentAttemptBinding.observationRejection(accepted, stored, identity, amount), SNAPSHOT_INVALID);
+    public static PaymentAttemptBinding.ObservationRejection observationRejection(
+            StoredPaymentAcceptance accepted,
+            StoredPaymentAttempt stored,
+            ChannelPaymentIdentity identity,
+            Money amount) {
+        return checked(
+                () -> PaymentAttemptBinding.observationRejection(accepted, stored, identity, amount), SNAPSHOT_INVALID);
     }
 
     private static <T> T checked(Supplier<T> action, PaymentResultCodeEnum failureCode) {

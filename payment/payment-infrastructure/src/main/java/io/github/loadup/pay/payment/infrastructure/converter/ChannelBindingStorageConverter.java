@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -25,16 +29,14 @@ import io.github.loadup.pay.payment.domain.model.StoredChannelBindingRevision;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingChangeReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelBindingRevisionDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelMerchantBindingDO;
+import java.util.Set;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.util.Set;
-
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ChannelBindingStorageConverter {
     ChannelMerchantBinding toHead(ChannelMerchantBindingDO row);
-
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
@@ -51,11 +53,11 @@ public interface ChannelBindingStorageConverter {
 
     @Mapping(target = "identity", source = "identity")
     @Mapping(target = "capabilities", source = "capabilities")
-    ChannelBindingRevision toBinding(ChannelBindingRevisionDO row, ChannelAccountIdentity identity, Set<PaymentMethod> capabilities);
+    ChannelBindingRevision toBinding(
+            ChannelBindingRevisionDO row, ChannelAccountIdentity identity, Set<PaymentMethod> capabilities);
 
     @Mapping(target = "binding", source = "binding")
     StoredChannelBindingRevision toRevision(ChannelBindingRevisionDO row, ChannelBindingRevision binding);
-
 
     @Mapping(target = "id", source = "value.binding.id")
     @Mapping(target = "payeeMerchantId", source = "value.binding.payeeMerchantId")
@@ -65,16 +67,24 @@ public interface ChannelBindingStorageConverter {
     @Mapping(target = "credentialReference", source = "value.binding.credentialReference")
     @Mapping(target = "credentialVersion", source = "value.binding.credentialVersion")
     @Mapping(target = "identityPayload", source = "identityPayload")
-    @Mapping(target = "paymentCodeEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE))")
-    @Mapping(target = "jsapiEnabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.JSAPI))")
-    @Mapping(target = "h5Enabled", expression = "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.H5))")
+    @Mapping(
+            target = "paymentCodeEnabled",
+            expression =
+                    "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE))")
+    @Mapping(
+            target = "jsapiEnabled",
+            expression =
+                    "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.JSAPI))")
+    @Mapping(
+            target = "h5Enabled",
+            expression =
+                    "java(value.binding().capabilities().contains(io.github.loadup.commons.payment.PaymentMethod.H5))")
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     ChannelBindingRevisionDO toRevisionDO(String tenant, StoredChannelBindingRevision value, String identityPayload);
 
     ChannelBindingChangeReceipt toReceipt(ChannelBindingChangeReceiptDO row);
-
 
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.app.service;
 
@@ -21,12 +25,11 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
 
 final class RealtimeFixtures {
     static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 23, 12, 0);
@@ -36,10 +39,27 @@ final class RealtimeFixtures {
     }
 
     static EventEnvelope<PaymentSnapshotEventDTO> payment(String delivery, long version, PaymentState state) {
-        return new EventEnvelope<>(delivery, "business-event", "payment", "pay.payment.snapshot.realtime.v1", 1, "payment", version,
-                BusinessTime.external(NOW), new PaymentSnapshotEventDTO("payment", "order", "merchant", 1000, "CNY", state,
-                Channel.WECHAT, AccessMode.DIRECT, BusinessTime.external(NOW.minusMinutes(1)),
-                state == PaymentState.SUCCEEDED ? BusinessTime.external(NOW) : null, version));
+        return new EventEnvelope<>(
+                delivery,
+                "business-event",
+                "payment",
+                "pay.payment.snapshot.realtime.v1",
+                1,
+                "payment",
+                version,
+                BusinessTime.external(NOW),
+                new PaymentSnapshotEventDTO(
+                        "payment",
+                        "order",
+                        "merchant",
+                        1000,
+                        "CNY",
+                        state,
+                        Channel.WECHAT,
+                        AccessMode.DIRECT,
+                        BusinessTime.external(NOW.minusMinutes(1)),
+                        state == PaymentState.SUCCEEDED ? BusinessTime.external(NOW) : null,
+                        version));
     }
 
     static final class Transactions extends AbstractPlatformTransactionManager {
@@ -51,8 +71,7 @@ final class RealtimeFixtures {
         }
 
         @Override
-        protected void doBegin(Object value, TransactionDefinition definition) {
-        }
+        protected void doBegin(Object value, TransactionDefinition definition) {}
 
         @Override
         protected void doCommit(DefaultTransactionStatus status) {

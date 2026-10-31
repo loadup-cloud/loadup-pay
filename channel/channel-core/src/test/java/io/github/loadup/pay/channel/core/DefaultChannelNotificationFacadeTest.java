@@ -1,19 +1,31 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Core
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.core;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -33,20 +45,11 @@ import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
-import org.junit.jupiter.api.Test;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
 
 class DefaultChannelNotificationFacadeTest {
     private static final Money AMOUNT = Money.ofMinor(125_000, "CNY");
@@ -55,9 +58,10 @@ class DefaultChannelNotificationFacadeTest {
 
     private final ChannelNotificationProvider alipay = provider(Channel.ALIPAY);
     private final ChannelNotificationProvider wechat = provider(Channel.WECHAT);
-    private final DefaultChannelNotificationFacade facade = new DefaultChannelNotificationFacade(List.of(alipay, wechat));
-    private final ChannelNotificationInput input = new ChannelNotificationInput("application/x-www-form-urlencoded",
-            Map.of(), "notify=untrusted".getBytes(StandardCharsets.US_ASCII));
+    private final DefaultChannelNotificationFacade facade =
+            new DefaultChannelNotificationFacade(List.of(alipay, wechat));
+    private final ChannelNotificationInput input = new ChannelNotificationInput(
+            "application/x-www-form-urlencoded", Map.of(), "notify=untrusted".getBytes(StandardCharsets.US_ASCII));
 
     private static ChannelNotificationProvider provider(Channel channel) {
         var provider = mock(ChannelNotificationProvider.class);
@@ -69,17 +73,28 @@ class DefaultChannelNotificationFacadeTest {
         ChannelAccountIdentity identity = channel == Channel.ALIPAY
                 ? new AlipayAccountIdentity("app", "seller", null, null, null)
                 : new WechatAccountIdentity("app", "merchant", null, null);
-        var binding = new ChannelBindingRevision(revision, "merchant", channel, AccessMode.DIRECT, hash,
-                "credential", "1", identity, Set.of(PaymentMethod.PAYMENT_CODE));
+        var binding = new ChannelBindingRevision(
+                revision,
+                "merchant",
+                channel,
+                AccessMode.DIRECT,
+                hash,
+                "credential",
+                "1",
+                identity,
+                Set.of(PaymentMethod.PAYMENT_CODE));
         return new ChannelExecutionContext("tenant", binding);
     }
 
-    private static ChannelPaymentTarget target(Channel channel, String revision, String hash, String requestNo, Money amount) {
-        return new ChannelPaymentTarget(new ChannelPaymentIdentity("payment-1", "attempt-1", channel, revision, hash, requestNo), amount);
+    private static ChannelPaymentTarget target(
+            Channel channel, String revision, String hash, String requestNo, Money amount) {
+        return new ChannelPaymentTarget(
+                new ChannelPaymentIdentity("payment-1", "attempt-1", channel, revision, hash, requestNo), amount);
     }
 
     private static VerifiedChannelNotification verified(ChannelPaymentIdentity identity, Money amount) {
-        return new VerifiedChannelNotification(identity, amount, "notification-18", "trade-18", "TRADE_SUCCESS", "f".repeat(64));
+        return new VerifiedChannelNotification(
+                identity, amount, "notification-18", "trade-18", "TRADE_SUCCESS", "f".repeat(64));
     }
 
     @Test
@@ -89,7 +104,8 @@ class DefaultChannelNotificationFacadeTest {
         var hint = new ChannelNotificationHint(ORDER_NO);
         var verified = verified(target.identity(), AMOUNT);
         var acknowledgement = new ChannelNotificationAcknowledgement(200, "text/plain; charset=utf-8", "success");
-        var rejectedAcknowledgement = new ChannelNotificationAcknowledgement(500, "text/plain; charset=utf-8", "failure");
+        var rejectedAcknowledgement =
+                new ChannelNotificationAcknowledgement(500, "text/plain; charset=utf-8", "failure");
         when(alipay.identify(context, input)).thenReturn(hint);
         when(alipay.verify(context, target, input)).thenReturn(verified);
         when(alipay.acknowledgement(Channel.ALIPAY, true)).thenReturn(acknowledgement);
@@ -110,15 +126,18 @@ class DefaultChannelNotificationFacadeTest {
 
     @Test
     void duplicateAndMissingProvidersAreRejected() {
-        assertThrows(CommonException.class,
+        assertThrows(
+                CommonException.class,
                 () -> new DefaultChannelNotificationFacade(List.of(alipay, provider(Channel.ALIPAY))));
         var withoutWechat = new DefaultChannelNotificationFacade(List.of(alipay));
         var context = context(Channel.WECHAT, "wx-revision", HASH);
-        TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class, () -> withoutWechat.identify(context, input)));
+        TenantUtil.runWithTenant(
+                "tenant", () -> assertThrows(CommonException.class, () -> withoutWechat.identify(context, input)));
         assertThrows(CommonException.class, () -> withoutWechat.acknowledgement(Channel.WECHAT, false));
         var target = target(Channel.WECHAT, "wx-revision", HASH, ORDER_NO, AMOUNT);
-        TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
-                () -> withoutWechat.verify(context, target, input)));
+        TenantUtil.runWithTenant(
+                "tenant",
+                () -> assertThrows(CommonException.class, () -> withoutWechat.verify(context, target, input)));
     }
 
     @Test
@@ -126,12 +145,18 @@ class DefaultChannelNotificationFacadeTest {
         clearInvocations(alipay, wechat);
         var context = context(Channel.ALIPAY, "revision-1", HASH);
         var target = target(Channel.ALIPAY, "revision-1", HASH, ORDER_NO, AMOUNT);
-        TenantUtil.runWithTenant("other", () -> assertThrows(CommonException.class,
-                () -> facade.verify(context, target, input)));
+        TenantUtil.runWithTenant(
+                "other", () -> assertThrows(CommonException.class, () -> facade.verify(context, target, input)));
         TenantUtil.runWithTenant("tenant", () -> {
-            assertThrows(CommonException.class, () -> facade.verify(context(Channel.WECHAT, "wx-revision", HASH), target, input));
-            assertThrows(CommonException.class, () -> facade.verify(context(Channel.ALIPAY, "wrong-revision", HASH), target, input));
-            assertThrows(CommonException.class, () -> facade.verify(context(Channel.ALIPAY, "revision-1", "b".repeat(64)), target, input));
+            assertThrows(
+                    CommonException.class,
+                    () -> facade.verify(context(Channel.WECHAT, "wx-revision", HASH), target, input));
+            assertThrows(
+                    CommonException.class,
+                    () -> facade.verify(context(Channel.ALIPAY, "wrong-revision", HASH), target, input));
+            assertThrows(
+                    CommonException.class,
+                    () -> facade.verify(context(Channel.ALIPAY, "revision-1", "b".repeat(64)), target, input));
         });
         verifyNoInteractions(alipay, wechat);
     }
@@ -140,13 +165,19 @@ class DefaultChannelNotificationFacadeTest {
     void verifyRejectsProviderIdentityOrAmountMismatch() {
         var context = context(Channel.ALIPAY, "revision-1", HASH);
         var target = target(Channel.ALIPAY, "revision-1", HASH, ORDER_NO, AMOUNT);
-        var wrongIdentity = new ChannelPaymentIdentity("other-payment", target.identity().attemptId(), Channel.ALIPAY,
-                target.identity().bindingRevisionId(), target.identity().accountScopeHash(), ORDER_NO);
+        var wrongIdentity = new ChannelPaymentIdentity(
+                "other-payment",
+                target.identity().attemptId(),
+                Channel.ALIPAY,
+                target.identity().bindingRevisionId(),
+                target.identity().accountScopeHash(),
+                ORDER_NO);
         when(alipay.verify(context, target, input)).thenReturn(verified(wrongIdentity, AMOUNT));
-        TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
-                () -> facade.verify(context, target, input)));
-        when(alipay.verify(context, target, input)).thenReturn(verified(target.identity(), Money.ofMinor(125_001, "CNY")));
-        TenantUtil.runWithTenant("tenant", () -> assertThrows(CommonException.class,
-                () -> facade.verify(context, target, input)));
+        TenantUtil.runWithTenant(
+                "tenant", () -> assertThrows(CommonException.class, () -> facade.verify(context, target, input)));
+        when(alipay.verify(context, target, input))
+                .thenReturn(verified(target.identity(), Money.ofMinor(125_001, "CNY")));
+        TenantUtil.runWithTenant(
+                "tenant", () -> assertThrows(CommonException.class, () -> facade.verify(context, target, input)));
     }
 }

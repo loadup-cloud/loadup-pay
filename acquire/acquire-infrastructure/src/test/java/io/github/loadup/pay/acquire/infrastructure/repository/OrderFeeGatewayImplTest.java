@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -25,6 +38,11 @@ import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.infrastructure.converter.FeeAdjustmentStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderFeeStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderFeeDO;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,31 +56,24 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 class OrderFeeGatewayImplTest {
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(OrderFeeStorageConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(OrderFeeStorageConverter.class.getPackageName());
     final NamedParameterJdbcTemplate adjustments = mock(NamedParameterJdbcTemplate.class);
-    final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate = mock(org.springframework.jdbc.core.JdbcTemplate.class);
+    final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate =
+            mock(org.springframework.jdbc.core.JdbcTemplate.class);
     final javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
     final JsonMapper json = JsonMapper.builder().build();
     final AtomicInteger ids = new AtomicInteger();
-    final OrderFeeGatewayImpl gateway = new OrderFeeGatewayImpl(adjustments, context.getBean(OrderFeeStorageConverter.class),
-            context.getBean(FeeAdjustmentStorageConverter.class), () -> "adjustment-" + ids.incrementAndGet(), json, Clock.systemDefaultZone());
-    final OrderFeePolicy policy = new OrderFeePolicy(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
+    final OrderFeeGatewayImpl gateway = new OrderFeeGatewayImpl(
+            adjustments,
+            context.getBean(OrderFeeStorageConverter.class),
+            context.getBean(FeeAdjustmentStorageConverter.class),
+            () -> "adjustment-" + ids.incrementAndGet(),
+            json,
+            Clock.systemDefaultZone());
+    final OrderFeePolicy policy = new OrderFeePolicy(
+            new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.PRO_RATA_CUMULATIVE);
     final AcquireOrder order = mock(AcquireOrder.class);
     final OrderFeeDO row = new OrderFeeDO();
     final LocalDateTime now = LocalDateTime.of(2026, 10, 23, 12, 0);
@@ -89,21 +100,29 @@ class OrderFeeGatewayImplTest {
         when(order.amount()).thenReturn(Money.ofMinor(10000, "CNY"));
         when(order.state()).thenReturn(AcquireOrderState.PAID);
         when(order.paidAmountMinor()).thenReturn(10000L);
-        when(adjustments.query(org.mockito.ArgumentMatchers.contains("FROM order_fee"), any(SqlParameterSource.class),
-                org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<OrderFeeDO>>any())).thenReturn(java.util.List.of(row));
-        when(adjustments.update(org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class))).thenReturn(1);
-        when(adjustments.update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class))).thenAnswer(c -> {
-            SqlParameterSource patch = c.getArgument(1);
-            row.setState((String) patch.getValue("state"));
-            row.setRefundBasisVersion((Long) patch.getValue("basisVersion"));
-            row.setRefundBasisMinor((Long) patch.getValue("basis"));
-            row.setAdjustedAmountMinor((Long) patch.getValue("adjusted"));
-            row.setRowVersion((Long) patch.getValue("version"));
-            if (patch.getValue("confirmed") != null) {
-                row.setConfirmedAt((LocalDateTime) patch.getValue("confirmed"));
-            }
-            return 1;
-        });
+        when(adjustments.query(
+                        org.mockito.ArgumentMatchers.contains("FROM order_fee"),
+                        any(SqlParameterSource.class),
+                        org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<OrderFeeDO>>any()))
+                .thenReturn(java.util.List.of(row));
+        when(adjustments.update(
+                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
+                        any(SqlParameterSource.class)))
+                .thenReturn(1);
+        when(adjustments.update(
+                        org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class)))
+                .thenAnswer(c -> {
+                    SqlParameterSource patch = c.getArgument(1);
+                    row.setState((String) patch.getValue("state"));
+                    row.setRefundBasisVersion((Long) patch.getValue("basisVersion"));
+                    row.setRefundBasisMinor((Long) patch.getValue("basis"));
+                    row.setAdjustedAmountMinor((Long) patch.getValue("adjusted"));
+                    row.setRowVersion((Long) patch.getValue("version"));
+                    if (patch.getValue("confirmed") != null) {
+                        row.setConfirmedAt((LocalDateTime) patch.getValue("confirmed"));
+                    }
+                    return 1;
+                });
     }
 
     @AfterEach
@@ -113,7 +132,8 @@ class OrderFeeGatewayImplTest {
     }
 
     void write(Runnable work) {
-        TenantUtil.runWithTenant("tenant", () -> new TransactionTemplate(manager).executeWithoutResult(s -> work.run()));
+        TenantUtil.runWithTenant(
+                "tenant", () -> new TransactionTemplate(manager).executeWithoutResult(s -> work.run()));
     }
 
     void basis(long version, long amount) {
@@ -129,7 +149,10 @@ class OrderFeeGatewayImplTest {
         basis(1, 3000);
         assertEquals(3000, row.getRefundBasisMinor().longValue());
         assertEquals(0, row.getAdjustedAmountMinor().longValue());
-        verify(adjustments, never()).update(org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class));
+        verify(adjustments, never())
+                .update(
+                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
+                        any(SqlParameterSource.class));
         confirm();
         assertEquals(9, row.getAdjustedAmountMinor().longValue());
         assertEquals("CONFIRMED", row.getState());
@@ -146,8 +169,12 @@ class OrderFeeGatewayImplTest {
         basis(2, 5000);
         basis(1, 3000);
         confirm();
-        verify(adjustments, never()).update(org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class));
-        verify(adjustments, never()).update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
+        verify(adjustments, never())
+                .update(
+                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
+                        any(SqlParameterSource.class));
+        verify(adjustments, never())
+                .update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
         assertEquals(15, row.getAdjustedAmountMinor().longValue());
     }
 
@@ -155,9 +182,13 @@ class OrderFeeGatewayImplTest {
     void adjustmentInsertFailureStopsFeeAcknowledgementAndRollsBackTheBoundary() {
         basis(1, 3000);
         clearInvocations(adjustments);
-        when(adjustments.update(org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class))).thenReturn(0);
+        when(adjustments.update(
+                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
+                        any(SqlParameterSource.class)))
+                .thenReturn(0);
         assertThrows(CommonException.class, this::confirm);
-        verify(adjustments, never()).update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
+        verify(adjustments, never())
+                .update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
         assertEquals("INIT", row.getState());
         assertEquals(1, manager.rollbacks);
         // This manager checks propagation only. Real ledger/CAS rollback still needs PostgreSQL acceptance.
@@ -172,12 +203,10 @@ class OrderFeeGatewayImplTest {
         }
 
         @Override
-        protected void doBegin(Object transaction, TransactionDefinition definition) {
-        }
+        protected void doBegin(Object transaction, TransactionDefinition definition) {}
 
         @Override
-        protected void doCommit(DefaultTransactionStatus status) {
-        }
+        protected void doCommit(DefaultTransactionStatus status) {}
 
         @Override
         protected void doRollback(DefaultTransactionStatus status) {

@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -28,22 +34,22 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-
 @Component
 public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelopeCodec {
     private final JsonMapper json;
 
     public RefundProjectionEnvelopeCodecImpl(JsonMapper json) {
-        this.json = json.rebuild().enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
+        this.json = json.rebuild()
+                .enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
     }
 
     @Override
     public EventEnvelope<RefundSnapshotEventDTO> child(String payload) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<RefundSnapshotEventDTO>>() {
-            });
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundSnapshotEventDTO>>() {});
             event.data().requireEnvelope(event);
             return event;
         } catch (RuntimeException invalid) {
@@ -63,10 +69,10 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
 
     private EventEnvelope<OrderRefundSummaryEventDTO> monetary(String payload, String type) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<OrderRefundSummaryEventDTO>>() {
-            });
+            var event = decode(payload, new TypeReference<EventEnvelope<OrderRefundSummaryEventDTO>>() {});
             event.data().requireEnvelope(event);
-            event.requireSource(type, "payment", event.data().orderId(), event.data().refundSummaryVersion());
+            event.requireSource(
+                    type, "payment", event.data().orderId(), event.data().refundSummaryVersion());
             return event;
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -87,8 +93,7 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     @Override
     public EventEnvelope<RefundOutcomeEventDTO> limit(String payload) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {
-            });
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundOutcomeEventDTO>>() {});
             event.data().requireEnvelope(event);
             if (event.data().state() != RefundState.SUCCEEDED) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -102,8 +107,7 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
     @Override
     public EventEnvelope<RefundMerchantEventDTO> merchant(String payload) {
         try {
-            var event = decode(payload, new TypeReference<EventEnvelope<RefundMerchantEventDTO>>() {
-            });
+            var event = decode(payload, new TypeReference<EventEnvelope<RefundMerchantEventDTO>>() {});
             event.data().requireEnvelope(event);
             return event;
         } catch (RuntimeException invalid) {

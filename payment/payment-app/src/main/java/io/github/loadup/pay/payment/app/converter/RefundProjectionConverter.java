@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -23,11 +27,10 @@ import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundProjectionConverter {
@@ -44,8 +47,12 @@ public interface RefundProjectionConverter {
     @Mapping(target = "merchantRefundNo", source = "merchantRefundNo")
     @Mapping(target = "amountMinor", source = "value.amount.cent")
     @Mapping(target = "currency", source = "value.amount.currencyValue")
-    @Mapping(target = "succeededMinor", expression = "java(\"SUCCEEDED\".equals(value.state()) ? value.amount().getCent() : 0L)")
-    @Mapping(target = "failedMinor", expression = "java(\"FAILED\".equals(value.state()) ? value.amount().getCent() : 0L)")
+    @Mapping(
+            target = "succeededMinor",
+            expression = "java(\"SUCCEEDED\".equals(value.state()) ? value.amount().getCent() : 0L)")
+    @Mapping(
+            target = "failedMinor",
+            expression = "java(\"FAILED\".equals(value.state()) ? value.amount().getCent() : 0L)")
     RefundMerchantEventDTO toMerchantEvent(RefundSnapshotFacts value, String merchantRefundNo);
 
     @Mapping(target = "aggregateType", constant = "RefundRequest")

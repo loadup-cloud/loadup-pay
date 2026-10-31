@@ -1,54 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.request.query.IdQuery;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
-import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
-import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
-import io.github.loadup.pay.payment.app.security.PaymentActor;
-import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
-import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
-import io.github.loadup.pay.payment.domain.model.GateState;
-import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
-import io.github.loadup.pay.payment.domain.model.PaymentOrder;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
-import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
-import jakarta.validation.Validation;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
@@ -76,6 +45,40 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.request.query.IdQuery;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
+import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
+import io.github.loadup.pay.payment.domain.model.GateState;
+import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class PaymentAcceptanceServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -107,7 +110,8 @@ class PaymentAcceptanceServiceTest {
             "acquire",
             locks,
             actions,
-            recovery, events);
+            recovery,
+            events);
 
     @BeforeEach
     void setup() {
@@ -116,17 +120,19 @@ class PaymentAcceptanceServiceTest {
         when(codec.checksum(anyString())).thenReturn("c".repeat(64));
         when(codec.decode(any())).thenReturn(command);
         doAnswer(c -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            stored.set(c.getArgument(1));
-            return null;
-        })
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    stored.set(c.getArgument(1));
+                    return null;
+                })
                 .when(store)
                 .insert(eq("tenant"), any());
         doAnswer(c -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertSame(stored.get(), c.getArgument(1));
-            return null;
-        }).when(recovery).register(eq("tenant"), any());
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertSame(stored.get(), c.getArgument(1));
+                    return null;
+                })
+                .when(recovery)
+                .register(eq("tenant"), any());
     }
 
     @AfterEach
@@ -167,8 +173,7 @@ class PaymentAcceptanceServiceTest {
         var original = stored.get();
         clearInvocations(store, recovery, events);
         assertEquals(first, accept(command));
-        var locked = PaymentExecutionBindings.locked(original,
-                AttemptFixtures.gate(true), AttemptFixtures.gate(false));
+        var locked = PaymentExecutionBindings.locked(original, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
         when(actions.present("tenant", locked)).thenReturn(first);
         assertEquals(first, service.detail(new IdQuery("payment")));
@@ -186,11 +191,26 @@ class PaymentAcceptanceServiceTest {
         accept(command);
         var original = stored.get();
         var root = original.payment();
-        var order = new io.github.loadup.pay.payment.domain.model.PaymentOrder(root.id(), root.orderId(), root.allocationId(),
-                root.payeeMerchantId(), root.amount(), root.limitOperationId(), root.initiatedAt(),
-                io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN, "attempt", null, 2L);
-        var unknown = new StoredPaymentAcceptance(order, original.admissionId(), original.requestDigest(), original.callerServiceId(),
-                original.intentPayload(), original.payloadHash(), null);
+        var order = new io.github.loadup.pay.payment.domain.model.PaymentOrder(
+                root.id(),
+                root.orderId(),
+                root.allocationId(),
+                root.payeeMerchantId(),
+                root.amount(),
+                root.limitOperationId(),
+                root.initiatedAt(),
+                io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN,
+                "attempt",
+                null,
+                2L);
+        var unknown = new StoredPaymentAcceptance(
+                order,
+                original.admissionId(),
+                original.requestDigest(),
+                original.callerServiceId(),
+                original.intentPayload(),
+                original.payloadHash(),
+                null);
         stored.set(unknown);
         var locked = PaymentExecutionBindings.locked(unknown, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
         var presented = context.getBean(PaymentAcceptanceConverter.class).toDTO(unknown);
@@ -205,8 +225,10 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void initialSnapshotFailureRollsBackTheAcceptanceUnitInsteadOfReturningACommittedPayment() {
-        org.mockito.Mockito.doThrow(new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
-                .when(events).publishSnapshot(eq("tenant"), any(), any());
+        org.mockito.Mockito.doThrow(new CommonException(
+                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
+                .when(events)
+                .publishSnapshot(eq("tenant"), any(), any());
         assertThrows(CommonException.class, () -> accept(command));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -232,8 +254,7 @@ class PaymentAcceptanceServiceTest {
                 command.payableUntil());
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> accept(changed))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(changed)).getResultCode());
         verify(store, times(1)).insert(anyString(), any());
     }
 
@@ -248,8 +269,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         verify(store, never()).insertParent(anyString(), any());
         verify(store, never()).lockPayment(anyString(), anyString());
         verify(store, never()).insert(anyString(), any());
@@ -267,8 +287,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 EXECUTION_FENCED,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         verify(store, never()).insertPaymentGate(anyString(), any());
         verify(store, never()).insert(anyString(), any());
     }
@@ -284,8 +303,7 @@ class PaymentAcceptanceServiceTest {
                         0)));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         verify(store, never()).insert(anyString(), any());
     }
 
@@ -309,8 +327,7 @@ class PaymentAcceptanceServiceTest {
                         null)));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         verify(store, never()).insert(anyString(), any());
     }
 
@@ -319,8 +336,7 @@ class PaymentAcceptanceServiceTest {
         actor.set(new PaymentActor("tenant", "other-service", Set.of("pay:payment:accept", "pay:payment:read")));
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(CommonException.class, () -> service.detail(new IdQuery("payment")))
@@ -333,15 +349,13 @@ class PaymentAcceptanceServiceTest {
         actor.set(new PaymentActor("tenant", "acquire", Set.of()));
         assertSame(
                 ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:accept")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertSame(
                     INVALID_STATE,
-                    assertThrows(CommonException.class, () -> accept(command))
-                            .getResultCode());
+                    assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -366,8 +380,7 @@ class PaymentAcceptanceServiceTest {
                 command.payableUntil());
         assertSame(
                 INVALID_ARGUMENT,
-                assertThrows(CommonException.class, () -> accept(changed))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(changed)).getResultCode());
         assertSame(
                 INVALID_ARGUMENT,
                 assertThrows(CommonException.class, () -> accept(null)).getResultCode());
@@ -377,23 +390,23 @@ class PaymentAcceptanceServiceTest {
     @Test
     void aDuplicateGateRaceRetriesOnlyAfterRollbackAndUsesTheWinningPayment() {
         doAnswer(c -> {
-            stored.set(new StoredPaymentAcceptance(
-                    PaymentOrder.init(
-                            "payment",
-                            "order",
-                            "allocation",
-                            "merchant",
-                            io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
-                            "winning-operation",
-                            LocalDateTime.now(clock)),
-                    "admission",
-                    "a".repeat(64),
-                    "acquire",
-                    "payload",
-                    "c".repeat(64),
-                    null));
-            throw new PaymentWriteConflictException("synthetic concurrent winner");
-        })
+                    stored.set(new StoredPaymentAcceptance(
+                            PaymentOrder.init(
+                                    "payment",
+                                    "order",
+                                    "allocation",
+                                    "merchant",
+                                    io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
+                                    "winning-operation",
+                                    LocalDateTime.now(clock)),
+                            "admission",
+                            "a".repeat(64),
+                            "acquire",
+                            "payload",
+                            "c".repeat(64),
+                            null));
+                    throw new PaymentWriteConflictException("synthetic concurrent winner");
+                })
                 .when(store)
                 .insertParent(eq("tenant"), any());
         assertEquals("payment", accept(command).paymentId());
@@ -408,8 +421,7 @@ class PaymentAcceptanceServiceTest {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(store).insert(eq("tenant"), any());
         assertSame(
                 CONCURRENT_UPDATE,
-                assertThrows(CommonException.class, () -> accept(command))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         // Mock ports prove the transaction boundary, not actual database row rollback.
@@ -418,7 +430,8 @@ class PaymentAcceptanceServiceTest {
     @Test
     void recoveryRegistrationFailurePropagatesAndRollsBackTheAcceptanceTransaction() {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(recovery).register(eq("tenant"), any());
-        assertSame(CONCURRENT_UPDATE,
+        assertSame(
+                CONCURRENT_UPDATE,
                 assertThrows(CommonException.class, () -> accept(command)).getResultCode());
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
@@ -439,15 +452,15 @@ class PaymentAcceptanceServiceTest {
                 command.currency(),
                 command.requestDigest(),
                 new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
-                        io.github.loadup.commons.payment.Channel.ALIPAY, io.github.loadup.commons.payment.PaymentMethod.H5),
+                        io.github.loadup.commons.payment.Channel.ALIPAY,
+                        io.github.loadup.commons.payment.PaymentMethod.H5),
                 null,
                 command.admittedTerms(),
                 command.subject(),
                 command.payableUntil());
         assertSame(
                 UNSUPPORTED_CAPABILITY,
-                assertThrows(CommonException.class, () -> accept(changed))
-                        .getResultCode());
+                assertThrows(CommonException.class, () -> accept(changed)).getResultCode());
         verifyNoInteractions(store);
     }
 
@@ -461,8 +474,11 @@ class PaymentAcceptanceServiceTest {
 
         @Override
         protected void doBegin(Object value, TransactionDefinition definition) {
-            assertEquals(definition.isReadOnly() ? TransactionDefinition.ISOLATION_REPEATABLE_READ
-                    : TransactionDefinition.ISOLATION_READ_COMMITTED, definition.getIsolationLevel());
+            assertEquals(
+                    definition.isReadOnly()
+                            ? TransactionDefinition.ISOLATION_REPEATABLE_READ
+                            : TransactionDefinition.ISOLATION_READ_COMMITTED,
+                    definition.getIsolationLevel());
         }
 
         @Override

@@ -1,44 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.pay.acquire.app.port.MerchantNotificationTransport;
-import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
-import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
-import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
-import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +33,30 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.acquire.app.port.MerchantNotificationTransport;
+import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantNotificationServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 21, 12, 0);
@@ -72,20 +75,34 @@ class MerchantNotificationServiceTest {
     private final Map<String, DelayedTask> nativeTasks = new HashMap<>();
     private final ArrayList<String> operations = new ArrayList<>();
 
-    private static DelayedTask runningTask(String bizId, LocalDateTime executeAt, LocalDateTime nextExecuteAt,
-                                           String id, int attempts, LocalDateTime leaseUntil) {
-        return new DelayedTask(id, MerchantNotificationService.TYPE, bizId, executeAt, nextExecuteAt,
-                DelayedTaskStatus.RUNNING, attempts, 5, leaseUntil, null);
+    private static DelayedTask runningTask(
+            String bizId,
+            LocalDateTime executeAt,
+            LocalDateTime nextExecuteAt,
+            String id,
+            int attempts,
+            LocalDateTime leaseUntil) {
+        return new DelayedTask(
+                id,
+                MerchantNotificationService.TYPE,
+                bizId,
+                executeAt,
+                nextExecuteAt,
+                DelayedTaskStatus.RUNNING,
+                attempts,
+                5,
+                leaseUntil,
+                null);
     }
 
     private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
-        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
-                "payment", 7, BODY, DIGEST, policy, NOW);
+        return MerchantNotificationDelivery.init(
+                "delivery", "event", "order", "merchant", "PaymentSucceeded", "payment", 7, BODY, DIGEST, policy, NOW);
     }
 
     private static MerchantNotificationPolicy policy(long initialSeconds, int maxAttempts, long windowSeconds) {
-        return new MerchantNotificationPolicy("target", "signing-key", 1000, initialSeconds,
-                BigDecimal.ONE, 60, maxAttempts, windowSeconds);
+        return new MerchantNotificationPolicy(
+                "target", "signing-key", 1000, initialSeconds, BigDecimal.ONE, 60, maxAttempts, windowSeconds);
     }
 
     @BeforeEach
@@ -93,22 +110,27 @@ class MerchantNotificationServiceTest {
         current.set(delivery(policy(5, 5, 3600)));
         when(deliveries.lock(TENANT, "delivery")).thenAnswer(call -> Optional.of(current.get()));
         doAnswer(call -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals(TENANT, TenantUtil.getTenantId());
-            assertEquals(current.get(), call.getArgument(1));
-            current.set(call.getArgument(2));
-            operations.add("update:" + current.get().state());
-            return null;
-        }).when(deliveries).update(eq(TENANT), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertEquals(TENANT, TenantUtil.getTenantId());
+                    assertEquals(current.get(), call.getArgument(1));
+                    current.set(call.getArgument(2));
+                    operations.add("update:" + current.get().state());
+                    return null;
+                })
+                .when(deliveries)
+                .update(eq(TENANT), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         when(tasks.find(eq(MerchantNotificationService.TYPE), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(nativeTasks.get(call.getArgument(1))));
         doAnswer(call -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            assertEquals(TENANT, TenantUtil.getTenantId());
-            operations.add("register:" + call.getArgument(1));
-            return null;
-        }).when(tasks).register(eq(MerchantNotificationService.TYPE), anyString(), org.mockito.ArgumentMatchers.any());
-        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenReturn(ROUTE);
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    assertEquals(TENANT, TenantUtil.getTenantId());
+                    operations.add("register:" + call.getArgument(1));
+                    return null;
+                })
+                .when(tasks)
+                .register(eq(MerchantNotificationService.TYPE), anyString(), org.mockito.ArgumentMatchers.any());
+        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(ROUTE);
         when(transport.send(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenReturn(false);
     }
 
@@ -137,7 +159,11 @@ class MerchantNotificationServiceTest {
         assertEquals(BODY, current.get().body());
         assertEquals(ROUTE, current.get().routeFingerprint());
         assertTrue(operations.indexOf("register:delivery:1") < operations.indexOf("send"));
-        verify(tasks).register(eq(MerchantNotificationService.TYPE), eq("delivery:1"), eq(current.get().nextAttemptAt()));
+        verify(tasks)
+                .register(
+                        eq(MerchantNotificationService.TYPE),
+                        eq("delivery:1"),
+                        eq(current.get().nextAttemptAt()));
     }
 
     @Test
@@ -178,13 +204,17 @@ class MerchantNotificationServiceTest {
         var presented = runningTask("delivery:0", NOW, NOW, "presented", 1, NOW.plusMinutes(1));
         nativeTasks.put(presented.bizId(), runningTask("delivery:0", NOW, NOW, "registered", 1, NOW.plusMinutes(1)));
 
-        assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> invoke(presented, service(NOW)))
-                .getResultCode());
+        assertSame(
+                INVALID_STATE,
+                assertThrows(CommonException.class, () -> invoke(presented, service(NOW)))
+                        .getResultCode());
 
         var expired = runningTask("delivery:0", NOW, NOW, "expired", 1, NOW);
         nativeTasks.put(expired.bizId(), expired);
-        assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> invoke(expired, service(NOW)))
-                .getResultCode());
+        assertSame(
+                INVALID_STATE,
+                assertThrows(CommonException.class, () -> invoke(expired, service(NOW)))
+                        .getResultCode());
         verify(deliveries, never()).lock(eq(TENANT), eq("delivery"));
         verify(transport, never()).send(eq(TENANT), org.mockito.ArgumentMatchers.any());
     }
@@ -193,8 +223,13 @@ class MerchantNotificationServiceTest {
     void exhaustedAttemptLimitAndExpiredWindowDoNotSend() {
         var oneAttempt = policy(5, 1, 3600);
         current.set(delivery(oneAttempt).begin(NOW, ROUTE));
-        var atLimit = runningTask("delivery:1", current.get().nextAttemptAt(), current.get().nextAttemptAt(),
-                "native-limit", 1, NOW.plusMinutes(1));
+        var atLimit = runningTask(
+                "delivery:1",
+                current.get().nextAttemptAt(),
+                current.get().nextAttemptAt(),
+                "native-limit",
+                1,
+                NOW.plusMinutes(1));
         nativeTasks.put(atLimit.bizId(), atLimit);
 
         invoke(atLimit, service(atLimit.executeAt()));
@@ -214,7 +249,8 @@ class MerchantNotificationServiceTest {
         var first = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(first.bizId(), first);
         invoke(first, service(NOW));
-        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenReturn(CHANGED_ROUTE);
+        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CHANGED_ROUTE);
         var due = current.get().nextAttemptAt();
         var second = runningTask("delivery:1", due, due, "native-1", 1, NOW.plusMinutes(1));
         nativeTasks.put(second.bizId(), second);
@@ -223,8 +259,12 @@ class MerchantNotificationServiceTest {
 
         assertEquals(ROUTE, current.get().routeFingerprint());
         assertEquals(2, current.get().attemptCount());
-        verify(transport, times(2)).send(eq(TENANT), org.mockito.ArgumentMatchers.argThat(value ->
-                ((MerchantNotificationDelivery) value).routeFingerprint().equals(ROUTE)));
+        verify(transport, times(2))
+                .send(
+                        eq(TENANT),
+                        org.mockito.ArgumentMatchers.argThat(value -> ((MerchantNotificationDelivery) value)
+                                .routeFingerprint()
+                                .equals(ROUTE)));
     }
 
     private MerchantNotificationService service(LocalDateTime now) {

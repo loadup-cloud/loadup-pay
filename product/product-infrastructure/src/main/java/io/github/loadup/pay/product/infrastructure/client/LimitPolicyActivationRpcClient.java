@@ -1,4 +1,27 @@
+/*
+ * #%L
+ * LoadUp Pay Product Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.product.infrastructure.client;
+
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.rpc.dubbo.RpcTokenContext;
@@ -8,26 +31,23 @@ import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
 import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
 import io.github.loadup.pay.product.app.port.PolicyActivationClient;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
-import org.apache.dubbo.config.annotation.DubboReference;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
+import org.apache.dubbo.config.annotation.DubboReference;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
     private final PolicyPublicationTransportProperties properties;
     private final LimitCenterRpcMapper limitCenterRpcMapper;
+
     @DubboReference(url = "tri://limitcenter-headless:50051")
     private LimitCenterRpc limitCenterRpc;
 
-    public LimitPolicyActivationRpcClient(LimitCenterRpcMapper limitCenterRpcMapper, PolicyPublicationTransportProperties properties) {
+    public LimitPolicyActivationRpcClient(
+            LimitCenterRpcMapper limitCenterRpcMapper, PolicyPublicationTransportProperties properties) {
         this.limitCenterRpcMapper = limitCenterRpcMapper;
         this.properties = properties;
     }
@@ -48,8 +68,8 @@ public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
         try {
             var response = RpcTokenContext.call(
                     credential(),
-                    () -> limitCenterRpcMapper.fromWireLimitPolicyActivationDTO(limitCenterRpc.activate(
-                            limitCenterRpcMapper.toWireLimitPolicyActivateCommand(command))));
+                    () -> limitCenterRpcMapper.fromWireLimitPolicyActivationDTO(
+                            limitCenterRpc.activate(limitCenterRpcMapper.toWireLimitPolicyActivateCommand(command))));
             if (response == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }

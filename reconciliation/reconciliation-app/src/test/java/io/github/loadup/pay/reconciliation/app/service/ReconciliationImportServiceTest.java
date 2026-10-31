@@ -1,19 +1,48 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.service;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IMPORT_IN_PROGRESS;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -48,6 +77,14 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementA
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,42 +95,9 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.io.InputStream;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IMPORT_IN_PROGRESS;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 class ReconciliationImportServiceTest {
-    private final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
+    private final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
     private final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     private final ReconciliationImportGateway imports = mock(ReconciliationImportGateway.class);
     private final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
@@ -103,14 +107,36 @@ class ReconciliationImportServiceTest {
     private final ReconciliationStatementParser parser = mock(ReconciliationStatementParser.class);
     private final TransferTaskFacade tasks = mock(TransferTaskFacade.class);
     private final ReconciliationTransactions tx = new ReconciliationTransactions(new Tx());
-    private final ReconciliationScope scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "parser");
+    private final ReconciliationScope scope =
+            new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), "parser");
     private final ReconciliationStatementAccount account = new ReconciliationStatementAccount("1234567890", null);
-    private final ReconciliationFileSnapshot source = new ReconciliationFileSnapshot("file", "storage", 100, "b".repeat(64));
+    private final ReconciliationFileSnapshot source =
+            new ReconciliationFileSnapshot("file", "storage", 100, "b".repeat(64));
     private final AtomicReference<ReconciliationImportRequest> stored = new AtomicReference<>();
-    private final AtomicReference<StoredReconciliationBatch> batch = new AtomicReference<>(new StoredReconciliationBatch(ReconciliationBatch.init("batch", scope), "ops", "batch-request", "c".repeat(64), "account"));
-    private final ReconciliationActor actor = new ReconciliationActor("tenant", "ops", Set.of("pay:reconciliation:import:upload", "pay:reconciliation:import:submit", "pay:reconciliation:import:read", "pay:reconciliation:import:retry"));
-    private final ReconciliationImportService service = new ReconciliationImportService(() -> actor, accounts, batches, imports, files, parser, tx, tasks,
-            context.getBean(ReconciliationImportConverter.class), () -> "import", validation.getValidator(), new ReconciliationOfficialImports(mock(ReconciliationStatementGateway.class), files));
+    private final AtomicReference<StoredReconciliationBatch> batch =
+            new AtomicReference<>(new StoredReconciliationBatch(
+                    ReconciliationBatch.init("batch", scope), "ops", "batch-request", "c".repeat(64), "account"));
+    private final ReconciliationActor actor = new ReconciliationActor(
+            "tenant",
+            "ops",
+            Set.of(
+                    "pay:reconciliation:import:upload",
+                    "pay:reconciliation:import:submit",
+                    "pay:reconciliation:import:read",
+                    "pay:reconciliation:import:retry"));
+    private final ReconciliationImportService service = new ReconciliationImportService(
+            () -> actor,
+            accounts,
+            batches,
+            imports,
+            files,
+            parser,
+            tx,
+            tasks,
+            context.getBean(ReconciliationImportConverter.class),
+            () -> "import",
+            validation.getValidator(),
+            new ReconciliationOfficialImports(mock(ReconciliationStatementGateway.class), files));
 
     @BeforeEach
     void setup() {
@@ -127,18 +153,29 @@ class ReconciliationImportServiceTest {
         when(imports.lock("tenant", "import")).thenAnswer(call -> Optional.ofNullable(stored.get()));
         when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.empty());
         doAnswer(call -> {
-            stored.set(call.getArgument(1));
-            return null;
-        }).when(imports).insert(eq("tenant"), any());
+                    stored.set(call.getArgument(1));
+                    return null;
+                })
+                .when(imports)
+                .insert(eq("tenant"), any());
         doAnswer(call -> {
-            stored.set(call.getArgument(1));
-            return null;
-        }).when(imports).update(eq("tenant"), any(), anyLong());
+                    stored.set(call.getArgument(1));
+                    return null;
+                })
+                .when(imports)
+                .update(eq("tenant"), any(), anyLong());
         doAnswer(call -> {
-            batch.set(call.getArgument(1));
-            return null;
-        }).when(batches).update(eq("tenant"), any(), anyLong());
-        when(tasks.submit(eq("ops"), eq(TransferKind.IMPORT), eq(ReconciliationImportExecutionService.HANDLER_KEY), eq("file"), eq(Map.of("importId", "import"))))
+                    batch.set(call.getArgument(1));
+                    return null;
+                })
+                .when(batches)
+                .update(eq("tenant"), any(), anyLong());
+        when(tasks.submit(
+                        eq("ops"),
+                        eq(TransferKind.IMPORT),
+                        eq(ReconciliationImportExecutionService.HANDLER_KEY),
+                        eq("file"),
+                        eq(Map.of("importId", "import"))))
                 .thenAnswer(call -> {
                     assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                     assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
@@ -166,22 +203,36 @@ class ReconciliationImportServiceTest {
         assertEquals(first, service.submit(command("file")));
         verifyNoInteractions(files);
         verify(tasks, never()).submit(anyString(), any(), anyString(), anyString(), anyMap());
-        assertEquals(IDEMPOTENCY_CONFLICT, assertThrows(CommonException.class, () -> service.submit(command("different-file"))).getResultCode());
+        assertEquals(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> service.submit(command("different-file")))
+                        .getResultCode());
     }
 
     @Test
     void changedExpectedHashAndAnotherActiveImportCannotEnqueueANewTask() {
-        assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> service.submit(new ReconciliationChannelImportCommand("batch", "request", "file", "d".repeat(64)))).getResultCode());
+        assertEquals(
+                INPUT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> service.submit(new ReconciliationChannelImportCommand(
+                                        "batch", "request", "file", "d".repeat(64))))
+                        .getResultCode());
         verify(tasks, never()).submit(anyString(), any(), anyString(), anyString(), anyMap());
-        var another = ReconciliationImportRequest.init("other-import", "batch", "ops", "other-request", "e".repeat(64), scope, account, source, "other-task");
+        var another = ReconciliationImportRequest.init(
+                "other-import", "batch", "ops", "other-request", "e".repeat(64), scope, account, source, "other-task");
         when(imports.activeForBatch("tenant", "batch")).thenReturn(Optional.of(another));
-        assertEquals(IMPORT_IN_PROGRESS, assertThrows(CommonException.class, () -> service.submit(command("file"))).getResultCode());
+        assertEquals(
+                IMPORT_IN_PROGRESS,
+                assertThrows(CommonException.class, () -> service.submit(command("file")))
+                        .getResultCode());
         verify(files, never()).attach(anyString(), anyString(), any(), anyString());
     }
 
     @Test
     void nativeEnqueueFailureCannotInsertALogicalImport() {
-        when(tasks.submit(anyString(), any(), anyString(), anyString(), anyMap())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
+        when(tasks.submit(anyString(), any(), anyString(), anyString(), anyMap()))
+                .thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.submit(command("file")));
         assertNull(stored.get());
         verify(imports, never()).insert(anyString(), any());
@@ -214,10 +265,20 @@ class ReconciliationImportServiceTest {
         when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         when(parser.parse(any(), any())).thenThrow(new CommonException(DEPENDENCY_UNAVAILABLE));
         var execution = execution();
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream())));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(
+                        "tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream())));
         assertEquals(ReconciliationImportState.INIT, stored.get().state());
         doReturn(data("d".repeat(64))).when(parser).parse(any(), any());
-        assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(nativeContext(), InputStream.nullInputStream()))).getResultCode());
+        assertEquals(
+                INPUT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> TenantUtil.runWithTenant(
+                                        "tenant",
+                                        () -> execution.handle(nativeContext(), InputStream.nullInputStream())))
+                        .getResultCode());
         assertEquals(ReconciliationImportState.REJECTED, stored.get().state());
         assertNull(batch.get().batch().channel());
         verify(parser, times(2)).parse(any(), any());
@@ -229,31 +290,59 @@ class ReconciliationImportServiceTest {
         service.submit(command("file"));
         when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.RUNNING));
         var execution = execution();
-        var forged = new TransferContext("other-task", "ops", Map.of("importId", "import"), (done, total) -> {
-        });
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(forged, InputStream.nullInputStream())));
-        var extra = new TransferContext("task", "ops", Map.of("importId", "import", "complete", "true"), (done, total) -> {
-        });
-        assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(extra, InputStream.nullInputStream())));
-        assertThrows(CommonException.class, () -> service.retry(new ReconciliationImportRetryCommand("import", "task")));
+        var forged = new TransferContext("other-task", "ops", Map.of("importId", "import"), (done, total) -> {});
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant(
+                        "tenant", () -> execution.handle(forged, InputStream.nullInputStream())));
+        var extra = new TransferContext(
+                "task", "ops", Map.of("importId", "import", "complete", "true"), (done, total) -> {});
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.runWithTenant("tenant", () -> execution.handle(extra, InputStream.nullInputStream())));
+        assertThrows(
+                CommonException.class, () -> service.retry(new ReconciliationImportRetryCommand("import", "task")));
         verify(parser, never()).parse(any(), any());
         verify(tasks, never()).retry(anyString(), anyString(), anyBoolean());
         when(tasks.get("task", "ops", false)).thenReturn(task(TransferStatus.FAILED));
         when(tasks.retry("task", "ops", false)).thenReturn(task(TransferStatus.QUEUED));
-        assertEquals("QUEUED", service.retry(new ReconciliationImportRetryCommand("import", "task")).taskStatus());
+        assertEquals(
+                "QUEUED",
+                service.retry(new ReconciliationImportRetryCommand("import", "task"))
+                        .taskStatus());
         verify(files).verify("tenant", "ops", source, "import");
     }
 
     private ReconciliationImportExecutionService execution() {
-        @SuppressWarnings("unchecked") ObjectProvider<TransferTaskFacade> provider = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<TransferTaskFacade> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(tasks);
-        return new ReconciliationImportExecutionService(provider, imports, batches, inputs, files, accounts, parser, tx, context.getBean(ReconciliationConverter.class), new ReconciliationOfficialImports(mock(ReconciliationStatementGateway.class), files));
+        return new ReconciliationImportExecutionService(
+                provider,
+                imports,
+                batches,
+                inputs,
+                files,
+                accounts,
+                parser,
+                tx,
+                context.getBean(ReconciliationConverter.class),
+                new ReconciliationOfficialImports(mock(ReconciliationStatementGateway.class), files));
     }
 
     private ReconciliationDataset data(String rawHash) {
         var rows = List.<ReconciliationLine>of();
-        return new ReconciliationDataset(new ReconciliationManifest(ReconciliationSide.CHANNEL, scope, "import", rawHash,
-                ReconciliationDataset.normalizedHash(scope, ReconciliationSide.CHANNEL, "parser", rows), "import", "parser", ReconciliationTotals.count(rows)), rows);
+        return new ReconciliationDataset(
+                new ReconciliationManifest(
+                        ReconciliationSide.CHANNEL,
+                        scope,
+                        "import",
+                        rawHash,
+                        ReconciliationDataset.normalizedHash(scope, ReconciliationSide.CHANNEL, "parser", rows),
+                        "import",
+                        "parser",
+                        ReconciliationTotals.count(rows)),
+                rows);
     }
 
     private ReconciliationChannelImportCommand command(String file) {
@@ -261,13 +350,24 @@ class ReconciliationImportServiceTest {
     }
 
     private TransferContext nativeContext() {
-        return new TransferContext("task", "ops", Map.of("importId", "import"), (done, total) -> {
-        });
+        return new TransferContext("task", "ops", Map.of("importId", "import"), (done, total) -> {});
     }
 
     private TransferTaskDTO task(TransferStatus state) {
-        return new TransferTaskDTO("task", "ops", TransferKind.IMPORT,
-                ReconciliationImportExecutionService.HANDLER_KEY, "file", null, state, 0L, 0L, null, LocalDateTime.of(2026, 10, 27, 12, 0), null, null);
+        return new TransferTaskDTO(
+                "task",
+                "ops",
+                TransferKind.IMPORT,
+                ReconciliationImportExecutionService.HANDLER_KEY,
+                "file",
+                null,
+                state,
+                0L,
+                0L,
+                null,
+                LocalDateTime.of(2026, 10, 27, 12, 0),
+                null,
+                null);
     }
 
     static final class Tx extends AbstractPlatformTransactionManager {
@@ -277,15 +377,12 @@ class ReconciliationImportServiceTest {
         }
 
         @Override
-        protected void doBegin(Object value, TransactionDefinition definition) {
-        }
+        protected void doBegin(Object value, TransactionDefinition definition) {}
 
         @Override
-        protected void doCommit(DefaultTransactionStatus status) {
-        }
+        protected void doCommit(DefaultTransactionStatus status) {}
 
         @Override
-        protected void doRollback(DefaultTransactionStatus status) {
-        }
+        protected void doRollback(DefaultTransactionStatus status) {}
     }
 }

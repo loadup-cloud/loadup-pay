@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -38,27 +47,22 @@ import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import tools.jackson.databind.json.JsonMapper;
 
 class PaymentAcceptanceCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentIntentSnapshotConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(PaymentIntentSnapshotConverter.class.getPackageName());
     final PaymentIntentSnapshotConverter snapshots = context.getBean(PaymentIntentSnapshotConverter.class);
     final PaymentAcceptanceCodecImpl codec = new PaymentAcceptanceCodecImpl(validation.getValidator(), snapshots);
 
@@ -166,7 +170,8 @@ class PaymentAcceptanceCodecImplTest {
     @Test
     void aValidChecksumCannotRebindThePaymentToAnotherHeader() {
         var value = command();
-        String payload = codec.encode(value).replace("\"allocationId\":\"allocation\"", "\"allocationId\":\"other-allocation\"");
+        String payload =
+                codec.encode(value).replace("\"allocationId\":\"allocation\"", "\"allocationId\":\"other-allocation\"");
         assertThrows(CommonException.class, () -> codec.decode(stored(value, payload, codec.checksum(payload))));
     }
 
@@ -187,13 +192,15 @@ class PaymentAcceptanceCodecImplTest {
         var apiMapper = mapper.rebuild()
                 .propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE)
                 .addMixIn(PaymentExecuteCommand.class, RenamedCommand.class)
-                .addMixIn(AdmittedOrderTermsDTO.class, RenamedAdmission.class).build();
+                .addMixIn(AdmittedOrderTermsDTO.class, RenamedAdmission.class)
+                .build();
         var apiPayload = apiMapper.writeValueAsString(value);
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
         org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiContractId"));
         var independent = new PaymentAcceptanceCodecImpl(validation.getValidator(), snapshots);
         var payload = independent.encode(value);
-        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
+        org.junit.jupiter.api.Assertions.assertTrue(
+                payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
         org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
         assertFalse(payload.contains("apiPaymentId"));
@@ -222,13 +229,15 @@ class PaymentAcceptanceCodecImplTest {
                 mapper.writeValueAsString(value),
                 payload.replace(PaymentIntentSnapshot.FORMAT, "unsupported.intent.v99"),
                 payload.replace(PaymentIntentSnapshot.FORMAT, "pay.acquire.payment-intent.v1"),
-                payload.replace("\"amountMinor\":" + value.amountMinor(), "\"amountMinor\":" + value.amountMinor() + ".5"),
-                payload.replace("\"channel\":\"" + value.choice().channel().name() + "\"", "\"channel\":" + value.choice().channel().ordinal()),
+                payload.replace(
+                        "\"amountMinor\":" + value.amountMinor(), "\"amountMinor\":" + value.amountMinor() + ".5"),
+                payload.replace(
+                        "\"channel\":\"" + value.choice().channel().name() + "\"",
+                        "\"channel\":" + value.choice().channel().ordinal()),
                 payload.replace("\"allowExactRemainderBelowMin\":true", "\"allowExactRemainderBelowMin\":null"),
                 payload.replace("\"maxSuccessfulPayments\":null,", ""),
                 payload.replace("\"waitSeconds\":600", "\"waitSeconds\":600,\"futurePolicy\":true"),
-                payload + " {}"
-        );
+                payload + " {}");
         for (var invalid : variants) {
             assertNotEquals(payload, invalid);
             assertThrows(CommonException.class, () -> codec.decode(stored(value, invalid, codec.checksum(invalid))));
@@ -240,11 +249,26 @@ class PaymentAcceptanceCodecImplTest {
         var original = command();
         var snapshot = snapshots.toSnapshot(original);
         assertEquals(original, snapshots.toCommand(snapshot));
-        assertEquals(original.admittedTerms().terms().fee().rate(), snapshot.admittedTerms().terms().fee().rate());
-        assertEquals(original.admittedTerms().terms().limits().policyHash(), snapshot.admittedTerms().terms().limits().policyHash());
-        assertEquals(original.payableUntil().toInstant(), java.time.OffsetDateTime.parse(snapshot.payableUntil()).toInstant());
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.admittedTerms().terms().capabilities().clear());
-        assertThrows(UnsupportedOperationException.class, () -> snapshot.admittedTerms().terms().capabilities().getFirst().methods().clear());
+        assertEquals(
+                original.admittedTerms().terms().fee().rate(),
+                snapshot.admittedTerms().terms().fee().rate());
+        assertEquals(
+                original.admittedTerms().terms().limits().policyHash(),
+                snapshot.admittedTerms().terms().limits().policyHash());
+        assertEquals(
+                original.payableUntil().toInstant(),
+                java.time.OffsetDateTime.parse(snapshot.payableUntil()).toInstant());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.admittedTerms().terms().capabilities().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> snapshot.admittedTerms()
+                        .terms()
+                        .capabilities()
+                        .getFirst()
+                        .methods()
+                        .clear());
     }
 
     abstract static class RenamedCommand {
@@ -256,5 +280,4 @@ class PaymentAcceptanceCodecImplTest {
         @com.fasterxml.jackson.annotation.JsonProperty("apiContractId")
         public abstract String contractId();
     }
-
 }

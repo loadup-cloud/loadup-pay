@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -23,21 +32,15 @@ import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
 import io.github.loadup.pay.payment.domain.model.RoutingProfile;
 import io.github.loadup.pay.payment.infrastructure.converter.RoutingProfileStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RoutingProfileDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
@@ -48,8 +51,11 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     private final RoutingProfileCodec codec;
     private final Clock clock;
 
-    public RoutingProfileGatewayImpl(NamedParameterJdbcTemplate jdbc, RoutingProfileStorageConverter converter,
-                                     RoutingProfileCodec codec, Clock clock) {
+    public RoutingProfileGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            RoutingProfileStorageConverter converter,
+            RoutingProfileCodec codec,
+            Clock clock) {
         this.jdbc = jdbc;
         this.converter = converter;
         this.codec = codec;
@@ -66,9 +72,14 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     public Optional<RoutingProfile> find(String tenant, String ref) {
         scope(tenant);
         var args = new MapSqlParameterSource().addValue("ref", ref);
-        var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE "
-                        + "profile_ref = :ref AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT " + COLUMNS + " FROM routing_profile WHERE " + "profile_ref = :ref AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(RoutingProfileDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         return decode(row);
     }
 
@@ -76,9 +87,15 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
     public Optional<RoutingProfile> findRequest(String tenant, String caller, String key) {
         scope(tenant);
         var args = new MapSqlParameterSource().addValue("caller", caller).addValue("key", key);
-        var row = jdbc.query("SELECT " + COLUMNS + " FROM routing_profile WHERE "
-                        + "caller_service_id = :caller AND request_key = :key AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(RoutingProfileDO.class)).stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT " + COLUMNS + " FROM routing_profile WHERE "
+                                + "caller_service_id = :caller AND request_key = :key AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(RoutingProfileDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         return decode(row);
     }
 
@@ -88,10 +105,14 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         }
         try {
             var spec = codec.decode(row.getSpecPayload(), row.getContentHash());
-            if (!spec.profileRef().equals(row.getProfileRef()) || !spec.payeeMerchantId().equals(row.getPayeeMerchantId())
-                    || !codec.requestDigest(io.github.loadup.components.database.tenant.TenantContext.tenantId(),
-                    row.getCallerServiceId(), row.getRequestKey(),
-                    row.getContentHash()).equals(row.getRequestDigest())) {
+            if (!spec.profileRef().equals(row.getProfileRef())
+                    || !spec.payeeMerchantId().equals(row.getPayeeMerchantId())
+                    || !codec.requestDigest(
+                                    io.github.loadup.components.database.tenant.TenantContext.tenantId(),
+                                    row.getCallerServiceId(),
+                                    row.getRequestKey(),
+                                    row.getContentHash())
+                            .equals(row.getRequestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return Optional.of(converter.toDomain(row, spec));
@@ -106,13 +127,14 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         String payload = codec.encode(profile.spec());
         if (!codec.checksum(payload).equals(profile.contentHash())
                 || !codec.requestDigest(tenant, profile.callerServiceId(), profile.requestKey(), profile.contentHash())
-                .equals(profile.requestDigest())) {
+                        .equals(profile.requestDigest())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var row = converter.toDO(tenant, profile, payload);

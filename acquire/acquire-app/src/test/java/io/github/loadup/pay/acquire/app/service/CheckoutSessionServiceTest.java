@@ -1,53 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
-import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
-import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
-import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
-import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.CheckoutSessionCreateCommand;
-import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
-import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
-import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import jakarta.validation.Validation;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Clock;
-import java.time.temporal.ChronoUnit;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.ORIGIN;
@@ -76,6 +46,39 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
+import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
+import io.github.loadup.pay.acquire.app.port.CheckoutTokens;
+import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.client.command.CheckoutSessionCreateCommand;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Clock;
+import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class CheckoutSessionServiceTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -133,10 +136,10 @@ class CheckoutSessionServiceTest {
                                 ? Optional.of(stored.get())
                                 : Optional.empty());
         doAnswer(c -> {
-            assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
-            stored.set(c.getArgument(1));
-            return null;
-        })
+                    assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+                    stored.set(c.getArgument(1));
+                    return null;
+                })
                 .when(sessions)
                 .insert(eq("tenant"), any());
     }
@@ -159,7 +162,9 @@ class CheckoutSessionServiceTest {
                 NOW.plusSeconds(300).truncatedTo(ChronoUnit.SECONDS),
                 stored.get().session().expiresAt());
         assertEquals(CheckoutSessionState.ACTIVE, stored.get().session().state());
-        assertEquals(Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"), stored.get().scope().permissions());
+        assertEquals(
+                Set.of("ORDER_SUMMARY", "PAYMENT_START", "PAYMENT_PROGRESS"),
+                stored.get().scope().permissions());
         assertTrue(result.checkoutUrl().contains("#tenant=tenant"));
         assertFalse(stored.get().toString().contains("A".repeat(43)));
     }
@@ -184,8 +189,10 @@ class CheckoutSessionServiceTest {
         service(clock(NOW)).create(command("request"));
         stored.set(stored.get().revoke(0L, NOW));
         clearInvocations(sessions, tokens);
-        assertSame(SESSION_UNAVAILABLE, assertThrows(CommonException.class,
-                () -> service(clock(NOW)).create(command("request"))).getResultCode());
+        assertSame(
+                SESSION_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> service(clock(NOW)).create(command("request")))
+                        .getResultCode());
         verify(sessions, never()).insert(anyString(), any());
         verify(tokens, never()).issue(any(), anyString(), anyString(), anyString());
         assertEquals(1L, stored.get().rowVersion());
@@ -213,8 +220,8 @@ class CheckoutSessionServiceTest {
             assertSame(
                     ORDER_NOT_PAYABLE,
                     assertThrows(
-                            CommonException.class,
-                            () -> service(clock(NOW)).create(command("new")))
+                                    CommonException.class,
+                                    () -> service(clock(NOW)).create(command("new")))
                             .getResultCode());
         }
     }
@@ -250,10 +257,10 @@ class CheckoutSessionServiceTest {
         assertSame(
                 ACTION_FORBIDDEN,
                 assertThrows(
-                        CommonException.class,
-                        () -> service(clock(NOW))
-                                .create(new CheckoutSessionCreateCommand(
-                                        "order", "key", "https://evil.example")))
+                                CommonException.class,
+                                () -> service(clock(NOW))
+                                        .create(new CheckoutSessionCreateCommand(
+                                                "order", "key", "https://evil.example")))
                         .getResultCode());
         var first = service(clock(NOW)).create(command("request"));
         assertEquals(
@@ -287,8 +294,8 @@ class CheckoutSessionServiceTest {
             assertSame(
                     INVALID_STATE,
                     assertThrows(
-                            CommonException.class,
-                            () -> service(clock(NOW)).create(command("request")))
+                                    CommonException.class,
+                                    () -> service(clock(NOW)).create(command("request")))
                             .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);

@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Customer App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.customer.app.service;
+
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.CONFLICT;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.GRANT_CONFLICT;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.MERCHANT_INACTIVE;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.RELATIONSHIP_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -42,24 +55,13 @@ import io.github.loadup.pay.customer.domain.model.MerchantFacts;
 import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.function.Function;
-
-
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.CONFLICT;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.GRANT_CONFLICT;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.MERCHANT_INACTIVE;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum.RELATIONSHIP_CONFLICT;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -174,9 +176,9 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                                 if (!relationship.childMerchantId().equals(command.payeeMerchantId())
                                         || !relationship.activeAt(LocalDateTime.now(clock))
                                         || type == PrincipalType.MERCHANT
-                                        && !relationship
-                                        .parentMerchantId()
-                                        .equals(command.principalId())) {
+                                                && !relationship
+                                                        .parentMerchantId()
+                                                        .equals(command.principalId())) {
                                     throw new CommonException(ACTION_FORBIDDEN);
                                 }
                                 active(actor.tenantId(), relationship.parentMerchantId());
@@ -232,11 +234,11 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                             MerchantRelationship revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
-                                if (revoked != previous) {
-                                    authorization.saveRelationship(
-                                            actor.tenantId(), revoked, previous.version());
-                                }
-                            });
+                                        if (revoked != previous) {
+                                            authorization.saveRelationship(
+                                                    actor.tenantId(), revoked, previous.version());
+                                        }
+                                    });
                         }));
     }
 
@@ -263,10 +265,10 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
                             MerchantActionGrant revoked = previous.revoke();
                             return new CustomerCommandExecutor.Prepared<>(
                                     revoked.id(), converter.toDTO(revoked), () -> {
-                                if (revoked != previous) {
-                                    authorization.saveGrant(actor.tenantId(), revoked, previous.version());
-                                }
-                            });
+                                        if (revoked != previous) {
+                                            authorization.saveGrant(actor.tenantId(), revoked, previous.version());
+                                        }
+                                    });
                         }));
     }
 
@@ -289,31 +291,29 @@ public class CustomerService implements MerchantAuthorizationFacade, MerchantEli
             MerchantRelationship relationship = grant == null || grant.relationshipId() == null
                     ? null
                     : authorization
-                    .findRelationship(actor.tenantId(), grant.relationshipId())
-                    .orElse(null);
+                            .findRelationship(actor.tenantId(), grant.relationshipId())
+                            .orElse(null);
             if (grant == null
                     || !grant.allows(
-                    actor.principalType(),
-                    actor.principalId(),
-                    actor.merchantId(),
-                    command.payeeMerchantId(),
-                    action,
-                    LocalDateTime.now(clock),
-                    relationship)) {
+                            actor.principalType(),
+                            actor.principalId(),
+                            actor.merchantId(),
+                            command.payeeMerchantId(),
+                            action,
+                            LocalDateTime.now(clock),
+                            relationship)) {
                 return denied(ACTION_FORBIDDEN.getCode());
             }
             if (actor.merchantId() != null
                     && !facts.find(actor.tenantId(), actor.merchantId())
-                    .map(MerchantFacts::active)
-                    .orElse(false)) {
+                            .map(MerchantFacts::active)
+                            .orElse(false)) {
                 return denied(MERCHANT_INACTIVE.getCode());
             }
             return converter.toEligibility(
                     true,
                     "ALLOWED",
-                    merchants
-                            .find(command.payeeMerchantId())
-                            .orElseThrow(() -> new CommonException(NOT_FOUND)),
+                    merchants.find(command.payeeMerchantId()).orElseThrow(() -> new CommonException(NOT_FOUND)),
                     payee,
                     grant);
         });

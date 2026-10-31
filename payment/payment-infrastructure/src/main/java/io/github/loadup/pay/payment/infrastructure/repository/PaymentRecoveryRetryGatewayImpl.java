@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -22,6 +31,9 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryRetryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryRetryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRecoveryRetryReceiptDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -29,23 +41,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGateway {
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentRecoveryRetryStorageConverter converter;
     private final Clock clock;
 
-    public PaymentRecoveryRetryGatewayImpl(NamedParameterJdbcTemplate jdbc, PaymentRecoveryRetryStorageConverter converter,
-                                           Clock clock) {
+    public PaymentRecoveryRetryGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, PaymentRecoveryRetryStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.converter = converter;
         this.clock = clock;
@@ -54,14 +57,17 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     @Override
     public Optional<PaymentRecoveryRetryReceipt> find(String tenant, String callerScopeHash, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
+        var args =
+                new MapSqlParameterSource().addValue("caller", callerScopeHash).addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, request_key, caller_scope_hash, caller_service_id,
                        request_digest, kind, subject_id, generation, order_id, native_task_id, expected_attempts,
                        expected_next_execute_at, reason, result, accepted_at
                 FROM payment_recovery_retry_receipt WHERE caller_scope_hash = :caller
                     AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(PaymentRecoveryRetryReceiptDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         try {
             return Optional.ofNullable(row).map(converter::toDomain);
         } catch (RuntimeException corrupt) {
@@ -72,9 +78,11 @@ public class PaymentRecoveryRetryGatewayImpl implements PaymentRecoveryRetryGate
     @Override
     public void insert(String tenant, PaymentRecoveryRetryReceipt receipt) {
         scope(tenant);
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         var row = converter.toDO(tenant, receipt);

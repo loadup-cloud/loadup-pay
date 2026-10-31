@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
 
@@ -29,7 +33,6 @@ import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
@@ -41,10 +44,31 @@ final class PaymentFixtures {
     static final OffsetDateTime PAYABLE_UNTIL = OffsetDateTime.parse("2030-01-01T00:00:00+08:00");
 
     static PaymentExecuteCommand command() {
-        return new PaymentExecuteCommand("payment", "order", "allocation", "admission", "merchant", 4000, "CNY",
-                "a".repeat(64), new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5), null,
-                new AdmittedOrderTermsDTO("admission", "order", "merchant", 10000, "CNY", "contract", 1, 1,
-                        "snapshot", "b".repeat(64), terms()), SUBJECT, PAYABLE_UNTIL);
+        return new PaymentExecuteCommand(
+                "payment",
+                "order",
+                "allocation",
+                "admission",
+                "merchant",
+                4000,
+                "CNY",
+                "a".repeat(64),
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
+                null,
+                new AdmittedOrderTermsDTO(
+                        "admission",
+                        "order",
+                        "merchant",
+                        10000,
+                        "CNY",
+                        "contract",
+                        1,
+                        1,
+                        "snapshot",
+                        "b".repeat(64),
+                        terms()),
+                SUBJECT,
+                PAYABLE_UNTIL);
     }
 
     static AcquiringTermsDTO terms() {
@@ -75,5 +99,4 @@ final class PaymentFixtures {
                 "routing-v1",
                 "return-v1");
     }
-
 }

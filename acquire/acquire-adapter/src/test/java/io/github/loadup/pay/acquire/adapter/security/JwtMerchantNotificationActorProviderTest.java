@@ -1,21 +1,31 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Adapter
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.adapter.security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.github.loadup.commons.error.CommonException;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,18 +33,14 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 class JwtMerchantNotificationActorProviderTest {
     final JwtMerchantNotificationActorProvider provider = new JwtMerchantNotificationActorProvider();
 
     void authenticate(String type, String subject, String merchant, String service) {
-        var jwt = Jwt.withTokenValue("synthetic-token").header("alg", "RS256").subject(subject).claim("tenant_id", "tenant")
+        var jwt = Jwt.withTokenValue("synthetic-token")
+                .header("alg", "RS256")
+                .subject(subject)
+                .claim("tenant_id", "tenant")
                 .claim("principal_type", type);
         if (merchant != null) {
             jwt.claim("merchant_id", merchant);
@@ -42,8 +48,9 @@ class JwtMerchantNotificationActorProviderTest {
         if (service != null) {
             jwt.claim("service_id", service);
         }
-        SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated("verified", jwt.build(),
-                List.of(new SimpleGrantedAuthority("pay:acquire:notification:read"))));
+        SecurityContextHolder.getContext()
+                .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                        "verified", jwt.build(), List.of(new SimpleGrantedAuthority("pay:acquire:notification:read"))));
     }
 
     @AfterEach

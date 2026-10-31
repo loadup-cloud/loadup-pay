@@ -1,19 +1,34 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel WeChat
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.wechat;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
@@ -33,10 +48,6 @@ import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
 import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolCodec;
 import io.github.loadup.pay.channel.wechat.protocol.WechatResponseReader;
 import io.github.loadup.pay.channel.wechat.protocol.WechatStatementCodec;
-import org.springframework.http.HttpHeaders;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.time.Clock;
@@ -48,17 +59,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.http.HttpHeaders;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Isolated official ALL statement strategy. A signed API grant plus exact file SHA1 is mandatory.
@@ -71,8 +74,13 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
     private final WechatStatementConverter converter;
     private final Clock clock;
 
-    public WechatStatementProvider(HttpTemplate http, WechatCredentialReader credentials, WechatProtocolCodec signatures,
-                                   JsonMapper json, WechatStatementConverter converter, Clock clock) {
+    public WechatStatementProvider(
+            HttpTemplate http,
+            WechatCredentialReader credentials,
+            WechatProtocolCodec signatures,
+            JsonMapper json,
+            WechatStatementConverter converter,
+            Clock clock) {
         this.http = http;
         this.credentials = credentials;
         this.signatures = signatures;
@@ -90,8 +98,13 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
     public VerifiedChannelStatement download(ChannelExecutionContext context, ChannelStatementRequest request) {
         guard(context, request);
         var account = (WechatAccountIdentity) context.binding().identity();
-        var original = credentials.read(context.tenantId(), context.binding()); // One immutable credential/pin for the whole grant/download exchange.
-        if (original == null || !context.tenantId().equals(original.tenantId()) || !account.appId().equals(original.appId()) || !account.merchantId().equals(original.merchantId())) {
+        var original = credentials.read(
+                context.tenantId(),
+                context.binding()); // One immutable credential/pin for the whole grant/download exchange.
+        if (original == null
+                || !context.tenantId().equals(original.tenantId())
+                || !account.appId().equals(original.appId())
+                || !account.merchantId().equals(original.merchantId())) {
             throw new CommonException(CHANNEL_CREDENTIAL_UNAVAILABLE);
         }
         var expected = new HashMap<String, String>();
@@ -105,7 +118,11 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
         var target = new AtomicReference<String>();
         var signed = new AtomicReference<Map<String, String>>();
         try {
-            var applied = http.exchange("wechat", WechatMethod.TRADE_BILL.operation(), new HttpCall(Map.of(), query, Map.of("Accept", "application/json", "Accept-Encoding", "identity"), null),
+            var applied = http.exchange(
+                    "wechat",
+                    WechatMethod.TRADE_BILL.operation(),
+                    new HttpCall(
+                            Map.of(), query, Map.of("Accept", "application/json", "Accept-Encoding", "identity"), null),
                     (method, uri, body) -> {
                         if (!expected.equals(WechatStatementCodec.query(uri))) {
                             throw new CommonException(INVALID_ARGUMENT);
@@ -129,14 +146,30 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
             }
             var receivedAt = now();
             var grant = WechatStatementCodec.grant(payload, reader);
-            byte[] evidence = WechatStatementCodec.evidence(context, request.scope(), target.get(), signed.get(), applied.getHeaders(), applied.getBody(), receivedAt);
+            byte[] evidence = WechatStatementCodec.evidence(
+                    context,
+                    request.scope(),
+                    target.get(),
+                    signed.get(),
+                    applied.getHeaders(),
+                    applied.getBody(),
+                    receivedAt);
             if (!now().isBefore(receivedAt.plusMinutes(5))) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
-            String client = WechatStatementCodec.PRIMARY.equals(grant.uri().getHost()) ? "wechat-bill-download" : "wechat-bill-download-backup";
+            String client = WechatStatementCodec.PRIMARY.equals(grant.uri().getHost())
+                    ? "wechat-bill-download"
+                    : "wechat-bill-download-backup";
             var output = new BoundedOutput(request.maxBytes());
-            var downloaded = http.download(client, WechatMethod.BILL_DOWNLOAD.operation(),
-                    new HttpCall(Map.of(), Map.of("token", List.of(grant.token())), Map.of("Accept", "application/octet-stream", "Accept-Encoding", "identity"), null), output,
+            var downloaded = http.download(
+                    client,
+                    WechatMethod.BILL_DOWNLOAD.operation(),
+                    new HttpCall(
+                            Map.of(),
+                            Map.of("token", List.of(grant.token())),
+                            Map.of("Accept", "application/octet-stream", "Accept-Encoding", "identity"),
+                            null),
+                    output,
                     (method, uri, body) -> {
                         WechatStatementCodec.downloadTarget(grant, uri);
                         return signatures.sign(WechatMethod.BILL_DOWNLOAD, original, method, uri, body);
@@ -149,13 +182,23 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
             byte[] bytes = output.bytes();
-            if (bytes.length == 0 || downloaded.getBody() == null || downloaded.getBody() != bytes.length
+            if (bytes.length == 0
+                    || downloaded.getBody() == null
+                    || downloaded.getBody() != bytes.length
                     || !grant.sha1().equals(WechatStatementCodec.digest("SHA-1", bytes))) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
-            var proof = new ChannelStatementReceipt(WechatStatementCodec.FORMAT,
-                    WechatStatementCodec.digest("SHA-256", target.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)),
-                    WechatStatementCodec.digest("SHA-256", evidence), "SHA1", grant.sha1(), WechatStatementCodec.digest("SHA-256", bytes), receivedAt, now(), evidence);
+            var proof = new ChannelStatementReceipt(
+                    WechatStatementCodec.FORMAT,
+                    WechatStatementCodec.digest(
+                            "SHA-256", target.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    WechatStatementCodec.digest("SHA-256", evidence),
+                    "SHA1",
+                    grant.sha1(),
+                    WechatStatementCodec.digest("SHA-256", bytes),
+                    receivedAt,
+                    now(),
+                    evidence);
             return converter.toResult(context, request.scope(), proof, bytes);
         } catch (CommonException failure) {
             throw failure;
@@ -175,17 +218,24 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         var binding = context.binding();
-        if (binding.channel() != Channel.WECHAT || request.scope().channel() != Channel.WECHAT
-                || !binding.accountScopeHash().equals(request.scope().accountScopeHash()) || !(binding.identity() instanceof WechatAccountIdentity account)) {
+        if (binding.channel() != Channel.WECHAT
+                || request.scope().channel() != Channel.WECHAT
+                || !binding.accountScopeHash().equals(request.scope().accountScopeHash())
+                || !(binding.identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
         if (!WechatStatementCodec.PROFILE.equals(request.scope().statementProfile())) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
-        if (!request.scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
+        if (!request.scope()
+                .billDate()
+                .isBefore(OffsetDateTime.now(clock)
+                        .withOffsetSameInstant(ZoneOffset.ofHours(8))
+                        .toLocalDate())) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        if (binding.accessMode() == AccessMode.SERVICE_PROVIDER && (account.subMerchantId() == null || account.subMerchantId().isBlank())) {
+        if (binding.accessMode() == AccessMode.SERVICE_PROVIDER
+                && (account.subMerchantId() == null || account.subMerchantId().isBlank())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
     }

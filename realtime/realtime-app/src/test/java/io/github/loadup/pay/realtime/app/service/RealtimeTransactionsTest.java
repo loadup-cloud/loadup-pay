@@ -1,29 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import org.junit.jupiter.api.Test;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
@@ -34,6 +28,15 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class RealtimeTransactionsTest {
     final Manager manager = new Manager();
@@ -47,10 +50,14 @@ class RealtimeTransactionsTest {
                 assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
                 assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                 assertEquals(TransactionDefinition.ISOLATION_REPEATABLE_READ, manager.isolation);
-                assertEquals(INVALID_STATE, assertThrows(CommonException.class,
-                        () -> transactions.writeLocal("inner", () -> true)).getResultCode());
-                assertEquals(INVALID_STATE, assertThrows(CommonException.class,
-                        () -> transactions.readSnapshot("inner", () -> true)).getResultCode());
+                assertEquals(
+                        INVALID_STATE,
+                        assertThrows(CommonException.class, () -> transactions.writeLocal("inner", () -> true))
+                                .getResultCode());
+                assertEquals(
+                        INVALID_STATE,
+                        assertThrows(CommonException.class, () -> transactions.readSnapshot("inner", () -> true))
+                                .getResultCode());
                 return "snapshot";
             }));
             assertEquals("outer", TenantUtil.getTenantId());
@@ -64,10 +71,13 @@ class RealtimeTransactionsTest {
     @Test
     void readFailureIsNotRetriedAndNullResultRetainsTheExistingRealtimeContract() {
         var original = new org.springframework.dao.DuplicateKeyException("Synthetic snapshot failure");
-        assertSame(original, assertThrows(org.springframework.dao.DuplicateKeyException.class,
-                () -> transactions.readSnapshot("tenant", () -> {
-                    throw original;
-                })));
+        assertSame(
+                original,
+                assertThrows(
+                        org.springframework.dao.DuplicateKeyException.class,
+                        () -> transactions.readSnapshot("tenant", () -> {
+                            throw original;
+                        })));
         assertEquals(1, manager.begins);
         assertEquals(1, manager.rollbacks);
         assertNull(transactions.readSnapshot("tenant", () -> null));
@@ -94,9 +104,13 @@ class RealtimeTransactionsTest {
         assertEquals(2, manager.rollbacks);
         assertEquals(1, manager.commits);
         var original = new CommonException(INVALID_ARGUMENT);
-        assertSame(original, assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
-            throw original;
-        })));
+        assertSame(
+                original,
+                assertThrows(
+                        CommonException.class,
+                        () -> transactions.writeLocal("tenant", () -> {
+                            throw original;
+                        })));
         assertEquals(4, manager.begins);
         assertEquals(3, manager.rollbacks);
         assertEquals(1, manager.commits);
@@ -104,9 +118,12 @@ class RealtimeTransactionsTest {
 
     @Test
     void exhaustedLocalContentionHasTheExistingRealtimeErrorCodeAndThreeAttempts() {
-        var exhausted = assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> {
-            throw new io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException("Synthetic repeated local race");
-        }));
+        var exhausted = assertThrows(
+                CommonException.class,
+                () -> transactions.writeLocal("tenant", () -> {
+                    throw new io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException(
+                            "Synthetic repeated local race");
+                }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
         assertEquals(3, manager.begins);
         assertEquals(3, manager.rollbacks);
@@ -119,11 +136,14 @@ class RealtimeTransactionsTest {
     void unexpectedUniqueConstraintFailureIsNotRetried() {
         var original = new org.springframework.dao.DuplicateKeyException("unexpected unique constraint");
         var calls = new AtomicInteger();
-        assertSame(original, assertThrows(org.springframework.dao.DuplicateKeyException.class,
-                () -> transactions.writeLocal("tenant", () -> {
-                    calls.incrementAndGet();
-                    throw original;
-                })));
+        assertSame(
+                original,
+                assertThrows(
+                        org.springframework.dao.DuplicateKeyException.class,
+                        () -> transactions.writeLocal("tenant", () -> {
+                            calls.incrementAndGet();
+                            throw original;
+                        })));
         assertEquals(1, calls.get());
         assertEquals(1, manager.rollbacks);
     }

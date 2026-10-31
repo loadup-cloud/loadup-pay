@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
@@ -24,21 +33,17 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewOper
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewProposal;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewReference;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewState;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 class ReconciliationReviewStorageConverterTest {
-    final AnnotationConfigApplicationContext spring = new AnnotationConfigApplicationContext(ReconciliationReviewStorageConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext spring =
+            new AnnotationConfigApplicationContext(ReconciliationReviewStorageConverter.class.getPackageName());
     final ReconciliationReviewStorageConverter converter = spring.getBean(ReconciliationReviewStorageConverter.class);
-    final ReconciliationReviewReference reference = new ReconciliationReviewReference("difference", "batch", "run", "a".repeat(64), "b".repeat(64));
+    final ReconciliationReviewReference reference =
+            new ReconciliationReviewReference("difference", "batch", "run", "a".repeat(64), "b".repeat(64));
     final LocalDateTime at = LocalDateTime.of(2026, 10, 28, 14, 0, 0, 123456000);
 
     @AfterEach
@@ -50,7 +55,18 @@ class ReconciliationReviewStorageConverterTest {
     void reviewHeadAndAppendOnlyReceiptRoundtripOriginalRunAndExactVersion() {
         var proposal = proposal(null);
         var head = ReconciliationReview.init(reference).propose(proposal, "event", 0L);
-        var event = new ReconciliationReviewEvent("event", reference, "maker", "request", "c".repeat(64), ReconciliationReviewOperation.PROPOSE, "proposal", ReconciliationReviewState.PROPOSED, 1L, null, at);
+        var event = new ReconciliationReviewEvent(
+                "event",
+                reference,
+                "maker",
+                "request",
+                "c".repeat(64),
+                ReconciliationReviewOperation.PROPOSE,
+                "proposal",
+                ReconciliationReviewState.PROPOSED,
+                1L,
+                null,
+                at);
         assertEquals(head, converter.head(converter.toDO("tenant", head)));
         assertEquals(event, converter.event(converter.toDO("tenant", event)));
         var approved = head.decide(proposal, "checker", "approved", true, 1L);
@@ -80,6 +96,13 @@ class ReconciliationReviewStorageConverterTest {
     }
 
     ReconciliationReviewProposal proposal(ReconciliationFileSnapshot file) {
-        return new ReconciliationReviewProposal("proposal", reference, "maker", ReconciliationReviewConclusion.TIMING_DIFFERENCE, "private rationale", file, at);
+        return new ReconciliationReviewProposal(
+                "proposal",
+                reference,
+                "maker",
+                ReconciliationReviewConclusion.TIMING_DIFFERENCE,
+                "private rationale",
+                file,
+                at);
     }
 }

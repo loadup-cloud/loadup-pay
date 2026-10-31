@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -37,16 +46,10 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.util.List;
 import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Frozen merchant events and their first native wake-up join the source financial transaction.
@@ -61,8 +64,14 @@ public class MerchantNotificationEvents {
     private final DelayedTaskTemplate tasks;
     private final IdGenerator ids;
 
-    public MerchantNotificationEvents(OrderCreationGateway orders, OrderCreationCodec admissions, OrderSnapshotReader facts,
-                                      MerchantNotificationConverter converter, MerchantNotificationGateway deliveries, DelayedTaskTemplate tasks, IdGenerator ids) {
+    public MerchantNotificationEvents(
+            OrderCreationGateway orders,
+            OrderCreationCodec admissions,
+            OrderSnapshotReader facts,
+            MerchantNotificationConverter converter,
+            MerchantNotificationGateway deliveries,
+            DelayedTaskTemplate tasks,
+            IdGenerator ids) {
         this.orders = orders;
         this.admissions = admissions;
         this.facts = facts;
@@ -74,13 +83,22 @@ public class MerchantNotificationEvents {
 
     public void order(String tenant, OrderSnapshotFacts header) {
         writable(tenant);
-        String type = switch (header.state()) {
-            case "PAID" -> "OrderFullyPaid";
-            case "CLOSED" -> "OrderClosed";
-            default -> null;
-        };
+        String type =
+                switch (header.state()) {
+                    case "PAID" -> "OrderFullyPaid";
+                    case "CLOSED" -> "OrderClosed";
+                    default -> null;
+                };
         if (type != null) {
-            publish(tenant, header, type, "AcquireOrder", header.orderId(), header.sourceVersion(), null, header.amount().getCent());
+            publish(
+                    tenant,
+                    header,
+                    type,
+                    "AcquireOrder",
+                    header.orderId(),
+                    header.sourceVersion(),
+                    null,
+                    header.amount().getCent());
         }
     }
 
@@ -90,10 +108,20 @@ public class MerchantNotificationEvents {
             return;
         }
         var header = facts.lockCurrent(tenant, orderId);
-        if (!orderId.equals(payment.orderId()) || !orderId.equals(header.orderId()) || payment.amount().getCent() > header.paidMinor()) {
+        if (!orderId.equals(payment.orderId())
+                || !orderId.equals(header.orderId())
+                || payment.amount().getCent() > header.paidMinor()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        publish(tenant, header, "PaymentSucceeded", "PaymentOrder", payment.paymentId(), payment.paymentVersion(), payment.paymentId(), payment.amount().getCent());
+        publish(
+                tenant,
+                header,
+                "PaymentSucceeded",
+                "PaymentOrder",
+                payment.paymentId(),
+                payment.paymentVersion(),
+                payment.paymentId(),
+                payment.amount().getCent());
     }
 
     public MerchantNotificationRegistration refund(String tenant, EventEnvelope<RefundMerchantEventDTO> source) {
@@ -102,8 +130,10 @@ public class MerchantNotificationEvents {
         var data = source.data();
         var stored = orders.lockOrder(tenant, data.orderId());
         var order = stored.order();
-        if (!order.id().equals(data.orderId()) || !order.payeeMerchantId().equals(data.payeeMerchantId())
-                || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.paidAmountMinor()) {
+        if (!order.id().equals(data.orderId())
+                || !order.payeeMerchantId().equals(data.payeeMerchantId())
+                || !order.amount().getCurrencyValue().equals(data.currency())
+                || data.amountMinor() > order.paidAmountMinor()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         String type = data.merchantEventType();
@@ -112,19 +142,46 @@ public class MerchantNotificationEvents {
         if (policy.isEmpty()) {
             return new MerchantNotificationRegistration(eventId, "DISABLED");
         }
-        var envelope = new MerchantNotificationBody<>(eventId, type, 1, "payment", data.aggregateType(), source.aggregateId(),
-                source.aggregateVersion(), source.occurredAt(), converter.toRefundData(data));
-        var occurredAt = source.occurredAt().atZoneSameInstant(BusinessTime.zone()).toLocalDateTime();
-        enqueue(tenant, order.id(), order.payeeMerchantId(), type, source.aggregateId(), source.aggregateVersion(),
-                eventId, JsonUtil.toJson(envelope), policy.get(), occurredAt);
+        var envelope = new MerchantNotificationBody<>(
+                eventId,
+                type,
+                1,
+                "payment",
+                data.aggregateType(),
+                source.aggregateId(),
+                source.aggregateVersion(),
+                source.occurredAt(),
+                converter.toRefundData(data));
+        var occurredAt =
+                source.occurredAt().atZoneSameInstant(BusinessTime.zone()).toLocalDateTime();
+        enqueue(
+                tenant,
+                order.id(),
+                order.payeeMerchantId(),
+                type,
+                source.aggregateId(),
+                source.aggregateVersion(),
+                eventId,
+                JsonUtil.toJson(envelope),
+                policy.get(),
+                occurredAt);
         return new MerchantNotificationRegistration(eventId, "ENQUEUED");
     }
 
-    private void publish(String tenant, OrderSnapshotFacts header, String type, String aggregateType, String aggregate,
-                         long version, String paymentId, long amount) {
+    private void publish(
+            String tenant,
+            OrderSnapshotFacts header,
+            String type,
+            String aggregateType,
+            String aggregate,
+            long version,
+            String paymentId,
+            long amount) {
         var stored = orders.lockOrder(tenant, header.orderId());
-        if (stored.order().version() != header.sourceVersion() || !stored.order().payeeMerchantId().equals(header.payeeMerchantId())
-                || !stored.order().amount().equals(header.amount()) || stored.order().paidAmountMinor() != header.paidMinor()
+        if (stored.order().version() != header.sourceVersion()
+                || !stored.order().payeeMerchantId().equals(header.payeeMerchantId())
+                || !stored.order().amount().equals(header.amount())
+                || stored.order().paidAmountMinor() != header.paidMinor()
                 || !stored.order().state().name().equals(header.state())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -133,18 +190,38 @@ public class MerchantNotificationEvents {
             return;
         }
         String eventId = eventId(tenant, type, aggregate, version);
-        var envelope = new MerchantNotificationBody<>(eventId, type, 1, "acquire", aggregateType, aggregate, version,
-                BusinessTime.external(header.sourceUpdatedAt()), converter.toData(header, paymentId, amount));
-        enqueue(tenant, header.orderId(), header.payeeMerchantId(), type, aggregate, version, eventId,
-                JsonUtil.toJson(envelope), policy.get(), header.sourceUpdatedAt());
+        var envelope = new MerchantNotificationBody<>(
+                eventId,
+                type,
+                1,
+                "acquire",
+                aggregateType,
+                aggregate,
+                version,
+                BusinessTime.external(header.sourceUpdatedAt()),
+                converter.toData(header, paymentId, amount));
+        enqueue(
+                tenant,
+                header.orderId(),
+                header.payeeMerchantId(),
+                type,
+                aggregate,
+                version,
+                eventId,
+                JsonUtil.toJson(envelope),
+                policy.get(),
+                header.sourceUpdatedAt());
     }
 
     private Optional<MerchantNotificationPolicy> policy(StoredAcquireOrder stored) {
         var admitted = admissions.decodeAdmission(stored.admissionPayload(), stored.payloadHash());
-        if (admitted == null || admitted.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED
-                || !stored.admission().admissionId().equals(admitted.admissionId()) || !stored.order().id().equals(admitted.orderId())
+        if (admitted == null
+                || admitted.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED
+                || !stored.admission().admissionId().equals(admitted.admissionId())
+                || !stored.order().id().equals(admitted.orderId())
                 || !stored.order().payeeMerchantId().equals(admitted.payeeMerchantId())
-                || !stored.admission().requestDigest().equals(admitted.requestDigest()) || admitted.terms() == null) {
+                || !stored.admission().requestDigest().equals(admitted.requestDigest())
+                || admitted.terms() == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var terms = admitted.terms().notification();
@@ -158,26 +235,52 @@ public class MerchantNotificationEvents {
         return DigestUtils.sha256(JsonUtil.toJson(List.of("pay-merchant-event-v1", tenant, type, aggregate, version)));
     }
 
-    private void enqueue(String tenant, String orderId, String merchantId, String type, String aggregate, long version,
-                         String eventId, String body, MerchantNotificationPolicy policy, java.time.LocalDateTime occurredAt) {
+    private void enqueue(
+            String tenant,
+            String orderId,
+            String merchantId,
+            String type,
+            String aggregate,
+            long version,
+            String eventId,
+            String body,
+            MerchantNotificationPolicy policy,
+            java.time.LocalDateTime occurredAt) {
         String digest = DigestUtils.sha256(body);
         var prior = deliveries.findEvent(tenant, eventId, policy.targetRef());
         if (prior.isPresent()) {
             var existing = prior.get();
-            if (!existing.body().equals(body) || !existing.bodyDigest().equals(digest) || !existing.policy().equals(policy)
-                    || !existing.orderId().equals(orderId) || !existing.payeeMerchantId().equals(merchantId)) {
+            if (!existing.body().equals(body)
+                    || !existing.bodyDigest().equals(digest)
+                    || !existing.policy().equals(policy)
+                    || !existing.orderId().equals(orderId)
+                    || !existing.payeeMerchantId().equals(merchantId)) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             return;
         }
-        var delivery = MerchantNotificationDelivery.init(ids.generate(), eventId, orderId, merchantId,
-                type, aggregate, version, body, digest, policy, occurredAt);
+        var delivery = MerchantNotificationDelivery.init(
+                ids.generate(),
+                eventId,
+                orderId,
+                merchantId,
+                type,
+                aggregate,
+                version,
+                body,
+                digest,
+                policy,
+                occurredAt);
         deliveries.insert(tenant, delivery);
-        tasks.register(MerchantNotificationService.TYPE, new MerchantNotificationKey(delivery.id(), 0).bizId(), delivery.nextAttemptAt());
+        tasks.register(
+                MerchantNotificationService.TYPE,
+                new MerchantNotificationKey(delivery.id(), 0).bizId(),
+                delivery.nextAttemptAt());
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {

@@ -1,19 +1,47 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
+import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -44,40 +72,16 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validation;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-import java.util.Optional;
-import java.util.Set;
-
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.UnitTransactions;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.clock;
-import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.order;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SESSION_UNAUTHORIZED;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 class CashierServiceTest {
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(CashierPaymentConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(CashierPaymentConverter.class.getPackageName());
     final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final CashierActor actor = new CashierActor("tenant", "session", "order", NOW.plusMinutes(5));
     final CashierAccess access = mock(CashierAccess.class);
@@ -88,12 +92,39 @@ class CashierServiceTest {
     final PaymentInitiationOperations initiation = mock(PaymentInitiationOperations.class);
     final PaymentOutcomeOperations outcomes = mock(PaymentOutcomeOperations.class);
     final CashierSummaryService summaries = mock(CashierSummaryService.class);
-    final CashierService service = new CashierService(() -> actor, access, choices, inputs, orders, allocations, initiation, outcomes, summaries,
-            context.getBean(CashierPaymentConverter.class), new OrderCreationTransactions(new UnitTransactions()), validation.getValidator(), clock(NOW));
+    final CashierService service = new CashierService(
+            () -> actor,
+            access,
+            choices,
+            inputs,
+            orders,
+            allocations,
+            initiation,
+            outcomes,
+            summaries,
+            context.getBean(CashierPaymentConverter.class),
+            new OrderCreationTransactions(new UnitTransactions()),
+            validation.getValidator(),
+            clock(NOW));
     final StoredAcquireOrder stored = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final PaymentChoiceDTO choice = new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5);
-    final CashierOrderDTO summary = new CashierOrderDTO("order", null, "subject", "CNY", 10000, 2000, 0, 8000, 1, 100000, true, null,
-            io.github.loadup.pay.acquire.domain.model.AcquireOrderState.PENDING, null, Set.of(choice), null);
+    final CashierOrderDTO summary = new CashierOrderDTO(
+            "order",
+            null,
+            "subject",
+            "CNY",
+            10000,
+            2000,
+            0,
+            8000,
+            1,
+            100000,
+            true,
+            null,
+            io.github.loadup.pay.acquire.domain.model.AcquireOrderState.PENDING,
+            null,
+            Set.of(choice),
+            null);
 
     @BeforeEach
     void setup() {
@@ -101,7 +132,8 @@ class CashierServiceTest {
         when(choices.choices(eq(stored), any())).thenReturn(Set.of(choice));
         when(inputs.prepare(actor, choice)).thenReturn(new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         when(summaries.summary(new IdQuery("order"))).thenReturn(summary);
-        when(initiation.start(any(), any())).thenReturn(new PaymentStartDTO("order", "payment", "allocation", PaymentState.INIT, null, 0));
+        when(initiation.start(any(), any()))
+                .thenReturn(new PaymentStartDTO("order", "payment", "allocation", PaymentState.INIT, null, 0));
     }
 
     @AfterEach
@@ -111,8 +143,21 @@ class CashierServiceTest {
     }
 
     StoredPaymentAllocation allocation(String scope) {
-        return new StoredPaymentAllocation(new OrderPaymentAllocation("allocation", "order", "payment", scope, "action", "a".repeat(64),
-                DomainChecks.cnyAmount(1000, "CNY"), AllocationState.HELD, 0), OWNER, "{}", "b".repeat(64), 0);
+        return new StoredPaymentAllocation(
+                new OrderPaymentAllocation(
+                        "allocation",
+                        "order",
+                        "payment",
+                        scope,
+                        "action",
+                        "a".repeat(64),
+                        DomainChecks.cnyAmount(1000, "CNY"),
+                        AllocationState.HELD,
+                        0),
+                OWNER,
+                "{}",
+                "b".repeat(64),
+                0);
     }
 
     @Test
@@ -122,7 +167,8 @@ class CashierServiceTest {
         assertTrue(result.accepted());
         assertEquals(summary, result.order());
         var principal = org.mockito.ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
-        var command = org.mockito.ArgumentCaptor.forClass(io.github.loadup.pay.acquire.client.command.PaymentStartCommand.class);
+        var command = org.mockito.ArgumentCaptor.forClass(
+                io.github.loadup.pay.acquire.client.command.PaymentStartCommand.class);
         verify(initiation).start(principal.capture(), command.capture());
         assertEquals("checkout/session", principal.getValue().actionScope());
         assertEquals(OWNER, principal.getValue().scopeHash());
@@ -137,16 +183,22 @@ class CashierServiceTest {
 
     @Test
     void anotherSessionOrMerchantPaymentCannotBeQueriedWithThisCapability() {
-        when(allocations.findPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation("checkout/other-session")));
-        assertSame(SESSION_UNAUTHORIZED, assertThrows(CommonException.class, () -> service.paymentProgress(new IdQuery("payment"))).getResultCode());
-        when(allocations.findPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation("merchant/" + OWNER)));
+        when(allocations.findPayment("tenant", "order", "payment"))
+                .thenReturn(Optional.of(allocation("checkout/other-session")));
+        assertSame(
+                SESSION_UNAUTHORIZED,
+                assertThrows(CommonException.class, () -> service.paymentProgress(new IdQuery("payment")))
+                        .getResultCode());
+        when(allocations.findPayment("tenant", "order", "payment"))
+                .thenReturn(Optional.of(allocation("merchant/" + OWNER)));
         assertThrows(CommonException.class, () -> service.paymentProgress(new IdQuery("payment")));
         verifyNoInteractions(outcomes);
     }
 
     @Test
     void provenNonAcceptanceRemainsAbsentRatherThanInventingAPaymentRecord() {
-        when(allocations.findPayment("tenant", "order", "payment")).thenReturn(Optional.of(allocation("checkout/session")));
+        when(allocations.findPayment("tenant", "order", "payment"))
+                .thenReturn(Optional.of(allocation("checkout/session")));
         when(outcomes.refresh(any(), any())).thenReturn(new PaymentProgressDTO(null, null));
         var result = service.paymentProgress(new IdQuery("payment"));
         assertEquals("payment", result.paymentId());
@@ -183,7 +235,8 @@ class CashierServiceTest {
         var proof = new PaymentCloseDTO("payment", "order", 1L, true, null, "expiry-proof");
         when(initiation.recover(any(), eq("order"), eq("action"), eq(1000L), eq(choice)))
                 .thenReturn(new PaymentIntentRecovery(PaymentIntentRecovery.State.RESOLVED, "payment", proof));
-        when(outcomes.applyInputExpiry(any(), eq("order"), eq("payment"), eq(proof))).thenReturn(new PaymentProgressDTO(null, null));
+        when(outcomes.applyInputExpiry(any(), eq("order"), eq("payment"), eq(proof)))
+                .thenReturn(new PaymentProgressDTO(null, null));
         var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
         assertFalse(result.payment().accepted());
         verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
@@ -193,22 +246,33 @@ class CashierServiceTest {
 
     @Test
     void unresolvedRecoveryCannotInventAPaymentOrCallTheResultService() {
-        for (var state : java.util.List.of(PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
-            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any())).thenReturn(new PaymentIntentRecovery(state, null, null));
+        for (var state : java.util.List.of(
+                PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
+            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any()))
+                    .thenReturn(new PaymentIntentRecovery(state, null, null));
             var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));
             assertNull(result.payment());
             assertEquals(state.name(), result.state().name());
         }
         verifyNoInteractions(inputs, choices, outcomes);
-        assertSame(SESSION_UNAUTHORIZED, assertThrows(CommonException.class, () -> service.recoverPayment(
-                new CashierPaymentRecoverCommand("another-order", "action", 1000L, choice))).getResultCode());
+        assertSame(
+                SESSION_UNAUTHORIZED,
+                assertThrows(
+                                CommonException.class,
+                                () -> service.recoverPayment(
+                                        new CashierPaymentRecoverCommand("another-order", "action", 1000L, choice)))
+                        .getResultCode());
     }
 
     @Test
     void differentOrderAndUnavailableInteractionFailBeforeMoneyReservation() {
-        assertThrows(CommonException.class, () -> service.startPayment(new CashierPaymentStartCommand("other", "action", 1000, choice)));
+        assertThrows(
+                CommonException.class,
+                () -> service.startPayment(new CashierPaymentStartCommand("other", "action", 1000, choice)));
         when(inputs.prepare(actor, choice)).thenThrow(new CommonException(UNSUPPORTED_CAPABILITY));
-        assertThrows(CommonException.class, () -> service.startPayment(new CashierPaymentStartCommand("order", "action", 1000, choice)));
+        assertThrows(
+                CommonException.class,
+                () -> service.startPayment(new CashierPaymentStartCommand("order", "action", 1000, choice)));
         verifyNoInteractions(initiation);
     }
 }

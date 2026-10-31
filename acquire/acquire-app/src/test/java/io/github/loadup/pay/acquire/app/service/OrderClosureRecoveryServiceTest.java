@@ -1,36 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.components.delayedtask.DelayedTask;
-import io.github.loadup.components.delayedtask.DelayedTaskStatus;
-import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
-import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
-import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
-import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
@@ -50,6 +37,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.delayedtask.DelayedTask;
+import io.github.loadup.components.delayedtask.DelayedTaskStatus;
+import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 class OrderClosureRecoveryServiceTest {
     final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
@@ -57,14 +60,42 @@ class OrderClosureRecoveryServiceTest {
     final OrderClosureOperations operations = mock(OrderClosureOperations.class);
     final UnitTransactions manager = new UnitTransactions();
     final OrderCreationTransactions transactions = new OrderCreationTransactions(manager);
-    final OrderClosureRecoveryService service = new OrderClosureRecoveryService(tasks, orders, closes, operations, transactions, clock(NOW));
+    final OrderClosureRecoveryService service =
+            new OrderClosureRecoveryService(tasks, orders, closes, operations, transactions, clock(NOW));
     final StoredAcquireOrder original = CheckoutFixtures.order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW);
-    final StoredAcquireOrder order = new StoredAcquireOrder(original.order().requestClose(), original.merchantOrderNo(), original.subject(),
-            original.admission(), original.admittedAt(), original.callerScopeHash(), original.snapshotId(), original.admissionPayload(), original.payloadHash());
-    final OrderCloseIntent intent = new OrderCloseIntent("close-intent", "order", "merchant", OWNER, "original-key", "e".repeat(64),
-            "MERCHANT_CLOSED", 1L, NOW.minusMinutes(1), "original-payment-cursor", 3L);
-    final DelayedTask task = new DelayedTask("close-task", OrderClosureTasks.TYPE, "order.3", NOW, NOW,
-            DelayedTaskStatus.RUNNING, 1, 5, NOW.plusMinutes(5), null);
+    final StoredAcquireOrder order = new StoredAcquireOrder(
+            original.order().requestClose(),
+            original.merchantOrderNo(),
+            original.subject(),
+            original.admission(),
+            original.admittedAt(),
+            original.callerScopeHash(),
+            original.snapshotId(),
+            original.admissionPayload(),
+            original.payloadHash());
+    final OrderCloseIntent intent = new OrderCloseIntent(
+            "close-intent",
+            "order",
+            "merchant",
+            OWNER,
+            "original-key",
+            "e".repeat(64),
+            "MERCHANT_CLOSED",
+            1L,
+            NOW.minusMinutes(1),
+            "original-payment-cursor",
+            3L);
+    final DelayedTask task = new DelayedTask(
+            "close-task",
+            OrderClosureTasks.TYPE,
+            "order.3",
+            NOW,
+            NOW,
+            DelayedTaskStatus.RUNNING,
+            1,
+            5,
+            NOW.plusMinutes(5),
+            null);
     final OrderPaymentScope scope = new OrderPaymentScope("tenant", OWNER);
 
     @BeforeEach
@@ -105,10 +136,16 @@ class OrderClosureRecoveryServiceTest {
 
     @Test
     void missingOriginalIntentAndWrongTenantCannotManufactureAClose() {
-        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task))).getResultCode());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> TenantUtil.runWithTenant("another-tenant", () -> service.handle(task)))
+                        .getResultCode());
         when(closes.findIntent("tenant", "order")).thenReturn(Optional.empty());
-        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class, this::handle).getResultCode());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, this::handle).getResultCode());
         verifyNoInteractions(operations);
     }
 }

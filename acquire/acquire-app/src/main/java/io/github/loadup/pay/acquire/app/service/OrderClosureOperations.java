@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -32,19 +41,13 @@ import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class OrderClosureOperations {
@@ -63,10 +66,20 @@ public class OrderClosureOperations {
     private final OrderSnapshotEvents snapshots;
     private final OrderClosureTasks tasks;
 
-    public OrderClosureOperations(OrderCreationGateway orders, OrderClosureGateway store,
-                                  PaymentClosureClient payment, PaymentOutcomeOperations outcomes, OrderClosureConverter converter,
-                                  AcquireOrderConverter orderConverter, OrderCreationCodec codec, OrderCreationTransactions transactions,
-                                  IdGenerator ids, Validator validator, Clock clock, OrderSnapshotEvents snapshots, OrderClosureTasks tasks) {
+    public OrderClosureOperations(
+            OrderCreationGateway orders,
+            OrderClosureGateway store,
+            PaymentClosureClient payment,
+            PaymentOutcomeOperations outcomes,
+            OrderClosureConverter converter,
+            AcquireOrderConverter orderConverter,
+            OrderCreationCodec codec,
+            OrderCreationTransactions transactions,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            OrderSnapshotEvents snapshots,
+            OrderClosureTasks tasks) {
         this.orders = orders;
         this.store = store;
         this.payment = payment;
@@ -158,7 +171,8 @@ public class OrderClosureOperations {
                 var closed = payment.close(actor.tenantId(), request);
                 outcomes.applyClose(new OrderPaymentScope(actor.tenantId(), actor.scopeHash()), request, closed);
             }
-            String nextCursor = batch.size() == BATCH_SIZE ? batch.getLast().allocation().paymentId() : "";
+            String nextCursor =
+                    batch.size() == BATCH_SIZE ? batch.getLast().allocation().paymentId() : "";
             advance(actor, intent, nextCursor);
             var status = payment.parentFenceStatus(actor.tenantId(), converter.toStatusQuery(intent));
             requireParent(intent, status);
@@ -166,20 +180,26 @@ public class OrderClosureOperations {
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var order = orders.lockOrder(actor.tenantId(), intent.orderId());
                 owned(actor, order);
-                bound(order, store.findIntent(actor.tenantId(), intent.orderId())
-                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
+                bound(
+                        order,
+                        store.findIntent(actor.tenantId(), intent.orderId())
+                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)));
                 if (terminal(order.order())) {
                     return orderConverter.toDTO(order, now());
                 }
-                if (!status.allChildrenConverged() || order.order().paymentReservedMinor() != 0
-                        || order.order().reservedPaymentCount() != 0 || !store.allAllocationsSettled(actor.tenantId(), intent.orderId())) {
+                if (!status.allChildrenConverged()
+                        || order.order().paymentReservedMinor() != 0
+                        || order.order().reservedPaymentCount() != 0
+                        || !store.allAllocationsSettled(actor.tenantId(), intent.orderId())) {
                     return orderConverter.toDTO(order, now());
                 }
                 var closed = order.order().finishClose(converter.toEvidence(intent, status));
                 store.finish(actor.tenantId(), closed, order.order().version(), now());
                 snapshots.publish(actor.tenantId(), closed.id(), closed.version());
-                return orderConverter.toDTO(orders.findOrder(actor.tenantId(), intent.orderId())
-                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
+                return orderConverter.toDTO(
+                        orders.findOrder(actor.tenantId(), intent.orderId())
+                                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                        now());
             });
         });
     }
@@ -234,16 +254,22 @@ public class OrderClosureOperations {
     }
 
     private void bound(StoredAcquireOrder order, OrderCloseIntent intent) {
-        if (!order.order().id().equals(intent.orderId()) || !order.order().payeeMerchantId().equals(intent.payeeMerchantId())
-                || !order.callerScopeHash().equals(intent.callerScopeHash()) || order.order().closeEpoch() != intent.closeEpoch()
+        if (!order.order().id().equals(intent.orderId())
+                || !order.order().payeeMerchantId().equals(intent.payeeMerchantId())
+                || !order.callerScopeHash().equals(intent.callerScopeHash())
+                || order.order().closeEpoch() != intent.closeEpoch()
                 || !(order.order().state() == AcquireOrderState.CLOSING || terminal(order.order()))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
 
     private void requireParent(OrderCloseIntent intent, ParentFenceDTO response) {
-        if (response == null || !validator.validate(response).isEmpty() || !intent.orderId().equals(response.orderId())
-                || !response.fenced() || response.closeEpoch() < intent.closeEpoch() || response.unknownCount() < 0
+        if (response == null
+                || !validator.validate(response).isEmpty()
+                || !intent.orderId().equals(response.orderId())
+                || !response.fenced()
+                || response.closeEpoch() < intent.closeEpoch()
+                || response.unknownCount() < 0
                 || response.allChildrenConverged() && response.unknownCount() != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -261,8 +287,17 @@ public class OrderClosureOperations {
 
     private String digest(OrderPaymentScope actor, AcquireOrderCloseCommand command) {
         var canonical = new StringBuilder();
-        for (String field : List.of("acquire.order-close.v1", actor.tenantId(), actor.scopeHash(), command.id(), command.requestKey(), command.reasonCode())) {
-            canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        for (String field : List.of(
+                "acquire.order-close.v1",
+                actor.tenantId(),
+                actor.scopeHash(),
+                command.id(),
+                command.requestKey(),
+                command.reasonCode())) {
+            canonical
+                    .append(field.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(field);
         }
         return codec.checksum(canonical.toString());
     }

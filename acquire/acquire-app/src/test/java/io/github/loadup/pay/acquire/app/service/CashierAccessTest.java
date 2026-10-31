@@ -1,31 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.acquire.app.security.CashierActor;
-import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
-import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
-import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
@@ -39,12 +31,24 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.acquire.app.security.CashierActor;
+import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
 class CashierAccessTest {
     final CheckoutSessionGateway sessions = mock(CheckoutSessionGateway.class);
     final CashierAccess access = new CashierAccess(sessions, clock(NOW));
     final StoredAcquireOrder order = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final StoredCheckoutSession active = session(CheckoutSessionState.ACTIVE, NOW.plusMinutes(5));
-    final CashierActor actor = new CashierActor("tenant", "session", "order", active.session().expiresAt());
+    final CashierActor actor =
+            new CashierActor("tenant", "session", "order", active.session().expiresAt());
 
     @Test
     void originalSessionAndOwnerMustMatchBeforeAReservation() {
@@ -73,8 +77,17 @@ class CashierAccessTest {
     @Test
     void validCapabilityCannotChangeTheOrderOrTheStoredExpiry() {
         when(sessions.find("tenant", "session")).thenReturn(Optional.of(active));
-        assertThrows(CommonException.class, () -> access.read(new CashierActor("tenant", "session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
-        assertThrows(CommonException.class, () -> access.read(new CashierActor("tenant", "session", "order", actor.expiresAt().plusSeconds(1)), order, "ORDER_SUMMARY"));
+        assertThrows(
+                CommonException.class,
+                () -> access.read(
+                        new CashierActor("tenant", "session", "other", actor.expiresAt()), order, "ORDER_SUMMARY"));
+        assertThrows(
+                CommonException.class,
+                () -> access.read(
+                        new CashierActor(
+                                "tenant", "session", "order", actor.expiresAt().plusSeconds(1)),
+                        order,
+                        "ORDER_SUMMARY"));
     }
 
     @Test

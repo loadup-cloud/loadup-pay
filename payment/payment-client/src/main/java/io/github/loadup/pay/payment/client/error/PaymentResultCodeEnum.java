@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.client.error;
 
@@ -22,12 +26,18 @@ public enum PaymentResultCodeEnum implements ResultCode {
     INVALID_ARGUMENT("PAYMENT_INVALID_ARGUMENT", "Invalid argument"),
     DEPENDENCY_UNAVAILABLE("PAYMENT_DEPENDENCY_UNAVAILABLE", "Payment dependency is unavailable"),
     STATEMENT_NOT_READY("PAYMENT_STATEMENT_NOT_READY", "Official statement is being generated"),
-    STATEMENT_NOT_FOUND("PAYMENT_STATEMENT_NOT_FOUND", "Official statement is unavailable; no empty source is inferred"),
+    STATEMENT_NOT_FOUND(
+            "PAYMENT_STATEMENT_NOT_FOUND", "Official statement is unavailable; no empty source is inferred"),
     LIMIT_EXCEEDED("PAYMENT_LIMIT_EXCEEDED", "Merchant limit exceeded"),
-    LIMIT_RESERVATION_EXPIRED("PAYMENT_LIMIT_RESERVATION_EXPIRED", "Merchant limit reservation expired before submission"),
-    EXECUTION_PERMIT_INVALID("PAYMENT_EXECUTION_PERMIT_INVALID", "Execution permit does not match the original payment attempt"),
-    CHANNEL_BINDING_UNAVAILABLE("PAYMENT_CHANNEL_BINDING_UNAVAILABLE", "No active channel binding matches the frozen payment terms"),
-    ROUTING_PROFILE_UNAVAILABLE("PAYMENT_ROUTING_PROFILE_UNAVAILABLE", "Routing profile is missing or belongs to another collecting merchant"),
+    LIMIT_RESERVATION_EXPIRED(
+            "PAYMENT_LIMIT_RESERVATION_EXPIRED", "Merchant limit reservation expired before submission"),
+    EXECUTION_PERMIT_INVALID(
+            "PAYMENT_EXECUTION_PERMIT_INVALID", "Execution permit does not match the original payment attempt"),
+    CHANNEL_BINDING_UNAVAILABLE(
+            "PAYMENT_CHANNEL_BINDING_UNAVAILABLE", "No active channel binding matches the frozen payment terms"),
+    ROUTING_PROFILE_UNAVAILABLE(
+            "PAYMENT_ROUTING_PROFILE_UNAVAILABLE",
+            "Routing profile is missing or belongs to another collecting merchant"),
     PAYMENT_EXPIRED("PAYMENT_EXPIRED", "The frozen payment deadline has expired"),
     INPUT_EXPIRED("PAYMENT_INPUT_EXPIRED", "Prepared channel input has expired"),
     INPUT_ALREADY_BOUND("PAYMENT_INPUT_ALREADY_BOUND", "Prepared input is bound to another attempt"),

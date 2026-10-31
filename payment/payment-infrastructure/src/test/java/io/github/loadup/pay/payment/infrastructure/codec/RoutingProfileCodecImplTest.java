@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.codec;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
@@ -24,24 +34,18 @@ import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.List;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 class RoutingProfileCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RoutingProfileConverter.class.getPackageName());
-    final RoutingProfileCodecImpl codec = new RoutingProfileCodecImpl(JsonMapper.builder().build(),
-            context.getBean(RoutingProfileConverter.class), validation.getValidator());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(RoutingProfileConverter.class.getPackageName());
+    final RoutingProfileCodecImpl codec = new RoutingProfileCodecImpl(
+            JsonMapper.builder().build(), context.getBean(RoutingProfileConverter.class), validation.getValidator());
 
     RoutingRule rule(String code) {
         return new RoutingRule(code, Channel.WECHAT, AccessMode.DIRECT, PaymentMethod.H5);
@@ -78,11 +82,17 @@ class RoutingProfileCodecImplTest {
     void ruleOrderAndPayeeAreProtectedByTheHash() {
         var original = spec(List.of(rule("first"), rule("second")));
         String hash = codec.checksum(codec.encode(original));
-        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> codec.decode(codec.encode(spec(List.of(rule("second"), rule("first")))), hash)).getResultCode());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> codec.decode(codec.encode(spec(List.of(rule("second"), rule("first")))), hash))
+                        .getResultCode());
         var otherPayee = new RoutingProfileSpec("routing-v1", "other-merchant", original.rules());
-        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> codec.decode(codec.encode(otherPayee), hash)).getResultCode());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, () -> codec.decode(codec.encode(otherPayee), hash))
+                        .getResultCode());
     }
 
     @Test
@@ -90,8 +100,10 @@ class RoutingProfileCodecImplTest {
         var original = spec(List.of(rule("first")));
         String payload = codec.encode(original);
         String extra = payload.substring(0, payload.length() - 1) + ",\"fallbackToAnyBinding\":true}";
-        assertSame(SNAPSHOT_INVALID, assertThrows(CommonException.class,
-                () -> codec.decode(extra, codec.checksum(payload))).getResultCode());
+        assertSame(
+                SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, () -> codec.decode(extra, codec.checksum(payload)))
+                        .getResultCode());
     }
 
     @Test

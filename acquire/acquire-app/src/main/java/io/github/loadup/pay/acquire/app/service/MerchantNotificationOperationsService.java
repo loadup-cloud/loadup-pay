@@ -1,17 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -36,22 +51,12 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Audited native-task recovery within the original delivery policy; contains no HTTP sending path.
@@ -68,9 +73,16 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
     private final Validator validator;
     private final Clock clock;
 
-    public MerchantNotificationOperationsService(MerchantNotificationAccess access, MerchantNotificationGateway deliveries,
-                                                 MerchantNotificationWakeGateway receipts, DelayedTaskTemplate tasks, MerchantNotificationQueryConverter converter,
-                                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator, Clock clock) {
+    public MerchantNotificationOperationsService(
+            MerchantNotificationAccess access,
+            MerchantNotificationGateway deliveries,
+            MerchantNotificationWakeGateway receipts,
+            DelayedTaskTemplate tasks,
+            MerchantNotificationQueryConverter converter,
+            OrderCreationTransactions transactions,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock) {
         this.access = access;
         this.deliveries = deliveries;
         this.receipts = receipts;
@@ -89,9 +101,16 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        String scope = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-operator-v1", actor.tenantId(), actor.principalType(), actor.principalId())));
-        String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("notification-wake-v1", actor.tenantId(), scope,
-                command.id(), command.requestKey(), command.expectedVersion(), command.reason())));
+        String scope = DigestUtils.sha256(JsonUtil.toJson(
+                List.of("notification-operator-v1", actor.tenantId(), actor.principalType(), actor.principalId())));
+        String digest = DigestUtils.sha256(JsonUtil.toJson(List.of(
+                "notification-wake-v1",
+                actor.tenantId(),
+                scope,
+                command.id(),
+                command.requestKey(),
+                command.expectedVersion(),
+                command.reason())));
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(command.id());
             DomainChecks.text(command.requestKey(), 128);
@@ -105,13 +124,16 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
                 if (existing.isPresent()) {
                     return replay(existing.get(), actor, scope, digest);
                 }
-                var delivery = deliveries.lock(actor.tenantId(), command.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var delivery = deliveries
+                        .lock(actor.tenantId(), command.id())
+                        .orElseThrow(() -> new CommonException(NOT_FOUND));
                 if (delivery.rowVersion() != command.expectedVersion()) {
                     throw new CommonException(VERSION_CONFLICT);
                 }
                 var at = now();
                 var decision = resume(actor.tenantId(), delivery, at);
-                var receipt = converter.toReceipt(ids.generate(), command, delivery, actor, decision, scope, digest, at);
+                var receipt =
+                        converter.toReceipt(ids.generate(), command, delivery, actor, decision, scope, digest, at);
                 receipts.insert(actor.tenantId(), receipt);
                 return converter.toDTO(receipt);
             });
@@ -125,11 +147,13 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         return transactions.withTenantContext(actor.tenantId(), () -> {
             DomainChecks.id(query.deliveryId());
             deliveries.find(actor.tenantId(), query.deliveryId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return PageDTO.of(receipts.page(actor.tenantId(), query.deliveryId(), query.page(), query.size()).map(converter::toDTO));
+            return PageDTO.of(receipts.page(actor.tenantId(), query.deliveryId(), query.page(), query.size())
+                    .map(converter::toDTO));
         });
     }
 
-    private MerchantNotificationWakeDecision resume(String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
+    private MerchantNotificationWakeDecision resume(
+            String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
         try {
             return schedule(tenant, delivery, at);
         } catch (CommonException failure) {
@@ -143,7 +167,8 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         }
     }
 
-    private MerchantNotificationWakeDecision schedule(String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
+    private MerchantNotificationWakeDecision schedule(
+            String tenant, MerchantNotificationDelivery delivery, LocalDateTime at) {
         if (delivery.state() == MerchantNotificationState.ACKED) {
             return new MerchantNotificationWakeDecision("ACKED", null);
         }
@@ -162,8 +187,11 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         if (missing) {
             task = tasks.register(MerchantNotificationService.TYPE, key, delivery.nextAttemptAt());
         }
-        if (task == null || task.status() == null || !MerchantNotificationService.TYPE.equals(task.taskType())
-                || !key.equals(task.bizId()) || !delivery.nextAttemptAt().equals(task.executeAt())) {
+        if (task == null
+                || task.status() == null
+                || !MerchantNotificationService.TYPE.equals(task.taskType())
+                || !key.equals(task.bizId())
+                || !delivery.nextAttemptAt().equals(task.executeAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         String result;
@@ -184,8 +212,10 @@ public class MerchantNotificationOperationsService implements MerchantNotificati
         return new MerchantNotificationWakeDecision(result, task.id());
     }
 
-    private MerchantNotificationWakeDTO replay(MerchantNotificationWakeReceipt receipt, MerchantNotificationActor actor, String scope, String digest) {
-        if (!scope.equals(receipt.callerScopeHash()) || !actor.principalType().equals(receipt.principalType())
+    private MerchantNotificationWakeDTO replay(
+            MerchantNotificationWakeReceipt receipt, MerchantNotificationActor actor, String scope, String digest) {
+        if (!scope.equals(receipt.callerScopeHash())
+                || !actor.principalType().equals(receipt.principalType())
                 || !actor.principalId().equals(receipt.principalId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }

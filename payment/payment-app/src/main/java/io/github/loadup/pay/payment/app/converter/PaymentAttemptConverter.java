@@ -1,27 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAttemptConverter {
@@ -30,7 +33,13 @@ public interface PaymentAttemptConverter {
     @Mapping(target = "executionPermitHash", ignore = true)
     @Mapping(target = "submissionStartedAt", ignore = true)
     @Mapping(target = "rowVersion", constant = "0L")
-    StoredPaymentAttempt toStored(PaymentAttempt attempt, String limitOperationId, String callerServiceId,
-                                  String requestKey, String requestDigest, String paymentRequestDigest, String preparedInputRef,
-                                  LocalDateTime preparedAt);
+    StoredPaymentAttempt toStored(
+            PaymentAttempt attempt,
+            String limitOperationId,
+            String callerServiceId,
+            String requestKey,
+            String requestDigest,
+            String paymentRequestDigest,
+            String preparedInputRef,
+            LocalDateTime preparedAt);
 }

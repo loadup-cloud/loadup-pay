@@ -1,39 +1,46 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.domain.model;
-
-import io.github.loadup.commons.json.DiagnosticHidden;
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
 
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.json.DiagnosticHidden;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+
 /**
  * One complete bounded read-only RR result, or a blocker sample. A blocked result is never a partial successful export.
  */
-public record PaymentCaptureRead(PaymentCaptureScope scope, LocalDateTime startedAt, LocalDateTime finishedAt,
-                                 @DiagnosticHidden List<PaymentLedgerLine> lines, PaymentCaptureBlocker blocker,
-                                 String blockerSubjectId) {
+public record PaymentCaptureRead(
+        PaymentCaptureScope scope,
+        LocalDateTime startedAt,
+        LocalDateTime finishedAt,
+        @DiagnosticHidden List<PaymentLedgerLine> lines,
+        PaymentCaptureBlocker blocker,
+        String blockerSubjectId) {
     public PaymentCaptureRead {
         Objects.requireNonNull(scope);
         Objects.requireNonNull(startedAt);
@@ -48,13 +55,19 @@ public record PaymentCaptureRead(PaymentCaptureScope scope, LocalDateTime starte
         var keys = new HashSet<Key>();
         long ordinal = 0;
         for (var line : lines) {
-            require(line.ordinal() == ++ordinal && !line.sourceAt().isBefore(scope.windowStart()) && line.sourceAt().isBefore(scope.windowEnd()), CONFLICT);
+            require(
+                    line.ordinal() == ++ordinal
+                            && !line.sourceAt().isBefore(scope.windowStart())
+                            && line.sourceAt().isBefore(scope.windowEnd()),
+                    CONFLICT);
             require(keys.add(new Key(line.kind(), line.channelTransactionNo(), line.channelRefundNo())), CONFLICT);
         }
     }
 
     public long paymentCount() {
-        return lines.stream().filter(line -> line.kind() == PaymentLedgerKind.PAYMENT).count();
+        return lines.stream()
+                .filter(line -> line.kind() == PaymentLedgerKind.PAYMENT)
+                .count();
     }
 
     public long refundCount() {
@@ -84,6 +97,5 @@ public record PaymentCaptureRead(PaymentCaptureScope scope, LocalDateTime starte
         return ToStringAsJson.reflectionToString(this);
     }
 
-    private record Key(PaymentLedgerKind kind, String transaction, String refund) {
-    }
+    private record Key(PaymentLedgerKind kind, String transaction, String refund) {}
 }

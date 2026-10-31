@@ -1,5 +1,30 @@
-/* Copyright 2026 LoadUp Cloud. Licensed under the Apache License, Version 2.0. */
+/*
+ * #%L
+ * LoadUp Pay Customer Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.customer.infrastructure.repository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import io.github.loadup.commons.error.CommonException;
@@ -12,20 +37,12 @@ import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantActionGra
 import io.github.loadup.pay.customer.infrastructure.dataobject.MerchantRelationshipDO;
 import io.github.loadup.pay.customer.infrastructure.mapper.MerchantActionGrantMapper;
 import io.github.loadup.pay.customer.infrastructure.mapper.MerchantRelationshipMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import javax.sql.DataSource;
-import java.time.Clock;
-import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 class MerchantAuthorizationGatewayImplTest {
     private final MerchantRelationshipMapper relationships = mock(MerchantRelationshipMapper.class);
@@ -61,8 +78,9 @@ class MerchantAuthorizationGatewayImplTest {
     void rejectsReadWithDifferentTenantBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
-        TenantUtil.runWithTenant("tenant-a", () ->
-                assertThrows(CommonException.class, () -> gateway.findRelationship("tenant-b", "relationship")));
+        TenantUtil.runWithTenant(
+                "tenant-a",
+                () -> assertThrows(CommonException.class, () -> gateway.findRelationship("tenant-b", "relationship")));
         verifyNoInteractions(jdbc);
         verifyNoInteractions(relationships);
         verifyNoInteractions(grants);
@@ -76,11 +94,23 @@ class MerchantAuthorizationGatewayImplTest {
         when(relationships.selectOneById("relationship")).thenReturn(relationship(from));
         when(grants.selectOneByQuery(any(QueryWrapper.class))).thenReturn(grant(from));
         TenantUtil.runWithTenant("tenant-a", () -> {
-            assertEquals(MerchantRelationship.init("relationship", "parent", "child", from, null).activate(),
+            assertEquals(
+                    MerchantRelationship.init("relationship", "parent", "child", from, null)
+                            .activate(),
                     gateway.findRelationship("tenant-a", "relationship").orElseThrow());
-            assertEquals(MerchantActionGrant.init("grant", PrincipalType.MERCHANT, "parent", "child",
-                            "relationship", MerchantAction.CREATE_ORDER, from, null).activate(),
-                    gateway.findGrant("tenant-a", PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
+            assertEquals(
+                    MerchantActionGrant.init(
+                                    "grant",
+                                    PrincipalType.MERCHANT,
+                                    "parent",
+                                    "child",
+                                    "relationship",
+                                    MerchantAction.CREATE_ORDER,
+                                    from,
+                                    null)
+                            .activate(),
+                    gateway.findGrant(
+                                    "tenant-a", PrincipalType.MERCHANT, "parent", "child", MerchantAction.CREATE_ORDER)
                             .orElseThrow());
         });
     }
@@ -89,24 +119,35 @@ class MerchantAuthorizationGatewayImplTest {
     void rejectsLockWithoutTransactionBeforeExecutingSql() {
         var jdbc = mock(JdbcTemplate.class);
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
-        TenantUtil.runWithTenant("tenant-a", () ->
-                assertThrows(CommonException.class, () -> gateway.lockRelationship("tenant-a", "relationship")));
+        TenantUtil.runWithTenant(
+                "tenant-a",
+                () -> assertThrows(CommonException.class, () -> gateway.lockRelationship("tenant-a", "relationship")));
         verifyNoInteractions(jdbc);
     }
 
     @Test
     void acceptsNewActivatedRelationshipAndGrant() {
         var source = mock(DataSource.class);
-        var jdbc = mock(JdbcTemplate.class, invocation -> switch (invocation.getMethod().getName()) {
-            case "getDataSource" -> source;
-            case "update" -> 1;
-            default -> org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
-        });
+        var jdbc = mock(
+                JdbcTemplate.class, invocation -> switch (invocation.getMethod().getName()) {
+                    case "getDataSource" -> source;
+                    case "update" -> 1;
+                    default -> org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
+                });
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);
-        var relationship = MerchantRelationship.init("relationship", "parent", "child", from, null).activate();
-        var grant = MerchantActionGrant.init("grant", PrincipalType.MERCHANT, "parent", "child",
-                "relationship", MerchantAction.CREATE_ORDER, from, null).activate();
+        var relationship = MerchantRelationship.init("relationship", "parent", "child", from, null)
+                .activate();
+        var grant = MerchantActionGrant.init(
+                        "grant",
+                        PrincipalType.MERCHANT,
+                        "parent",
+                        "child",
+                        "relationship",
+                        MerchantAction.CREATE_ORDER,
+                        from,
+                        null)
+                .activate();
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TransactionSynchronizationManager.bindResource(source, new Object());
         try {

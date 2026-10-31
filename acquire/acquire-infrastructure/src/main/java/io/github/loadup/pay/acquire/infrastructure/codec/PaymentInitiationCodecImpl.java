@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.codec;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
@@ -23,15 +29,12 @@ import io.github.loadup.pay.acquire.infrastructure.converter.PaymentIntentSnapsh
 import io.github.loadup.pay.acquire.infrastructure.model.PaymentIntentSnapshot;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import jakarta.validation.Validator;
+import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.nio.charset.StandardCharsets;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Component
 public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
@@ -40,12 +43,18 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
     private final OrderCreationCodec hashes;
     private final PaymentIntentSnapshotConverter snapshots;
 
-    public PaymentInitiationCodecImpl(Validator validator, OrderCreationCodec hashes, PaymentIntentSnapshotConverter snapshots) {
-        this.mapper = JsonMapper.builder().disable(MapperFeature.USE_ANNOTATIONS)
+    public PaymentInitiationCodecImpl(
+            Validator validator, OrderCreationCodec hashes, PaymentIntentSnapshotConverter snapshots) {
+        this.mapper = JsonMapper.builder()
+                .disable(MapperFeature.USE_ANNOTATIONS)
                 .propertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
-                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
-                        DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT).build();
+                .enable(
+                        DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                                DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES,
+                        DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES,
+                                DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+                .build();
         this.validator = validator;
         this.hashes = hashes;
         this.snapshots = snapshots;
@@ -76,9 +85,13 @@ public class PaymentInitiationCodecImpl implements PaymentInitiationCodec {
             }
             var value = mapper.readValue(stored.intentPayload(), PaymentIntentSnapshot.class);
             var allocation = stored.allocation();
-            if (value == null || !allocation.id().equals(value.allocationId()) || !allocation.orderId().equals(value.orderId())
-                    || !allocation.paymentId().equals(value.paymentId()) || !allocation.requestDigest().equals(value.requestDigest())
-                    || allocation.amount().getCent() != value.amountMinor() || !allocation.amount().getCurrencyValue().equals(value.currency())) {
+            if (value == null
+                    || !allocation.id().equals(value.allocationId())
+                    || !allocation.orderId().equals(value.orderId())
+                    || !allocation.paymentId().equals(value.paymentId())
+                    || !allocation.requestDigest().equals(value.requestDigest())
+                    || allocation.amount().getCent() != value.amountMinor()
+                    || !allocation.amount().getCurrencyValue().equals(value.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             // The owner-local format permits staged input references, without depending on current Command validation.

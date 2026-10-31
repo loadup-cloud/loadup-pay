@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Product Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.product.infrastructure.codec;
+
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
@@ -22,17 +28,14 @@ import io.github.loadup.pay.product.app.model.EncodedAcquiringTerms;
 import io.github.loadup.pay.product.app.port.CompiledTermsCodec;
 import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Component;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class CompiledTermsCodecImpl implements CompiledTermsCodec {
@@ -75,13 +78,11 @@ public class CompiledTermsCodecImpl implements CompiledTermsCodec {
     }
 
     private String hash(CompiledAcquiringTerms value) {
-        Map<String, Object> map = mapper.convertValue(value, new TypeReference<Map<String, Object>>() {
-        });
+        Map<String, Object> map = mapper.convertValue(value, new TypeReference<Map<String, Object>>() {});
         // Both capability groups and their method sets are unordered semantic collections.
         // Replace them with sorted structural values before the framework's recursive map canonicalization.
         Map<String, Object> terms =
-                new TreeMap<>(mapper.convertValue(value.terms(), new TypeReference<Map<String, Object>>() {
-                }));
+                new TreeMap<>(mapper.convertValue(value.terms(), new TypeReference<Map<String, Object>>() {}));
         List<Map<String, Object>> capabilities = value.terms().capabilities().stream()
                 .sorted(Comparator.comparing((io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO c) ->
                                 c.channel().name())

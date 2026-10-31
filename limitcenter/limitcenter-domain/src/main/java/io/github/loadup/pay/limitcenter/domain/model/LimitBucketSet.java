@@ -1,31 +1,34 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay LimitCenter Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
-import io.github.loadup.commons.json.ToStringAsJson;
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.require;
 
 /**
  * Pure all-or-none proposal; the persistence gateway must commit every resulting row atomically.
@@ -54,8 +57,12 @@ public record LimitBucketSet(Map<LimitBucketKey, LimitBucket> buckets) {
         Map<LimitBucketKey, LimitBucket> updated = new HashMap<>(buckets);
         Set<LimitBucketKey> seen = new HashSet<>();
         for (var item : items) {
-            require(seen.add(item.bucket()) && buckets.containsKey(item.bucket())
-                    && item.consumed() == 0 && item.restored() == 0, CONFLICT);
+            require(
+                    seen.add(item.bucket())
+                            && buckets.containsKey(item.bucket())
+                            && item.consumed() == 0
+                            && item.restored() == 0,
+                    CONFLICT);
             updated.put(item.bucket(), buckets.get(item.bucket()).confirm(item.reserved()));
         }
         return new LimitBucketSet(updated);

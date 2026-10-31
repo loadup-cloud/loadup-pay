@@ -1,4 +1,37 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.infrastructure.client;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -15,15 +48,6 @@ import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
 import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
-import org.apache.dubbo.rpc.RpcContext;
-import org.apache.dubbo.rpc.RpcException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -35,20 +59,14 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 class PaymentAcquireRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
@@ -57,12 +75,31 @@ class PaymentAcquireRpcClientTest {
     final AcquireRpcMapper acquireRpcMapper =
             new AcquireRpcMapperImpl(new PaymentRpcMapperImpl(new ProductRpcMapperImpl()));
     final List<String> attachments = new ArrayList<>();
-    final EventEnvelope<PaymentOutcomeEventDTO> event = new EventEnvelope<>("delivery", "proof", "payment",
-            "pay.payment.outcome.acquire.v1", 1, "payment", 2, OffsetDateTime.now(clock),
-            new PaymentOutcomeEventDTO("payment", "order", "allocation", "operation", "merchant", 1000, "CNY",
-                    PaymentState.SUCCEEDED, 2, "proof", false));
+    final EventEnvelope<PaymentOutcomeEventDTO> event = new EventEnvelope<>(
+            "delivery",
+            "proof",
+            "payment",
+            "pay.payment.outcome.acquire.v1",
+            1,
+            "payment",
+            2,
+            OffsetDateTime.now(clock),
+            new PaymentOutcomeEventDTO(
+                    "payment",
+                    "order",
+                    "allocation",
+                    "operation",
+                    "merchant",
+                    1000,
+                    "CNY",
+                    PaymentState.SUCCEEDED,
+                    2,
+                    "proof",
+                    false));
+
     @TempDir
     Path directory;
+
     Path tokenFile;
     PaymentAcquireRpcClient client;
 
@@ -71,8 +108,19 @@ class PaymentAcquireRpcClientTest {
     }
 
     Map<String, Object> claims() {
-        return new HashMap<>(Map.of("tenant_id", "tenant", "sub", "payment", "service_id", "payment", "principal_type", "SERVICE",
-                "aud", List.of("acquire"), "exp", clock.instant().getEpochSecond() + 300));
+        return new HashMap<>(Map.of(
+                "tenant_id",
+                "tenant",
+                "sub",
+                "payment",
+                "service_id",
+                "payment",
+                "principal_type",
+                "SERVICE",
+                "aud",
+                List.of("acquire"),
+                "exp",
+                clock.instant().getEpochSecond() + 300));
     }
 
     String token(Map<String, Object> claims) throws Exception {
@@ -87,13 +135,19 @@ class PaymentAcquireRpcClientTest {
     void setup() throws Exception {
         tokenFile = directory.resolve("acquire.jwt");
         token(claims());
-        client = new PaymentAcquireRpcClient(acquireRpcMapper, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
+        client = new PaymentAcquireRpcClient(
+                acquireRpcMapper,
+                mapper,
+                new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile),
+                clock);
         ReflectionTestUtils.setField(client, "acquireRpc", acquireRpc);
         doAnswer(invocation -> {
-            attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return acquireRpcMapper.toWirePaymentOutcomeAckDTO(
-                    new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
-        }).when(acquireRpc).paymentOutcome(any());
+                    attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return acquireRpcMapper.toWirePaymentOutcomeAckDTO(
+                            new PaymentOutcomeAckDTO("delivery", "proof", "payment", 2, "proof", 3, true));
+                })
+                .when(acquireRpc)
+                .paymentOutcome(any());
     }
 
     @Test
@@ -106,11 +160,20 @@ class PaymentAcquireRpcClientTest {
 
     @Test
     void feeTargetUsesItsOwnTypedOperationAndTheSameRotatableServiceCredential() {
-        var fee = new EventEnvelope<>("fee-delivery", "fee-business", "payment", "pay.payment.refund.fee.v1", 1, "order", 3,
-                OffsetDateTime.now(clock), new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
+        var fee = new EventEnvelope<>(
+                "fee-delivery",
+                "fee-business",
+                "payment",
+                "pay.payment.refund.fee.v1",
+                1,
+                "order",
+                3,
+                OffsetDateTime.now(clock),
+                new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 0, 3));
         var ack = new FeeRefundAckDTO("fee-delivery", "fee-business", "order", 3, 4, true);
         doAnswer(invocation -> acquireRpcMapper.toWireFeeRefundAckDTO(ack))
-                .when(acquireRpc).feeRefund(any());
+                .when(acquireRpc)
+                .feeRefund(any());
         assertEquals(ack, client.acceptFeeRefund("tenant", fee));
         verify(acquireRpc).feeRefund(any());
     }
@@ -128,11 +191,17 @@ class PaymentAcquireRpcClientTest {
 
     @Test
     void wrongTenantOrAudienceNeverReachesAcquire() throws Exception {
-        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> client.accept("other-tenant", event)).getResultCode());
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> client.accept("other-tenant", event))
+                        .getResultCode());
         var wrong = claims();
         wrong.put("aud", "limitcenter");
         token(wrong);
-        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.accept("tenant", event)).getResultCode());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.accept("tenant", event))
+                        .getResultCode());
         verifyNoInteractions(acquireRpc);
     }
 
@@ -150,14 +219,20 @@ class PaymentAcquireRpcClientTest {
     @Test
     void transportFailureDoesNotBecomeAValidSemanticAck() {
         doThrow(remoteFailure("ACQUIRE_ACTION_FORBIDDEN")).when(acquireRpc).paymentOutcome(any());
-        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.accept("tenant", event)).getResultCode());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.accept("tenant", event))
+                        .getResultCode());
     }
 
     @Test
     void outerTransactionCannotRemainOpenDuringTheCrossServiceCall() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> client.accept("tenant", event)).getResultCode());
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> client.accept("tenant", event))
+                            .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }

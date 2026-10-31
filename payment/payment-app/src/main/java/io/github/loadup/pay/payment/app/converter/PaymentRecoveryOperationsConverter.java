@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -23,11 +27,10 @@ import io.github.loadup.pay.payment.client.command.PaymentRecoveryRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryRetryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentRecoveryTaskDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentRecoveryOperationsConverter {
@@ -52,8 +55,15 @@ public interface PaymentRecoveryOperationsConverter {
     @Mapping(target = "expectedAttempts", source = "command.expectedAttempts")
     @Mapping(target = "expectedNextExecuteAt", source = "command.expectedNextExecuteAt")
     @Mapping(target = "reason", source = "command.reason")
-    PaymentRecoveryRetryReceipt toReceipt(String id, PaymentRecoveryRetryCommand command, PaymentActor actor,
-                                          PaymentRecoveryInspection inspection, String callerScopeHash, String requestDigest, String result, LocalDateTime acceptedAt);
+    PaymentRecoveryRetryReceipt toReceipt(
+            String id,
+            PaymentRecoveryRetryCommand command,
+            PaymentActor actor,
+            PaymentRecoveryInspection inspection,
+            String callerScopeHash,
+            String requestDigest,
+            String result,
+            LocalDateTime acceptedAt);
 
     default OffsetDateTime external(LocalDateTime value) {
         return value == null ? null : BusinessTime.external(value);

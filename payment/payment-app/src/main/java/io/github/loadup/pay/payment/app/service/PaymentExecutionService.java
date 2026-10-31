@@ -1,19 +1,36 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -30,26 +47,12 @@ import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Durable state decides query versus first submit; a task claim never grants a debit retry.
@@ -73,12 +76,23 @@ public class PaymentExecutionService {
     private final Clock clock;
     private final io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions;
 
-    public PaymentExecutionService(PaymentAcceptanceGateway payments, PaymentAttemptGateway attempts,
-                                   PaymentControlGateway changes, PaymentExecutionLocks locks, PaymentInitialAttemptService initial,
-                                   PaymentSubmissionPreparation submission, PaymentChannelGateway channels, PaymentResultService results, PaymentCloseService closing,
-                                   PaymentAcceptanceCodec codec, PaymentControlConverter updates, PaymentEvents events,
-                                   PaymentAcceptanceTransactions transactions, IdGenerator ids, Clock clock,
-                                   io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
+    public PaymentExecutionService(
+            PaymentAcceptanceGateway payments,
+            PaymentAttemptGateway attempts,
+            PaymentControlGateway changes,
+            PaymentExecutionLocks locks,
+            PaymentInitialAttemptService initial,
+            PaymentSubmissionPreparation submission,
+            PaymentChannelGateway channels,
+            PaymentResultService results,
+            PaymentCloseService closing,
+            PaymentAcceptanceCodec codec,
+            PaymentControlConverter updates,
+            PaymentEvents events,
+            PaymentAcceptanceTransactions transactions,
+            IdGenerator ids,
+            Clock clock,
+            io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
         this.payments = payments;
         this.attempts = attempts;
         this.changes = changes;
@@ -125,14 +139,21 @@ public class PaymentExecutionService {
             if (work.attempt().attempt().state() == PaymentAttemptState.INIT) {
                 final Optional<io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket> ticket;
                 try {
-                    ticket = submission.prepare(tenant, paymentId, work.attempt().attempt().id());
+                    ticket = submission.prepare(
+                            tenant, paymentId, work.attempt().attempt().id());
                 } catch (CommonException rejected) {
-                    if (initialRejection(rejected) || rejected.getResultCode() == LIMIT_EXCEEDED
+                    if (initialRejection(rejected)
+                            || rejected.getResultCode() == LIMIT_EXCEEDED
                             || rejected.getResultCode() == LIMIT_RESERVATION_EXPIRED
                             || rejected.getResultCode() == EXECUTION_FENCED
-                            || rejected.getResultCode() == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
-                            || rejected.getResultCode() == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
-                            || rejected.getResultCode() == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
+                            || rejected.getResultCode()
+                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
+                            || rejected.getResultCode()
+                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum
+                                            .UNSUPPORTED_CAPABILITY
+                            || rejected.getResultCode()
+                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum
+                                            .CHANNEL_BINDING_MISMATCH) {
                         snapshot(tenant, paymentId, true);
                         return true;
                     }
@@ -149,7 +170,8 @@ public class PaymentExecutionService {
                 }
             } else {
                 var attempt = work.attempt().attempt();
-                if (attempt.state() != PaymentAttemptState.SUBMITTING && attempt.state() != PaymentAttemptState.PENDING
+                if (attempt.state() != PaymentAttemptState.SUBMITTING
+                        && attempt.state() != PaymentAttemptState.PENDING
                         && attempt.state() != PaymentAttemptState.UNKNOWN) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
@@ -177,19 +199,25 @@ public class PaymentExecutionService {
             if (terminal(order.state())) {
                 return Optional.empty();
             }
-            var stored = order.activeAttemptId() == null ? null : attempts.lock(tenant, order.activeAttemptId())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var stored = order.activeAttemptId() == null
+                    ? null
+                    : attempts.lock(tenant, order.activeAttemptId())
+                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             if (stored != null) {
                 PaymentExecutionBindings.activeContext(locked, stored);
             }
-            boolean neverSubmitted = stored == null ? order.state() == PaymentState.INIT && order.version() == 0
-                    : stored.attempt().state() == PaymentAttemptState.INIT && stored.attempt().executionEpoch() == 0;
-            // A concurrent Y2 winner turns a local rejection into observation only, never a fabricated no-collection fact.
+            boolean neverSubmitted = stored == null
+                    ? order.state() == PaymentState.INIT && order.version() == 0
+                    : stored.attempt().state() == PaymentAttemptState.INIT
+                            && stored.attempt().executionEpoch() == 0;
+            // A concurrent Y2 winner turns a local rejection into observation only, never a fabricated no-collection
+            // fact.
             if (rejectUnsubmitted && !neverSubmitted) {
                 return Optional.empty();
             }
             var payableUntil = codec.decode(accepted).payableUntil();
-            boolean closing = order.state() == PaymentState.CLOSING || locked.parent().gate().state() == GateState.FENCED
+            boolean closing = order.state() == PaymentState.CLOSING
+                    || locked.parent().gate().state() == GateState.FENCED
                     || locked.gate().gate().state() == GateState.FENCED
                     || !clock.instant().isBefore(payableUntil.toInstant());
             if (closing || rejectUnsubmitted) {
@@ -198,7 +226,12 @@ public class PaymentExecutionService {
                 }
                 var gate = locked.gate();
                 if (gate.gate().state() != GateState.FENCED) {
-                    changes.updateGate(tenant, updates.withGate(gate, gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))), gate.rowVersion());
+                    changes.updateGate(
+                            tenant,
+                            updates.withGate(
+                                    gate,
+                                    gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))),
+                            gate.rowVersion());
                 }
                 var nextOrder = closing ? order.requestClose() : order;
                 String evidence = null;
@@ -216,7 +249,8 @@ public class PaymentExecutionService {
                 } else if (stored == null) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                var updated = updates.withPayment(accepted, nextOrder, evidence == null ? accepted.terminalEvidenceId() : evidence);
+                var updated = updates.withPayment(
+                        accepted, nextOrder, evidence == null ? accepted.terminalEvidenceId() : evidence);
                 if (nextOrder.version() != order.version()) {
                     changes.updatePayment(tenant, updated, order.version());
                     if (!terminal(nextOrder.state())) {
@@ -232,9 +266,12 @@ public class PaymentExecutionService {
             if (stored == null) {
                 String requestKey = "initial/" + paymentId;
                 // The original complete request digest already binds tenant, caller and frozen payment parameters.
-                var updated = initial.create(tenant, accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
-                stored = attempts.lock(tenant, updated.payment().activeAttemptId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-                PaymentExecutionBindings.activeContext(PaymentExecutionBindings.locked(updated, locked.parent(), locked.gate()), stored);
+                var updated = initial.create(
+                        tenant, accepted, requestKey, codec.checksum("payment-initial:" + accepted.requestDigest()));
+                stored = attempts.lock(tenant, updated.payment().activeAttemptId())
+                        .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+                PaymentExecutionBindings.activeContext(
+                        PaymentExecutionBindings.locked(updated, locked.parent(), locked.gate()), stored);
             }
             return Optional.of(new Work(stored, false, payableUntil));
         });
@@ -242,8 +279,11 @@ public class PaymentExecutionService {
 
     private boolean initialRejection(CommonException rejected) {
         var code = rejected.getResultCode();
-        return code == INPUT_EXPIRED || code == PAYMENT_EXPIRED || code == CHANNEL_BINDING_UNAVAILABLE
-                || code == ROUTING_PROFILE_UNAVAILABLE || code == UNSUPPORTED_CAPABILITY;
+        return code == INPUT_EXPIRED
+                || code == PAYMENT_EXPIRED
+                || code == CHANNEL_BINDING_UNAVAILABLE
+                || code == ROUTING_PROFILE_UNAVAILABLE
+                || code == UNSUPPORTED_CAPABILITY;
     }
 
     private LocalDateTime now() {

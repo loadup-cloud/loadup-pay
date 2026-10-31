@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.infrastructure.repository;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -41,6 +52,12 @@ import io.github.loadup.pay.realtime.infrastructure.mapper.TradeOrderProjectionM
 import io.github.loadup.pay.realtime.infrastructure.mapper.TradePaymentProjectionMapper;
 import io.github.loadup.pay.realtime.infrastructure.mapper.TradeRefundProjectionMapper;
 import io.github.loadup.pay.realtime.infrastructure.mapper.TradeRefundSummaryMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -48,29 +65,17 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SOURCE_CONFLICT;
-
 @Repository
 public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjectionMapper, TradeOrderDO>
         implements TradeProjectionGateway, TradeQueryGateway {
     private static final String ORDER_COLUMNS = "id, created_at, updated_at, order_id, payee_merchant_id, "
             + "merchant_order_no, state, business_created_at, source_version, content_hash, payload, snapshot_at";
-    private static final String PAYMENT_COLUMNS = "id, created_at, updated_at, payment_id, order_id, payee_merchant_id, "
-            + "state, business_created_at, source_version, content_hash, payload, snapshot_at";
-    private static final String REFUND_COLUMNS = "id, created_at, updated_at, refund_id, refund_request_id, payment_id, "
-            + "order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private static final String PAYMENT_COLUMNS =
+            "id, created_at, updated_at, payment_id, order_id, payee_merchant_id, "
+                    + "state, business_created_at, source_version, content_hash, payload, snapshot_at";
+    private static final String REFUND_COLUMNS =
+            "id, created_at, updated_at, refund_id, refund_request_id, payment_id, "
+                    + "order_id, payee_merchant_id, state, business_created_at, source_version, content_hash, payload, snapshot_at";
     private final NamedParameterJdbcTemplate jdbc;
     private final TradePaymentProjectionMapper payments;
     private final TradeRefundProjectionMapper refunds;
@@ -110,16 +115,23 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             return Optional.ofNullable(row);
         }
         var args = new MapSqlParameterSource().addValue("orderId", orderId).addValue("payee", payee);
-        return jdbc.query("SELECT " + ORDER_COLUMNS + " FROM trade_order_projection WHERE "
-                        + "order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
-                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(TradeOrderDO.class))
-                .stream().findFirst();
+        return jdbc
+                .query(
+                        "SELECT " + ORDER_COLUMNS + " FROM trade_order_projection WHERE "
+                                + "order_id = :orderId AND deleted = FALSE"
+                                + (payee == null ? "" : " AND payee_merchant_id = :payee")
+                                + " FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(TradeOrderDO.class))
+                .stream()
+                .findFirst();
     }
 
     private TradeOrderProjection read(TradeOrderDO row) {
         try {
             var value = codec.order(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
-            if (row.getSourceVersion() != value.source().number() || !row.getOrderId().equals(value.orderId())
+            if (row.getSourceVersion() != value.source().number()
+                    || !row.getOrderId().equals(value.orderId())
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())
                     || !row.getMerchantOrderNo().equals(value.merchantOrderNo())
                     || !row.getState().equals(value.state())
@@ -174,10 +186,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             }
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource().addValue("orderId", value.orderId())
-                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
-                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
-                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("orderId", value.orderId())
+                .addValue("version", value.source().number())
+                .addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state())
+                .addValue("hash", factsHash)
+                .addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE trade_order_projection SET state = :state, source_version = :version, content_hash = :hash,
                     payload = :payload, snapshot_at = :snapshot, updated_at = :updated
@@ -192,18 +209,25 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     private Optional<TradePaymentDO> payment(String tenant, String paymentId, boolean lock) {
         requireTenant(tenant);
         if (!lock) {
-            return Optional.ofNullable(payments.selectOneByQuery(QueryWrapper.create().eq("payment_id", paymentId)));
+            return Optional.ofNullable(
+                    payments.selectOneByQuery(QueryWrapper.create().eq("payment_id", paymentId)));
         }
         var args = new MapSqlParameterSource().addValue("paymentId", paymentId);
-        return jdbc.query("SELECT " + PAYMENT_COLUMNS + " FROM trade_payment_projection WHERE "
-                        + "payment_id = :paymentId AND deleted = FALSE FOR UPDATE", args,
-                BeanPropertyRowMapper.newInstance(TradePaymentDO.class)).stream().findFirst();
+        return jdbc
+                .query(
+                        "SELECT " + PAYMENT_COLUMNS + " FROM trade_payment_projection WHERE "
+                                + "payment_id = :paymentId AND deleted = FALSE FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(TradePaymentDO.class))
+                .stream()
+                .findFirst();
     }
 
     private TradePaymentProjection read(TradePaymentDO row) {
         try {
             var value = codec.payment(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
-            if (row.getSourceVersion() != value.source().number() || !row.getPaymentId().equals(value.paymentId())
+            if (row.getSourceVersion() != value.source().number()
+                    || !row.getPaymentId().equals(value.paymentId())
                     || !row.getOrderId().equals(value.orderId())
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())
                     || !row.getState().equals(value.state())
@@ -257,10 +281,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             }
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource().addValue("paymentId", value.paymentId())
-                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
-                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
-                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("paymentId", value.paymentId())
+                .addValue("version", value.source().number())
+                .addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state())
+                .addValue("hash", factsHash)
+                .addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE trade_payment_projection SET state = :state, source_version = :version, content_hash = :hash,
                     payload = :payload, snapshot_at = :snapshot, updated_at = :updated
@@ -275,18 +304,25 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     private Optional<TradeRefundDO> refund(String tenant, String refundId, boolean lock) {
         requireTenant(tenant);
         if (!lock) {
-            return Optional.ofNullable(refunds.selectOneByQuery(QueryWrapper.create().eq("refund_id", refundId)));
+            return Optional.ofNullable(
+                    refunds.selectOneByQuery(QueryWrapper.create().eq("refund_id", refundId)));
         }
         var args = new MapSqlParameterSource().addValue("refundId", refundId);
-        return jdbc.query("SELECT " + REFUND_COLUMNS + " FROM trade_refund_projection WHERE "
-                        + "refund_id = :refundId AND deleted = FALSE FOR UPDATE", args,
-                BeanPropertyRowMapper.newInstance(TradeRefundDO.class)).stream().findFirst();
+        return jdbc
+                .query(
+                        "SELECT " + REFUND_COLUMNS + " FROM trade_refund_projection WHERE "
+                                + "refund_id = :refundId AND deleted = FALSE FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(TradeRefundDO.class))
+                .stream()
+                .findFirst();
     }
 
     private TradeRefundProjection read(TradeRefundDO row) {
         try {
             var value = codec.refund(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
-            if (row.getSourceVersion() != value.source().number() || !row.getRefundId().equals(value.refundId())
+            if (row.getSourceVersion() != value.source().number()
+                    || !row.getRefundId().equals(value.refundId())
                     || !row.getRefundRequestId().equals(value.refundRequestId())
                     || !row.getPaymentId().equals(value.paymentId())
                     || !row.getOrderId().equals(value.orderId())
@@ -343,10 +379,15 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             }
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource().addValue("refundId", value.refundId())
-                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
-                .addValue("state", value.state()).addValue("hash", factsHash).addValue("payload", payload)
-                .addValue("snapshot", value.snapshotAt()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("refundId", value.refundId())
+                .addValue("version", value.source().number())
+                .addValue("expected", row.getSourceVersion())
+                .addValue("state", value.state())
+                .addValue("hash", factsHash)
+                .addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE trade_refund_projection SET state = :state, source_version = :version, content_hash = :hash,
                     payload = :payload, snapshot_at = :snapshot, updated_at = :updated
@@ -361,22 +402,31 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     private Optional<TradeSummaryDO> summary(String tenant, String order, String payee, boolean lock) {
         requireTenant(tenant);
         if (!lock) {
-            return Optional.ofNullable(payee == null
-                    ? summaries.selectOneByQuery(QueryWrapper.create().eq("order_id", order))
-                    : summaries.selectOneByQuery(QueryWrapper.create().eq("order_id", order).eq("payee_merchant_id", payee)));
+            return Optional.ofNullable(
+                    payee == null
+                            ? summaries.selectOneByQuery(QueryWrapper.create().eq("order_id", order))
+                            : summaries.selectOneByQuery(
+                                    QueryWrapper.create().eq("order_id", order).eq("payee_merchant_id", payee)));
         }
         var args = new MapSqlParameterSource().addValue("orderId", order).addValue("payee", payee);
-        return jdbc.query("SELECT id, created_at, updated_at, order_id, payee_merchant_id, source_version, "
-                        + "content_hash, payload, snapshot_at FROM trade_refund_summary WHERE "
-                        + "order_id = :orderId AND deleted = FALSE" + (payee == null ? "" : " AND payee_merchant_id = :payee")
-                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(TradeSummaryDO.class))
-                .stream().findFirst();
+        return jdbc
+                .query(
+                        "SELECT id, created_at, updated_at, order_id, payee_merchant_id, source_version, "
+                                + "content_hash, payload, snapshot_at FROM trade_refund_summary WHERE "
+                                + "order_id = :orderId AND deleted = FALSE"
+                                + (payee == null ? "" : " AND payee_merchant_id = :payee")
+                                + " FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(TradeSummaryDO.class))
+                .stream()
+                .findFirst();
     }
 
     private TradeRefundSummary read(TradeSummaryDO row) {
         try {
             var value = codec.summary(row.getPayload(), row.getContentHash(), row.getSnapshotAt());
-            if (row.getSourceVersion() != value.source().number() || !row.getOrderId().equals(value.orderId())
+            if (row.getSourceVersion() != value.source().number()
+                    || !row.getOrderId().equals(value.orderId())
                     || !row.getPayeeMerchantId().equals(value.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -427,9 +477,13 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
             }
             return new ProjectionAdvance("DUPLICATE", row.getSourceVersion());
         }
-        var args = new MapSqlParameterSource().addValue("orderId", value.orderId())
-                .addValue("version", value.source().number()).addValue("expected", row.getSourceVersion())
-                .addValue("hash", factsHash).addValue("payload", payload).addValue("snapshot", value.snapshotAt())
+        var args = new MapSqlParameterSource()
+                .addValue("orderId", value.orderId())
+                .addValue("version", value.source().number())
+                .addValue("expected", row.getSourceVersion())
+                .addValue("hash", factsHash)
+                .addValue("payload", payload)
+                .addValue("snapshot", value.snapshotAt())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE trade_refund_summary SET source_version = :version, content_hash = :hash, payload = :payload,
@@ -488,8 +542,10 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
     @Override
     public PageResult<TradeOrderProjection> orders(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource().addValue("payee", filter.payeeMerchantId())
-                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var args = new MapSqlParameterSource()
+                .addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size())
+                .addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {
             where.append(" AND state = :state");
@@ -509,17 +565,22 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         }
         String from = " FROM trade_order_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
-        var rows = jdbc.query("SELECT " + ORDER_COLUMNS + from
-                        + " ORDER BY business_created_at DESC, order_id DESC LIMIT :size OFFSET :offset", args,
+        var rows = jdbc.query(
+                "SELECT " + ORDER_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, order_id DESC LIMIT :size OFFSET :offset",
+                args,
                 BeanPropertyRowMapper.newInstance(TradeOrderDO.class));
-        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
+        return new PageResult<>(
+                rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     @Override
     public PageResult<TradePaymentProjection> payments(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource().addValue("payee", filter.payeeMerchantId())
-                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var args = new MapSqlParameterSource()
+                .addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size())
+                .addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {
             where.append(" AND state = :state");
@@ -539,17 +600,22 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         }
         String from = " FROM trade_payment_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
-        var rows = jdbc.query("SELECT " + PAYMENT_COLUMNS + from
-                        + " ORDER BY business_created_at DESC, payment_id DESC LIMIT :size OFFSET :offset", args,
+        var rows = jdbc.query(
+                "SELECT " + PAYMENT_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, payment_id DESC LIMIT :size OFFSET :offset",
+                args,
                 BeanPropertyRowMapper.newInstance(TradePaymentDO.class));
-        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
+        return new PageResult<>(
+                rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     @Override
     public PageResult<TradeRefundProjection> refunds(String tenant, TradePageFilter filter) {
         requireTenant(tenant);
-        var args = new MapSqlParameterSource().addValue("payee", filter.payeeMerchantId())
-                .addValue("size", filter.size()).addValue("offset", (long) (filter.page() - 1) * filter.size());
+        var args = new MapSqlParameterSource()
+                .addValue("payee", filter.payeeMerchantId())
+                .addValue("size", filter.size())
+                .addValue("offset", (long) (filter.page() - 1) * filter.size());
         var where = new StringBuilder(" WHERE payee_merchant_id = :payee AND deleted = FALSE");
         if (filter.state() != null) {
             where.append(" AND state = :state");
@@ -573,10 +639,13 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         }
         String from = " FROM trade_refund_projection" + where;
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, args, Long.class);
-        var rows = jdbc.query("SELECT " + REFUND_COLUMNS + from
-                        + " ORDER BY business_created_at DESC, refund_id DESC LIMIT :size OFFSET :offset", args,
+        var rows = jdbc.query(
+                "SELECT " + REFUND_COLUMNS + from
+                        + " ORDER BY business_created_at DESC, refund_id DESC LIMIT :size OFFSET :offset",
+                args,
                 BeanPropertyRowMapper.newInstance(TradeRefundDO.class));
-        return new PageResult<>(rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
+        return new PageResult<>(
+                rows.stream().map(this::read).toList(), total == null ? 0 : total, filter.page(), filter.size());
     }
 
     private void writable() {
@@ -596,7 +665,8 @@ public class TradeProjectionGatewayImpl extends ServiceImpl<TradeOrderProjection
         requireTenant(tenant);
         writable();
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

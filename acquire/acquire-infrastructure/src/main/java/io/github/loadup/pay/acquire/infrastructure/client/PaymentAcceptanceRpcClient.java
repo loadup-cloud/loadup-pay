@@ -1,4 +1,30 @@
+/*
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.acquire.infrastructure.client;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -24,34 +50,24 @@ import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
+import java.time.Clock;
+import java.util.function.Supplier;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.time.Clock;
-import java.util.function.Supplier;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
 
 @Component
 public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, PaymentOutcomeClient, PaymentClosureClient {
     private final PaymentTransportProperties properties;
     private final AcquireServiceTokenReader tokens;
     private final PaymentRpcMapper paymentRpcMapper;
+
     @DubboReference(url = "tri://payment-headless:50051")
     private PaymentRpc paymentRpc;
 
     public PaymentAcceptanceRpcClient(
-            PaymentRpcMapper paymentRpcMapper,
-            JsonMapper mapper,
-            PaymentTransportProperties properties,
-            Clock clock) {
+            PaymentRpcMapper paymentRpcMapper, JsonMapper mapper, PaymentTransportProperties properties, Clock clock) {
         this.paymentRpcMapper = paymentRpcMapper;
         this.properties = properties;
         this.tokens = new AcquireServiceTokenReader(mapper, clock);
@@ -64,69 +80,102 @@ public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, Paym
 
     @Override
     public PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputDTO(paymentRpc.inputPrepare(
-                paymentRpcMapper.toWirePaymentInputPrepareCommand(command))), true);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentInputDTO(
+                        paymentRpc.inputPrepare(paymentRpcMapper.toWirePaymentInputPrepareCommand(command))),
+                true);
     }
 
     @Override
     public PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputLookupDTO(paymentRpc.inputLookup(
-                paymentRpcMapper.toWirePaymentInputLookupQuery(query))), true);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentInputLookupDTO(
+                        paymentRpc.inputLookup(paymentRpcMapper.toWirePaymentInputLookupQuery(query))),
+                true);
     }
 
     @Override
-    public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(String tenant,
-                                                                                     io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentInputExpiryDTO(paymentRpc.inputExpire(
-                paymentRpcMapper.toWirePaymentInputExpireCommand(command))), true);
+    public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
+            String tenant, io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentInputExpiryDTO(
+                        paymentRpc.inputExpire(paymentRpcMapper.toWirePaymentInputExpireCommand(command))),
+                true);
     }
 
     @Override
     public PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentExecutionDTO(paymentRpc.accept(
-                paymentRpcMapper.toWirePaymentExecuteCommand(command))), true);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentExecutionDTO(
+                        paymentRpc.accept(paymentRpcMapper.toWirePaymentExecuteCommand(command))),
+                true);
     }
 
     @Override
     public PaymentExecutionDTO detail(String tenant, String paymentId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentExecutionDTO(paymentRpc.detail(
-                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentExecutionDTO(
+                        paymentRpc.detail(paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))),
+                false);
     }
 
     @Override
     public PaymentOutcomeDTO outcome(String tenant, String paymentId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentOutcomeDTO(paymentRpc.outcome(
-                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentOutcomeDTO(
+                        paymentRpc.outcome(paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))),
+                false);
     }
 
     @Override
     public PaymentSettlementFactsDTO facts(String tenant, String paymentId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(paymentRpc.facts(
-                paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentSettlementFactsDTO(
+                        paymentRpc.facts(paymentRpcMapper.toWireIdQuery(new IdQuery(paymentId)))),
+                false);
     }
 
     @Override
     public OrderRefundSummaryEventDTO refundSummary(String tenant, String orderId) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWireOrderRefundSummaryEventDTO(
-                paymentRpc.refundSummary(paymentRpcMapper.toWireIdQuery(new IdQuery(orderId)))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWireOrderRefundSummaryEventDTO(
+                        paymentRpc.refundSummary(paymentRpcMapper.toWireIdQuery(new IdQuery(orderId)))),
+                false);
     }
 
     @Override
     public ParentFenceDTO fenceParent(String tenant, ParentPaymentFenceCommand command) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWireParentFenceDTO(paymentRpc.fenceParent(
-                paymentRpcMapper.toWireParentPaymentFenceCommand(command))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWireParentFenceDTO(
+                        paymentRpc.fenceParent(paymentRpcMapper.toWireParentPaymentFenceCommand(command))),
+                false);
     }
 
     @Override
     public PaymentCloseDTO close(String tenant, PaymentCloseCommand command) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWirePaymentCloseDTO(paymentRpc.close(
-                paymentRpcMapper.toWirePaymentCloseCommand(command))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWirePaymentCloseDTO(
+                        paymentRpc.close(paymentRpcMapper.toWirePaymentCloseCommand(command))),
+                false);
     }
 
     @Override
     public ParentFenceDTO parentFenceStatus(String tenant, ParentFenceStatusQuery query) {
-        return exchange(tenant, () -> paymentRpcMapper.fromWireParentFenceDTO(paymentRpc.parentFenceStatus(
-                paymentRpcMapper.toWireParentFenceStatusQuery(query))), false);
+        return exchange(
+                tenant,
+                () -> paymentRpcMapper.fromWireParentFenceDTO(
+                        paymentRpc.parentFenceStatus(paymentRpcMapper.toWireParentFenceStatusQuery(query))),
+                false);
     }
 
     private <R> R exchange(String tenant, Supplier<R> call, boolean guarded) {
@@ -144,12 +193,13 @@ public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, Paym
             return response;
         } catch (RuntimeException failure) {
             if (guarded) {
-                var code = switch (RpcExceptionCodes.resultCode(failure)) {
-                    case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
-                    case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;
-                    case "PAYMENT_INVALID_ARGUMENT" -> INVALID_ARGUMENT;
-                    default -> DEPENDENCY_UNAVAILABLE;
-                };
+                var code =
+                        switch (RpcExceptionCodes.resultCode(failure)) {
+                            case "PAYMENT_IDEMPOTENCY_CONFLICT", "PAYMENT_INPUT_ALREADY_BOUND" -> IDEMPOTENCY_CONFLICT;
+                            case "PAYMENT_INPUT_EXPIRED" -> PAYMENT_INPUT_EXPIRED;
+                            case "PAYMENT_INVALID_ARGUMENT" -> INVALID_ARGUMENT;
+                            default -> DEPENDENCY_UNAVAILABLE;
+                        };
                 throw new CommonException(code);
             }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

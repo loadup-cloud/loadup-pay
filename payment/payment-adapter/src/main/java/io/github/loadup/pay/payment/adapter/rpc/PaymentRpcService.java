@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Adapter
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.adapter.rpc;
 
 import io.github.loadup.pay.payment.client.facade.PaymentAcceptanceFacade;
@@ -32,9 +51,6 @@ import io.github.loadup.pay.payment.rpc.proto.WirePaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.rpc.proto.WireRefundSettlementFactsDTO;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/**
- * Protobuf IDL entry point for the payment execution facade.
- */
 @DubboService(interfaceClass = PaymentRpc.class)
 public class PaymentRpcService extends DubboPaymentRpcTriple.PaymentRpcImplBase {
     private final PaymentInputFacade paymentInput;
@@ -71,26 +87,26 @@ public class PaymentRpcService extends DubboPaymentRpcTriple.PaymentRpcImplBase 
 
     @Override
     public WirePaymentInputDTO inputPrepare(WirePaymentInputPrepareCommand request) {
-        return paymentRpcMapper.toWirePaymentInputDTO(paymentInput.prepare(
-                paymentRpcMapper.fromWirePaymentInputPrepareCommand(request)));
+        return paymentRpcMapper.toWirePaymentInputDTO(
+                paymentInput.prepare(paymentRpcMapper.fromWirePaymentInputPrepareCommand(request)));
     }
 
     @Override
     public WirePaymentInputLookupDTO inputLookup(WirePaymentInputLookupQuery request) {
-        return paymentRpcMapper.toWirePaymentInputLookupDTO(paymentInput.lookup(
-                paymentRpcMapper.fromWirePaymentInputLookupQuery(request)));
+        return paymentRpcMapper.toWirePaymentInputLookupDTO(
+                paymentInput.lookup(paymentRpcMapper.fromWirePaymentInputLookupQuery(request)));
     }
 
     @Override
     public WirePaymentInputExpiryDTO inputExpire(WirePaymentInputExpireCommand request) {
-        return paymentRpcMapper.toWirePaymentInputExpiryDTO(paymentControl.expireInput(
-                paymentRpcMapper.fromWirePaymentInputExpireCommand(request)));
+        return paymentRpcMapper.toWirePaymentInputExpiryDTO(
+                paymentControl.expireInput(paymentRpcMapper.fromWirePaymentInputExpireCommand(request)));
     }
 
     @Override
     public WirePaymentExecutionDTO accept(WirePaymentExecuteCommand request) {
-        return paymentRpcMapper.toWirePaymentExecutionDTO(paymentAcceptance.accept(
-                paymentRpcMapper.fromWirePaymentExecuteCommand(request)));
+        return paymentRpcMapper.toWirePaymentExecutionDTO(
+                paymentAcceptance.accept(paymentRpcMapper.fromWirePaymentExecuteCommand(request)));
     }
 
     @Override
@@ -113,26 +129,26 @@ public class PaymentRpcService extends DubboPaymentRpcTriple.PaymentRpcImplBase 
 
     @Override
     public WirePaymentCloseDTO close(WirePaymentCloseCommand request) {
-        return paymentRpcMapper.toWirePaymentCloseDTO(paymentControl.close(
-                paymentRpcMapper.fromWirePaymentCloseCommand(request)));
+        return paymentRpcMapper.toWirePaymentCloseDTO(
+                paymentControl.close(paymentRpcMapper.fromWirePaymentCloseCommand(request)));
     }
 
     @Override
     public WireParentFenceDTO fenceParent(WireParentPaymentFenceCommand request) {
-        return paymentRpcMapper.toWireParentFenceDTO(paymentControl.fenceParent(
-                paymentRpcMapper.fromWireParentPaymentFenceCommand(request)));
+        return paymentRpcMapper.toWireParentFenceDTO(
+                paymentControl.fenceParent(paymentRpcMapper.fromWireParentPaymentFenceCommand(request)));
     }
 
     @Override
     public WireParentFenceDTO parentFenceStatus(WireParentFenceStatusQuery request) {
-        return paymentRpcMapper.toWireParentFenceDTO(paymentControl.parentFenceStatus(
-                paymentRpcMapper.fromWireParentFenceStatusQuery(request)));
+        return paymentRpcMapper.toWireParentFenceDTO(
+                paymentControl.parentFenceStatus(paymentRpcMapper.fromWireParentFenceStatusQuery(request)));
     }
 
     @Override
     public WirePaymentExecutionDTO startAttempt(WirePaymentAttemptStartCommand request) {
-        return paymentRpcMapper.toWirePaymentExecutionDTO(paymentAttempt.startAttempt(
-                paymentRpcMapper.fromWirePaymentAttemptStartCommand(request)));
+        return paymentRpcMapper.toWirePaymentExecutionDTO(
+                paymentAttempt.startAttempt(paymentRpcMapper.fromWirePaymentAttemptStartCommand(request)));
     }
 
     @Override

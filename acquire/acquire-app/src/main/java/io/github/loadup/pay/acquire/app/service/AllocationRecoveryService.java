@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -33,16 +41,11 @@ import io.github.loadup.pay.acquire.domain.model.AllocationRecoveryKey;
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Resumes committed A2 intents; native task ownership never grants a new payment or financial evidence.
@@ -59,10 +62,16 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     private final OrderCreationTransactions transactions;
     private final Clock clock;
 
-    public AllocationRecoveryService(AllocationRecoveryGateway cursors, AllocationRecoveryQueue queue,
-                                     DelayedTaskTemplate tasks, OrderCreationGateway orders, PaymentOutcomeGateway allocations,
-                                     PaymentInitiationOperations initiation, PaymentOutcomeOperations outcomes,
-                                     OrderCreationTransactions transactions, Clock clock) {
+    public AllocationRecoveryService(
+            AllocationRecoveryGateway cursors,
+            AllocationRecoveryQueue queue,
+            DelayedTaskTemplate tasks,
+            OrderCreationGateway orders,
+            PaymentOutcomeGateway allocations,
+            PaymentInitiationOperations initiation,
+            PaymentOutcomeOperations outcomes,
+            OrderCreationTransactions transactions,
+            Clock clock) {
         this.cursors = cursors;
         this.queue = queue;
         this.tasks = tasks;
@@ -106,16 +115,24 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         var original = stored.allocation();
         var owner = new OrderPaymentScope(tenant, stored.callerScopeHash());
         // Durable original ownership authorizes continuation, never a new A2 or renewed checkout capability.
-        var principal = new PaymentInitiationPrincipal(tenant, stored.callerScopeHash(), original.actorScope(), (order, creating) -> {
-            if (creating || !order.order().id().equals(original.orderId())
-                    || !order.callerScopeHash().equals(stored.callerScopeHash())) {
-                throw new CommonException(ACTION_FORBIDDEN);
-            }
-        });
-        var command = outcomes.bound(owner, orders.findOrder(tenant, original.orderId())
-                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), stored);
-        var recovered = initiation.recover(principal, original.orderId(), original.actionKey(),
-                original.amount().getCent(), command.choice());
+        var principal = new PaymentInitiationPrincipal(
+                tenant, stored.callerScopeHash(), original.actorScope(), (order, creating) -> {
+                    if (creating
+                            || !order.order().id().equals(original.orderId())
+                            || !order.callerScopeHash().equals(stored.callerScopeHash())) {
+                        throw new CommonException(ACTION_FORBIDDEN);
+                    }
+                });
+        var command = outcomes.bound(
+                owner,
+                orders.findOrder(tenant, original.orderId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                stored);
+        var recovered = initiation.recover(
+                principal,
+                original.orderId(),
+                original.actionKey(),
+                original.amount().getCent(),
+                command.choice());
         if (recovered == null || recovered.state() == PaymentIntentRecovery.State.NOT_OBSERVED) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -157,10 +174,14 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         var registered = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var now = LocalDateTime.now(clock);
         if (!task.id().equals(registered.id())
-                || !taskType().equals(registered.taskType()) || !task.bizId().equals(registered.bizId())
-                || !task.executeAt().equals(registered.executeAt()) || registered.status() != DelayedTaskStatus.RUNNING
-                || registered.attempts() != task.attempts() || registered.leaseUntil() == null
-                || !now.isBefore(registered.leaseUntil()) || now.isBefore(registered.nextExecuteAt())) {
+                || !taskType().equals(registered.taskType())
+                || !task.bizId().equals(registered.bizId())
+                || !task.executeAt().equals(registered.executeAt())
+                || registered.status() != DelayedTaskStatus.RUNNING
+                || registered.attempts() != task.attempts()
+                || registered.leaseUntil() == null
+                || !now.isBefore(registered.leaseUntil())
+                || now.isBefore(registered.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
         }
         return key;
@@ -169,12 +190,16 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     private AllocationView lock(String tenant, AllocationRecoveryKey key, String orderId) {
         // Consistent with A2/A3: order, allocation, then continuation cursor.
         var order = orders.lockOrder(tenant, orderId);
-        var allocation = allocations.lockPayment(tenant, orderId, key.paymentId())
+        var allocation = allocations
+                .lockPayment(tenant, orderId, key.paymentId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var cursor = cursors.lock(tenant, key.paymentId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!order.order().id().equals(orderId) || !allocation.allocation().orderId().equals(orderId)
-                || !allocation.allocation().paymentId().equals(key.paymentId()) || !cursor.orderId().equals(orderId)
-                || !cursor.paymentId().equals(key.paymentId()) || key.generation() > cursor.generation()) {
+        if (!order.order().id().equals(orderId)
+                || !allocation.allocation().orderId().equals(orderId)
+                || !allocation.allocation().paymentId().equals(key.paymentId())
+                || !cursor.orderId().equals(orderId)
+                || !cursor.paymentId().equals(key.paymentId())
+                || key.generation() > cursor.generation()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return new AllocationView(order, allocation, cursor);
@@ -193,16 +218,22 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
     /**
      * Evaluate a consistent read snapshot or already-locked view; never acquires execution rights.
      */
-    boolean isCurrent(String tenant, StoredAcquireOrder order, StoredPaymentAllocation allocation,
-                      AllocationRecoveryCursor cursor, long generation) {
+    boolean isCurrent(
+            String tenant,
+            StoredAcquireOrder order,
+            StoredPaymentAllocation allocation,
+            AllocationRecoveryCursor cursor,
+            long generation) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (!tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        if (!order.order().id().equals(cursor.orderId()) || !allocation.allocation().orderId().equals(cursor.orderId())
-                || !allocation.allocation().paymentId().equals(cursor.paymentId()) || generation > cursor.generation()) {
+        if (!order.order().id().equals(cursor.orderId())
+                || !allocation.allocation().orderId().equals(cursor.orderId())
+                || !allocation.allocation().paymentId().equals(cursor.paymentId())
+                || generation > cursor.generation()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (cursor.completed() || generation < cursor.generation()) {
@@ -218,7 +249,8 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var command = outcomes.bound(new OrderPaymentScope(tenant, stored.callerScopeHash()), locked.order(), stored);
-        if (!command.paymentId().equals(allocation.paymentId()) || !command.allocationId().equals(allocation.id())
+        if (!command.paymentId().equals(allocation.paymentId())
+                || !command.allocationId().equals(allocation.id())
                 || command.amountMinor() != allocation.amount().getCent()
                 || !command.currency().equals(allocation.amount().getCurrencyValue())
                 || !command.requestDigest().equals(allocation.requestDigest())) {
@@ -226,7 +258,9 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         }
         var receipt = allocations.findReceipt(tenant, allocation.id());
         if (allocation.state() == AllocationState.HELD) {
-            if (receipt.isPresent() || locked.order().order().paymentReservedMinor() < allocation.amount().getCent()
+            if (receipt.isPresent()
+                    || locked.order().order().paymentReservedMinor()
+                            < allocation.amount().getCent()
                     || locked.order().order().reservedPaymentCount() < 1) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -243,8 +277,8 @@ public class AllocationRecoveryService implements DelayedTaskHandler {
         return true;
     }
 
-    private record AllocationView(StoredAcquireOrder order, StoredPaymentAllocation allocation,
-                                  AllocationRecoveryCursor cursor) {
+    private record AllocationView(
+            StoredAcquireOrder order, StoredPaymentAllocation allocation, AllocationRecoveryCursor cursor) {
         @Override
         public String toString() {
             return ToStringAsJson.reflectionToString(this);

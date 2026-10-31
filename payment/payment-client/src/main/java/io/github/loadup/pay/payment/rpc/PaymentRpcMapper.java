@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.rpc;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
@@ -50,7 +69,12 @@ import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.ReportingPolicy;
 
-@Mapper(config = LoadUpMapStructConfig.class, unmappedSourcePolicy = ReportingPolicy.IGNORE, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS, uses = {RpcScalarMapper.class, ProductRpcMapper.class})
+@Mapper(
+        config = LoadUpMapStructConfig.class,
+        unmappedSourcePolicy = ReportingPolicy.IGNORE,
+        collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED,
+        nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS,
+        uses = {RpcScalarMapper.class, ProductRpcMapper.class})
 public interface PaymentRpcMapper {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
@@ -59,18 +83,30 @@ public interface PaymentRpcMapper {
     public IdQuery fromWireIdQuery(WireIdQuery value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "inputKey", source = "inputKey"), @Mapping(target = "choice", source = "choice"), @Mapping(target = "interaction", source = "interaction")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "inputKey", source = "inputKey"),
+                @Mapping(target = "choice", source = "choice"),
+                @Mapping(target = "interaction", source = "interaction")
+            })
     public WirePaymentInputPrepareCommand toWirePaymentInputPrepareCommand(PaymentInputPrepareCommand value);
 
     public PaymentInputPrepareCommand fromWirePaymentInputPrepareCommand(WirePaymentInputPrepareCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "channel", source = "channel"), @Mapping(target = "method", source = "method")})
+    @Mappings(
+            value = {@Mapping(target = "channel", source = "channel"), @Mapping(target = "method", source = "method")})
     public WirePaymentChoiceDTO toWirePaymentChoiceDTO(PaymentChoiceDTO value);
 
     public PaymentChoiceDTO fromWirePaymentChoiceDTO(WirePaymentChoiceDTO value);
 
-    default public WirePaymentInteractionDTO toWirePaymentInteractionDTO(PaymentInteractionDTO value) {
+    public default WirePaymentInteractionDTO toWirePaymentInteractionDTO(PaymentInteractionDTO value) {
         if (value == null) {
             throw new IllegalArgumentException("RPC value is required");
         }
@@ -93,15 +129,15 @@ public interface PaymentRpcMapper {
         return result.build();
     }
 
-    default public PaymentInteractionDTO fromWirePaymentInteractionDTO(WirePaymentInteractionDTO value) {
+    public default PaymentInteractionDTO fromWirePaymentInteractionDTO(WirePaymentInteractionDTO value) {
         return switch (value.getVariantCase()) {
             case WirePaymentInteractionDTO.VariantCase.OPTION0 -> this.fromWireNoInteractionDTO(value.getOption0());
             case WirePaymentInteractionDTO.VariantCase.OPTION1 ->
-                    this.fromWirePaymentCodeInteractionDTO(value.getOption1());
+                this.fromWirePaymentCodeInteractionDTO(value.getOption1());
             case WirePaymentInteractionDTO.VariantCase.OPTION2 ->
-                    this.fromWireChannelIdentityInteractionDTO(value.getOption2());
+                this.fromWireChannelIdentityInteractionDTO(value.getOption2());
             case WirePaymentInteractionDTO.VariantCase.OPTION3 ->
-                    this.fromWireH5SceneInteractionDTO(value.getOption3());
+                this.fromWireH5SceneInteractionDTO(value.getOption3());
             default -> throw new IllegalArgumentException("RPC variant is required");
         };
     }
@@ -118,71 +154,156 @@ public interface PaymentRpcMapper {
     public PaymentCodeInteractionDTO fromWirePaymentCodeInteractionDTO(WirePaymentCodeInteractionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "channel", source = "channel"), @Mapping(target = "identifier", source = "identifier"), @Mapping(target = "appScope", source = "appScope"), @Mapping(target = "identityType", source = "identityType")})
+    @Mappings(
+            value = {
+                @Mapping(target = "channel", source = "channel"),
+                @Mapping(target = "identifier", source = "identifier"),
+                @Mapping(target = "appScope", source = "appScope"),
+                @Mapping(target = "identityType", source = "identityType")
+            })
     public WireChannelIdentityInteractionDTO toWireChannelIdentityInteractionDTO(ChannelIdentityInteractionDTO value);
 
     public ChannelIdentityInteractionDTO fromWireChannelIdentityInteractionDTO(WireChannelIdentityInteractionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "payerClientIp", source = "payerClientIp"), @Mapping(target = "sceneType", expression = "java(value.sceneType().name())")})
+    @Mappings(
+            value = {
+                @Mapping(target = "payerClientIp", source = "payerClientIp"),
+                @Mapping(target = "sceneType", expression = "java(value.sceneType().name())")
+            })
     public WireH5SceneInteractionDTO toWireH5SceneInteractionDTO(H5SceneInteractionDTO value);
 
     @BeforeMapping
-    default public void requireH5SceneFields(WireH5SceneInteractionDTO value) {
+    public default void requireH5SceneFields(WireH5SceneInteractionDTO value) {
         if (value == null || !value.hasPayerClientIp() || !value.hasSceneType()) {
             throw new IllegalArgumentException("RPC H5 scene fields are required");
         }
     }
 
-    @Mapping(target = "sceneType", expression = "java(io.github.loadup.pay.channel.api.model.H5SceneType.valueOf(value.getSceneType()))")
+    @Mapping(
+            target = "sceneType",
+            expression = "java(io.github.loadup.pay.channel.api.model.H5SceneType.valueOf(value.getSceneType()))")
     public H5SceneInteractionDTO fromWireH5SceneInteractionDTO(WireH5SceneInteractionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "inputRef", source = "inputRef"), @Mapping(target = "inputDigest", source = "inputDigest"), @Mapping(target = "expiresAt", source = "expiresAt")})
+    @Mappings(
+            value = {
+                @Mapping(target = "inputRef", source = "inputRef"),
+                @Mapping(target = "inputDigest", source = "inputDigest"),
+                @Mapping(target = "expiresAt", source = "expiresAt")
+            })
     public WirePaymentInputDTO toWirePaymentInputDTO(PaymentInputDTO value);
 
     public PaymentInputDTO fromWirePaymentInputDTO(WirePaymentInputDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "inputKey", source = "inputKey"), @Mapping(target = "choice", source = "choice")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "inputKey", source = "inputKey"),
+                @Mapping(target = "choice", source = "choice")
+            })
     public WirePaymentInputLookupQuery toWirePaymentInputLookupQuery(PaymentInputLookupQuery value);
 
     public PaymentInputLookupQuery fromWirePaymentInputLookupQuery(WirePaymentInputLookupQuery value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "inputRef", source = "inputRef"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "inputKey", source = "inputKey"), @Mapping(target = "choice", source = "choice")})
+    @Mappings(
+            value = {
+                @Mapping(target = "inputRef", source = "inputRef"),
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "inputKey", source = "inputKey"),
+                @Mapping(target = "choice", source = "choice")
+            })
     public WirePaymentInputExpireCommand toWirePaymentInputExpireCommand(PaymentInputExpireCommand value);
 
     public PaymentInputExpireCommand fromWirePaymentInputExpireCommand(WirePaymentInputExpireCommand value);
 
     @BeforeMapping
-    default public void requireInputExpiryFields(WirePaymentInputExpireCommand value) {
-        if (!(value != null && value.hasInputRef() && value.hasPaymentId() && value.hasOrderId() && value.hasAllocationId() && value.hasPayeeMerchantId() && value.hasAmountMinor() && value.hasCurrency() && value.hasInputKey() && value.hasChoice())) {
+    public default void requireInputExpiryFields(WirePaymentInputExpireCommand value) {
+        if (!(value != null
+                && value.hasInputRef()
+                && value.hasPaymentId()
+                && value.hasOrderId()
+                && value.hasAllocationId()
+                && value.hasPayeeMerchantId()
+                && value.hasAmountMinor()
+                && value.hasCurrency()
+                && value.hasInputKey()
+                && value.hasChoice())) {
             throw new IllegalArgumentException("RPC input expiry fields are required");
         }
     }
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "disposition", source = "disposition"), @Mapping(target = "closed", source = "closed")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "disposition", source = "disposition"),
+                @Mapping(target = "closed", source = "closed")
+            })
     public WirePaymentInputExpiryDTO toWirePaymentInputExpiryDTO(PaymentInputExpiryDTO value);
 
-    @Mappings(value = {@Mapping(target = "disposition", expression = "java(io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.valueOf(value.getDisposition()))"), @Mapping(target = "closed", expression = "java(value.hasClosed() ? fromWirePaymentCloseDTO(value.getClosed()) : null)")})
+    @Mappings(
+            value = {
+                @Mapping(
+                        target = "disposition",
+                        expression =
+                                "java(io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.valueOf(value.getDisposition()))"),
+                @Mapping(
+                        target = "closed",
+                        expression = "java(value.hasClosed() ? fromWirePaymentCloseDTO(value.getClosed()) : null)")
+            })
     public PaymentInputExpiryDTO fromWirePaymentInputExpiryDTO(WirePaymentInputExpiryDTO value);
 
     @BeforeMapping
-    default public void requireInputExpiryResult(WirePaymentInputExpiryDTO value) {
+    public default void requireInputExpiryResult(WirePaymentInputExpiryDTO value) {
         WirePaymentCloseDTO proof;
-        if (!(value != null && value.hasPaymentId() && value.hasOrderId() && value.hasDisposition() && "EXPIRED_CLOSED".equals(value.getDisposition()) == value.hasClosed())) {
+        if (!(value != null
+                && value.hasPaymentId()
+                && value.hasOrderId()
+                && value.hasDisposition()
+                && "EXPIRED_CLOSED".equals(value.getDisposition()) == value.hasClosed())) {
             throw new IllegalArgumentException("RPC input expiry result is invalid");
         }
-        if (!(!value.hasClosed() || (proof = value.getClosed()).hasPaymentId() && proof.hasOrderId() && proof.hasFenceEpoch() && proof.hasFenced() && proof.getFenced() && !proof.hasPayment() && proof.hasNoCollectionEvidenceId() && proof.getFenceEpoch() >= 1L && !proof.getNoCollectionEvidenceId().isBlank() && proof.getPaymentId().equals(value.getPaymentId()) && proof.getOrderId().equals(value.getOrderId()))) {
+        if (!(!value.hasClosed()
+                || (proof = value.getClosed()).hasPaymentId()
+                        && proof.hasOrderId()
+                        && proof.hasFenceEpoch()
+                        && proof.hasFenced()
+                        && proof.getFenced()
+                        && !proof.hasPayment()
+                        && proof.hasNoCollectionEvidenceId()
+                        && proof.getFenceEpoch() >= 1L
+                        && !proof.getNoCollectionEvidenceId().isBlank()
+                        && proof.getPaymentId().equals(value.getPaymentId())
+                        && proof.getOrderId().equals(value.getOrderId()))) {
             throw new IllegalArgumentException("RPC input expiry proof is invalid");
         }
     }
 
     @BeforeMapping
-    default public void requireInputLookupFields(WirePaymentInputLookupQuery value) {
-        if (!(value != null && value.hasPaymentId() && value.hasOrderId() && value.hasAllocationId() && value.hasPayeeMerchantId() && value.hasAmountMinor() && value.hasCurrency() && value.hasInputKey() && value.hasChoice())) {
+    public default void requireInputLookupFields(WirePaymentInputLookupQuery value) {
+        if (!(value != null
+                && value.hasPaymentId()
+                && value.hasOrderId()
+                && value.hasAllocationId()
+                && value.hasPayeeMerchantId()
+                && value.hasAmountMinor()
+                && value.hasCurrency()
+                && value.hasInputKey()
+                && value.hasChoice())) {
             throw new IllegalArgumentException("RPC input lookup fields are required");
         }
     }
@@ -195,31 +316,70 @@ public interface PaymentRpcMapper {
     public PaymentInputLookupDTO fromWirePaymentInputLookupDTO(WirePaymentInputLookupDTO value);
 
     @BeforeMapping
-    default public void requireInputLookupResult(WirePaymentInputLookupDTO value) {
-        if (!(value != null && value.hasFound() && value.getFound() == value.hasInput() && (!value.hasInput() || value.getInput().hasInputRef() && value.getInput().hasInputDigest() && value.getInput().hasExpiresAt()))) {
+    public default void requireInputLookupResult(WirePaymentInputLookupDTO value) {
+        if (!(value != null
+                && value.hasFound()
+                && value.getFound() == value.hasInput()
+                && (!value.hasInput()
+                        || value.getInput().hasInputRef()
+                                && value.getInput().hasInputDigest()
+                                && value.getInput().hasExpiresAt()))) {
             throw new IllegalArgumentException("RPC input lookup result is invalid");
         }
     }
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "admissionId", source = "admissionId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "requestDigest", source = "requestDigest"), @Mapping(target = "choice", source = "choice"), @Mapping(target = "preparedInputRef", source = "preparedInputRef"), @Mapping(target = "admittedTerms", source = "admittedTerms"), @Mapping(target = "subject", source = "subject"), @Mapping(target = "payableUntil", source = "payableUntil")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "admissionId", source = "admissionId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "requestDigest", source = "requestDigest"),
+                @Mapping(target = "choice", source = "choice"),
+                @Mapping(target = "preparedInputRef", source = "preparedInputRef"),
+                @Mapping(target = "admittedTerms", source = "admittedTerms"),
+                @Mapping(target = "subject", source = "subject"),
+                @Mapping(target = "payableUntil", source = "payableUntil")
+            })
     public WirePaymentExecuteCommand toWirePaymentExecuteCommand(PaymentExecuteCommand value);
 
     public PaymentExecuteCommand fromWirePaymentExecuteCommand(WirePaymentExecuteCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "activeAttemptId", source = "activeAttemptId"), @Mapping(target = "action", source = "action"), @Mapping(target = "terminalEvidenceId", source = "terminalEvidenceId"), @Mapping(target = "version", source = "version"), @Mapping(target = "initiatedAt", source = "initiatedAt")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "activeAttemptId", source = "activeAttemptId"),
+                @Mapping(target = "action", source = "action"),
+                @Mapping(target = "terminalEvidenceId", source = "terminalEvidenceId"),
+                @Mapping(target = "version", source = "version"),
+                @Mapping(target = "initiatedAt", source = "initiatedAt")
+            })
     public WirePaymentExecutionDTO toWirePaymentExecutionDTO(PaymentExecutionDTO value);
 
     public PaymentExecutionDTO fromWirePaymentExecutionDTO(WirePaymentExecutionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "type", source = "type"), @Mapping(target = "expiresAt", source = "expiresAt"), @Mapping(target = "data", source = "data")})
+    @Mappings(
+            value = {
+                @Mapping(target = "type", source = "type"),
+                @Mapping(target = "expiresAt", source = "expiresAt"),
+                @Mapping(target = "data", source = "data")
+            })
     public WirePaymentActionDTO toWirePaymentActionDTO(PaymentActionDTO value);
 
     public PaymentActionDTO fromWirePaymentActionDTO(WirePaymentActionDTO value);
 
-    default public WirePaymentActionDataDTO toWirePaymentActionDataDTO(PaymentActionDataDTO value) {
+    public default WirePaymentActionDataDTO toWirePaymentActionDataDTO(PaymentActionDataDTO value) {
         if (value == null) {
             throw new IllegalArgumentException("RPC value is required");
         }
@@ -245,7 +405,7 @@ public interface PaymentRpcMapper {
         return result.build();
     }
 
-    default public PaymentActionDataDTO fromWirePaymentActionDataDTO(WirePaymentActionDataDTO value) {
+    public default PaymentActionDataDTO fromWirePaymentActionDataDTO(WirePaymentActionDataDTO value) {
         return switch (value.getVariantCase()) {
             case WirePaymentActionDataDTO.VariantCase.OPTION0 -> this.fromWireNoActionDTO(value.getOption0());
             case WirePaymentActionDataDTO.VariantCase.OPTION1 -> this.fromWireWaitActionDTO(value.getOption1());
@@ -274,7 +434,15 @@ public interface PaymentRpcMapper {
     public RedirectActionDTO fromWireRedirectActionDTO(WireRedirectActionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "appId", source = "appId"), @Mapping(target = "timeStamp", source = "timeStamp"), @Mapping(target = "nonceStr", source = "nonceStr"), @Mapping(target = "packageValue", source = "packageValue"), @Mapping(target = "signType", source = "signType"), @Mapping(target = "paySign", source = "paySign")})
+    @Mappings(
+            value = {
+                @Mapping(target = "appId", source = "appId"),
+                @Mapping(target = "timeStamp", source = "timeStamp"),
+                @Mapping(target = "nonceStr", source = "nonceStr"),
+                @Mapping(target = "packageValue", source = "packageValue"),
+                @Mapping(target = "signType", source = "signType"),
+                @Mapping(target = "paySign", source = "paySign")
+            })
     public WireWechatJsapiActionDTO toWireWechatJsapiActionDTO(WechatJsapiActionDTO value);
 
     public WechatJsapiActionDTO fromWireWechatJsapiActionDTO(WireWechatJsapiActionDTO value);
@@ -286,100 +454,263 @@ public interface PaymentRpcMapper {
     public AlipayJsapiActionDTO fromWireAlipayJsapiActionDTO(WireAlipayJsapiActionDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "payment", source = "payment"), @Mapping(target = "executionFenced", source = "executionFenced")})
+    @Mappings(
+            value = {
+                @Mapping(target = "payment", source = "payment"),
+                @Mapping(target = "executionFenced", source = "executionFenced")
+            })
     public WirePaymentOutcomeDTO toWirePaymentOutcomeDTO(PaymentOutcomeDTO value);
 
     public PaymentOutcomeDTO fromWirePaymentOutcomeDTO(WirePaymentOutcomeDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "payment", source = "payment"), @Mapping(target = "limitOperationId", source = "limitOperationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "executionFenced", source = "executionFenced")})
+    @Mappings(
+            value = {
+                @Mapping(target = "payment", source = "payment"),
+                @Mapping(target = "limitOperationId", source = "limitOperationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "executionFenced", source = "executionFenced")
+            })
     public WirePaymentSettlementFactsDTO toWirePaymentSettlementFactsDTO(PaymentSettlementFactsDTO value);
 
     public PaymentSettlementFactsDTO fromWirePaymentSettlementFactsDTO(WirePaymentSettlementFactsDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "requestKey", source = "requestKey"), @Mapping(target = "fenceEpoch", source = "fenceEpoch"), @Mapping(target = "reasonCode", source = "reasonCode")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "requestKey", source = "requestKey"),
+                @Mapping(target = "fenceEpoch", source = "fenceEpoch"),
+                @Mapping(target = "reasonCode", source = "reasonCode")
+            })
     public WirePaymentCloseCommand toWirePaymentCloseCommand(PaymentCloseCommand value);
 
     public PaymentCloseCommand fromWirePaymentCloseCommand(WirePaymentCloseCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "fenceEpoch", source = "fenceEpoch"), @Mapping(target = "fenced", source = "fenced"), @Mapping(target = "payment", source = "payment"), @Mapping(target = "noCollectionEvidenceId", source = "noCollectionEvidenceId")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "fenceEpoch", source = "fenceEpoch"),
+                @Mapping(target = "fenced", source = "fenced"),
+                @Mapping(target = "payment", source = "payment"),
+                @Mapping(target = "noCollectionEvidenceId", source = "noCollectionEvidenceId")
+            })
     public WirePaymentCloseDTO toWirePaymentCloseDTO(PaymentCloseDTO value);
 
     public PaymentCloseDTO fromWirePaymentCloseDTO(WirePaymentCloseDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "closeEpoch", source = "closeEpoch"), @Mapping(target = "requestKey", source = "requestKey")})
+    @Mappings(
+            value = {
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "closeEpoch", source = "closeEpoch"),
+                @Mapping(target = "requestKey", source = "requestKey")
+            })
     public WireParentPaymentFenceCommand toWireParentPaymentFenceCommand(ParentPaymentFenceCommand value);
 
     public ParentPaymentFenceCommand fromWireParentPaymentFenceCommand(WireParentPaymentFenceCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "orderId", source = "orderId"), @Mapping(target = "closeEpoch", source = "closeEpoch"), @Mapping(target = "fenced", source = "fenced"), @Mapping(target = "allChildrenConverged", source = "allChildrenConverged"), @Mapping(target = "unknownCount", source = "unknownCount")})
+    @Mappings(
+            value = {
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "closeEpoch", source = "closeEpoch"),
+                @Mapping(target = "fenced", source = "fenced"),
+                @Mapping(target = "allChildrenConverged", source = "allChildrenConverged"),
+                @Mapping(target = "unknownCount", source = "unknownCount")
+            })
     public WireParentFenceDTO toWireParentFenceDTO(ParentFenceDTO value);
 
     public ParentFenceDTO fromWireParentFenceDTO(WireParentFenceDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "orderId", source = "orderId"), @Mapping(target = "closeEpoch", source = "closeEpoch")})
+    @Mappings(
+            value = {
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "closeEpoch", source = "closeEpoch")
+            })
     public WireParentFenceStatusQuery toWireParentFenceStatusQuery(ParentFenceStatusQuery value);
 
     public ParentFenceStatusQuery fromWireParentFenceStatusQuery(WireParentFenceStatusQuery value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "requestKey", source = "requestKey"), @Mapping(target = "choice", source = "choice"), @Mapping(target = "preparedInputRef", source = "preparedInputRef"), @Mapping(target = "previousAttemptEvidenceId", source = "previousAttemptEvidenceId")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "requestKey", source = "requestKey"),
+                @Mapping(target = "choice", source = "choice"),
+                @Mapping(target = "preparedInputRef", source = "preparedInputRef"),
+                @Mapping(target = "previousAttemptEvidenceId", source = "previousAttemptEvidenceId")
+            })
     public WirePaymentAttemptStartCommand toWirePaymentAttemptStartCommand(PaymentAttemptStartCommand value);
 
     public PaymentAttemptStartCommand fromWirePaymentAttemptStartCommand(WirePaymentAttemptStartCommand value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "allocationId", source = "allocationId"), @Mapping(target = "operationId", source = "operationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "paymentVersion", source = "paymentVersion"), @Mapping(target = "evidenceId", source = "evidenceId"), @Mapping(target = "executionFenced", source = "executionFenced")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "allocationId", source = "allocationId"),
+                @Mapping(target = "operationId", source = "operationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "paymentVersion", source = "paymentVersion"),
+                @Mapping(target = "evidenceId", source = "evidenceId"),
+                @Mapping(target = "executionFenced", source = "executionFenced")
+            })
     public WirePaymentOutcomeEventDTO toWirePaymentOutcomeEventDTO(PaymentOutcomeEventDTO value);
 
     public PaymentOutcomeEventDTO fromWirePaymentOutcomeEventDTO(WirePaymentOutcomeEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accessMode", source = "accessMode"), @Mapping(target = "initiatedAt", source = "initiatedAt"), @Mapping(target = "succeededAt", source = "succeededAt"), @Mapping(target = "sourceVersion", source = "sourceVersion")})
+    @Mappings(
+            value = {
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "channel", source = "channel"),
+                @Mapping(target = "accessMode", source = "accessMode"),
+                @Mapping(target = "initiatedAt", source = "initiatedAt"),
+                @Mapping(target = "succeededAt", source = "succeededAt"),
+                @Mapping(target = "sourceVersion", source = "sourceVersion")
+            })
     public WirePaymentSnapshotEventDTO toWirePaymentSnapshotEventDTO(PaymentSnapshotEventDTO value);
 
     public PaymentSnapshotEventDTO fromWirePaymentSnapshotEventDTO(WirePaymentSnapshotEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "refundId", source = "refundId"), @Mapping(target = "refundRequestId", source = "refundRequestId"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "refundCreatedAt", source = "refundCreatedAt"), @Mapping(target = "succeededAt", source = "succeededAt"), @Mapping(target = "sourceVersion", source = "sourceVersion")})
+    @Mappings(
+            value = {
+                @Mapping(target = "refundId", source = "refundId"),
+                @Mapping(target = "refundRequestId", source = "refundRequestId"),
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "refundCreatedAt", source = "refundCreatedAt"),
+                @Mapping(target = "succeededAt", source = "succeededAt"),
+                @Mapping(target = "sourceVersion", source = "sourceVersion")
+            })
     public WireRefundSnapshotEventDTO toWireRefundSnapshotEventDTO(RefundSnapshotEventDTO value);
 
     public RefundSnapshotEventDTO fromWireRefundSnapshotEventDTO(WireRefundSnapshotEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "refundedMinor", source = "refundedMinor"), @Mapping(target = "refundReservedMinor", source = "refundReservedMinor"), @Mapping(target = "refundSummaryVersion", source = "refundSummaryVersion")})
+    @Mappings(
+            value = {
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "refundedMinor", source = "refundedMinor"),
+                @Mapping(target = "refundReservedMinor", source = "refundReservedMinor"),
+                @Mapping(target = "refundSummaryVersion", source = "refundSummaryVersion")
+            })
     public WireOrderRefundSummaryEventDTO toWireOrderRefundSummaryEventDTO(OrderRefundSummaryEventDTO value);
 
     public OrderRefundSummaryEventDTO fromWireOrderRefundSummaryEventDTO(WireOrderRefundSummaryEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "refund", source = "refund"), @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"), @Mapping(target = "paymentVersion", source = "paymentVersion"), @Mapping(target = "paymentEvidenceId", source = "paymentEvidenceId"), @Mapping(target = "paymentAttemptId", source = "paymentAttemptId"), @Mapping(target = "paymentInitiatedAt", source = "paymentInitiatedAt"), @Mapping(target = "paymentRefundVersion", source = "paymentRefundVersion")})
+    @Mappings(
+            value = {
+                @Mapping(target = "refund", source = "refund"),
+                @Mapping(target = "paymentAmountMinor", source = "paymentAmountMinor"),
+                @Mapping(target = "paymentVersion", source = "paymentVersion"),
+                @Mapping(target = "paymentEvidenceId", source = "paymentEvidenceId"),
+                @Mapping(target = "paymentAttemptId", source = "paymentAttemptId"),
+                @Mapping(target = "paymentInitiatedAt", source = "paymentInitiatedAt"),
+                @Mapping(target = "paymentRefundVersion", source = "paymentRefundVersion")
+            })
     public WireRefundSettlementFactsDTO toWireRefundSettlementFactsDTO(RefundSettlementFactsDTO value);
 
     public RefundSettlementFactsDTO fromWireRefundSettlementFactsDTO(WireRefundSettlementFactsDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "refundId", source = "refundId"), @Mapping(target = "refundRequestId", source = "refundRequestId"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "operationId", source = "operationId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "refundVersion", source = "refundVersion"), @Mapping(target = "cumulativePaymentRefundedMinor", source = "cumulativePaymentRefundedMinor"), @Mapping(target = "evidenceId", source = "evidenceId")})
+    @Mappings(
+            value = {
+                @Mapping(target = "refundId", source = "refundId"),
+                @Mapping(target = "refundRequestId", source = "refundRequestId"),
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "operationId", source = "operationId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "refundVersion", source = "refundVersion"),
+                @Mapping(target = "cumulativePaymentRefundedMinor", source = "cumulativePaymentRefundedMinor"),
+                @Mapping(target = "evidenceId", source = "evidenceId")
+            })
     public WireRefundOutcomeEventDTO toWireRefundOutcomeEventDTO(RefundOutcomeEventDTO value);
 
     public RefundOutcomeEventDTO fromWireRefundOutcomeEventDTO(WireRefundOutcomeEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "aggregateType", source = "aggregateType"), @Mapping(target = "refundId", source = "refundId"), @Mapping(target = "refundRequestId", source = "refundRequestId"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "merchantRefundNo", source = "merchantRefundNo"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "succeededMinor", source = "succeededMinor"), @Mapping(target = "failedMinor", source = "failedMinor"), @Mapping(target = "sourceVersion", source = "sourceVersion"), @Mapping(target = "succeededAt", source = "succeededAt")})
+    @Mappings(
+            value = {
+                @Mapping(target = "aggregateType", source = "aggregateType"),
+                @Mapping(target = "refundId", source = "refundId"),
+                @Mapping(target = "refundRequestId", source = "refundRequestId"),
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "merchantRefundNo", source = "merchantRefundNo"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "succeededMinor", source = "succeededMinor"),
+                @Mapping(target = "failedMinor", source = "failedMinor"),
+                @Mapping(target = "sourceVersion", source = "sourceVersion"),
+                @Mapping(target = "succeededAt", source = "succeededAt")
+            })
     public WireRefundMerchantEventDTO toWireRefundMerchantEventDTO(RefundMerchantEventDTO value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "aggregateType", source = "aggregateType"), @Mapping(target = "refundId", expression = "java(value.hasRefundId() ? value.getRefundId() : null)"), @Mapping(target = "refundRequestId", source = "refundRequestId"), @Mapping(target = "paymentId", expression = "java(value.hasPaymentId() ? value.getPaymentId() : null)"), @Mapping(target = "orderId", source = "orderId"), @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"), @Mapping(target = "merchantRefundNo", source = "merchantRefundNo"), @Mapping(target = "amountMinor", source = "amountMinor"), @Mapping(target = "currency", source = "currency"), @Mapping(target = "state", source = "state"), @Mapping(target = "succeededMinor", source = "succeededMinor"), @Mapping(target = "failedMinor", source = "failedMinor"), @Mapping(target = "sourceVersion", source = "sourceVersion"), @Mapping(target = "succeededAt", source = "succeededAt")})
+    @Mappings(
+            value = {
+                @Mapping(target = "aggregateType", source = "aggregateType"),
+                @Mapping(target = "refundId", expression = "java(value.hasRefundId() ? value.getRefundId() : null)"),
+                @Mapping(target = "refundRequestId", source = "refundRequestId"),
+                @Mapping(target = "paymentId", expression = "java(value.hasPaymentId() ? value.getPaymentId() : null)"),
+                @Mapping(target = "orderId", source = "orderId"),
+                @Mapping(target = "payeeMerchantId", source = "payeeMerchantId"),
+                @Mapping(target = "merchantRefundNo", source = "merchantRefundNo"),
+                @Mapping(target = "amountMinor", source = "amountMinor"),
+                @Mapping(target = "currency", source = "currency"),
+                @Mapping(target = "state", source = "state"),
+                @Mapping(target = "succeededMinor", source = "succeededMinor"),
+                @Mapping(target = "failedMinor", source = "failedMinor"),
+                @Mapping(target = "sourceVersion", source = "sourceVersion"),
+                @Mapping(target = "succeededAt", source = "succeededAt")
+            })
     public RefundMerchantEventDTO fromWireRefundMerchantEventDTO(WireRefundMerchantEventDTO value);
 
     @BeforeMapping
-    default public void requireRefundMerchantEventFields(WireRefundMerchantEventDTO value) {
-        if (!(value != null && value.hasAggregateType() && value.hasRefundRequestId() && value.hasOrderId() && value.hasPayeeMerchantId() && value.hasMerchantRefundNo() && value.hasAmountMinor() && value.hasCurrency() && value.hasState() && value.hasSucceededMinor() && value.hasFailedMinor() && value.hasSourceVersion())) {
+    public default void requireRefundMerchantEventFields(WireRefundMerchantEventDTO value) {
+        if (!(value != null
+                && value.hasAggregateType()
+                && value.hasRefundRequestId()
+                && value.hasOrderId()
+                && value.hasPayeeMerchantId()
+                && value.hasMerchantRefundNo()
+                && value.hasAmountMinor()
+                && value.hasCurrency()
+                && value.hasState()
+                && value.hasSucceededMinor()
+                && value.hasFailedMinor()
+                && value.hasSourceVersion())) {
             throw new IllegalArgumentException("RPC refund merchant event fields are required");
         }
     }

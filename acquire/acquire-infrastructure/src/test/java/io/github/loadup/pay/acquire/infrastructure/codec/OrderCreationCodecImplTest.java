@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.codec;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -24,17 +32,12 @@ import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 class OrderCreationCodecImplTest {
     final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
@@ -68,20 +71,37 @@ class OrderCreationCodecImplTest {
                 0);
     }
 
-    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct(String action, long first,
-                                                                               io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind kind, io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
-        return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand("merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null,
-                action, first, choice, kind);
+    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct(
+            String action,
+            long first,
+            io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind kind,
+            io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO choice) {
+        return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand(
+                "merchant", "M001", "scope", 9007199254740993L, "CNY", "order", null, action, first, choice, kind);
     }
 
     @Test
     void directPayMetadataRoundTripBindsFirstActionAndRejectsOtherEntryModes() {
-        var choice = new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.WECHAT,
-                io.github.loadup.commons.payment.PaymentMethod.H5);
-        var value = direct("first", 4000L, io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE, choice);
+        var choice = new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5);
+        var value = direct(
+                "first", 4000L, io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE, choice);
         var payload = codec.encodeDirectPay(value);
-        var record = new OrderCreateIntent("intent", "order", "merchant", "M001", "a".repeat(64), "b".repeat(64), "DIRECT_PAY", null,
-                payload, "INIT", null, null, null, 0L);
+        var record = new OrderCreateIntent(
+                "intent",
+                "order",
+                "merchant",
+                "M001",
+                "a".repeat(64),
+                "b".repeat(64),
+                "DIRECT_PAY",
+                null,
+                payload,
+                "INIT",
+                null,
+                null,
+                null,
+                0L);
         assertEquals(value, codec.decodeDirectPay(record));
         assertThrows(CommonException.class, () -> codec.decodeIntent(record));
         assertThrows(CommonException.class, () -> codec.decodeDirectPay(intent(payload)));
@@ -89,16 +109,50 @@ class OrderCreationCodecImplTest {
         assertNotEquals(digest, codec.requestDigest("tenant", "actor", command(null)));
         assertNotEquals(digest, codec.directPayDigest("other", "actor", value));
         assertNotEquals(digest, codec.directPayDigest("tenant", "other", value));
-        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("changed", 4000L, value.interactionKind(), choice)));
-        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4001L, value.interactionKind(), choice)));
-        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L,
-                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE, choice)));
-        assertNotEquals(digest, codec.directPayDigest("tenant", "actor", direct("first", 4000L, value.interactionKind(),
-                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(io.github.loadup.commons.payment.Channel.ALIPAY,
-                        io.github.loadup.commons.payment.PaymentMethod.H5))));
+        assertNotEquals(
+                digest,
+                codec.directPayDigest("tenant", "actor", direct("changed", 4000L, value.interactionKind(), choice)));
+        assertNotEquals(
+                digest,
+                codec.directPayDigest("tenant", "actor", direct("first", 4001L, value.interactionKind(), choice)));
+        assertNotEquals(
+                digest,
+                codec.directPayDigest(
+                        "tenant",
+                        "actor",
+                        direct(
+                                "first",
+                                4000L,
+                                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE,
+                                choice)));
+        assertNotEquals(
+                digest,
+                codec.directPayDigest(
+                        "tenant",
+                        "actor",
+                        direct(
+                                "first",
+                                4000L,
+                                value.interactionKind(),
+                                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
+                                        io.github.loadup.commons.payment.Channel.ALIPAY,
+                                        io.github.loadup.commons.payment.PaymentMethod.H5))));
         var unknown = payload.replace("H5_SCENE", "UNKNOWN_INPUT");
-        var corrupt = new OrderCreateIntent("intent", "order", "merchant", "M001", "a".repeat(64), "b".repeat(64), "DIRECT_PAY", null,
-                unknown, "INIT", null, null, null, 0L);
+        var corrupt = new OrderCreateIntent(
+                "intent",
+                "order",
+                "merchant",
+                "M001",
+                "a".repeat(64),
+                "b".repeat(64),
+                "DIRECT_PAY",
+                null,
+                unknown,
+                "INIT",
+                null,
+                null,
+                null,
+                0L);
         assertThrows(CommonException.class, () -> codec.decodeDirectPay(corrupt));
     }
 
@@ -201,6 +255,7 @@ class OrderCreationCodecImplTest {
         assertEquals(policy, restored);
         assertEquals(
                 policy.calculate(io.github.loadup.commons.validation.DomainChecks.cnyAmount(9007199254740993L, "CNY")),
-                restored.calculate(io.github.loadup.commons.validation.DomainChecks.cnyAmount(9007199254740993L, "CNY")));
+                restored.calculate(
+                        io.github.loadup.commons.validation.DomainChecks.cnyAmount(9007199254740993L, "CNY")));
     }
 }

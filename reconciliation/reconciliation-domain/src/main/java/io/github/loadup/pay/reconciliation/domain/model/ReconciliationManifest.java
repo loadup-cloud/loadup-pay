@@ -1,34 +1,43 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.domain.model;
-
-import io.github.loadup.commons.json.ToStringAsJson;
-import io.github.loadup.commons.validation.DomainChecks;
-
-import java.util.Objects;
 
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
+import java.util.Objects;
+
 /**
  * Created only after trusted provenance, complete-file EOF/hash/trailer and source-export coverage validation.
  */
-public record ReconciliationManifest(ReconciliationSide side, ReconciliationScope scope, String artifactId,
-                                     String artifactSha256, String normalizedSha256, String sourceCaptureId,
-                                     String parserRevision, ReconciliationTotals totals) {
+public record ReconciliationManifest(
+        ReconciliationSide side,
+        ReconciliationScope scope,
+        String artifactId,
+        String artifactSha256,
+        String normalizedSha256,
+        String sourceCaptureId,
+        String parserRevision,
+        ReconciliationTotals totals) {
     public ReconciliationManifest {
         Objects.requireNonNull(side);
         Objects.requireNonNull(scope);
@@ -36,8 +45,12 @@ public record ReconciliationManifest(ReconciliationSide side, ReconciliationScop
         DomainChecks.id(artifactId);
         DomainChecks.id(sourceCaptureId);
         DomainChecks.text(parserRevision, 64);
-        require(artifactSha256 != null && artifactSha256.matches("[0-9a-f]{64}")
-                && normalizedSha256 != null && normalizedSha256.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
+        require(
+                artifactSha256 != null
+                        && artifactSha256.matches("[0-9a-f]{64}")
+                        && normalizedSha256 != null
+                        && normalizedSha256.matches("[0-9a-f]{64}"),
+                INVALID_ARGUMENT);
     }
 
     @Override

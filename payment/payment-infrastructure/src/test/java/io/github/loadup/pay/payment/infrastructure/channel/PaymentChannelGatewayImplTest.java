@@ -1,19 +1,37 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.channel;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -39,26 +57,11 @@ import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.service.PaymentChannelRequestFactory;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
-import org.junit.jupiter.api.Test;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class PaymentChannelGatewayImplTest {
     private static final Money AMOUNT = Money.ofMinor(2500, "CNY");
@@ -68,12 +71,19 @@ class PaymentChannelGatewayImplTest {
     private final ChannelBindingGateway bindings = mock(ChannelBindingGateway.class);
     private final PaymentChannelRequestFactory requests = mock(PaymentChannelRequestFactory.class);
     private final PaymentChannelGatewayImpl gateway = new PaymentChannelGatewayImpl(channels, bindings, requests);
-    private final ChannelPaymentIdentity identity = new ChannelPaymentIdentity(
-            "payment-1", "attempt-1", Channel.ALIPAY, "frozen-revision", HASH, "request-1");
+    private final ChannelPaymentIdentity identity =
+            new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, "frozen-revision", HASH, "request-1");
     private final ChannelPaymentTarget target = new ChannelPaymentTarget(identity, AMOUNT);
-    private final ChannelBindingRevision frozenRevision = new ChannelBindingRevision("frozen-revision", "merchant-1",
-            Channel.ALIPAY, AccessMode.DIRECT, HASH, "credential-ref", "7",
-            new AlipayAccountIdentity("app", "seller", null, null, null), Set.of(PaymentMethod.PAYMENT_CODE));
+    private final ChannelBindingRevision frozenRevision = new ChannelBindingRevision(
+            "frozen-revision",
+            "merchant-1",
+            Channel.ALIPAY,
+            AccessMode.DIRECT,
+            HASH,
+            "credential-ref",
+            "7",
+            new AlipayAccountIdentity("app", "seller", null, null, null),
+            Set.of(PaymentMethod.PAYMENT_CODE));
     private final ChannelExecutionContext expectedContext = new ChannelExecutionContext("tenant", frozenRevision);
 
     private static ChannelPaymentSubmission paymentSubmission(ChannelPaymentIdentity identity) {
@@ -81,27 +91,47 @@ class PaymentChannelGatewayImplTest {
     }
 
     private static PaymentObservation paymentObservation(ChannelPaymentIdentity identity) {
-        return new PaymentObservation(identity, ChannelPaymentOutcome.Kind.ACCEPTED, AMOUNT, null, null,
-                PaymentObservation.Source.QUERY_RESPONSE, "receipt-1", "b".repeat(64));
+        return new PaymentObservation(
+                identity,
+                ChannelPaymentOutcome.Kind.ACCEPTED,
+                AMOUNT,
+                null,
+                null,
+                PaymentObservation.Source.QUERY_RESPONSE,
+                "receipt-1",
+                "b".repeat(64));
     }
 
     private static RefundObservation refundObservation(PreparedChannelRefund refund) {
-        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
-                refund.originalChannelTransactionNo(), ChannelRefundOutcome.Kind.ACCEPTED, refund.amount(), null,
-                null, RefundObservation.Source.QUERY_RESPONSE, "receipt-2", "c".repeat(64), null);
+        return new RefundObservation(
+                refund.refundId(),
+                refund.original(),
+                refund.channelRefundNo(),
+                refund.originalChannelTransactionNo(),
+                ChannelRefundOutcome.Kind.ACCEPTED,
+                refund.amount(),
+                null,
+                null,
+                RefundObservation.Source.QUERY_RESPONSE,
+                "receipt-2",
+                "c".repeat(64),
+                null);
     }
 
     @Test
     void resolvesFrozenRevisionAndForwardsContextForPaymentRecoveryAndRefundQueries() {
         var payment = new PreparedChannelPayment(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, "input-ref");
-        var paymentRequest = new ChannelPaymentRequest(payment, "subject", java.time.OffsetDateTime.parse("2026-10-23T12:00:00Z"),
+        var paymentRequest = new ChannelPaymentRequest(
+                payment,
+                "subject",
+                java.time.OffsetDateTime.parse("2026-10-23T12:00:00Z"),
                 new ChannelPaymentCodeInput("123456"));
-        var refund = new PreparedChannelRefund(identity, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"),
-                AMOUNT, "channel-payment-1");
+        var refund = new PreparedChannelRefund(
+                identity, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"), AMOUNT, "channel-payment-1");
         var paymentResult = paymentSubmission(identity);
         var queryResult = paymentObservation(identity);
-        var recovery = new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1,
-                OffsetDateTime.parse("2026-10-24T12:00:00Z"));
+        var recovery = new ChannelPaymentRecovery(
+                identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, OffsetDateTime.parse("2026-10-24T12:00:00Z"));
         var recoveryResult = paymentSubmission(identity);
         var refundResult = refundObservation(refund);
         when(bindings.findRevision("tenant", "frozen-revision")).thenReturn(Optional.of(frozenRevision));
@@ -139,8 +169,8 @@ class PaymentChannelGatewayImplTest {
 
     @Test
     void recoveryUsesFrozenContextWithoutCreatingARequestOrConsultingActiveBinding() {
-        var recovery = new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1,
-                OffsetDateTime.parse("2026-10-24T12:00:00Z"));
+        var recovery = new ChannelPaymentRecovery(
+                identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, OffsetDateTime.parse("2026-10-24T12:00:00Z"));
         var result = paymentSubmission(identity);
         when(bindings.findRevision("tenant", "frozen-revision")).thenReturn(Optional.of(frozenRevision));
         when(channels.recover(expectedContext, recovery)).thenReturn(result);
@@ -156,8 +186,8 @@ class PaymentChannelGatewayImplTest {
 
     @Test
     void capabilityLookupNeverResolvesBindingsAndRemainsLocalInsideTransaction() {
-        var refund = new PreparedChannelRefund(identity, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"),
-                AMOUNT, "channel-payment-1");
+        var refund = new PreparedChannelRefund(
+                identity, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"), AMOUNT, "channel-payment-1");
         when(channels.canRefund(refund)).thenReturn(true);
 
         TransactionSynchronizationManager.setActualTransactionActive(true);
@@ -176,8 +206,8 @@ class PaymentChannelGatewayImplTest {
     @Test
     void missingTenantAndActiveTransactionStopBeforeBindingOrFacadeIo() {
         var payment = new PreparedChannelPayment(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, "input-ref");
-        var recovery = new ChannelPaymentRecovery(identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1,
-                OffsetDateTime.parse("2026-10-24T12:00:00Z"));
+        var recovery = new ChannelPaymentRecovery(
+                identity, AMOUNT, PaymentMethod.PAYMENT_CODE, 1, OffsetDateTime.parse("2026-10-24T12:00:00Z"));
         assertThrows(CommonException.class, () -> gateway.submit(payment));
         verifyNoInteractions(bindings, channels, requests);
 

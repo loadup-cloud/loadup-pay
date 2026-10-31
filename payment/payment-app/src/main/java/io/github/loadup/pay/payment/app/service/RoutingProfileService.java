@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -34,24 +47,14 @@ import io.github.loadup.pay.payment.domain.model.RoutableChannelBinding;
 import io.github.loadup.pay.payment.domain.model.RoutingProfileSpec;
 import io.github.loadup.pay.payment.domain.model.RoutingRule;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.TreeMap;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CHANNEL_BINDING_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ROUTING_PROFILE_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class RoutingProfileService implements RoutingProfileFacade {
@@ -66,11 +69,17 @@ public class RoutingProfileService implements RoutingProfileFacade {
     private final Clock clock;
     private final String managementService;
 
-    public RoutingProfileService(PaymentActorProvider actors, RoutingProfileGateway profiles,
-                                 ChannelBindingManagementGateway bindings, RoutingProfileConverter converter, RoutingProfileCodec codec,
-                                 PaymentAcceptanceTransactions transactions, IdGenerator ids, Validator validator,
-                                 Clock clock,
-                                 @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
+    public RoutingProfileService(
+            PaymentActorProvider actors,
+            RoutingProfileGateway profiles,
+            ChannelBindingManagementGateway bindings,
+            RoutingProfileConverter converter,
+            RoutingProfileCodec codec,
+            PaymentAcceptanceTransactions transactions,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            @Value("${loadup.modules.payment.channel-management-service-id:pay-ops}") String managementService) {
         this.actors = actors;
         this.profiles = profiles;
         this.bindings = bindings;
@@ -96,7 +105,8 @@ public class RoutingProfileService implements RoutingProfileFacade {
                 var prior = profiles.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
                 if (prior.isPresent()) {
                     var original = prior.get();
-                    if (!original.requestDigest().equals(digest) || !original.spec().equals(spec)
+                    if (!original.requestDigest().equals(digest)
+                            || !original.spec().equals(spec)
                             || !original.contentHash().equals(hash)) {
                         throw new CommonException(IDEMPOTENCY_CONFLICT);
                     }
@@ -107,7 +117,13 @@ public class RoutingProfileService implements RoutingProfileFacade {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 requireBindings(actor.tenantId(), spec);
-                var profile = converter.toStored(ids.generate(), spec, hash, actor.serviceId(), command.requestKey(), digest,
+                var profile = converter.toStored(
+                        ids.generate(),
+                        spec,
+                        hash,
+                        actor.serviceId(),
+                        command.requestKey(),
+                        digest,
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
                 profiles.insert(actor.tenantId(), profile);
                 return converter.toDTO(profile);
@@ -118,10 +134,12 @@ public class RoutingProfileService implements RoutingProfileFacade {
     private void requireBindings(String tenant, RoutingProfileSpec spec) {
         // Resolve immutable head ids first, then use the same id lock order as attempt selection.
         var resolved = new TreeMap<String, ChannelMerchantBinding>();
-        for (var code : spec.rules().stream().map(RoutingRule::bindingCode).distinct().toList()) {
+        for (var code :
+                spec.rules().stream().map(RoutingRule::bindingCode).distinct().toList()) {
             var head = bindings.find(tenant, spec.payeeMerchantId(), code)
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-            if (!head.payeeMerchantId().equals(spec.payeeMerchantId()) || !head.bindingCode().equals(code)) {
+            if (!head.payeeMerchantId().equals(spec.payeeMerchantId())
+                    || !head.bindingCode().equals(code)) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             resolved.put(head.id(), head);
@@ -130,7 +148,8 @@ public class RoutingProfileService implements RoutingProfileFacade {
         for (var prior : resolved.values()) {
             var head = bindings.lock(tenant, spec.payeeMerchantId(), prior.bindingCode())
                     .orElseThrow(() -> new CommonException(CHANNEL_BINDING_UNAVAILABLE));
-            if (!head.id().equals(prior.id()) || !head.bindingCode().equals(prior.bindingCode())
+            if (!head.id().equals(prior.id())
+                    || !head.bindingCode().equals(prior.bindingCode())
                     || !head.payeeMerchantId().equals(spec.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -147,8 +166,10 @@ public class RoutingProfileService implements RoutingProfileFacade {
         }
         for (var rule : spec.rules()) {
             var binding = locked.get(rule.bindingCode()).revision().binding();
-            if (!spec.payeeMerchantId().equals(binding.payeeMerchantId()) || binding.channel() != rule.channel()
-                    || binding.accessMode() != rule.accessMode() || !binding.capabilities().contains(rule.method())) {
+            if (!spec.payeeMerchantId().equals(binding.payeeMerchantId())
+                    || binding.channel() != rule.channel()
+                    || binding.accessMode() != rule.accessMode()
+                    || !binding.capabilities().contains(rule.method())) {
                 throw new CommonException(UNSUPPORTED_CAPABILITY);
             }
         }

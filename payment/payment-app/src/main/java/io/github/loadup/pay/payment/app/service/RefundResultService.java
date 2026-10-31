@@ -1,19 +1,31 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.APPLIED;
+import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.CONFLICT;
+import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.IGNORED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -33,21 +45,12 @@ import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.APPLIED;
-import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.CONFLICT;
-import static io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition.IGNORED;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Internal verified-adapter entry point only. There is no merchant success-injection endpoint.
@@ -65,10 +68,17 @@ public class RefundResultService {
     private final RefundProjectionEvents projections;
     private final io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances;
 
-    public RefundResultService(RefundResultGateway results, RefundExecutionLocks locks, PaymentAcceptanceTransactions transactions,
-                               RefundResultCodec codec, RefundExecutionConverter converter, RefundPlanningConverter views, IdGenerator ids,
-                               Clock clock, RefundProjectionEvents projections,
-                               io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances) {
+    public RefundResultService(
+            RefundResultGateway results,
+            RefundExecutionLocks locks,
+            PaymentAcceptanceTransactions transactions,
+            RefundResultCodec codec,
+            RefundExecutionConverter converter,
+            RefundPlanningConverter views,
+            IdGenerator ids,
+            Clock clock,
+            RefundProjectionEvents projections,
+            io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances) {
         this.results = results;
         this.locks = locks;
         this.transactions = transactions;
@@ -91,12 +101,21 @@ public class RefundResultService {
         return transactions.withTenantContext(tenant, () -> {
             DomainChecks.id(tenant);
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
-            String requestId = results.requestId(tenant, observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.writeLocal(tenant, () -> apply(tenant, locks.lock(tenant, requestId, observation.refundId()), observation, digest, payload));
+            String requestId =
+                    results.requestId(tenant, observation.refundId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            return transactions.writeLocal(
+                    tenant,
+                    () -> apply(
+                            tenant,
+                            locks.lock(tenant, requestId, observation.refundId()),
+                            observation,
+                            digest,
+                            payload));
         });
     }
 
-    private RefundResultApplication apply(String tenant, LockedRefund locked, RefundObservation observation, String digest, String payload) {
+    private RefundResultApplication apply(
+            String tenant, LockedRefund locked, RefundObservation observation, String digest, String payload) {
         var request = locked.request();
         var facts = locked.child();
         var current = facts.child().refund();
@@ -117,7 +136,10 @@ public class RefundResultService {
             if (current.state() == RefundState.FAILED) {
                 return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
             }
-            var claimed = results.transaction(observation.original().channel(), observation.original().accountScopeHash(), observation.channelRefundTransactionNo());
+            var claimed = results.transaction(
+                    observation.original().channel(),
+                    observation.original().accountScopeHash(),
+                    observation.channelRefundTransactionNo());
             var own = results.claim(tenant, current.id());
             if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_ALREADY_CLAIMED");
@@ -126,10 +148,14 @@ public class RefundResultService {
                 return reject(tenant, request, id, observation, digest, payload, "REFUND_TRANSACTION_CONFLICT");
             }
             if (current.state() == RefundState.SUCCEEDED) {
-                if (own.isEmpty() || claimed.isEmpty() || !own.get().id().equals(claimed.get().id())
-                        || !Objects.equals(current.terminalEvidenceId(), own.get().receiptId())
+                if (own.isEmpty()
+                        || claimed.isEmpty()
+                        || !own.get().id().equals(claimed.get().id())
+                        || !Objects.equals(
+                                current.terminalEvidenceId(), own.get().receiptId())
                         || !observation.channelRefundTransactionNo().equals(facts.channelRefundTransactionNo())
-                        || !observation.succeededAt().equals(facts.succeededAt()) || locked.capacity().refundedMinor() < current.amount().getCent()) {
+                        || !observation.succeededAt().equals(facts.succeededAt())
+                        || locked.capacity().refundedMinor() < current.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
@@ -138,7 +164,8 @@ public class RefundResultService {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             results.insertClaim(converter.toClaim(ids.generate(), tenant, observation, id));
-        } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND && current.state() == RefundState.SUCCEEDED) {
+        } else if (observation.kind() == ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND
+                && current.state() == RefundState.SUCCEEDED) {
             return reject(tenant, request, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
         }
         if (current.terminal()) {
@@ -149,13 +176,25 @@ public class RefundResultService {
             return receipt(tenant, request, id, observation, digest, payload, IGNORED, null);
         }
         var next = request.request().apply(changed.refund());
-        var change = new RefundProgressChange(facts, changed.refund(), request.request(), next, locked.capacity(), changed.capacity(),
-                facts.submissionStartedAt(), observation.channelRefundTransactionNo(), observation.succeededAt());
+        var change = new RefundProgressChange(
+                facts,
+                changed.refund(),
+                request.request(),
+                next,
+                locked.capacity(),
+                changed.capacity(),
+                facts.submissionStartedAt(),
+                observation.channelRefundTransactionNo(),
+                observation.succeededAt());
         results.update(tenant, change);
         projections.changed(tenant, change);
         var updated = converter.withRefund(facts.child(), changed.refund());
-        var stored = converter.withRequest(request, next, request.allocations().stream()
-                .map(c -> c.refund().id().equals(current.id()) ? updated : c).toList());
+        var stored = converter.withRequest(
+                request,
+                next,
+                request.allocations().stream()
+                        .map(c -> c.refund().id().equals(current.id()) ? updated : c)
+                        .toList());
         return receipt(tenant, stored, id, observation, digest, payload, APPLIED, null);
     }
 
@@ -172,10 +211,19 @@ public class RefundResultService {
             if (locked.child().submissionStartedAt() == null) {
                 throw new CommonException(INVALID_STATE);
             }
-            var nextChild = current.recordOutcome(new ChannelRefundOutcome(refundId, ChannelRefundOutcome.Kind.UNKNOWN, current.amount(), null));
+            var nextChild = current.recordOutcome(
+                    new ChannelRefundOutcome(refundId, ChannelRefundOutcome.Kind.UNKNOWN, current.amount(), null));
             var next = locked.request().request().apply(nextChild);
-            var change = new RefundProgressChange(locked.child(), nextChild, locked.request().request(), next,
-                    locked.capacity(), locked.capacity(), locked.child().submissionStartedAt(), null, null);
+            var change = new RefundProgressChange(
+                    locked.child(),
+                    nextChild,
+                    locked.request().request(),
+                    next,
+                    locked.capacity(),
+                    locked.capacity(),
+                    locked.child().submissionStartedAt(),
+                    null,
+                    null);
             results.update(tenant, change);
             projections.changed(tenant, change);
             return true;
@@ -184,7 +232,8 @@ public class RefundResultService {
 
     private String mismatch(RefundExecutionFacts facts, RefundObservation o) {
         var child = facts.child();
-        if (!child.original().equals(o.original()) || !child.channelTransactionNo().equals(o.originalChannelTransactionNo())
+        if (!child.original().equals(o.original())
+                || !child.channelTransactionNo().equals(o.originalChannelTransactionNo())
                 || !child.refund().channelRefundNo().equals(o.channelRefundNo())) {
             return "REFUND_IDENTITY_MISMATCH";
         }
@@ -204,38 +253,77 @@ public class RefundResultService {
     }
 
     private boolean matches(String tenant, RefundTransactionClaim claim, RefundObservation o) {
-        return claim.tenantId().equals(tenant) && claim.refundId().equals(o.refundId()) && claim.original().equals(o.original())
-                && claim.originalChannelTransactionNo().equals(o.originalChannelTransactionNo()) && claim.channelRefundNo().equals(o.channelRefundNo())
-                && claim.amount().equals(o.amount()) && claim.channelRefundTransactionNo().equals(o.channelRefundTransactionNo())
+        return claim.tenantId().equals(tenant)
+                && claim.refundId().equals(o.refundId())
+                && claim.original().equals(o.original())
+                && claim.originalChannelTransactionNo().equals(o.originalChannelTransactionNo())
+                && claim.channelRefundNo().equals(o.channelRefundNo())
+                && claim.amount().equals(o.amount())
+                && claim.channelRefundTransactionNo().equals(o.channelRefundTransactionNo())
                 && claim.succeededAt().equals(o.succeededAt());
     }
 
-    private RefundResultApplication reject(String tenant, StoredRefundRequest request, String id, RefundObservation o, String digest, String payload, String reason) {
+    private RefundResultApplication reject(
+            String tenant,
+            StoredRefundRequest request,
+            String id,
+            RefundObservation o,
+            String digest,
+            String payload,
+            String reason) {
         receipt(tenant, request, id, o, digest, payload, CONFLICT, reason);
         return anomaly(tenant, request, id, o, digest, payload, reason);
     }
 
-    private RefundResultApplication anomaly(String tenant, StoredRefundRequest request, String id, RefundObservation o, String digest, String payload, String reason) {
-        results.recordAnomaly(tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id, reason, digest, payload, now()));
+    private RefundResultApplication anomaly(
+            String tenant,
+            StoredRefundRequest request,
+            String id,
+            RefundObservation o,
+            String digest,
+            String payload,
+            String reason) {
+        results.recordAnomaly(
+                tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id, reason, digest, payload, now()));
         return present(CONFLICT, id, request);
     }
 
-    private RefundResultApplication receipt(String tenant, StoredRefundRequest request, String id, RefundObservation o, String digest, String payload,
-                                            RefundReceiptDisposition disposition, String reason) {
+    private RefundResultApplication receipt(
+            String tenant,
+            StoredRefundRequest request,
+            String id,
+            RefundObservation o,
+            String digest,
+            String payload,
+            RefundReceiptDisposition disposition,
+            String reason) {
         results.insertReceipt(tenant, converter.toReceipt(id, o, digest, payload, disposition, reason, now()));
         if (disposition != CONFLICT && o.acceptedAt() != null) {
-            var child = request.allocations().stream().filter(value -> value.refund().id().equals(o.refundId())).findFirst()
+            var child = request.allocations().stream()
+                    .filter(value -> value.refund().id().equals(o.refundId()))
+                    .findFirst()
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!acceptances.remember(tenant, converter.toAcceptance(o, id), child.refund().version())) {
-                results.recordAnomaly(tenant, new RefundResultAnomaly(ids.generate(), o.refundId(), id,
-                        "REFUND_ACCEPTANCE_TIME_CONFLICT", digest, payload, now()));
+            if (!acceptances.remember(
+                    tenant, converter.toAcceptance(o, id), child.refund().version())) {
+                results.recordAnomaly(
+                        tenant,
+                        new RefundResultAnomaly(
+                                ids.generate(),
+                                o.refundId(),
+                                id,
+                                "REFUND_ACCEPTANCE_TIME_CONFLICT",
+                                digest,
+                                payload,
+                                now()));
             }
         }
         return present(disposition, id, request);
     }
 
-    private RefundResultApplication present(RefundReceiptDisposition disposition, String id, StoredRefundRequest request) {
-        return new RefundResultApplication(disposition, id, views.toDTO(request.request(), views.toAllocations(request.allocations())));
+    private RefundResultApplication present(
+            RefundReceiptDisposition disposition, String id, StoredRefundRequest request) {
+        return new RefundResultApplication(
+                disposition, id, views.toDTO(request.request(), views.toAllocations(request.allocations())));
     }
 
     private LocalDateTime now() {

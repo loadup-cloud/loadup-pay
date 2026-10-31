@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.converter;
 
@@ -42,7 +46,8 @@ public interface CashierPaymentConverter {
     @Mapping(target = "actionKey", source = "command.actionKey")
     @Mapping(target = "state", source = "state")
     @Mapping(target = "payment", source = "payment")
-    CashierPaymentRecoveryDTO toRecovery(CashierPaymentRecoverCommand command, PaymentRecoveryState state, CashierPaymentDTO payment);
+    CashierPaymentRecoveryDTO toRecovery(
+            CashierPaymentRecoverCommand command, PaymentRecoveryState state, CashierPaymentDTO payment);
 
     @Mapping(target = "channel", source = "channel")
     @Mapping(target = "method", constant = "H5")
@@ -67,7 +72,9 @@ public interface CashierPaymentConverter {
     @Mapping(target = "accepted", expression = "java(progress.payment() != null)")
     @Mapping(target = "state", source = "progress.payment.state")
     @Mapping(target = "action", source = "progress.payment.action")
-    @Mapping(target = "version", expression = "java(progress.payment() == null ? null : Long.valueOf(progress.payment().version()))")
+    @Mapping(
+            target = "version",
+            expression = "java(progress.payment() == null ? null : Long.valueOf(progress.payment().version()))")
     @Mapping(target = "order", source = "order")
     CashierPaymentDTO toCashier(PaymentProgressDTO progress, String paymentId, CashierOrderDTO order);
 }

@@ -1,40 +1,56 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.domain.model;
-
-import io.github.loadup.commons.json.ToStringAsJson;
-
-import java.util.Comparator;
-import java.util.List;
 
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.json.ToStringAsJson;
+import java.util.Comparator;
+import java.util.List;
+
 /**
  * Exact immutable input manifests and deterministic differences bind completion to this particular comparison.
  */
-public record ReconciliationResult(ReconciliationManifest channel, ReconciliationManifest ledger,
-                                   long matchedCount, List<ReconciliationDifference> differences) {
+public record ReconciliationResult(
+        ReconciliationManifest channel,
+        ReconciliationManifest ledger,
+        long matchedCount,
+        List<ReconciliationDifference> differences) {
     public ReconciliationResult {
-        require(channel != null && ledger != null && channel.side() == ReconciliationSide.CHANNEL
-                && ledger.side() == ReconciliationSide.LEDGER && channel.scope().equals(ledger.scope()), CONFLICT);
-        require(!channel.artifactId().equals(ledger.artifactId()) && !channel.sourceCaptureId().equals(ledger.sourceCaptureId()), CONFLICT);
+        require(
+                channel != null
+                        && ledger != null
+                        && channel.side() == ReconciliationSide.CHANNEL
+                        && ledger.side() == ReconciliationSide.LEDGER
+                        && channel.scope().equals(ledger.scope()),
+                CONFLICT);
+        require(
+                !channel.artifactId().equals(ledger.artifactId())
+                        && !channel.sourceCaptureId().equals(ledger.sourceCaptureId()),
+                CONFLICT);
         require(matchedCount >= 0, INVALID_ARGUMENT);
-        differences = List.copyOf(differences).stream().sorted(Comparator.comparing(ReconciliationDifference::key)).toList();
+        differences = List.copyOf(differences).stream()
+                .sorted(Comparator.comparing(ReconciliationDifference::key))
+                .toList();
         long channelDifferences = 0, ledgerDifferences = 0;
         ReconciliationKey previous = null;
         for (var difference : differences) {
@@ -47,9 +63,12 @@ public record ReconciliationResult(ReconciliationManifest channel, Reconciliatio
                 ledgerDifferences++;
             }
         }
-        require(channelDifferences <= channel.totals().recordCount() && ledgerDifferences <= ledger.totals().recordCount()
-                && matchedCount == channel.totals().recordCount() - channelDifferences
-                && matchedCount == ledger.totals().recordCount() - ledgerDifferences, CONFLICT);
+        require(
+                channelDifferences <= channel.totals().recordCount()
+                        && ledgerDifferences <= ledger.totals().recordCount()
+                        && matchedCount == channel.totals().recordCount() - channelDifferences
+                        && matchedCount == ledger.totals().recordCount() - ledgerDifferences,
+                CONFLICT);
     }
 
     private static void manifest(ReconciliationFingerprint fingerprint, ReconciliationManifest manifest) {

@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -35,24 +46,15 @@ import io.github.loadup.pay.payment.domain.model.PaymentCapture;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureScope;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentCaptureService implements PaymentCaptureFacade {
@@ -66,9 +68,16 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     private final Clock clock;
     private final String reconciliationService;
 
-    public PaymentCaptureService(PaymentActorProvider actors, PaymentCaptureGateway captures, PaymentAcceptanceTransactions transactions,
-                                 DelayedTaskTemplate tasks, PaymentCaptureConverter converter, IdGenerator ids, Validator validator, Clock clock,
-                                 @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
+    public PaymentCaptureService(
+            PaymentActorProvider actors,
+            PaymentCaptureGateway captures,
+            PaymentAcceptanceTransactions transactions,
+            DelayedTaskTemplate tasks,
+            PaymentCaptureConverter converter,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            @Value("${loadup.modules.payment.reconciliation-service-id:reconciliation}") String reconciliationService) {
         this.actors = actors;
         this.captures = captures;
         this.transactions = transactions;
@@ -84,8 +93,18 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     public PaymentCaptureDTO create(PaymentCaptureCreateCommand command) {
         validate(command);
         var actor = actor("create");
-        var scope = transactions.withTenantContext(actor.tenantId(), () -> new PaymentCaptureScope(command.channel(), command.accountScopeHash(), command.billDate(), command.statementProfile(), clock.getZone().getId()));
-        if (!command.billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
+        var scope = transactions.withTenantContext(
+                actor.tenantId(),
+                () -> new PaymentCaptureScope(
+                        command.channel(),
+                        command.accountScopeHash(),
+                        command.billDate(),
+                        command.statementProfile(),
+                        clock.getZone().getId()));
+        if (!command.billDate()
+                .isBefore(OffsetDateTime.now(clock)
+                        .withOffsetSameInstant(ZoneOffset.ofHours(8))
+                        .toLocalDate())) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         String digest = digest(actor, command, scope.systemZone());
@@ -100,7 +119,10 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             }
             var value = PaymentCapture.init(ids.generate(), actor.serviceId(), command.requestKey(), digest, scope);
             captures.insert(actor.tenantId(), value);
-            tasks.register(PaymentCaptureExecutionService.TYPE, value.id(), LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
+            tasks.register(
+                    PaymentCaptureExecutionService.TYPE,
+                    value.id(),
+                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
             return present(actor.tenantId(), value);
         });
     }
@@ -110,7 +132,10 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         validate(command);
         var actor = actor("retry");
         return transactions.writeLocal(actor.tenantId(), () -> {
-            var value = authorized(actor, captures.lock(actor.tenantId(), command.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var value = authorized(
+                    actor,
+                    captures.lock(actor.tenantId(), command.captureId())
+                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = present(actor.tenantId(), value);
             if (!command.expectedTaskId().equals(task.nativeTaskId())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
@@ -133,7 +158,14 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     public PaymentCaptureDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> present(actor.tenantId(), authorized(actor, captures.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
+        return transactions.readSnapshot(
+                actor.tenantId(),
+                () -> present(
+                        actor.tenantId(),
+                        authorized(
+                                actor,
+                                captures.find(actor.tenantId(), query.id())
+                                        .orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
@@ -141,20 +173,27 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
         validate(query);
         var actor = actor("read");
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var capture = authorized(actor, captures.find(actor.tenantId(), query.captureId()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var capture = authorized(
+                    actor,
+                    captures.find(actor.tenantId(), query.captureId())
+                            .orElseThrow(() -> new CommonException(NOT_FOUND)));
             if (capture.state() != PaymentCaptureState.SEALED) {
                 throw new CommonException(INVALID_STATE);
             }
             var page = captures.page(actor.tenantId(), capture, query.page(), query.size());
-            if (page.page() != query.page() || page.size() != query.size() || page.total() != Math.addExact(capture.paymentCount(), capture.refundCount())) {
+            if (page.page() != query.page()
+                    || page.size() != query.size()
+                    || page.total() != Math.addExact(capture.paymentCount(), capture.refundCount())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            return PageDTO.of(page.map(line -> converter.toDTO(line, capture.scope().systemZone())));
+            return PageDTO.of(
+                    page.map(line -> converter.toDTO(line, capture.scope().systemZone())));
         });
     }
 
     private PaymentCaptureDTO present(String tenant, PaymentCapture value) {
-        var task = tasks.find(PaymentCaptureExecutionService.TYPE, value.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var task = tasks.find(PaymentCaptureExecutionService.TYPE, value.id())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!value.id().equals(task.bizId()) || !PaymentCaptureExecutionService.TYPE.equals(task.taskType())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -173,7 +212,9 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
             throw new CommonException(INVALID_STATE);
         }
         var actor = actors.current();
-        if (actor == null || !reconciliationService.equals(actor.serviceId()) || !actor.permissions().contains("pay:payment:reconciliation:capture:" + operation)) {
+        if (actor == null
+                || !reconciliationService.equals(actor.serviceId())
+                || !actor.permissions().contains("pay:payment:reconciliation:capture:" + operation)) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         return actor;
@@ -187,9 +228,19 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
 
     private String digest(PaymentActor actor, PaymentCaptureCreateCommand command, String zone) {
         var framed = new StringBuilder();
-        for (var field : java.util.List.of("payment-capture-request-v1", actor.tenantId(), actor.serviceId(), command.requestKey(), command.channel().name(),
-                command.accountScopeHash(), command.billDate().toString(), command.statementProfile(), zone)) {
-            framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        for (var field : java.util.List.of(
+                "payment-capture-request-v1",
+                actor.tenantId(),
+                actor.serviceId(),
+                command.requestKey(),
+                command.channel().name(),
+                command.accountScopeHash(),
+                command.billDate().toString(),
+                command.statementProfile(),
+                zone)) {
+            framed.append(field.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(field);
         }
         return DigestUtils.sha256(framed.toString());
     }

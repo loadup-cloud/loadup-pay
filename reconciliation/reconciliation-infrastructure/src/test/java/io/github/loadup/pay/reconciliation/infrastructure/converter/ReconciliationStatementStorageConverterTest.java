@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -22,22 +30,28 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationOfficialRe
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementRequest;
+import java.time.LocalDate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-import java.time.LocalDate;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 class ReconciliationStatementStorageConverterTest {
-    final AnnotationConfigApplicationContext spring = new AnnotationConfigApplicationContext(ReconciliationStatementStorageConverter.class.getPackageName());
-    final ReconciliationStatementStorageConverter converter = spring.getBean(ReconciliationStatementStorageConverter.class);
-    final ReconciliationStatementRequest initial = ReconciliationStatementRequest.init("source", "batch", "ops", "request", "b".repeat(64),
-            new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 27), "wechat-trade-all-20260116"),
-            new ReconciliationStatementAccount("1234567890", null), "revision", 1024, "download-task");
+    final AnnotationConfigApplicationContext spring =
+            new AnnotationConfigApplicationContext(ReconciliationStatementStorageConverter.class.getPackageName());
+    final ReconciliationStatementStorageConverter converter =
+            spring.getBean(ReconciliationStatementStorageConverter.class);
+    final ReconciliationStatementRequest initial = ReconciliationStatementRequest.init(
+            "source",
+            "batch",
+            "ops",
+            "request",
+            "b".repeat(64),
+            new ReconciliationScope(
+                    Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 27), "wechat-trade-all-20260116"),
+            new ReconciliationStatementAccount("1234567890", null),
+            "revision",
+            1024,
+            "download-task");
 
     @AfterEach
     void close() {
@@ -63,8 +77,16 @@ class ReconciliationStatementStorageConverterTest {
 
     @Test
     void completeReceiptRoundtripsWithExactProtocolInstantsAndOriginalPrivateFiles() {
-        var receipt = new ReconciliationOfficialReceipt("revision", "wechat-tradebill-grant-v1", "e".repeat(64), "SHA1", "f".repeat(40),
-                1793131200123456L, 1793131201123456L, new ReconciliationFileSnapshot("file", "storage", 100, "c".repeat(64)), new ReconciliationFileSnapshot("proof", "proof-storage", 200, "d".repeat(64)));
+        var receipt = new ReconciliationOfficialReceipt(
+                "revision",
+                "wechat-tradebill-grant-v1",
+                "e".repeat(64),
+                "SHA1",
+                "f".repeat(40),
+                1793131200123456L,
+                1793131201123456L,
+                new ReconciliationFileSnapshot("file", "storage", 100, "c".repeat(64)),
+                new ReconciliationFileSnapshot("proof", "proof-storage", 200, "d".repeat(64)));
         var ready = initial.ready(receipt);
         var row = converter.toDO("tenant", ready);
         assertEquals(ready, converter.toModel(row));

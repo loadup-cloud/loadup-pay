@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Product Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.product.infrastructure.repository;
 
@@ -25,6 +29,10 @@ import io.github.loadup.pay.product.infrastructure.converter.PolicyPublicationSt
 import io.github.loadup.pay.product.infrastructure.dataobject.ContractLimitPublicationDO;
 import io.github.loadup.pay.product.infrastructure.exception.PublicationKeyConflictException;
 import io.github.loadup.pay.product.infrastructure.mapper.ContractLimitPublicationMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Set;
 import org.postgresql.util.PSQLException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -33,13 +41,9 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.Set;
-
 @Repository
-public class PolicyPublicationGatewayImpl extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
+public class PolicyPublicationGatewayImpl
+        extends ServiceImpl<ContractLimitPublicationMapper, ContractLimitPublicationDO>
         implements PolicyPublicationGateway {
     public static final String COLUMNS = "id, created_at, updated_at, contract_id, contract_revision, "
             + "policy_id, policy_version, policy_hash, state, activated_at, row_version, payee_merchant_id, "
@@ -63,9 +67,14 @@ public class PolicyPublicationGatewayImpl extends ServiceImpl<ContractLimitPubli
 
     private static boolean businessCollision(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
-            if (cause instanceof PSQLException sql && "23505".equals(sql.getSQLState()) && sql.getServerErrorMessage() != null
+            if (cause instanceof PSQLException sql
+                    && "23505".equals(sql.getSQLState())
+                    && sql.getServerErrorMessage() != null
                     && sql.getServerErrorMessage().getConstraint() != null) {
-                return Set.of("uk_contract_policy_publication", "uk_policy_publication_version", "uk_initial_policy_merchant")
+                return Set.of(
+                                "uk_contract_policy_publication",
+                                "uk_policy_publication_version",
+                                "uk_initial_policy_merchant")
                         .contains(sql.getServerErrorMessage().getConstraint());
             }
         }
@@ -75,8 +84,15 @@ public class PolicyPublicationGatewayImpl extends ServiceImpl<ContractLimitPubli
     private Optional<PolicyPublication> locked(String id) {
         var args = new MapSqlParameterSource("id", id);
         try {
-            return jdbc.query("SELECT " + COLUMNS + " FROM contract_limit_publication "
-                    + "WHERE deleted = FALSE AND id = :id FOR UPDATE", args, rowMapper).stream().findFirst().map(converter::toModel);
+            return jdbc
+                    .query(
+                            "SELECT " + COLUMNS + " FROM contract_limit_publication "
+                                    + "WHERE deleted = FALSE AND id = :id FOR UPDATE",
+                            args,
+                            rowMapper)
+                    .stream()
+                    .findFirst()
+                    .map(converter::toModel);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(ProductResultCodeEnum.SNAPSHOT_INVALID);
         }
@@ -94,25 +110,21 @@ public class PolicyPublicationGatewayImpl extends ServiceImpl<ContractLimitPubli
 
     @Override
     public Optional<PolicyPublication> findByContract(String tenant, String contract, int revision) {
-        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create()
-                .eq("contract_id", contract)
-                .eq("contract_revision", revision))));
+        return read(() -> Optional.ofNullable(
+                getOne(QueryWrapper.create().eq("contract_id", contract).eq("contract_revision", revision))));
     }
 
     @Override
     public Optional<PolicyPublication> findByMerchant(String tenant, String merchant) {
-        return read(() -> Optional.ofNullable(getOne(
-                QueryWrapper.create().eq("payee_merchant_id", merchant))));
+        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("payee_merchant_id", merchant))));
     }
 
     @Override
     public Optional<PolicyPublication> findByPolicy(String tenant, String policy) {
-        return read(() -> Optional.ofNullable(getOne(
-                QueryWrapper.create().eq("policy_id", policy))));
+        return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("policy_id", policy))));
     }
 
-    private Optional<PolicyPublication> read(
-            java.util.function.Supplier<Optional<ContractLimitPublicationDO>> lookup) {
+    private Optional<PolicyPublication> read(java.util.function.Supplier<Optional<ContractLimitPublicationDO>> lookup) {
         try {
             return lookup.get().map(this::map);
         } catch (IllegalArgumentException | NullPointerException invalid) {

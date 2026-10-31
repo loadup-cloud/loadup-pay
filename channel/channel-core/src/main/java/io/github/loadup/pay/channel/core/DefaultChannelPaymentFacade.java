@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Core
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.core;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -30,16 +41,8 @@ import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.util.Collection;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Immutable strategy registry; routing does not contain provider-specific branches.
@@ -76,12 +79,15 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
         var result = provider.submit(context, request);
-        if (result == null || !payment.identity().equals(result.identity()) || !payment.amount().equals(result.amount())) {
+        if (result == null
+                || !payment.identity().equals(result.identity())
+                || !payment.amount().equals(result.amount())) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
-        if (result.action() != null && (result.action().channel() != payment.identity().channel()
-                || result.action().method() != payment.method()
-                || result.action().expiresAt().isAfter(request.payableUntil()))) {
+        if (result.action() != null
+                && (result.action().channel() != payment.identity().channel()
+                        || result.action().method() != payment.method()
+                        || result.action().expiresAt().isAfter(request.payableUntil()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         return result;
@@ -103,12 +109,17 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         }
         var provider = route(context, request.identity());
         var result = recovery.execute(request.identity().channel(), () -> provider.recover(context, request));
-        if (result == null || !request.identity().equals(result.identity()) || !request.amount().equals(result.amount())
-                || result.observation() == null || result.observation().source() != PaymentObservation.Source.QUERY_RESPONSE) {
+        if (result == null
+                || !request.identity().equals(result.identity())
+                || !request.amount().equals(result.amount())
+                || result.observation() == null
+                || result.observation().source() != PaymentObservation.Source.QUERY_RESPONSE) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
-        if (result.action() != null && (result.action().channel() != request.identity().channel()
-                || result.action().method() != request.method() || result.action().expiresAt().isAfter(request.payableUntil()))) {
+        if (result.action() != null
+                && (result.action().channel() != request.identity().channel()
+                        || result.action().method() != request.method()
+                        || result.action().expiresAt().isAfter(request.payableUntil()))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         return result;
@@ -128,7 +139,10 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (refund == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        return providers.find(refund.original().channel()).map(provider -> provider.canRefund(refund)).orElse(false);
+        return providers
+                .find(refund.original().channel())
+                .map(provider -> provider.canRefund(refund))
+                .orElse(false);
     }
 
     @Override
@@ -152,7 +166,8 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (!provider.canRefund(refund)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
-        return checked(refund, recovery.execute(refund.original().channel(), () -> provider.queryRefund(context, refund)));
+        return checked(
+                refund, recovery.execute(refund.original().channel(), () -> provider.queryRefund(context, refund)));
     }
 
     @Override
@@ -164,10 +179,13 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         if (!provider.canRefund(refund)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
-        var result = checked(refund, recovery.execute(refund.original().channel(), () -> provider.recoverRefund(context, refund)));
-        if (result.source() != RefundObservation.Source.QUERY_RESPONSE && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
-                || result.source() == RefundObservation.Source.SUBMIT_RESPONSE && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
-                && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) {
+        var result = checked(
+                refund, recovery.execute(refund.original().channel(), () -> provider.recoverRefund(context, refund)));
+        if (result.source() != RefundObservation.Source.QUERY_RESPONSE
+                        && result.source() != RefundObservation.Source.SUBMIT_RESPONSE
+                || result.source() == RefundObservation.Source.SUBMIT_RESPONSE
+                        && result.kind() != ChannelRefundOutcome.Kind.ACCEPTED
+                        && result.kind() != ChannelRefundOutcome.Kind.UNKNOWN) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         return result;
@@ -184,7 +202,8 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         var binding = context.binding();
-        if (binding.channel() != identity.channel() || !binding.id().equals(identity.bindingRevisionId())
+        if (binding.channel() != identity.channel()
+                || !binding.id().equals(identity.bindingRevisionId())
                 || !binding.accountScopeHash().equals(identity.accountScopeHash())) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
@@ -207,7 +226,9 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
     }
 
     private RefundObservation checked(PreparedChannelRefund refund, RefundObservation result) {
-        if (result == null || !refund.refundId().equals(result.refundId()) || !refund.original().equals(result.original())
+        if (result == null
+                || !refund.refundId().equals(result.refundId())
+                || !refund.original().equals(result.original())
                 || !refund.channelRefundNo().equals(result.channelRefundNo())
                 || !refund.originalChannelTransactionNo().equals(result.originalChannelTransactionNo())
                 || !refund.amount().equals(result.amount())) {
@@ -216,4 +237,3 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
         return result;
     }
 }
-

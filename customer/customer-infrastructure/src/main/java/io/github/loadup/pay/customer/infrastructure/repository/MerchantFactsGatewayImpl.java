@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Customer Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.customer.infrastructure.repository;
 
@@ -22,9 +26,8 @@ import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantFactsGateway;
 import io.github.loadup.pay.customer.domain.model.MerchantFacts;
 import io.github.loadup.pay.customer.infrastructure.converter.MerchantFactsConverter;
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public class MerchantFactsGatewayImpl implements MerchantFactsGateway {
@@ -51,7 +54,8 @@ public class MerchantFactsGatewayImpl implements MerchantFactsGateway {
     @Override
     public MerchantFacts lock(String tenant, String id) {
         tenant(tenant);
-        return merchants.lock(id)
+        return merchants
+                .lock(id)
                 .map(converter::toFacts)
                 .orElseThrow(() -> new CommonException(CustomerResultCodeEnum.NOT_FOUND));
     }

@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -26,21 +35,15 @@ import io.github.loadup.pay.payment.domain.model.PaymentInputState;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentInputStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentInputDO;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentInputMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, PaymentInputDO>
@@ -92,9 +95,14 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
             return read(getById(inputRef));
         }
         var args = new MapSqlParameterSource().addValue("id", inputRef);
-        return read(jdbc.query("SELECT " + COLUMNS + " FROM payment_input WHERE id = :id AND deleted = FALSE"
-                        + " FOR UPDATE", args, BeanPropertyRowMapper.newInstance(PaymentInputDO.class))
-                .stream().findFirst().orElse(null));
+        return read(jdbc
+                .query(
+                        "SELECT " + COLUMNS + " FROM payment_input WHERE id = :id AND deleted = FALSE" + " FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentInputDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null));
     }
 
     private Optional<PaymentInput> read(PaymentInputDO row) {
@@ -140,8 +148,12 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
         if (expectedVersion != 0 || value.rowVersion() != 1 || value.state() != PaymentInputState.BOUND) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource().addValue("id", value.id()).addValue("payment", value.paymentId())
-                .addValue("attempt", value.boundAttemptId()).addValue("expected", expectedVersion).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", value.id())
+                .addValue("payment", value.paymentId())
+                .addValue("attempt", value.boundAttemptId())
+                .addValue("expected", expectedVersion)
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE payment_input SET state = 'BOUND', bound_attempt_id = :attempt, row_version = 1, updated_at = :updated
                 WHERE id = :id AND payment_id = :payment AND state = 'INIT'
@@ -157,7 +169,8 @@ public class PaymentInputGatewayImpl extends ServiceImpl<PaymentInputMapper, Pay
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

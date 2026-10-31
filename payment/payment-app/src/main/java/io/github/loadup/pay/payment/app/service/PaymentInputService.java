@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
@@ -34,22 +44,14 @@ import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentInput;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INPUT_EXPIRED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentInputService implements PaymentInputFacade {
@@ -64,11 +66,17 @@ public class PaymentInputService implements PaymentInputFacade {
     private final Clock clock;
     private final String acquireService;
 
-    public PaymentInputService(PaymentActorProvider actors, PaymentInputGateway store, PaymentInputPublication publication, PaymentInputCipher cipher,
-                               PaymentInputConverter converter, PaymentChannelInputConverter channelInputs,
-                               PaymentAcceptanceTransactions transactions, Validator validator,
-                               Clock clock,
-                               @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
+    public PaymentInputService(
+            PaymentActorProvider actors,
+            PaymentInputGateway store,
+            PaymentInputPublication publication,
+            PaymentInputCipher cipher,
+            PaymentInputConverter converter,
+            PaymentChannelInputConverter channelInputs,
+            PaymentAcceptanceTransactions transactions,
+            Validator validator,
+            Clock clock,
+            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService) {
         this.actors = actors;
         this.store = store;
         this.publication = publication;
@@ -105,8 +113,15 @@ public class PaymentInputService implements PaymentInputFacade {
             String digest = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, keyId);
             // KMS is remote and must complete before any business database locks are acquired.
             var encrypted = cipher.encrypt(actor.tenantId(), actor.serviceId(), reference, command);
-            var input = converter.toInput(command, reference, actor.serviceId(), keyId, digest, encrypted,
-                    preparedAt, preparedAt.plus(cipher.lifetime()));
+            var input = converter.toInput(
+                    command,
+                    reference,
+                    actor.serviceId(),
+                    keyId,
+                    digest,
+                    encrypted,
+                    preparedAt,
+                    preparedAt.plus(cipher.lifetime()));
             return transactions.writeLocal(actor.tenantId(), () -> {
                 var parent = publication.lockParent(actor, command);
                 var winner = store.findByPayment(actor.tenantId(), command.paymentId());
@@ -128,7 +143,9 @@ public class PaymentInputService implements PaymentInputFacade {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         String supplied = cipher.fingerprint(actor.tenantId(), actor.serviceId(), command, prior.fingerprintKeyId());
-        if (!MessageDigest.isEqual(supplied.getBytes(StandardCharsets.US_ASCII), prior.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
+        if (!MessageDigest.isEqual(
+                supplied.getBytes(StandardCharsets.US_ASCII),
+                prior.inputDigest().getBytes(StandardCharsets.US_ASCII))) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         // Retain the original reference and expiry, including after expiry or attempt binding.
@@ -163,10 +180,14 @@ public class PaymentInputService implements PaymentInputFacade {
             if (!actor.serviceId().equals(input.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
-            if (!input.paymentId().equals(query.paymentId()) || !input.orderId().equals(query.orderId())
-                    || !input.allocationId().equals(query.allocationId()) || !input.payeeMerchantId().equals(query.payeeMerchantId())
-                    || !input.inputKey().equals(query.inputKey()) || input.amount().getCent() != query.amountMinor()
-                    || !input.amount().getCurrencyValue().equals(query.currency()) || input.channel() != query.choice().channel()
+            if (!input.paymentId().equals(query.paymentId())
+                    || !input.orderId().equals(query.orderId())
+                    || !input.allocationId().equals(query.allocationId())
+                    || !input.payeeMerchantId().equals(query.payeeMerchantId())
+                    || !input.inputKey().equals(query.inputKey())
+                    || input.amount().getCent() != query.amountMinor()
+                    || !input.amount().getCurrencyValue().equals(query.currency())
+                    || input.channel() != query.choice().channel()
                     || input.method() != query.choice().method()) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }

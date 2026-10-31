@@ -1,30 +1,33 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.domain;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
+import org.junit.jupiter.api.Test;
 
 class MerchantNotificationDeliveryTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 21, 12, 0);
@@ -33,14 +36,14 @@ class MerchantNotificationDeliveryTest {
     private static final String FINGERPRINT = "b".repeat(64);
 
     private static MerchantNotificationDelivery delivery(MerchantNotificationPolicy policy) {
-        return MerchantNotificationDelivery.init("delivery", "event", "order", "merchant", "PaymentSucceeded",
-                "payment", 7, BODY, DIGEST, policy, NOW);
+        return MerchantNotificationDelivery.init(
+                "delivery", "event", "order", "merchant", "PaymentSucceeded", "payment", 7, BODY, DIGEST, policy, NOW);
     }
 
-    private static MerchantNotificationPolicy policy(long initial, BigDecimal multiplier, long maximum,
-                                                     int attempts, long window) {
-        return new MerchantNotificationPolicy("target", "signing-key", 1000, initial, multiplier, maximum,
-                attempts, window);
+    private static MerchantNotificationPolicy policy(
+            long initial, BigDecimal multiplier, long maximum, int attempts, long window) {
+        return new MerchantNotificationPolicy(
+                "target", "signing-key", 1000, initial, multiplier, maximum, attempts, window);
     }
 
     @Test
@@ -54,7 +57,8 @@ class MerchantNotificationDeliveryTest {
 
         var unitMultiplier = policy(2, BigDecimal.ONE, 9, 3, 3600);
         assertEquals(2, unitMultiplier.delaySeconds(Integer.MAX_VALUE));
-        assertEquals(policy(2, new BigDecimal("2"), 9, 3, 3600),
+        assertEquals(
+                policy(2, new BigDecimal("2"), 9, 3, 3600),
                 policy(2, new BigDecimal("2.000000000000000000"), 9, 3, 3600));
     }
 

@@ -1,19 +1,26 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Alipay
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.alipay;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
@@ -27,17 +34,13 @@ import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Maps verified Alipay refund responses to original-account facts; never infers absence of a refund.
@@ -58,9 +61,11 @@ public final class AlipayRefundAdapter {
     public RefundObservation submit(ChannelExecutionContext context, PreparedChannelRefund refund) {
         requireContext(context, refund);
         var request = request(refund);
-        request.put("refund_amount", BigDecimal.valueOf(refund.amount().getCent(), 2).toPlainString());
-        var verified = client.call(context.tenantId(), context.binding(), AlipayMethod.REFUND,
-                json.writeValueAsString(request), Map.of());
+        request.put(
+                "refund_amount",
+                BigDecimal.valueOf(refund.amount().getCent(), 2).toPlainString());
+        var verified = client.call(
+                context.tenantId(), context.binding(), AlipayMethod.REFUND, json.writeValueAsString(request), Map.of());
         var response = responses.read(verified, AlipayMethod.REFUND);
         optionalIdentity(response, refund);
         var kind = ChannelRefundOutcome.Kind.UNKNOWN;
@@ -86,7 +91,9 @@ public final class AlipayRefundAdapter {
         boolean originalIdentity = refund.originalChannelTransactionNo().equals(responses.text(response, "trade_no"))
                 && refund.original().channelRequestNo().equals(responses.text(response, "out_trade_no"))
                 && refund.channelRefundNo().equals(responses.text(response, "out_request_no"));
-        if (!"10000".equals(responses.text(response, "code")) || responses.text(response, "refund_status") != null || !originalIdentity) {
+        if (!"10000".equals(responses.text(response, "code"))
+                || responses.text(response, "refund_status") != null
+                || !originalIdentity) {
             return interpret(refund, queried);
         }
         String amount = responses.text(response, "refund_amount");
@@ -94,20 +101,38 @@ public final class AlipayRefundAdapter {
             responses.requireAmount(amount, refund.amount().getCent());
         }
         if (response.get("total_amount") != null) {
-            responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+            responses.requireAmount(
+                    responses.text(response, "total_amount"),
+                    refund.originalAmount().getCent());
         }
         // Absence of refund_status is not a no-refund proof; stable out_request_no supplies provider idempotency.
         var submitted = submit(context, refund);
-        var digest = DigestUtils.sha256("alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
-        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(), refund.originalChannelTransactionNo(),
-                submitted.kind(), refund.amount(), null, null, RefundObservation.Source.SUBMIT_RESPONSE, "refund-recovery:" + digest, digest, null);
+        var digest = DigestUtils.sha256(
+                "alipay-refund-recovery-v1|" + queried.sourceDigest() + "|" + submitted.sourceDigest());
+        return new RefundObservation(
+                refund.refundId(),
+                refund.original(),
+                refund.channelRefundNo(),
+                refund.originalChannelTransactionNo(),
+                submitted.kind(),
+                refund.amount(),
+                null,
+                null,
+                RefundObservation.Source.SUBMIT_RESPONSE,
+                "refund-recovery:" + digest,
+                digest,
+                null);
     }
 
     private AlipayVerifiedResponse lookup(ChannelExecutionContext context, PreparedChannelRefund refund) {
         var request = request(refund);
         request.put("query_options", List.of("gmt_refund_pay"));
-        return client.call(context.tenantId(), context.binding(), AlipayMethod.REFUND_QUERY,
-                json.writeValueAsString(request), Map.of());
+        return client.call(
+                context.tenantId(),
+                context.binding(),
+                AlipayMethod.REFUND_QUERY,
+                json.writeValueAsString(request),
+                Map.of());
     }
 
     private RefundObservation interpret(PreparedChannelRefund refund, AlipayVerifiedResponse verified) {
@@ -116,19 +141,25 @@ public final class AlipayRefundAdapter {
         var kind = ChannelRefundOutcome.Kind.UNKNOWN;
         String reference = null;
         LocalDateTime succeededAt = null;
-        if ("10000".equals(responses.text(response, "code")) && "REFUND_SUCCESS".equals(responses.text(response, "refund_status"))) {
+        if ("10000".equals(responses.text(response, "code"))
+                && "REFUND_SUCCESS".equals(responses.text(response, "refund_status"))) {
             requireIdentity(response, refund, true);
-            responses.requireAmount(responses.text(response, "refund_amount"), refund.amount().getCent());
+            responses.requireAmount(
+                    responses.text(response, "refund_amount"), refund.amount().getCent());
             if (response.containsKey("total_amount") && response.get("total_amount") != null) {
-                responses.requireAmount(responses.text(response, "total_amount"), refund.originalAmount().getCent());
+                responses.requireAmount(
+                        responses.text(response, "total_amount"),
+                        refund.originalAmount().getCent());
             }
             try {
-                succeededAt = AlipayProtocolTime.businessTime(responses.text(response, "gmt_refund_pay"), clock.getZone());
+                succeededAt =
+                        AlipayProtocolTime.businessTime(responses.text(response, "gmt_refund_pay"), clock.getZone());
             } catch (RuntimeException invalidTime) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
             // Alipay's ordinary refund API identifies refunds by this verified natural key, not a refund_id.
-            reference = "alipay:" + DigestUtils.sha256(framed(refund.originalChannelTransactionNo(), refund.channelRefundNo()));
+            reference = "alipay:"
+                    + DigestUtils.sha256(framed(refund.originalChannelTransactionNo(), refund.channelRefundNo()));
             kind = ChannelRefundOutcome.Kind.SUCCEEDED;
         }
         // Missing/unknown status and trade/refund-not-found remain UNKNOWN, including on code 10000.
@@ -168,11 +199,25 @@ public final class AlipayRefundAdapter {
         return originalTrade.length() + ":" + originalTrade + refundRequest.length() + ":" + refundRequest;
     }
 
-    private RefundObservation observation(PreparedChannelRefund refund, AlipayVerifiedResponse response,
-                                          ChannelRefundOutcome.Kind kind, String reference, LocalDateTime succeededAt, RefundObservation.Source source) {
-        return new RefundObservation(refund.refundId(), refund.original(), refund.channelRefundNo(),
-                refund.originalChannelTransactionNo(), kind, refund.amount(), reference, succeededAt, source,
-                response.method().operation() + ":" + response.sourceDigest(), response.sourceDigest(), null);
+    private RefundObservation observation(
+            PreparedChannelRefund refund,
+            AlipayVerifiedResponse response,
+            ChannelRefundOutcome.Kind kind,
+            String reference,
+            LocalDateTime succeededAt,
+            RefundObservation.Source source) {
+        return new RefundObservation(
+                refund.refundId(),
+                refund.original(),
+                refund.channelRefundNo(),
+                refund.originalChannelTransactionNo(),
+                kind,
+                refund.amount(),
+                reference,
+                succeededAt,
+                source,
+                response.method().operation() + ":" + response.sourceDigest(),
+                response.sourceDigest(),
+                null);
     }
 }
-

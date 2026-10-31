@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskDispatcher;
@@ -31,6 +39,14 @@ import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryRetryReceipt;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.testify.starter.scenario.TestScenario;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -40,19 +56,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Real migration, generated Mapper, gateway and native-task boundaries; does not exercise financial submission.
@@ -70,8 +73,13 @@ class RecoveryPersistenceIT {
     private final TestScenario scenario;
 
     @Autowired
-    RecoveryPersistenceIT(PaymentRecoveryGateway cursors, PaymentRecoveryRetryGateway receipts, DelayedTaskTemplate tasks,
-                          DelayedTaskDispatcher dispatcher, PaymentAcceptanceTransactions transactions, TestScenario scenario) {
+    RecoveryPersistenceIT(
+            PaymentRecoveryGateway cursors,
+            PaymentRecoveryRetryGateway receipts,
+            DelayedTaskTemplate tasks,
+            DelayedTaskDispatcher dispatcher,
+            PaymentAcceptanceTransactions transactions,
+            TestScenario scenario) {
         this.cursors = cursors;
         this.receipts = receipts;
         this.tasks = tasks;
@@ -100,11 +108,13 @@ class RecoveryPersistenceIT {
     @Test
     void initialCursorAndNativeRegistrationRollBackTogether() {
         String tenant = id("tenant"), payment = id("payment");
-        assertThrows(IllegalStateException.class, () -> transactions.writeLocal(tenant, () -> {
-            cursors.insert(tenant, PaymentRecoveryCursor.init(payment, AT));
-            tasks.register(PaymentRecoveryService.TYPE, key(payment, 0), AT);
-            throw new IllegalStateException("Injected after native registration");
-        }));
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.writeLocal(tenant, () -> {
+                    cursors.insert(tenant, PaymentRecoveryCursor.init(payment, AT));
+                    tasks.register(PaymentRecoveryService.TYPE, key(payment, 0), AT);
+                    throw new IllegalStateException("Injected after native registration");
+                }));
         transactions.readSnapshot(tenant, () -> {
             assertTrue(cursors.find(tenant, payment).isEmpty());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isEmpty());
@@ -116,13 +126,15 @@ class RecoveryPersistenceIT {
     void successorFailureCannotCommitOnlyTheCursorOrOnlyTheNewTask() {
         String tenant = id("tenant"), payment = id("payment");
         seed(tenant, payment);
-        assertThrows(IllegalStateException.class, () -> transactions.writeLocal(tenant, () -> {
-            var before = cursors.lock(tenant, payment).orElseThrow();
-            var after = before.schedule(AT.plusSeconds(30), 0L);
-            cursors.update(tenant, before, after);
-            tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
-            throw new IllegalStateException("Injected before successor commit");
-        }));
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.writeLocal(tenant, () -> {
+                    var before = cursors.lock(tenant, payment).orElseThrow();
+                    var after = before.schedule(AT.plusSeconds(30), 0L);
+                    cursors.update(tenant, before, after);
+                    tasks.register(PaymentRecoveryService.TYPE, key(payment, 1), after.dueAt());
+                    throw new IllegalStateException("Injected before successor commit");
+                }));
         transactions.readSnapshot(tenant, () -> {
             assertEquals(0L, cursors.find(tenant, payment).orElseThrow().generation());
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isPresent());
@@ -156,8 +168,11 @@ class RecoveryPersistenceIT {
             var second = workers.submit(advance);
             await(ready);
             start.countDown();
-            assertEquals(1L, Stream.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))
-                    .filter(Boolean::booleanValue).count());
+            assertEquals(
+                    1L,
+                    Stream.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))
+                            .filter(Boolean::booleanValue)
+                            .count());
         } finally {
             start.countDown();
         }
@@ -166,7 +181,10 @@ class RecoveryPersistenceIT {
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
             return true;
         });
-        scenario.assertDb("payment_recovery_cursor").where("tenant_id", tenant).where("id", payment).exists();
+        scenario.assertDb("payment_recovery_cursor")
+                .where("tenant_id", tenant)
+                .where("id", payment)
+                .exists();
     }
 
     @Test
@@ -179,11 +197,13 @@ class RecoveryPersistenceIT {
             var reader = workers.submit(() -> transactions.readSnapshot(tenant, () -> {
                 assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
                 assertEquals(0L, cursors.find(tenant, payment).orElseThrow().generation());
-                assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isPresent());
+                assertTrue(
+                        tasks.find(PaymentRecoveryService.TYPE, key(payment, 0)).isPresent());
                 observed.countDown();
                 await(written);
                 assertEquals(0L, cursors.find(tenant, payment).orElseThrow().generation());
-                assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isEmpty());
+                assertTrue(
+                        tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isEmpty());
                 return true;
             }));
             await(observed);
@@ -221,16 +241,32 @@ class RecoveryPersistenceIT {
         String tenant = id("tenant"), subject = id("payment"), request = id("operation");
         transactions.writeLocal(tenant, () -> tasks.register(AUDIT_TYPE, key(subject, 0), AT));
         dispatcher.execute();
-        var failed = transactions.readSnapshot(tenant, () -> tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow());
+        var failed = transactions.readSnapshot(
+                tenant, () -> tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow());
         assertEquals(DelayedTaskStatus.FAILED, failed.status());
-        var receipt = new PaymentRecoveryRetryReceipt(id("receipt"), request, "a".repeat(64), "pay-ops", "b".repeat(64),
-                "COLLECTION", subject, 0L, id("order"), failed.id(), failed.attempts(), failed.nextExecuteAt(),
-                "Injected rollback proof", "RETRIED", AT);
-        assertThrows(IllegalStateException.class, () -> transactions.writeLocal(tenant, () -> {
-            tasks.retryFailed(AUDIT_TYPE, key(subject, 0));
-            receipts.insert(tenant, receipt);
-            throw new IllegalStateException("Injected after actual audit insert");
-        }));
+        var receipt = new PaymentRecoveryRetryReceipt(
+                id("receipt"),
+                request,
+                "a".repeat(64),
+                "pay-ops",
+                "b".repeat(64),
+                "COLLECTION",
+                subject,
+                0L,
+                id("order"),
+                failed.id(),
+                failed.attempts(),
+                failed.nextExecuteAt(),
+                "Injected rollback proof",
+                "RETRIED",
+                AT);
+        assertThrows(
+                IllegalStateException.class,
+                () -> transactions.writeLocal(tenant, () -> {
+                    tasks.retryFailed(AUDIT_TYPE, key(subject, 0));
+                    receipts.insert(tenant, receipt);
+                    throw new IllegalStateException("Injected after actual audit insert");
+                }));
         transactions.readSnapshot(tenant, () -> {
             var unchanged = tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow();
             assertEquals(DelayedTaskStatus.FAILED, unchanged.status());
@@ -244,8 +280,12 @@ class RecoveryPersistenceIT {
             return true;
         });
         transactions.readSnapshot(tenant, () -> {
-            assertEquals(DelayedTaskStatus.PENDING, tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow().status());
-            assertEquals(receipt, receipts.find(tenant, receipt.callerScopeHash(), request).orElseThrow());
+            assertEquals(
+                    DelayedTaskStatus.PENDING,
+                    tasks.find(AUDIT_TYPE, key(subject, 0)).orElseThrow().status());
+            assertEquals(
+                    receipt,
+                    receipts.find(tenant, receipt.callerScopeHash(), request).orElseThrow());
             return true;
         });
     }
@@ -261,7 +301,11 @@ class RecoveryPersistenceIT {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @ComponentScan(basePackageClasses = PaymentRecoveryStorageConverter.class)
-    @Import({PaymentRecoveryGatewayImpl.class, PaymentRecoveryRetryGatewayImpl.class, PaymentAcceptanceTransactions.class})
+    @Import({
+        PaymentRecoveryGatewayImpl.class,
+        PaymentRecoveryRetryGatewayImpl.class,
+        PaymentAcceptanceTransactions.class
+    })
     static class Application {
         @Bean("delayedTaskClock")
         Clock delayedTaskClock() {

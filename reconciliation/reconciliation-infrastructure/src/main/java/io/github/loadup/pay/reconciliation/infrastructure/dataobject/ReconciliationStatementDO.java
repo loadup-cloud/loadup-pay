@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
@@ -28,10 +32,13 @@ public class ReconciliationStatementDO extends BaseDO {
     private String accountScopeHash;
     private java.time.LocalDate billDate;
     private String statementProfile;
+
     @DiagnosticHidden
     private String statementMerchantId;
+
     @DiagnosticHidden
     private String statementSubMerchantId;
+
     private String bindingRevisionId;
     private Integer maxBytes;
     private String taskId;
@@ -44,13 +51,17 @@ public class ReconciliationStatementDO extends BaseDO {
     private Long receivedEpochMicros;
     private Long downloadedEpochMicros;
     private String fileId;
+
     @DiagnosticHidden
     private String storageId;
+
     private Long fileSize;
     private String sourceSha256;
     private String proofFileId;
+
     @DiagnosticHidden
     private String proofStorageId;
+
     private Long proofFileSize;
     private String proofSha256;
 

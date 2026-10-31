@@ -1,41 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
-import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
-import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.PAYMENT;
 import static io.github.loadup.pay.payment.app.model.RecoveryInventoryCell.Kind.REFUND;
@@ -53,14 +35,42 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.payment.app.model.RecoveryInventoryCell;
+import io.github.loadup.pay.payment.app.port.RecoveryInventoryReader;
+import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 class RecoveryInventoryCollectorTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
 
-    private static RecoveryInventoryCollector collector(RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled, String tenants) {
+    private static RecoveryInventoryCollector collector(
+            RecoveryInventoryReader reader, MeterRegistry registry, Clock clock, boolean enabled, String tenants) {
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
-        return new RecoveryInventoryCollector(reader, transactions, clock,
+        return new RecoveryInventoryCollector(
+                reader,
+                transactions,
+                clock,
                 new StaticListableBeanFactory(Map.of("registry", registry)).getBeanProvider(MeterRegistry.class),
-                new RecoveryEscalationPolicy(900L, 86400L), enabled, tenants, 300);
+                new RecoveryEscalationPolicy(900L, 86400L),
+                enabled,
+                tenants,
+                300);
     }
 
     private static double gauge(MeterRegistry registry, String suffix, String kind) {
@@ -80,8 +90,13 @@ class RecoveryInventoryCollectorTest {
             assertEquals(tenant, TenantUtil.getTenantId());
             assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
             assertTrue(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
-            return tenant.equals("tenant-a") ? List.of(new RecoveryInventoryCell(PAYMENT, 2L, 10000L, AT.minusHours(2)), RecoveryInventoryCell.empty(REFUND))
-                    : List.of(new RecoveryInventoryCell(PAYMENT, 1L, 5000L, AT.minusHours(1)), new RecoveryInventoryCell(REFUND, 1L, 700L, AT.minusMinutes(10)));
+            return tenant.equals("tenant-a")
+                    ? List.of(
+                            new RecoveryInventoryCell(PAYMENT, 2L, 10000L, AT.minusHours(2)),
+                            RecoveryInventoryCell.empty(REFUND))
+                    : List.of(
+                            new RecoveryInventoryCell(PAYMENT, 1L, 5000L, AT.minusHours(1)),
+                            new RecoveryInventoryCell(REFUND, 1L, 700L, AT.minusMinutes(10)));
         });
         try {
             var registry = new SimpleMeterRegistry();
@@ -123,7 +138,9 @@ class RecoveryInventoryCollectorTest {
                 throw original;
             }
             long count = fail.get() ? 99L : 1L;
-            return List.of(new RecoveryInventoryCell(PAYMENT, count, count * 100L, AT.minusHours(1)), RecoveryInventoryCell.empty(REFUND));
+            return List.of(
+                    new RecoveryInventoryCell(PAYMENT, count, count * 100L, AT.minusHours(1)),
+                    RecoveryInventoryCell.empty(REFUND));
         });
         try {
             var registry = new SimpleMeterRegistry();
@@ -136,8 +153,18 @@ class RecoveryInventoryCollectorTest {
             assertEquals(2.0, gauge(registry, ".unknown.count", "payment"));
             assertEquals(200.0, gauge(registry, ".unknown.nominal.amount", "payment"));
             assertEquals(301.0, gauge(registry, ".sample.age", null));
-            assertEquals(1.0, registry.get(RecoveryInventoryCollector.PREFIX + ".refresh").tag("outcome", "failure").counter().count());
-            assertEquals(1.0, registry.get(RecoveryInventoryCollector.PREFIX + ".refresh").tag("outcome", "success").counter().count());
+            assertEquals(
+                    1.0,
+                    registry.get(RecoveryInventoryCollector.PREFIX + ".refresh")
+                            .tag("outcome", "failure")
+                            .counter()
+                            .count());
+            assertEquals(
+                    1.0,
+                    registry.get(RecoveryInventoryCollector.PREFIX + ".refresh")
+                            .tag("outcome", "success")
+                            .counter()
+                            .count());
         } catch (Exception e) {
         }
     }
@@ -159,7 +186,8 @@ class RecoveryInventoryCollectorTest {
     @Test
     void anObservedEmptyScopePublishesZerosAndClockRegressionDoesNotFreezeSampling() {
         var reader = mock(RecoveryInventoryReader.class);
-        when(reader.read("tenant")).thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT), RecoveryInventoryCell.empty(REFUND)));
+        when(reader.read("tenant"))
+                .thenReturn(List.of(RecoveryInventoryCell.empty(PAYMENT), RecoveryInventoryCell.empty(REFUND)));
         var clock = new MutableClock();
         try {
             var registry = new SimpleMeterRegistry();
@@ -184,8 +212,16 @@ class RecoveryInventoryCollectorTest {
         } catch (Exception e) {
         }
         var transactions = new PaymentAcceptanceTransactions(new PaymentAcceptanceServiceTest.UnitTransactions());
-        new RecoveryInventoryCollector(reader, transactions, new MutableClock(), new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class),
-                new RecoveryEscalationPolicy(900L, 86400L), true, "tenant", 300).execute();
+        new RecoveryInventoryCollector(
+                        reader,
+                        transactions,
+                        new MutableClock(),
+                        new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class),
+                        new RecoveryEscalationPolicy(900L, 86400L),
+                        true,
+                        "tenant",
+                        300)
+                .execute();
         verifyNoInteractions(reader);
         try {
             var registry = new SimpleMeterRegistry();
@@ -195,7 +231,8 @@ class RecoveryInventoryCollectorTest {
     }
 
     private static final class MutableClock extends Clock {
-        private final AtomicReference<Instant> time = new AtomicReference<>(AT.atZone(ZoneId.systemDefault()).toInstant());
+        private final AtomicReference<Instant> time =
+                new AtomicReference<>(AT.atZone(ZoneId.systemDefault()).toInstant());
 
         void advance(Duration duration) {
             time.updateAndGet(value -> value.plus(duration));

@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Reconciliation adapter
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.reconciliation.adapter.rpc;
 
 import io.github.loadup.pay.reconciliation.client.facade.ReconciliationFacade;
@@ -13,16 +32,14 @@ import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationBatchTask
 import io.github.loadup.pay.reconciliation.rpc.proto.WireReconciliationInputAttachCommand;
 import org.apache.dubbo.config.annotation.DubboService;
 
-/**
- * Protobuf IDL entry point for the reconciliation service.
- */
 @DubboService(interfaceClass = ReconciliationRpc.class)
 public class ReconciliationRpcService extends DubboReconciliationRpcTriple.ReconciliationRpcImplBase {
     private final ReconciliationFacade reconciliation;
 
     private final ReconciliationRpcMapper reconciliationRpcMapper;
 
-    public ReconciliationRpcService(ReconciliationRpcMapper reconciliationRpcMapper, ReconciliationFacade reconciliation) {
+    public ReconciliationRpcService(
+            ReconciliationRpcMapper reconciliationRpcMapper, ReconciliationFacade reconciliation) {
         this.reconciliationRpcMapper = reconciliationRpcMapper;
         this.reconciliation = reconciliation;
     }

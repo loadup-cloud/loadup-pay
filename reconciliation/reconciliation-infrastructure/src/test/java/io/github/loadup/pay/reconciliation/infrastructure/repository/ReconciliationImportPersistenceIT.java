@@ -1,19 +1,33 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -51,17 +65,6 @@ import io.github.loadup.pay.reconciliation.infrastructure.converter.Reconciliati
 import io.github.loadup.pay.reconciliation.infrastructure.statement.ReconciliationStatementParserAdapter;
 import io.github.loadup.pay.reconciliation.infrastructure.statement.WechatTradeStatementParser;
 import io.github.loadup.pay.reconciliation.infrastructure.task.ReconciliationImportTaskHandler;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -80,21 +83,23 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Real PostgreSQL business/File/Transfer metadata; only external object bytes and trusted actor are supplied by the test.
  */
-@SpringBootTest(classes = ReconciliationImportPersistenceIT.Application.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(
+        classes = ReconciliationImportPersistenceIT.Application.class,
+        webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 class ReconciliationImportPersistenceIT {
     private final ReconciliationService batches;
@@ -106,8 +111,14 @@ class ReconciliationImportPersistenceIT {
     private final Actors actors;
 
     @Autowired
-    ReconciliationImportPersistenceIT(ReconciliationService batches, ReconciliationImportService imports,
-                                      TransferTaskService scanner, FileResourceFacade files, FaultingImports persistence, JdbcTemplate jdbc, Actors actors) {
+    ReconciliationImportPersistenceIT(
+            ReconciliationService batches,
+            ReconciliationImportService imports,
+            TransferTaskService scanner,
+            FileResourceFacade files,
+            FaultingImports persistence,
+            JdbcTemplate jdbc,
+            Actors actors) {
         this.batches = batches;
         this.imports = imports;
         this.scanner = scanner;
@@ -121,7 +132,9 @@ class ReconciliationImportPersistenceIT {
     void registrationFailureRollsBackNativeTaskBothReferencesAndBusinessIntent() {
         var fixture = fixture(validFile());
         persistence.failInsertFor(fixture.batchId());
-        assertThrows(IllegalStateException.class, () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
+        assertThrows(
+                IllegalStateException.class,
+                () -> actors.call(fixture.tenant(), () -> imports.submit(fixture.command())));
         assertEquals(0L, count("reconciliation_import", fixture.tenant()));
         assertEquals(0L, count("transfer_task", fixture.tenant()));
         assertEquals(0L, count("file_resource_reference", fixture.tenant()));
@@ -133,7 +146,11 @@ class ReconciliationImportPersistenceIT {
         assertEquals("SEALED", sealed.state().name());
         assertEquals("SUCCEEDED", sealed.taskStatus());
         assertEquals(1L, count("file_resource_reference", fixture.tenant()));
-        TenantUtil.runWithTenant(fixture.tenant(), () -> assertThrows(CommonException.class, () -> files.requestDeletion(fixture.file().fileId(), "ops", false)));
+        TenantUtil.runWithTenant(
+                fixture.tenant(),
+                () -> assertThrows(
+                        CommonException.class,
+                        () -> files.requestDeletion(fixture.file().fileId(), "ops", false)));
     }
 
     @Test
@@ -147,9 +164,12 @@ class ReconciliationImportPersistenceIT {
         var before = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
         assertEquals("INIT", before.state().name());
         assertEquals("FAILED", before.taskStatus());
-        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId()))).channelInput());
+        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId())))
+                .channelInput());
         assertEquals(1L, count("file_resource_reference", fixture.tenant()));
-        var queued = actors.call(fixture.tenant(), () -> imports.retry(new ReconciliationImportRetryCommand(accepted.importId(), accepted.taskId())));
+        var queued = actors.call(
+                fixture.tenant(),
+                () -> imports.retry(new ReconciliationImportRetryCommand(accepted.importId(), accepted.taskId())));
         assertEquals(accepted.taskId(), queued.taskId());
         assertTrue(scanner.executeQueuedTasks());
         var sealed = actors.call(fixture.tenant(), () -> imports.detail(new IdQuery(accepted.importId())));
@@ -173,8 +193,13 @@ class ReconciliationImportPersistenceIT {
         assertNull(result.artifactId());
         assertEquals(0L, count("reconciliation_input", fixture.tenant()));
         assertEquals(0L, count("reconciliation_entry", fixture.tenant()));
-        assertThrows(CommonException.class, () -> actors.call(fixture.tenant(), () -> imports.retry(new ReconciliationImportRetryCommand(result.importId(), result.taskId()))));
-        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId()))).channelInput());
+        assertThrows(
+                CommonException.class,
+                () -> actors.call(
+                        fixture.tenant(),
+                        () -> imports.retry(new ReconciliationImportRetryCommand(result.importId(), result.taskId()))));
+        assertNull(actors.call(fixture.tenant(), () -> batches.detail(new IdQuery(fixture.batchId())))
+                .channelInput());
     }
 
     @Test
@@ -194,22 +219,39 @@ class ReconciliationImportPersistenceIT {
             assertEquals(a.taskId(), z.taskId());
             assertEquals(1L, count("reconciliation_import", fixture.tenant()));
             assertEquals(1L, count("transfer_task", fixture.tenant()));
-            assertThrows(CommonException.class, () -> actors.call("other-" + UUID.randomUUID(), () -> imports.detail(new IdQuery(a.importId()))));
+            assertThrows(
+                    CommonException.class,
+                    () -> actors.call("other-" + UUID.randomUUID(), () -> imports.detail(new IdQuery(a.importId()))));
         }
         assertTrue(scanner.executeQueuedTasks());
     }
 
     private Fixture fixture(String content) {
         String tenant = "tenant-" + UUID.randomUUID();
-        var batch = actors.call(tenant, () -> batches.create(new ReconciliationBatchCreateCommand("batch-" + UUID.randomUUID(), "account", LocalDate.of(2026, 10, 26))));
+        var batch = actors.call(
+                tenant,
+                () -> batches.create(new ReconciliationBatchCreateCommand(
+                        "batch-" + UUID.randomUUID(), "account", LocalDate.of(2026, 10, 26))));
         byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
-        var file = actors.call(tenant, () -> imports.upload("bill.csv", "text/csv", bytes.length, new ByteArrayInputStream(bytes)));
-        return new Fixture(tenant, batch.batchId(), file, new ReconciliationChannelImportCommand(batch.batchId(), "request", file.fileId(), file.sha256()));
+        var file = actors.call(
+                tenant, () -> imports.upload("bill.csv", "text/csv", bytes.length, new ByteArrayInputStream(bytes)));
+        return new Fixture(
+                tenant,
+                batch.batchId(),
+                file,
+                new ReconciliationChannelImportCommand(batch.batchId(), "request", file.fileId(), file.sha256()));
     }
 
     private long count(String table, String tenant) {
         // Table names are a closed test-only set; values always use bind parameters.
-        if (!Set.of("reconciliation_import", "transfer_task", "file_resource_reference", "file_resource", "reconciliation_input", "reconciliation_entry").contains(table)) {
+        if (!Set.of(
+                        "reconciliation_import",
+                        "transfer_task",
+                        "file_resource_reference",
+                        "file_resource",
+                        "reconciliation_input",
+                        "reconciliation_entry")
+                .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
@@ -235,13 +277,16 @@ class ReconciliationImportPersistenceIT {
         row[22] = "0.02";
         row[24] = "10.00";
         row[25] = "0.00";
-        return WechatTradeStatementParser.HEADER + "\n" + Arrays.stream(row).map(value -> "`" + value).collect(java.util.stream.Collectors.joining(",")) + "\n"
+        return WechatTradeStatementParser.HEADER + "\n"
+                + Arrays.stream(row).map(value -> "`" + value).collect(java.util.stream.Collectors.joining(",")) + "\n"
                 + WechatTradeStatementParser.TOTAL_HEADER + "\n`1,`9.00,`0.00,`0.00,`0.02,`10.00,`0.00\n";
     }
 
-    private record Fixture(String tenant, String batchId, ReconciliationSourceFileDTO file,
-                           ReconciliationChannelImportCommand command) {
-    }
+    private record Fixture(
+            String tenant,
+            String batchId,
+            ReconciliationSourceFileDTO file,
+            ReconciliationChannelImportCommand command) {}
 
     static final class Actors implements ReconciliationActorProvider {
         private final ThreadLocal<ReconciliationActor> current = new ThreadLocal<>();
@@ -252,8 +297,19 @@ class ReconciliationImportPersistenceIT {
         }
 
         <T> T call(String tenant, Supplier<T> action) {
-            current.set(new ReconciliationActor(tenant, "ops", Set.of("pay:reconciliation:batch:create", "pay:reconciliation:batch:read", "pay:reconciliation:batch:attach", "pay:reconciliation:batch:start", "pay:reconciliation:batch:retry", "pay:reconciliation:import:upload",
-                    "pay:reconciliation:import:submit", "pay:reconciliation:import:read", "pay:reconciliation:import:retry")));
+            current.set(new ReconciliationActor(
+                    tenant,
+                    "ops",
+                    Set.of(
+                            "pay:reconciliation:batch:create",
+                            "pay:reconciliation:batch:read",
+                            "pay:reconciliation:batch:attach",
+                            "pay:reconciliation:batch:start",
+                            "pay:reconciliation:batch:retry",
+                            "pay:reconciliation:import:upload",
+                            "pay:reconciliation:import:submit",
+                            "pay:reconciliation:import:read",
+                            "pay:reconciliation:import:retry")));
             try {
                 return action.get();
             } finally {
@@ -263,9 +319,13 @@ class ReconciliationImportPersistenceIT {
     }
 
     static class FaultingImports extends ReconciliationImportGatewayImpl {
-        final AtomicReference<String> failInsertBatch = new AtomicReference<>(), failSealBatch = new AtomicReference<>();
+        final AtomicReference<String> failInsertBatch = new AtomicReference<>(),
+                failSealBatch = new AtomicReference<>();
 
-        FaultingImports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
+        FaultingImports(
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                ReconciliationImportStorageConverter converter,
+                Clock clock) {
             super(jdbc, converter, clock);
         }
 
@@ -290,7 +350,9 @@ class ReconciliationImportPersistenceIT {
         public void update(String tenant, ReconciliationImportRequest value, long expected) {
             super.update(tenant, value, expected);
             String target = failSealBatch.get();
-            if (value.state() == ReconciliationImportState.SEALED && value.batchId().equals(target) && failSealBatch.compareAndSet(target, null)) {
+            if (value.state() == ReconciliationImportState.SEALED
+                    && value.batchId().equals(target)
+                    && failSealBatch.compareAndSet(target, null)) {
                 throw new IllegalStateException("Injected after actual seal update");
             }
         }
@@ -299,10 +361,21 @@ class ReconciliationImportPersistenceIT {
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @ComponentScan(basePackageClasses = {ReconciliationImportStorageConverter.class, ReconciliationConverter.class})
-    @Import({ReconciliationService.class, ReconciliationImportService.class, ReconciliationImportExecutionService.class, ReconciliationTransactions.class,
-            ReconciliationOfficialImports.class, ReconciliationStatementGatewayImpl.class,
-            ReconciliationBatchGatewayImpl.class, ReconciliationInputGatewayImpl.class, ReconciliationResultGatewayImpl.class,
-            FileResourceReconciliationSources.class, ReconciliationStatementParserAdapter.class, WechatTradeStatementParser.class, ReconciliationImportTaskHandler.class})
+    @Import({
+        ReconciliationService.class,
+        ReconciliationImportService.class,
+        ReconciliationImportExecutionService.class,
+        ReconciliationTransactions.class,
+        ReconciliationOfficialImports.class,
+        ReconciliationStatementGatewayImpl.class,
+        ReconciliationBatchGatewayImpl.class,
+        ReconciliationInputGatewayImpl.class,
+        ReconciliationResultGatewayImpl.class,
+        FileResourceReconciliationSources.class,
+        ReconciliationStatementParserAdapter.class,
+        WechatTradeStatementParser.class,
+        ReconciliationImportTaskHandler.class
+    })
     static class Application {
         @Bean
         Actors actors() {
@@ -310,7 +383,10 @@ class ReconciliationImportPersistenceIT {
         }
 
         @Bean
-        FaultingImports imports(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
+        FaultingImports imports(
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                ReconciliationImportStorageConverter converter,
+                Clock clock) {
             return new FaultingImports(jdbc, converter, clock);
         }
 
@@ -329,20 +405,22 @@ class ReconciliationImportPersistenceIT {
             return new ReconciliationAccountDirectory() {
                 @Override
                 public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
-                    return new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, WechatTradeStatementParser.PROFILE);
+                    return new ReconciliationScope(
+                            Channel.WECHAT, "a".repeat(64), date, WechatTradeStatementParser.PROFILE);
                 }
 
                 @Override
-                public void authorize(String tenant, String caller, String code, ReconciliationScope original) {
-                }
+                public void authorize(String tenant, String caller, String code, ReconciliationScope original) {}
 
                 @Override
-                public String statementBindingRevision(String tenant, String caller, String code, ReconciliationScope original) {
+                public String statementBindingRevision(
+                        String tenant, String caller, String code, ReconciliationScope original) {
                     return "revision";
                 }
 
                 @Override
-                public ReconciliationStatementAccount statementAccount(String tenant, String caller, String code, ReconciliationScope original) {
+                public ReconciliationStatementAccount statementAccount(
+                        String tenant, String caller, String code, ReconciliationScope original) {
                     return new ReconciliationStatementAccount("1234567890", null);
                 }
             };
@@ -358,7 +436,15 @@ class ReconciliationImportPersistenceIT {
                 FileUploadRequest request = call.getArgument(0);
                 var content = request.content().readAllBytes();
                 String id = UUID.randomUUID().toString();
-                var object = new FileMetadata(id, request.filename(), content.length, request.contentType(), "test-object-store", id, Map.of(), Instant.now());
+                var object = new FileMetadata(
+                        id,
+                        request.filename(),
+                        content.length,
+                        request.contentType(),
+                        "test-object-store",
+                        id,
+                        Map.of(),
+                        Instant.now());
                 bytes.put(id, content);
                 metadata.put(id, object);
                 return object;

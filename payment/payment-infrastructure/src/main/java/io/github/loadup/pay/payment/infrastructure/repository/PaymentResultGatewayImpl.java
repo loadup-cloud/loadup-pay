@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -31,22 +40,16 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorag
 import io.github.loadup.pay.payment.infrastructure.dataobject.ChannelTransactionClaimDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentChannelReceiptDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.function.Supplier;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.function.Supplier;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentResultGatewayImpl implements PaymentResultGateway {
@@ -56,25 +59,33 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     private final Clock clock;
     private final PaymentResultStorageConverter converter;
 
-    public PaymentResultGatewayImpl(NamedParameterJdbcTemplate jdbc,
-                                    PaymentResultStorageConverter converter, Clock clock) {
+    public PaymentResultGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, PaymentResultStorageConverter converter, Clock clock) {
         this.converter = converter;
         this.jdbc = jdbc;
         this.clock = clock;
     }
 
     @Override
-    public Optional<PaymentChannelReceipt> receipt(String tenant, String attempt, PaymentObservation.Source source, String key) {
+    public Optional<PaymentChannelReceipt> receipt(
+            String tenant, String attempt, PaymentObservation.Source source, String key) {
         scope(tenant);
-        var args = new MapSqlParameterSource().addValue("attempt", attempt).addValue("source", source.name()).addValue("key", key);
+        var args = new MapSqlParameterSource()
+                .addValue("attempt", attempt)
+                .addValue("source", source.name())
+                .addValue("key", key);
         var row = jdbc.query("""
                 SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
                        account_scope_hash, channel_request_no, source, receipt_key, facts_digest, source_digest,
                        observation_payload, disposition, reason_code, received_at
                 FROM payment_channel_receipt WHERE attempt_id = :attempt AND source = :source
                     AND receipt_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)).stream().findFirst().orElse(null);
-        return row == null ? Optional.empty() : Optional.of(read(() -> converter.toReceipt(row, converter.toIdentity(row))));
+                """, args, BeanPropertyRowMapper.newInstance(PaymentChannelReceiptDO.class)).stream()
+                .findFirst()
+                .orElse(null);
+        return row == null
+                ? Optional.empty()
+                : Optional.of(read(() -> converter.toReceipt(row, converter.toIdentity(row))));
     }
 
     @Override
@@ -126,10 +137,18 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     public Optional<ChannelTransactionClaim> transaction(Channel channel, String scope, String number) {
         // This one exact-key immutable lookup must see financial aliases in other tenants.
         // No collection/list query or outward-facing API bypasses tenant isolation.
-        var args = new MapSqlParameterSource("channel", channel.name()).addValue("scope", scope).addValue("number", number);
-        var row = jdbc.query("SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE channel = :channel "
-                        + "AND account_scope_hash = :scope AND channel_transaction_no = :number AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class)).stream().findFirst().orElse(null);
+        var args = new MapSqlParameterSource("channel", channel.name())
+                .addValue("scope", scope)
+                .addValue("number", number);
+        var row = jdbc
+                .query(
+                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE channel = :channel "
+                                + "AND account_scope_hash = :scope AND channel_transaction_no = :number AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         return claim(row);
     }
 
@@ -137,18 +156,25 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     public Optional<ChannelTransactionClaim> attemptClaim(String tenant, String attempt) {
         scope(tenant);
         var args = new MapSqlParameterSource().addValue("attempt", attempt);
-        var row = jdbc.query("SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE "
-                        + "attempt_id = :attempt AND deleted = FALSE", args,
-                BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class)).stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT " + CLAIM_COLUMNS + " FROM channel_transaction_claim WHERE "
+                                + "attempt_id = :attempt AND deleted = FALSE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(ChannelTransactionClaimDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
         return claim(row);
     }
 
     private Optional<ChannelTransactionClaim> claim(ChannelTransactionClaimDO row) {
-        return row == null ? Optional.empty()
+        return row == null
+                ? Optional.empty()
                 : Optional.of(read(() -> converter.toClaim(
-                io.github.loadup.components.database.tenant.TenantContext.tenantId(),
-                row,
-                converter.toIdentity(row))));
+                        io.github.loadup.components.database.tenant.TenantContext.tenantId(),
+                        row,
+                        converter.toIdentity(row))));
     }
 
     @Override
@@ -172,17 +198,24 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     @Override
-    public void completeSuccess(String tenant, StoredPaymentAcceptance payment, long expectedVersion, java.time.LocalDateTime succeededAt) {
+    public void completeSuccess(
+            String tenant, StoredPaymentAcceptance payment, long expectedVersion, java.time.LocalDateTime succeededAt) {
         writable(tenant);
-        if (payment.payment().state() != PaymentState.SUCCEEDED || payment.terminalEvidenceId() == null || succeededAt == null
+        if (payment.payment().state() != PaymentState.SUCCEEDED
+                || payment.terminalEvidenceId() == null
+                || succeededAt == null
                 || payment.payment().version() != Math.incrementExact(expectedVersion)) {
             throw new CommonException(INVALID_STATE);
         }
         jdbcTransaction();
-        var args = new MapSqlParameterSource().addValue("id", payment.payment().id())
-                .addValue("attempt", payment.payment().successfulAttemptId()).addValue("version", payment.payment().version())
-                .addValue("expected", expectedVersion).addValue("evidence", payment.terminalEvidenceId())
-                .addValue("succeeded", succeededAt).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", payment.payment().id())
+                .addValue("attempt", payment.payment().successfulAttemptId())
+                .addValue("version", payment.payment().version())
+                .addValue("expected", expectedVersion)
+                .addValue("evidence", payment.terminalEvidenceId())
+                .addValue("succeeded", succeededAt)
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE payment_order SET state = 'SUCCEEDED', successful_attempt_id = :attempt,
                     terminal_evidence_id = :evidence, succeeded_at = :succeeded, row_version = :version, updated_at = :updated
@@ -202,7 +235,9 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
                 SELECT id, created_at, updated_at, payment_id, order_id, payee_merchant_id,
                        succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version
                 FROM payment_refund_capacity WHERE payment_id = :payment AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         return row == null ? Optional.empty() : Optional.of(read(() -> converter.toCapacity(row)));
     }
 
@@ -254,8 +289,10 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     }
 
     private void jdbcTransaction() {
-        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly() || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || jdbc.getJdbcTemplate().getDataSource() == null
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

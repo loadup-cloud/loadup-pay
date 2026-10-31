@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Alipay
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.alipay.protocol;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
@@ -22,7 +30,6 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.VerifiedChannelNotification;
-
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -32,10 +39,6 @@ import java.security.Signature;
 import java.util.Base64;
 import java.util.Map;
 import java.util.TreeMap;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
 /**
  * Strict RSA2 trade notification verification; the verified notification remains only a query trigger.
@@ -65,8 +68,8 @@ public final class AlipayNotificationCodec {
         return new ChannelNotificationHint(required(parse(input), "out_trade_no", 64));
     }
 
-    public VerifiedChannelNotification verify(ChannelExecutionContext context, ChannelPaymentTarget target,
-                                              ChannelNotificationInput input) {
+    public VerifiedChannelNotification verify(
+            ChannelExecutionContext context, ChannelPaymentTarget target, ChannelNotificationInput input) {
         if (target == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -102,15 +105,21 @@ public final class AlipayNotificationCodec {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         try {
-            if (new BigDecimal(amount).movePointRight(2).longValueExact() != target.amount().getCent()) {
+            if (new BigDecimal(amount).movePointRight(2).longValueExact()
+                    != target.amount().getCent()) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
         } catch (ArithmeticException invalid) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         required(parameters, "notify_time", 32);
-        return new VerifiedChannelNotification(target.identity(), target.amount(), required(parameters, "notify_id", 128),
-                required(parameters, "trade_no", 128), required(parameters, "trade_status", 64), DigestUtils.sha256(signed));
+        return new VerifiedChannelNotification(
+                target.identity(),
+                target.amount(),
+                required(parameters, "notify_id", 128),
+                required(parameters, "trade_no", 128),
+                required(parameters, "trade_status", 64),
+                DigestUtils.sha256(signed));
     }
 
     private Map<String, String> parse(ChannelNotificationInput input) {
@@ -124,8 +133,11 @@ public final class AlipayNotificationCodec {
         boolean charset = false;
         for (int i = 1; i < media.length; i++) {
             var parameter = media[i].strip().split("=", 2);
-            if (charset || parameter.length != 2 || !"charset".equalsIgnoreCase(parameter[0].strip())
-                    || !("utf-8".equalsIgnoreCase(parameter[1].strip()) || "\"utf-8\"".equalsIgnoreCase(parameter[1].strip()))) {
+            if (charset
+                    || parameter.length != 2
+                    || !"charset".equalsIgnoreCase(parameter[0].strip())
+                    || !("utf-8".equalsIgnoreCase(parameter[1].strip())
+                            || "\"utf-8\"".equalsIgnoreCase(parameter[1].strip()))) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             charset = true;
@@ -147,7 +159,8 @@ public final class AlipayNotificationCodec {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
             String key = decode(field.substring(0, separator)), value = decode(field.substring(separator + 1));
-            if (!key.matches("[A-Za-z][A-Za-z0-9_]{0,63}") || value.length() > 16384
+            if (!key.matches("[A-Za-z][A-Za-z0-9_]{0,63}")
+                    || value.length() > 16384
                     || parameters.putIfAbsent(key, value) != null) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
@@ -173,8 +186,12 @@ public final class AlipayNotificationCodec {
                     bytes.write(value == '+' ? ' ' : value);
                 }
             }
-            return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes.toByteArray())).toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes.toByteArray()))
+                    .toString();
         } catch (CommonException invalid) {
             throw invalid;
         } catch (Exception invalid) {

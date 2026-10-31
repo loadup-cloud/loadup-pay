@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.app.service;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -35,18 +43,12 @@ import io.github.loadup.pay.realtime.domain.gateway.TradeProjectionGateway;
 import io.github.loadup.pay.realtime.domain.model.ProjectionAdvance;
 import io.github.loadup.pay.realtime.domain.model.ProjectionReceipt;
 import io.github.loadup.pay.realtime.domain.model.SourceVersion;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.function.Supplier;
-
-
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 @Service
 public class TradeProjectionService implements TradeProjectionFacade {
@@ -60,10 +62,17 @@ public class TradeProjectionService implements TradeProjectionFacade {
     private final Clock clock;
     private final String acquireService, paymentService;
 
-    public TradeProjectionService(RealtimeActorProvider actors, TradeProjectionGateway projections, ProjectionReceiptGateway receipts,
-                                  TradeProjectionCodec codec, TradeProjectionConverter converter, RealtimeTransactions transactions, IdGenerator ids,
-                                  Clock clock, @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
-                                  @Value("${loadup.modules.realtime.payment-service-id:payment}") String paymentService) {
+    public TradeProjectionService(
+            RealtimeActorProvider actors,
+            TradeProjectionGateway projections,
+            ProjectionReceiptGateway receipts,
+            TradeProjectionCodec codec,
+            TradeProjectionConverter converter,
+            RealtimeTransactions transactions,
+            IdGenerator ids,
+            Clock clock,
+            @Value("${loadup.modules.realtime.acquire-service-id:acquire}") String acquireService,
+            @Value("${loadup.modules.realtime.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.projections = projections;
         this.receipts = receipts;
@@ -83,7 +92,10 @@ public class TradeProjectionService implements TradeProjectionFacade {
             event.data().requireEnvelope(event);
             return true;
         });
-        var value = converter.toOrder(event.data(), new SourceVersion("acquire", "AcquireOrder", event.aggregateId(), event.aggregateVersion()), now());
+        var value = converter.toOrder(
+                event.data(),
+                new SourceVersion("acquire", "AcquireOrder", event.aggregateId(), event.aggregateVersion()),
+                now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyOrderIfNewer(actor.tenantId(), value, hash));
     }
@@ -95,7 +107,10 @@ public class TradeProjectionService implements TradeProjectionFacade {
             event.data().requireEnvelope(event);
             return true;
         });
-        var value = converter.toPayment(event.data(), new SourceVersion("payment", "PaymentOrder", event.aggregateId(), event.aggregateVersion()), now());
+        var value = converter.toPayment(
+                event.data(),
+                new SourceVersion("payment", "PaymentOrder", event.aggregateId(), event.aggregateVersion()),
+                now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyPaymentIfNewer(actor.tenantId(), value, hash));
     }
@@ -107,7 +122,10 @@ public class TradeProjectionService implements TradeProjectionFacade {
             event.data().requireEnvelope(event);
             return true;
         });
-        var value = converter.toRefund(event.data(), new SourceVersion("payment", "RefundOrder", event.aggregateId(), event.aggregateVersion()), now());
+        var value = converter.toRefund(
+                event.data(),
+                new SourceVersion("payment", "RefundOrder", event.aggregateId(), event.aggregateVersion()),
+                now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyRefundIfNewer(actor.tenantId(), value, hash));
     }
@@ -122,25 +140,40 @@ public class TradeProjectionService implements TradeProjectionFacade {
             }
             return true;
         });
-        var value = converter.toSummary(event.data(), new SourceVersion("payment", "OrderRefundSummary", event.aggregateId(), event.aggregateVersion()), now());
+        var value = converter.toSummary(
+                event.data(),
+                new SourceVersion("payment", "OrderRefundSummary", event.aggregateId(), event.aggregateVersion()),
+                now());
         String hash = codec.hash(codec.encode(value));
         return consume(actor, event, hash, () -> projections.applyRefundSummaryIfNewer(actor.tenantId(), value, hash));
     }
 
-    private ProjectionAckDTO consume(RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
+    private ProjectionAckDTO consume(
+            RealtimeActor actor, EventEnvelope<?> event, String hash, Supplier<ProjectionAdvance> apply) {
         String digest = codec.requestDigest(actor.tenantId(), actor.serviceId(), event, hash);
         return transactions.writeLocal(actor.tenantId(), () -> {
             var prior = receipts.find(actor.tenantId(), event.producer(), event.deliveryId());
             if (prior.isPresent()) {
                 var receipt = prior.get();
-                if (!receipt.callerServiceId().equals(actor.serviceId()) || !receipt.requestDigest().equals(digest)) {
+                if (!receipt.callerServiceId().equals(actor.serviceId())
+                        || !receipt.requestDigest().equals(digest)) {
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 return converter.toAck(receipt);
             }
             var advance = apply.get();
-            var receipt = new ProjectionReceipt(ids.generate(), event.deliveryId(), event.businessEventId(), event.producer(),
-                    event.aggregateId(), event.aggregateVersion(), advance.projectedVersion(), advance.disposition(), digest, actor.serviceId(), now());
+            var receipt = new ProjectionReceipt(
+                    ids.generate(),
+                    event.deliveryId(),
+                    event.businessEventId(),
+                    event.producer(),
+                    event.aggregateId(),
+                    event.aggregateVersion(),
+                    advance.projectedVersion(),
+                    advance.disposition(),
+                    digest,
+                    actor.serviceId(),
+                    now());
             receipts.insert(actor.tenantId(), receipt);
             return converter.toAck(receipt);
         });

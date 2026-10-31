@@ -1,24 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import io.github.loadup.commons.error.CommonException;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 
+import io.github.loadup.commons.error.CommonException;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -29,8 +32,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Mounted service credentials only; local claims are preflight routing checks, never signature verification.
@@ -55,15 +58,19 @@ public final class PaymentServiceTokenReader {
             if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+"))) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
-            var claims = mapper.readValue(Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {
-            });
+            var claims = mapper.readValue(
+                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {});
             Object claimAudience = claims.get("aud");
             boolean expected = audience.equals(claimAudience)
                     || claimAudience instanceof Collection<?> values && values.contains(audience);
             long now = clock.instant().getEpochSecond();
-            if (!tenant.equals(claims.get("tenant_id")) || !"SERVICE".equals(claims.get("principal_type"))
-                    || !service.equals(claims.get("service_id")) || !service.equals(claims.get("sub")) || !expected
-                    || epoch(claims.get("exp")) <= now || claims.get("nbf") != null && epoch(claims.get("nbf")) > now) {
+            if (!tenant.equals(claims.get("tenant_id"))
+                    || !"SERVICE".equals(claims.get("principal_type"))
+                    || !service.equals(claims.get("service_id"))
+                    || !service.equals(claims.get("sub"))
+                    || !expected
+                    || epoch(claims.get("exp")) <= now
+                    || claims.get("nbf") != null && epoch(claims.get("nbf")) > now) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             return token;

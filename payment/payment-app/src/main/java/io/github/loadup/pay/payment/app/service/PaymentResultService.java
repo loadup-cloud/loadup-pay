@@ -1,19 +1,31 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
+import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -39,21 +51,12 @@ import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.APPLIED;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.CONFLICT;
-import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition.IGNORED;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Y3 internal use case. Call only with authenticated, account-verified adapter facts.
@@ -76,11 +79,21 @@ public class PaymentResultService {
     private final Clock clock;
     private final PaymentActionService actions;
 
-    public PaymentResultService(PaymentAcceptanceGateway payments, PaymentControlGateway changes,
-                                PaymentAttemptGateway attempts, PaymentResultGateway results, PaymentExecutionLocks locks,
-                                PaymentAcceptanceTransactions transactions, PaymentResultCodec codec, PaymentResultConverter converter,
-                                PaymentControlConverter updates, PaymentAcceptanceConverter views, PaymentEvents events,
-                                IdGenerator ids, Clock clock, PaymentActionService actions) {
+    public PaymentResultService(
+            PaymentAcceptanceGateway payments,
+            PaymentControlGateway changes,
+            PaymentAttemptGateway attempts,
+            PaymentResultGateway results,
+            PaymentExecutionLocks locks,
+            PaymentAcceptanceTransactions transactions,
+            PaymentResultCodec codec,
+            PaymentResultConverter converter,
+            PaymentControlConverter updates,
+            PaymentAcceptanceConverter views,
+            PaymentEvents events,
+            IdGenerator ids,
+            Clock clock,
+            PaymentActionService actions) {
         this.payments = payments;
         this.changes = changes;
         this.attempts = attempts;
@@ -110,34 +123,41 @@ public class PaymentResultService {
             String payload = codec.encode(observation);
             var original = payments.find(tenant, observation.identity().paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-            return transactions.writeLocal(tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
+            return transactions.writeLocal(
+                    tenant, () -> apply(tenant, original.callerServiceId(), observation, digest, payload));
         });
     }
 
-    public PaymentResultApplication recordSubmission(String tenant,
-                                                     io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
-                                                     io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+    public PaymentResultApplication recordSubmission(
+            String tenant,
+            io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         return recordWithAction(tenant, original, submission);
     }
 
-    public PaymentResultApplication recordRecovery(String tenant,
-                                                   io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
-                                                   io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
-        if (submission == null || submission.observation() == null
+    public PaymentResultApplication recordRecovery(
+            String tenant,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+        if (submission == null
+                || submission.observation() == null
                 || submission.observation().source() != PaymentObservation.Source.QUERY_RESPONSE) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return recordWithAction(tenant, original, submission);
     }
 
-    private PaymentResultApplication recordWithAction(String tenant,
-                                                      io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
-                                                      io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+    private PaymentResultApplication recordWithAction(
+            String tenant,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
+            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (original == null || submission == null
-                || !original.identity().equals(submission.identity()) || !original.amount().equals(submission.amount())) {
+        if (original == null
+                || submission == null
+                || !original.identity().equals(submission.identity())
+                || !original.amount().equals(submission.amount())) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         if (submission.observation() == null) {
@@ -162,7 +182,8 @@ public class PaymentResultService {
         return transactions.withTenantContext(tenant, () -> {
             var observation = submission.observation();
             String digest = codec.factsDigest(observation), payload = codec.encode(observation);
-            var accepted = payments.find(tenant, original.identity().paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+            var accepted = payments.find(tenant, original.identity().paymentId())
+                    .orElseThrow(() -> new CommonException(NOT_FOUND));
             return transactions.writeLocal(tenant, () -> {
                 var applied = apply(tenant, accepted.callerServiceId(), observation, digest, payload);
                 if (applied.disposition() == CONFLICT) {
@@ -171,15 +192,18 @@ public class PaymentResultService {
                 // Re-read under the same parent/payment locks; Y3 may already have observed a terminal winner.
                 var current = locks.lock(tenant, original.identity().paymentId(), accepted.callerServiceId());
                 actions.record(tenant, current, original, submission, applied.receiptId());
-                return new PaymentResultApplication(applied.disposition(), applied.receiptId(), actions.present(tenant, current));
+                return new PaymentResultApplication(
+                        applied.disposition(), applied.receiptId(), actions.present(tenant, current));
             });
         });
     }
 
-    private PaymentResultApplication apply(String tenant, String caller, PaymentObservation observation, String digest, String payload) {
+    private PaymentResultApplication apply(
+            String tenant, String caller, PaymentObservation observation, String digest, String payload) {
         var locked = locks.lock(tenant, observation.identity().paymentId(), caller);
         var accepted = locked.payment();
-        var prior = results.receipt(tenant, observation.identity().attemptId(), observation.source(), observation.receiptKey());
+        var prior = results.receipt(
+                tenant, observation.identity().attemptId(), observation.source(), observation.receiptKey());
         if (prior.isPresent()) {
             var receipt = prior.get();
             if (!receipt.factsDigest().equals(digest)) {
@@ -190,13 +214,15 @@ public class PaymentResultService {
         String receiptId = ids.generate();
         var attempt = attempts.lock(tenant, observation.identity().attemptId())
                 .orElseThrow(() -> new CommonException(NOT_FOUND));
-        var rejection = PaymentExecutionBindings.observationRejection(accepted, attempt, observation.identity(), observation.amount());
+        var rejection = PaymentExecutionBindings.observationRejection(
+                accepted, attempt, observation.identity(), observation.amount());
         if (rejection != null) {
             return reject(tenant, accepted, receiptId, observation, digest, payload, rejection.name());
         }
         PaymentExecutionBindings.observableContext(locked, attempt);
         if (observation.kind() == ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED) {
-            return reject(tenant, accepted, receiptId, observation, digest, payload, "FUNDS_RETURNED_REQUIRES_COMPENSATION");
+            return reject(
+                    tenant, accepted, receiptId, observation, digest, payload, "FUNDS_RETURNED_REQUIRES_COMPENSATION");
         }
         if (observation.kind() == ChannelPaymentOutcome.Kind.SUCCEEDED) {
             return success(tenant, locked, attempt, receiptId, observation, digest, payload);
@@ -205,7 +231,8 @@ public class PaymentResultService {
             return noCollection(tenant, locked, attempt, receiptId, observation, digest, payload);
         }
         // Intermediate observations cannot undo either a positive or a negative terminal fact.
-        if (terminal(accepted.payment().state()) || attempt.attempt().canSafelyReplace()
+        if (terminal(accepted.payment().state())
+                || attempt.attempt().canSafelyReplace()
                 || attempt.attempt().state() == PaymentAttemptState.SUCCEEDED) {
             return receipt(tenant, accepted, receiptId, observation, digest, payload, IGNORED, null);
         }
@@ -219,18 +246,34 @@ public class PaymentResultService {
             changes.updatePayment(tenant, changed, accepted.payment().version());
             events.publishSnapshot(tenant, changed, now());
         }
-        return receipt(tenant, changed, receiptId, observation, digest, payload,
-                updated.equals(attempt) ? IGNORED : APPLIED, null);
+        return receipt(
+                tenant,
+                changed,
+                receiptId,
+                observation,
+                digest,
+                payload,
+                updated.equals(attempt) ? IGNORED : APPLIED,
+                null);
     }
 
-    private PaymentResultApplication success(String tenant, LockedPayment locked, StoredPaymentAttempt attempt,
-                                             String id, PaymentObservation observation, String digest, String payload) {
+    private PaymentResultApplication success(
+            String tenant,
+            LockedPayment locked,
+            StoredPaymentAttempt attempt,
+            String id,
+            PaymentObservation observation,
+            String digest,
+            String payload) {
         var accepted = locked.payment();
-        if (accepted.payment().state() == PaymentState.FAILED || accepted.payment().state() == PaymentState.CLOSED
+        if (accepted.payment().state() == PaymentState.FAILED
+                || accepted.payment().state() == PaymentState.CLOSED
                 || attempt.attempt().canSafelyReplace()) {
             return reject(tenant, accepted, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
         }
-        var claimed = results.transaction(observation.identity().channel(), observation.identity().accountScopeHash(),
+        var claimed = results.transaction(
+                observation.identity().channel(),
+                observation.identity().accountScopeHash(),
                 observation.channelTransactionNo());
         if (claimed.isPresent() && !matches(tenant, claimed.get(), observation)) {
             return reject(tenant, accepted, id, observation, digest, payload, "CHANNEL_TRANSACTION_ALREADY_CLAIMED");
@@ -240,7 +283,9 @@ public class PaymentResultService {
             return reject(tenant, accepted, id, observation, digest, payload, "ATTEMPT_TRANSACTION_CONFLICT");
         }
         if (accepted.payment().state() == PaymentState.SUCCEEDED) {
-            if (attempt.attempt().state() != PaymentAttemptState.SUCCEEDED || own.isEmpty() || claimed.isEmpty()
+            if (attempt.attempt().state() != PaymentAttemptState.SUCCEEDED
+                    || own.isEmpty()
+                    || claimed.isEmpty()
                     || !own.get().id().equals(claimed.get().id())
                     || !Objects.equals(accepted.terminalEvidenceId(), own.get().receiptId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -248,7 +293,9 @@ public class PaymentResultService {
             requireCapacity(tenant, accepted, observation.succeededAt());
             return receipt(tenant, accepted, id, observation, digest, payload, IGNORED, null);
         }
-        if (claimed.isPresent() || own.isPresent() || results.capacity(tenant, accepted.payment().id()).isPresent()) {
+        if (claimed.isPresent()
+                || own.isPresent()
+                || results.capacity(tenant, accepted.payment().id()).isPresent()) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var updated = attempt.applyOutcome(outcome(observation, id), false);
@@ -262,10 +309,17 @@ public class PaymentResultService {
         return applied;
     }
 
-    private PaymentResultApplication noCollection(String tenant, LockedPayment locked, StoredPaymentAttempt attempt,
-                                                  String id, PaymentObservation observation, String digest, String payload) {
+    private PaymentResultApplication noCollection(
+            String tenant,
+            LockedPayment locked,
+            StoredPaymentAttempt attempt,
+            String id,
+            PaymentObservation observation,
+            String digest,
+            String payload) {
         var accepted = locked.payment();
-        if (accepted.payment().state() == PaymentState.SUCCEEDED || attempt.attempt().state() == PaymentAttemptState.SUCCEEDED) {
+        if (accepted.payment().state() == PaymentState.SUCCEEDED
+                || attempt.attempt().state() == PaymentAttemptState.SUCCEEDED) {
             return reject(tenant, accepted, id, observation, digest, payload, "TERMINAL_FACT_CONFLICT");
         }
         if (attempt.attempt().canSafelyReplace() && terminal(accepted.payment().state())) {
@@ -279,12 +333,17 @@ public class PaymentResultService {
         }
         var gate = locked.gate();
         if (gate.gate().state() != GateState.FENCED) {
-            changes.updateGate(tenant, updates.withGate(gate, gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))), gate.rowVersion());
+            changes.updateGate(
+                    tenant,
+                    updates.withGate(
+                            gate, gate.gate().fence(Math.max(1, gate.gate().fenceEpoch()))),
+                    gate.rowVersion());
         }
         var updated = attempt.applyOutcome(outcome(observation, id), true);
         var proof = new NoCollectionEvidence(id, accepted.payment().id(), true);
         var order = accepted.payment().state() == PaymentState.CLOSING
-                ? accepted.payment().close(proof) : accepted.payment().fail(proof);
+                ? accepted.payment().close(proof)
+                : accepted.payment().fail(proof);
         var failed = updates.withPayment(accepted, order, id);
         if (!updated.equals(attempt)) {
             attempts.update(tenant, updated, attempt.rowVersion());
@@ -296,16 +355,20 @@ public class PaymentResultService {
     }
 
     private boolean matches(String tenant, ChannelTransactionClaim claim, PaymentObservation observation) {
-        return claim.tenantId().equals(tenant) && claim.identity().equals(observation.identity())
-                && claim.amount().equals(observation.amount()) && claim.channelTransactionNo().equals(observation.channelTransactionNo())
+        return claim.tenantId().equals(tenant)
+                && claim.identity().equals(observation.identity())
+                && claim.amount().equals(observation.amount())
+                && claim.channelTransactionNo().equals(observation.channelTransactionNo())
                 && claim.succeededAt().equals(observation.succeededAt());
     }
 
     private void requireCapacity(String tenant, StoredPaymentAcceptance accepted, LocalDateTime succeededAt) {
-        var capacity = results.capacity(tenant, accepted.payment().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var capacity = results.capacity(tenant, accepted.payment().id())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!capacity.orderId().equals(accepted.payment().orderId())
                 || !capacity.payeeMerchantId().equals(accepted.payment().payeeMerchantId())
-                || !capacity.succeededAmount().equals(accepted.payment().amount()) || !capacity.succeededAt().equals(succeededAt)) {
+                || !capacity.succeededAmount().equals(accepted.payment().amount())
+                || !capacity.succeededAt().equals(succeededAt)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
@@ -314,26 +377,56 @@ public class PaymentResultService {
         return new ChannelPaymentOutcome(observation.kind(), observation.identity(), observation.amount(), evidenceId);
     }
 
-    private PaymentResultApplication reject(String tenant, StoredPaymentAcceptance accepted, String id,
-                                            PaymentObservation observation, String digest, String payload, String reason) {
+    private PaymentResultApplication reject(
+            String tenant,
+            StoredPaymentAcceptance accepted,
+            String id,
+            PaymentObservation observation,
+            String digest,
+            String payload,
+            String reason) {
         receipt(tenant, accepted, id, observation, digest, payload, CONFLICT, reason);
         return anomaly(tenant, accepted, id, observation, digest, payload, reason);
     }
 
-    private PaymentResultApplication anomaly(String tenant, StoredPaymentAcceptance accepted, String receiptId,
-                                             PaymentObservation observation, String digest, String payload, String reason) {
-        results.recordAnomaly(tenant, new PaymentResultAnomaly(ids.generate(), accepted.payment().id(),
-                observation.identity().attemptId(), receiptId, reason, digest, payload, now()));
+    private PaymentResultApplication anomaly(
+            String tenant,
+            StoredPaymentAcceptance accepted,
+            String receiptId,
+            PaymentObservation observation,
+            String digest,
+            String payload,
+            String reason) {
+        results.recordAnomaly(
+                tenant,
+                new PaymentResultAnomaly(
+                        ids.generate(),
+                        accepted.payment().id(),
+                        observation.identity().attemptId(),
+                        receiptId,
+                        reason,
+                        digest,
+                        payload,
+                        now()));
         return present(CONFLICT, receiptId, accepted);
     }
 
-    private PaymentResultApplication receipt(String tenant, StoredPaymentAcceptance accepted, String id,
-                                             PaymentObservation observation, String digest, String payload, PaymentReceiptDisposition disposition, String reason) {
-        results.insertReceipt(tenant, converter.toReceipt(id, observation, digest, payload, disposition, reason, now()));
+    private PaymentResultApplication receipt(
+            String tenant,
+            StoredPaymentAcceptance accepted,
+            String id,
+            PaymentObservation observation,
+            String digest,
+            String payload,
+            PaymentReceiptDisposition disposition,
+            String reason) {
+        results.insertReceipt(
+                tenant, converter.toReceipt(id, observation, digest, payload, disposition, reason, now()));
         return present(disposition, id, accepted);
     }
 
-    private PaymentResultApplication present(PaymentReceiptDisposition disposition, String receiptId, StoredPaymentAcceptance accepted) {
+    private PaymentResultApplication present(
+            PaymentReceiptDisposition disposition, String receiptId, StoredPaymentAcceptance accepted) {
         return new PaymentResultApplication(disposition, receiptId, views.toDTO(accepted));
     }
 

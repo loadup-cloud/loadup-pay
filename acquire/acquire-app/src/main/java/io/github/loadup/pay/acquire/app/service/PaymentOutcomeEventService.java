@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -33,22 +44,13 @@ import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Set;
-
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
@@ -66,11 +68,19 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
     private final Clock clock;
     private final String paymentService;
 
-    public PaymentOutcomeEventService(AcquireServiceActorProvider actors, PaymentOutcomeClient payment,
-                                      OrderCreationGateway orders, PaymentOutcomeGateway allocations, PaymentEventReceiptGateway receipts,
-                                      PaymentOutcomeOperations outcomes, PaymentEventCodec codec, PaymentEventConverter converter,
-                                      OrderCreationTransactions transactions, IdGenerator ids, Clock clock,
-                                      @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
+    public PaymentOutcomeEventService(
+            AcquireServiceActorProvider actors,
+            PaymentOutcomeClient payment,
+            OrderCreationGateway orders,
+            PaymentOutcomeGateway allocations,
+            PaymentEventReceiptGateway receipts,
+            PaymentOutcomeOperations outcomes,
+            PaymentEventCodec codec,
+            PaymentEventConverter converter,
+            OrderCreationTransactions transactions,
+            IdGenerator ids,
+            Clock clock,
+            @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.payment = payment;
         this.orders = orders;
@@ -105,24 +115,31 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                 return replay(actor, prior.get(), digest);
             }
             var data = event.data();
-            var order = orders.findOrder(actor.tenantId(), data.orderId()).orElseThrow(() -> new CommonException(NOT_FOUND));
-            var allocation = allocations.findPayment(actor.tenantId(), data.orderId(), data.paymentId())
+            var order = orders.findOrder(actor.tenantId(), data.orderId())
+                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var allocation = allocations
+                    .findPayment(actor.tenantId(), data.orderId(), data.paymentId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
             // Original ownership is restored from the stored order, never from an event-supplied merchant scope.
             var owner = new OrderPaymentScope(actor.tenantId(), order.callerScopeHash());
             var command = outcomes.bound(owner, order, allocation);
-            if (!command.payeeMerchantId().equals(data.payeeMerchantId()) || !command.allocationId().equals(data.allocationId())
-                    || command.amountMinor() != data.amountMinor() || !command.currency().equals(data.currency())) {
+            if (!command.payeeMerchantId().equals(data.payeeMerchantId())
+                    || !command.allocationId().equals(data.allocationId())
+                    || command.amountMinor() != data.amountMinor()
+                    || !command.currency().equals(data.currency())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var facts = payment.facts(actor.tenantId(), data.paymentId()); // No local transaction or lock is held.
-            if (facts == null || !data.operationId().equals(facts.limitOperationId())
+            if (facts == null
+                    || !data.operationId().equals(facts.limitOperationId())
                     || !data.payeeMerchantId().equals(facts.payeeMerchantId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var observed = converter.toObserved(facts);
             var verified = outcomes.terminal(command, observed);
-            if (verified == null || observed.payment().state() != data.state() || observed.payment().version() != data.paymentVersion()
+            if (verified == null
+                    || observed.payment().state() != data.state()
+                    || observed.payment().version() != data.paymentVersion()
                     || !observed.payment().terminalEvidenceId().equals(data.evidenceId())
                     || data.executionFenced() && !observed.executionFenced()) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -133,7 +150,12 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                     return replay(actor, existing.get(), digest);
                 }
                 var changed = outcomes.convergeLocked(owner, command, verified);
-                var accepted = converter.toReceipt(ids.generate(), event, digest, actor.serviceId(), changed.order().version(),
+                var accepted = converter.toReceipt(
+                        ids.generate(),
+                        event,
+                        digest,
+                        actor.serviceId(),
+                        changed.order().version(),
                         LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone()));
                 receipts.insert(actor.tenantId(), accepted);
                 return converter.toAck(accepted);
@@ -157,8 +179,10 @@ public class PaymentOutcomeEventService implements PaymentOutcomeFacade {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             event.data().requireEnvelope(event);
-            if (!TYPE.equals(event.eventType()) || !event.businessEventId().equals(event.data().evidenceId())
-                    || !Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED).contains(event.data().state())) {
+            if (!TYPE.equals(event.eventType())
+                    || !event.businessEventId().equals(event.data().evidenceId())
+                    || !Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
+                            .contains(event.data().state())) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
         } catch (DomainViolation invalid) {

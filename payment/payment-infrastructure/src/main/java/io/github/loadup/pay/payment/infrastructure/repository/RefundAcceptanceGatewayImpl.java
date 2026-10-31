@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -24,23 +34,16 @@ import io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceSto
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAcceptanceDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
@@ -49,9 +52,11 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     private final RefundStorageConverter storage;
     private final Clock clock;
 
-    public RefundAcceptanceGatewayImpl(NamedParameterJdbcTemplate jdbc,
-                                       RefundAcceptanceStorageConverter converter, RefundStorageConverter storage,
-                                       Clock clock) {
+    public RefundAcceptanceGatewayImpl(
+            NamedParameterJdbcTemplate jdbc,
+            RefundAcceptanceStorageConverter converter,
+            RefundStorageConverter storage,
+            Clock clock) {
         this.jdbc = jdbc;
         this.converter = converter;
         this.storage = storage;
@@ -71,12 +76,19 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
                        original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
                        currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version FROM refund_order
                 WHERE id = :id AND deleted = FALSE FOR UPDATE
-                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream().findFirst().orElse(null);
-        if (child == null || child.getRowVersion() == null || child.getRowVersion() != expectedChildVersion
-                || child.getSubmissionStartedAt() == null || child.getOriginalSucceededAt() == null
-                || value.acceptedAt().isBefore(child.getOriginalSucceededAt()) || !value.original().equals(storage.toIdentity(child))
+                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
+                .findFirst()
+                .orElse(null);
+        if (child == null
+                || child.getRowVersion() == null
+                || child.getRowVersion() != expectedChildVersion
+                || child.getSubmissionStartedAt() == null
+                || child.getOriginalSucceededAt() == null
+                || value.acceptedAt().isBefore(child.getOriginalSucceededAt())
+                || !value.original().equals(storage.toIdentity(child))
                 || !Objects.equals(value.originalChannelTransactionNo(), child.getOriginalChannelTransactionNo())
-                || !Objects.equals(value.channelRefundNo(), child.getChannelRefundNo()) || !Objects.equals(child.getAmountMinor(), value.amount().getCent())
+                || !Objects.equals(value.channelRefundNo(), child.getChannelRefundNo())
+                || !Objects.equals(child.getAmountMinor(), value.amount().getCent())
                 || !Objects.equals(child.getCurrency(), value.amount().getCurrencyValue())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -129,8 +141,11 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     }
 
     private boolean sameBinding(RefundAcceptanceEvidence a, RefundAcceptanceEvidence b) {
-        return a.refundId().equals(b.refundId()) && a.original().equals(b.original()) && a.originalChannelTransactionNo().equals(b.originalChannelTransactionNo())
-                && a.channelRefundNo().equals(b.channelRefundNo()) && a.amount().equals(b.amount());
+        return a.refundId().equals(b.refundId())
+                && a.original().equals(b.original())
+                && a.originalChannelTransactionNo().equals(b.originalChannelTransactionNo())
+                && a.channelRefundNo().equals(b.channelRefundNo())
+                && a.amount().equals(b.amount());
     }
 
     private void proof(String tenant, String refundId, String receiptId) {
@@ -139,7 +154,8 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
                 SELECT disposition FROM refund_channel_receipt WHERE id = :id
                     AND refund_id = :refund AND deleted = FALSE
                 """, args, (rs, index) -> rs.getString("disposition"));
-        if (dispositions.size() != 1 || !"APPLIED".equals(dispositions.getFirst()) && !"IGNORED".equals(dispositions.getFirst())) {
+        if (dispositions.size() != 1
+                || !"APPLIED".equals(dispositions.getFirst()) && !"IGNORED".equals(dispositions.getFirst())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
@@ -147,22 +163,30 @@ public class RefundAcceptanceGatewayImpl implements RefundAcceptanceGateway {
     private RefundAcceptanceDO row(String tenant, String refundId, boolean lock) {
         DomainChecks.id(refundId);
         var args = new MapSqlParameterSource().addValue("id", refundId);
-        return jdbc.query("""
+        return jdbc
+                .query(
+                        """
                         SELECT id, created_at, updated_at, payment_id, attempt_id, channel, binding_revision_id,
                                account_scope_hash, channel_request_no, original_channel_transaction_no, channel_refund_no,
                                amount_minor, currency, accepted_at, receipt_id FROM refund_acceptance_evidence
                         WHERE id = :id AND deleted = FALSE
-                        """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(RefundAcceptanceDO.class))
-                .stream().findFirst().orElse(null);
+                        """ + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(RefundAcceptanceDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private void transaction(String tenant, boolean write) {
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

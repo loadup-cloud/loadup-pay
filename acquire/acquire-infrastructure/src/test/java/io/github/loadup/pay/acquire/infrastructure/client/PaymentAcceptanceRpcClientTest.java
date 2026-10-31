@@ -1,4 +1,40 @@
+/*
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.acquire.infrastructure.client;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -19,15 +55,6 @@ import io.github.loadup.pay.payment.rpc.PaymentRpcMapper;
 import io.github.loadup.pay.payment.rpc.PaymentRpcMapperImpl;
 import io.github.loadup.pay.payment.rpc.proto.PaymentRpc;
 import io.github.loadup.pay.product.rpc.ProductRpcMapperImpl;
-import org.apache.dubbo.rpc.RpcContext;
-import org.apache.dubbo.rpc.RpcException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -39,23 +66,14 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 class PaymentAcceptanceRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-22T04:00:00Z"), ZoneId.systemDefault());
@@ -64,8 +82,10 @@ class PaymentAcceptanceRpcClientTest {
     final PaymentRpc paymentRpc = mock(PaymentRpc.class);
     final PaymentRpcMapper paymentRpcMapper = new PaymentRpcMapperImpl(new ProductRpcMapperImpl());
     final List<String> attachments = new ArrayList<>();
+
     @TempDir
     Path directory;
+
     Path tokenFile;
     PaymentAcceptanceRpcClient client;
 
@@ -76,17 +96,31 @@ class PaymentAcceptanceRpcClientTest {
     @BeforeEach
     void setup() throws Exception {
         tokenFile = directory.resolve("payment.jwt");
-        client = new PaymentAcceptanceRpcClient(paymentRpcMapper,
-                mapper, new PaymentTransportProperties("tenant", "acquire", "payment", tokenFile), clock);
+        client = new PaymentAcceptanceRpcClient(
+                paymentRpcMapper,
+                mapper,
+                new PaymentTransportProperties("tenant", "acquire", "payment", tokenFile),
+                clock);
         ReflectionTestUtils.setField(client, "paymentRpc", paymentRpc);
         writeToken(claims());
         var result = new PaymentExecutionDTO(
-                "payment", "order", "allocation", 100, "CNY", PaymentState.INIT,
-                null, null, null, 0, OffsetDateTime.now(clock));
+                "payment",
+                "order",
+                "allocation",
+                100,
+                "CNY",
+                PaymentState.INIT,
+                null,
+                null,
+                null,
+                0,
+                OffsetDateTime.now(clock));
         doAnswer(invocation -> {
-            attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return paymentRpcMapper.toWirePaymentExecutionDTO(result);
-        }).when(paymentRpc).accept(any());
+                    attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return paymentRpcMapper.toWirePaymentExecutionDTO(result);
+                })
+                .when(paymentRpc)
+                .accept(any());
     }
 
     Map<String, Object> claims() {
@@ -122,10 +156,21 @@ class PaymentAcceptanceRpcClientTest {
 
     @Test
     void detailAndOutcomeUseTheTypedIdQuery() {
-        var execution = new PaymentExecutionDTO("payment", "order", "allocation", 100, "CNY", PaymentState.INIT,
-                null, null, null, 0, OffsetDateTime.now(clock));
+        var execution = new PaymentExecutionDTO(
+                "payment",
+                "order",
+                "allocation",
+                100,
+                "CNY",
+                PaymentState.INIT,
+                null,
+                null,
+                null,
+                0,
+                OffsetDateTime.now(clock));
         doReturn(paymentRpcMapper.toWirePaymentExecutionDTO(execution))
-                .when(paymentRpc).detail(any());
+                .when(paymentRpc)
+                .detail(any());
         assertEquals("payment", client.detail("tenant", "payment").paymentId());
         verify(paymentRpc).detail(paymentRpcMapper.toWireIdQuery(new IdQuery("payment")));
     }
@@ -134,18 +179,30 @@ class PaymentAcceptanceRpcClientTest {
     void refundAuthorityReadsTheOrderSummaryThroughItsDedicatedOperation() {
         var summary = new OrderRefundSummaryEventDTO("order", "merchant", "CNY", 1000, 500, 3);
         doReturn(paymentRpcMapper.toWireOrderRefundSummaryEventDTO(summary))
-                .when(paymentRpc).refundSummary(any());
+                .when(paymentRpc)
+                .refundSummary(any());
         assertEquals(summary, client.refundSummary("tenant", "order"));
         verify(paymentRpc).refundSummary(paymentRpcMapper.toWireIdQuery(new IdQuery("order")));
     }
 
     @Test
     void eventAuthorityUsesTheRichFactsOperationInsteadOfDiscardingOperationAndPayee() {
-        var payment = new PaymentExecutionDTO("payment", "order", "allocation", 100, "CNY", PaymentState.SUCCEEDED,
-                "attempt", null, "proof", 2, OffsetDateTime.now(clock));
+        var payment = new PaymentExecutionDTO(
+                "payment",
+                "order",
+                "allocation",
+                100,
+                "CNY",
+                PaymentState.SUCCEEDED,
+                "attempt",
+                null,
+                "proof",
+                2,
+                OffsetDateTime.now(clock));
         doReturn(paymentRpcMapper.toWirePaymentSettlementFactsDTO(
-                new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
-                .when(paymentRpc).facts(any());
+                        new PaymentSettlementFactsDTO(payment, "operation", "merchant", false)))
+                .when(paymentRpc)
+                .facts(any());
         var facts = client.facts("tenant", "payment");
         assertEquals("operation", facts.limitOperationId());
         assertEquals("merchant", facts.payeeMerchantId());
@@ -202,7 +259,8 @@ class PaymentAcceptanceRpcClientTest {
     void remoteBusinessAndTransportFailuresCannotMasqueradeAsAcceptance() {
         doThrow(remoteFailure(ACTION_FORBIDDEN.getCode()))
                 .doThrow(new IllegalArgumentException("synthetic-secret"))
-                .when(paymentRpc).accept(any());
+                .when(paymentRpc)
+                .accept(any());
         for (int i = 0; i < 2; i++) {
             var failure = assertThrows(CommonException.class, () -> client.accept("tenant", command));
             assertSame(DEPENDENCY_UNAVAILABLE, failure.getResultCode());
@@ -237,18 +295,32 @@ class PaymentAcceptanceRpcClientTest {
 
     @Test
     void inputLookupUsesTypedRpcAndNeverTreatsTransportFailureAsInputAbsence() {
-        var query = new PaymentInputLookupQuery("payment", "order", "allocation", "merchant", 100L,
-                "CNY", "action", new PaymentChoiceDTO(
-                io.github.loadup.commons.payment.Channel.WECHAT, io.github.loadup.commons.payment.PaymentMethod.H5));
+        var query = new PaymentInputLookupQuery(
+                "payment",
+                "order",
+                "allocation",
+                "merchant",
+                100L,
+                "CNY",
+                "action",
+                new PaymentChoiceDTO(
+                        io.github.loadup.commons.payment.Channel.WECHAT,
+                        io.github.loadup.commons.payment.PaymentMethod.H5));
         var absent = new PaymentInputLookupDTO(false, null);
         doReturn(paymentRpcMapper.toWirePaymentInputLookupDTO(absent))
-                .when(paymentRpc).inputLookup(any());
+                .when(paymentRpc)
+                .inputLookup(any());
         assertEquals(absent, client.lookupInput("tenant", query));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentRpc).inputLookup(any());
-        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.lookupInput("tenant", query)).getResultCode());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query))
+                        .getResultCode());
         doThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT")).when(paymentRpc).inputLookup(any());
-        assertSame(IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query)).getResultCode());
+        assertSame(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> client.lookupInput("tenant", query))
+                        .getResultCode());
     }
 
     @Test
@@ -256,12 +328,18 @@ class PaymentAcceptanceRpcClientTest {
         var expire = mock(io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand.class);
         var active = new PaymentInputExpiryDTO("payment", "order", PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         doReturn(paymentRpcMapper.toWirePaymentInputExpiryDTO(active))
-                .when(paymentRpc).inputExpire(any());
+                .when(paymentRpc)
+                .inputExpire(any());
         assertEquals(active, client.expireInput("tenant", expire));
         doThrow(remoteFailure("PAYMENT_NOT_FOUND")).when(paymentRpc).inputExpire(any());
-        assertSame(DEPENDENCY_UNAVAILABLE, assertThrows(CommonException.class, () -> client.expireInput("tenant", expire)).getResultCode());
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.expireInput("tenant", expire))
+                        .getResultCode());
         doThrow(remoteFailure("PAYMENT_IDEMPOTENCY_CONFLICT")).when(paymentRpc).inputExpire(any());
-        assertSame(IDEMPOTENCY_CONFLICT,
-                assertThrows(CommonException.class, () -> client.expireInput("tenant", expire)).getResultCode());
+        assertSame(
+                IDEMPOTENCY_CONFLICT,
+                assertThrows(CommonException.class, () -> client.expireInput("tenant", expire))
+                        .getResultCode());
     }
 }

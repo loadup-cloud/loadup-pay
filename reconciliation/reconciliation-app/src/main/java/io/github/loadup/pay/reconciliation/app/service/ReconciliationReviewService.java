@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.service;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.REVIEW_CHECKER_REQUIRED;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.REVIEW_VERSION_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.PageDTO;
@@ -47,23 +60,13 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewStat
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.REVIEW_CHECKER_REQUIRED;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.REVIEW_VERSION_CONFLICT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Independent administrative conclusions. No financial gateway, source RPC or batch mutation is exposed.
@@ -83,10 +86,19 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     private final Validator validator;
     private final Clock clock;
 
-    public ReconciliationReviewService(ReconciliationActorProvider actors, ReconciliationAccountDirectory accounts,
-                                       ReconciliationBatchGateway batches, ReconciliationDifferenceReader differences, ReconciliationReviewGateway reviews,
-                                       ReconciliationSourceFiles files, ReconciliationTransactions transactions, ReconciliationReviewConverter converter,
-                                       ReconciliationConverter differenceConverter, IdGenerator ids, Validator validator, Clock clock) {
+    public ReconciliationReviewService(
+            ReconciliationActorProvider actors,
+            ReconciliationAccountDirectory accounts,
+            ReconciliationBatchGateway batches,
+            ReconciliationDifferenceReader differences,
+            ReconciliationReviewGateway reviews,
+            ReconciliationSourceFiles files,
+            ReconciliationTransactions transactions,
+            ReconciliationReviewConverter converter,
+            ReconciliationConverter differenceConverter,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock) {
         this.actors = actors;
         this.accounts = accounts;
         this.batches = batches;
@@ -112,14 +124,28 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         validate(command);
         var actor = actor("propose");
         note(command.note());
-        String digest = digest(actor, "PROPOSE", command.batchId(), command.differenceId(), command.requestKey(), Long.toString(command.expectedVersion()), command.conclusion().name(), command.note(), command.evidenceFileId());
-        var replay = transactions.readSnapshot(actor.tenantId(), () -> reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey())
-                .map(event -> replay(actor, event, digest, command.batchId(), command.differenceId())));
+        String digest = digest(
+                actor,
+                "PROPOSE",
+                command.batchId(),
+                command.differenceId(),
+                command.requestKey(),
+                Long.toString(command.expectedVersion()),
+                command.conclusion().name(),
+                command.note(),
+                command.evidenceFileId());
+        var replay = transactions.readSnapshot(
+                actor.tenantId(),
+                () -> reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey())
+                        .map(event -> replay(actor, event, digest, command.batchId(), command.differenceId())));
         if (replay.isPresent()) {
             return replay.get();
         }
-        transactions.readSnapshot(actor.tenantId(), () -> evidence(actor, command.batchId(), command.differenceId(), false));
-        var file = command.evidenceFileId() == null ? null : files.inspect(actor.tenantId(), actor.serviceId(), command.evidenceFileId());
+        transactions.readSnapshot(
+                actor.tenantId(), () -> evidence(actor, command.batchId(), command.differenceId(), false));
+        var file = command.evidenceFileId() == null
+                ? null
+                : files.inspect(actor.tenantId(), actor.serviceId(), command.evidenceFileId());
         return transactions.writeLocal(actor.tenantId(), () -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
@@ -131,9 +157,18 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 throw new CommonException(REVIEW_VERSION_CONFLICT);
             }
             var at = now();
-            var proposal = converter.toProposal(source.reference(), ids.generate(), actor.serviceId(), command, file, at);
+            var proposal =
+                    converter.toProposal(source.reference(), ids.generate(), actor.serviceId(), command, file, at);
             var next = previous.propose(proposal, ids.generate(), command.expectedVersion());
-            var event = converter.toEvent(next, next.lastEventId(), actor.serviceId(), command.requestKey(), digest, ReconciliationReviewOperation.PROPOSE, null, at);
+            var event = converter.toEvent(
+                    next,
+                    next.lastEventId(),
+                    actor.serviceId(),
+                    command.requestKey(),
+                    digest,
+                    ReconciliationReviewOperation.PROPOSE,
+                    null,
+                    at);
             if (file != null) {
                 files.attachReview(actor.tenantId(), actor.serviceId(), file, proposal.id());
             }
@@ -147,7 +182,15 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         validate(command);
         var actor = actor("decide");
         note(command.note());
-        String digest = digest(actor, command.approve() ? "APPROVE" : "REJECT", command.batchId(), command.differenceId(), command.requestKey(), Long.toString(command.expectedVersion()), command.proposalId(), command.note());
+        String digest = digest(
+                actor,
+                command.approve() ? "APPROVE" : "REJECT",
+                command.batchId(),
+                command.differenceId(),
+                command.requestKey(),
+                Long.toString(command.expectedVersion()),
+                command.proposalId(),
+                command.note());
         return transactions.writeLocal(actor.tenantId(), () -> {
             var source = evidence(actor, command.batchId(), command.differenceId(), true);
             var old = reviews.findRequest(actor.tenantId(), actor.serviceId(), command.requestKey());
@@ -155,7 +198,8 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
                 return replay(actor, old.get(), digest, command.batchId(), command.differenceId());
             }
             var previous = head(actor.tenantId(), source.reference(), true);
-            if (previous.version() != command.expectedVersion() || !command.proposalId().equals(previous.proposalId())) {
+            if (previous.version() != command.expectedVersion()
+                    || !command.proposalId().equals(previous.proposalId())) {
                 throw new CommonException(REVIEW_VERSION_CONFLICT);
             }
             if (previous.state() != ReconciliationReviewState.PROPOSED) {
@@ -165,9 +209,17 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             if (actor.serviceId().equals(proposal.proposerServiceId())) {
                 throw new CommonException(REVIEW_CHECKER_REQUIRED);
             }
-            var next = previous.decide(proposal, actor.serviceId(), ids.generate(), command.approve(), command.expectedVersion());
-            var event = converter.toEvent(next, next.lastEventId(), actor.serviceId(), command.requestKey(), digest,
-                    command.approve() ? ReconciliationReviewOperation.APPROVE : ReconciliationReviewOperation.REJECT, command.note(), now());
+            var next = previous.decide(
+                    proposal, actor.serviceId(), ids.generate(), command.approve(), command.expectedVersion());
+            var event = converter.toEvent(
+                    next,
+                    next.lastEventId(),
+                    actor.serviceId(),
+                    command.requestKey(),
+                    digest,
+                    command.approve() ? ReconciliationReviewOperation.APPROVE : ReconciliationReviewOperation.REJECT,
+                    command.note(),
+                    now());
             reviews.commit(actor.tenantId(), previous, next, null, event);
             return converter.toDTO(event, clock);
         });
@@ -180,9 +232,16 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         return transactions.readSnapshot(actor.tenantId(), () -> {
             var source = evidence(actor, query.batchId(), query.differenceId(), false);
             var head = head(actor.tenantId(), source.reference(), false);
-            var proposal = head.proposalId() == null ? null : proposal(actor.tenantId(), source.reference(), head.proposalId());
-            var event = head.lastEventId() == null ? null : event(actor.tenantId(), source.reference(), head.lastEventId());
-            return converter.toDTO(head, proposal == null ? null : converter.toDTO(proposal, clock), event == null ? null : converter.toDTO(event, clock), differenceConverter.toDTO(source.difference()));
+            var proposal = head.proposalId() == null
+                    ? null
+                    : proposal(actor.tenantId(), source.reference(), head.proposalId());
+            var event =
+                    head.lastEventId() == null ? null : event(actor.tenantId(), source.reference(), head.lastEventId());
+            return converter.toDTO(
+                    head,
+                    proposal == null ? null : converter.toDTO(proposal, clock),
+                    event == null ? null : converter.toDTO(event, clock),
+                    differenceConverter.toDTO(source.difference()));
         });
     }
 
@@ -195,7 +254,9 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             var head = head(actor.tenantId(), source.reference(), false);
             var page = reviews.history(actor.tenantId(), query.differenceId(), query.page(), query.size());
             long offset = (long) (query.page() - 1) * query.size();
-            if (page.page() != query.page() || page.size() != query.size() || page.total() != head.version()
+            if (page.page() != query.page()
+                    || page.size() != query.size()
+                    || page.total() != head.version()
                     || page.records().size() != Math.min(query.size(), Math.max(0L, head.version() - offset))) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -212,24 +273,48 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     /**
      * Internal approved-scope read for the verification use case; caller already owns its local transaction and permission.
      */
-    public io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview approvedForVerification(ReconciliationActor actor, String batchId, String differenceId,
-                                                                                                              String proposalId, String approvalEventId, long expectedVersion, boolean lock) {
+    public io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview approvedForVerification(
+            ReconciliationActor actor,
+            String batchId,
+            String differenceId,
+            String proposalId,
+            String approvalEventId,
+            long expectedVersion,
+            boolean lock) {
         var source = evidence(actor, batchId, differenceId, lock);
         var head = head(actor.tenantId(), source.reference(), lock);
-        if (head.state() != ReconciliationReviewState.APPROVED || head.version() != expectedVersion || !proposalId.equals(head.proposalId()) || !approvalEventId.equals(head.lastEventId())) {
+        if (head.state() != ReconciliationReviewState.APPROVED
+                || head.version() != expectedVersion
+                || !proposalId.equals(head.proposalId())
+                || !approvalEventId.equals(head.lastEventId())) {
             throw new CommonException(REVIEW_VERSION_CONFLICT);
         }
         var proposal = proposal(actor.tenantId(), source.reference(), proposalId);
         if (proposal.conclusion() != ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION) {
             throw new CommonException(INVALID_STATE);
         }
-        var line = source.difference().difference().ledger() != null ? source.difference().difference().ledger() : source.difference().difference().channel();
-        return new io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview(source.reference(), source.scope(), source.difference().difference().key(), line.merchantPaymentNo(), proposalId, approvalEventId, expectedVersion);
+        var line = source.difference().difference().ledger() != null
+                ? source.difference().difference().ledger()
+                : source.difference().difference().channel();
+        return new io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview(
+                source.reference(),
+                source.scope(),
+                source.difference().difference().key(),
+                line.merchantPaymentNo(),
+                proposalId,
+                approvalEventId,
+                expectedVersion);
     }
 
-    private ReconciliationReviewEventDTO replay(ReconciliationActor actor, ReconciliationReviewEvent event, String digest, String batchId, String differenceId) {
+    private ReconciliationReviewEventDTO replay(
+            ReconciliationActor actor,
+            ReconciliationReviewEvent event,
+            String digest,
+            String batchId,
+            String differenceId) {
         var source = evidence(actor, batchId, differenceId, false);
-        if (!event.callerServiceId().equals(actor.serviceId()) || !event.requestDigest().equals(digest)) {
+        if (!event.callerServiceId().equals(actor.serviceId())
+                || !event.requestDigest().equals(digest)) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         verifyEvent(actor.tenantId(), source.reference(), event);
@@ -241,7 +326,10 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     }
 
     private ReconciliationReview head(String tenant, ReconciliationReviewReference reference, boolean lock) {
-        var value = (lock ? reviews.lock(tenant, reference.differenceId()) : reviews.find(tenant, reference.differenceId())).orElseGet(() -> ReconciliationReview.init(reference));
+        var value = (lock
+                        ? reviews.lock(tenant, reference.differenceId())
+                        : reviews.find(tenant, reference.differenceId()))
+                .orElseGet(() -> ReconciliationReview.init(reference));
         if (!reference.equals(value.reference())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -288,17 +376,31 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     }
 
     private Evidence evidence(ReconciliationActor actor, String batchId, String differenceId, boolean lock) {
-        var stored = (lock ? batches.lock(actor.tenantId(), batchId) : batches.find(actor.tenantId(), batchId)).orElseThrow(() -> new CommonException(NOT_FOUND));
-        // Review permissions authorize independent account reviewers; original import/batch mutation permissions remain separate.
-        accounts.authorize(actor.tenantId(), actor.serviceId(), stored.channelAccountCode(), stored.batch().scope());
-        if (stored.batch().state() != ReconciliationState.DIFFERENCES || stored.batch().result() == null) {
+        var stored = (lock ? batches.lock(actor.tenantId(), batchId) : batches.find(actor.tenantId(), batchId))
+                .orElseThrow(() -> new CommonException(NOT_FOUND));
+        // Review permissions authorize independent account reviewers; original import/batch mutation permissions remain
+        // separate.
+        accounts.authorize(
+                actor.tenantId(),
+                actor.serviceId(),
+                stored.channelAccountCode(),
+                stored.batch().scope());
+        if (stored.batch().state() != ReconciliationState.DIFFERENCES
+                || stored.batch().result() == null) {
             throw new CommonException(INVALID_STATE);
         }
-        var difference = differences.find(actor.tenantId(), batchId, differenceId).orElseThrow(() -> new CommonException(NOT_FOUND));
-        if (!differenceId.equals(difference.id()) || !batchId.equals(difference.batchId()) || !stored.batch().runId().equals(difference.runId())) {
+        var difference = differences
+                .find(actor.tenantId(), batchId, differenceId)
+                .orElseThrow(() -> new CommonException(NOT_FOUND));
+        if (!differenceId.equals(difference.id())
+                || !batchId.equals(difference.batchId())
+                || !stored.batch().runId().equals(difference.runId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return new Evidence(converter.toReference(difference, stored.batch().result().resultHash()), difference, stored.batch().scope());
+        return new Evidence(
+                converter.toReference(difference, stored.batch().result().resultHash()),
+                difference,
+                stored.batch().scope());
     }
 
     private ReconciliationActor actor(String operation) {
@@ -319,7 +421,10 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     }
 
     private void note(String value) {
-        if (value == null || value.isBlank() || value.length() > 1024 || value.chars().anyMatch(Character::isISOControl)) {
+        if (value == null
+                || value.isBlank()
+                || value.length() > 1024
+                || value.chars().anyMatch(Character::isISOControl)) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }
@@ -342,12 +447,16 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         if (field == null) {
             value.append("-1:");
         } else {
-            value.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+            value.append(field.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(field);
         }
     }
 
-    private record Evidence(ReconciliationReviewReference reference, StoredReconciliationDifference difference,
-                            ReconciliationScope scope) {
+    private record Evidence(
+            ReconciliationReviewReference reference,
+            StoredReconciliationDifference difference,
+            ReconciliationScope scope) {
         @Override
         public String toString() {
             return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);

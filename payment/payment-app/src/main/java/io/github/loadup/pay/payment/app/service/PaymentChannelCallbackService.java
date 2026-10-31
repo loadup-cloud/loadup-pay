@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
@@ -31,15 +40,9 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelNotificationGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentReceiptDisposition;
+import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.nio.charset.StandardCharsets;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 /**
  * A signed notification triggers an original-account query; only committed Y3 facts permit the provider ACK.
@@ -58,10 +61,17 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
     private final PaymentCallbackObservationConverter converter;
     private final PaymentAcceptanceTransactions transactions;
 
-    public PaymentChannelCallbackService(ChannelCallbackEndpointResolver endpoints, PaymentAttemptGateway attempts,
-                                         PaymentAcceptanceGateway payments, PaymentChannelNotificationGateway notifications, PaymentChannelGateway channels,
-                                         PaymentResultService results, PaymentAcceptanceCodec commands, PaymentResultCodec observations,
-                                         PaymentCallbackObservationConverter converter, PaymentAcceptanceTransactions transactions) {
+    public PaymentChannelCallbackService(
+            ChannelCallbackEndpointResolver endpoints,
+            PaymentAttemptGateway attempts,
+            PaymentAcceptanceGateway payments,
+            PaymentChannelNotificationGateway notifications,
+            PaymentChannelGateway channels,
+            PaymentResultService results,
+            PaymentAcceptanceCodec commands,
+            PaymentResultCodec observations,
+            PaymentCallbackObservationConverter converter,
+            PaymentAcceptanceTransactions transactions) {
         this.endpoints = endpoints;
         this.attempts = attempts;
         this.payments = payments;
@@ -84,39 +94,50 @@ public class PaymentChannelCallbackService implements PaymentChannelCallbackFaca
         try {
             accepted = transactions.withTenantContext(endpoint.tenantId(), () -> {
                 var hint = notifications.identify(endpoint.channel(), endpoint.bindingRevisionId(), input);
-                var stored = attempts.findChannelRequest(endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo())
+                var stored = attempts.findChannelRequest(
+                                endpoint.tenantId(), endpoint.bindingRevisionId(), hint.channelRequestNo())
                         .orElseThrow(() -> new CommonException(NOT_FOUND));
                 var attempt = stored.attempt();
-                if (attempt.binding().channel() != endpoint.channel() || !attempt.binding().id().equals(endpoint.bindingRevisionId())
-                        || !attempt.channelRequestNo().equals(hint.channelRequestNo()) || attempt.executionEpoch() <= 0
+                if (attempt.binding().channel() != endpoint.channel()
+                        || !attempt.binding().id().equals(endpoint.bindingRevisionId())
+                        || !attempt.channelRequestNo().equals(hint.channelRequestNo())
+                        || attempt.executionEpoch() <= 0
                         || stored.submissionStartedAt() == null) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                var payment = payments.find(endpoint.tenantId(), attempt.paymentId()).orElseThrow(() -> new CommonException(NOT_FOUND));
+                var payment = payments.find(endpoint.tenantId(), attempt.paymentId())
+                        .orElseThrow(() -> new CommonException(NOT_FOUND));
                 commands.decode(payment);
                 PaymentExecutionBindings.observable(payment, stored);
                 var target = new ChannelPaymentTarget(attempt.identity(), attempt.amount());
                 var verified = notifications.verify(target, input);
                 // Nothing from the unverified hint reaches a channel query or a financial mutation.
-                if (!verified.identity().equals(target.identity()) || !verified.amount().equals(target.amount())) {
+                if (!verified.identity().equals(target.identity())
+                        || !verified.amount().equals(target.amount())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 var query = channels.query(target);
-                if (query.source() != PaymentObservation.Source.QUERY_RESPONSE || !target.identity().equals(query.identity())
-                        || !target.amount().equals(query.amount()) || query.channelTransactionNo() != null
-                        && !verified.channelTransactionNo().equals(query.channelTransactionNo())) {
+                if (query.source() != PaymentObservation.Source.QUERY_RESPONSE
+                        || !target.identity().equals(query.identity())
+                        || !target.amount().equals(query.amount())
+                        || query.channelTransactionNo() != null
+                                && !verified.channelTransactionNo().equals(query.channelTransactionNo())) {
                     throw new CommonException(OUTCOME_UNKNOWN);
                 }
                 String notificationId = verified.notificationId();
                 String facts = observations.factsDigest(query);
-                String key = "notification:" + DigestUtils.sha256(notificationId.getBytes(StandardCharsets.UTF_8).length
-                        + ":" + notificationId + facts);
-                String source = DigestUtils.sha256("notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
+                String key = "notification:"
+                        + DigestUtils.sha256(
+                                notificationId.getBytes(StandardCharsets.UTF_8).length + ":" + notificationId + facts);
+                String source = DigestUtils.sha256(
+                        "notification-source:" + verified.sourceDigest() + ":" + query.sourceDigest());
                 var result = results.record(endpoint.tenantId(), converter.toObservation(query, key, source));
                 return result.disposition() != PaymentReceiptDisposition.CONFLICT;
             });
         } catch (RuntimeException rejected) {
-            String code = rejected instanceof CommonException failure ? failure.getResultCode().getCode() : rejected.getClass().getSimpleName();
+            String code = rejected instanceof CommonException failure
+                    ? failure.getResultCode().getCode()
+                    : rejected.getClass().getSimpleName();
             LOG.log(System.Logger.Level.WARNING, "Channel callback rejected: {0}", code);
             accepted = false;
         }

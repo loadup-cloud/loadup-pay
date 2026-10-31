@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.statement;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -25,21 +33,17 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 class WechatTradeStatementParserTest {
     private final WechatTradeStatementParser parser = new WechatTradeStatementParser(10, 16777216);
-    private final ReconciliationScope scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), WechatTradeStatementParser.PROFILE);
+    private final ReconciliationScope scope = new ReconciliationScope(
+            Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 26), WechatTradeStatementParser.PROFILE);
     private final ReconciliationStatementAccount direct = new ReconciliationStatementAccount("1234567890", null);
 
     @Test
@@ -47,14 +51,29 @@ class WechatTradeStatementParserTest {
         var payment = payment();
         var refund = refund("refund-1", "PROCESSING");
         var other = refund("refund-2", "CHANGE");
-        var data = parse(statement(List.of(payment, refund, other), "3", "9.00", "3.00", "1.00", "0.00", "10.00", "4.00"));
+        var data =
+                parse(statement(List.of(payment, refund, other), "3", "9.00", "3.00", "1.00", "0.00", "10.00", "4.00"));
         assertEquals(3, data.records().size());
         assertEquals(new ReconciliationTotals(1, 1000, 2, 400), data.manifest().totals());
         assertEquals(ReconciliationSide.CHANNEL, data.manifest().side());
-        assertEquals(1000, data.records().stream().filter(value -> value.key().kind() == ReconciliationRecordKind.PAYMENT).findFirst().orElseThrow().amount().getCent());
-        assertEquals(java.util.Set.of(ReconciliationEntryStatus.PROCESSING, ReconciliationEntryStatus.UNKNOWN),
-                data.records().stream().filter(value -> value.key().kind() == ReconciliationRecordKind.REFUND).map(ReconciliationLine::status).collect(java.util.stream.Collectors.toSet()));
-        assertEquals(data, parse(statement(List.of(payment, refund, other), "3", "9.00", "3.00", "1.00", "0.00", "10.00", "4.00")));
+        assertEquals(
+                1000,
+                data.records().stream()
+                        .filter(value -> value.key().kind() == ReconciliationRecordKind.PAYMENT)
+                        .findFirst()
+                        .orElseThrow()
+                        .amount()
+                        .getCent());
+        assertEquals(
+                java.util.Set.of(ReconciliationEntryStatus.PROCESSING, ReconciliationEntryStatus.UNKNOWN),
+                data.records().stream()
+                        .filter(value -> value.key().kind() == ReconciliationRecordKind.REFUND)
+                        .map(ReconciliationLine::status)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(
+                data,
+                parse(statement(
+                        List.of(payment, refund, other), "3", "9.00", "3.00", "1.00", "0.00", "10.00", "4.00")));
     }
 
     @Test
@@ -105,20 +124,53 @@ class WechatTradeStatementParserTest {
         var row = payment();
         row[3] = "1234567899";
         var source = one(row).getBytes(StandardCharsets.UTF_8);
-        var data = parser.parse(new ByteArrayInputStream(source), scope, new ReconciliationStatementAccount("1234567890", "1234567899"), "artifact", "capture");
+        var data = parser.parse(
+                new ByteArrayInputStream(source),
+                scope,
+                new ReconciliationStatementAccount("1234567890", "1234567899"),
+                "artifact",
+                "capture");
         assertEquals(1, data.records().size());
-        assertThrows(CommonException.class, () -> parser.parse(new ByteArrayInputStream(source), scope,
-                new ReconciliationStatementAccount("1234567890", "1234567888"), "artifact", "capture"));
+        assertThrows(
+                CommonException.class,
+                () -> parser.parse(
+                        new ByteArrayInputStream(source),
+                        scope,
+                        new ReconciliationStatementAccount("1234567890", "1234567888"),
+                        "artifact",
+                        "capture"));
     }
 
     @Test
     void completeExplicitZeroTrailerIsRequiredForAnEmptyInputAndBytesAndRowsAreBounded() {
-        assertEquals(0, parse(statement(List.of(), "0", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00")).records().size());
+        assertEquals(
+                0,
+                parse(statement(List.of(), "0", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"))
+                        .records()
+                        .size());
         invalid(WechatTradeStatementParser.HEADER + "\n");
         var two = statement(List.of(payment(), payment()), "2", "18.00", "0.00", "0.00", "0.04", "20.00", "0.00");
-        assertThrows(CommonException.class, () -> new WechatTradeStatementParser(1, 16777216).parse(new ByteArrayInputStream(two.getBytes(StandardCharsets.UTF_8)), scope, direct, "artifact", "capture"));
-        assertThrows(CommonException.class, () -> new WechatTradeStatementParser(10, 1024).parse(new ByteArrayInputStream(new byte[1025]), scope, direct, "artifact", "capture"));
-        assertThrows(CommonException.class, () -> parser.parse(new ByteArrayInputStream(new byte[]{(byte) 0xc3, (byte) 0x28}), scope, direct, "artifact", "capture"));
+        assertThrows(
+                CommonException.class,
+                () -> new WechatTradeStatementParser(1, 16777216)
+                        .parse(
+                                new ByteArrayInputStream(two.getBytes(StandardCharsets.UTF_8)),
+                                scope,
+                                direct,
+                                "artifact",
+                                "capture"));
+        assertThrows(
+                CommonException.class,
+                () -> new WechatTradeStatementParser(10, 1024)
+                        .parse(new ByteArrayInputStream(new byte[1025]), scope, direct, "artifact", "capture"));
+        assertThrows(
+                CommonException.class,
+                () -> parser.parse(
+                        new ByteArrayInputStream(new byte[] {(byte) 0xc3, (byte) 0x28}),
+                        scope,
+                        direct,
+                        "artifact",
+                        "capture"));
     }
 
     private String one(String[] row) {
@@ -170,7 +222,11 @@ class WechatTradeStatementParserTest {
         for (var row : rows) {
             out.append(encoded(row)).append('\n');
         }
-        return out.append(WechatTradeStatementParser.TOTAL_HEADER).append('\n').append(encoded(totals)).append('\n').toString();
+        return out.append(WechatTradeStatementParser.TOTAL_HEADER)
+                .append('\n')
+                .append(encoded(totals))
+                .append('\n')
+                .toString();
     }
 
     private String encoded(String[] values) {
@@ -178,10 +234,13 @@ class WechatTradeStatementParserTest {
     }
 
     private ReconciliationDataset parse(String value) {
-        return parser.parse(new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8)), scope, direct, "artifact", "capture");
+        return parser.parse(
+                new ByteArrayInputStream(value.getBytes(StandardCharsets.UTF_8)), scope, direct, "artifact", "capture");
     }
 
     private void invalid(String source) {
-        assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> parse(source)).getResultCode());
+        assertEquals(
+                INPUT_INVALID,
+                assertThrows(CommonException.class, () -> parse(source)).getResultCode());
     }
 }

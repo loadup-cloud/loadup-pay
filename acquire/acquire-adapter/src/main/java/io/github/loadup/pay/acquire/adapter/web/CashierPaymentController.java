@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Adapter
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.adapter.web;
 
@@ -44,7 +48,8 @@ public class CashierPaymentController {
 
     @PostMapping("/start")
     @Operation(summary = "Reserve one manual amount using a fixed action key within the original checkout session")
-    public ResponseEntity<SuccessResponse<CashierPaymentDTO>> start(@Valid @RequestBody CashierPaymentStartCommand command) {
+    public ResponseEntity<SuccessResponse<CashierPaymentDTO>> start(
+            @Valid @RequestBody CashierPaymentStartCommand command) {
         return response(facade.startPayment(command));
     }
 
@@ -55,13 +60,21 @@ public class CashierPaymentController {
     }
 
     @PostMapping("/recover")
-    @Operation(summary = "Resolve the original action after a lost response without reserving money or replacing payer input")
-    public ResponseEntity<SuccessResponse<CashierPaymentRecoveryDTO>> recover(@Valid @RequestBody CashierPaymentRecoverCommand command) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("Referrer-Policy", "no-referrer")
+    @Operation(
+            summary =
+                    "Resolve the original action after a lost response without reserving money or replacing payer input")
+    public ResponseEntity<SuccessResponse<CashierPaymentRecoveryDTO>> recover(
+            @Valid @RequestBody CashierPaymentRecoverCommand command) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
                 .body(SuccessResponse.of(facade.recoverPayment(command)));
     }
 
     private ResponseEntity<SuccessResponse<CashierPaymentDTO>> response(CashierPaymentDTO value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("Referrer-Policy", "no-referrer").body(SuccessResponse.of(value));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
+                .body(SuccessResponse.of(value));
     }
 }

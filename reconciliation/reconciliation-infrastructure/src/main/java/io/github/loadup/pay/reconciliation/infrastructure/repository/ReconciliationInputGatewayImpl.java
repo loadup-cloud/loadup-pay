@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_NOT_SEALED;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -25,6 +36,10 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationEntryDO;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationInputDO;
+import java.sql.Statement;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -32,18 +47,6 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.sql.Statement;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_NOT_SEALED;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class ReconciliationInputGatewayImpl implements ReconciliationInputGateway {
@@ -53,8 +56,12 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     private final Clock clock;
     private final IdGenerator ids;
 
-    public ReconciliationInputGatewayImpl(ReconciliationStorageConverter converter, @Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords,
-                                          NamedParameterJdbcTemplate jdbc, Clock clock, IdGenerator ids) {
+    public ReconciliationInputGatewayImpl(
+            ReconciliationStorageConverter converter,
+            @Value("${loadup.modules.reconciliation.max-records:10000}") int maxRecords,
+            NamedParameterJdbcTemplate jdbc,
+            Clock clock,
+            IdGenerator ids) {
         if (maxRecords < 1 || maxRecords > 1000000) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -83,17 +90,24 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         if (manifest.totals().recordCount() > maxRecords) {
             throw new CommonException(INPUT_INVALID);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("input", artifactId).addValue("limit", maxRecords + 1);
-        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
-                + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit", args, BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class));
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("input", artifactId)
+                .addValue("limit", maxRecords + 1);
+        var rows = jdbc.query(
+                "SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
+                        + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit",
+                args,
+                BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class));
         try {
-            var lines = rows.stream().map(entry -> {
-                var line = converter.toLine(entry);
-                if (!line.key().fingerprint().equals(entry.getMatchKeyHash())) {
-                    throw new CommonException(SNAPSHOT_INVALID);
-                }
-                return line;
-            }).toList();
+            var lines = rows.stream()
+                    .map(entry -> {
+                        var line = converter.toLine(entry);
+                        if (!line.key().fingerprint().equals(entry.getMatchKeyHash())) {
+                            throw new CommonException(SNAPSHOT_INVALID);
+                        }
+                        return line;
+                    })
+                    .toList();
             return new ReconciliationDataset(manifest, lines);
         } catch (RuntimeException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -108,12 +122,15 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
             throw new CommonException(INPUT_INVALID);
         }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
-            throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
+            throw new CommonException(
+                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
         }
         var original = input(tenant, dataset.manifest().artifactId(), true);
         if (original != null) {
-            if (!fileId.equals(original.getFileId()) || !dataset.equals(loadSealed(tenant, dataset.manifest().artifactId()))) {
+            if (!fileId.equals(original.getFileId())
+                    || !dataset.equals(loadSealed(tenant, dataset.manifest().artifactId()))) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             return;
@@ -140,13 +157,15 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         var now = LocalDateTime.now(clock);
         var records = dataset.records();
         for (int offset = 0; offset < records.size(); offset += 500) {
-            var rows = records.subList(offset, Math.min(offset + 500, records.size())).stream().map(line -> {
-                var entry = converter.toEntry(tenant, dataset.manifest().artifactId(), line);
-                entry.setId(ids.generate());
-                entry.setCreatedAt(now);
-                entry.setUpdatedAt(now);
-                return new BeanPropertySqlParameterSource(entry);
-            }).toArray(BeanPropertySqlParameterSource[]::new);
+            var rows = records.subList(offset, Math.min(offset + 500, records.size())).stream()
+                    .map(line -> {
+                        var entry = converter.toEntry(tenant, dataset.manifest().artifactId(), line);
+                        entry.setId(ids.generate());
+                        entry.setCreatedAt(now);
+                        entry.setUpdatedAt(now);
+                        return new BeanPropertySqlParameterSource(entry);
+                    })
+                    .toArray(BeanPropertySqlParameterSource[]::new);
             int[] counts = jdbc.batchUpdate("""
                     INSERT INTO reconciliation_entry (id, tenant_id, created_at, updated_at, deleted, input_id, record_number,
                         match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state)
@@ -166,8 +185,11 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
 
     private ReconciliationManifest manifest(ReconciliationInputDO row) {
         try {
-            if (row.getPaymentCount() == null || row.getPaymentAmountMinor() == null || row.getRefundCount() == null
-                    || row.getRefundAmountMinor() == null || row.getRejectionCode() != null) {
+            if (row.getPaymentCount() == null
+                    || row.getPaymentAmountMinor() == null
+                    || row.getRefundCount() == null
+                    || row.getRefundAmountMinor() == null
+                    || row.getRejectionCode() != null) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return converter.toManifest(row);
@@ -178,13 +200,22 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
 
     private ReconciliationInputDO input(String tenant, String id, boolean lock) {
         io.github.loadup.commons.validation.DomainChecks.id(id);
-        if (lock && (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource()))) {
-            throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
+        if (lock
+                && (jdbc.getJdbcTemplate().getDataSource() == null
+                        || !TransactionSynchronizationManager.hasResource(
+                                jdbc.getJdbcTemplate().getDataSource()))) {
+            throw new CommonException(
+                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
         }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
-        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
-                        + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationInputDO.class))
-                .stream().findFirst().orElse(null);
+        return jdbc
+                .query(
+                        "SELECT id, tenant_id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+                                + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(ReconciliationInputDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 }

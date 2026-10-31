@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
@@ -29,22 +38,16 @@ import io.github.loadup.pay.acquire.infrastructure.converter.OrderCreationStorag
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderContractSnapshotDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCreateIntentDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class OrderCreationGatewayImpl implements OrderCreationGateway {
@@ -58,7 +61,8 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             NamedParameterJdbcTemplate jdbc,
             OrderCreationStorageConverter converter,
             AcquireOrderConverter business,
-            OrderCreationCodec codec, Clock clock) {
+            OrderCreationCodec codec,
+            Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -67,25 +71,38 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     }
 
     private OrderCreateIntentDO intent(String tenant, String predicate, MapSqlParameterSource args, boolean lock) {
-        return jdbc.query("""
+        return jdbc
+                .query(
+                        """
                         SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, order_id, request_digest,
                                caller_scope_hash, entry_mode, intent_payload, state, admission_id, materialize_before, result_code,
                                row_version, initial_session_id FROM order_create_intent WHERE tenant_id = :tenant AND deleted = FALSE AND
-                        """ + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(OrderCreateIntentDO.class))
-                .stream().findFirst().orElse(null);
+                        """ + predicate + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(OrderCreateIntentDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
     public Optional<OrderCreateIntent> findIntent(String tenant, String payee, String merchantOrderNo) {
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("payee", payee).addValue("number", merchantOrderNo);
-        return Optional.ofNullable(intent(tenant, "payee_merchant_id = :payee AND merchant_order_no = :number", args, false))
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("payee", payee)
+                .addValue("number", merchantOrderNo);
+        return Optional.ofNullable(
+                        intent(tenant, "payee_merchant_id = :payee AND merchant_order_no = :number", args, false))
                 .map(converter::toIntent);
     }
 
     @Override
     public OrderCreateIntent lockIntent(String tenant, String id) {
         requireTransaction();
-        var row = intent(tenant, "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
+        var row = intent(
+                tenant,
+                "id = :id",
+                new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id),
+                true);
         if (row == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -120,10 +137,15 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
     public void updateIntent(String tenant, OrderCreateIntent value, long expectedVersion) {
         requireTransaction();
         var row = converter.toIntentDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
-                .addValue("state", row.getState()).addValue("admission", row.getAdmissionId())
-                .addValue("deadline", row.getMaterializeBefore()).addValue("result", row.getResultCode())
-                .addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", value.id())
+                .addValue("expected", expectedVersion)
+                .addValue("state", row.getState())
+                .addValue("admission", row.getAdmissionId())
+                .addValue("deadline", row.getMaterializeBefore())
+                .addValue("result", row.getResultCode())
+                .addValue("version", row.getRowVersion())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE order_create_intent SET state = :state, admission_id = COALESCE(:admission, admission_id),
                     materialize_before = COALESCE(:deadline, materialize_before), result_code = COALESCE(:result, result_code),
@@ -142,13 +164,24 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             return Optional.empty();
         }
         try {
-            var intentRow = intent(tenant, "order_id = :order", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", id), false);
-            var snapshotArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", row.getContractSnapshotId()).addValue("order", id);
-            var snapshot = jdbc.query("""
+            var intentRow = intent(
+                    tenant,
+                    "order_id = :order",
+                    new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", id),
+                    false);
+            var snapshotArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                    .addValue("id", row.getContractSnapshotId())
+                    .addValue("order", id);
+            var snapshot =
+                    jdbc
+                            .query("""
                     SELECT id, tenant_id, created_at, updated_at, order_id, contract_id, contract_revision, contract_generation,
                            snapshot_hash, compiled_terms_hash, schema_version, configuration, payload_hash, admission_digest
                     FROM order_contract_snapshot WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND deleted = FALSE
-                    """, snapshotArgs, BeanPropertyRowMapper.newInstance(OrderContractSnapshotDO.class)).stream().findFirst().orElse(null);
+                    """, snapshotArgs, BeanPropertyRowMapper.newInstance(OrderContractSnapshotDO.class))
+                            .stream()
+                            .findFirst()
+                            .orElse(null);
             if (intentRow == null || snapshot == null || !"COMPLETED".equals(intentRow.getState())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -191,7 +224,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                     || !Objects.equals(snapshot.getSnapshotHash(), admission.snapshotHash())
                     || !Objects.equals(snapshot.getCompiledTermsHash(), admission.compiledTermsHash())
                     || !Objects.equals(
-                    snapshot.getSchemaVersion(), admission.terms().schemaVersion())
+                            snapshot.getSchemaVersion(), admission.terms().schemaVersion())
                     || !Objects.equals(snapshot.getAdmissionDigest(), admission.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -224,7 +257,8 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         var now = LocalDateTime.now(clock);
@@ -275,20 +309,25 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
 
     private AcquireOrderDO order(String tenant, String id, boolean lock) {
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
-        return jdbc.query("""
+        return jdbc
+                .query("""
                         SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
                                contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
                                successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version,
                                close_epoch, paid_at, closed_at, row_version FROM acquire_order
                         WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
                         """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class))
-                .stream().findFirst().orElse(null);
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

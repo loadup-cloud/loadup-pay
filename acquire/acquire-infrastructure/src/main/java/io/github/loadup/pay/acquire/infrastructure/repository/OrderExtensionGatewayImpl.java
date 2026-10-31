@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -26,6 +35,9 @@ import io.github.loadup.pay.acquire.domain.model.OrderExtensionReceipt;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderExtensionStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.AcquireOrderDO;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderExtensionReceiptDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -33,23 +45,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final OrderExtensionStorageConverter converter;
 
-    public OrderExtensionGatewayImpl(NamedParameterJdbcTemplate jdbc, OrderExtensionStorageConverter converter,
-                                     Clock clock) {
+    public OrderExtensionGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, OrderExtensionStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -58,12 +61,16 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     @Override
     public Optional<OrderExtensionReceipt> findReceipt(String tenant, String orderId, String requestKey) {
         scope(tenant);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("order", orderId)
+                .addValue("key", requestKey);
         var row = jdbc.query("""
                 SELECT id, tenant_id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
                        original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
                 FROM order_extension_receipt WHERE tenant_id = :tenant AND order_id = :order AND request_key = :key AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             return Optional.empty();
         }
@@ -82,9 +89,14 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         var row = jdbc.query("""
                 SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
                 WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream().findFirst().orElse(null);
-        if (row == null || row.getDeadlineVersion() == null || row.getDeadlineVersion() < 1
-                || row.getRowVersion() == null || row.getRowVersion() != order.version()
+                """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
+                .findFirst()
+                .orElse(null);
+        if (row == null
+                || row.getDeadlineVersion() == null
+                || row.getDeadlineVersion() < 1
+                || row.getRowVersion() == null
+                || row.getRowVersion() != order.version()
                 || !order.orderDueAt().equals(row.getOrderDueAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -95,16 +107,21 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     public void extend(String tenant, AcquireOrder updated, OrderExtensionReceipt receipt) {
         scope(tenant);
         requireTransaction();
-        if (!updated.id().equals(receipt.orderId()) || !updated.orderDueAt().equals(receipt.requestedDueAt())
+        if (!updated.id().equals(receipt.orderId())
+                || !updated.orderDueAt().equals(receipt.requestedDueAt())
                 || updated.version() != Math.incrementExact(receipt.expectedOrderVersion())
                 || !(updated.state() == AcquireOrderState.INIT || updated.state() == AcquireOrderState.PENDING)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var patch = converter.toDeadlinePatch(updated, receipt.deadlineVersion());
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", updated.id())
-                .addValue("expectedVersion", receipt.expectedOrderVersion()).addValue("previousDeadlineVersion", receipt.deadlineVersion() - 1)
-                .addValue("previousDue", receipt.previousDueAt()).addValue("due", patch.getOrderDueAt())
-                .addValue("version", patch.getRowVersion()).addValue("deadlineVersion", patch.getDeadlineVersion())
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", updated.id())
+                .addValue("expectedVersion", receipt.expectedOrderVersion())
+                .addValue("previousDeadlineVersion", receipt.deadlineVersion() - 1)
+                .addValue("previousDue", receipt.previousDueAt())
+                .addValue("due", patch.getOrderDueAt())
+                .addValue("version", patch.getRowVersion())
+                .addValue("deadlineVersion", patch.getDeadlineVersion())
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE acquire_order SET order_due_at = :due, row_version = :version, deadline_version = :deadlineVersion, updated_at = :updated
@@ -140,9 +157,11 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
     }
 
     private void requireTransaction() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

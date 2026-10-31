@@ -1,19 +1,35 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Product App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.product.app.service;
+
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.CONTRACT_NOT_ADMITTING;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.REPLAY_NOT_ALLOWED;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
@@ -40,24 +56,11 @@ import io.github.loadup.pay.product.client.facade.LimitPolicyPublicationFacade;
 import io.github.loadup.pay.product.domain.gateway.PolicyPublicationGateway;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.CONTRACT_NOT_ADMITTING;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.REPLAY_NOT_ALLOWED;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.product.client.error.ProductResultCodeEnum.UNSUPPORTED_POLICY;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PolicyPublicationService implements LimitPolicyPublicationFacade {
@@ -149,11 +152,11 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
                     command.payeeMerchantId(),
                     selected.getFirst().configuration());
             if (publications
-                    .findByMerchant(actor.tenantId(), command.payeeMerchantId())
-                    .isPresent()
+                            .findByMerchant(actor.tenantId(), command.payeeMerchantId())
+                            .isPresent()
                     || publications
-                    .findByPolicy(actor.tenantId(), activation.policyId())
-                    .isPresent()) {
+                            .findByPolicy(actor.tenantId(), activation.policyId())
+                            .isPresent()) {
                 throw new CommonException(POLICY_PUBLICATION_CONFLICT);
             }
             var now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
@@ -304,8 +307,7 @@ public class PolicyPublicationService implements LimitPolicyPublicationFacade {
     }
 
     private OutboxRecord queue(PolicyPublication stored) {
-        var queue =
-                outbox.find(stored.outboxEventId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var queue = outbox.find(stored.outboxEventId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!stored.id().equals(queue.businessId())
                 || !stored.outboxEventId().equals(queue.id())
                 || !PolicyActivationDispatch.TYPE.equals(queue.type())) {

@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
@@ -30,14 +38,9 @@ import io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import jakarta.validation.Validator;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.Set;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
 
 /**
  * Composes durable creation and payment actions; failures retain their original independently committed facts.
@@ -51,8 +54,13 @@ public class DirectPaymentService implements DirectPaymentFacade {
     private final DirectPaymentConverter converter;
     private final Validator validator;
 
-    public DirectPaymentService(AcquireActorProvider actors, AcquireOrderCreationFacade orders,
-                                PaymentInitiationFacade payments, PaymentRecoveryFacade recovery, DirectPaymentConverter converter, Validator validator) {
+    public DirectPaymentService(
+            AcquireActorProvider actors,
+            AcquireOrderCreationFacade orders,
+            PaymentInitiationFacade payments,
+            PaymentRecoveryFacade recovery,
+            DirectPaymentConverter converter,
+            Validator validator) {
         this.actors = actors;
         this.orders = orders;
         this.payments = payments;
@@ -63,24 +71,33 @@ public class DirectPaymentService implements DirectPaymentFacade {
 
     @Override
     public DirectPayDTO directPay(DirectPayCommand command) {
-        if (command == null || !validator.validate(command).isEmpty()
+        if (command == null
+                || !validator.validate(command).isEmpty()
                 || command.firstPaymentAmountMinor() > command.amountMinor()) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var actor = actors.current();
-        if (!actor.permissions().containsAll(Set.of("pay:acquire:create", "pay:acquire:read", "pay:acquire:payment:start", "pay:acquire:payment:recover"))) {
+        if (!actor.permissions()
+                .containsAll(Set.of(
+                        "pay:acquire:create",
+                        "pay:acquire:read",
+                        "pay:acquire:payment:start",
+                        "pay:acquire:payment:recover"))) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        boolean valid = switch (command.choice().method()) {
-            case H5 -> command.interaction() instanceof NoInteractionDTO
-                    || command.interaction() instanceof H5SceneInteractionDTO;
-            case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
-            case JSAPI -> command.interaction() instanceof ChannelIdentityInteractionDTO identity
-                    && identity.channel() == command.choice().channel();
-        };
+        boolean valid =
+                switch (command.choice().method()) {
+                    case H5 ->
+                        command.interaction() instanceof NoInteractionDTO
+                                || command.interaction() instanceof H5SceneInteractionDTO;
+                    case PAYMENT_CODE -> command.interaction() instanceof PaymentCodeInteractionDTO;
+                    case JSAPI ->
+                        command.interaction() instanceof ChannelIdentityInteractionDTO identity
+                                && identity.channel() == command.choice().channel();
+                };
         if (!valid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -88,7 +105,9 @@ public class DirectPaymentService implements DirectPaymentFacade {
         var created = orders.createDirectPay(metadata);
         var original = converter.toPaymentRecovery(metadata, created.orderId());
         var resolved = recovery.recover(original);
-        if (resolved == null || resolved.state() == null || !created.orderId().equals(resolved.orderId())
+        if (resolved == null
+                || resolved.state() == null
+                || !created.orderId().equals(resolved.orderId())
                 || !command.actionKey().equals(resolved.actionKey())) {
             throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
         }
@@ -97,8 +116,11 @@ public class DirectPaymentService implements DirectPaymentFacade {
             payments.startPayment(converter.toStart(command, created.orderId()));
             resolved = recovery.recover(original);
         }
-        if (resolved == null || resolved.state() != PaymentRecoveryState.RESOLVED || resolved.progress() == null
-                || resolved.progress().order() == null || !created.orderId().equals(resolved.orderId())
+        if (resolved == null
+                || resolved.state() != PaymentRecoveryState.RESOLVED
+                || resolved.progress() == null
+                || resolved.progress().order() == null
+                || !created.orderId().equals(resolved.orderId())
                 || !command.actionKey().equals(resolved.actionKey())) {
             throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
         }

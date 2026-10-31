@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.domain;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
@@ -22,15 +31,9 @@ import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;
 import io.github.loadup.pay.payment.domain.model.RefundRequestState;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RefundExecutionTest {
 
@@ -66,14 +69,14 @@ class RefundExecutionTest {
     @Test
     void successConsumesHeldCapacityOnceAndFailureReleasesItWithoutChangingGrossPayment() {
         var capacity = new PaymentRefundCapacity(
-                "p1",
-                "order",
-                "merchant",
-                LocalDateTime.of(2026, 10, 21, 10, 0),
-                Money.ofMinor(1000, "CNY"),
-                0,
-                0,
-                0)
+                        "p1",
+                        "order",
+                        "merchant",
+                        LocalDateTime.of(2026, 10, 21, 10, 0),
+                        Money.ofMinor(1000, "CNY"),
+                        0,
+                        0,
+                        0)
                 .reserve(300);
         var refund = child("r1", "p1", 300);
         var unknown = capacity.applyOutcome(refund, outcome("r1", 300, ChannelRefundOutcome.Kind.UNKNOWN));

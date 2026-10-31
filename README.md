@@ -31,3 +31,21 @@
 仓库已有应用编排、HTTP/Triple 适配、持久化、渠道调用、可靠事件与恢复任务源码。源码存在和历史测试记录不代表当前 PostgreSQL 基线已完成业务环境验收。
 
 各模块 README 记录接入方式与能力限制；协议以 client 的 `.proto`/DTO、配置以 bootstrap 资源、数据结构以当前迁移文件为准。本次文档整理没有执行构建、测试、数据库迁移、部署或真实金融调用。
+
+
+## 手动质量与维护工具
+
+根 POM 对齐 Framework 的 Spotless、License、SpotBugs（含 FindSecBugs）、Enforcer、PMD、Checkstyle、JaCoCo 和 Versions 配置及版本。
+这些插件没有生命周期执行绑定，正常 `compile`、`test`、`verify`、`install` 不会自动触发这些工具。以下命令在 Pay 根目录手动执行；可以添加 `-pl <模块路径>` 缩小范围。
+
+| 用途 | 命令 |
+|---|---|
+| 检查 / 修复格式 | `mvnd spotless:check` / `mvnd spotless:apply` |
+| 检查 / 更新 Java 许可证头 | `mvnd license:check-file-header` / `mvnd license:update-file-header` |
+| 检查依赖禁用规则 | `mvnd enforcer:enforce` |
+| PMD / Checkstyle 检查 | `mvnd pmd:check` / `mvnd checkstyle:check` |
+| 检查可更新依赖 / 插件 | `mvnd versions:display-dependency-updates` / `mvnd versions:display-plugin-updates` |
+
+SpotBugs 需要编译产物，例如 `mvnd -pl channel/channel-api -am clean compile spotbugs:check`。
+JaCoCo 不会自动注入测试代理；需要覆盖率时显式执行，例如 `mvnd -pl channel/channel-api -am clean jacoco:prepare-agent test jacoco:report`。
+Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同步的规则文件。

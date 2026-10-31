@@ -1,4 +1,31 @@
+/*
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.acquire.infrastructure.client;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.event.EventEnvelope;
@@ -16,15 +43,6 @@ import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapper;
 import io.github.loadup.pay.realtime.rpc.RealtimeRpcMapperImpl;
 import io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc;
-import org.apache.dubbo.rpc.RpcContext;
-import org.apache.dubbo.rpc.RpcException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -34,14 +52,14 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import org.apache.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 class AcquireRealtimeRpcClientTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), BusinessTime.zone());
@@ -51,18 +69,51 @@ class AcquireRealtimeRpcClientTest {
             new RealtimeRpcMapperImpl(new AcquireRpcMapperImpl(paymentRpcMapper), paymentRpcMapper);
     final RealtimeRpc realtimeRpc = mock(RealtimeRpc.class);
     final List<String> attachments = new ArrayList<>();
-    final EventEnvelope<OrderSnapshotEventDTO> event = new EventEnvelope<>("delivery", "change", "acquire", "pay.acquire.snapshot.realtime.v1",
-            1, "order", 2, OffsetDateTime.now(clock), new OrderSnapshotEventDTO("order", "merchant", "M001", 10000, "CNY",
-            4000, 2000, AcquireOrderState.PENDING, OffsetDateTime.now(clock).minusDays(1), OffsetDateTime.now(clock), 2));
+    final EventEnvelope<OrderSnapshotEventDTO> event = new EventEnvelope<>(
+            "delivery",
+            "change",
+            "acquire",
+            "pay.acquire.snapshot.realtime.v1",
+            1,
+            "order",
+            2,
+            OffsetDateTime.now(clock),
+            new OrderSnapshotEventDTO(
+                    "order",
+                    "merchant",
+                    "M001",
+                    10000,
+                    "CNY",
+                    4000,
+                    2000,
+                    AcquireOrderState.PENDING,
+                    OffsetDateTime.now(clock).minusDays(1),
+                    OffsetDateTime.now(clock),
+                    2));
+
     @TempDir
     Path directory;
+
     AcquireRealtimeRpcClient client;
     Path file;
 
     String credential(String tenant, String service, String audience, long expires, String revision) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
-        var claims = Map.of("tenant_id", tenant, "sub", service, "service_id", service, "principal_type", "SERVICE",
-                "aud", audience, "exp", expires, "jti", revision);
+        var claims = Map.of(
+                "tenant_id",
+                tenant,
+                "sub",
+                service,
+                "service_id",
+                service,
+                "principal_type",
+                "SERVICE",
+                "aud",
+                audience,
+                "exp",
+                expires,
+                "jti",
+                revision);
         String token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
         Files.writeString(file, token);
@@ -73,20 +124,25 @@ class AcquireRealtimeRpcClientTest {
     void setup() throws Exception {
         file = directory.resolve("realtime.jwt");
         credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
-        client = new AcquireRealtimeRpcClient(realtimeRpcMapper, mapper, new AcquireRealtimeProperties("tenant", "acquire", "realtime", file), clock);
+        client = new AcquireRealtimeRpcClient(
+                realtimeRpcMapper, mapper, new AcquireRealtimeProperties("tenant", "acquire", "realtime", file), clock);
         ReflectionTestUtils.setField(client, "realtimeRpc", realtimeRpc);
         doAnswer(invocation -> {
-            attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
-            return realtimeRpcMapper.toWireProjectionAckDTO(new ProjectionAckDTO(
-                    "delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
-        }).when(realtimeRpc).order(any());
+                    attachments.add(RpcContext.getClientAttachment().getAttachment(RpcTokenContext.AUTHORIZATION));
+                    return realtimeRpcMapper.toWireProjectionAckDTO(
+                            new ProjectionAckDTO("delivery", "change", "acquire", "order", 2, 2, "APPLIED", true));
+                })
+                .when(realtimeRpc)
+                .order(any());
     }
 
     @Test
     void usesTheOrderProjectionOperationAndReloadsRotatedMountedCredentials() throws Exception {
-        String first = credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
+        String first =
+                credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
         assertTrue(client.apply("tenant", event).accepted());
-        String second = credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v2");
+        String second =
+                credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v2");
         assertTrue(client.apply("tenant", event).accepted());
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
     }
@@ -124,8 +180,10 @@ class AcquireRealtimeRpcClientTest {
     @Test
     void businessFailureOrMissingAckRemainsRetryable() {
         doAnswer(invocation -> {
-            throw new RpcException(RpcException.BIZ_EXCEPTION, "loadup-result-code=ACQUIRE_ACTION_FORBIDDEN");
-        }).when(realtimeRpc).order(any());
+                    throw new RpcException(RpcException.BIZ_EXCEPTION, "loadup-result-code=ACQUIRE_ACTION_FORBIDDEN");
+                })
+                .when(realtimeRpc)
+                .order(any());
         assertThrows(CommonException.class, () -> client.apply("tenant", event));
     }
 }

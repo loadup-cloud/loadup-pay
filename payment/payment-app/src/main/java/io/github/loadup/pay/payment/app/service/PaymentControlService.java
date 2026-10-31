@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -47,9 +56,6 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -57,12 +63,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
-
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentControlService implements PaymentControlFacade {
@@ -258,18 +260,23 @@ public class PaymentControlService implements PaymentControlFacade {
             } else if (order.state() == PaymentState.INIT
                     || order.state() == PaymentState.PROCESSING
                     || order.state() == PaymentState.UNKNOWN) {
-                var unsubmitted = order.activeAttemptId() == null ? Optional.<StoredPaymentAttempt>empty()
+                var unsubmitted = order.activeAttemptId() == null
+                        ? Optional.<StoredPaymentAttempt>empty()
                         : attempts.lock(actor.tenantId(), order.activeAttemptId());
                 var updatedOrder = order.requestClose();
-                if (unsubmitted.isPresent() && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
+                if (unsubmitted.isPresent()
+                        && unsubmitted.get().attempt().state() == PaymentAttemptState.INIT
                         && unsubmitted.get().attempt().executionEpoch() == 0) {
                     var attempt = unsubmitted.get();
-                    PaymentExecutionBindings.closableContext(PaymentExecutionBindings.locked(previous, parent, fenced), attempt);
+                    PaymentExecutionBindings.closableContext(
+                            PaymentExecutionBindings.locked(previous, parent, fenced), attempt);
                     evidence = ids.generate();
-                    attempts.update(actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
+                    attempts.update(
+                            actor.tenantId(), attempt.closeBeforeSubmission(evidence, null), attempt.rowVersion());
                     updatedOrder = updatedOrder.close(new NoCollectionEvidence(evidence, order.id(), true));
                 }
-                var updated = converter.withPayment(previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
+                var updated = converter.withPayment(
+                        previous, updatedOrder, evidence == null ? previous.terminalEvidenceId() : evidence);
                 store.updatePayment(actor.tenantId(), updated, order.version());
                 if (updatedOrder.state() == PaymentState.CLOSED) {
                     events.publish(actor.tenantId(), updated, true, now());
@@ -337,31 +344,42 @@ public class PaymentControlService implements PaymentControlFacade {
             DomainChecks.positive(command.amountMinor());
             DomainChecks.cnyAmount(command.amountMinor(), command.currency());
             var close = converter.toInputExpiryClose(command);
-            var observedReceipt = store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
+            var observedReceipt =
+                    store.findReceipt(actor.tenantId(), "PAYMENT_CLOSE", command.paymentId(), close.requestKey());
             // Coordinate with acceptance/Y2: parent -> child gate -> payment -> input.
             parent(actor, command.orderId(), command.payeeMerchantId(), observedReceipt.isPresent());
             var gate = gates.lockPayment(actor.tenantId(), command.paymentId());
-            gate.ifPresent(value -> checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
+            gate.ifPresent(value ->
+                    checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
             var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
             var input = inputs.lock(actor.tenantId(), command.inputRef())
-                    .orElseThrow(() -> new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND));
+                    .orElseThrow(() -> new CommonException(
+                            io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND));
             if (!input.callerServiceId().equals(actor.serviceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
-            if (!input.id().equals(command.inputRef()) || !input.paymentId().equals(command.paymentId())
-                    || !input.orderId().equals(command.orderId()) || !input.allocationId().equals(command.allocationId())
-                    || !input.payeeMerchantId().equals(command.payeeMerchantId()) || !input.inputKey().equals(command.inputKey())
-                    || input.amount().getCent() != command.amountMinor() || !input.amount().getCurrencyValue().equals(command.currency())
-                    || input.channel() != command.choice().channel() || input.method() != command.choice().method()) {
+            if (!input.id().equals(command.inputRef())
+                    || !input.paymentId().equals(command.paymentId())
+                    || !input.orderId().equals(command.orderId())
+                    || !input.allocationId().equals(command.allocationId())
+                    || !input.payeeMerchantId().equals(command.payeeMerchantId())
+                    || !input.inputKey().equals(command.inputKey())
+                    || input.amount().getCent() != command.amountMinor()
+                    || !input.amount().getCurrencyValue().equals(command.currency())
+                    || input.channel() != command.choice().channel()
+                    || input.method() != command.choice().method()) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             if (accepted.isPresent()) {
                 var current = accepted.get();
                 checkPayment(current, actor, close);
                 var original = codec.decode(current);
-                if (gate.isEmpty() || !Objects.equals(original.preparedInputRef(), command.inputRef())
-                        || !original.allocationId().equals(command.allocationId()) || original.amountMinor() != command.amountMinor()
-                        || !original.currency().equals(command.currency()) || !original.choice().equals(command.choice())) {
+                if (gate.isEmpty()
+                        || !Objects.equals(original.preparedInputRef(), command.inputRef())
+                        || !original.allocationId().equals(command.allocationId())
+                        || original.amountMinor() != command.amountMinor()
+                        || !original.currency().equals(command.currency())
+                        || !original.choice().equals(command.choice())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 // Input expiry cannot revoke an already accepted payment, including one currently in flight.

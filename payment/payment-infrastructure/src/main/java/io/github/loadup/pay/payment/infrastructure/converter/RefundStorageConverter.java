@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -27,17 +31,19 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapac
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundAllocationPlanDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.RefundRequestDO;
+import java.util.List;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundStorageConverter {
     RefundRequestReference toReference(RefundRequestDO row);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "row.rowVersion")
     @Mapping(target = "apply", ignore = true)
     RefundRequest toRequest(RefundRequestDO row, List<RefundOrder> children);
@@ -46,7 +52,10 @@ public interface RefundStorageConverter {
     @Mapping(target = "termsPayload", source = "row.refundTerms")
     StoredRefundRequest toStored(RefundRequestDO row, RefundRequest request, List<StoredRefundChild> allocations);
 
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "recordOutcome", ignore = true)
     RefundOrder toRefund(RefundOrderDO row);
@@ -59,7 +68,6 @@ public interface RefundStorageConverter {
     @Mapping(target = "original", source = "original")
     @Mapping(target = "channelTransactionNo", source = "row.originalChannelTransactionNo")
     StoredRefundChild toChild(RefundOrderDO row, RefundOrder refund, ChannelPaymentIdentity original, int sequenceNo);
-
 
     @Mapping(target = "id", source = "value.request.id")
     @Mapping(target = "orderId", source = "value.request.orderId")
@@ -79,7 +87,6 @@ public interface RefundStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     RefundRequestDO toRequestDO(String tenant, StoredRefundRequest value);
-
 
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")
@@ -106,7 +113,6 @@ public interface RefundStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     RefundOrderDO toChildDO(String tenant, StoredRefundChild value);
-
 
     @Mapping(target = "id", source = "value.refund.id")
     @Mapping(target = "refundRequestId", source = "value.refund.refundRequestId")

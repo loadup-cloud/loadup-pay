@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -30,17 +38,12 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     private final NamedParameterJdbcTemplate jdbc;
     private final RefundProjectionStorageConverter converter;
 
-    public RefundSnapshotReaderImpl(NamedParameterJdbcTemplate jdbc,
-                                    RefundProjectionStorageConverter converter) {
+    public RefundSnapshotReaderImpl(NamedParameterJdbcTemplate jdbc, RefundProjectionStorageConverter converter) {
         this.jdbc = jdbc;
         this.converter = converter;
     }
@@ -55,7 +58,9 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
                        original_succeeded_at, submission_started_at, channel_refund_no, channel_refund_transaction_no, amount_minor,
                        currency, state, first_unknown_at, terminal_evidence_id, next_query_at, query_sequence, succeeded_at, row_version
                 FROM refund_order WHERE id = :id AND deleted = FALSE FOR UPDATE
-                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream().findFirst().orElse(null);
+                """, childArgs, BeanPropertyRowMapper.newInstance(RefundOrderDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -63,7 +68,9 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
         var header = jdbc.query("""
                 SELECT id, order_id, payee_merchant_id, currency FROM refund_request
                 WHERE id = :id AND deleted = FALSE
-                """, args, BeanPropertyRowMapper.newInstance(RefundRequestDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(RefundRequestDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         if (header == null || !header.getCurrency().equals(row.getCurrency())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -82,7 +89,9 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
                 SELECT id, created_at, updated_at, order_id, payee_merchant_id, order_amount_minor,
                        currency, refunded_minor, reserved_minor, row_version FROM order_refund_summary
                 WHERE order_id = :order AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream().findFirst().orElse(null);
+                """, args, BeanPropertyRowMapper.newInstance(OrderRefundSummaryDO.class)).stream()
+                .findFirst()
+                .orElse(null);
         if (row == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -94,9 +103,11 @@ public class RefundSnapshotReaderImpl implements RefundSnapshotReader {
     }
 
     private void writable(String tenant) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {

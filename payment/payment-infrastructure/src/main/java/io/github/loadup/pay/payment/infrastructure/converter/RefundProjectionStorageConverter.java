@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -28,13 +32,15 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundProjectionStorageConverter {
-    @Mapping(target = "orderAmount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "orderAmount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getOrderAmountMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     OrderRefundSummary toSummary(OrderRefundSummaryDO row);
 
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "orderAmountMinor", source = "value.orderAmount.cent")
     @Mapping(target = "currency", source = "value.orderAmount.currencyValue")
     @Mapping(target = "rowVersion", source = "value.version")
@@ -53,7 +59,10 @@ public interface RefundProjectionStorageConverter {
     @Mapping(target = "orderId", source = "request.orderId")
     @Mapping(target = "payeeMerchantId", source = "request.payeeMerchantId")
     @Mapping(target = "state", source = "row.state")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     @Mapping(target = "refundCreatedAt", source = "row.createdAt")
     @Mapping(target = "sourceUpdatedAt", source = "row.updatedAt")
     @Mapping(target = "sourceVersion", source = "row.rowVersion")

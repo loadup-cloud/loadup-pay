@@ -1,17 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -31,22 +44,13 @@ import io.github.loadup.pay.acquire.domain.gateway.RefundNotificationReceiptGate
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
 import io.github.loadup.pay.acquire.domain.model.RefundNotificationReceipt;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Projects authenticated committed refund facts into notifications; never changes financial state.
@@ -64,10 +68,17 @@ public class RefundNotificationService implements RefundNotificationFacade {
     private final Clock clock;
     private final String paymentService;
 
-    public RefundNotificationService(AcquireServiceActorProvider actors, OrderCreationGateway orders,
-                                     PaymentOutcomeGateway payments, RefundNotificationReceiptGateway receipts, MerchantNotificationEvents notifications,
-                                     RefundNotificationConverter converter, OrderCreationTransactions transactions, IdGenerator ids,
-                                     Clock clock, @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
+    public RefundNotificationService(
+            AcquireServiceActorProvider actors,
+            OrderCreationGateway orders,
+            PaymentOutcomeGateway payments,
+            RefundNotificationReceiptGateway receipts,
+            MerchantNotificationEvents notifications,
+            RefundNotificationConverter converter,
+            OrderCreationTransactions transactions,
+            IdGenerator ids,
+            Clock clock,
+            @Value("${loadup.modules.acquire.payment-service-id:payment}") String paymentService) {
         this.actors = actors;
         this.orders = orders;
         this.payments = payments;
@@ -83,7 +94,8 @@ public class RefundNotificationService implements RefundNotificationFacade {
     @Override
     public RefundNotificationAckDTO accept(EventEnvelope<RefundMerchantEventDTO> event) {
         var actor = actors.current();
-        if (!paymentService.equals(actor.serviceId()) || !actor.permissions().contains("pay:acquire:refund:notification")) {
+        if (!paymentService.equals(actor.serviceId())
+                || !actor.permissions().contains("pay:acquire:refund:notification")) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -101,7 +113,8 @@ public class RefundNotificationService implements RefundNotificationFacade {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.withTenantContext(actor.tenantId(), () -> {
-            String digest = DigestUtils.sha256(JsonUtil.toJson(List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
+            String digest = DigestUtils.sha256(JsonUtil.toJson(
+                    List.of("refund-notification-inbox-v1", actor.tenantId(), actor.serviceId(), event)));
             var known = receipts.find(actor.tenantId(), event.deliveryId());
             if (known.isPresent()) {
                 return replay(actor, known.get(), digest);
@@ -113,8 +126,10 @@ public class RefundNotificationService implements RefundNotificationFacade {
                 }
                 var data = event.data();
                 var order = orders.lockOrder(actor.tenantId(), data.orderId()).order();
-                if (!order.id().equals(data.orderId()) || !order.payeeMerchantId().equals(data.payeeMerchantId())
-                        || !order.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > order.amount().getCent()) {
+                if (!order.id().equals(data.orderId())
+                        || !order.payeeMerchantId().equals(data.payeeMerchantId())
+                        || !order.amount().getCurrencyValue().equals(data.currency())
+                        || data.amountMinor() > order.amount().getCent()) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 // The payment-success projection may arrive after the refund projection; retry until it is durable.
@@ -123,9 +138,12 @@ public class RefundNotificationService implements RefundNotificationFacade {
                 }
                 if ("RefundOrder".equals(data.aggregateType())) {
                     var allocation = payments.lockPayment(actor.tenantId(), data.orderId(), data.paymentId())
-                            .orElseThrow(() -> new CommonException(DEPENDENCY_UNAVAILABLE)).allocation();
-                    if (!allocation.orderId().equals(data.orderId()) || !allocation.paymentId().equals(data.paymentId())
-                            || !allocation.amount().getCurrencyValue().equals(data.currency()) || data.amountMinor() > allocation.amount().getCent()) {
+                            .orElseThrow(() -> new CommonException(DEPENDENCY_UNAVAILABLE))
+                            .allocation();
+                    if (!allocation.orderId().equals(data.orderId())
+                            || !allocation.paymentId().equals(data.paymentId())
+                            || !allocation.amount().getCurrencyValue().equals(data.currency())
+                            || data.amountMinor() > allocation.amount().getCent()) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
                     if (allocation.state() != AllocationState.CONSUMED) {
@@ -133,7 +151,12 @@ public class RefundNotificationService implements RefundNotificationFacade {
                     }
                 }
                 var registration = notifications.refund(actor.tenantId(), event);
-                var receipt = converter.toReceipt(ids.generate(), event, registration, digest, actor.serviceId(),
+                var receipt = converter.toReceipt(
+                        ids.generate(),
+                        event,
+                        registration,
+                        digest,
+                        actor.serviceId(),
                         LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
                 receipts.insert(actor.tenantId(), receipt);
                 return converter.toAck(receipt);
@@ -141,7 +164,8 @@ public class RefundNotificationService implements RefundNotificationFacade {
         });
     }
 
-    private RefundNotificationAckDTO replay(AcquireServiceActor actor, RefundNotificationReceipt receipt, String digest) {
+    private RefundNotificationAckDTO replay(
+            AcquireServiceActor actor, RefundNotificationReceipt receipt, String digest) {
         if (!actor.serviceId().equals(receipt.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }

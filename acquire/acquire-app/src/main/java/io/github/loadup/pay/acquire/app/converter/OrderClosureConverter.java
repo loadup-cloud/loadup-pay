@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.converter;
 
@@ -25,11 +29,10 @@ import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
+import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface OrderClosureConverter {
@@ -42,8 +45,13 @@ public interface OrderClosureConverter {
     @Mapping(target = "cursorPaymentId", constant = "")
     @Mapping(target = "rowVersion", constant = "0L")
     @Mapping(target = "advanceCursor", ignore = true)
-    OrderCloseIntent toIntent(AcquireOrderCloseCommand command, AcquireOrder order, String intentId,
-                              String callerScopeHash, String requestDigest, LocalDateTime requestedAt);
+    OrderCloseIntent toIntent(
+            AcquireOrderCloseCommand command,
+            AcquireOrder order,
+            String intentId,
+            String callerScopeHash,
+            String requestDigest,
+            LocalDateTime requestedAt);
 
     @Mapping(target = "requestKey", source = "intent.id", qualifiedByName = "closeRequestKey")
     ParentPaymentFenceCommand toFence(OrderCloseIntent intent);

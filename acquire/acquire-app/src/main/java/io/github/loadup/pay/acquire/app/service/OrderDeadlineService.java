@@ -1,19 +1,26 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -26,14 +33,10 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * A native due wake-up uses the persisted deadline version, never a timer as financial evidence.
@@ -49,10 +52,15 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     private final OrderSnapshotEvents snapshots;
     private final Clock clock;
 
-    public OrderDeadlineService(DelayedTaskTemplate tasks, OrderCreationGateway orders,
-                                io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions, OrderClosureGateway closes,
-                                OrderClosureOperations operations, OrderCreationTransactions transactions, OrderSnapshotEvents snapshots,
-                                Clock clock) {
+    public OrderDeadlineService(
+            DelayedTaskTemplate tasks,
+            OrderCreationGateway orders,
+            io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions,
+            OrderClosureGateway closes,
+            OrderClosureOperations operations,
+            OrderCreationTransactions transactions,
+            OrderSnapshotEvents snapshots,
+            Clock clock) {
         this.tasks = tasks;
         this.orders = orders;
         this.extensions = extensions;
@@ -84,7 +92,8 @@ public class OrderDeadlineService implements DelayedTaskHandler {
             if (key.generation() < version) {
                 return true;
             }
-            if (key.generation() > version || !task.executeAt().equals(order.order().orderDueAt())) {
+            if (key.generation() > version
+                    || !task.executeAt().equals(order.order().orderDueAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var at = LocalDateTime.now(clock);
@@ -103,8 +112,11 @@ public class OrderDeadlineService implements DelayedTaskHandler {
             }
             var due = order.order().checkDue(at);
             if (due.state() == AcquireOrderState.CLOSING) {
-                operations.startLocked(scope, order, new io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand(
-                        key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
+                operations.startLocked(
+                        scope,
+                        order,
+                        new io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand(
+                                key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
             } else if (!due.equals(order.order())) {
                 closes.keepPending(tenant, order.order(), due);
                 snapshots.publish(tenant, due.id(), due.version());
@@ -129,10 +141,14 @@ public class OrderDeadlineService implements DelayedTaskHandler {
         var nativeTask = tasks.find(taskType(), task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var at = LocalDateTime.now(clock);
         if (!task.id().equals(nativeTask.id())
-                || !taskType().equals(nativeTask.taskType()) || !task.bizId().equals(nativeTask.bizId())
-                || !task.executeAt().equals(nativeTask.executeAt()) || nativeTask.status() != DelayedTaskStatus.RUNNING
-                || nativeTask.attempts() != task.attempts() || nativeTask.leaseUntil() == null
-                || !at.isBefore(nativeTask.leaseUntil()) || at.isBefore(nativeTask.nextExecuteAt())) {
+                || !taskType().equals(nativeTask.taskType())
+                || !task.bizId().equals(nativeTask.bizId())
+                || !task.executeAt().equals(nativeTask.executeAt())
+                || nativeTask.status() != DelayedTaskStatus.RUNNING
+                || nativeTask.attempts() != task.attempts()
+                || nativeTask.leaseUntil() == null
+                || !at.isBefore(nativeTask.leaseUntil())
+                || at.isBefore(nativeTask.nextExecuteAt())) {
             throw new CommonException(INVALID_STATE);
         }
         return key;

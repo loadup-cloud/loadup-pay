@@ -1,19 +1,26 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.ToStringAsJson;
@@ -26,10 +33,6 @@ import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,9 +46,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * Independent opt-in inventory sampler. A metrics scrape never performs database or financial work.
@@ -67,11 +70,15 @@ public class RecoveryInventoryCollector implements ScheduledTask {
     private final AtomicBoolean collecting = new AtomicBoolean();
     private Instant lastAttempt;
 
-    public RecoveryInventoryCollector(RecoveryInventoryReader reader, PaymentAcceptanceTransactions transactions,
-                                      Clock clock, ObjectProvider<MeterRegistry> registries, RecoveryEscalationPolicy escalation,
-                                      @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
-                                      @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
-                                      @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
+    public RecoveryInventoryCollector(
+            RecoveryInventoryReader reader,
+            PaymentAcceptanceTransactions transactions,
+            Clock clock,
+            ObjectProvider<MeterRegistry> registries,
+            RecoveryEscalationPolicy escalation,
+            @Value("${loadup.modules.payment.recovery-inventory.enabled:false}") boolean enabled,
+            @Value("${loadup.modules.payment.recovery-inventory.tenant-ids:}") String tenantIds,
+            @Value("${loadup.modules.payment.recovery-inventory.interval-seconds:300}") long intervalSeconds) {
         this.reader = reader;
         this.transactions = transactions;
         this.clock = clock;
@@ -81,7 +88,10 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             throw new CommonException(INVALID_ARGUMENT);
         }
         this.intervalSeconds = intervalSeconds;
-        this.tenants = Set.copyOf(Arrays.stream(tenantIds.split(",", -1)).map(String::trim).filter(value -> !value.isEmpty()).toList());
+        this.tenants = Set.copyOf(Arrays.stream(tenantIds.split(",", -1))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .toList());
         if (tenants.size() > 100 || enabled && tenants.isEmpty()) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -94,20 +104,37 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         } else {
             success = registry.counter(PREFIX + ".refresh", "outcome", "success");
             failure = registry.counter(PREFIX + ".refresh", "outcome", "failure");
-            Gauge.builder(PREFIX + ".enabled", this, value -> value.enabled ? 1.0 : 0.0).register(registry);
-            Gauge.builder(PREFIX + ".configured.tenants", this, value -> value.tenants.size()).register(registry);
-            Gauge.builder(PREFIX + ".initialized", this, value -> value.snapshot.get() == null ? 0.0 : 1.0).register(registry);
-            Gauge.builder(PREFIX + ".sample.age", this, RecoveryInventoryCollector::sampleAge).baseUnit("seconds").register(registry);
-            Gauge.builder(PREFIX + ".sample.interval", this, value -> value.intervalSeconds).baseUnit("seconds").register(registry);
-            Gauge.builder(PREFIX + ".unknown.review.after", this, value -> value.escalation.reviewAfterSeconds()).baseUnit("seconds").register(registry);
-            Gauge.builder(PREFIX + ".unknown.urgent.after", this, value -> value.escalation.urgentAfterSeconds()).baseUnit("seconds").register(registry);
+            Gauge.builder(PREFIX + ".enabled", this, value -> value.enabled ? 1.0 : 0.0)
+                    .register(registry);
+            Gauge.builder(PREFIX + ".configured.tenants", this, value -> value.tenants.size())
+                    .register(registry);
+            Gauge.builder(PREFIX + ".initialized", this, value -> value.snapshot.get() == null ? 0.0 : 1.0)
+                    .register(registry);
+            Gauge.builder(PREFIX + ".sample.age", this, RecoveryInventoryCollector::sampleAge)
+                    .baseUnit("seconds")
+                    .register(registry);
+            Gauge.builder(PREFIX + ".sample.interval", this, value -> value.intervalSeconds)
+                    .baseUnit("seconds")
+                    .register(registry);
+            Gauge.builder(PREFIX + ".unknown.review.after", this, value -> value.escalation.reviewAfterSeconds())
+                    .baseUnit("seconds")
+                    .register(registry);
+            Gauge.builder(PREFIX + ".unknown.urgent.after", this, value -> value.escalation.urgentAfterSeconds())
+                    .baseUnit("seconds")
+                    .register(registry);
             for (var kind : RecoveryInventoryCell.Kind.values()) {
                 var label = kind.name().toLowerCase(Locale.ROOT);
-                Gauge.builder(PREFIX + ".unknown.count", this, value -> value.count(kind)).tag("kind", label).register(registry);
+                Gauge.builder(PREFIX + ".unknown.count", this, value -> value.count(kind))
+                        .tag("kind", label)
+                        .register(registry);
                 Gauge.builder(PREFIX + ".unknown.nominal.amount", this, value -> value.amount(kind))
-                        .tag("kind", label).baseUnit("minor").register(registry);
+                        .tag("kind", label)
+                        .baseUnit("minor")
+                        .register(registry);
                 Gauge.builder(PREFIX + ".unknown.oldest.age", this, value -> value.oldestAge(kind))
-                        .tag("kind", label).baseUnit("seconds").register(registry);
+                        .tag("kind", label)
+                        .baseUnit("seconds")
+                        .register(registry);
             }
         }
     }
@@ -136,11 +163,14 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         }
         try {
             var now = clock.instant();
-            if (lastAttempt != null && !now.isBefore(lastAttempt) && now.isBefore(lastAttempt.plusSeconds(intervalSeconds))) {
+            if (lastAttempt != null
+                    && !now.isBefore(lastAttempt)
+                    && now.isBefore(lastAttempt.plusSeconds(intervalSeconds))) {
                 return;
             }
             lastAttempt = now;
-            var combined = new EnumMap<RecoveryInventoryCell.Kind, RecoveryInventoryCell>(RecoveryInventoryCell.Kind.class);
+            var combined =
+                    new EnumMap<RecoveryInventoryCell.Kind, RecoveryInventoryCell>(RecoveryInventoryCell.Kind.class);
             for (var kind : RecoveryInventoryCell.Kind.values()) {
                 combined.put(kind, RecoveryInventoryCell.empty(kind));
             }
@@ -152,7 +182,8 @@ public class RecoveryInventoryCollector implements ScheduledTask {
                         combined.put(cell.kind(), combined.get(cell.kind()).plus(cell));
                     }
                 }
-                // Only a complete configured scope replaces the previous publication, never a successful partial prefix.
+                // Only a complete configured scope replaces the previous publication, never a successful partial
+                // prefix.
                 snapshot.set(new Snapshot(Map.copyOf(combined), clock.instant()));
                 increment(success);
             } catch (RuntimeException failed) {
@@ -171,7 +202,10 @@ public class RecoveryInventoryCollector implements ScheduledTask {
         try {
             counter.increment();
         } catch (RuntimeException failed) {
-            LogUtil.warn(RecoveryInventoryCollector.class, "Recovery inventory metric failed type={}", failed.getClass().getSimpleName());
+            LogUtil.warn(
+                    RecoveryInventoryCollector.class,
+                    "Recovery inventory metric failed type={}",
+                    failed.getClass().getSimpleName());
         }
     }
 
@@ -191,12 +225,18 @@ public class RecoveryInventoryCollector implements ScheduledTask {
             return Double.NaN;
         }
         var oldest = current.cells.get(kind).oldestUnknownAt();
-        return oldest == null ? 0.0 : Math.max(0L, Duration.between(oldest, LocalDateTime.now(clock)).getSeconds());
+        return oldest == null
+                ? 0.0
+                : Math.max(
+                        0L, Duration.between(oldest, LocalDateTime.now(clock)).getSeconds());
     }
 
     private double sampleAge() {
         var current = snapshot.get();
-        return current == null ? Double.NaN : Math.max(0L, Duration.between(current.sampledAt, clock.instant()).getSeconds());
+        return current == null
+                ? Double.NaN
+                : Math.max(
+                        0L, Duration.between(current.sampledAt, clock.instant()).getSeconds());
     }
 
     private record Snapshot(Map<RecoveryInventoryCell.Kind, RecoveryInventoryCell> cells, Instant sampledAt) {

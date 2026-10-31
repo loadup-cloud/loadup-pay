@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -23,10 +27,9 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentGateDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentParentGateDO;
+import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.time.LocalDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceStorageConverter {
@@ -43,7 +46,6 @@ public interface PaymentAcceptanceStorageConverter {
 
     @Mapping(target = "payment", source = "payment")
     StoredPaymentAcceptance toStored(PaymentOrderDO row, PaymentOrder payment);
-
 
     @Mapping(target = "id", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")
@@ -64,7 +66,6 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     PaymentOrderDO toPaymentDO(String tenant, StoredPaymentAcceptance value);
-
 
     @Mapping(target = "id", source = "value.payment.id")
     @Mapping(target = "orderId", source = "value.payment.orderId")
@@ -102,7 +103,6 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "gate", source = "gate")
     StoredPaymentGate toStoredGate(PaymentGateDO row, PaymentExecutionGate gate);
 
-
     @Mapping(target = "orderId", source = "value.gate.orderId")
     @Mapping(target = "state", source = "value.gate.state")
     @Mapping(target = "closeEpoch", source = "value.gate.fenceEpoch")
@@ -111,7 +111,6 @@ public interface PaymentAcceptanceStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     PaymentParentGateDO toParentDO(String tenant, StoredPaymentGate value);
-
 
     @Mapping(target = "orderId", source = "value.gate.orderId")
     @Mapping(target = "paymentId", source = "value.gate.paymentId")

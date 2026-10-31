@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.statement;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -21,18 +29,13 @@ import io.github.loadup.pay.reconciliation.app.port.ReconciliationStatementParse
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
-import org.springframework.stereotype.Component;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ReconciliationStatementParserAdapter implements ReconciliationStatementParser {
@@ -44,7 +47,9 @@ public class ReconciliationStatementParserAdapter implements ReconciliationState
 
     @Override
     public boolean supports(ReconciliationScope scope) {
-        return scope != null && scope.channel() == Channel.WECHAT && WechatTradeStatementParser.PROFILE.equals(scope.statementProfile());
+        return scope != null
+                && scope.channel() == Channel.WECHAT
+                && WechatTradeStatementParser.PROFILE.equals(scope.statementProfile());
     }
 
     @Override
@@ -65,10 +70,18 @@ public class ReconciliationStatementParserAdapter implements ReconciliationState
             if (bytes.length != size) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
-            if (!request.file().sha256().equals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)))) {
+            if (!request.file()
+                    .sha256()
+                    .equals(HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)))) {
                 throw new CommonException(INPUT_INVALID);
             }
-            return wechat.parse(new ByteArrayInputStream(bytes), request.scope(), request.statementAccount(), request.id(), request.id());
+            return wechat.parse(
+                    new ByteArrayInputStream(bytes),
+                    request.scope(),
+                    request.statementAccount(),
+                    request.id(),
+                    request.id());
         } catch (IOException | NoSuchAlgorithmException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }

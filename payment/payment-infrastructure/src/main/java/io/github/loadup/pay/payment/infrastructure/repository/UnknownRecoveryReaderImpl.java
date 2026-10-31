@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -23,19 +32,13 @@ import io.github.loadup.pay.payment.app.port.UnknownRecoveryReader;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.infrastructure.converter.UnknownRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.model.UnknownRecoveryProjection;
+import java.util.List;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.List;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
@@ -49,11 +52,13 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
 
     @Override
     public List<UnknownRecoveryEntry> list(String tenant, PaymentRecoveryKind kind, UnknownRecoveryWindow window) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
-                .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
+                        .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
@@ -63,8 +68,9 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var args = new MapSqlParameterSource().addValue("limit", window.limit() + 1);
-        String base = switch (kind) {
-            case COLLECTION -> """
+        String base =
+                switch (kind) {
+                    case COLLECTION -> """
                     SELECT p.id AS record_id, p.id AS subject_id, p.order_id, p.payee_merchant_id,
                            p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
                            c.generation AS recovery_generation, c.completed AS recovery_completed
@@ -72,7 +78,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
                       ON c.id = p.id AND c.deleted = FALSE
                     WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
                     """;
-            case REFUND_REQUEST -> """
+                    case REFUND_REQUEST -> """
                     SELECT p.id AS record_id, p.refund_request_id AS subject_id, r.order_id, r.payee_merchant_id,
                            p.amount_minor, p.currency, p.first_unknown_at, p.row_version,
                            c.generation AS recovery_generation, c.completed AS recovery_completed
@@ -82,7 +88,7 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
                       ON c.id = p.refund_request_id AND c.deleted = FALSE
                     WHERE p.deleted = FALSE AND p.state = 'UNKNOWN'
                     """;
-        };
+                };
         var sql = new StringBuilder(base);
         if (window.cutoff() != null) {
             sql.append(" AND p.first_unknown_at <= :cutoff");
@@ -105,5 +111,4 @@ public class UnknownRecoveryReaderImpl implements UnknownRecoveryReader {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
-
 }

@@ -1,51 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
-import io.github.loadup.pay.channel.api.model.RefundObservation;
-import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
-import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
-import io.github.loadup.pay.payment.app.model.LockedRefund;
-import io.github.loadup.pay.payment.app.port.RefundResultCodec;
-import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
-import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
-import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
-import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
-import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
-import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
-import io.github.loadup.pay.payment.domain.model.RefundState;
-import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
-import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
@@ -66,8 +38,40 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
+import io.github.loadup.pay.channel.api.model.RefundObservation;
+import io.github.loadup.pay.payment.app.converter.RefundExecutionConverter;
+import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
+import io.github.loadup.pay.payment.app.model.LockedRefund;
+import io.github.loadup.pay.payment.app.port.RefundResultCodec;
+import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
+import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
+import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
+import io.github.loadup.pay.payment.domain.model.RefundResultAnomaly;
+import io.github.loadup.pay.payment.domain.model.RefundState;
+import io.github.loadup.pay.payment.domain.model.RefundTransactionClaim;
+import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import java.time.Clock;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 class RefundResultServiceTest {
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(RefundExecutionConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(RefundExecutionConverter.class.getPackageName());
     final RefundExecutionConverter converter = context.getBean(RefundExecutionConverter.class);
     final RefundResultGateway results = mock(RefundResultGateway.class);
     final RefundProjectionEvents projections = mock(RefundProjectionEvents.class);
@@ -81,17 +85,33 @@ class RefundResultServiceTest {
     final Map<String, RefundChannelReceipt> receipts = new HashMap<>();
     final List<RefundResultAnomaly> anomalies = new ArrayList<>();
     final AtomicInteger ids = new AtomicInteger();
-    final io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances = mock(io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway.class);
-    final RefundResultService service = new RefundResultService(results, locks, new PaymentAcceptanceTransactions(manager), codec,
-            converter, context.getBean(RefundPlanningConverter.class), () -> "receipt-" + ids.incrementAndGet(),
-            Clock.fixed(RefundResultFixtures.NOW.atZone(io.github.loadup.commons.time.BusinessTime.zone()).toInstant(), io.github.loadup.commons.time.BusinessTime.zone()), projections, acceptances);
+    final io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances =
+            mock(io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway.class);
+    final RefundResultService service = new RefundResultService(
+            results,
+            locks,
+            new PaymentAcceptanceTransactions(manager),
+            codec,
+            converter,
+            context.getBean(RefundPlanningConverter.class),
+            () -> "receipt-" + ids.incrementAndGet(),
+            Clock.fixed(
+                    RefundResultFixtures.NOW
+                            .atZone(io.github.loadup.commons.time.BusinessTime.zone())
+                            .toInstant(),
+                    io.github.loadup.commons.time.BusinessTime.zone()),
+            projections,
+            acceptances);
 
     @BeforeEach
     void setup() {
         var original = request.get();
         var child = original.allocations().getFirst();
         var started = converter.withRefund(child, child.refund().beginSubmission());
-        request.set(converter.withRequest(original, original.request().apply(started.refund()), List.of(started, original.allocations().get(1))));
+        request.set(converter.withRequest(
+                original,
+                original.request().apply(started.refund()),
+                List.of(started, original.allocations().get(1))));
         facts.set(new RefundExecutionFacts(started, RefundResultFixtures.NOW, null, null));
         when(results.requestId("tenant", "refund")).thenReturn(Optional.of("request"));
         when(locks.lock("tenant", "request", "refund")).thenAnswer(c -> {
@@ -101,34 +121,63 @@ class RefundResultServiceTest {
         when(codec.encode(any())).thenReturn("{}");
         when(codec.factsDigest(any())).thenAnswer(c -> {
             RefundObservation o = c.getArgument(0);
-            return "%064x".formatted(Integer.toUnsignedLong(Objects.hash(o.refundId(), o.original(), o.channelRefundNo(), o.originalChannelTransactionNo(),
-                    o.kind(), o.amount(), o.channelRefundTransactionNo(), o.succeededAt(), o.acceptedAt())));
+            return "%064x"
+                    .formatted(Integer.toUnsignedLong(Objects.hash(
+                            o.refundId(),
+                            o.original(),
+                            o.channelRefundNo(),
+                            o.originalChannelTransactionNo(),
+                            o.kind(),
+                            o.amount(),
+                            o.channelRefundTransactionNo(),
+                            o.succeededAt(),
+                            o.acceptedAt())));
         });
-        when(results.receipt(eq("tenant"), eq("refund"), any(), anyString())).thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(2) + "/" + c.getArgument(3))));
-        when(results.claim("tenant", "refund")).thenAnswer(c -> Optional.ofNullable(claim.get()).filter(v -> v.tenantId().equals("tenant") && v.refundId().equals("refund")));
-        when(results.transaction(any(), anyString(), anyString())).thenAnswer(c -> Optional.ofNullable(claim.get()).filter(v -> v.channelRefundTransactionNo().equals(c.getArgument(2))));
+        when(results.receipt(eq("tenant"), eq("refund"), any(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(receipts.get(c.getArgument(2) + "/" + c.getArgument(3))));
+        when(results.claim("tenant", "refund"))
+                .thenAnswer(c -> Optional.ofNullable(claim.get())
+                        .filter(v ->
+                                v.tenantId().equals("tenant") && v.refundId().equals("refund")));
+        when(results.transaction(any(), anyString(), anyString()))
+                .thenAnswer(c -> Optional.ofNullable(claim.get())
+                        .filter(v -> v.channelRefundTransactionNo().equals(c.getArgument(2))));
         doAnswer(c -> {
-            claim.set(c.getArgument(0));
-            return null;
-        }).when(results).insertClaim(any());
+                    claim.set(c.getArgument(0));
+                    return null;
+                })
+                .when(results)
+                .insertClaim(any());
         doAnswer(c -> {
-            RefundProgressChange change = c.getArgument(1);
-            var updated = converter.withRefund(facts.get().child(), change.refund());
-            request.set(converter.withRequest(request.get(), change.request(), List.of(updated, request.get().allocations().get(1))));
-            facts.set(new RefundExecutionFacts(updated, change.submissionStartedAt(), change.channelRefundTransactionNo(), change.succeededAt()));
-            capacity.set(change.capacity());
-            return null;
-        }).when(results).update(eq("tenant"), any());
+                    RefundProgressChange change = c.getArgument(1);
+                    var updated = converter.withRefund(facts.get().child(), change.refund());
+                    request.set(converter.withRequest(
+                            request.get(),
+                            change.request(),
+                            List.of(updated, request.get().allocations().get(1))));
+                    facts.set(new RefundExecutionFacts(
+                            updated,
+                            change.submissionStartedAt(),
+                            change.channelRefundTransactionNo(),
+                            change.succeededAt()));
+                    capacity.set(change.capacity());
+                    return null;
+                })
+                .when(results)
+                .update(eq("tenant"), any());
         doAnswer(c -> {
-            RefundChannelReceipt r = c.getArgument(1);
-            receipts.put(r.source() + "/" + r.receiptKey(), r);
-            return null;
-        })
-                .when(results).insertReceipt(eq("tenant"), any());
+                    RefundChannelReceipt r = c.getArgument(1);
+                    receipts.put(r.source() + "/" + r.receiptKey(), r);
+                    return null;
+                })
+                .when(results)
+                .insertReceipt(eq("tenant"), any());
         doAnswer(c -> {
-            anomalies.add(c.getArgument(1));
-            return null;
-        }).when(results).recordAnomaly(eq("tenant"), any());
+                    anomalies.add(c.getArgument(1));
+                    return null;
+                })
+                .when(results)
+                .recordAnomaly(eq("tenant"), any());
     }
 
     @AfterEach
@@ -148,7 +197,9 @@ class RefundResultServiceTest {
         assertEquals(0, capacity.get().reservedMinor());
         assertEquals(4000, capacity.get().succeededAmount().getCent());
         assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
-        assertEquals("refund2", request.get().request().nextExecutable().orElseThrow().id());
+        assertEquals(
+                "refund2",
+                request.get().request().nextExecutable().orElseThrow().id());
         assertEquals(1000, request.get().request().succeededMinor());
         assertEquals(1, manager.commits);
         assertEquals(result.receiptId(), claim.get().receiptId());
@@ -161,7 +212,10 @@ class RefundResultServiceTest {
         var first = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
         var replay = service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"));
         assertEquals(first.receiptId(), replay.receiptId());
-        assertEquals(IGNORED, service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "other-event")).disposition());
+        assertEquals(
+                IGNORED,
+                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "other-event"))
+                        .disposition());
         verify(results, times(1)).update(eq("tenant"), any());
         verify(results, times(1)).insertClaim(any());
         assertEquals(1000, capacity.get().refundedMinor());
@@ -175,7 +229,10 @@ class RefundResultServiceTest {
         assertEquals(0, capacity.get().refundedMinor());
         assertTrue(request.get().request().nextExecutable().isEmpty());
         assertEquals(1, request.get().request().unknownCount());
-        assertEquals(IGNORED, service.record("tenant", observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted")).disposition());
+        assertEquals(
+                IGNORED,
+                service.record("tenant", observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted"))
+                        .disposition());
         assertEquals(RefundState.UNKNOWN, facts.get().child().refund().state());
     }
 
@@ -185,8 +242,13 @@ class RefundResultServiceTest {
         assertEquals(0, capacity.get().reservedMinor());
         assertEquals(0, capacity.get().refundedMinor());
         assertEquals(1000, request.get().request().failedMinor());
-        assertEquals("refund2", request.get().request().nextExecutable().orElseThrow().id());
-        assertEquals(CONFLICT, service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "late-success")).disposition());
+        assertEquals(
+                "refund2",
+                request.get().request().nextExecutable().orElseThrow().id());
+        assertEquals(
+                CONFLICT,
+                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "late-success"))
+                        .disposition());
         assertEquals("TERMINAL_FACT_CONFLICT", anomalies.getFirst().reasonCode());
         verify(results, never()).insertClaim(any());
     }
@@ -204,8 +266,19 @@ class RefundResultServiceTest {
     @Test
     void amountOrOriginalTransactionMismatchNeverConsumesMoney() {
         var original = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event");
-        var changed = new RefundObservation(original.refundId(), original.original(), original.channelRefundNo(), "other-payment-transaction",
-                original.kind(), original.amount(), original.channelRefundTransactionNo(), original.succeededAt(), original.source(), original.receiptKey(), original.sourceDigest(), null);
+        var changed = new RefundObservation(
+                original.refundId(),
+                original.original(),
+                original.channelRefundNo(),
+                "other-payment-transaction",
+                original.kind(),
+                original.amount(),
+                original.channelRefundTransactionNo(),
+                original.succeededAt(),
+                original.source(),
+                original.receiptKey(),
+                original.sourceDigest(),
+                null);
         assertEquals(CONFLICT, service.record("tenant", changed).disposition());
         assertEquals("REFUND_IDENTITY_MISMATCH", anomalies.getFirst().reasonCode());
         verify(results, never()).update(anyString(), any());
@@ -215,8 +288,17 @@ class RefundResultServiceTest {
     @Test
     void aRealRefundTransactionClaimedInAnotherTenantIsNotReused() {
         var o = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event");
-        claim.set(new RefundTransactionClaim("other-claim", "other-tenant", "other-refund", o.original(), "other-request",
-                o.originalChannelTransactionNo(), o.amount(), o.channelRefundTransactionNo(), o.succeededAt(), "other-receipt"));
+        claim.set(new RefundTransactionClaim(
+                "other-claim",
+                "other-tenant",
+                "other-refund",
+                o.original(),
+                "other-request",
+                o.originalChannelTransactionNo(),
+                o.amount(),
+                o.channelRefundTransactionNo(),
+                o.succeededAt(),
+                "other-receipt"));
         assertEquals(CONFLICT, service.record("tenant", o).disposition());
         assertEquals("REFUND_TRANSACTION_ALREADY_CLAIMED", anomalies.getFirst().reasonCode());
         assertEquals(0, capacity.get().refundedMinor());
@@ -228,7 +310,10 @@ class RefundResultServiceTest {
         var child = RefundResultFixtures.initial().allocations().getFirst();
         facts.set(new RefundExecutionFacts(child, null, null, null));
         request.set(RefundResultFixtures.initial());
-        assertEquals(CONFLICT, service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")).disposition());
+        assertEquals(
+                CONFLICT,
+                service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event"))
+                        .disposition());
         assertEquals("OBSERVATION_BEFORE_SUBMISSION", anomalies.getFirst().reasonCode());
         verify(results, never()).update(anyString(), any());
     }
@@ -236,7 +321,9 @@ class RefundResultServiceTest {
     @Test
     void snapshotFailureCannotCommitARefundFinancialTransition() {
         doThrow(new CommonException(DEPENDENCY_UNAVAILABLE)).when(projections).changed(anyString(), any());
-        assertThrows(CommonException.class, () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
+        assertThrows(
+                CommonException.class,
+                () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
         verify(results, never()).insertReceipt(anyString(), any());
@@ -246,10 +333,13 @@ class RefundResultServiceTest {
     @Test
     void receiptFailureAbortsTheWholeResultTransactionBoundary() {
         doThrow(new CommonException(CONCURRENT_UPDATE)).when(results).insertReceipt(anyString(), any());
-        assertThrows(CommonException.class, () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
+        assertThrows(
+                CommonException.class,
+                () -> service.record("tenant", observation(ChannelRefundOutcome.Kind.SUCCEEDED, "event")));
         assertEquals(0, manager.commits);
         assertEquals(1, manager.rollbacks);
-        // Mock state is not a rollback proof. Real claim/child/request/capacity rollback still needs PostgreSQL acceptance.
+        // Mock state is not a rollback proof. Real claim/child/request/capacity rollback still needs PostgreSQL
+        // acceptance.
     }
 
     @Test
@@ -265,21 +355,27 @@ class RefundResultServiceTest {
     void acceptedTimeIsCommittedWithItsReceiptWithoutConfirmingRefundOrChangingCapacity() {
         var original = observation(ChannelRefundOutcome.Kind.ACCEPTED, "accepted");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
-        when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+        when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(true);
         var result = service.record("tenant", observed);
         assertEquals(RefundState.PROCESSING, facts.get().child().refund().state());
         assertEquals(0L, capacity.get().refundedMinor());
         assertEquals(1000L, capacity.get().reservedMinor());
         var order = org.mockito.Mockito.inOrder(results, acceptances);
         order.verify(results).insertReceipt(eq("tenant"), any());
-        order.verify(acceptances).remember(eq("tenant"), eq(converter.toAcceptance(observed, result.receiptId())), eq(facts.get().child().refund().version()));
+        order.verify(acceptances)
+                .remember(
+                        eq("tenant"),
+                        eq(converter.toAcceptance(observed, result.receiptId())),
+                        eq(facts.get().child().refund().version()));
     }
 
     @Test
     void metadataConflictRecordsAnomalyWithoutOverridingConfirmedFinancialOutcome() {
         var original = observation(ChannelRefundOutcome.Kind.SUCCEEDED, "accepted-success");
         var observed = accepted(original, RefundResultFixtures.NOW.minusMinutes(1));
-        when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(false);
+        when(acceptances.remember(eq("tenant"), any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(false);
         var result = service.record("tenant", observed);
         assertEquals(APPLIED, result.disposition());
         assertEquals(RefundState.SUCCEEDED, facts.get().child().refund().state());
@@ -289,7 +385,9 @@ class RefundResultServiceTest {
 
     @Test
     void acceptanceBeforeOriginalPaymentIsRejectedBeforeMetadataOrFinancialWrite() {
-        var observed = accepted(observation(ChannelRefundOutcome.Kind.ACCEPTED, "too-early"), facts.get().child().originalSucceededAt().minusSeconds(1));
+        var observed = accepted(
+                observation(ChannelRefundOutcome.Kind.ACCEPTED, "too-early"),
+                facts.get().child().originalSucceededAt().minusSeconds(1));
         assertEquals(CONFLICT, service.record("tenant", observed).disposition());
         org.mockito.Mockito.verifyNoInteractions(acceptances);
         verify(results, never()).update(anyString(), any());
@@ -297,8 +395,18 @@ class RefundResultServiceTest {
     }
 
     private RefundObservation accepted(RefundObservation value, java.time.LocalDateTime at) {
-        return new RefundObservation(value.refundId(), value.original(), value.channelRefundNo(), value.originalChannelTransactionNo(), value.kind(), value.amount(),
-                value.channelRefundTransactionNo(), value.succeededAt(), value.source(), value.receiptKey(), value.sourceDigest(), at);
+        return new RefundObservation(
+                value.refundId(),
+                value.original(),
+                value.channelRefundNo(),
+                value.originalChannelTransactionNo(),
+                value.kind(),
+                value.amount(),
+                value.channelRefundTransactionNo(),
+                value.succeededAt(),
+                value.source(),
+                value.receiptKey(),
+                value.sourceDigest(),
+                at);
     }
-
 }

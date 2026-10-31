@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -24,19 +28,26 @@ import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;
 import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface RefundPlanningConverter {
     @Mapping(target = "request", source = "request")
     @Mapping(target = "reasonCode", source = "command.reasonCode")
     @Mapping(target = "requestDigest", source = "digest")
-    StoredRefundRequest toStored(RefundRequest request, RefundCreateCommand command, String digest, String callerSubjectHash,
-                                 String admissionId, String termsPayload, String termsHash, LocalDateTime plannedAt, List<StoredRefundChild> allocations);
+    StoredRefundRequest toStored(
+            RefundRequest request,
+            RefundCreateCommand command,
+            String digest,
+            String callerSubjectHash,
+            String admissionId,
+            String termsPayload,
+            String termsHash,
+            LocalDateTime plannedAt,
+            List<StoredRefundChild> allocations);
 
     @Mapping(target = "refund", source = "refund")
     @Mapping(target = "original", source = "claim.identity")

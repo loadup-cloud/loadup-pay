@@ -1,4 +1,31 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.infrastructure.client;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.rpc.dubbo.RpcExceptionCodes;
@@ -18,32 +45,27 @@ import io.github.loadup.pay.limitcenter.rpc.LimitCenterRpcMapper;
 import io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
+import java.time.Clock;
+import java.util.function.Supplier;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.time.Clock;
-import java.util.function.Supplier;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED;
 
 @Component
 public class PaymentLimitRpcClient implements PaymentLimitClient {
     private final PaymentLimitProperties properties;
     private final PaymentServiceTokenReader tokens;
     private final LimitCenterRpcMapper limitCenterRpcMapper;
+
     @DubboReference(url = "tri://limitcenter-headless:50051")
     private LimitCenterRpc limitCenterRpc;
 
-    public PaymentLimitRpcClient(LimitCenterRpcMapper limitCenterRpcMapper, JsonMapper mapper, PaymentLimitProperties properties,
-                                 Clock clock) {
+    public PaymentLimitRpcClient(
+            LimitCenterRpcMapper limitCenterRpcMapper,
+            JsonMapper mapper,
+            PaymentLimitProperties properties,
+            Clock clock) {
         this.limitCenterRpcMapper = limitCenterRpcMapper;
         this.properties = properties;
         this.tokens = new PaymentServiceTokenReader(mapper, clock);
@@ -56,38 +78,50 @@ public class PaymentLimitRpcClient implements PaymentLimitClient {
 
     @Override
     public LimitReservationDTO reserve(String tenant, LimitReserveCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
-                limitCenterRpc.reserve(limitCenterRpcMapper.toWireLimitReserveCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
+                        limitCenterRpc.reserve(limitCenterRpcMapper.toWireLimitReserveCommand(command))));
     }
 
     @Override
     public LimitExecutionPermitDTO begin(String tenant, LimitBeginExecutionCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitExecutionPermitDTO(
-                limitCenterRpc.begin(limitCenterRpcMapper.toWireLimitBeginExecutionCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitExecutionPermitDTO(
+                        limitCenterRpc.begin(limitCenterRpcMapper.toWireLimitBeginExecutionCommand(command))));
     }
 
     @Override
     public LimitExecutionVerificationDTO verify(String tenant, LimitExecutionVerifyCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitExecutionVerificationDTO(
-                limitCenterRpc.verify(limitCenterRpcMapper.toWireLimitExecutionVerifyCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitExecutionVerificationDTO(
+                        limitCenterRpc.verify(limitCenterRpcMapper.toWireLimitExecutionVerifyCommand(command))));
     }
 
     @Override
     public LimitReservationDTO confirm(String tenant, LimitConfirmCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
-                limitCenterRpc.confirm(limitCenterRpcMapper.toWireLimitConfirmCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitReservationDTO(
+                        limitCenterRpc.confirm(limitCenterRpcMapper.toWireLimitConfirmCommand(command))));
     }
 
     @Override
     public LimitReleaseDTO release(String tenant, LimitReleaseCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitReleaseDTO(
-                limitCenterRpc.release(limitCenterRpcMapper.toWireLimitReleaseCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitReleaseDTO(
+                        limitCenterRpc.release(limitCenterRpcMapper.toWireLimitReleaseCommand(command))));
     }
 
     @Override
     public LimitRestoreDTO restoreRefund(String tenant, LimitRefundRestoreCommand command) {
-        return exchange(tenant, () -> limitCenterRpcMapper.fromWireLimitRestoreDTO(
-                limitCenterRpc.restoreRefund(limitCenterRpcMapper.toWireLimitRefundRestoreCommand(command))));
+        return exchange(
+                tenant,
+                () -> limitCenterRpcMapper.fromWireLimitRestoreDTO(
+                        limitCenterRpc.restoreRefund(limitCenterRpcMapper.toWireLimitRefundRestoreCommand(command))));
     }
 
     private <R> R exchange(String tenant, Supplier<R> call) {
@@ -104,13 +138,14 @@ public class PaymentLimitRpcClient implements PaymentLimitClient {
             }
             return response;
         } catch (RuntimeException failure) {
-            var code = switch (RpcExceptionCodes.resultCode(failure)) {
-                case "LIMIT_EXCEEDED" -> LIMIT_EXCEEDED;
-                case "LIMIT_RESERVATION_EXPIRED" -> LIMIT_RESERVATION_EXPIRED;
-                case "LIMIT_EXECUTION_FENCED" -> EXECUTION_FENCED;
-                case "LIMIT_IDEMPOTENCY_CONFLICT" -> IDEMPOTENCY_CONFLICT;
-                default -> DEPENDENCY_UNAVAILABLE;
-            };
+            var code =
+                    switch (RpcExceptionCodes.resultCode(failure)) {
+                        case "LIMIT_EXCEEDED" -> LIMIT_EXCEEDED;
+                        case "LIMIT_RESERVATION_EXPIRED" -> LIMIT_RESERVATION_EXPIRED;
+                        case "LIMIT_EXECUTION_FENCED" -> EXECUTION_FENCED;
+                        case "LIMIT_IDEMPOTENCY_CONFLICT" -> IDEMPOTENCY_CONFLICT;
+                        default -> DEPENDENCY_UNAVAILABLE;
+                    };
             throw new CommonException(code);
         }
     }

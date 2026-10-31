@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -24,6 +33,9 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementR
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationStatementStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.dataobject.ReconciliationStatementDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -31,22 +43,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class ReconciliationStatementGatewayImpl implements ReconciliationStatementGateway {
     private final NamedParameterJdbcTemplate jdbc;
     private final Clock clock;
     private final ReconciliationStatementStorageConverter converter;
 
-    public ReconciliationStatementGatewayImpl(NamedParameterJdbcTemplate jdbc, ReconciliationStatementStorageConverter converter, Clock clock) {
+    public ReconciliationStatementGatewayImpl(
+            NamedParameterJdbcTemplate jdbc, ReconciliationStatementStorageConverter converter, Clock clock) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.converter = converter;
@@ -57,7 +61,9 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(caller);
         DomainChecks.text(requestKey, 128);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("caller", caller).addValue("key", requestKey);
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("caller", caller)
+                .addValue("key", requestKey);
         return read(row("caller_service_id = :caller AND request_key = :key", args, false));
     }
 
@@ -65,7 +71,8 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     public Optional<ReconciliationStatementRequest> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
         DomainChecks.id(id);
-        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
+        return read(row(
+                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false));
     }
 
     @Override
@@ -73,7 +80,8 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(id);
         requireJdbc();
-        return read(row("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
+        return read(row(
+                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true));
     }
 
     @Override
@@ -81,8 +89,11 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         ReconciliationStoreContext.writable(tenant);
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
-        var rows = jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
-                + "AND batch_id = :batch AND state = 'INIT' LIMIT 2", args, BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
+        var rows = jdbc.query(
+                "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
+                        + "AND batch_id = :batch AND state = 'INIT' LIMIT 2",
+                args,
+                BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
         if (rows.size() > 1) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -106,7 +117,8 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
                 ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
-            throw new ReconciliationWriteConflictException("reconciliation_statement_request business key already exists");
+            throw new ReconciliationWriteConflictException(
+                    "reconciliation_statement_request business key already exists");
         }
         if (count != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
@@ -116,20 +128,26 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     @Override
     public void update(String tenant, ReconciliationStatementRequest value, long expectedVersion) {
         ReconciliationStoreContext.writable(tenant);
-        if (value == null || expectedVersion < 0 || expectedVersion == Long.MAX_VALUE || value.version() != expectedVersion + 1L) {
+        if (value == null
+                || expectedVersion < 0
+                || expectedVersion == Long.MAX_VALUE
+                || value.version() != expectedVersion + 1L) {
             throw new CommonException(INVALID_STATE);
         }
         var original = lock(tenant, value.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
         if (original.version() != expectedVersion) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
-        if (!converter.toInitial(original).equals(converter.toInitial(value)) || original.state() != ReconciliationStatementState.INIT
+        if (!converter.toInitial(original).equals(converter.toInitial(value))
+                || original.state() != ReconciliationStatementState.INIT
                 || value.state() == ReconciliationStatementState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         requireJdbc();
         var row = converter.toDO(tenant, value);
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", value.id()).addValue("expected", expectedVersion)
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", value.id())
+                .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));
         args.addValue("state", row.getState());
         args.addValue("rowVersion", row.getRowVersion());
@@ -157,15 +175,22 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
 
     private void requireJdbc() {
         if (jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }
 
     private ReconciliationStatementDO row(String predicate, MapSqlParameterSource args, boolean lock) {
-        return jdbc.query("SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
-                        + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))
-                .stream().findFirst().orElse(null);
+        return jdbc
+                .query(
+                        "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                                + predicate + (lock ? " FOR UPDATE" : ""),
+                        args,
+                        BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private Optional<ReconciliationStatementRequest> read(ReconciliationStatementDO row) {
@@ -181,5 +206,4 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
-
 }

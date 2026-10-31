@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.converter;
 
@@ -29,14 +33,13 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewEven
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewOperation;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewProposal;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewReference;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationReviewConverter {
@@ -54,7 +57,13 @@ public interface ReconciliationReviewConverter {
     @Mapping(target = "note", source = "command.note")
     @Mapping(target = "evidence", source = "evidence")
     @Mapping(target = "proposedAt", source = "at")
-    ReconciliationReviewProposal toProposal(ReconciliationReviewReference reference, String id, String caller, ReconciliationReviewProposeCommand command, ReconciliationFileSnapshot evidence, LocalDateTime at);
+    ReconciliationReviewProposal toProposal(
+            ReconciliationReviewReference reference,
+            String id,
+            String caller,
+            ReconciliationReviewProposeCommand command,
+            ReconciliationFileSnapshot evidence,
+            LocalDateTime at);
 
     @Mapping(target = "id", source = "eventId")
     @Mapping(target = "reference", source = "head.reference")
@@ -67,8 +76,15 @@ public interface ReconciliationReviewConverter {
     @Mapping(target = "version", source = "head.version")
     @Mapping(target = "note", source = "note")
     @Mapping(target = "occurredAt", source = "at")
-    ReconciliationReviewEvent toEvent(ReconciliationReview head, String eventId, String caller, String requestKey, String digest,
-                                      ReconciliationReviewOperation operation, String note, LocalDateTime at);
+    ReconciliationReviewEvent toEvent(
+            ReconciliationReview head,
+            String eventId,
+            String caller,
+            String requestKey,
+            String digest,
+            ReconciliationReviewOperation operation,
+            String note,
+            LocalDateTime at);
 
     @Mapping(target = "proposalId", source = "id")
     @Mapping(target = "evidenceFileId", source = "evidence.fileId")
@@ -93,7 +109,11 @@ public interface ReconciliationReviewConverter {
     @Mapping(target = "proposal", source = "proposal")
     @Mapping(target = "lastEvent", source = "lastEvent")
     @Mapping(target = "difference", source = "difference")
-    ReconciliationReviewDTO toDTO(ReconciliationReview head, ReconciliationReviewProposalDTO proposal, ReconciliationReviewEventDTO lastEvent, ReconciliationDifferenceDTO difference);
+    ReconciliationReviewDTO toDTO(
+            ReconciliationReview head,
+            ReconciliationReviewProposalDTO proposal,
+            ReconciliationReviewEventDTO lastEvent,
+            ReconciliationDifferenceDTO difference);
 
     ReconciliationSourceFileDTO toDTO(ReconciliationFileSnapshot value);
 

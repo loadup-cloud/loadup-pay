@@ -1,19 +1,35 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -29,6 +45,11 @@ import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,32 +58,20 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 class PaymentEventsTest {
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentResultConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(PaymentResultConverter.class.getPackageName());
     final OutboxTemplate outbox = mock(OutboxTemplate.class);
     final AtomicInteger ids = new AtomicInteger();
     final PaymentAttemptGateway attempts = mock(PaymentAttemptGateway.class);
     final PaymentResultGateway results = mock(PaymentResultGateway.class);
-    final PaymentEvents events = new PaymentEvents(outbox, context.getBean(PaymentResultConverter.class),
-            () -> "delivery-" + ids.incrementAndGet(), attempts, results, context.getBean(PaymentRealtimeConverter.class));
+    final PaymentEvents events = new PaymentEvents(
+            outbox,
+            context.getBean(PaymentResultConverter.class),
+            () -> "delivery-" + ids.incrementAndGet(),
+            attempts,
+            results,
+            context.getBean(PaymentRealtimeConverter.class));
 
     StoredPaymentAcceptance failed() {
         var original = AttemptFixtures.accepted(true);
@@ -82,7 +91,8 @@ class PaymentEventsTest {
 
     @BeforeEach
     void setup() {
-        when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(AttemptFixtures.prepared().closeBeforeSubmission("evidence", null)));
+        when(attempts.find("tenant", "attempt"))
+                .thenReturn(Optional.of(AttemptFixtures.prepared().closeBeforeSubmission("evidence", null)));
     }
 
     @Test
@@ -91,8 +101,11 @@ class PaymentEventsTest {
         publish("tenant", failed(), true, AttemptFixtures.NOW);
         var messages = ArgumentCaptor.forClass(OutboxMessage.class);
         verify(outbox, times(4)).publish(messages.capture());
-        assertEquals(Set.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.REALTIME, PaymentEvents.RISK),
-                new HashSet<>(messages.getAllValues().stream().map(OutboxMessage::type).toList()));
+        assertEquals(
+                Set.of(PaymentEvents.ACQUIRE, PaymentEvents.LIMIT, PaymentEvents.REALTIME, PaymentEvents.RISK),
+                new HashSet<>(messages.getAllValues().stream()
+                        .map(OutboxMessage::type)
+                        .toList()));
         var deliveries = new HashSet<String>();
         var mapper = JsonMapper.builder().build();
         for (var message : messages.getAllValues()) {
@@ -118,8 +131,10 @@ class PaymentEventsTest {
 
     @Test
     void publishingWithoutTheY3TransactionIsRejected() {
-        assertSame(INVALID_STATE, assertThrows(CommonException.class,
-                () -> publish("tenant", failed(), true, AttemptFixtures.NOW)).getResultCode());
+        assertSame(
+                INVALID_STATE,
+                assertThrows(CommonException.class, () -> publish("tenant", failed(), true, AttemptFixtures.NOW))
+                        .getResultCode());
         verifyNoInteractions(outbox);
     }
 
@@ -127,11 +142,18 @@ class PaymentEventsTest {
     void initProcessingUnknownAndClosingPublishOnlyTheirOwnCompleteVersionedSnapshots() {
         var init = AttemptFixtures.accepted(false);
         var processing = AttemptFixtures.accepted(true);
-        var submitted = AttemptFixtures.prepared().beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
-        var unknownAttempt = submitted.applyOutcome(new ChannelPaymentOutcome(ChannelPaymentOutcome.Kind.UNKNOWN,
-                submitted.attempt().identity(), submitted.attempt().amount(), "query-receipt"), false);
+        var submitted = AttemptFixtures.prepared()
+                .beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
+        var unknownAttempt = submitted.applyOutcome(
+                new ChannelPaymentOutcome(
+                        ChannelPaymentOutcome.Kind.UNKNOWN,
+                        submitted.attempt().identity(),
+                        submitted.attempt().amount(),
+                        "query-receipt"),
+                false);
         var updates = context.getBean(PaymentControlConverter.class);
-        var unknown = updates.withPayment(processing, processing.payment().applyAttempt(unknownAttempt.attempt()), null);
+        var unknown =
+                updates.withPayment(processing, processing.payment().applyAttempt(unknownAttempt.attempt()), null);
         var closing = updates.withPayment(unknown, unknown.payment().requestClose(), null);
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TenantUtil.runWithTenant("tenant", () -> {
@@ -176,37 +198,72 @@ class PaymentEventsTest {
     void readOnlyWrongTenantMissingAttemptAndNonterminalFinancialPublicationAreRejected() {
         var processing = AttemptFixtures.accepted(true);
         TransactionSynchronizationManager.setActualTransactionActive(true);
-        assertSame(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("other", () ->
-                        events.publishSnapshot("tenant", processing, AttemptFixtures.NOW))).getResultCode());
+        assertSame(
+                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN,
+                assertThrows(
+                                CommonException.class,
+                                () -> TenantUtil.runWithTenant(
+                                        "other",
+                                        () -> events.publishSnapshot("tenant", processing, AttemptFixtures.NOW)))
+                        .getResultCode());
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
-        assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () ->
-                events.publishSnapshot("tenant", processing, AttemptFixtures.NOW))).getResultCode());
+        assertSame(
+                INVALID_STATE,
+                assertThrows(
+                                CommonException.class,
+                                () -> TenantUtil.runWithTenant(
+                                        "tenant",
+                                        () -> events.publishSnapshot("tenant", processing, AttemptFixtures.NOW)))
+                        .getResultCode());
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
         when(attempts.find("tenant", "attempt")).thenReturn(Optional.empty());
-        assertSame(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> TenantUtil.runWithTenant("tenant", () ->
-                        events.publishSnapshot("tenant", processing, AttemptFixtures.NOW))).getResultCode());
-        assertSame(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
-                assertThrows(CommonException.class, () -> publish("tenant", processing, false, AttemptFixtures.NOW)).getResultCode());
+        assertSame(
+                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
+                assertThrows(
+                                CommonException.class,
+                                () -> TenantUtil.runWithTenant(
+                                        "tenant",
+                                        () -> events.publishSnapshot("tenant", processing, AttemptFixtures.NOW)))
+                        .getResultCode());
+        assertSame(
+                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
+                assertThrows(CommonException.class, () -> publish("tenant", processing, false, AttemptFixtures.NOW))
+                        .getResultCode());
         verifyNoInteractions(outbox);
     }
 
     @Test
     void completeSuccessSnapshotUsesOriginalChannelIdentityAndClaimTime() {
-        var submitted = AttemptFixtures.prepared().beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
-        var succeeded = submitted.applyOutcome(new ChannelPaymentOutcome(ChannelPaymentOutcome.Kind.SUCCEEDED,
-                submitted.attempt().identity(), submitted.attempt().amount(), "evidence"), false);
+        var submitted = AttemptFixtures.prepared()
+                .beginSubmission(1, "e".repeat(64), RiskDecision.notConnected(), AttemptFixtures.NOW);
+        var succeeded = submitted.applyOutcome(
+                new ChannelPaymentOutcome(
+                        ChannelPaymentOutcome.Kind.SUCCEEDED,
+                        submitted.attempt().identity(),
+                        submitted.attempt().amount(),
+                        "evidence"),
+                false);
         when(attempts.find("tenant", "attempt")).thenReturn(Optional.of(succeeded));
-        when(results.attemptClaim("tenant", "attempt")).thenReturn(Optional.of(new ChannelTransactionClaim("claim", "tenant",
-                succeeded.attempt().identity(), succeeded.attempt().amount(), "channel-transaction", AttemptFixtures.NOW.plusSeconds(1), "evidence")));
+        when(results.attemptClaim("tenant", "attempt"))
+                .thenReturn(Optional.of(new ChannelTransactionClaim(
+                        "claim",
+                        "tenant",
+                        succeeded.attempt().identity(),
+                        succeeded.attempt().amount(),
+                        "channel-transaction",
+                        AttemptFixtures.NOW.plusSeconds(1),
+                        "evidence")));
         var original = AttemptFixtures.accepted(true);
-        var payment = context.getBean(PaymentControlConverter.class).withPayment(original, original.payment().applyAttempt(succeeded.attempt()), "evidence");
+        var payment = context.getBean(PaymentControlConverter.class)
+                .withPayment(original, original.payment().applyAttempt(succeeded.attempt()), "evidence");
         TransactionSynchronizationManager.setActualTransactionActive(true);
         publish("tenant", payment, false, AttemptFixtures.NOW.plusMinutes(1));
         var messages = ArgumentCaptor.forClass(OutboxMessage.class);
         verify(outbox, times(4)).publish(messages.capture());
-        var message = messages.getAllValues().stream().filter(m -> m.type().equals(PaymentEvents.REALTIME)).findFirst().orElseThrow();
+        var message = messages.getAllValues().stream()
+                .filter(m -> m.type().equals(PaymentEvents.REALTIME))
+                .findFirst()
+                .orElseThrow();
         Map<?, ?> envelope = JsonMapper.builder().build().readValue(message.payload(), Map.class);
         var data = (Map<?, ?>) envelope.get("data");
         assertEquals("WECHAT", data.get("channel"));

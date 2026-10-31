@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.converter;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
@@ -26,8 +32,6 @@ import io.github.loadup.pay.reconciliation.infrastructure.dataobject.Reconciliat
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationStatementStorageConverter {
@@ -72,10 +76,20 @@ public interface ReconciliationStatementStorageConverter {
         if ("READY".equals(row.getState())) {
             return toReceipt(row);
         }
-        if (row.getFormat() != null || row.getRequestSha256() != null || row.getOfficialHashType() != null || row.getOfficialHash() != null
-                || row.getReceivedEpochMicros() != null || row.getDownloadedEpochMicros() != null || row.getFileId() != null || row.getStorageId() != null
-                || row.getFileSize() != null || row.getSourceSha256() != null || row.getProofFileId() != null || row.getProofStorageId() != null
-                || row.getProofFileSize() != null || row.getProofSha256() != null) {
+        if (row.getFormat() != null
+                || row.getRequestSha256() != null
+                || row.getOfficialHashType() != null
+                || row.getOfficialHash() != null
+                || row.getReceivedEpochMicros() != null
+                || row.getDownloadedEpochMicros() != null
+                || row.getFileId() != null
+                || row.getStorageId() != null
+                || row.getFileSize() != null
+                || row.getSourceSha256() != null
+                || row.getProofFileId() != null
+                || row.getProofStorageId() != null
+                || row.getProofFileSize() != null
+                || row.getProofSha256() != null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         return null;
@@ -117,7 +131,6 @@ public interface ReconciliationStatementStorageConverter {
     @Mapping(target = "proofFileSize", source = "value.receipt", qualifiedByName = "evidenceSize")
     @Mapping(target = "proofSha256", source = "value.receipt.evidence.sha256")
     @Mapping(target = "id", source = "value.id")
-
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -142,5 +155,4 @@ public interface ReconciliationStatementStorageConverter {
     default Long evidenceSize(ReconciliationOfficialReceipt value) {
         return value == null ? null : value.evidence().size();
     }
-
 }

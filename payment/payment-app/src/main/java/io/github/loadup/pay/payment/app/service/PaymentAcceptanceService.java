@@ -1,19 +1,32 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -35,23 +48,12 @@ import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentAcceptanceService implements PaymentAcceptanceFacade, PaymentOutcomeFacade {
@@ -81,7 +83,10 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             Validator validator,
             Clock clock,
             @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService,
-            PaymentExecutionLocks locks, PaymentActionService actions, PaymentRecoveryService recovery, PaymentEvents events) {
+            PaymentExecutionLocks locks,
+            PaymentActionService actions,
+            PaymentRecoveryService recovery,
+            PaymentEvents events) {
         this.actors = actors;
         this.store = store;
         this.inputs = inputs;
@@ -152,7 +157,8 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 if (!clock.instant().isBefore(command.payableUntil().toInstant())) {
-                    throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED);
+                    throw new CommonException(
+                            io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED);
                 }
                 inputs.requireNewAcceptance(actor.tenantId(), actor.serviceId(), command, now());
                 var payment = PaymentOrder.init(
@@ -195,8 +201,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         var actor = actor("pay:payment:read");
         return transactions.writeLocal(actor.tenantId(), () -> {
             DomainChecks.id(query.id());
-            var initial = store.find(actor.tenantId(), query.id())
-                    .orElseThrow(() -> new CommonException(NOT_FOUND));
+            var initial = store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND));
             if (!actor.serviceId().equals(initial.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
@@ -205,17 +210,19 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             var gate = store.lockPayment(actor.tenantId(), query.id())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             // All payment writers hold these gates before changing a payment or its terminal proof.
-            var current = store.find(actor.tenantId(), query.id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!query.id().equals(current.payment().id()) || !initial.payment().orderId().equals(current.payment().orderId())) {
+            var current =
+                    store.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            if (!query.id().equals(current.payment().id())
+                    || !initial.payment().orderId().equals(current.payment().orderId())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             codec.decode(current);
             if (!actor.serviceId().equals(current.callerServiceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
-            return converter.toOutcome(actions.present(actor.tenantId(), PaymentExecutionBindings.locked(
-                    current, parent, gate)), gate.gate().state() == GateState.FENCED);
+            return converter.toOutcome(
+                    actions.present(actor.tenantId(), PaymentExecutionBindings.locked(current, parent, gate)),
+                    gate.gate().state() == GateState.FENCED);
         });
     }
 
@@ -230,11 +237,12 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
         }
         var state = prior.payment().state();
         if ((state != io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING
-                && state != io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN)
+                        && state != io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN)
                 || prior.payment().activeAttemptId() == null) {
             return converter.toDTO(prior);
         }
-        return actions.present(actor.tenantId(), locks.lock(actor.tenantId(), prior.payment().id(), actor.serviceId()));
+        return actions.present(
+                actor.tenantId(), locks.lock(actor.tenantId(), prior.payment().id(), actor.serviceId()));
     }
 
     private void checkGate(

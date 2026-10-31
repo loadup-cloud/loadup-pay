@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.client.error;
 
@@ -20,7 +24,9 @@ import io.github.loadup.commons.result.ResultCode;
 
 public enum AcquireResultCodeEnum implements ResultCode {
     UNSUPPORTED_CAPABILITY("ACQUIRE_UNSUPPORTED_CAPABILITY", "Payment input or method is not implemented"),
-    PAYMENT_INPUT_EXPIRED("ACQUIRE_PAYMENT_INPUT_EXPIRED", "Original channel input expired; close the original payment safely before a new action"),
+    PAYMENT_INPUT_EXPIRED(
+            "ACQUIRE_PAYMENT_INPUT_EXPIRED",
+            "Original channel input expired; close the original payment safely before a new action"),
     INVALID_ARGUMENT("ACQUIRE_INVALID_ARGUMENT", "Invalid argument"),
     INVALID_PAGE("ACQUIRE_INVALID_PAGE", "Invalid page"),
     NOT_FOUND("ACQUIRE_NOT_FOUND", "Resource not found"),

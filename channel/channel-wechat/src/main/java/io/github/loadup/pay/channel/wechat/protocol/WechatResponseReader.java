@@ -1,30 +1,33 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel WeChat
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.wechat.protocol;
 
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import java.math.BigInteger;
+import java.util.Map;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.math.BigInteger;
-import java.util.Map;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
 
 /**
  * Reads only already verified response payloads; never infers payment from an HTTP status alone.
@@ -33,14 +36,22 @@ public final class WechatResponseReader {
     private final JsonMapper json;
 
     public WechatResponseReader(JsonMapper json) {
-        this.json = json.rebuild().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
+        this.json = json.rebuild()
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
     }
 
     public Map<?, ?> read(WechatVerifiedResponse response, WechatMethod expected) {
-        if (response == null || response.method() != expected || response.status() < 100 || response.status() > 599
-                || response.payload() == null || response.payload().isEmpty() || response.payload().length() > 1048576
-                || response.sourceDigest() == null || !response.sourceDigest().matches("[0-9a-f]{64}")) {
+        if (response == null
+                || response.method() != expected
+                || response.status() < 100
+                || response.status() > 599
+                || response.payload() == null
+                || response.payload().isEmpty()
+                || response.payload().length() > 1048576
+                || response.sourceDigest() == null
+                || !response.sourceDigest().matches("[0-9a-f]{64}")) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         try {
@@ -56,7 +67,9 @@ public final class WechatResponseReader {
 
     public String text(Map<?, ?> value, String name, int maximum) {
         Object field = value.get(name);
-        if (!(field instanceof String text) || text.isBlank() || text.length() > maximum
+        if (!(field instanceof String text)
+                || text.isBlank()
+                || text.length() > maximum
                 || text.chars().anyMatch(Character::isISOControl)) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }

@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.client.support;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
@@ -21,7 +27,6 @@ import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -31,18 +36,34 @@ import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-
 /**
  * Provider-owned, versioned wire evidence framing. Public JSON serializers never participate in capture identity.
  */
 public final class PaymentCaptureContentHash {
-    private PaymentCaptureContentHash() {
-    }
+    private PaymentCaptureContentHash() {}
 
-    public static String compute(String captureId, Channel channel, String accountScopeHash, LocalDate billDate, String profile,
-                                 String zone, OffsetDateTime startedAt, OffsetDateTime finishedAt, List<PaymentLedgerLineDTO> lines) {
-        return frame(captureId, channel, accountScopeHash, billDate, profile, zone, startedAt, finishedAt, lines, new Frame("payment-ledger-capture-v1")).finish();
+    public static String compute(
+            String captureId,
+            Channel channel,
+            String accountScopeHash,
+            LocalDate billDate,
+            String profile,
+            String zone,
+            OffsetDateTime startedAt,
+            OffsetDateTime finishedAt,
+            List<PaymentLedgerLineDTO> lines) {
+        return frame(
+                        captureId,
+                        channel,
+                        accountScopeHash,
+                        billDate,
+                        profile,
+                        zone,
+                        startedAt,
+                        finishedAt,
+                        lines,
+                        new Frame("payment-ledger-capture-v1"))
+                .finish();
     }
 
     /**
@@ -53,16 +74,34 @@ public final class PaymentCaptureContentHash {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var bytes = new java.io.ByteArrayOutputStream();
-        var hash = frame(capture.captureId(), capture.channel(), capture.accountScopeHash(), capture.billDate(), capture.statementProfile(), capture.systemZone(),
-                capture.startedAt(), capture.finishedAt(), lines, new Frame("payment-ledger-capture-v1", bytes, maxBytes));
+        var hash = frame(
+                capture.captureId(),
+                capture.channel(),
+                capture.accountScopeHash(),
+                capture.billDate(),
+                capture.statementProfile(),
+                capture.systemZone(),
+                capture.startedAt(),
+                capture.finishedAt(),
+                lines,
+                new Frame("payment-ledger-capture-v1", bytes, maxBytes));
         if (!capture.contentHash().equals(hash.finish())) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return bytes.toByteArray();
     }
 
-    private static Frame frame(String captureId, Channel channel, String accountScopeHash, LocalDate billDate, String profile,
-                               String zone, OffsetDateTime startedAt, OffsetDateTime finishedAt, List<PaymentLedgerLineDTO> lines, Frame hash) {
+    private static Frame frame(
+            String captureId,
+            Channel channel,
+            String accountScopeHash,
+            LocalDate billDate,
+            String profile,
+            String zone,
+            OffsetDateTime startedAt,
+            OffsetDateTime finishedAt,
+            List<PaymentLedgerLineDTO> lines,
+            Frame hash) {
         hash.field(captureId);
         hash.field(channel.name());
         hash.field(accountScopeHash);
@@ -73,7 +112,10 @@ public final class PaymentCaptureContentHash {
         hash.field(finishedAt.toInstant().toString());
         long ordinal = 0, payments = 0, paymentAmount = 0, refunds = 0, refundAmount = 0;
         for (var row : lines) {
-            if (row.ordinal() != ++ordinal || row.amountMinor() <= 0 || !"CNY".equals(row.currency()) || row.sourceVersion() < 0) {
+            if (row.ordinal() != ++ordinal
+                    || row.amountMinor() <= 0
+                    || !"CNY".equals(row.currency())
+                    || row.sourceVersion() < 0) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             hash.field(Long.toString(row.ordinal()));
@@ -105,8 +147,13 @@ public final class PaymentCaptureContentHash {
     }
 
     public static boolean matches(PaymentCaptureDTO capture, List<PaymentLedgerLineDTO> lines) {
-        if (capture == null || capture.state() != PaymentCaptureState.SEALED || capture.paymentCount() == null || capture.refundCount() == null
-                || capture.paymentAmountMinor() == null || capture.refundAmountMinor() == null || capture.contentHash() == null
+        if (capture == null
+                || capture.state() != PaymentCaptureState.SEALED
+                || capture.paymentCount() == null
+                || capture.refundCount() == null
+                || capture.paymentAmountMinor() == null
+                || capture.refundAmountMinor() == null
+                || capture.contentHash() == null
                 || Math.addExact(capture.paymentCount(), capture.refundCount()) != lines.size()) {
             return false;
         }
@@ -120,10 +167,21 @@ public final class PaymentCaptureContentHash {
                 refundAmount = Math.addExact(refundAmount, row.amountMinor());
             }
         }
-        return capture.paymentCount() == paymentCount && capture.paymentAmountMinor() == paymentAmount
-                && capture.refundCount() == refundCount && capture.refundAmountMinor() == refundAmount
-                && capture.contentHash().equals(compute(capture.captureId(), capture.channel(), capture.accountScopeHash(), capture.billDate(), capture.statementProfile(),
-                capture.systemZone(), capture.startedAt(), capture.finishedAt(), lines));
+        return capture.paymentCount() == paymentCount
+                && capture.paymentAmountMinor() == paymentAmount
+                && capture.refundCount() == refundCount
+                && capture.refundAmountMinor() == refundAmount
+                && capture.contentHash()
+                        .equals(compute(
+                                capture.captureId(),
+                                capture.channel(),
+                                capture.accountScopeHash(),
+                                capture.billDate(),
+                                capture.statementProfile(),
+                                capture.systemZone(),
+                                capture.startedAt(),
+                                capture.finishedAt(),
+                                lines));
     }
 
     public static String rowId(String captureId, long ordinal) {
@@ -163,7 +221,9 @@ public final class PaymentCaptureContentHash {
 
         void field(String value) {
             byte[] bytes = value == null ? null : value.getBytes(StandardCharsets.UTF_8);
-            byte[] prefix = ByteBuffer.allocate(4).putInt(bytes == null ? -1 : bytes.length).array();
+            byte[] prefix = ByteBuffer.allocate(4)
+                    .putInt(bytes == null ? -1 : bytes.length)
+                    .array();
             if (archive != null) {
                 if ((long) archive.size() + prefix.length + (bytes == null ? 0 : bytes.length) > maxBytes) {
                     throw new CommonException(INVALID_ARGUMENT);

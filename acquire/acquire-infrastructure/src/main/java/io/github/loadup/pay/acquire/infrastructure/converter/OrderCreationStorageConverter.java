@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.converter;
 
@@ -38,7 +42,6 @@ public interface OrderCreationStorageConverter {
 
     @Mapping(target = "entryMode", source = "value.entryMode")
     @Mapping(target = "initialSessionId", source = "value.initialSessionId")
-
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -71,7 +74,6 @@ public interface OrderCreationStorageConverter {
             AcquireOrder order,
             OrderAdmissionProof admission);
 
-
     @Mapping(target = "id", source = "value.order.id")
     @Mapping(target = "payeeMerchantId", source = "value.order.payeeMerchantId")
     @Mapping(target = "admissionId", source = "value.admission.admissionId")
@@ -94,7 +96,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     AcquireOrderDO toOrderDO(String tenant, StoredAcquireOrder value);
 
-
     @Mapping(target = "id", source = "value.snapshotId")
     @Mapping(target = "orderId", source = "value.order.id")
     @Mapping(target = "contractId", source = "value.admission.contract.contractId")
@@ -109,7 +110,6 @@ public interface OrderCreationStorageConverter {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
     OrderContractSnapshotDO toSnapshotDO(String tenant, StoredAcquireOrder value);
-
 
     @Mapping(target = "feeType", constant = "ORDER_AMOUNT")
     @Mapping(target = "currency", source = "value.baseAmount.currencyValue")

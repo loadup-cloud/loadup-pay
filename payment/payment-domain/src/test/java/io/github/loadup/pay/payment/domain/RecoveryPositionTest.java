@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.domain;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
@@ -22,15 +31,9 @@ import io.github.loadup.pay.payment.domain.model.RecoveryPosition;
 import io.github.loadup.pay.payment.domain.model.RecoveryTaskKey;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDateTime;
 import java.util.Arrays;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RecoveryPositionTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
@@ -39,14 +42,24 @@ class RecoveryPositionTest {
 
     @Test
     void typedKeysRetainTheSameCanonicalBytesAndRejectNonCanonicalNumbers() {
-        for (String value : new String[]{"subject.0", "subject.1", "subject." + Long.MAX_VALUE}) {
+        for (String value : new String[] {"subject.0", "subject.1", "subject." + Long.MAX_VALUE}) {
             var parsed = RecoveryTaskKey.parse(value);
             assertEquals(value, parsed.bizId());
             assertEquals(parsed, PaymentRecoveryKey.parse(value).taskKey());
             assertEquals(parsed, RefundRecoveryKey.parse(value).taskKey());
         }
-        for (String value : Arrays.asList(null, "", "subject", ".0", "subject.", "subject.-1", "subject.+1", "subject.01",
-                "subject.1.0x", "subject.9223372036854775808", "x".repeat(129))) {
+        for (String value : Arrays.asList(
+                null,
+                "",
+                "subject",
+                ".0",
+                "subject.",
+                "subject.-1",
+                "subject.+1",
+                "subject.01",
+                "subject.1.0x",
+                "subject.9223372036854775808",
+                "x".repeat(129))) {
             assertThrows(DomainViolation.class, () -> RecoveryTaskKey.parse(value));
             assertThrows(DomainViolation.class, () -> PaymentRecoveryKey.parse(value));
             assertThrows(DomainViolation.class, () -> RefundRecoveryKey.parse(value));
@@ -59,7 +72,9 @@ class RecoveryPositionTest {
         assertFalse(new RecoveryPosition("subject", 1L, at.plusSeconds(30), false).current(key, at));
         assertFalse(new RecoveryPosition("subject", 0L, at, true).current(key, at));
         assertThrows(DomainViolation.class, () -> position.current(new RecoveryTaskKey("subject", 1L), at));
-        assertThrows(DomainViolation.class, () -> new RecoveryPosition("subject", 0L, at, true).current(new RecoveryTaskKey("subject", 1L), at));
+        assertThrows(
+                DomainViolation.class,
+                () -> new RecoveryPosition("subject", 0L, at, true).current(new RecoveryTaskKey("subject", 1L), at));
         assertThrows(DomainViolation.class, () -> position.current(new RecoveryTaskKey("other-subject", 0L), at));
         assertThrows(DomainViolation.class, () -> position.current(key, at.plusSeconds(1)));
     }
@@ -81,7 +96,9 @@ class RecoveryPositionTest {
         assertThrows(DomainViolation.class, () -> position.schedule(at, 0L));
         assertThrows(DomainViolation.class, () -> position.schedule(at.minusSeconds(1), 0L));
         assertThrows(DomainViolation.class, () -> position.schedule(at.plusSeconds(1), 1L));
-        assertThrows(DomainViolation.class, () -> new RecoveryPosition("subject", 0L, at, true).schedule(at.plusSeconds(1), 0L));
+        assertThrows(
+                DomainViolation.class,
+                () -> new RecoveryPosition("subject", 0L, at, true).schedule(at.plusSeconds(1), 0L));
         var exhausted = new RecoveryPosition("subject", Long.MAX_VALUE, at, false);
         assertThrows(ArithmeticException.class, () -> exhausted.schedule(at.plusSeconds(1), Long.MAX_VALUE));
         assertEquals(Long.MAX_VALUE, exhausted.generation());

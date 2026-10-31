@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
@@ -26,20 +36,13 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentActionStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentActionDO;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentActionMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, PaymentActionDO>
@@ -72,12 +75,15 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
             return Optional.empty();
         }
         try {
-            if (row.getActionPayload() == null || row.getActionPayload().length() > MAX_PAYLOAD_LENGTH
-                    || row.getIssuedAt() == null || row.getExpiresAt() == null
+            if (row.getActionPayload() == null
+                    || row.getActionPayload().length() > MAX_PAYLOAD_LENGTH
+                    || row.getIssuedAt() == null
+                    || row.getExpiresAt() == null
                     || !row.getExpiresAt().isAfter(row.getIssuedAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            ChannelPaymentAction action = codec.decode(row.getActionKind(), row.getActionPayload(), row.getPayloadHash());
+            ChannelPaymentAction action =
+                    codec.decode(row.getActionKind(), row.getActionPayload(), row.getPayloadHash());
             if (action == null || !BusinessTime.local(action.expiresAt()).equals(row.getExpiresAt())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -143,7 +149,8 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
         scope(tenant);

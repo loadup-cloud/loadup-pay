@@ -1,19 +1,25 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.codec;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
@@ -23,17 +29,14 @@ import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Component;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HexFormat;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class OrderCreationCodecImpl implements OrderCreationCodec {
@@ -170,15 +173,20 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent) {
+    public io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(
+            OrderCreateIntent intent) {
         try {
             if (!"DIRECT_PAY".equals(intent.entryMode())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var value = mapper.readValue(intent.intentPayload(), io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand.class);
-            if (value == null || !validator.validate(value).isEmpty() || value.firstPaymentAmountMinor() > value.amountMinor()
+            var value = mapper.readValue(
+                    intent.intentPayload(), io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand.class);
+            if (value == null
+                    || !validator.validate(value).isEmpty()
+                    || value.firstPaymentAmountMinor() > value.amountMinor()
                     || !value.interactionKind().supports(value.choice().method())
-                    || !intent.payeeMerchantId().equals(value.payeeMerchantId()) || !intent.merchantOrderNo().equals(value.merchantOrderNo())) {
+                    || !intent.payeeMerchantId().equals(value.payeeMerchantId())
+                    || !intent.merchantOrderNo().equals(value.merchantOrderNo())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return value;
@@ -188,17 +196,35 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String directPayDigest(String tenant, String scope, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+    public String directPayDigest(
+            String tenant, String scope, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
         var canonical = new StringBuilder();
-        for (String field : Arrays.asList("acquire.direct-pay-create.v1", tenant, scope, "DIRECT_PAY", command.payeeMerchantId(),
-                command.merchantOrderNo(), command.productScopeKey(), Long.toString(command.amountMinor()), command.currency(), command.subject(),
-                command.requestedDueAt() == null ? null : command.requestedDueAt().toString(), command.actionKey(),
-                Long.toString(command.firstPaymentAmountMinor()), command.choice().channel().name(), command.choice().method().name(),
+        for (String field : Arrays.asList(
+                "acquire.direct-pay-create.v1",
+                tenant,
+                scope,
+                "DIRECT_PAY",
+                command.payeeMerchantId(),
+                command.merchantOrderNo(),
+                command.productScopeKey(),
+                Long.toString(command.amountMinor()),
+                command.currency(),
+                command.subject(),
+                command.requestedDueAt() == null
+                        ? null
+                        : command.requestedDueAt().toString(),
+                command.actionKey(),
+                Long.toString(command.firstPaymentAmountMinor()),
+                command.choice().channel().name(),
+                command.choice().method().name(),
                 command.interactionKind().name())) {
             if (field == null) {
                 canonical.append("-1:");
             } else {
-                canonical.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+                canonical
+                        .append(field.getBytes(StandardCharsets.UTF_8).length)
+                        .append(':')
+                        .append(field);
             }
         }
         return checksum(canonical.toString());

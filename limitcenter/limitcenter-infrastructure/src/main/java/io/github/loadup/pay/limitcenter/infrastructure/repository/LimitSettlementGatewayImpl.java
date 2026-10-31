@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay LimitCenter Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -28,22 +37,16 @@ import io.github.loadup.pay.limitcenter.domain.model.LimitSettlementReceipt;
 import io.github.loadup.pay.limitcenter.infrastructure.converter.LimitSettlementStorageConverter;
 import io.github.loadup.pay.limitcenter.infrastructure.dataobject.LimitSettlementReceiptDO;
 import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitSettlementReceiptMapper;
-import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Repository;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
 public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementReceiptMapper, LimitSettlementReceiptDO>
@@ -66,8 +69,7 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
     @Override
     public Optional<LimitSettlementReceipt> findReceipt(String tenant, String operation) {
         scope(tenant);
-        var row = Optional.ofNullable(
-                        getOne(QueryWrapper.create().eq("operation_id", operation)))
+        var row = Optional.ofNullable(getOne(QueryWrapper.create().eq("operation_id", operation)))
                 .orElse(null);
         if (row == null) {
             return Optional.empty();
@@ -110,16 +112,25 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var args = new MapSqlParameterSource("operation", gate.operationId());
-        var row = jdbc.query("SELECT id, payment_id, row_version FROM limit_operation_gate "
-                                + "WHERE operation_id = :operation AND deleted = FALSE", args,
-                        (rs, index) -> new GateRow(rs.getString("id"), rs.getString("payment_id"), rs.getLong("row_version")))
-                .stream().findFirst().orElse(null);
+        var row = jdbc
+                .query(
+                        "SELECT id, payment_id, row_version FROM limit_operation_gate "
+                                + "WHERE operation_id = :operation AND deleted = FALSE",
+                        args,
+                        (rs, index) ->
+                                new GateRow(rs.getString("id"), rs.getString("payment_id"), rs.getLong("row_version")))
+                .stream()
+                .findFirst()
+                .orElse(null);
         if (row == null || !row.paymentId().equals(gate.paymentId())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        args.addValue("id", row.id()).addValue("version", row.version())
-                .addValue("next", Math.incrementExact(row.version())).addValue("source", gate.paymentSourceVersion())
-                .addValue("evidence", gate.noCollectionEvidenceId()).addValue("updated", LocalDateTime.now(clock));
+        args.addValue("id", row.id())
+                .addValue("version", row.version())
+                .addValue("next", Math.incrementExact(row.version()))
+                .addValue("source", gate.paymentSourceVersion())
+                .addValue("evidence", gate.noCollectionEvidenceId())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE limit_operation_gate SET state = 'FENCED', payment_source_version = :source,
                     no_collection_evidence_id = :evidence, row_version = :next, updated_at = :updated
@@ -146,7 +157,9 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
         }
         for (var previous : before) {
             var next = changed.get(previous.id());
-            if (next == null || !previous.reservationId().equals(next.reservationId()) || !previous.bucket().equals(next.bucket())
+            if (next == null
+                    || !previous.reservationId().equals(next.reservationId())
+                    || !previous.bucket().equals(next.bucket())
                     || previous.reserved() != next.reserved()) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -154,9 +167,12 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
                 continue;
             }
             var args = new MapSqlParameterSource("id", previous.id())
-                    .addValue("reservation", previous.reservationId()).addValue("reserved", previous.reserved())
-                    .addValue("consumed", previous.consumed()).addValue("restored", previous.restored())
-                    .addValue("nextConsumed", next.consumed()).addValue("nextRestored", next.restored())
+                    .addValue("reservation", previous.reservationId())
+                    .addValue("reserved", previous.reserved())
+                    .addValue("consumed", previous.consumed())
+                    .addValue("restored", previous.restored())
+                    .addValue("nextConsumed", next.consumed())
+                    .addValue("nextRestored", next.restored())
                     .addValue("updated", LocalDateTime.now(clock));
             int count = jdbc.update("""
                     UPDATE limit_reservation_item SET consumed_value = :nextConsumed, restored_value = :nextRestored,
@@ -173,7 +189,8 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }
@@ -184,6 +201,5 @@ public class LimitSettlementGatewayImpl extends ServiceImpl<LimitSettlementRecei
         }
     }
 
-    private record GateRow(String id, String paymentId, long version) {
-    }
+    private record GateRow(String id, String paymentId, long version) {}
 }

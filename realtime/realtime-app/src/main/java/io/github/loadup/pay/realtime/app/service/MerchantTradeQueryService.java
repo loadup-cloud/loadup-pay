@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Realtime app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.realtime.app.service;
+
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
+import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.PageDTO;
@@ -35,16 +44,10 @@ import io.github.loadup.pay.realtime.domain.model.TradeOrderProjection;
 import io.github.loadup.pay.realtime.domain.model.TradePageFilter;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
-
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.QUERY_FORBIDDEN;
-import static io.github.loadup.pay.realtime.client.error.RealtimeResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
 
 @Service
 public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
@@ -54,8 +57,12 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
     private final RealtimeTransactions transactions;
     private final Validator validator;
 
-    public MerchantTradeQueryService(RealtimeActorProvider actors, TradeQueryGateway queries, TradeProjectionConverter converter,
-                                     RealtimeTransactions transactions, Validator validator) {
+    public MerchantTradeQueryService(
+            RealtimeActorProvider actors,
+            TradeQueryGateway queries,
+            TradeProjectionConverter converter,
+            RealtimeTransactions transactions,
+            Validator validator) {
         this.actors = actors;
         this.queries = queries;
         this.converter = converter;
@@ -70,8 +77,11 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         return transactions.readSnapshot(actor.tenantId(), () -> {
             var order = queries.findOrder(actor.tenantId(), actor.merchantId(), query.orderId())
                     .orElseThrow(() -> new CommonException(NOT_FOUND));
-            var summary = queries.findRefundSummary(actor.tenantId(), actor.merchantId(), query.orderId()).orElse(null);
-            return new TradeDetailDTO(orderDTO(order, summary), summary == null ? null : converter.toEvent(summary),
+            var summary = queries.findRefundSummary(actor.tenantId(), actor.merchantId(), query.orderId())
+                    .orElse(null);
+            return new TradeDetailDTO(
+                    orderDTO(order, summary),
+                    summary == null ? null : converter.toEvent(summary),
                     BusinessTime.external(order.snapshotAt()));
         });
     }
@@ -81,12 +91,29 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.orders(actor.tenantId(), new TradePageFilter(actor.merchantId(), null, query.merchantOrderNo(), null,
-                    name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
-            var summaries = queries.refundSummaries(actor.tenantId(), actor.merchantId(),
+            var page = queries.orders(
+                    actor.tenantId(),
+                    new TradePageFilter(
+                            actor.merchantId(),
+                            null,
+                            query.merchantOrderNo(),
+                            null,
+                            name(query.state()),
+                            local(query.createdFrom()),
+                            local(query.createdTo()),
+                            query.page(),
+                            query.size()));
+            var summaries = queries.refundSummaries(
+                    actor.tenantId(),
+                    actor.merchantId(),
                     page.records().stream().map(TradeOrderProjection::orderId).collect(Collectors.toUnmodifiableSet()));
-            return PageDTO.of(page.records().stream().map(order -> orderDTO(order, summaries.get(order.orderId()))).toList(),
-                    page.total(), page.page(), page.size());
+            return PageDTO.of(
+                    page.records().stream()
+                            .map(order -> orderDTO(order, summaries.get(order.orderId())))
+                            .toList(),
+                    page.total(),
+                    page.page(),
+                    page.size());
         });
     }
 
@@ -95,9 +122,20 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.payments(actor.tenantId(), new TradePageFilter(actor.merchantId(), query.orderId(), null, null,
-                    name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
-            return PageDTO.of(page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
+            var page = queries.payments(
+                    actor.tenantId(),
+                    new TradePageFilter(
+                            actor.merchantId(),
+                            query.orderId(),
+                            null,
+                            null,
+                            name(query.state()),
+                            local(query.createdFrom()),
+                            local(query.createdTo()),
+                            query.page(),
+                            query.size()));
+            return PageDTO.of(
+                    page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
         });
     }
 
@@ -106,9 +144,20 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         validate(query);
         var actor = actor(query.payeeMerchantId());
         return transactions.readSnapshot(actor.tenantId(), () -> {
-            var page = queries.refunds(actor.tenantId(), new TradePageFilter(actor.merchantId(), query.orderId(), null, query.refundRequestId(),
-                    name(query.state()), local(query.createdFrom()), local(query.createdTo()), query.page(), query.size()));
-            return PageDTO.of(page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
+            var page = queries.refunds(
+                    actor.tenantId(),
+                    new TradePageFilter(
+                            actor.merchantId(),
+                            query.orderId(),
+                            null,
+                            query.refundRequestId(),
+                            name(query.state()),
+                            local(query.createdFrom()),
+                            local(query.createdTo()),
+                            query.page(),
+                            query.size()));
+            return PageDTO.of(
+                    page.records().stream().map(converter::toDTO).toList(), page.total(), page.page(), page.size());
         });
     }
 
@@ -116,16 +165,22 @@ public class MerchantTradeQueryService implements MerchantTradeQueryFacade {
         if (summary == null) {
             return converter.toOrderDTO(order, null, null, null, false);
         }
-        if (!summary.payeeMerchantId().equals(order.payeeMerchantId()) || !summary.currency().equals(order.amount().getCurrencyValue())) {
+        if (!summary.payeeMerchantId().equals(order.payeeMerchantId())
+                || !summary.currency().equals(order.amount().getCurrencyValue())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        return converter.toOrderDTO(order, summary.refundedMinor(), order.paidMinor() - summary.refundedMinor(),
-                summary.source().number(), summary.refundedMinor() <= order.paidMinor());
+        return converter.toOrderDTO(
+                order,
+                summary.refundedMinor(),
+                order.paidMinor() - summary.refundedMinor(),
+                summary.source().number(),
+                summary.refundedMinor() <= order.paidMinor());
     }
 
     private RealtimeActor actor(String payee) {
         var actor = actors.current();
-        if (actor.merchantId() == null || !actor.merchantId().equals(payee)
+        if (actor.merchantId() == null
+                || !actor.merchantId().equals(payee)
                 || !actor.permissions().contains("pay:realtime:trade:read")) {
             throw new CommonException(QUERY_FORBIDDEN);
         }

@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.repository;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -71,22 +82,6 @@ import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatc
 import io.github.loadup.pay.reconciliation.infrastructure.client.FileResourceReconciliationSources;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationReviewStorageConverter;
 import io.github.loadup.pay.reconciliation.infrastructure.converter.ReconciliationVerificationStorageConverter;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import javax.sql.DataSource;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -109,20 +104,30 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Real SQL, native Outbox claim/ACK and application transactions; owner transport and object bytes are controlled.
  */
-@SpringBootTest(classes = ReconciliationVerificationPersistenceIT.Application.class,
+@SpringBootTest(
+        classes = ReconciliationVerificationPersistenceIT.Application.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {"loadup.outbox.worker-enabled=false", "loadup.outbox.max-attempts=1", "loadup.outbox.batch-size=1"})
+        properties = {"loadup.outbox.worker-enabled=false", "loadup.outbox.max-attempts=1", "loadup.outbox.batch-size=1"
+        })
 @EnableTestContainers(value = ContainerType.POSTGRESQL, reuse = false)
 @Execution(ExecutionMode.SAME_THREAD)
 class ReconciliationVerificationPersistenceIT {
@@ -145,12 +150,23 @@ class ReconciliationVerificationPersistenceIT {
     final Set<String> tenants = new HashSet<>();
 
     @Autowired
-    ReconciliationVerificationPersistenceIT(ReconciliationVerificationService service, ReconciliationReviewService reviews,
-                                            ReconciliationBatchGateway batches, ReconciliationInputGateway inputs, ReconciliationResultGateway results,
-                                            ReconciliationTransactions transactions, ReconciliationSourceFiles files, FaultingVerifications requests,
-                                            JdbcTemplate jdbc, Actors actors, Payment payment, OutboxTemplate outbox, OutboxDispatcher dispatcher,
-                                            Handler handler, DataSource dataSource,
-                                            org.springframework.transaction.PlatformTransactionManager transactionManager) {
+    ReconciliationVerificationPersistenceIT(
+            ReconciliationVerificationService service,
+            ReconciliationReviewService reviews,
+            ReconciliationBatchGateway batches,
+            ReconciliationInputGateway inputs,
+            ReconciliationResultGateway results,
+            ReconciliationTransactions transactions,
+            ReconciliationSourceFiles files,
+            FaultingVerifications requests,
+            JdbcTemplate jdbc,
+            Actors actors,
+            Payment payment,
+            OutboxTemplate outbox,
+            OutboxDispatcher dispatcher,
+            Handler handler,
+            DataSource dataSource,
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.service = service;
         this.reviews = reviews;
         this.batches = batches;
@@ -233,8 +249,13 @@ class ReconciliationVerificationPersistenceIT {
         assertEquals("PENDING", pending.deliveryStatus());
         assertNull(pending.receipt());
         assertEquals(1L, count("loadup_outbox_replay", fixture.tenant()));
-        assertEquals("ops", jdbc.queryForObject("SELECT operator_id FROM loadup_outbox_replay WHERE tenant_id = ? AND event_id = ?",
-                String.class, fixture.tenant(), initial.deliveryId()));
+        assertEquals(
+                "ops",
+                jdbc.queryForObject(
+                        "SELECT operator_id FROM loadup_outbox_replay WHERE tenant_id = ? AND event_id = ?",
+                        String.class,
+                        fixture.tenant(),
+                        initial.deliveryId()));
         assertEquals(1, dispatcher.dispatchBatch());
         var recorded = detail(fixture, initial.requestId());
         assertEquals("RECORDED", recorded.state().name());
@@ -304,14 +325,22 @@ class ReconciliationVerificationPersistenceIT {
         properties.setWorkerEnabled(false);
         properties.setBatchSize(1);
         properties.setMaxAttempts(3);
-        var secondWorker = new OutboxDispatcher(new JdbcOutboxRepository(dataSource, transactionManager, properties), properties, List.of(handler), null);
+        var secondWorker = new OutboxDispatcher(
+                new JdbcOutboxRepository(dataSource, transactionManager, properties),
+                properties,
+                List.of(handler),
+                null);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var oldWorker = executor.submit(dispatcher::dispatchBatch);
             try {
                 assertTrue(entered.await(10, TimeUnit.SECONDS));
                 // Expire only this test claim instead of relying on wall-clock sleeps.
-                assertEquals(1, jdbc.update("UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE tenant_id = ? AND id = ? AND status = 'PROCESSING'",
-                        fixture.tenant(), initial.deliveryId()));
+                assertEquals(
+                        1,
+                        jdbc.update(
+                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE tenant_id = ? AND id = ? AND status = 'PROCESSING'",
+                                fixture.tenant(),
+                                initial.deliveryId()));
                 assertEquals(1, secondWorker.dispatchBatch());
                 var winner = detail(fixture, initial.requestId());
                 assertEquals("d".repeat(64), winner.receipt().sourceDigest());
@@ -336,8 +365,24 @@ class ReconciliationVerificationPersistenceIT {
         var initial = submit(fixture);
         payment.action.set((tenant, query) -> {
             var at = OffsetDateTime.ofInstant(Instant.parse("2026-10-28T06:00:00Z"), ZoneId.systemDefault());
-            return new PaymentVerificationDTO(query, PaymentVerificationDisposition.NO_LOCAL_TARGET,
-                    null, null, null, null, null, null, null, null, null, null, null, null, at, at, null);
+            return new PaymentVerificationDTO(
+                    query,
+                    PaymentVerificationDisposition.NO_LOCAL_TARGET,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    at,
+                    at,
+                    null);
         });
         assertEquals(1, dispatcher.dispatchBatch());
         var value = detail(fixture, initial.requestId());
@@ -345,13 +390,24 @@ class ReconciliationVerificationPersistenceIT {
         assertNull(value.receipt().amount());
         assertNull(value.receipt().sourceDigest());
         assertNull(value.receipt().sourceVersion());
-        assertThrows(CommonException.class, () -> actors.call("other-" + UUID.randomUUID(), "ops", () -> service.detail(new IdQuery(initial.requestId()))));
+        assertThrows(
+                CommonException.class,
+                () -> actors.call(
+                        "other-" + UUID.randomUUID(), "ops", () -> service.detail(new IdQuery(initial.requestId()))));
         assertOriginal(fixture);
     }
 
     private ReconciliationVerificationDTO submit(Fixture fixture) {
-        return actors.call(fixture.tenant(), "ops", () -> service.submit(new ReconciliationVerificationSubmitCommand(
-                fixture.batchId(), fixture.differenceId(), fixture.proposalId(), fixture.approvalId(), 2L, "verification")));
+        return actors.call(
+                fixture.tenant(),
+                "ops",
+                () -> service.submit(new ReconciliationVerificationSubmitCommand(
+                        fixture.batchId(),
+                        fixture.differenceId(),
+                        fixture.proposalId(),
+                        fixture.approvalId(),
+                        2L,
+                        "verification")));
     }
 
     private ReconciliationVerificationDTO detail(Fixture fixture, String id) {
@@ -359,11 +415,19 @@ class ReconciliationVerificationPersistenceIT {
     }
 
     private ReconciliationVerificationDTO retry(Fixture fixture, ReconciliationVerificationDTO initial) {
-        return actors.call(fixture.tenant(), "ops", () -> service.retry(new ReconciliationVerificationRetryCommand(initial.requestId(), initial.deliveryId(), "retry original query delivery")));
+        return actors.call(
+                fixture.tenant(),
+                "ops",
+                () -> service.retry(new ReconciliationVerificationRetryCommand(
+                        initial.requestId(), initial.deliveryId(), "retry original query delivery")));
     }
 
     private void assertOriginal(Fixture fixture) {
-        var original = transactions.readSnapshot(fixture.tenant(), () -> batches.find(fixture.tenant(), fixture.batchId()).orElseThrow().batch());
+        var original = transactions.readSnapshot(
+                fixture.tenant(),
+                () -> batches.find(fixture.tenant(), fixture.batchId())
+                        .orElseThrow()
+                        .batch());
         assertEquals("DIFFERENCES", original.state().name());
         assertEquals(fixture.resultHash(), original.result().resultHash());
         assertEquals(1L, original.result().differenceCount());
@@ -376,10 +440,13 @@ class ReconciliationVerificationPersistenceIT {
         tenants.add(tenant);
         String batchId = UUID.randomUUID().toString();
         String run = UUID.randomUUID().toString();
-        var scope = new ReconciliationScope(Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 27), "wechat-trade-all-20260116");
+        var scope = new ReconciliationScope(
+                Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 27), "wechat-trade-all-20260116");
         var key = new ReconciliationKey(ReconciliationRecordKind.PAYMENT, "transaction", null);
-        var channelLine = new ReconciliationLine(key, "statement-request", Money.ofMinor(100L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
-        var ledgerLine = new ReconciliationLine(key, "ledger-request", Money.ofMinor(90L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
+        var channelLine = new ReconciliationLine(
+                key, "statement-request", Money.ofMinor(100L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
+        var ledgerLine = new ReconciliationLine(
+                key, "ledger-request", Money.ofMinor(90L, "CNY"), ReconciliationEntryStatus.SUCCEEDED, 1L);
         var cFile = upload(tenant, "channel");
         var lFile = upload(tenant, "ledger");
         var channel = dataset(scope, cFile, channelLine, ReconciliationSide.CHANNEL);
@@ -403,38 +470,95 @@ class ReconciliationVerificationPersistenceIT {
             batches.update(tenant, stored(running.complete(run, result)), running.version());
             return true;
         });
-        String differenceId = jdbc.queryForObject("SELECT id FROM reconciliation_difference WHERE tenant_id = ? AND batch_id = ?", String.class, tenant, batchId);
-        var proposed = actors.call(tenant, "maker", () -> reviews.propose(new ReconciliationReviewProposeCommand(batchId, differenceId,
-                "proposal", 0L, ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION, "independent source query required", null)));
-        var approved = actors.call(tenant, "checker", () -> reviews.decide(new ReconciliationReviewDecideCommand(batchId, differenceId,
-                proposed.proposalId(), "approval", 1L, true, "approved read-only source consultation")));
-        return new Fixture(tenant, batchId, differenceId, result.summary().resultHash(), proposed.proposalId(), approved.eventId());
+        String differenceId = jdbc.queryForObject(
+                "SELECT id FROM reconciliation_difference WHERE tenant_id = ? AND batch_id = ?",
+                String.class,
+                tenant,
+                batchId);
+        var proposed = actors.call(
+                tenant,
+                "maker",
+                () -> reviews.propose(new ReconciliationReviewProposeCommand(
+                        batchId,
+                        differenceId,
+                        "proposal",
+                        0L,
+                        ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION,
+                        "independent source query required",
+                        null)));
+        var approved = actors.call(
+                tenant,
+                "checker",
+                () -> reviews.decide(new ReconciliationReviewDecideCommand(
+                        batchId,
+                        differenceId,
+                        proposed.proposalId(),
+                        "approval",
+                        1L,
+                        true,
+                        "approved read-only source consultation")));
+        return new Fixture(
+                tenant,
+                batchId,
+                differenceId,
+                result.summary().resultHash(),
+                proposed.proposalId(),
+                approved.eventId());
     }
 
     private ReconciliationFileSnapshot upload(String tenant, String name) {
         byte[] bytes = name.getBytes(StandardCharsets.UTF_8);
-        return files.upload(tenant, "batch-owner", name + ".bin", "application/octet-stream", bytes.length, new ByteArrayInputStream(bytes));
+        return files.upload(
+                tenant,
+                "batch-owner",
+                name + ".bin",
+                "application/octet-stream",
+                bytes.length,
+                new ByteArrayInputStream(bytes));
     }
 
     private StoredReconciliationBatch stored(ReconciliationBatch batch) {
         return new StoredReconciliationBatch(batch, "batch-owner", "request", "b".repeat(64), "account");
     }
 
-    private ReconciliationDataset dataset(ReconciliationScope scope, ReconciliationFileSnapshot file, ReconciliationLine line, ReconciliationSide side) {
-        return new ReconciliationDataset(new ReconciliationManifest(side, scope, file.fileId(), file.sha256(),
-                ReconciliationDataset.normalizedHash(scope, side, "parser", List.of(line)), file.fileId(), "parser", ReconciliationTotals.count(List.of(line))), List.of(line));
+    private ReconciliationDataset dataset(
+            ReconciliationScope scope,
+            ReconciliationFileSnapshot file,
+            ReconciliationLine line,
+            ReconciliationSide side) {
+        return new ReconciliationDataset(
+                new ReconciliationManifest(
+                        side,
+                        scope,
+                        file.fileId(),
+                        file.sha256(),
+                        ReconciliationDataset.normalizedHash(scope, side, "parser", List.of(line)),
+                        file.fileId(),
+                        "parser",
+                        ReconciliationTotals.count(List.of(line))),
+                List.of(line));
     }
 
     private long count(String table, String tenant) {
-        if (!Set.of("reconciliation_verification", "loadup_outbox_event", "loadup_outbox_replay", "reconciliation_difference", "reconciliation_review_event").contains(table)) {
+        if (!Set.of(
+                        "reconciliation_verification",
+                        "loadup_outbox_event",
+                        "loadup_outbox_replay",
+                        "reconciliation_difference",
+                        "reconciliation_review_event")
+                .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
     }
 
-    record Fixture(String tenant, String batchId, String differenceId, String resultHash, String proposalId,
-                   String approvalId) {
-    }
+    record Fixture(
+            String tenant,
+            String batchId,
+            String differenceId,
+            String resultHash,
+            String proposalId,
+            String approvalId) {}
 
     static final class Actors implements ReconciliationActorProvider {
         final ThreadLocal<ReconciliationActor> actor = new ThreadLocal<>();
@@ -445,8 +569,15 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         <T> T call(String tenant, String caller, Supplier<T> action) {
-            actor.set(new ReconciliationActor(tenant, caller, Set.of("pay:reconciliation:review:propose", "pay:reconciliation:review:decide",
-                    "pay:reconciliation:verification:submit", "pay:reconciliation:verification:read", "pay:reconciliation:verification:retry")));
+            actor.set(new ReconciliationActor(
+                    tenant,
+                    caller,
+                    Set.of(
+                            "pay:reconciliation:review:propose",
+                            "pay:reconciliation:review:decide",
+                            "pay:reconciliation:verification:submit",
+                            "pay:reconciliation:verification:read",
+                            "pay:reconciliation:verification:retry")));
             try {
                 return action.get();
             } finally {
@@ -457,12 +588,29 @@ class ReconciliationVerificationPersistenceIT {
 
     static final class Payment implements ReconciliationPaymentVerification {
         final AtomicInteger calls = new AtomicInteger();
-        final AtomicReference<BiFunction<String, PaymentVerificationQuery, PaymentVerificationDTO>> action = new AtomicReference<>();
+        final AtomicReference<BiFunction<String, PaymentVerificationQuery, PaymentVerificationDTO>> action =
+                new AtomicReference<>();
 
         static PaymentVerificationDTO observed(PaymentVerificationQuery query, String digest) {
             var at = OffsetDateTime.ofInstant(Instant.parse("2026-10-28T06:00:00Z"), ZoneId.systemDefault());
-            return new PaymentVerificationDTO(query, PaymentVerificationDisposition.OBSERVED, "revision", "payment", "attempt", null,
-                    3L, "UNKNOWN", PaymentVerificationOutcome.UNKNOWN, Money.ofMinor(90L, "CNY"), null, null, null, digest, at, at, null);
+            return new PaymentVerificationDTO(
+                    query,
+                    PaymentVerificationDisposition.OBSERVED,
+                    "revision",
+                    "payment",
+                    "attempt",
+                    null,
+                    3L,
+                    "UNKNOWN",
+                    PaymentVerificationOutcome.UNKNOWN,
+                    Money.ofMinor(90L, "CNY"),
+                    null,
+                    null,
+                    null,
+                    digest,
+                    at,
+                    at,
+                    null);
         }
 
         void reset() {
@@ -483,7 +631,10 @@ class ReconciliationVerificationPersistenceIT {
     static class FaultingVerifications extends ReconciliationVerificationGatewayImpl {
         final AtomicReference<String> failure = new AtomicReference<>();
 
-        FaultingVerifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, Clock clock) {
+        FaultingVerifications(
+                ReconciliationVerificationStorageConverter converter,
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                Clock clock) {
             super(converter, jdbc, clock);
         }
 
@@ -528,10 +679,19 @@ class ReconciliationVerificationPersistenceIT {
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
-    @ComponentScan(basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
-    @Import({ReconciliationVerificationService.class, ReconciliationVerificationDelivery.class, ReconciliationReviewService.class,
-            ReconciliationTransactions.class, ReconciliationReviewGatewayImpl.class, ReconciliationBatchGatewayImpl.class,
-            ReconciliationInputGatewayImpl.class, ReconciliationResultGatewayImpl.class, FileResourceReconciliationSources.class})
+    @ComponentScan(
+            basePackageClasses = {ReconciliationReviewStorageConverter.class, ReconciliationReviewConverter.class})
+    @Import({
+        ReconciliationVerificationService.class,
+        ReconciliationVerificationDelivery.class,
+        ReconciliationReviewService.class,
+        ReconciliationTransactions.class,
+        ReconciliationReviewGatewayImpl.class,
+        ReconciliationBatchGatewayImpl.class,
+        ReconciliationInputGatewayImpl.class,
+        ReconciliationResultGatewayImpl.class,
+        FileResourceReconciliationSources.class
+    })
     static class Application {
         @Bean
         Actors actors() {
@@ -549,7 +709,10 @@ class ReconciliationVerificationPersistenceIT {
         }
 
         @Bean
-        FaultingVerifications verifications(ReconciliationVerificationStorageConverter converter, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc, Clock clock) {
+        FaultingVerifications verifications(
+                ReconciliationVerificationStorageConverter converter,
+                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                Clock clock) {
             return new FaultingVerifications(converter, jdbc, clock);
         }
 
@@ -569,17 +732,21 @@ class ReconciliationVerificationPersistenceIT {
                 @Override
                 public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
                     if (!Set.of("maker", "checker", "ops").contains(caller) || !"account".equals(code)) {
-                        throw new CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
+                        throw new CommonException(
+                                io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum
+                                        .ACTION_FORBIDDEN);
                     }
                 }
 
                 @Override
-                public ReconciliationStatementAccount statementAccount(String tenant, String caller, String code, ReconciliationScope scope) {
+                public ReconciliationStatementAccount statementAccount(
+                        String tenant, String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
 
                 @Override
-                public String statementBindingRevision(String tenant, String caller, String code, ReconciliationScope scope) {
+                public String statementBindingRevision(
+                        String tenant, String caller, String code, ReconciliationScope scope) {
                     throw new AssertionError("Not a source operation");
                 }
             };

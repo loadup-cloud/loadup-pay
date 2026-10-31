@@ -1,19 +1,30 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
@@ -34,22 +45,14 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import jakarta.validation.Validator;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ORDER_NOT_PAYABLE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class OrderExtensionService implements AcquireOrderExtensionFacade {
@@ -66,10 +69,19 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
     private final OrderSnapshotEvents snapshots;
     private final OrderDeadlineTasks deadlineTasks;
 
-    public OrderExtensionService(AcquireActorProvider actors, OrderCreationGateway orders, OrderExtensionGateway store,
-                                 OrderCreationCodec codec, AcquireOrderConverter orderConverter, OrderExtensionConverter converter,
-                                 OrderCreationTransactions transactions, IdGenerator ids, Validator validator,
-                                 Clock clock, OrderSnapshotEvents snapshots, OrderDeadlineTasks deadlineTasks) {
+    public OrderExtensionService(
+            AcquireActorProvider actors,
+            OrderCreationGateway orders,
+            OrderExtensionGateway store,
+            OrderCreationCodec codec,
+            AcquireOrderConverter orderConverter,
+            OrderExtensionConverter converter,
+            OrderCreationTransactions transactions,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            OrderSnapshotEvents snapshots,
+            OrderDeadlineTasks deadlineTasks) {
         this.actors = actors;
         this.orders = orders;
         this.store = store;
@@ -134,14 +146,25 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 throw new CommonException(ACTION_FORBIDDEN);
             }
             var originalDue = originalDue(actor, stored, terms);
-            var extended = order.extend(requested, originalDue, terms.extensionAllowed(), terms.extensionMaxSeconds(), appliedAt);
-            var receipt = converter.toReceipt(command, order, ids.generate(), actor.scopeHash(), digest,
-                    originalDue, requested, Math.incrementExact(deadlineVersion), appliedAt);
+            var extended = order.extend(
+                    requested, originalDue, terms.extensionAllowed(), terms.extensionMaxSeconds(), appliedAt);
+            var receipt = converter.toReceipt(
+                    command,
+                    order,
+                    ids.generate(),
+                    actor.scopeHash(),
+                    digest,
+                    originalDue,
+                    requested,
+                    Math.incrementExact(deadlineVersion),
+                    appliedAt);
             store.extend(actor.tenantId(), extended, receipt);
             deadlineTasks.register(actor.tenantId(), extended, receipt.deadlineVersion());
             snapshots.publish(actor.tenantId(), extended.id(), extended.version());
-            return orderConverter.toDTO(orders.findOrder(actor.tenantId(), command.id())
-                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)), now());
+            return orderConverter.toDTO(
+                    orders.findOrder(actor.tenantId(), command.id())
+                            .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID)),
+                    now());
         });
     }
 
@@ -149,7 +172,8 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
         try {
             var intent = orders.findIntent(actor.tenantId(), order.order().payeeMerchantId(), order.merchantOrderNo())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            if (!"COMPLETED".equals(intent.state()) || !order.order().id().equals(intent.orderId())
+            if (!"COMPLETED".equals(intent.state())
+                    || !order.order().id().equals(intent.orderId())
                     || !actor.scopeHash().equals(intent.callerScopeHash())
                     || !order.admission().requestDigest().equals(intent.requestDigest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -171,10 +195,13 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var due = original.requestedDueAt() == null
-                    ? order.admittedAt().plusSeconds(terms.waitSeconds()) : inputTime(original.requestedDueAt());
-            if (!digest.equals(intent.requestDigest()) || !due.isAfter(order.admittedAt())
+                    ? order.admittedAt().plusSeconds(terms.waitSeconds())
+                    : inputTime(original.requestedDueAt());
+            if (!digest.equals(intent.requestDigest())
+                    || !due.isAfter(order.admittedAt())
                     || due.isAfter(order.admittedAt().plusSeconds(terms.maxWaitSeconds()))
-                    || due.isAfter(order.order().orderDueAt()) || due.getYear() > 9998) {
+                    || due.isAfter(order.order().orderDueAt())
+                    || due.getYear() > 9998) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return due;
@@ -193,9 +220,17 @@ public class OrderExtensionService implements AcquireOrderExtensionFacade {
 
     private String digest(AcquireActor actor, AcquireOrderExtendCommand command, LocalDateTime requested) {
         var framed = new StringBuilder();
-        for (String field : List.of("acquire.order-extend.v1", actor.tenantId(), actor.scopeHash(), command.id(),
-                command.requestKey(), requested.toString(), Long.toString(command.expectedVersion()))) {
-            framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        for (String field : List.of(
+                "acquire.order-extend.v1",
+                actor.tenantId(),
+                actor.scopeHash(),
+                command.id(),
+                command.requestKey(),
+                requested.toString(),
+                Long.toString(command.expectedVersion()))) {
+            framed.append(field.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(field);
         }
         return codec.checksum(framed.toString());
     }

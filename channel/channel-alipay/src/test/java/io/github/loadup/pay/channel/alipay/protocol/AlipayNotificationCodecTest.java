@@ -1,19 +1,31 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Alipay
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.alipay.protocol;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
@@ -29,8 +41,6 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
-import org.junit.jupiter.api.Test;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -40,25 +50,25 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
 
 class AlipayNotificationCodecTest {
     private static final String ORDER_NO = "payment-request-18";
     private static final String HASH = "a".repeat(64);
     private static final Money AMOUNT = Money.ofMinor(125_000, "CNY");
-    private static final ChannelBindingRevision BINDING = new ChannelBindingRevision("revision-1", "merchant-1",
-            Channel.ALIPAY, AccessMode.DIRECT, HASH, "credential-ref", "3",
-            new AlipayAccountIdentity("app", "seller", null, null, null), java.util.Set.of(PaymentMethod.PAYMENT_CODE));
+    private static final ChannelBindingRevision BINDING = new ChannelBindingRevision(
+            "revision-1",
+            "merchant-1",
+            Channel.ALIPAY,
+            AccessMode.DIRECT,
+            HASH,
+            "credential-ref",
+            "3",
+            new AlipayAccountIdentity("app", "seller", null, null, null),
+            java.util.Set.of(PaymentMethod.PAYMENT_CODE));
     private static final ChannelExecutionContext CONTEXT = new ChannelExecutionContext("tenant", BINDING);
-    private static final ChannelPaymentIdentity IDENTITY = new ChannelPaymentIdentity("payment-1", "attempt-1",
-            Channel.ALIPAY, "revision-1", HASH, ORDER_NO);
+    private static final ChannelPaymentIdentity IDENTITY =
+            new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, "revision-1", HASH, ORDER_NO);
     private static final ChannelPaymentTarget TARGET = new ChannelPaymentTarget(IDENTITY, AMOUNT);
 
     private final AlipayCredentialReader credentials = mock(AlipayCredentialReader.class);
@@ -185,20 +195,48 @@ class AlipayNotificationCodecTest {
         var keys = rsaKeyPair();
         when(credentials.verificationKey("tenant", BINDING)).thenReturn(keys.getPublic());
         var signed = signedForm(fields(), keys);
-        var wrongContextBinding = new ChannelBindingRevision("other-revision", "merchant-1", Channel.ALIPAY,
-                AccessMode.DIRECT, HASH, "credential-ref", "3", BINDING.identity(), java.util.Set.of(PaymentMethod.PAYMENT_CODE));
+        var wrongContextBinding = new ChannelBindingRevision(
+                "other-revision",
+                "merchant-1",
+                Channel.ALIPAY,
+                AccessMode.DIRECT,
+                HASH,
+                "credential-ref",
+                "3",
+                BINDING.identity(),
+                java.util.Set.of(PaymentMethod.PAYMENT_CODE));
         var wrongContext = new ChannelExecutionContext("tenant", wrongContextBinding);
-        assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant",
-                () -> codec.verify(wrongContext, TARGET, input(signed))));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.callWithTenant("tenant", () -> codec.verify(wrongContext, TARGET, input(signed))));
 
-        assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant",
-                () -> codec.verify(CONTEXT, new ChannelPaymentTarget(new ChannelPaymentIdentity("payment-1", "attempt-1",
-                        Channel.ALIPAY, "revision-1", HASH, "other-order"), AMOUNT), input(signed))));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.callWithTenant(
+                        "tenant",
+                        () -> codec.verify(
+                                CONTEXT,
+                                new ChannelPaymentTarget(
+                                        new ChannelPaymentIdentity(
+                                                "payment-1",
+                                                "attempt-1",
+                                                Channel.ALIPAY,
+                                                "revision-1",
+                                                HASH,
+                                                "other-order"),
+                                        AMOUNT),
+                                input(signed))));
         assertInvalid(signedForm(with(fields(), "app_id", "other-app"), keys));
         assertInvalid(signedForm(with(fields(), "seller_id", "other-seller"), keys));
         assertInvalid(signedForm(with(fields(), "notify_type", "refund_status_sync"), keys));
-        assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant",
-                () -> codec.verify(CONTEXT, new ChannelPaymentTarget(IDENTITY, Money.ofMinor(125_001, "CNY")), input(signed))));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.callWithTenant(
+                        "tenant",
+                        () -> codec.verify(
+                                CONTEXT,
+                                new ChannelPaymentTarget(IDENTITY, Money.ofMinor(125_001, "CNY")),
+                                input(signed))));
     }
 
     private void assertInvalid(String form) {
@@ -206,7 +244,9 @@ class AlipayNotificationCodecTest {
     }
 
     private void assertInvalid(String form, String contentType) {
-        assertThrows(CommonException.class, () -> TenantUtil.callWithTenant("tenant",
-                () -> codec.verify(CONTEXT, TARGET, input(form, contentType))));
+        assertThrows(
+                CommonException.class,
+                () -> TenantUtil.callWithTenant(
+                        "tenant", () -> codec.verify(CONTEXT, TARGET, input(form, contentType))));
     }
 }

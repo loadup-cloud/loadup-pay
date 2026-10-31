@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.infrastructure.repository;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -24,6 +33,9 @@ import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
 import io.github.loadup.pay.acquire.infrastructure.converter.CheckoutStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.CheckoutSessionDO;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -32,15 +44,6 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
@@ -68,33 +71,42 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     }
 
     private Optional<StoredCheckoutSession> query(String predicate, MapSqlParameterSource args, boolean lock) {
-        var rows = jdbc.query("""
+        var rows = jdbc.query(
+                """
                 SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, request_key, request_digest,
                        token_hash, token_nonce, token_key_ref, token_key_version, state, expires_at, allowed_origin,
                        scope_snapshot, row_version, revoked_at
                 FROM checkout_session WHERE tenant_id = :tenant AND deleted = FALSE AND
-                """ + predicate + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(CheckoutSessionDO.class));
+                """ + predicate + (lock ? " FOR UPDATE" : ""),
+                args,
+                BeanPropertyRowMapper.newInstance(CheckoutSessionDO.class));
         return stored(rows.stream().findFirst().orElse(null));
     }
 
     @Override
     public Optional<StoredCheckoutSession> find(String tenant, String id) {
         scope(tenant);
-        return query("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false);
+        return query(
+                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), false);
     }
 
     @Override
     public Optional<StoredCheckoutSession> lock(String tenant, String id) {
         scope(tenant);
         writable();
-        return query("id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
+        return query(
+                "id = :id", new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id), true);
     }
 
     @Override
     public Optional<StoredCheckoutSession> findRequest(String tenant, String order, String key) {
         scope(tenant);
-        return query("order_id = :order AND request_key = :key", new MapSqlParameterSource("tenant", TenantContext.tenantId())
-                .addValue("order", order).addValue("key", key), false);
+        return query(
+                "order_id = :order AND request_key = :key",
+                new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                        .addValue("order", order)
+                        .addValue("key", key),
+                false);
     }
 
     private Optional<StoredCheckoutSession> stored(CheckoutSessionDO row) {
@@ -145,13 +157,19 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     public void revoke(String tenant, StoredCheckoutSession before, StoredCheckoutSession after) {
         scope(tenant);
         writable();
-        if (before == null || after == null || before.revokedAt() != null || after.revokedAt() == null
+        if (before == null
+                || after == null
+                || before.revokedAt() != null
+                || after.revokedAt() == null
                 || !before.revoke(before.rowVersion(), after.revokedAt()).equals(after)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", before.session().id())
-                .addValue("expected", before.rowVersion()).addValue("version", after.rowVersion())
-                .addValue("revokedAt", after.revokedAt()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
+                .addValue("id", before.session().id())
+                .addValue("expected", before.rowVersion())
+                .addValue("version", after.rowVersion())
+                .addValue("revokedAt", after.revokedAt())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE checkout_session SET revoked_at = :revokedAt, row_version = :version, updated_at = :updated
                 WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND revoked_at IS NULL AND deleted = FALSE
@@ -162,9 +180,11 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
     }
 
     private void writable() {
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

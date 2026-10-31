@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.converter;
 
@@ -24,11 +28,10 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapsh
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationOfficialReceipt;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementRequest;
+import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface ReconciliationStatementConverter {
@@ -47,12 +50,14 @@ public interface ReconciliationStatementConverter {
     @Mapping(target = "downloadedEpochMicros", source = "source.downloadedAt", qualifiedByName = "epochMicros")
     @Mapping(target = "content", source = "file")
     @Mapping(target = "evidence", source = "proof")
-    ReconciliationOfficialReceipt toReceipt(PaymentStatementDTO source, ReconciliationFileSnapshot file, ReconciliationFileSnapshot proof);
+    ReconciliationOfficialReceipt toReceipt(
+            PaymentStatementDTO source, ReconciliationFileSnapshot file, ReconciliationFileSnapshot proof);
 
     @Named("epochMicros")
     default long micros(OffsetDateTime value) {
         if (value == null || value.getNano() % 1000 != 0) {
-            throw new io.github.loadup.commons.error.CommonException(io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
+            throw new io.github.loadup.commons.error.CommonException(
+                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
         }
         return Math.addExact(Math.multiplyExact(value.toEpochSecond(), 1000000L), value.getNano() / 1000L);
     }
@@ -88,7 +93,10 @@ public interface ReconciliationStatementConverter {
     @Mapping(target = "billDate", source = "value.scope.billDate")
     @Mapping(target = "statementProfile", source = "value.scope.statementProfile")
     @Mapping(target = "version", source = "value.version")
-    @Mapping(target = "importId", expression = "java(value.state() == io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState.READY ? value.id() : null)")
+    @Mapping(
+            target = "importId",
+            expression =
+                    "java(value.state() == io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState.READY ? value.id() : null)")
     @Mapping(target = "taskId", source = "value.taskId")
     @Mapping(target = "taskStatus", source = "task.status")
     @Mapping(target = "attempts", source = "task.attempts")

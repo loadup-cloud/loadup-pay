@@ -1,3 +1,22 @@
+/*
+ * #%L
+ * LoadUp Pay Payment Client
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * #L%
+ */
 package io.github.loadup.pay.payment.rpc;
 
 import com.google.protobuf.Timestamp;
@@ -23,38 +42,76 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 import org.mapstruct.NullValueCheckStrategy;
 
-@Mapper(config = LoadUpMapStructConfig.class, uses = {PaymentVerificationRpcFields.class, RpcScalarMapper.class}, nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
+@Mapper(
+        config = LoadUpMapStructConfig.class,
+        uses = {PaymentVerificationRpcFields.class, RpcScalarMapper.class},
+        nullValueCheckStrategy = NullValueCheckStrategy.ALWAYS)
 public interface PaymentVerificationRpcMapper {
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "sourceRequestId", source = "sourceRequestId"), @Mapping(target = "channel", source = "channel"), @Mapping(target = "accountScopeHash", source = "accountScopeHash"), @Mapping(target = "kind", source = "kind"), @Mapping(target = "merchantPaymentNo", source = "merchantPaymentNo"), @Mapping(target = "channelTransactionNo", source = "channelTransactionNo"), @Mapping(target = "channelRefundNo", source = "channelRefundNo")})
+    @Mappings(
+            value = {
+                @Mapping(target = "sourceRequestId", source = "sourceRequestId"),
+                @Mapping(target = "channel", source = "channel"),
+                @Mapping(target = "accountScopeHash", source = "accountScopeHash"),
+                @Mapping(target = "kind", source = "kind"),
+                @Mapping(target = "merchantPaymentNo", source = "merchantPaymentNo"),
+                @Mapping(target = "channelTransactionNo", source = "channelTransactionNo"),
+                @Mapping(target = "channelRefundNo", source = "channelRefundNo")
+            })
     public WirePaymentVerificationQuery toWire(PaymentVerificationQuery value);
 
     public PaymentVerificationQuery fromWire(WirePaymentVerificationQuery value);
 
     @BeanMapping(ignoreByDefault = true)
-    @Mappings(value = {@Mapping(target = "request", source = "request"), @Mapping(target = "disposition", source = "disposition"), @Mapping(target = "bindingRevisionId", source = "bindingRevisionId"), @Mapping(target = "paymentId", source = "paymentId"), @Mapping(target = "attemptId", source = "attemptId"), @Mapping(target = "refundId", source = "refundId"), @Mapping(target = "sourceVersion", source = "sourceVersion"), @Mapping(target = "localState", source = "localState"), @Mapping(target = "outcome", source = "outcome"), @Mapping(target = "observedChannelTransactionNo", source = "observedChannelTransactionNo"), @Mapping(target = "observedRefundTransactionNo", source = "observedRefundTransactionNo"), @Mapping(target = "succeededAt", source = "succeededAt"), @Mapping(target = "sourceDigest", source = "sourceDigest"), @Mapping(target = "startedAt", source = "startedAt"), @Mapping(target = "finishedAt", source = "finishedAt"), @Mapping(target = "acceptedAt", source = "acceptedAt")})
+    @Mappings(
+            value = {
+                @Mapping(target = "request", source = "request"),
+                @Mapping(target = "disposition", source = "disposition"),
+                @Mapping(target = "bindingRevisionId", source = "bindingRevisionId"),
+                @Mapping(target = "paymentId", source = "paymentId"),
+                @Mapping(target = "attemptId", source = "attemptId"),
+                @Mapping(target = "refundId", source = "refundId"),
+                @Mapping(target = "sourceVersion", source = "sourceVersion"),
+                @Mapping(target = "localState", source = "localState"),
+                @Mapping(target = "outcome", source = "outcome"),
+                @Mapping(target = "observedChannelTransactionNo", source = "observedChannelTransactionNo"),
+                @Mapping(target = "observedRefundTransactionNo", source = "observedRefundTransactionNo"),
+                @Mapping(target = "succeededAt", source = "succeededAt"),
+                @Mapping(target = "sourceDigest", source = "sourceDigest"),
+                @Mapping(target = "startedAt", source = "startedAt"),
+                @Mapping(target = "finishedAt", source = "finishedAt"),
+                @Mapping(target = "acceptedAt", source = "acceptedAt")
+            })
     public WirePaymentVerificationDTO toWire(PaymentVerificationDTO value);
 
     @Mapping(target = "amount", expression = "java(amount(value))")
     public PaymentVerificationDTO fromWire(WirePaymentVerificationDTO value);
 
     @AfterMapping
-    default public void money(PaymentVerificationDTO value, @MappingTarget WirePaymentVerificationDTO.Builder target) {
+    public default void money(PaymentVerificationDTO value, @MappingTarget WirePaymentVerificationDTO.Builder target) {
         if (value != null && value.amount() != null) {
-            target.setAmountMinor(value.amount().getCent()).setCurrency(value.amount().getCurrencyValue());
+            target.setAmountMinor(value.amount().getCent())
+                    .setCurrency(value.amount().getCurrencyValue());
         }
     }
 
-    default public Money amount(WirePaymentVerificationDTO value) {
-        return value.hasAmountMinor() ? Money.ofMinor((long) value.getAmountMinor(), (String) value.getCurrency()) : null;
+    public default Money amount(WirePaymentVerificationDTO value) {
+        return value.hasAmountMinor()
+                ? Money.ofMinor((long) value.getAmountMinor(), (String) value.getCurrency())
+                : null;
     }
 
     @BeforeMapping
-    default public void required(WirePaymentVerificationQuery value) {
+    public default void required(WirePaymentVerificationQuery value) {
         if (value == null) {
             return;
         }
-        if (!(value.hasSourceRequestId() && value.hasChannel() && value.hasAccountScopeHash() && value.hasKind() && value.hasMerchantPaymentNo() && value.hasChannelTransactionNo())) {
+        if (!(value.hasSourceRequestId()
+                && value.hasChannel()
+                && value.hasAccountScopeHash()
+                && value.hasKind()
+                && value.hasMerchantPaymentNo()
+                && value.hasChannelTransactionNo())) {
             this.invalid();
         }
         this.text(value.getSourceRequestId(), 64);
@@ -72,7 +129,7 @@ public interface PaymentVerificationRpcMapper {
     }
 
     @BeforeMapping
-    default public void required(WirePaymentVerificationDTO value) {
+    public default void required(WirePaymentVerificationDTO value) {
         PaymentVerificationDisposition disposition;
         boolean observed;
         if (value == null) {
@@ -90,11 +147,25 @@ public interface PaymentVerificationRpcMapper {
         if (value.hasAcceptedAt()) {
             this.timestamp(value.getAcceptedAt());
         }
-        boolean bl = observed = (disposition = PaymentVerificationRpcFields.disposition(value.getDisposition())) == PaymentVerificationDisposition.OBSERVED;
-        if (observed != value.hasBindingRevisionId() || observed != value.hasPaymentId() || observed != value.hasAttemptId() || observed != value.hasSourceVersion() || observed != value.hasLocalState() || observed != value.hasOutcome() || observed != value.hasAmountMinor() || observed != value.hasCurrency() || observed != value.hasSourceDigest() || (observed && "REFUND".equals(value.getRequest().getKind())) != value.hasRefundId()) {
+        boolean bl = observed = (disposition = PaymentVerificationRpcFields.disposition(value.getDisposition()))
+                == PaymentVerificationDisposition.OBSERVED;
+        if (observed != value.hasBindingRevisionId()
+                || observed != value.hasPaymentId()
+                || observed != value.hasAttemptId()
+                || observed != value.hasSourceVersion()
+                || observed != value.hasLocalState()
+                || observed != value.hasOutcome()
+                || observed != value.hasAmountMinor()
+                || observed != value.hasCurrency()
+                || observed != value.hasSourceDigest()
+                || (observed && "REFUND".equals(value.getRequest().getKind())) != value.hasRefundId()) {
             this.invalid();
         }
-        if (!observed && (value.hasObservedChannelTransactionNo() || value.hasObservedRefundTransactionNo() || value.hasSucceededAt() || value.hasAcceptedAt())) {
+        if (!observed
+                && (value.hasObservedChannelTransactionNo()
+                        || value.hasObservedRefundTransactionNo()
+                        || value.hasSucceededAt()
+                        || value.hasAcceptedAt())) {
             this.invalid();
         }
         if (observed) {
@@ -128,7 +199,10 @@ public interface PaymentVerificationRpcMapper {
     }
 
     private void text(String value, int max) {
-        if (value == null || value.isBlank() || value.length() > max || value.chars().anyMatch(Character::isISOControl)) {
+        if (value == null
+                || value.isBlank()
+                || value.length() > max
+                || value.chars().anyMatch(Character::isISOControl)) {
             this.invalid();
         }
     }

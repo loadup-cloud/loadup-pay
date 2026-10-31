@@ -1,19 +1,33 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.service;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IMPORT_IN_PROGRESS;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SCOPE_MISMATCH;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
@@ -39,10 +53,6 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementR
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -50,16 +60,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.IMPORT_IN_PROGRESS;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.NOT_FOUND;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SCOPE_MISMATCH;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class ReconciliationStatementService implements ReconciliationStatementFacade {
@@ -78,11 +81,21 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     private final Clock clock;
     private final int maxBytes;
 
-    public ReconciliationStatementService(ReconciliationActorProvider actors, ReconciliationAccountDirectory accounts, ReconciliationBatchGateway batches,
-                                          ReconciliationStatementGateway sources, ReconciliationImportGateway imports, ReconciliationStatementParser parser,
-                                          ReconciliationTransactions transactions, DelayedTaskTemplate tasks, ReconciliationStatementConverter converter,
-                                          ReconciliationOfficialImports official, IdGenerator ids, Validator validator, Clock clock,
-                                          @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
+    public ReconciliationStatementService(
+            ReconciliationActorProvider actors,
+            ReconciliationAccountDirectory accounts,
+            ReconciliationBatchGateway batches,
+            ReconciliationStatementGateway sources,
+            ReconciliationImportGateway imports,
+            ReconciliationStatementParser parser,
+            ReconciliationTransactions transactions,
+            DelayedTaskTemplate tasks,
+            ReconciliationStatementConverter converter,
+            ReconciliationOfficialImports official,
+            IdGenerator ids,
+            Validator validator,
+            Clock clock,
+            @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
         if (maxBytes < 32768 || maxBytes > 16777216) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -103,9 +116,14 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     }
 
     static void task(DelayedTask task, String tenant, ReconciliationStatementRequest value) {
-        if (task == null || !value.taskId().equals(task.id()) || !value.id().equals(task.bizId())
-                || !ReconciliationStatementExecutionService.TYPE.equals(task.taskType()) || task.status() == null
-                || task.attempts() < 0 || task.maxAttempts() < 1 || task.attempts() > task.maxAttempts()
+        if (task == null
+                || !value.taskId().equals(task.id())
+                || !value.id().equals(task.bizId())
+                || !ReconciliationStatementExecutionService.TYPE.equals(task.taskType())
+                || task.status() == null
+                || task.attempts() < 0
+                || task.maxAttempts() < 1
+                || task.attempts() > task.maxAttempts()
                 || task.status() == DelayedTaskStatus.SUCCEEDED && value.state() == ReconciliationStatementState.INIT) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -127,22 +145,52 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
                 }
                 return present(actor.tenantId(), value);
             }
-            if (batch.batch().state() != ReconciliationState.INIT || batch.batch().channel() != null) {
+            if (batch.batch().state() != ReconciliationState.INIT
+                    || batch.batch().channel() != null) {
                 throw new CommonException(INVALID_STATE);
             }
-            if (!parser.supports(batch.batch().scope()) || !batch.batch().scope().billDate().isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
+            if (!parser.supports(batch.batch().scope())
+                    || !batch.batch()
+                            .scope()
+                            .billDate()
+                            .isBefore(OffsetDateTime.now(clock)
+                                    .withOffsetSameInstant(ZoneOffset.ofHours(8))
+                                    .toLocalDate())) {
                 throw new CommonException(INPUT_INVALID);
             }
-            if (sources.activeForBatch(actor.tenantId(), command.batchId()).isPresent() || imports.activeForBatch(actor.tenantId(), command.batchId()).isPresent()) {
+            if (sources.activeForBatch(actor.tenantId(), command.batchId()).isPresent()
+                    || imports.activeForBatch(actor.tenantId(), command.batchId())
+                            .isPresent()) {
                 throw new CommonException(IMPORT_IN_PROGRESS);
             }
-            var account = accounts.statementAccount(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
-            var binding = accounts.statementBindingRevision(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), batch.batch().scope());
+            var account = accounts.statementAccount(
+                    actor.tenantId(),
+                    actor.serviceId(),
+                    batch.channelAccountCode(),
+                    batch.batch().scope());
+            var binding = accounts.statementBindingRevision(
+                    actor.tenantId(),
+                    actor.serviceId(),
+                    batch.channelAccountCode(),
+                    batch.batch().scope());
             var id = ids.generate();
-            tasks.register(ReconciliationStatementExecutionService.TYPE, id, LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
-            var task = tasks.find(ReconciliationStatementExecutionService.TYPE, id).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-            var request = ReconciliationStatementRequest.init(id, command.batchId(), actor.serviceId(), command.requestKey(), digest,
-                    batch.batch().scope(), account, binding, maxBytes, task.id());
+            tasks.register(
+                    ReconciliationStatementExecutionService.TYPE,
+                    id,
+                    LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS));
+            var task = tasks.find(ReconciliationStatementExecutionService.TYPE, id)
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var request = ReconciliationStatementRequest.init(
+                    id,
+                    command.batchId(),
+                    actor.serviceId(),
+                    command.requestKey(),
+                    digest,
+                    batch.batch().scope(),
+                    account,
+                    binding,
+                    maxBytes,
+                    task.id());
             task(task, actor.tenantId(), request);
             if (task.status() != DelayedTaskStatus.PENDING) {
                 throw new CommonException(SNAPSHOT_INVALID);
@@ -156,17 +204,31 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     public ReconciliationStatementDTO detail(IdQuery query) {
         validate(query);
         var actor = actor("read");
-        return transactions.readSnapshot(actor.tenantId(), () -> present(actor.tenantId(), checked(actor, sources.find(actor.tenantId(), query.id()).orElseThrow(() -> new CommonException(NOT_FOUND)))));
+        return transactions.readSnapshot(
+                actor.tenantId(),
+                () -> present(
+                        actor.tenantId(),
+                        checked(
+                                actor,
+                                sources.find(actor.tenantId(), query.id())
+                                        .orElseThrow(() -> new CommonException(NOT_FOUND)))));
     }
 
     @Override
     public ReconciliationStatementDTO retry(ReconciliationStatementRetryCommand command) {
         validate(command);
         var actor = actor("retry");
-        var original = transactions.readSnapshot(actor.tenantId(), () -> checked(actor, sources.find(actor.tenantId(), command.sourceId()).orElseThrow(() -> new CommonException(NOT_FOUND))));
+        var original = transactions.readSnapshot(
+                actor.tenantId(),
+                () -> checked(
+                        actor,
+                        sources.find(actor.tenantId(), command.sourceId())
+                                .orElseThrow(() -> new CommonException(NOT_FOUND))));
         return transactions.writeLocal(actor.tenantId(), () -> {
             batch(actor, original.batchId(), true);
-            var value = checked(actor, sources.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
+            var value = checked(
+                    actor,
+                    sources.lock(actor.tenantId(), original.id()).orElseThrow(() -> new CommonException(NOT_FOUND)));
             var task = task(actor.tenantId(), value);
             if (!command.expectedTaskId().equals(task.id())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
@@ -186,18 +248,26 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
             throw new CommonException(ACTION_FORBIDDEN);
         }
         var batch = batch(actor, value.batchId(), false);
-        if (!value.scope().equals(batch.batch().scope()) || !value.statementAccount().equals(accounts.statementAccount(actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), value.scope()))) {
+        if (!value.scope().equals(batch.batch().scope())
+                || !value.statementAccount()
+                        .equals(accounts.statementAccount(
+                                actor.tenantId(), actor.serviceId(), batch.channelAccountCode(), value.scope()))) {
             throw new CommonException(SCOPE_MISMATCH);
         }
         return value;
     }
 
     private StoredReconciliationBatch batch(ReconciliationActor actor, String id, boolean lock) {
-        var value = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id)).orElseThrow(() -> new CommonException(NOT_FOUND));
+        var value = (lock ? batches.lock(actor.tenantId(), id) : batches.find(actor.tenantId(), id))
+                .orElseThrow(() -> new CommonException(NOT_FOUND));
         if (!actor.serviceId().equals(value.callerServiceId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        accounts.authorize(actor.tenantId(), actor.serviceId(), value.channelAccountCode(), value.batch().scope());
+        accounts.authorize(
+                actor.tenantId(),
+                actor.serviceId(),
+                value.channelAccountCode(),
+                value.batch().scope());
         return value;
     }
 
@@ -211,7 +281,8 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
     }
 
     private DelayedTask task(String tenant, ReconciliationStatementRequest value) {
-        var task = tasks.find(ReconciliationStatementExecutionService.TYPE, value.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+        var task = tasks.find(ReconciliationStatementExecutionService.TYPE, value.id())
+                .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         task(task, tenant, value);
         return task;
     }
@@ -235,8 +306,15 @@ public class ReconciliationStatementService implements ReconciliationStatementFa
 
     private String digest(ReconciliationActor actor, ReconciliationStatementSubmitCommand command) {
         var framed = new StringBuilder();
-        for (var field : List.of("official-statement-request-v1", actor.tenantId(), actor.serviceId(), command.batchId(), command.requestKey())) {
-            framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+        for (var field : List.of(
+                "official-statement-request-v1",
+                actor.tenantId(),
+                actor.serviceId(),
+                command.batchId(),
+                command.requestKey())) {
+            framed.append(field.getBytes(StandardCharsets.UTF_8).length)
+                    .append(':')
+                    .append(field);
         }
         return DigestUtils.sha256(framed.toString());
     }

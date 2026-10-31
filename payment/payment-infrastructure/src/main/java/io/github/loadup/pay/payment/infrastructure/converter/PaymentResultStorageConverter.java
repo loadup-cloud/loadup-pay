@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.converter;
 
@@ -49,7 +53,6 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "identity", source = "identity")
     PaymentChannelReceipt toReceipt(PaymentChannelReceiptDO row, ChannelPaymentIdentity identity);
 
-
     @Mapping(target = "paymentId", source = "value.identity.paymentId")
     @Mapping(target = "attemptId", source = "value.identity.attemptId")
     @Mapping(target = "channel", source = "value.identity.channel")
@@ -61,7 +64,6 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     PaymentChannelReceiptDO toReceiptDO(String tenant, PaymentChannelReceipt value);
 
-
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deleted", constant = "false")
@@ -69,7 +71,10 @@ public interface PaymentResultStorageConverter {
 
     @Mapping(target = "tenantId", source = "tenant")
     @Mapping(target = "identity", source = "identity")
-    @Mapping(target = "amount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "amount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getAmountMinor(), row.getCurrency()))")
     ChannelTransactionClaim toClaim(String tenant, ChannelTransactionClaimDO row, ChannelPaymentIdentity identity);
 
     @Mapping(target = "paymentId", source = "identity.paymentId")
@@ -85,13 +90,15 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "deleted", constant = "false")
     ChannelTransactionClaimDO toClaimDO(ChannelTransactionClaim value);
 
-    @Mapping(target = "succeededAmount", expression = "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getSucceededMinor(), row.getCurrency()))")
+    @Mapping(
+            target = "succeededAmount",
+            expression =
+                    "java(io.github.loadup.commons.validation.DomainChecks.cnyAmount(row.getSucceededMinor(), row.getCurrency()))")
     @Mapping(target = "version", source = "rowVersion")
     @Mapping(target = "reserve", ignore = true)
     PaymentRefundCapacity toCapacity(PaymentRefundCapacityDO row);
 
     @Mapping(target = "id", source = "id")
-
     @Mapping(target = "succeededMinor", source = "value.succeededAmount.cent")
     @Mapping(target = "currency", source = "value.succeededAmount.currencyValue")
     @Mapping(target = "rowVersion", source = "value.version")

@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -63,7 +67,8 @@ public interface PaymentChannelInputConverter {
     @Mapping(target = "subject", source = "command.subject")
     @Mapping(target = "payableUntil", source = "command.payableUntil")
     @Mapping(target = "input", source = "input")
-    ChannelPaymentRequest toRequest(PreparedChannelPayment payment, PaymentExecuteCommand command, ChannelPaymentInput input);
+    ChannelPaymentRequest toRequest(
+            PreparedChannelPayment payment, PaymentExecuteCommand command, ChannelPaymentInput input);
 
     @Mapping(target = "identity", expression = "java(stored.attempt().identity())")
     @Mapping(target = "amount", source = "stored.attempt.amount")
@@ -71,8 +76,10 @@ public interface PaymentChannelInputConverter {
     @Mapping(target = "subject", source = "command.subject")
     @Mapping(target = "payableUntil", source = "command.payableUntil")
     @Mapping(target = "input", source = "input")
-    ChannelPaymentValidation toValidation(io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt stored,
-                                          PaymentExecuteCommand command, ChannelPaymentInput input);
+    ChannelPaymentValidation toValidation(
+            io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt stored,
+            PaymentExecuteCommand command,
+            ChannelPaymentInput input);
 
     default PaymentActionDTO toAction(ChannelPaymentAction value) {
         if (value == null) {
@@ -110,4 +117,3 @@ public interface PaymentChannelInputConverter {
 
     RedirectActionDTO toH5Data(WechatH5ChannelAction value);
 }
-

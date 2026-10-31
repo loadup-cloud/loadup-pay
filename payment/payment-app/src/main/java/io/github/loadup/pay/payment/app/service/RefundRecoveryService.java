@@ -1,19 +1,27 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -26,15 +34,10 @@ import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Continuation generations complement native task claims; neither is channel evidence.
@@ -50,9 +53,14 @@ public class RefundRecoveryService {
     private final Clock clock;
     private final RecoveryPollingPolicy polling;
 
-    public RefundRecoveryService(RefundRecoveryGateway cursors, DelayedTaskTemplate tasks, RefundExecutionLocks locks,
-                                 RefundExecutionService execution, PaymentAcceptanceTransactions transactions, Clock clock,
-                                 RecoveryPollingPolicy polling) {
+    public RefundRecoveryService(
+            RefundRecoveryGateway cursors,
+            DelayedTaskTemplate tasks,
+            RefundExecutionLocks locks,
+            RefundExecutionService execution,
+            PaymentAcceptanceTransactions transactions,
+            Clock clock,
+            RecoveryPollingPolicy polling) {
         this.cursors = cursors;
         this.tasks = tasks;
         this.locks = locks;
@@ -67,8 +75,9 @@ public class RefundRecoveryService {
      */
     public void register(String tenant, StoredRefundRequest stored) {
         writable(tenant);
-        if (stored.request().version() != 0 || stored.request().children().stream().anyMatch(c -> c.state()
-                != io.github.loadup.pay.payment.domain.model.RefundState.INIT)) {
+        if (stored.request().version() != 0
+                || stored.request().children().stream()
+                        .anyMatch(c -> c.state() != io.github.loadup.pay.payment.domain.model.RefundState.INIT)) {
             throw new CommonException(INVALID_STATE);
         }
         var cursor = RefundRecoveryCursor.init(stored.request().id(), stored.plannedAt());
@@ -112,8 +121,14 @@ public class RefundRecoveryService {
                 cursors.update(tenant, before, before.finish());
                 return RecoveryHandlingOutcome.COMPLETED;
             } else {
-                var nextAt = polling.nextAt(tenant, TYPE, key.requestId(), before.generation(),
-                        request.plannedAt(), before.dueAt(), LocalDateTime.now(clock));
+                var nextAt = polling.nextAt(
+                        tenant,
+                        TYPE,
+                        key.requestId(),
+                        before.generation(),
+                        request.plannedAt(),
+                        before.dueAt(),
+                        LocalDateTime.now(clock));
                 var next = before.schedule(nextAt, key.generation());
                 cursors.update(tenant, before, next);
                 // Native task claims are not rescheduled while RUNNING; commit a distinct successor atomically.
@@ -136,7 +151,8 @@ public class RefundRecoveryService {
         if (!tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
     }

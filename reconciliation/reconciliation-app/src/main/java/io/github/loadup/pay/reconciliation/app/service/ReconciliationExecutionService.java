@@ -1,19 +1,26 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation app
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.app.service;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -29,15 +36,11 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Read immutable local inputs, compare outside transactions, then commit differences and completion together.
@@ -54,9 +57,15 @@ public class ReconciliationExecutionService {
     private final ReconciliationMatcher matcher;
     private final Clock clock;
 
-    public ReconciliationExecutionService(DelayedTaskTemplate tasks, ReconciliationBatchGateway batches, ReconciliationInputGateway inputs,
-                                          ReconciliationResultGateway results, ReconciliationTransactions transactions, ReconciliationConverter converter,
-                                          ReconciliationMatcher matcher, Clock clock) {
+    public ReconciliationExecutionService(
+            DelayedTaskTemplate tasks,
+            ReconciliationBatchGateway batches,
+            ReconciliationInputGateway inputs,
+            ReconciliationResultGateway results,
+            ReconciliationTransactions transactions,
+            ReconciliationConverter converter,
+            ReconciliationMatcher matcher,
+            Clock clock) {
         this.tasks = tasks;
         this.batches = batches;
         this.inputs = inputs;
@@ -71,23 +80,36 @@ public class ReconciliationExecutionService {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (task == null || !TYPE.equals(task.taskType())
-                || task.status() != DelayedTaskStatus.RUNNING || task.attempts() <= 0 || task.maxAttempts() < task.attempts()) {
+        if (task == null
+                || !TYPE.equals(task.taskType())
+                || task.status() != DelayedTaskStatus.RUNNING
+                || task.attempts() <= 0
+                || task.maxAttempts() < task.attempts()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (task.id() == null || task.id().isBlank() || task.bizId() == null || task.bizId().isBlank()
-                || task.leaseUntil() == null || task.nextExecuteAt() == null) {
+        if (task.id() == null
+                || task.id().isBlank()
+                || task.bizId() == null
+                || task.bizId().isBlank()
+                || task.leaseUntil() == null
+                || task.nextExecuteAt() == null) {
             throw new CommonException(INVALID_STATE);
         }
         var registered = tasks.find(TYPE, task.bizId()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         var now = LocalDateTime.now(clock);
         if (!Objects.equals(task.id(), registered.id())
-                || !TYPE.equals(registered.taskType()) || !Objects.equals(task.bizId(), registered.bizId())
-                || !Objects.equals(task.executeAt(), registered.executeAt()) || task.executeAt() == null
+                || !TYPE.equals(registered.taskType())
+                || !Objects.equals(task.bizId(), registered.bizId())
+                || !Objects.equals(task.executeAt(), registered.executeAt())
+                || task.executeAt() == null
                 || !Objects.equals(task.nextExecuteAt(), registered.nextExecuteAt())
-                || task.attempts() != registered.attempts() || task.maxAttempts() != registered.maxAttempts()
-                || registered.status() != DelayedTaskStatus.RUNNING || registered.leaseUntil() == null || !registered.leaseUntil().isAfter(now)
-                || registered.nextExecuteAt() == null || registered.nextExecuteAt().isAfter(now)) {
+                || task.attempts() != registered.attempts()
+                || task.maxAttempts() != registered.maxAttempts()
+                || registered.status() != DelayedTaskStatus.RUNNING
+                || registered.leaseUntil() == null
+                || !registered.leaseUntil().isAfter(now)
+                || registered.nextExecuteAt() == null
+                || registered.nextExecuteAt().isAfter(now)) {
             throw new CommonException(INVALID_STATE);
         }
         String tenant = TenantUtil.getTenantId();
@@ -104,7 +126,8 @@ public class ReconciliationExecutionService {
             }
             var channel = inputs.loadSealed(tenant, stored.batch().channel().artifactId());
             var ledger = inputs.loadSealed(tenant, stored.batch().ledger().artifactId());
-            if (!stored.batch().channel().equals(channel.manifest()) || !stored.batch().ledger().equals(ledger.manifest())) {
+            if (!stored.batch().channel().equals(channel.manifest())
+                    || !stored.batch().ledger().equals(ledger.manifest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return java.util.Optional.of(new Work(stored, channel, ledger));
@@ -115,13 +138,15 @@ public class ReconciliationExecutionService {
         var snapshot = work.get();
         var compared = matcher.compare(snapshot.channel(), snapshot.ledger());
         transactions.writeLocal(tenant, () -> {
-            var current = batches.lock(tenant, snapshot.stored().batch().id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
+            var current = batches.lock(tenant, snapshot.stored().batch().id())
+                    .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var next = current.batch().complete(task.bizId(), compared);
             if (next == current.batch()) {
                 return false;
             }
             results.insert(tenant, current.batch().id(), task.bizId(), compared);
-            batches.update(tenant, converter.withBatch(current, next), current.batch().version());
+            batches.update(
+                    tenant, converter.withBatch(current, next), current.batch().version());
             return true;
         });
     }

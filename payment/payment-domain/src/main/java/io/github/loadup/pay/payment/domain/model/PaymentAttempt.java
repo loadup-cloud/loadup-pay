@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Domain
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.domain.model;
+
+import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
+import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
+import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
+import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
@@ -23,15 +33,8 @@ import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
-
 import java.util.Objects;
 import java.util.Set;
-
-import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
-import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE;
-import static io.github.loadup.commons.error.DomainViolation.Reason.OUTCOME_UNKNOWN;
-import static io.github.loadup.commons.error.DomainViolation.require;
 
 public record PaymentAttempt(
         String id,
@@ -89,8 +92,17 @@ public record PaymentAttempt(
     public PaymentAttempt closeBeforeSubmission(String evidenceId) {
         DomainChecks.id(evidenceId);
         require(state == PaymentAttemptState.INIT && executionEpoch == 0, INVALID_STATE);
-        return new PaymentAttempt(id, paymentId, attemptNo, amount, binding, method, channelRequestNo,
-                PaymentAttemptState.CLOSED, 0, evidenceId);
+        return new PaymentAttempt(
+                id,
+                paymentId,
+                attemptNo,
+                amount,
+                binding,
+                method,
+                channelRequestNo,
+                PaymentAttemptState.CLOSED,
+                0,
+                evidenceId);
     }
 
     public PaymentAttempt beginSubmission(long epoch) {
@@ -120,13 +132,14 @@ public record PaymentAttempt(
         require(identity().equals(outcome.identity()) && amount.equals(outcome.amount()), CONFLICT);
         // A channel reversal with returned funds needs an independent financial fact and compensation.
         require(outcome.kind() != ChannelPaymentOutcome.Kind.CLOSED_WITH_FUNDS_RETURNED, CONFLICT);
-        var target = switch (outcome.kind()) {
-            case ACCEPTED -> PaymentAttemptState.PENDING;
-            case SUCCEEDED -> PaymentAttemptState.SUCCEEDED;
-            case NO_COLLECTION -> PaymentAttemptState.FAILED;
-            case UNKNOWN -> PaymentAttemptState.UNKNOWN;
-            case CLOSED_WITH_FUNDS_RETURNED -> throw new DomainViolation(CONFLICT);
-        };
+        var target =
+                switch (outcome.kind()) {
+                    case ACCEPTED -> PaymentAttemptState.PENDING;
+                    case SUCCEEDED -> PaymentAttemptState.SUCCEEDED;
+                    case NO_COLLECTION -> PaymentAttemptState.FAILED;
+                    case UNKNOWN -> PaymentAttemptState.UNKNOWN;
+                    case CLOSED_WITH_FUNDS_RETURNED -> throw new DomainViolation(CONFLICT);
+                };
         if (terminal()) {
             // Late intermediate observations cannot undo a verified terminal fact.
             if (target == PaymentAttemptState.PENDING || target == PaymentAttemptState.UNKNOWN) {

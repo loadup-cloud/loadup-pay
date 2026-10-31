@@ -1,31 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.client;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.dfs.model.FileDownloadResponse;
-import io.github.loadup.components.dfs.model.FileMetadata;
-import io.github.loadup.modules.file.client.dto.FileResourceDTO;
-import io.github.loadup.modules.file.client.facade.FileResourceFacade;
-import org.junit.jupiter.api.Test;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +31,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.components.dfs.model.FileDownloadResponse;
+import io.github.loadup.components.dfs.model.FileMetadata;
+import io.github.loadup.modules.file.client.dto.FileResourceDTO;
+import io.github.loadup.modules.file.client.facade.FileResourceFacade;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
+
 class FileResourceReconciliationSourcesTest {
     private final FileResourceFacade files = mock(FileResourceFacade.class);
     private final FileResourceReconciliationSources source = new FileResourceReconciliationSources(files, 1024);
@@ -49,7 +52,7 @@ class FileResourceReconciliationSourcesTest {
         when(files.get("file", "ops", false)).thenReturn(metadata("ops", 3));
         var object = mock(FileMetadata.class);
         when(object.fileId()).thenReturn("storage");
-        var stream = new ByteArrayInputStream(new byte[]{'a', 'b', 'c'}) {
+        var stream = new ByteArrayInputStream(new byte[] {'a', 'b', 'c'}) {
             @Override
             public void close() throws IOException {
                 closed.set(true);
@@ -67,21 +70,34 @@ class FileResourceReconciliationSourcesTest {
     @Test
     void wrongOwnerOversizedOrTruncatedSourceCannotBeFrozen() {
         when(files.get("file", "ops", false)).thenReturn(metadata("other", 3));
-        assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file")).getResultCode());
+        assertEquals(
+                INPUT_INVALID,
+                assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"))
+                        .getResultCode());
         verify(files, never()).download(anyString(), anyString(), anyBoolean());
         when(files.get("file", "ops", false)).thenReturn(metadata("ops", 1025));
         assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"));
         when(files.get("file", "ops", false)).thenReturn(metadata("ops", 3));
         var object = mock(FileMetadata.class);
         when(object.fileId()).thenReturn("storage");
-        when(files.download("file", "ops", false)).thenReturn(new FileDownloadResponse(object, new ByteArrayInputStream(new byte[]{'a'}), 3));
-        assertEquals(INPUT_INVALID, assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file")).getResultCode());
+        when(files.download("file", "ops", false))
+                .thenReturn(new FileDownloadResponse(object, new ByteArrayInputStream(new byte[] {'a'}), 3));
+        assertEquals(
+                INPUT_INVALID,
+                assertThrows(CommonException.class, () -> source.inspect("tenant", "ops", "file"))
+                        .getResultCode());
     }
 
     @Test
     void declaredUploadLengthAndByteLimitAreCheckedBeforeCreatingAResource() {
-        assertThrows(CommonException.class, () -> source.upload("tenant", "ops", "bill.csv", "text/csv", 3, new ByteArrayInputStream(new byte[]{'a'})));
-        assertThrows(CommonException.class, () -> source.upload("tenant", "ops", "bill.csv", "text/csv", 1024, new ByteArrayInputStream(new byte[1025])));
+        assertThrows(
+                CommonException.class,
+                () -> source.upload(
+                        "tenant", "ops", "bill.csv", "text/csv", 3, new ByteArrayInputStream(new byte[] {'a'})));
+        assertThrows(
+                CommonException.class,
+                () -> source.upload(
+                        "tenant", "ops", "bill.csv", "text/csv", 1024, new ByteArrayInputStream(new byte[1025])));
         verifyNoInteractions(files);
     }
 

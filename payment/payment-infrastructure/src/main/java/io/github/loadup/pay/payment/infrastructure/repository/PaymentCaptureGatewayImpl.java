@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.infrastructure.repository;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -33,6 +42,9 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentCaptureStora
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureLineDO;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCaptureMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -42,21 +54,13 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Optional;
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID;
-
 @Repository
 public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper, PaymentCaptureDO>
         implements PaymentCaptureGateway {
-    private static final String CAPTURE_COLUMNS = "id, created_at, updated_at, caller_service_id, request_key, request_digest, "
-            + "channel, account_scope_hash, bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count, "
-            + "payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker, blocker_subject_id, row_version";
+    private static final String CAPTURE_COLUMNS =
+            "id, created_at, updated_at, caller_service_id, request_key, request_digest, "
+                    + "channel, account_scope_hash, bill_date, statement_profile, system_zone, state, started_at, finished_at, payment_count, "
+                    + "payment_amount_minor, refund_count, refund_amount_minor, content_hash, blocker, blocker_subject_id, row_version";
     private final NamedParameterJdbcTemplate jdbc;
     private final PaymentCaptureStorageConverter converter;
     private final PaymentCaptureConverter views;
@@ -80,9 +84,8 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         context(tenant, false);
         DomainChecks.id(caller);
         DomainChecks.text(key, 128);
-        return model(getOne(QueryWrapper.create()
-                .eq("caller_service_id", caller)
-                .eq("request_key", key)));
+        return model(
+                getOne(QueryWrapper.create().eq("caller_service_id", caller).eq("request_key", key)));
     }
 
     @Override
@@ -129,27 +132,42 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     public void complete(String tenant, PaymentCapture original, PaymentCapture next, PaymentCaptureRead read) {
         context(tenant, true);
         var current = lock(tenant, original.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
-        if (!current.equals(original) || original.state() != PaymentCaptureState.INIT || !original.complete(read, next.contentHash()).equals(next)) {
+        if (!current.equals(original)
+                || original.state() != PaymentCaptureState.INIT
+                || !original.complete(read, next.contentHash()).equals(next)) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (lineCount(tenant, original.id()) != 0) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (next.state() == PaymentCaptureState.SEALED) {
-            if (!next.contentHash().equals(PaymentCaptureContentHash.compute(next.id(), next.scope().channel(), next.scope().accountScopeHash(), next.scope().billDate(),
-                    next.scope().statementProfile(), next.scope().systemZone(), views.offset(next.startedAt(), next.scope().systemZone()),
-                    views.offset(next.finishedAt(), next.scope().systemZone()), read.lines().stream().map(line -> views.toDTO(line, next.scope().systemZone())).toList()))) {
+            if (!next.contentHash()
+                    .equals(PaymentCaptureContentHash.compute(
+                            next.id(),
+                            next.scope().channel(),
+                            next.scope().accountScopeHash(),
+                            next.scope().billDate(),
+                            next.scope().statementProfile(),
+                            next.scope().systemZone(),
+                            views.offset(next.startedAt(), next.scope().systemZone()),
+                            views.offset(next.finishedAt(), next.scope().systemZone()),
+                            read.lines().stream()
+                                    .map(line -> views.toDTO(line, next.scope().systemZone()))
+                                    .toList()))) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             for (int start = 0; start < read.lines().size(); start += 256) {
-                var batch = read.lines().subList(start, Math.min(start + 256, read.lines().size()));
+                var batch = read.lines()
+                        .subList(start, Math.min(start + 256, read.lines().size()));
                 var now = LocalDateTime.now(clock);
-                SqlParameterSource[] parameters = batch.stream().map(line -> {
-                    var row = converter.toLineDO(tenant, original.id(), line);
-                    row.setCreatedAt(now);
-                    row.setUpdatedAt(now);
-                    return new BeanPropertySqlParameterSource(row);
-                }).toArray(SqlParameterSource[]::new);
+                SqlParameterSource[] parameters = batch.stream()
+                        .map(line -> {
+                            var row = converter.toLineDO(tenant, original.id(), line);
+                            row.setCreatedAt(now);
+                            row.setUpdatedAt(now);
+                            return new BeanPropertySqlParameterSource(row);
+                        })
+                        .toArray(SqlParameterSource[]::new);
                 int[] counts = jdbc.batchUpdate("""
                         INSERT INTO payment_reconciliation_line (id, created_at, updated_at, deleted, capture_id,
                             ordinal, key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no,
@@ -169,12 +187,20 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
             }
         }
         var row = converter.toDO(tenant, next);
-        var args = new MapSqlParameterSource().addValue("id", original.id()).addValue("state", row.getState())
-                .addValue("started", row.getStartedAt()).addValue("finished", row.getFinishedAt())
-                .addValue("paymentCount", row.getPaymentCount()).addValue("paymentAmount", row.getPaymentAmountMinor())
-                .addValue("refundCount", row.getRefundCount()).addValue("refundAmount", row.getRefundAmountMinor())
-                .addValue("hash", row.getContentHash()).addValue("blocker", row.getBlocker())
-                .addValue("subject", row.getBlockerSubjectId()).addValue("version", row.getRowVersion()).addValue("updated", LocalDateTime.now(clock));
+        var args = new MapSqlParameterSource()
+                .addValue("id", original.id())
+                .addValue("state", row.getState())
+                .addValue("started", row.getStartedAt())
+                .addValue("finished", row.getFinishedAt())
+                .addValue("paymentCount", row.getPaymentCount())
+                .addValue("paymentAmount", row.getPaymentAmountMinor())
+                .addValue("refundCount", row.getRefundCount())
+                .addValue("refundAmount", row.getRefundAmountMinor())
+                .addValue("hash", row.getContentHash())
+                .addValue("blocker", row.getBlocker())
+                .addValue("subject", row.getBlockerSubjectId())
+                .addValue("version", row.getRowVersion())
+                .addValue("updated", LocalDateTime.now(clock));
         if (jdbc.update("""
                 UPDATE payment_reconciliation_capture SET state = :state, started_at = :started, finished_at = :finished,
                     payment_count = :paymentCount, payment_amount_minor = :paymentAmount, refund_count = :refundCount,
@@ -189,8 +215,13 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
     @Override
     public PageResult<PaymentLedgerLine> page(String tenant, PaymentCapture capture, int page, int size) {
         context(tenant, false);
-        if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly() || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
-                .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()) || page < 1 || size < 1 || size > 100 || capture.state() != PaymentCaptureState.SEALED) {
+        if (!TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                || !Integer.valueOf(TransactionDefinition.ISOLATION_REPEATABLE_READ)
+                        .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())
+                || page < 1
+                || size < 1
+                || size > 100
+                || capture.state() != PaymentCaptureState.SEALED) {
             throw new CommonException(INVALID_STATE);
         }
         long expected = Math.addExact(capture.paymentCount(), capture.refundCount());
@@ -198,7 +229,10 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
             throw new CommonException(SNAPSHOT_INVALID);
         }
         long offset = (long) (page - 1) * size;
-        var args = new MapSqlParameterSource().addValue("capture", capture.id()).addValue("size", size).addValue("offset", offset);
+        var args = new MapSqlParameterSource()
+                .addValue("capture", capture.id())
+                .addValue("size", size)
+                .addValue("offset", offset);
         var rows = jdbc.query("""
                 SELECT id, created_at, updated_at, capture_id, ordinal, key_hash, kind, channel_transaction_no,
                        channel_refund_no, merchant_payment_no, amount_minor, currency, status, source_at, source_id, evidence_id, source_version
@@ -212,9 +246,13 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 var line = converter.toLine(row);
-                if (line.ordinal() != offset + result.size() + 1L || !capture.id().equals(row.getCaptureId())
-                        || !PaymentCaptureContentHash.key(line.kind().name(), line.channelTransactionNo(), line.channelRefundNo()).equals(row.getKeyHash())
-                        || line.sourceAt().isBefore(capture.scope().windowStart()) || !line.sourceAt().isBefore(capture.scope().windowEnd())) {
+                if (line.ordinal() != offset + result.size() + 1L
+                        || !capture.id().equals(row.getCaptureId())
+                        || !PaymentCaptureContentHash.key(
+                                        line.kind().name(), line.channelTransactionNo(), line.channelRefundNo())
+                                .equals(row.getKeyHash())
+                        || line.sourceAt().isBefore(capture.scope().windowStart())
+                        || !line.sourceAt().isBefore(capture.scope().windowEnd())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 result.add(line);
@@ -245,16 +283,24 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
             return getById(id);
         }
         var args = new MapSqlParameterSource().addValue("id", id);
-        return jdbc.query("SELECT " + CAPTURE_COLUMNS + " FROM payment_reconciliation_capture "
-                        + "WHERE id = :id AND deleted = FALSE FOR UPDATE", args,
-                BeanPropertyRowMapper.newInstance(PaymentCaptureDO.class)).stream().findFirst().orElse(null);
+        return jdbc
+                .query(
+                        "SELECT " + CAPTURE_COLUMNS + " FROM payment_reconciliation_capture "
+                                + "WHERE id = :id AND deleted = FALSE FOR UPDATE",
+                        args,
+                        BeanPropertyRowMapper.newInstance(PaymentCaptureDO.class))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private long lineCount(String tenant, String id) {
         DomainChecks.id(id);
         var args = new MapSqlParameterSource().addValue("capture", id);
-        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM payment_reconciliation_line "
-                + "WHERE capture_id = :capture AND deleted = FALSE", args, Long.class);
+        Long count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM payment_reconciliation_line " + "WHERE capture_id = :capture AND deleted = FALSE",
+                args,
+                Long.class);
         if (count == null) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -265,9 +311,11 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
-        if (!TransactionSynchronizationManager.isActualTransactionActive() || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

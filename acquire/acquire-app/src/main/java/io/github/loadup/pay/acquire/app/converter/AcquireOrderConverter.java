@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.converter;
 
@@ -32,15 +36,15 @@ import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeComman
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface AcquireOrderConverter {
-    AcquireOrderCreateCommand toOrderCreate(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    AcquireOrderCreateCommand toOrderCreate(
+            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
 
     AcquireOrderCreateCommand toOrderCreate(CheckoutCreateCommand command);
 
@@ -92,8 +96,8 @@ public interface AcquireOrderConverter {
         return order.paidAmountMinor() == 0
                 ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.UNPAID
                 : order.paidAmountMinor() == order.amount().getCent()
-                ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.FULL
-                : io.github.loadup.pay.acquire.domain.model.PaymentProgress.PARTIAL;
+                        ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.FULL
+                        : io.github.loadup.pay.acquire.domain.model.PaymentProgress.PARTIAL;
     }
 
     default OffsetDateTime external(LocalDateTime value) {

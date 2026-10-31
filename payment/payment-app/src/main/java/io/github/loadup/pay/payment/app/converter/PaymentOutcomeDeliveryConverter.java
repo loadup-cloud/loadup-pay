@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.converter;
 
@@ -24,12 +28,11 @@ import io.github.loadup.pay.payment.domain.model.RiskConsultation;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.RiskOutcome;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
-
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentOutcomeDeliveryConverter {
@@ -50,8 +53,14 @@ public interface PaymentOutcomeDeliveryConverter {
 
     @Mapping(target = "consultation", source = "consultation")
     @Mapping(target = "decision", source = "decision")
-    RiskOutcome toRisk(String tenantId, String businessEventId, RiskConsultation consultation, RiskDecision decision,
-                       PaymentState paymentState, long sourceVersion, String evidenceId);
+    RiskOutcome toRisk(
+            String tenantId,
+            String businessEventId,
+            RiskConsultation consultation,
+            RiskDecision decision,
+            PaymentState paymentState,
+            long sourceVersion,
+            String evidenceId);
 
     @Named("releaseReason")
     default String releaseReason(PaymentState state) {

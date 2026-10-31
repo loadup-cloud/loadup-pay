@@ -1,47 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.service;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.payment.PaymentMethod;
-import io.github.loadup.commons.time.BusinessTime;
-import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
-import io.github.loadup.pay.acquire.app.converter.PaymentRecoveryConverter;
-import io.github.loadup.pay.acquire.app.security.AcquireActor;
-import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
-import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
-import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
-import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
-import io.github.loadup.pay.acquire.domain.model.PaymentRecoveryState;
-import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
-import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
-import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
-import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
-import io.github.loadup.pay.payment.domain.model.PaymentState;
-import jakarta.validation.Validation;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.NOW;
 import static io.github.loadup.pay.acquire.app.service.CheckoutFixtures.OWNER;
@@ -65,20 +41,64 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
+import io.github.loadup.pay.acquire.app.converter.PaymentRecoveryConverter;
+import io.github.loadup.pay.acquire.app.security.AcquireActor;
+import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentRecoverCommand;
+import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.PaymentRecoveryState;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import jakarta.validation.Validation;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 class PaymentRecoveryServiceTest {
-    final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(PaymentRecoveryConverter.class.getPackageName());
+    final AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(PaymentRecoveryConverter.class.getPackageName());
     final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentInitiationOperations initiation = mock(PaymentInitiationOperations.class);
     final PaymentOutcomeOperations outcomes = mock(PaymentOutcomeOperations.class);
-    final AtomicReference<AcquireActor> actor = new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
-    final PaymentRecoveryService service = new PaymentRecoveryService(actor::get, initiation, outcomes,
-            context.getBean(PaymentRecoveryConverter.class), validation.getValidator());
+    final AtomicReference<AcquireActor> actor =
+            new AtomicReference<>(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
+    final PaymentRecoveryService service = new PaymentRecoveryService(
+            actor::get,
+            initiation,
+            outcomes,
+            context.getBean(PaymentRecoveryConverter.class),
+            validation.getValidator());
     final PaymentChoiceDTO choice = new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5);
     final PaymentRecoverCommand command = new PaymentRecoverCommand("order", "action", 1000L, choice);
     final StoredAcquireOrder original = order(AcquireOrderState.PENDING, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
-    final PaymentExecutionDTO payment = new PaymentExecutionDTO("payment", "order", "allocation", 1000L, "CNY", PaymentState.INIT,
-            null, null, null, 0L, BusinessTime.external(NOW));
-    final PaymentProgressDTO progress = new PaymentProgressDTO(payment, context.getBean(AcquireOrderConverter.class).toDTO(original, NOW));
+    final PaymentExecutionDTO payment = new PaymentExecutionDTO(
+            "payment",
+            "order",
+            "allocation",
+            1000L,
+            "CNY",
+            PaymentState.INIT,
+            null,
+            null,
+            null,
+            0L,
+            BusinessTime.external(NOW));
+    final PaymentProgressDTO progress = new PaymentProgressDTO(
+            payment, context.getBean(AcquireOrderConverter.class).toDTO(original, NOW));
 
     @AfterEach
     void close() {
@@ -102,17 +122,31 @@ class PaymentRecoveryServiceTest {
         assertEquals("tenant", principal.getValue().tenantId());
         principal.getValue().authorize(original, false);
         assertThrows(CommonException.class, () -> principal.getValue().authorize(original, true));
-        var other = new StoredAcquireOrder(original.order(), original.merchantOrderNo(), original.subject(), original.admission(), original.admittedAt(),
-                "b".repeat(64), original.snapshotId(), original.admissionPayload(), original.payloadHash());
-        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> principal.getValue().authorize(other, false)).getResultCode());
-        verify(outcomes).refresh(new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
+        var other = new StoredAcquireOrder(
+                original.order(),
+                original.merchantOrderNo(),
+                original.subject(),
+                original.admission(),
+                original.admittedAt(),
+                "b".repeat(64),
+                original.snapshotId(),
+                original.admissionPayload(),
+                original.payloadHash());
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> principal.getValue().authorize(other, false))
+                        .getResultCode());
+        verify(outcomes)
+                .refresh(new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
         verify(initiation, never()).start(any(), any());
     }
 
     @Test
     void unresolvedActionsNeverReportAcceptedFalseOrCallFinancialConvergence() {
-        for (var state : java.util.List.of(PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
-            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any())).thenReturn(new PaymentIntentRecovery(state, null, null));
+        for (var state : java.util.List.of(
+                PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
+            when(initiation.recover(any(), anyString(), anyString(), anyLong(), any()))
+                    .thenReturn(new PaymentIntentRecovery(state, null, null));
             var result = service.recover(command);
             assertEquals(state.name(), result.state().name());
             assertNull(result.paymentId());
@@ -141,11 +175,17 @@ class PaymentRecoveryServiceTest {
     @Test
     void startingPermissionAloneDoesNotGrantRecoveryAndOuterTransactionsAreRejected() {
         actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:start")));
-        assertSame(ACTION_FORBIDDEN, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> service.recover(command))
+                        .getResultCode());
         actor.set(new AcquireActor("tenant", OWNER, null, Set.of("pay:acquire:payment:recover")));
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
-            assertSame(INVALID_STATE, assertThrows(CommonException.class, () -> service.recover(command)).getResultCode());
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> service.recover(command))
+                            .getResultCode());
         } finally {
             TransactionSynchronizationManager.setActualTransactionActive(false);
         }
@@ -154,10 +194,15 @@ class PaymentRecoveryServiceTest {
 
     @Test
     void invalidMetadataAndDependencyErrorsCannotInventARecoveryResult() {
-        assertSame(INVALID_ARGUMENT, assertThrows(CommonException.class,
-                () -> service.recover(new PaymentRecoverCommand("order", "action", 0L, choice))).getResultCode());
+        assertSame(
+                INVALID_ARGUMENT,
+                assertThrows(
+                                CommonException.class,
+                                () -> service.recover(new PaymentRecoverCommand("order", "action", 0L, choice)))
+                        .getResultCode());
         var failure = new CommonException(DEPENDENCY_UNAVAILABLE);
-        when(initiation.recover(any(), anyString(), anyString(), anyLong(), any())).thenThrow(failure);
+        when(initiation.recover(any(), anyString(), anyString(), anyLong(), any()))
+                .thenThrow(failure);
         assertSame(failure, assertThrows(CommonException.class, () -> service.recover(command)));
         verifyNoInteractions(outcomes);
     }

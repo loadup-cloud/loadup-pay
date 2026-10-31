@@ -1,39 +1,23 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel Alipay
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.alipay.protocol;
-
-import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.commons.payment.Channel;
-import io.github.loadup.commons.util.DigestUtils;
-import io.github.loadup.commons.util.TenantUtil;
-import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
-import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
-
-import java.io.ByteArrayOutputStream;
-import java.net.URI;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.Map;
 
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH;
@@ -44,6 +28,25 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVAL
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_RATE_LIMITED;
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.util.DigestUtils;
+import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
+import java.io.ByteArrayOutputStream;
+import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The API's documented merchant/authorized-merchant trade bill grant. Download/profile implementation is separate.
@@ -63,7 +66,8 @@ public final class AlipayStatementGrantClient {
     }
 
     private static void field(ByteArrayOutputStream output, byte[] bytes) {
-        output.writeBytes(ByteBuffer.allocate(4).putInt(bytes == null ? -1 : bytes.length).array());
+        output.writeBytes(
+                ByteBuffer.allocate(4).putInt(bytes == null ? -1 : bytes.length).array());
         if (bytes != null) {
             output.writeBytes(bytes);
         }
@@ -73,8 +77,13 @@ public final class AlipayStatementGrantClient {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (context == null || billDate == null || billDate.getYear() < 1970 || billDate.getYear() > 9998
-                || !billDate.isBefore(OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.ofHours(8)).toLocalDate())) {
+        if (context == null
+                || billDate == null
+                || billDate.getYear() < 1970
+                || billDate.getYear() > 9998
+                || !billDate.isBefore(OffsetDateTime.now(clock)
+                        .withOffsetSameInstant(ZoneOffset.ofHours(8))
+                        .toLocalDate())) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         if (!context.tenantId().equals(TenantUtil.getTenantId())) {
@@ -86,8 +95,12 @@ public final class AlipayStatementGrantClient {
         }
         var started = now();
         // trade_zft_merchant/smid and platform-wide ledgers are different products and must never be inferred here.
-        var exchange = client.exchangeVerified(context.tenantId(), binding, AlipayMethod.BILL_DOWNLOAD_URL,
-                json.writeValueAsString(Map.of("bill_type", "trade", "bill_date", billDate.toString())), Map.of());
+        var exchange = client.exchangeVerified(
+                context.tenantId(),
+                binding,
+                AlipayMethod.BILL_DOWNLOAD_URL,
+                json.writeValueAsString(Map.of("bill_type", "trade", "bill_date", billDate.toString())),
+                Map.of());
         if (exchange == null) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
@@ -126,11 +139,26 @@ public final class AlipayStatementGrantClient {
         }
         var billFileCode = reader.text(payload, "bill_file_code");
         byte[] proof = evidence(context, billDate, exchange, started, received);
-        return new AlipayStatementGrant(binding.id(), binding.accountScopeHash(), billDate, started, received, expires, uri, billFileCode,
-                exchange.requestSha256(), DigestUtils.sha256(proof), proof);
+        return new AlipayStatementGrant(
+                binding.id(),
+                binding.accountScopeHash(),
+                billDate,
+                started,
+                received,
+                expires,
+                uri,
+                billFileCode,
+                exchange.requestSha256(),
+                DigestUtils.sha256(proof),
+                proof);
     }
 
-    private byte[] evidence(ChannelExecutionContext context, LocalDate date, AlipayVerifiedExchange exchange, OffsetDateTime started, OffsetDateTime received) {
+    private byte[] evidence(
+            ChannelExecutionContext context,
+            LocalDate date,
+            AlipayVerifiedExchange exchange,
+            OffsetDateTime started,
+            OffsetDateTime received) {
         byte[] envelope = exchange.responseBytes();
         if (envelope.length > 16384) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
@@ -138,9 +166,25 @@ public final class AlipayStatementGrantClient {
         var binding = context.binding();
         var identity = (AlipayAccountIdentity) binding.identity();
         var output = new ByteArrayOutputStream();
-        for (String value : new String[]{FORMAT, context.tenantId(), binding.id(), binding.accountScopeHash(), date.toString(), "trade", identity.appId(), identity.sellerId(),
-                identity.operatorAppId(), binding.credentialReference(), binding.credentialVersion(), identity.authorizationReference(), identity.authorizationVersion(),
-                AlipayMethod.BILL_DOWNLOAD_URL.api(), exchange.requestSha256(), started.toInstant().toString(), received.toInstant().toString()}) {
+        for (String value : new String[] {
+            FORMAT,
+            context.tenantId(),
+            binding.id(),
+            binding.accountScopeHash(),
+            date.toString(),
+            "trade",
+            identity.appId(),
+            identity.sellerId(),
+            identity.operatorAppId(),
+            binding.credentialReference(),
+            binding.credentialVersion(),
+            identity.authorizationReference(),
+            identity.authorizationVersion(),
+            AlipayMethod.BILL_DOWNLOAD_URL.api(),
+            exchange.requestSha256(),
+            started.toInstant().toString(),
+            received.toInstant().toString()
+        }) {
             field(output, value == null ? null : value.getBytes(StandardCharsets.UTF_8));
         }
         field(output, envelope);

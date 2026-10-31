@@ -1,19 +1,28 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Channel WeChat
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.channel.wechat;
+
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.PaymentMethod;
@@ -30,7 +39,6 @@ import io.github.loadup.pay.channel.wechat.config.WechatCodepayProperties;
 import io.github.loadup.pay.channel.wechat.protocol.WechatBindingGuard;
 import io.github.loadup.pay.channel.wechat.protocol.WechatV2Client;
 import io.github.loadup.pay.channel.wechat.protocol.WechatV2Method;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -40,11 +48,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
-
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_CREDENTIAL_UNAVAILABLE;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 /**
  * Original V2 micropay debit; recovery queries the original request without reusing the payer code.
@@ -57,7 +60,8 @@ public final class WechatCodepayAdapter {
     private final WechatCodepayProperties properties;
     private final Clock clock;
 
-    public WechatCodepayAdapter(WechatV2Client client, WechatPaymentAdapter queries, WechatCodepayProperties properties, Clock clock) {
+    public WechatCodepayAdapter(
+            WechatV2Client client, WechatPaymentAdapter queries, WechatCodepayProperties properties, Clock clock) {
         this.client = client;
         this.queries = queries;
         this.properties = properties;
@@ -69,15 +73,24 @@ public final class WechatCodepayAdapter {
             throw new CommonException(INVALID_ARGUMENT);
         }
         WechatBindingGuard.require(context, request.identity());
-        if (request.method() != PaymentMethod.PAYMENT_CODE || !context.binding().capabilities().contains(PaymentMethod.PAYMENT_CODE)) {
+        if (request.method() != PaymentMethod.PAYMENT_CODE
+                || !context.binding().capabilities().contains(PaymentMethod.PAYMENT_CODE)) {
             throw new CommonException(UNSUPPORTED_CAPABILITY);
         }
         if (!request.identity().channelRequestNo().matches("[A-Za-z0-9_-]{1,32}")
                 || request.amount().getCent() > Integer.MAX_VALUE
                 || request.subject().getBytes(StandardCharsets.UTF_8).length > 127
-                || request.subject().codePoints().anyMatch(c -> Character.isISOControl(c) || c < 32 || c > 0xFFFF || Character.isSurrogate((char) c))
-                || !(request.input() instanceof ChannelPaymentCodeInput code) || !code.paymentCode().matches("1[0-5][0-9]{16}")
-                || Duration.between(clock.instant(), request.payableUntil().withNano(0).toInstant()).getSeconds() < 60) {
+                || request.subject()
+                        .codePoints()
+                        .anyMatch(c ->
+                                Character.isISOControl(c) || c < 32 || c > 0xFFFF || Character.isSurrogate((char) c))
+                || !(request.input() instanceof ChannelPaymentCodeInput code)
+                || !code.paymentCode().matches("1[0-5][0-9]{16}")
+                || Duration.between(
+                                        clock.instant(),
+                                        request.payableUntil().withNano(0).toInstant())
+                                .getSeconds()
+                        < 60) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         if (serverIp(context) == null) {
@@ -90,8 +103,15 @@ public final class WechatCodepayAdapter {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var original = request.payment();
-        validate(context, new ChannelPaymentValidation(original.identity(), original.amount(), original.method(),
-                request.subject(), request.payableUntil(), request.input()));
+        validate(
+                context,
+                new ChannelPaymentValidation(
+                        original.identity(),
+                        original.amount(),
+                        original.method(),
+                        request.subject(),
+                        request.payableUntil(),
+                        request.input()));
         var account = (WechatAccountIdentity) context.binding().identity();
         var fields = new TreeMap<String, String>();
         fields.put("appid", account.appId());
@@ -107,7 +127,12 @@ public final class WechatCodepayAdapter {
         fields.put("total_fee", Long.toString(original.amount().getCent()));
         fields.put("fee_type", "CNY");
         fields.put("spbill_create_ip", serverIp(context));
-        fields.put("time_expire", request.payableUntil().withNano(0).atZoneSameInstant(PROTOCOL_ZONE).format(EXPIRY));
+        fields.put(
+                "time_expire",
+                request.payableUntil()
+                        .withNano(0)
+                        .atZoneSameInstant(PROTOCOL_ZONE)
+                        .format(EXPIRY));
         fields.put("auth_code", ((ChannelPaymentCodeInput) request.input()).paymentCode());
         fields.put("nonce_str", UUID.randomUUID().toString().replace("-", ""));
         fields.put("sign_type", "HMAC-SHA256");
@@ -150,14 +175,26 @@ public final class WechatCodepayAdapter {
         if (!"FAIL".equals(response.get("result_code"))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
-        var kind = "USERPAYING".equals(response.get("err_code")) ? ChannelPaymentOutcome.Kind.ACCEPTED : ChannelPaymentOutcome.Kind.UNKNOWN;
-        var observed = new PaymentObservation(original.identity(), kind, original.amount(), null, null,
-                PaymentObservation.Source.SUBMIT_RESPONSE, "wechat-v2-micropay:" + verified.sourceDigest(), verified.sourceDigest());
+        var kind = "USERPAYING".equals(response.get("err_code"))
+                ? ChannelPaymentOutcome.Kind.ACCEPTED
+                : ChannelPaymentOutcome.Kind.UNKNOWN;
+        var observed = new PaymentObservation(
+                original.identity(),
+                kind,
+                original.amount(),
+                null,
+                null,
+                PaymentObservation.Source.SUBMIT_RESPONSE,
+                "wechat-v2-micropay:" + verified.sourceDigest(),
+                verified.sourceDigest());
         return new ChannelPaymentSubmission(original.identity(), original.amount(), observed, null);
     }
 
     private String serverIp(ChannelExecutionContext context) {
-        return properties.serverIps().getOrDefault(context.tenantId(), Map.of()).get(context.binding().id());
+        return properties
+                .serverIps()
+                .getOrDefault(context.tenantId(), Map.of())
+                .get(context.binding().id());
     }
 
     private void match(Map<String, String> fields, String name, String value) {

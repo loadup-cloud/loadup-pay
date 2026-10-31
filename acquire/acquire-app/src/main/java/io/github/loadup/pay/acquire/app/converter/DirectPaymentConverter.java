@@ -1,17 +1,21 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Acquire App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.acquire.app.converter;
 
@@ -29,16 +33,17 @@ public interface DirectPaymentConverter {
     @Mapping(target = "interactionKind", source = "interaction")
     io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand toRecovery(DirectPayCommand command);
 
-    default io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind interactionKind(io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO value) {
+    default io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind interactionKind(
+            io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO value) {
         return switch (value) {
             case io.github.loadup.pay.payment.client.dto.NoInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE;
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.NONE;
             case io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.PAYMENT_CODE;
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.PAYMENT_CODE;
             case io.github.loadup.pay.payment.client.dto.ChannelIdentityInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.CHANNEL_IDENTITY;
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.CHANNEL_IDENTITY;
             case io.github.loadup.pay.payment.client.dto.H5SceneInteractionDTO ignored ->
-                    io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE;
+                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE;
         };
     }
 
@@ -54,9 +59,12 @@ public interface DirectPaymentConverter {
     @Mapping(target = "order", source = "order")
     @Mapping(target = "payment", source = "payment")
     io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO toRecoveryDTO(
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command, String orderId,
-            io.github.loadup.pay.acquire.domain.model.OrderCreationRecoveryState state, String resultCode,
-            AcquireOrderDTO order, PaymentRecoveryDTO payment);
+            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command,
+            String orderId,
+            io.github.loadup.pay.acquire.domain.model.OrderCreationRecoveryState state,
+            String resultCode,
+            AcquireOrderDTO order,
+            PaymentRecoveryDTO payment);
 
     @Mapping(target = "orderId", source = "orderId")
     @Mapping(target = "amountMinor", source = "command.firstPaymentAmountMinor")

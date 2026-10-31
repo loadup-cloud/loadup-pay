@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay LimitCenter Infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.limitcenter.infrastructure.repository;
+
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -37,6 +47,13 @@ import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitBucketMapper;
 import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitExecutionGrantMapper;
 import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitReservationItemMapper;
 import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitReservationMapper;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
 import org.postgresql.util.PSQLException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -45,20 +62,6 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Optional;
-
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.CONCURRENT_UPDATE;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum.SNAPSHOT_INVALID;
 
 @Repository
 public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper, LimitReservationDO>
@@ -111,7 +114,9 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
                        payment_source_version, no_collection_evidence_id, row_version
                 FROM limit_operation_gate WHERE operation_id = :operation
                     AND deleted = FALSE FOR UPDATE
-                """, args, BeanPropertyRowMapper.newInstance(LimitOperationGateDO.class)).stream().findFirst().map(converter::toGate);
+                """, args, BeanPropertyRowMapper.newInstance(LimitOperationGateDO.class)).stream()
+                .findFirst()
+                .map(converter::toGate);
     }
 
     @Override
@@ -123,8 +128,11 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
         }
         // Do not endlessly retry a permanent collision with a payment bound to a different operation.
         var args = new MapSqlParameterSource("payment", payment);
-        if (!jdbc.query("SELECT id FROM limit_operation_gate WHERE payment_id = :payment AND deleted = FALSE",
-                args, (rs, index) -> rs.getString(1)).isEmpty()) {
+        if (!jdbc.query(
+                        "SELECT id FROM limit_operation_gate WHERE payment_id = :payment AND deleted = FALSE",
+                        args,
+                        (rs, index) -> rs.getString(1))
+                .isEmpty()) {
             // Another transaction may have created this same operation since the first lookup.
             return lockGate(tenant, operation).orElseThrow(() -> new CommonException(IDEMPOTENCY_CONFLICT));
         }
@@ -144,9 +152,11 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
                     """, new BeanPropertySqlParameterSource(row));
         } catch (DuplicateKeyException collision) {
             for (Throwable cause = collision; cause != null; cause = cause.getCause()) {
-                if (cause instanceof PSQLException sql && "23505".equals(sql.getSQLState())
+                if (cause instanceof PSQLException sql
+                        && "23505".equals(sql.getSQLState())
                         && sql.getServerErrorMessage() != null
-                        && "uk_limit_gate_payment".equals(sql.getServerErrorMessage().getConstraint())) {
+                        && "uk_limit_gate_payment"
+                                .equals(sql.getServerErrorMessage().getConstraint())) {
                     throw new LimitWriteRaceException("Payment gate was concurrently created", collision);
                 }
             }
@@ -167,16 +177,25 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     }
 
     private MapSqlParameterSource bucketKey(LimitBucketKey key) {
-        return new MapSqlParameterSource().addValue("scope", key.ruleScopeId())
-                .addValue("merchant", key.merchantId()).addValue("metric", key.metric().name())
-                .addValue("currency", key.currency()).addValue("window", key.window().name())
-                .addValue("start", key.bounds().start()).addValue("end", key.bounds().end());
+        return new MapSqlParameterSource()
+                .addValue("scope", key.ruleScopeId())
+                .addValue("merchant", key.merchantId())
+                .addValue("metric", key.metric().name())
+                .addValue("currency", key.currency())
+                .addValue("window", key.window().name())
+                .addValue("start", key.bounds().start())
+                .addValue("end", key.bounds().end());
     }
 
     private Optional<LimitBucketDO> bucket(LimitBucketKey key, boolean lock) {
-        return jdbc.query("SELECT " + BUCKET_COLUMNS + " FROM limit_bucket WHERE " + BUCKET_KEY
-                        + (lock ? " FOR UPDATE" : ""), bucketKey(key),
-                BeanPropertyRowMapper.newInstance(LimitBucketDO.class)).stream().findFirst();
+        return jdbc
+                .query(
+                        "SELECT " + BUCKET_COLUMNS + " FROM limit_bucket WHERE " + BUCKET_KEY
+                                + (lock ? " FOR UPDATE" : ""),
+                        bucketKey(key),
+                        BeanPropertyRowMapper.newInstance(LimitBucketDO.class))
+                .stream()
+                .findFirst();
     }
 
     @Override
@@ -227,7 +246,8 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
         requireTransaction(tenant);
         gate.requireOpen();
         var args = new MapSqlParameterSource("operation", gate.operationId())
-                .addValue("payment", gate.paymentId()).addValue("updated", LocalDateTime.now(clock));
+                .addValue("payment", gate.paymentId())
+                .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE limit_operation_gate SET state = 'OPEN', row_version = 1, updated_at = :updated
                 WHERE operation_id = :operation AND payment_id = :payment
@@ -305,11 +325,17 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
                 continue;
             }
             var next = after.buckets().get(key);
-            var args = bucketKey(key).addValue("used", next.used()).addValue("held", next.held())
-                    .addValue("version", next.version()).addValue("expected", before.buckets().get(key).version())
+            var args = bucketKey(key)
+                    .addValue("used", next.used())
+                    .addValue("held", next.held())
+                    .addValue("version", next.version())
+                    .addValue("expected", before.buckets().get(key).version())
                     .addValue("updated", LocalDateTime.now(clock));
-            int changed = jdbc.update("UPDATE limit_bucket SET used_value = :used, held_value = :held, "
-                    + "row_version = :version, updated_at = :updated WHERE " + BUCKET_KEY + " AND row_version = :expected", args);
+            int changed = jdbc.update(
+                    "UPDATE limit_bucket SET used_value = :used, held_value = :held, "
+                            + "row_version = :version, updated_at = :updated WHERE " + BUCKET_KEY
+                            + " AND row_version = :expected",
+                    args);
             if (changed != 1) {
                 throw new CommonException(CONCURRENT_UPDATE);
             }
@@ -321,10 +347,14 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
         requireTransaction(tenant);
         var value = stored.reservation();
         var args = new MapSqlParameterSource("id", value.id())
-                .addValue("operation", value.operationId()).addValue("payment", value.paymentId())
-                .addValue("state", value.state().name()).addValue("attempt", value.activeAttemptId())
-                .addValue("epoch", value.executionEpoch()).addValue("source", value.paymentSourceVersion())
-                .addValue("version", value.version()).addValue("expected", expectedVersion)
+                .addValue("operation", value.operationId())
+                .addValue("payment", value.paymentId())
+                .addValue("state", value.state().name())
+                .addValue("attempt", value.activeAttemptId())
+                .addValue("epoch", value.executionEpoch())
+                .addValue("source", value.paymentSourceVersion())
+                .addValue("version", value.version())
+                .addValue("expected", expectedVersion)
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE limit_reservation SET state = :state, active_attempt_id = :attempt, execution_epoch = :epoch,
@@ -341,9 +371,7 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     public List<LimitReservationItem> loadItems(String tenant, String reservationId) {
         requireTenant(tenant);
         // Item mutation shares the operation gate. These reads never acquire bucket locks out of order.
-        return reservationItems
-                .selectListByQuery(QueryWrapper.create().eq("reservation_id", reservationId))
-                .stream()
+        return reservationItems.selectListByQuery(QueryWrapper.create().eq("reservation_id", reservationId)).stream()
                 .map(row -> {
                     var bucket = Optional.ofNullable(buckets.selectOneById(row.getBucketId()))
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
@@ -356,11 +384,8 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
     public Optional<LimitExecutionGrant> findExecutionGrant(String tenant, String operation, long epoch) {
         requireTenant(tenant);
         try {
-            var query = QueryWrapper.create()
-                    .eq("operation_id", operation)
-                    .eq("execution_epoch", epoch);
-            return Optional.ofNullable(executionGrants.selectOneByQuery(query))
-                    .map(converter::toExecutionGrant);
+            var query = QueryWrapper.create().eq("operation_id", operation).eq("execution_epoch", epoch);
+            return Optional.ofNullable(executionGrants.selectOneByQuery(query)).map(converter::toExecutionGrant);
         } catch (IllegalArgumentException | NullPointerException invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -396,7 +421,8 @@ public class MerchantLimitGatewayImpl extends ServiceImpl<LimitReservationMapper
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()
                 || jdbc.getJdbcTemplate().getDataSource() == null
-                || !TransactionSynchronizationManager.hasResource(jdbc.getJdbcTemplate().getDataSource())) {
+                || !TransactionSynchronizationManager.hasResource(
+                        jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
     }

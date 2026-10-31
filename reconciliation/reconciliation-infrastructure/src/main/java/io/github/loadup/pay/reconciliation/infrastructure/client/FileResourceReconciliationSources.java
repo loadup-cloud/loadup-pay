@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Reconciliation infrastructure
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.reconciliation.infrastructure.client;
+
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
@@ -21,10 +31,6 @@ import io.github.loadup.modules.file.client.dto.FileResourceDTO;
 import io.github.loadup.modules.file.client.facade.FileResourceFacade;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationSourceFiles;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,12 +39,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.function.Supplier;
-
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * FileResource metadata is local; DFS byte transfer is always outside business transactions.
@@ -49,8 +52,9 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     private final FileResourceFacade files;
     private final int maxBytes;
 
-    public FileResourceReconciliationSources(FileResourceFacade files,
-                                             @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
+    public FileResourceReconciliationSources(
+            FileResourceFacade files,
+            @Value("${loadup.modules.reconciliation.statement-max-bytes:16777216}") int maxBytes) {
         if (maxBytes < 1024 || maxBytes > 67108864) {
             throw new CommonException(INVALID_ARGUMENT);
         }
@@ -59,7 +63,8 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     @Override
-    public ReconciliationFileSnapshot upload(String tenant, String owner, String filename, String type, long size, InputStream content) {
+    public ReconciliationFileSnapshot upload(
+            String tenant, String owner, String filename, String type, long size, InputStream content) {
         noTransaction();
         if (size <= 0 || size > maxBytes || content == null) {
             throw new CommonException(INPUT_INVALID);
@@ -88,7 +93,8 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
             var stored = files.get(fileId, owner, false);
             metadata(stored, tenant, owner, fileId);
             try (var response = files.download(fileId, owner, false)) {
-                if (response.contentLength() != stored.size() || !stored.storageId().equals(response.metadata().fileId())) {
+                if (response.contentLength() != stored.size()
+                        || !stored.storageId().equals(response.metadata().fileId())) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
                 byte[] bytes = read(response.content());
@@ -143,7 +149,9 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     private boolean referenced(String tenant, String owner, String id, String referenceType, String referenceId) {
-        return files.references(id, owner, false).stream().anyMatch(value -> referenceType.equals(value.referenceType()) && referenceId.equals(value.referenceId()));
+        return files.references(id, owner, false).stream()
+                .anyMatch(value ->
+                        referenceType.equals(value.referenceType()) && referenceId.equals(value.referenceId()));
     }
 
     private void current(String tenant, String owner, ReconciliationFileSnapshot source) {
@@ -155,8 +163,13 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     private void metadata(FileResourceDTO value, String tenant, String owner, String id) {
-        if (value == null || !Objects.equals(id, value.id()) || !owner.equals(value.ownerId())
-                || !"ACTIVE".equals(value.state()) || value.size() <= 0 || value.size() > maxBytes || value.storageId() == null) {
+        if (value == null
+                || !Objects.equals(id, value.id())
+                || !owner.equals(value.ownerId())
+                || !"ACTIVE".equals(value.state())
+                || value.size() <= 0
+                || value.size() > maxBytes
+                || value.storageId() == null) {
             throw new CommonException(INPUT_INVALID);
         }
     }
@@ -188,7 +201,8 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
     }
 
     private void transaction(String tenant, boolean write) {
-        if (!Objects.equals(tenant, TenantUtil.getTenantId()) || !TransactionSynchronizationManager.isActualTransactionActive()
+        if (!Objects.equals(tenant, TenantUtil.getTenantId())
+                || !TransactionSynchronizationManager.isActualTransactionActive()
                 || write && TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -198,7 +212,8 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
         try {
             return TenantUtil.callWithTenant(tenant, action::get);
         } catch (CommonException failure) {
-            if (failure.getResultCode() instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) {
+            if (failure.getResultCode()
+                    instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) {
                 throw failure;
             }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

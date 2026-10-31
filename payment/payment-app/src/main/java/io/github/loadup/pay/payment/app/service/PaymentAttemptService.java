@@ -1,19 +1,29 @@
 /*
- * Copyright 2026 LoadUp Cloud
- *
+ * #%L
+ * LoadUp Pay Payment App
+ * %%
+ * Copyright (C) 2025 - 2026 LoadUp Cloud
+ * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ * #L%
  */
 package io.github.loadup.pay.payment.app.service;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -28,20 +38,12 @@ import io.github.loadup.pay.payment.client.facade.PaymentAttemptFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
-
-
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.OUTCOME_UNKNOWN;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PaymentAttemptService implements PaymentAttemptFacade {
@@ -56,10 +58,17 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
     private final String acquireService;
     private final PaymentInitialAttemptService initial;
 
-    public PaymentAttemptService(PaymentActorProvider actors, PaymentExecutionLocks locks, PaymentAttemptGateway attempts,
-                                 PaymentAcceptanceCodec codec, PaymentLimitClient limits, PaymentAcceptanceConverter views,
-                                 PaymentAcceptanceTransactions transactions, Validator validator,
-                                 @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService, PaymentInitialAttemptService initial) {
+    public PaymentAttemptService(
+            PaymentActorProvider actors,
+            PaymentExecutionLocks locks,
+            PaymentAttemptGateway attempts,
+            PaymentAcceptanceCodec codec,
+            PaymentLimitClient limits,
+            PaymentAcceptanceConverter views,
+            PaymentAcceptanceTransactions transactions,
+            Validator validator,
+            @Value("${loadup.modules.payment.acquire-service-id:acquire}") String acquireService,
+            PaymentInitialAttemptService initial) {
         this.actors = actors;
         this.locks = locks;
         this.attempts = attempts;
@@ -107,7 +116,8 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
                 return views.toDTO(accepted);
             }
             locks.requireOpen(locked);
-            if (!command.choice().equals(original.choice()) || !Objects.equals(command.preparedInputRef(), original.preparedInputRef())) {
+            if (!command.choice().equals(original.choice())
+                    || !Objects.equals(command.preparedInputRef(), original.preparedInputRef())) {
                 throw new CommonException(IDEMPOTENCY_CONFLICT);
             }
             if (accepted.payment().activeAttemptId() != null) {
@@ -126,13 +136,23 @@ public class PaymentAttemptService implements PaymentAttemptFacade {
 
     private String digest(PaymentActor actor, PaymentAttemptStartCommand command, String paymentDigest) {
         var framed = new StringBuilder();
-        for (String field : Arrays.asList("payment-attempt-start-v1", actor.tenantId(), actor.serviceId(), command.paymentId(),
-                command.requestKey(), command.choice().channel().name(), command.choice().method().name(),
-                command.preparedInputRef(), command.previousAttemptEvidenceId(), paymentDigest)) {
+        for (String field : Arrays.asList(
+                "payment-attempt-start-v1",
+                actor.tenantId(),
+                actor.serviceId(),
+                command.paymentId(),
+                command.requestKey(),
+                command.choice().channel().name(),
+                command.choice().method().name(),
+                command.preparedInputRef(),
+                command.previousAttemptEvidenceId(),
+                paymentDigest)) {
             if (field == null) {
                 framed.append("-1:");
             } else {
-                framed.append(field.getBytes(StandardCharsets.UTF_8).length).append(':').append(field);
+                framed.append(field.getBytes(StandardCharsets.UTF_8).length)
+                        .append(':')
+                        .append(field);
             }
         }
         return codec.checksum(framed.toString());
