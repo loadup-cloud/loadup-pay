@@ -91,13 +91,7 @@ loadup:
           v1: ${PAYMENT_INPUT_FINGERPRINT_KEY}
   kms:
     enabled: false
-    endpoint: ${PAYMENT_KMS_ENDPOINT:https://localhost/kms}
-    token-env: PAYMENT_KMS_TOKEN
-    management-enabled: false
-    allow-insecure-http: ${PAYMENT_KMS_ALLOW_INSECURE_HTTP:false}
-    connect-timeout: 2s
-    read-timeout: 2s
-    max-input-bytes: 65536
+    binder: local
   delayedtask:
     enabled: true
     batch-size: ${PAYMENT_TASK_BATCH_SIZE:100}
