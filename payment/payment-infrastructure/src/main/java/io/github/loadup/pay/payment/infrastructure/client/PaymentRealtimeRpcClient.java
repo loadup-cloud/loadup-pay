@@ -47,7 +47,7 @@ public class PaymentRealtimeRpcClient implements PaymentRealtimeClient {
     private final PaymentServiceTokenReader tokens;
     private final RealtimeRpcMapper realtimeRpcMapper;
 
-    @DubboReference(url = "tri://realtime-headless:50051")
+    @DubboReference
     private RealtimeRpc realtimeRpc;
 
     public PaymentRealtimeRpcClient(

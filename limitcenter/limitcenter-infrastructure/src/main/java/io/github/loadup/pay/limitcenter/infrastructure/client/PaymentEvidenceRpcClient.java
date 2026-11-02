@@ -55,7 +55,7 @@ public class PaymentEvidenceRpcClient implements PaymentEvidenceClient {
     private final Clock clock;
     private final PaymentRpcMapper paymentRpcMapper;
 
-    @DubboReference(url = "tri://payment-headless:50051")
+    @DubboReference
     private PaymentRpc paymentRpc;
 
     public PaymentEvidenceRpcClient(

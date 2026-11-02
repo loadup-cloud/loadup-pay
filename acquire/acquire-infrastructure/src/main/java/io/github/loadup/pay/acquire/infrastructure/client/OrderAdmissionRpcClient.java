@@ -40,7 +40,7 @@ public class OrderAdmissionRpcClient implements OrderAdmissionClient {
     private final AcquireActorProvider actors;
     private final ProductRpcMapper productRpcMapper;
 
-    @DubboReference(url = "tri://product-headless:50051")
+    @DubboReference
     private ProductRpc productRpc;
 
     public OrderAdmissionRpcClient(ProductRpcMapper productRpcMapper, AcquireActorProvider actors) {

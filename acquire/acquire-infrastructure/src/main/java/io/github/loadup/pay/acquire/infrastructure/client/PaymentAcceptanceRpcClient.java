@@ -63,7 +63,7 @@ public class PaymentAcceptanceRpcClient implements PaymentAcceptanceClient, Paym
     private final AcquireServiceTokenReader tokens;
     private final PaymentRpcMapper paymentRpcMapper;
 
-    @DubboReference(url = "tri://payment-headless:50051")
+    @DubboReference
     private PaymentRpc paymentRpc;
 
     public PaymentAcceptanceRpcClient(

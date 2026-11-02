@@ -58,7 +58,7 @@ public class PaymentLimitRpcClient implements PaymentLimitClient {
     private final PaymentServiceTokenReader tokens;
     private final LimitCenterRpcMapper limitCenterRpcMapper;
 
-    @DubboReference(url = "tri://limitcenter-headless:50051")
+    @DubboReference
     private LimitCenterRpc limitCenterRpc;
 
     public PaymentLimitRpcClient(

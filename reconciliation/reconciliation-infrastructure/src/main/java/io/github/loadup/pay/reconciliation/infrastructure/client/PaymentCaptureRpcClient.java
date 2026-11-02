@@ -53,7 +53,7 @@ public class PaymentCaptureRpcClient implements ReconciliationPaymentCaptures {
     private final ReconciliationServiceTokenReader tokens;
     private final PaymentCaptureRpcMapper paymentCaptureRpcMapper;
 
-    @DubboReference(url = "tri://payment-headless:50051")
+    @DubboReference
     private PaymentCaptureRpc paymentCaptureRpc;
 
     public PaymentCaptureRpcClient(

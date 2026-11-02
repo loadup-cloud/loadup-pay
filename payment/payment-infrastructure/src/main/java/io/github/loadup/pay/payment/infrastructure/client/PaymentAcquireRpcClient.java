@@ -49,7 +49,7 @@ public class PaymentAcquireRpcClient implements PaymentAcquireClient {
     private final PaymentServiceTokenReader tokens;
     private final AcquireRpcMapper acquireRpcMapper;
 
-    @DubboReference(url = "tri://acquire-headless:50051")
+    @DubboReference
     private AcquireRpc acquireRpc;
 
     public PaymentAcquireRpcClient(

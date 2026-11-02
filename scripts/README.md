@@ -104,8 +104,7 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 
 ## 应用间 Dubbo Triple 发布
 
-七应用 `application.yml` 固定 HTTP 8080、Triple 50051、`shutdown: graceful`，Pod 终止窗口 45 秒。消费端
-`@DubboReference` 直接使用 `tri://<peer>-headless:50051`，字段类型是生成的 Protobuf IDL 接口；
+七应用 `application.yml` 固定 HTTP 8080、Triple 50051、`shutdown: graceful`，Pod 终止窗口 45 秒。默认通过配置使用 `tri://<peer>-headless:50051` 直连，字段类型是生成的 Protobuf IDL 接口；
 `dubbo.registry.address: N/A`，
 `consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
 
@@ -148,3 +147,12 @@ Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码�
 可选 REGION/ENDPOINT/PATH_STYLE 和一对 S3_ACCESS_KEY/S3_SECRET_KEY（或默认凭证链）。不自动创建 bucket；statement-account
 显式配置实际主/子商户。
 部署所需 Secret 内容及存储策略需由部署环境提供，本轮未发布或访问存储。当前未接官方账单自动下载/验签来源或 payment 权威导出。
+
+### 非 Kubernetes 环境：Nacos 服务发现
+
+所有应用使用同一制品。启动时设置 `SPRING_PROFILES_ACTIVE=nacos` 和
+`DUBBO_REGISTRY_ADDRESS=nacos://<host>:8848`；此 profile 不加载 Headless 直连地址。
+部署方必须确保所有实例注册的 IP 和 Triple 端口对调用方可达，并配置 Nacos 的认证和网络访问。
+默认（未启用 nacos profile）继续使用 Kubernetes Headless 地址；不可同时启用会注入直连 URL 的其他配置。
+配置中心 Nacos binder 与 Dubbo 服务注册发现是独立功能。切换需要重启或滚动发布，切换前后应验证
+注册信息、真实 RPC、多副本分布和回滚；旧直连镜像在非 Kubernetes 环境无法依靠 Nacos 自动发现。

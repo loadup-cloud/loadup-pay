@@ -44,7 +44,7 @@ public class AcquireRealtimeRpcClient implements AcquireRealtimeClient {
     private final AcquireServiceTokenReader tokens;
     private final RealtimeRpcMapper realtimeRpcMapper;
 
-    @DubboReference(url = "tri://realtime-headless:50051")
+    @DubboReference
     private RealtimeRpc realtimeRpc;
 
     public AcquireRealtimeRpcClient(

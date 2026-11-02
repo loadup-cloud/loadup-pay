@@ -43,7 +43,7 @@ public class LimitPolicyActivationRpcClient implements PolicyActivationClient {
     private final PolicyPublicationTransportProperties properties;
     private final LimitCenterRpcMapper limitCenterRpcMapper;
 
-    @DubboReference(url = "tri://limitcenter-headless:50051")
+    @DubboReference
     private LimitCenterRpc limitCenterRpc;
 
     public LimitPolicyActivationRpcClient(

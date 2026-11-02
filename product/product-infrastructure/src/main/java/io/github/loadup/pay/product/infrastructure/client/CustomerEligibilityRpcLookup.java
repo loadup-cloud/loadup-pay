@@ -43,7 +43,7 @@ public class CustomerEligibilityRpcLookup implements CustomerEligibilityLookup {
     private final ProductActorProvider actors;
     private final CustomerRpcMapper customerRpcMapper;
 
-    @DubboReference(url = "tri://customer-headless:50051")
+    @DubboReference
     private CustomerRpc customerRpc;
 
     public CustomerEligibilityRpcLookup(CustomerRpcMapper customerRpcMapper, ProductActorProvider actors) {

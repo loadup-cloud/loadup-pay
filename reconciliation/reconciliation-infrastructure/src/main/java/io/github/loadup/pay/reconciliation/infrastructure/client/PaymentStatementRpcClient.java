@@ -47,7 +47,7 @@ public class PaymentStatementRpcClient implements ReconciliationPaymentStatement
     private final ReconciliationServiceTokenReader tokens;
     private final PaymentStatementRpcMapper paymentStatementRpcMapper;
 
-    @DubboReference(url = "tri://payment-headless:50051", timeout = 60000)
+    @DubboReference(timeout = 60000)
     private PaymentStatementRpc paymentStatementRpc;
 
     public PaymentStatementRpcClient(

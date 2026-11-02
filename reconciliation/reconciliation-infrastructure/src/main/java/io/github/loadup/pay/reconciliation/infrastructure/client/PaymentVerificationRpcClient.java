@@ -43,7 +43,7 @@ public class PaymentVerificationRpcClient implements ReconciliationPaymentVerifi
     private final ReconciliationServiceTokenReader tokens;
     private final PaymentVerificationRpcMapper paymentVerificationRpcMapper;
 
-    @DubboReference(url = "tri://payment-headless:50051")
+    @DubboReference
     private PaymentVerificationRpc paymentVerificationRpc;
 
     public PaymentVerificationRpcClient(

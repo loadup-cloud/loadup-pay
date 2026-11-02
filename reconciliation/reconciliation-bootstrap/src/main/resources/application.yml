@@ -25,8 +25,6 @@ dubbo:
     triple:
       max-body-size: 33554432
       max-response-body-size: 33554432
-  registry:
-    address: N/A
   consumer:
     check: false
     timeout: 3000
@@ -121,3 +119,19 @@ loadup:
       issuer-uri: ${RECONCILIATION_JWT_ISSUER_URI}
       audience: ${RECONCILIATION_JWT_AUDIENCE:${loadup.rpc.client.audience:reconciliation}}
       jwk-set-uri: ${RECONCILIATION_JWT_JWK_SET_URI}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!nacos"
+dubbo:
+  registry:
+    address: N/A
+  reference:
+    "io.github.loadup.pay.payment.rpc.proto.PaymentCaptureRpc":
+      url: tri://payment-headless:50051
+    "io.github.loadup.pay.payment.rpc.proto.PaymentStatementRpc":
+      url: tri://payment-headless:50051
+    "io.github.loadup.pay.payment.rpc.proto.PaymentVerificationRpc":
+      url: tri://payment-headless:50051

@@ -20,8 +20,6 @@ dubbo:
     triple:
       max-body-size: 33554432
       max-response-body-size: 33554432
-  registry:
-    address: N/A
   consumer:
     check: false
     timeout: 3000
@@ -136,3 +134,19 @@ resilience4j:
       pay-channel-recovery-unionpay:
         max-concurrent-calls: ${PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!nacos"
+dubbo:
+  registry:
+    address: N/A
+  reference:
+    "io.github.loadup.pay.acquire.rpc.proto.AcquireRpc":
+      url: tri://acquire-headless:50051
+    "io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc":
+      url: tri://limitcenter-headless:50051
+    "io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc":
+      url: tri://realtime-headless:50051
