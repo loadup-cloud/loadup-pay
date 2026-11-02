@@ -262,9 +262,7 @@ class ReconciliationReviewPersistenceIT {
             return true;
         });
         var differenceId = jdbc.queryForObject(
-                "SELECT id FROM reconciliation_difference WHERE batch_id = ?",
-                String.class,
-                batchId);
+                "SELECT id FROM reconciliation_difference WHERE batch_id = ?", String.class, batchId);
         return new Fixture(tenant, batchId, differenceId, result.summary().resultHash());
     }
 

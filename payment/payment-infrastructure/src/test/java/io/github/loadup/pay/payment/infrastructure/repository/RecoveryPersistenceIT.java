@@ -181,9 +181,7 @@ class RecoveryPersistenceIT {
             assertTrue(tasks.find(PaymentRecoveryService.TYPE, key(payment, 1)).isPresent());
             return true;
         });
-        scenario.assertDb("payment_recovery_cursor")
-                .where("id", payment)
-                .exists();
+        scenario.assertDb("payment_recovery_cursor").where("id", payment).exists();
     }
 
     @Test

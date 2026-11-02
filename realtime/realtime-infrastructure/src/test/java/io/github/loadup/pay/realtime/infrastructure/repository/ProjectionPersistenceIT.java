@@ -256,7 +256,8 @@ class ProjectionPersistenceIT {
                     0L,
                     jdbc.queryForObject(
                                     "SELECT COUNT(*) FROM trade_order_projection WHERE order_id = ?",
-                                    Long.class, "order")
+                                    Long.class,
+                                    "order")
                             .longValue());
             return true;
         });
@@ -374,14 +375,17 @@ class ProjectionPersistenceIT {
             assertEquals(
                     projections,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM " + fixture.kind.table + " WHERE " + fixture.kind.key + " = ?",
-                                    Long.class, fixture.aggregate)
+                                    "SELECT COUNT(*) FROM " + fixture.kind.table + " WHERE " + fixture.kind.key
+                                            + " = ?",
+                                    Long.class,
+                                    fixture.aggregate)
                             .longValue());
             assertEquals(
                     accepted,
                     jdbc.queryForObject(
                                     "SELECT COUNT(*) FROM trade_projection_receipt WHERE aggregate_id = ?",
-                                    Long.class, fixture.aggregate)
+                                    Long.class,
+                                    fixture.aggregate)
                             .longValue());
             return true;
         });

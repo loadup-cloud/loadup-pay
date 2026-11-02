@@ -46,11 +46,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Repository
 public class MerchantNotificationGatewayImpl implements MerchantNotificationGateway {
-    private static final String COLUMNS =
-            "id, created_at, updated_at, event_id, order_id, payee_merchant_id, "
-                    + "event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref, timeout_millis, "
-                    + "retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts, retry_window_seconds, "
-                    + "occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version";
+    private static final String COLUMNS = "id, created_at, updated_at, event_id, order_id, payee_merchant_id, "
+            + "event_type, aggregate_id, source_version, body, body_digest, target_ref, signing_identity_ref, timeout_millis, "
+            + "retry_initial_seconds, retry_multiplier, retry_maximum_seconds, retry_max_attempts, retry_window_seconds, "
+            + "occurred_at, expires_at, next_attempt_at, attempt_count, state, route_fingerprint, acknowledged_at, row_version";
     private final Clock clock;
     private final NamedParameterJdbcTemplate jdbc;
     private final MerchantNotificationStorageConverter converter;

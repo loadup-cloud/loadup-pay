@@ -26,10 +26,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({
-    CheckoutProperties.class,
-    MerchantNotificationProperties.class,
-    CashierProperties.class
+@EnableConfigurationProperties({CheckoutProperties.class, MerchantNotificationProperties.class, CashierProperties.class
 })
 public class AcquirePersistenceConfiguration {
     @Bean

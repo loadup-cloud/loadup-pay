@@ -34,6 +34,9 @@ public class ProductPersistenceConfiguration {
     @Bean
     public PolicyPublicationTransportProperties policyPublicationTransportProperties(Environment environment) {
         return RpcClientDefaults.bind(
-                environment, "loadup.modules.product.publication", "limitcenter", PolicyPublicationTransportProperties.class);
+                environment,
+                "loadup.modules.product.publication",
+                "limitcenter",
+                PolicyPublicationTransportProperties.class);
     }
 }

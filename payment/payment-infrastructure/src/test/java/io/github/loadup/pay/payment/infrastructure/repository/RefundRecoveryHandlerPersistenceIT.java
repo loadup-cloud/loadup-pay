@@ -476,9 +476,7 @@ class RefundRecoveryHandlerPersistenceIT {
             assertThrows(IllegalStateException.class, () -> resultService.record(fixture.tenant(), unknown));
             assertSubmitted(fixture);
             assertNull(jdbc.queryForObject(
-                    "SELECT first_unknown_at FROM refund_order WHERE id=?",
-                    LocalDateTime.class,
-                    fixture.refundId()));
+                    "SELECT first_unknown_at FROM refund_order WHERE id=?", LocalDateTime.class, fixture.refundId()));
             clock.advance(Duration.ofMinutes(2));
             var firstUnknownAt = now();
             resultService.record(fixture.tenant(), unknown);
@@ -565,16 +563,14 @@ class RefundRecoveryHandlerPersistenceIT {
         try {
             var original = channel.observations.get(fixture.refundId());
             var before = jdbc.queryForMap(
-                    "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?",
-                    fixture.refundId());
+                    "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?", fixture.refundId());
             var first = acceptance(original, ChannelRefundOutcome.Kind.ACCEPTED, "accepted-original", AT);
             var receipt = resultService.record(fixture.tenant(), first);
             assertReserved(fixture, RefundState.PROCESSING, 1L);
             assertEquals(
                     before,
                     jdbc.queryForMap(
-                            "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?",
-                            fixture.refundId()));
+                            "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?", fixture.refundId()));
             assertEquals(
                     receipt.receiptId(),
                     jdbc.queryForObject(
@@ -603,8 +599,7 @@ class RefundRecoveryHandlerPersistenceIT {
             assertEquals(
                     before,
                     jdbc.queryForMap(
-                            "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?",
-                            fixture.refundId()));
+                            "SELECT state,row_version,updated_at FROM refund_order WHERE id = ?", fixture.refundId()));
         } finally {
             cancelRemainingTasks(fixture);
         }
@@ -997,10 +992,7 @@ class RefundRecoveryHandlerPersistenceIT {
     private void assertTarget(RefundFixture fixture, String type, long expected) {
         assertEquals(
                 expected,
-                jdbc.queryForObject(
-                                "SELECT COUNT(*) FROM loadup_outbox_event WHERE event_type = ?",
-                                Long.class,
-                                type)
+                jdbc.queryForObject("SELECT COUNT(*) FROM loadup_outbox_event WHERE event_type = ?", Long.class, type)
                         .longValue());
     }
 

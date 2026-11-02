@@ -25,11 +25,12 @@ class RealtimeRpcAutoConfigurationTest {
         var candidates = ImportCandidates.load(AutoConfiguration.class, loader).getCandidates().stream()
                 .filter(name -> name.startsWith("io.github.loadup.pay.") && name.endsWith("RpcAutoConfiguration"))
                 .toList();
-        assertThat(candidates).contains(
-                "io.github.loadup.pay.realtime.client.autoconfigure.RealtimeRpcAutoConfiguration",
-                "io.github.loadup.pay.acquire.client.autoconfigure.AcquireRpcAutoConfiguration",
-                "io.github.loadup.pay.payment.client.autoconfigure.PaymentRpcAutoConfiguration",
-                "io.github.loadup.pay.product.client.autoconfigure.ProductRpcAutoConfiguration");
+        assertThat(candidates)
+                .contains(
+                        "io.github.loadup.pay.realtime.client.autoconfigure.RealtimeRpcAutoConfiguration",
+                        "io.github.loadup.pay.acquire.client.autoconfigure.AcquireRpcAutoConfiguration",
+                        "io.github.loadup.pay.payment.client.autoconfigure.PaymentRpcAutoConfiguration",
+                        "io.github.loadup.pay.product.client.autoconfigure.ProductRpcAutoConfiguration");
         var configurations = candidates.stream()
                 .map(name -> ClassUtils.resolveClassName(name, loader))
                 .toArray(Class<?>[]::new);

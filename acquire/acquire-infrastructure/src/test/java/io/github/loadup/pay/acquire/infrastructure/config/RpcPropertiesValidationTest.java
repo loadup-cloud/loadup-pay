@@ -17,21 +17,26 @@ class RpcPropertiesValidationTest {
     void immutableSettingsRemainUnproxiedWhenMethodValidationIsEnabled() {
         new ApplicationContextRunner()
                 .withUserConfiguration(MethodValidationConfiguration.class)
-                .withBean(PaymentTransportProperties.class, () -> new PaymentTransportProperties(
-                        "__default__", "acquire", "payment", Path.of("/tmp/payment.jwt")))
-                .withBean(AcquireRealtimeProperties.class, () -> new AcquireRealtimeProperties(
-                        "__default__", "acquire", "realtime", Path.of("/tmp/realtime.jwt")))
+                .withBean(
+                        PaymentTransportProperties.class,
+                        () -> new PaymentTransportProperties(
+                                "__default__", "acquire", "payment", Path.of("/tmp/payment.jwt")))
+                .withBean(
+                        AcquireRealtimeProperties.class,
+                        () -> new AcquireRealtimeProperties(
+                                "__default__", "acquire", "realtime", Path.of("/tmp/realtime.jwt")))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(AopUtils.isAopProxy(context.getBean(PaymentTransportProperties.class))).isFalse();
-                    assertThat(AopUtils.isAopProxy(context.getBean(AcquireRealtimeProperties.class))).isFalse();
+                    assertThat(AopUtils.isAopProxy(context.getBean(PaymentTransportProperties.class)))
+                            .isFalse();
+                    assertThat(AopUtils.isAopProxy(context.getBean(AcquireRealtimeProperties.class)))
+                            .isFalse();
                 });
     }
 
     @Test
     void constructorStillRejectsInvalidSettings() {
-        assertThatThrownBy(() -> new PaymentTransportProperties(
-                        "", "acquire", "payment", Path.of("/tmp/payment.jwt")))
+        assertThatThrownBy(() -> new PaymentTransportProperties("", "acquire", "payment", Path.of("/tmp/payment.jwt")))
                 .isInstanceOf(io.github.loadup.commons.error.DomainViolation.class);
     }
 

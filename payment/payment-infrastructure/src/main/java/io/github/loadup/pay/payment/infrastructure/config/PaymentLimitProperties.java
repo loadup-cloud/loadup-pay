@@ -43,8 +43,8 @@ public record PaymentLimitProperties(
             throw new IllegalArgumentException("loadup.modules.payment.limitcenter." + field + " is missing or blank");
         }
         if (value.length() > maxLength || value.chars().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException("loadup.modules.payment.limitcenter." + field
-                    + " must contain at most " + maxLength + " characters and no control characters");
+            throw new IllegalArgumentException("loadup.modules.payment.limitcenter." + field + " must contain at most "
+                    + maxLength + " characters and no control characters");
         }
     }
 

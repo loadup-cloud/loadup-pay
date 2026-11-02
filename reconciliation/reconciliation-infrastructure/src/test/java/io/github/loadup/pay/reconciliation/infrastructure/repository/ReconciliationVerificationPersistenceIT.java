@@ -467,9 +467,7 @@ class ReconciliationVerificationPersistenceIT {
             return true;
         });
         String differenceId = jdbc.queryForObject(
-                "SELECT id FROM reconciliation_difference WHERE batch_id = ?",
-                String.class,
-                batchId);
+                "SELECT id FROM reconciliation_difference WHERE batch_id = ?", String.class, batchId);
         var proposed = actors.call(
                 tenant,
                 "maker",
