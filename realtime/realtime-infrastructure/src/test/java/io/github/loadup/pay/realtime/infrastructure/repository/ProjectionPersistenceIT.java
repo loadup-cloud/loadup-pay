@@ -255,9 +255,8 @@ class ProjectionPersistenceIT {
             assertEquals(
                     0L,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM trade_order_projection WHERE tenant_id = ?",
-                                    Long.class,
-                                    fixture.tenant)
+                                    "SELECT COUNT(*) FROM trade_order_projection WHERE order_id = ?",
+                                    Long.class, "order")
                             .longValue());
             return true;
         });
@@ -366,8 +365,7 @@ class ProjectionPersistenceIT {
         return transactions.readSnapshot(
                 fixture.tenant,
                 () -> jdbc.queryForMap(
-                        "SELECT * FROM " + fixture.kind.table + " WHERE tenant_id = ? AND " + fixture.kind.key + " = ?",
-                        fixture.tenant,
+                        "SELECT * FROM " + fixture.kind.table + " WHERE " + fixture.kind.key + " = ?",
                         fixture.aggregate));
     }
 
@@ -376,16 +374,14 @@ class ProjectionPersistenceIT {
             assertEquals(
                     projections,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM " + fixture.kind.table + " WHERE tenant_id = ?",
-                                    Long.class,
-                                    fixture.tenant)
+                                    "SELECT COUNT(*) FROM " + fixture.kind.table + " WHERE " + fixture.kind.key + " = ?",
+                                    Long.class, fixture.aggregate)
                             .longValue());
             assertEquals(
                     accepted,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM trade_projection_receipt WHERE tenant_id = ?",
-                                    Long.class,
-                                    fixture.tenant)
+                                    "SELECT COUNT(*) FROM trade_projection_receipt WHERE aggregate_id = ?",
+                                    Long.class, fixture.aggregate)
                             .longValue());
             return true;
         });
@@ -394,7 +390,6 @@ class ProjectionPersistenceIT {
     private void assertVersion(Fixture fixture, long version) {
         transactions.readSnapshot(fixture.tenant, () -> {
             scenario.assertDb(fixture.kind.table)
-                    .where("tenant_id", fixture.tenant)
                     .where(fixture.kind.key, fixture.aggregate)
                     .exists()
                     .has("source_version", version);

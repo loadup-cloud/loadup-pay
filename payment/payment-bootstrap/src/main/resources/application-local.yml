@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/loadup_payment
+    username: admin
+    password: "123456"
+
+server:
+  port: 8081
+
+dubbo:
+  protocol:
+    port: 50051

@@ -19,9 +19,16 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.config;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(ReconciliationPaymentProperties.class)
-public class ReconciliationPaymentConfiguration {}
+public class ReconciliationPaymentConfiguration {
+    @Bean
+    public ReconciliationPaymentProperties reconciliationPaymentProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.reconciliation.payment", "payment", ReconciliationPaymentProperties.class);
+    }
+}

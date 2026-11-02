@@ -23,7 +23,6 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
-import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderSnapshotStorageConverter;
@@ -53,13 +52,13 @@ public class OrderSnapshotReaderImpl implements OrderSnapshotReader {
                         jdbc.getJdbcTemplate().getDataSource())) {
             throw new CommonException(INVALID_STATE);
         }
-        var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", orderId);
+        var args = new MapSqlParameterSource("id", orderId);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
+                SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
                        contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
                        successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version,
                        close_epoch, paid_at, closed_at, row_version
-                FROM acquire_order WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE FOR UPDATE
+                FROM acquire_order WHERE id = :id AND deleted = FALSE FOR UPDATE
                 """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);

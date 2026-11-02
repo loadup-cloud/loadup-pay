@@ -262,9 +262,8 @@ class ReconciliationReviewPersistenceIT {
             return true;
         });
         var differenceId = jdbc.queryForObject(
-                "SELECT id FROM reconciliation_difference WHERE tenant_id = ? AND batch_id = ?",
+                "SELECT id FROM reconciliation_difference WHERE batch_id = ?",
                 String.class,
-                tenant,
                 batchId);
         return new Fixture(tenant, batchId, differenceId, result.summary().resultHash());
     }
@@ -323,7 +322,7 @@ class ReconciliationReviewPersistenceIT {
                 .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
-        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
     }
 
     record Fixture(String tenant, String batchId, String differenceId, String resultHash) {}

@@ -75,23 +75,13 @@ loadup:
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
       recovery-operations-service-id: ${ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
       notification-operations-service-id: ${ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID:pay-ops}
-      product-audience: ${PRODUCT_JWT_AUDIENCE}
-      realtime:
-        tenant-id: ${ACQUIRE_REALTIME_TENANT_ID:${ACQUIRE_PAYMENT_TENANT_ID}}
-        service-id: ${ACQUIRE_SERVICE_ID:acquire}
-        audience: ${REALTIME_JWT_AUDIENCE}
-        token-file: ${ACQUIRE_REALTIME_TOKEN_FILE}
-      payment:
-        tenant-id: ${ACQUIRE_PAYMENT_TENANT_ID}
-        service-id: ${ACQUIRE_SERVICE_ID:acquire}
-        audience: ${PAYMENT_JWT_AUDIENCE}
-        token-file: ${ACQUIRE_PAYMENT_TOKEN_FILE}
+      product-audience: ${PRODUCT_JWT_AUDIENCE:${loadup.rpc.client.audience:product}}
       checkout:
-        page-url: ${ACQUIRE_CHECKOUT_PAGE_URL}
+        page-url: ${ACQUIRE_CHECKOUT_PAGE_URL:https://example.com/checkout }
         key-ref: acquire-checkout
         active-key-version: ${ACQUIRE_CHECKOUT_ACTIVE_KEY_VERSION:v1}
         keys:
-          v1: ${ACQUIRE_CHECKOUT_SECRET}
+          v1: ${ACQUIRE_CHECKOUT_SECRET:59b4837096b6c2d9ae214058f4d8b7c22be6db20378a72261d5449f12b948383}
   database:
     multi-tenant:
       enabled: true
@@ -108,5 +98,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${ACQUIRE_JWT_ISSUER_URI}
-      audience: ${ACQUIRE_JWT_AUDIENCE}
+      audience: ${ACQUIRE_JWT_AUDIENCE:${loadup.rpc.client.audience:acquire}}
       jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI}

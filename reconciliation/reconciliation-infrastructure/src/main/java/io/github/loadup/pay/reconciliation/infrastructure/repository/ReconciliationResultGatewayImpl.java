@@ -94,7 +94,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         }
         var countArgs = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
         if (jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM reconciliation_difference WHERE tenant_id = :tenant AND batch_id = :batch AND deleted = FALSE",
+                        "SELECT COUNT(*) FROM reconciliation_difference WHERE batch_id = :batch AND deleted = FALSE",
                         countArgs,
                         Long.class)
                 != 0) {
@@ -123,10 +123,10 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
             var rows = pending.subList(offset, Math.min(offset + 500, pending.size()))
                     .toArray(BeanPropertySqlParameterSource[]::new);
             int[] counts = jdbc.batchUpdate("""
-                    INSERT INTO reconciliation_difference (id, tenant_id, created_at, updated_at, deleted, batch_id, run_id,
+                    INSERT INTO reconciliation_difference (id, created_at, updated_at, deleted, batch_id, run_id,
                         match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id,
                         channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch)
-                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :batchId, :runId, :matchKeyHash, :kind,
+                    VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :runId, :matchKeyHash, :kind,
                         :channelTransactionNo, :channelRefundNo, :channelEntryId, :ledgerEntryId, :channelOnly, :ledgerOnly,
                         :amountMismatch, :requestMismatch, :stateMismatch)
                     """, rows);
@@ -161,7 +161,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
                 .addValue("batch", batchId)
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
-        var where = new StringBuilder("tenant_id = :tenant AND batch_id = :batch AND deleted = FALSE");
+        var where = new StringBuilder("batch_id = :batch AND deleted = FALSE");
         if (kind != null) {
             where.append(" AND kind = :kind");
             args.addValue("kind", kind.name());
@@ -179,7 +179,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         long total =
                 jdbc.queryForObject("SELECT COUNT(*) FROM reconciliation_difference WHERE " + where, args, Long.class);
         var rows = jdbc.query(
-                "SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE "
+                "SELECT id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE "
                         + where + " ORDER BY id ASC LIMIT :limit OFFSET :offset",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationDifferenceDO.class));
@@ -195,7 +195,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         var indexed = new HashMap<String, ReconciliationEntryDO>();
         if (!ids.isEmpty()) {
             for (var row : jdbc.query(
-                    "SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)",
+                    "SELECT id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE deleted = FALSE AND id IN (:ids)",
                     new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids),
                     BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class))) {
                 indexed.put(row.getId(), row);
@@ -235,7 +235,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
                 .addValue("id", differenceId);
         var row = jdbc
                 .query(
-                        "SELECT id, tenant_id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE tenant_id = :tenant AND batch_id = :batch AND id = :id AND deleted = FALSE",
+                        "SELECT id, created_at, updated_at, batch_id, run_id, match_key_hash, kind, channel_transaction_no, channel_refund_no, channel_entry_id, ledger_entry_id, channel_only, ledger_only, amount_mismatch, request_mismatch, state_mismatch FROM reconciliation_difference WHERE batch_id = :batch AND id = :id AND deleted = FALSE",
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationDifferenceDO.class))
                 .stream()
@@ -260,7 +260,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
             var indexed = new HashMap<String, ReconciliationEntryDO>();
             if (!ids.isEmpty()) {
                 for (var entry : jdbc.query(
-                        "SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND id IN (:ids)",
+                        "SELECT id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE deleted = FALSE AND id IN (:ids)",
                         new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("ids", ids),
                         BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class))) {
                     indexed.put(entry.getId(), entry);
@@ -290,7 +290,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         for (int offset = 0; offset < keys.size(); offset += 256) {
             var part = keys.subList(offset, Math.min(offset + 256, keys.size()));
             for (var row : jdbc.query(
-                    "SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND deleted = FALSE AND input_id = :input AND match_key_hash IN (:keys)",
+                    "SELECT id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE deleted = FALSE AND input_id = :input AND match_key_hash IN (:keys)",
                     new MapSqlParameterSource("tenant", TenantContext.tenantId())
                             .addValue("input", input)
                             .addValue("keys", part),
@@ -348,7 +348,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         var row = jdbc
                 .query(
-                        "SELECT id, tenant_id, created_at, updated_at, caller_service_id, request_key, request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version FROM reconciliation_batch WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+                        "SELECT id, created_at, updated_at, caller_service_id, request_key, request_digest, channel_account_code, channel, account_scope_hash, bill_date, statement_profile, state, channel_input_id, ledger_input_id, run_id, matched_count, difference_count, result_hash, row_version FROM reconciliation_batch WHERE id = :id AND deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationBatchDO.class))

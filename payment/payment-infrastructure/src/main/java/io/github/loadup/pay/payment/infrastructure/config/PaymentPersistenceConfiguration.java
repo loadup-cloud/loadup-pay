@@ -19,14 +19,30 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
+import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({
-    PaymentInputProperties.class,
-    PaymentLimitProperties.class,
-    PaymentAcquireProperties.class,
-    PaymentRealtimeProperties.class
-})
-public class PaymentPersistenceConfiguration {}
+@EnableConfigurationProperties(PaymentInputProperties.class)
+public class PaymentPersistenceConfiguration {
+    @Bean
+    public PaymentLimitProperties paymentLimitProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.payment.limitcenter", "limitcenter", PaymentLimitProperties.class);
+    }
+
+    @Bean
+    public PaymentAcquireProperties paymentAcquireProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.payment.acquire", "acquire", PaymentAcquireProperties.class);
+    }
+
+    @Bean
+    public PaymentRealtimeProperties paymentRealtimeProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.payment.realtime", "realtime", PaymentRealtimeProperties.class);
+    }
+}

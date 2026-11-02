@@ -254,7 +254,7 @@ class ReconciliationImportPersistenceIT {
                 .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
-        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
     }
 
     private String validFile() {

@@ -63,10 +63,7 @@ loadup:
       enabled: false
     product:
       materialize-seconds: ${PRODUCT_MATERIALIZE_SECONDS:300}
-      customer-audience: ${CUSTOMER_JWT_AUDIENCE}
-      publication:
-        tenant-id: ${PRODUCT_PUBLICATION_TENANT_ID}
-        token-file: ${PRODUCT_LIMITCENTER_TOKEN_FILE}
+      customer-audience: ${CUSTOMER_JWT_AUDIENCE:${loadup.rpc.client.audience:customer}}
   database:
     multi-tenant:
       enabled: true
@@ -90,5 +87,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${PRODUCT_JWT_ISSUER_URI}
-      audience: ${PRODUCT_JWT_AUDIENCE}
+      audience: ${PRODUCT_JWT_AUDIENCE:${loadup.rpc.client.audience:product}}
       jwk-set-uri: ${PRODUCT_JWT_JWK_SET_URI}

@@ -67,8 +67,8 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
         var row =
                 jdbc
                         .query("""
-                SELECT id, tenant_id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
-                FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant AND deleted = FALSE
+                SELECT id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
+                FROM merchant_notification_wake_receipt WHERE deleted = FALSE
                     AND caller_scope_hash = :caller AND request_key = :key
                 """, args, BeanPropertyRowMapper.newInstance(MerchantNotificationWakeReceiptDO.class))
                         .stream()
@@ -94,9 +94,9 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO merchant_notification_wake_receipt (id, tenant_id, created_at, updated_at, deleted, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :deliveryId, :eventId, :requestKey, :callerScopeHash, :principalType, :principalId, :reason, :requestDigest, :result, :attemptCount, :deliveryVersion, :nativeTaskId, :acceptedAt)
-                ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
+                INSERT INTO merchant_notification_wake_receipt (id, created_at, updated_at, deleted, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :eventId, :requestKey, :callerScopeHash, :principalType, :principalId, :reason, :requestDigest, :result, :attemptCount, :deliveryVersion, :nativeTaskId, :acceptedAt)
+                ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("merchant_notification_wake_receipt business key already exists");
@@ -115,13 +115,13 @@ public class MerchantNotificationWakeGatewayImpl implements MerchantNotification
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
         var total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant "
+                "SELECT COUNT(*) FROM merchant_notification_wake_receipt WHERE 1=1 "
                         + "AND deleted = FALSE AND delivery_id = :subject",
                 args,
                 Long.class);
         var rows = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
-                FROM merchant_notification_wake_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND delivery_id = :subject
+                SELECT id, created_at, updated_at, delivery_id, event_id, request_key, caller_scope_hash, principal_type, principal_id, reason, request_digest, result, attempt_count, delivery_version, native_task_id, accepted_at
+                FROM merchant_notification_wake_receipt WHERE deleted = FALSE AND delivery_id = :subject
                 ORDER BY accepted_at DESC, id DESC LIMIT :limit OFFSET :offset
                 """, args, BeanPropertyRowMapper.newInstance(MerchantNotificationWakeReceiptDO.class));
         return PageResult.of(rows.stream().map(this::decode).toList(), total, page, size);

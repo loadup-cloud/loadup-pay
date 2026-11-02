@@ -3,7 +3,6 @@
 CREATE TABLE reconciliation_batch
 (
     id                   VARCHAR(64)  NOT NULL PRIMARY KEY,
-    tenant_id            VARCHAR(64)  NOT NULL,
     created_at           DATETIME(6)  NOT NULL,
     updated_at           DATETIME(6)  NOT NULL,
     deleted              TINYINT      NOT NULL DEFAULT 0,
@@ -23,9 +22,9 @@ CREATE TABLE reconciliation_batch
     difference_count     BIGINT       NULL,
     result_hash          VARCHAR(64)  NULL,
     row_version          BIGINT       NOT NULL,
-    UNIQUE KEY uk_recon_batch_run (tenant_id, run_id),
-    UNIQUE KEY uk_recon_batch_request (tenant_id, caller_service_id, request_key),
-    KEY                  ix_recon_batch_scope(tenant_id, channel, account_scope_hash, bill_date, state, id),
+    UNIQUE KEY uk_recon_batch_run (run_id),
+    UNIQUE KEY uk_recon_batch_request (caller_service_id, request_key),
+    KEY                  ix_recon_batch_scope(channel, account_scope_hash, bill_date, state, id),
     CHECK (deleted = 0 AND row_version >= 0 AND channel IN ('ALIPAY', 'WECHAT')),
     CHECK ((state = 'INIT' AND (channel_input_id IS NULL OR ledger_input_id IS NULL))
         OR (state IN ('READY', 'RUNNING', 'MATCHED', 'DIFFERENCES') AND channel_input_id IS NOT NULL AND
@@ -45,7 +44,6 @@ CREATE TABLE reconciliation_batch
 CREATE TABLE reconciliation_input
 (
     id                   VARCHAR(64) NOT NULL PRIMARY KEY,
-    tenant_id            VARCHAR(64) NOT NULL,
     created_at           DATETIME(6) NOT NULL,
     updated_at           DATETIME(6) NOT NULL,
     deleted              TINYINT     NOT NULL DEFAULT 0,
@@ -66,8 +64,8 @@ CREATE TABLE reconciliation_input
     refund_amount_minor  BIGINT      NOT NULL DEFAULT 0,
     rejection_code       VARCHAR(64) NULL,
     row_version          BIGINT      NOT NULL,
-    UNIQUE KEY uk_recon_input_capture (tenant_id, side, source_capture_id, parser_revision),
-    KEY                  ix_recon_input_scope(tenant_id, channel, account_scope_hash, bill_date),
+    UNIQUE KEY uk_recon_input_capture (side, source_capture_id, parser_revision),
+    KEY                  ix_recon_input_scope(channel, account_scope_hash, bill_date),
     CHECK (deleted = 0 AND row_version >= 0 AND channel IN ('ALIPAY', 'WECHAT') AND side IN ('CHANNEL', 'LEDGER')),
     CHECK (payment_count >= 0 AND refund_count >= 0 AND payment_amount_minor >= payment_count AND
            refund_amount_minor >= refund_count),
@@ -83,7 +81,6 @@ CREATE TABLE reconciliation_input
 CREATE TABLE reconciliation_entry
 (
     id                     VARCHAR(64)  NOT NULL PRIMARY KEY,
-    tenant_id              VARCHAR(64)  NOT NULL,
     created_at             DATETIME(6)  NOT NULL,
     updated_at             DATETIME(6)  NOT NULL,
     deleted                TINYINT      NOT NULL DEFAULT 0,
@@ -97,8 +94,8 @@ CREATE TABLE reconciliation_entry
     amount_minor           BIGINT       NOT NULL,
     currency               VARCHAR(3)   NOT NULL,
     state                  VARCHAR(32)  NOT NULL,
-    UNIQUE KEY uk_recon_entry_key (tenant_id, input_id, match_key_hash),
-    UNIQUE KEY uk_recon_entry_ordinal (tenant_id, input_id, record_number),
+    UNIQUE KEY uk_recon_entry_key (input_id, match_key_hash),
+    UNIQUE KEY uk_recon_entry_ordinal (input_id, record_number),
     CHECK (deleted = 0 AND record_number > 0 AND amount_minor > 0 AND currency = 'CNY'),
     CHECK ((kind = 'PAYMENT' AND channel_refund_no IS NULL) OR (kind = 'REFUND' AND channel_refund_no IS NOT NULL)),
     CHECK (state IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'))
@@ -109,7 +106,6 @@ CREATE TABLE reconciliation_entry
 CREATE TABLE reconciliation_difference
 (
     id                     VARCHAR(64)  NOT NULL PRIMARY KEY,
-    tenant_id              VARCHAR(64)  NOT NULL,
     created_at             DATETIME(6)  NOT NULL,
     updated_at             DATETIME(6)  NOT NULL,
     deleted                TINYINT      NOT NULL DEFAULT 0,
@@ -126,8 +122,8 @@ CREATE TABLE reconciliation_difference
     amount_mismatch        TINYINT      NOT NULL,
     request_mismatch       TINYINT      NOT NULL,
     state_mismatch         TINYINT      NOT NULL,
-    UNIQUE KEY uk_recon_difference_key (tenant_id, batch_id, match_key_hash),
-    KEY                    ix_recon_difference_page(tenant_id, batch_id, kind, id),
+    UNIQUE KEY uk_recon_difference_key (batch_id, match_key_hash),
+    KEY                    ix_recon_difference_page(batch_id, kind, id),
     CHECK (deleted = 0 AND channel_only IN (0, 1) AND ledger_only IN (0, 1) AND amount_mismatch IN (0, 1)
         AND request_mismatch IN (0, 1) AND state_mismatch IN (0, 1)),
     CHECK ((kind = 'PAYMENT' AND channel_refund_no IS NULL) OR (kind = 'REFUND' AND channel_refund_no IS NOT NULL)),
@@ -145,7 +141,6 @@ CREATE TABLE reconciliation_difference
 CREATE TABLE reconciliation_import
 (
     id                        VARCHAR(64)   NOT NULL PRIMARY KEY,
-    tenant_id                 VARCHAR(64)   NOT NULL,
     created_at                DATETIME(6)   NOT NULL,
     updated_at                DATETIME(6)   NOT NULL,
     deleted                   TINYINT       NOT NULL DEFAULT 0,
@@ -169,9 +164,9 @@ CREATE TABLE reconciliation_import
     artifact_id               VARCHAR(64)   NULL,
     rejection_code            VARCHAR(64)   NULL,
     row_version               BIGINT        NOT NULL,
-    UNIQUE KEY uk_recon_import_request (tenant_id, caller_service_id, request_key),
-    UNIQUE KEY uk_recon_import_task (tenant_id, task_id),
-    KEY                       ix_recon_import_active(tenant_id, batch_id, state),
+    UNIQUE KEY uk_recon_import_request (caller_service_id, request_key),
+    UNIQUE KEY uk_recon_import_task (task_id),
+    KEY                       ix_recon_import_active(batch_id, state),
     CHECK (deleted = 0 AND row_version >= 0 AND file_size > 0 AND channel IN ('ALIPAY', 'WECHAT')),
     CHECK (source_kind = 'MANUAL_UPLOAD'),
     CHECK (row_version = CASE WHEN state = 'INIT' THEN 0 ELSE 1 END),

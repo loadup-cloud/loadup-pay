@@ -89,11 +89,6 @@ loadup:
       dispatch-batch-size: ${RECONCILIATION_IMPORT_BATCH_SIZE:10}
     reconciliation:
       ledger-fetch-seconds: ${RECONCILIATION_LEDGER_FETCH_SECONDS:60}
-      payment:
-        tenant-id: ${RECONCILIATION_PAYMENT_TENANT_ID}
-        service-id: ${RECONCILIATION_SERVICE_ID:reconciliation}
-        audience: ${RECONCILIATION_PAYMENT_AUDIENCE:payment}
-        token-file: ${RECONCILIATION_PAYMENT_TOKEN_FILE}
       max-records: ${RECONCILIATION_MAX_RECORDS:10000}
       statement-max-bytes: ${RECONCILIATION_STATEMENT_MAX_BYTES:16777216}
       accounts:
@@ -124,5 +119,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${RECONCILIATION_JWT_ISSUER_URI}
-      audience: ${RECONCILIATION_JWT_AUDIENCE}
+      audience: ${RECONCILIATION_JWT_AUDIENCE:${loadup.rpc.client.audience:reconciliation}}
       jwk-set-uri: ${RECONCILIATION_JWT_JWK_SET_URI}

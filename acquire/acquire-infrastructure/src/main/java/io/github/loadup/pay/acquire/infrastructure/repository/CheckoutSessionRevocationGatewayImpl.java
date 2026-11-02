@@ -67,8 +67,8 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
         var row =
                 jdbc
                         .query("""
-                SELECT id, tenant_id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
-                FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant AND deleted = FALSE
+                SELECT id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
+                FROM checkout_session_revocation_receipt WHERE deleted = FALSE
                     AND caller_scope_hash = :caller AND request_key = :key
                 """, args, BeanPropertyRowMapper.newInstance(CheckoutSessionRevocationReceiptDO.class))
                         .stream()
@@ -94,9 +94,9 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO checkout_session_revocation_receipt (id, tenant_id, created_at, updated_at, deleted, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :sessionId, :orderId, :requestKey, :callerScopeHash, :requestDigest, :reason, :newlyRevoked, :beforeVersion, :sessionVersion, :revokedAt, :acceptedAt)
-                ON CONFLICT (tenant_id, caller_scope_hash, request_key) DO NOTHING
+                INSERT INTO checkout_session_revocation_receipt (id, created_at, updated_at, deleted, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :sessionId, :orderId, :requestKey, :callerScopeHash, :requestDigest, :reason, :newlyRevoked, :beforeVersion, :sessionVersion, :revokedAt, :acceptedAt)
+                ON CONFLICT (caller_scope_hash, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("checkout_session_revocation_receipt business key already exists");
@@ -115,13 +115,13 @@ public class CheckoutSessionRevocationGatewayImpl implements CheckoutSessionRevo
                 .addValue("limit", size)
                 .addValue("offset", (long) (page - 1) * size);
         var total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant "
+                "SELECT COUNT(*) FROM checkout_session_revocation_receipt WHERE 1=1 "
                         + "AND deleted = FALSE AND session_id = :subject",
                 args,
                 Long.class);
         var rows = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
-                FROM checkout_session_revocation_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND session_id = :subject
+                SELECT id, created_at, updated_at, session_id, order_id, request_key, caller_scope_hash, request_digest, reason, newly_revoked, before_version, session_version, revoked_at, accepted_at
+                FROM checkout_session_revocation_receipt WHERE deleted = FALSE AND session_id = :subject
                 ORDER BY accepted_at DESC, id DESC LIMIT :limit OFFSET :offset
                 """, args, BeanPropertyRowMapper.newInstance(CheckoutSessionRevocationReceiptDO.class));
         return PageResult.of(rows.stream().map(this::decode).toList(), total, page, size);

@@ -65,9 +65,9 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 .addValue("order", orderId)
                 .addValue("key", requestKey);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
+                SELECT id, created_at, updated_at, order_id, caller_scope_hash, request_key, request_digest,
                        original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at
-                FROM order_extension_receipt WHERE tenant_id = :tenant AND order_id = :order AND request_key = :key AND deleted = FALSE
+                FROM order_extension_receipt WHERE order_id = :order AND request_key = :key AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(OrderExtensionReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
@@ -88,7 +88,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", order.id());
         var row = jdbc.query("""
                 SELECT id, deadline_version, row_version, order_due_at FROM acquire_order
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                WHERE id = :id AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class)).stream()
                 .findFirst()
                 .orElse(null);
@@ -125,7 +125,7 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE acquire_order SET order_due_at = :due, row_version = :version, deadline_version = :deadlineVersion, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND row_version = :expectedVersion
+                WHERE id = :id AND deleted = FALSE AND row_version = :expectedVersion
                     AND deadline_version = :previousDeadlineVersion AND order_due_at = :previousDue AND state IN ('INIT', 'PENDING')
                 """, args);
         if (changed != 1) {
@@ -136,11 +136,11 @@ public class OrderExtensionGatewayImpl implements OrderExtensionGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_extension_receipt (id, tenant_id, created_at, updated_at, deleted, order_id, caller_scope_hash,
+                INSERT INTO order_extension_receipt (id, created_at, updated_at, deleted, order_id, caller_scope_hash,
                     request_key, request_digest, original_due_at, previous_due_at, requested_due_at, expected_order_version, deadline_version, applied_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :callerScopeHash, :requestKey, :requestDigest,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :callerScopeHash, :requestKey, :requestDigest,
                     :originalDueAt, :previousDueAt, :requestedDueAt, :expectedOrderVersion, :deadlineVersion, :appliedAt)
-                ON CONFLICT (tenant_id, order_id, request_key) DO NOTHING
+                ON CONFLICT (order_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Order extension request already exists");

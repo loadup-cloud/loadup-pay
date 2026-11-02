@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/loadup_limitcenter
+    username: admin
+    password: "123456"
+
+server:
+  port: 8084
+
+dubbo:
+  protocol:
+    port: 50054
+
+loadup:
+  modules:
+    limitcenter:
+      permit:
+        active-key-id: v1
+        keys:
+          # Local development only; override for a private environment.
+          v1: "${LIMITCENTER_PERMIT_SECRET:59b4837096b6c2d9ae214058f4d8b7c22be6db20378a72261d5449f12b948383}"

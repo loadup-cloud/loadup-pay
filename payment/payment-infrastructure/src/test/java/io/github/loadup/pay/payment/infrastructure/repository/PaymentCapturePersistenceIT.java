@@ -196,9 +196,8 @@ class PaymentCapturePersistenceIT {
             assertEquals(
                     0L,
                     jdbc.queryForObject(
-                            "SELECT COUNT(*) FROM payment_reconciliation_line WHERE tenant_id=? AND capture_id=?",
+                            "SELECT COUNT(*) FROM payment_reconciliation_line WHERE capture_id=?",
                             Long.class,
-                            fixture.tenant(),
                             original.id()));
             assertEquals(
                     PaymentState.SUCCEEDED,

@@ -359,7 +359,6 @@ class AcquiringFinancialPersistenceIT {
             return true;
         });
         scenario.assertDb("acquire_order")
-                .where("tenant_id", fixture.tenant())
                 .where("id", fixture.stored().order().id())
                 .has("paid_amount_minor", 10000L)
                 .has("payment_reserved_minor", 0L)
@@ -368,54 +367,48 @@ class AcquiringFinancialPersistenceIT {
 
     private long allocationCount(AcquiringPersistenceFixtures.Fixture f) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                "SELECT COUNT(*) FROM order_payment_allocation WHERE order_id = ? AND deleted = FALSE",
                 Long.class,
-                f.tenant(),
                 f.stored().order().id());
     }
 
     private long receiptCount(AcquiringPersistenceFixtures.Fixture f) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM order_payment_outcome WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                "SELECT COUNT(*) FROM order_payment_outcome WHERE order_id = ? AND deleted = FALSE",
                 Long.class,
-                f.tenant(),
                 f.stored().order().id());
     }
 
     private long cursorCount(AcquiringPersistenceFixtures.Fixture f) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM allocation_recovery_cursor WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                "SELECT COUNT(*) FROM allocation_recovery_cursor WHERE order_id = ? AND deleted = FALSE",
                 Long.class,
-                f.tenant(),
                 f.stored().order().id());
     }
 
     private long nativeCount(AcquiringPersistenceFixtures.Fixture f) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM delayed_task WHERE tenant_id = ?", Long.class, f.tenant());
+        return jdbc.queryForObject("SELECT COUNT(*) FROM delayed_task", Long.class);
     }
 
     private long outboxCount(AcquiringPersistenceFixtures.Fixture f) {
         return Objects.requireNonNull(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM loadup_outbox_event WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
+                "SELECT COUNT(*) FROM loadup_outbox_event WHERE business_id = ? AND event_type = ?",
                 Long.class,
-                f.tenant(),
                 f.stored().order().id(),
                 OrderSnapshotEvents.TYPE));
     }
 
     private String feeState(AcquiringPersistenceFixtures.Fixture f) {
         return jdbc.queryForObject(
-                "SELECT state FROM order_fee WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                "SELECT state FROM order_fee WHERE order_id = ? AND deleted = FALSE",
                 String.class,
-                f.tenant(),
                 f.stored().order().id());
     }
 
     private long adjustmentCount(AcquiringPersistenceFixtures.Fixture f) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM fee_adjustment WHERE tenant_id = ? AND order_id = ? AND deleted = FALSE",
+                "SELECT COUNT(*) FROM fee_adjustment WHERE order_id = ? AND deleted = FALSE",
                 Long.class,
-                f.tenant(),
                 f.stored().order().id());
     }
 

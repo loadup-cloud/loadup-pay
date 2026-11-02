@@ -182,7 +182,6 @@ class RecoveryPersistenceIT {
             return true;
         });
         scenario.assertDb("payment_recovery_cursor")
-                .where("tenant_id", tenant)
                 .where("id", payment)
                 .exists();
     }

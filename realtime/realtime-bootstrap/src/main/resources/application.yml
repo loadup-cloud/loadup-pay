@@ -76,5 +76,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${REALTIME_JWT_ISSUER_URI}
-      audience: ${REALTIME_JWT_AUDIENCE}
+      audience: ${REALTIME_JWT_AUDIENCE:${loadup.rpc.client.audience:realtime}}
       jwk-set-uri: ${REALTIME_JWT_JWK_SET_URI}

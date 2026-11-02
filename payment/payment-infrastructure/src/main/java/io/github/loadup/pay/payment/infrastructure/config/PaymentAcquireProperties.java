@@ -26,11 +26,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.nio.file.Path;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
 
-@Validated
-@ConfigurationProperties("loadup.modules.payment.acquire")
 public record PaymentAcquireProperties(
         @NotBlank @Size(max = 64) String tenantId,
         @NotBlank @Size(max = 64) String serviceId,

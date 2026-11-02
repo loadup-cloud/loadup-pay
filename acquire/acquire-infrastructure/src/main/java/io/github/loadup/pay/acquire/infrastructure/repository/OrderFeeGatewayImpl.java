@@ -122,9 +122,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
     private OrderFeeDO lock(String tenant, String order) {
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", order);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
+                SELECT id, created_at, updated_at, order_id, fee_type, currency, base_amount_minor, fee_amount_minor,
                        fee_rule_snapshot, refund_basis_version, refund_basis_minor, adjusted_amount_minor, state, confirmed_at, row_version
-                FROM order_fee WHERE tenant_id = :tenant AND order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
+                FROM order_fee WHERE order_id = :order AND fee_type = 'ORDER_AMOUNT' AND deleted = FALSE FOR UPDATE
                 """, args, BeanPropertyRowMapper.newInstance(OrderFeeDO.class)).stream()
                 .findFirst()
                 .orElse(null);
@@ -164,9 +164,9 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         record.setCreatedAt(now);
         record.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO fee_adjustment (id, tenant_id, created_at, updated_at, deleted, order_id, fee_id, trigger_key,
+                INSERT INTO fee_adjustment (id, created_at, updated_at, deleted, order_id, fee_id, trigger_key,
                     source_event_id, source_version, adjustment_minor, currency, cumulative_refunded_minor, rule_snapshot, applied_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :feeId, :triggerKey, :sourceEventId,
                     :sourceVersion, :adjustmentMinor, :currency, :cumulativeRefundedMinor, :ruleSnapshot, :appliedAt)
                 """, new BeanPropertySqlParameterSource(record));
         if (count != 1) {
@@ -190,7 +190,7 @@ public class OrderFeeGatewayImpl implements OrderFeeGateway {
         if (jdbc.update("""
                 UPDATE order_fee SET state = :state, refund_basis_version = :basisVersion, refund_basis_minor = :basis,
                     adjusted_amount_minor = :adjusted, row_version = :version, confirmed_at = COALESCE(:confirmed, confirmed_at), updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
+                WHERE id = :id AND state = :oldState AND row_version = :expected AND deleted = FALSE
                 """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }

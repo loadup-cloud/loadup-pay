@@ -3,7 +3,6 @@
 CREATE TABLE order_create_intent
 (
     id                 VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id          VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at         TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at         TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted            BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -33,18 +32,17 @@ CREATE TABLE order_create_intent
             OR (entry_mode = 'CHECKOUT' AND initial_session_id IS NOT NULL))
 );
 
-CREATE UNIQUE INDEX uk_intent_merchant ON order_create_intent (tenant_id, payee_merchant_id, merchant_order_no);
+CREATE UNIQUE INDEX uk_intent_merchant ON order_create_intent (payee_merchant_id, merchant_order_no);
 
-CREATE UNIQUE INDEX uk_intent_order ON order_create_intent (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_intent_order ON order_create_intent (order_id);
 
-CREATE INDEX ix_intent_recovery ON order_create_intent (tenant_id, state, updated_at);
+CREATE INDEX ix_intent_recovery ON order_create_intent (state, updated_at);
 
-CREATE UNIQUE INDEX uk_intent_initial_session ON order_create_intent (tenant_id, initial_session_id);
+CREATE UNIQUE INDEX uk_intent_initial_session ON order_create_intent (initial_session_id);
 
 CREATE TABLE acquire_order
 (
     id                       VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id                VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at               TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at               TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                  BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -77,18 +75,17 @@ CREATE TABLE acquire_order
     CHECK (state <> 'PAID' OR (paid_amount_minor = amount_minor AND payment_reserved_minor = 0))
 );
 
-CREATE UNIQUE INDEX uk_order_merchant ON acquire_order (tenant_id, payee_merchant_id, merchant_order_no);
+CREATE UNIQUE INDEX uk_order_merchant ON acquire_order (payee_merchant_id, merchant_order_no);
 
-CREATE UNIQUE INDEX uk_order_admission ON acquire_order (tenant_id, admission_id);
+CREATE UNIQUE INDEX uk_order_admission ON acquire_order (admission_id);
 
-CREATE INDEX ix_order_payee_page ON acquire_order (tenant_id, payee_merchant_id, created_at, id);
+CREATE INDEX ix_order_payee_page ON acquire_order (payee_merchant_id, created_at, id);
 
-CREATE INDEX ix_order_due ON acquire_order (tenant_id, state, order_due_at, id);
+CREATE INDEX ix_order_due ON acquire_order (state, order_due_at, id);
 
 CREATE TABLE order_contract_snapshot
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -106,12 +103,11 @@ CREATE TABLE order_contract_snapshot
     CHECK (contract_revision > 0 AND contract_generation > 0 AND schema_version = 1)
 );
 
-CREATE UNIQUE INDEX uk_snapshot_order ON order_contract_snapshot (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_snapshot_order ON order_contract_snapshot (order_id);
 
 CREATE TABLE order_fee
 (
     id                    VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id             VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted               BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -135,12 +131,11 @@ CREATE TABLE order_fee
     CHECK (adjusted_amount_minor >= 0 AND adjusted_amount_minor <= fee_amount_minor)
 );
 
-CREATE UNIQUE INDEX uk_fee_order_type ON order_fee (tenant_id, order_id, fee_type);
+CREATE UNIQUE INDEX uk_fee_order_type ON order_fee (order_id, fee_type);
 
 CREATE TABLE checkout_session
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -165,16 +160,15 @@ CREATE TABLE checkout_session
     CONSTRAINT ck_checkout_revocation_version CHECK (revoked_at IS NULL OR row_version > 0)
 );
 
-CREATE UNIQUE INDEX uk_session_request ON checkout_session (tenant_id, order_id, request_key);
+CREATE UNIQUE INDEX uk_session_request ON checkout_session (order_id, request_key);
 
 CREATE UNIQUE INDEX uk_session_token ON checkout_session (token_hash);
 
-CREATE INDEX ix_session_order ON checkout_session (tenant_id, order_id, state);
+CREATE INDEX ix_session_order ON checkout_session (order_id, state);
 
 CREATE TABLE order_payment_allocation
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -197,16 +191,15 @@ CREATE TABLE order_payment_allocation
     CHECK (payment_source_version >= 0 AND row_version >= 0)
 );
 
-CREATE UNIQUE INDEX uk_allocation_payment ON order_payment_allocation (tenant_id, payment_id);
+CREATE UNIQUE INDEX uk_allocation_payment ON order_payment_allocation (payment_id);
 
-CREATE UNIQUE INDEX uk_allocation_action ON order_payment_allocation (tenant_id, order_id, actor_scope, action_key);
+CREATE UNIQUE INDEX uk_allocation_action ON order_payment_allocation (order_id, actor_scope, action_key);
 
-CREATE INDEX ix_allocation_order ON order_payment_allocation (tenant_id, order_id, state, payment_id);
+CREATE INDEX ix_allocation_order ON order_payment_allocation (order_id, state, payment_id);
 
 CREATE TABLE order_payment_outcome
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -229,16 +222,15 @@ CREATE TABLE order_payment_outcome
         outcome_kind = 'SUCCEEDED' OR execution_fenced = TRUE)
 );
 
-CREATE UNIQUE INDEX uk_order_outcome_allocation ON order_payment_outcome (tenant_id, allocation_id);
+CREATE UNIQUE INDEX uk_order_outcome_allocation ON order_payment_outcome (allocation_id);
 
-CREATE UNIQUE INDEX uk_order_outcome_payment ON order_payment_outcome (tenant_id, payment_id);
+CREATE UNIQUE INDEX uk_order_outcome_payment ON order_payment_outcome (payment_id);
 
-CREATE INDEX ix_order_outcome_order ON order_payment_outcome (tenant_id, order_id, payment_id);
+CREATE INDEX ix_order_outcome_order ON order_payment_outcome (order_id, payment_id);
 
 CREATE TABLE order_close_intent
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -256,12 +248,11 @@ CREATE TABLE order_close_intent
     CHECK (close_epoch > 0 AND row_version >= 0)
 );
 
-CREATE UNIQUE INDEX uk_order_close_order ON order_close_intent (tenant_id, order_id);
+CREATE UNIQUE INDEX uk_order_close_order ON order_close_intent (order_id);
 
 CREATE TABLE order_extension_receipt
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -281,14 +272,13 @@ CREATE TABLE order_extension_receipt
         AND requested_due_at > applied_at)
 );
 
-CREATE UNIQUE INDEX uk_order_extension_request ON order_extension_receipt (tenant_id, order_id, request_key);
+CREATE UNIQUE INDEX uk_order_extension_request ON order_extension_receipt (order_id, request_key);
 
-CREATE UNIQUE INDEX uk_order_extension_deadline ON order_extension_receipt (tenant_id, order_id, deadline_version);
+CREATE UNIQUE INDEX uk_order_extension_deadline ON order_extension_receipt (order_id, deadline_version);
 
 CREATE TABLE acquire_payment_event_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -306,14 +296,13 @@ CREATE TABLE acquire_payment_event_receipt
     CHECK (deleted = FALSE AND payment_version > 0 AND order_version >= 0)
 );
 
-CREATE UNIQUE INDEX uk_acquire_payment_delivery ON acquire_payment_event_receipt (tenant_id, delivery_id);
+CREATE UNIQUE INDEX uk_acquire_payment_delivery ON acquire_payment_event_receipt (delivery_id);
 
-CREATE INDEX ix_acquire_payment_event ON acquire_payment_event_receipt (tenant_id, payment_id, payment_version, business_event_id);
+CREATE INDEX ix_acquire_payment_event ON acquire_payment_event_receipt (payment_id, payment_version, business_event_id);
 
 CREATE TABLE fee_adjustment
 (
     id                        VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                 VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                   BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -332,14 +321,13 @@ CREATE TABLE fee_adjustment
     CHECK (rule_snapshot::json IS NOT NULL AND OCTET_LENGTH(rule_snapshot) <= 32768)
 );
 
-CREATE UNIQUE INDEX uk_fee_adjust_trigger ON fee_adjustment (tenant_id, fee_id, trigger_key);
+CREATE UNIQUE INDEX uk_fee_adjust_trigger ON fee_adjustment (fee_id, trigger_key);
 
-CREATE INDEX ix_fee_adjust_order ON fee_adjustment (tenant_id, order_id, created_at, id);
+CREATE INDEX ix_fee_adjust_order ON fee_adjustment (order_id, created_at, id);
 
 CREATE TABLE fee_refund_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -354,14 +342,13 @@ CREATE TABLE fee_refund_receipt
     CHECK (deleted = FALSE AND source_version > 0 AND applied_version >= source_version)
 );
 
-CREATE UNIQUE INDEX uk_fee_refund_delivery ON fee_refund_receipt (tenant_id, delivery_id);
+CREATE UNIQUE INDEX uk_fee_refund_delivery ON fee_refund_receipt (delivery_id);
 
-CREATE INDEX ix_fee_refund_order ON fee_refund_receipt (tenant_id, order_id, applied_version);
+CREATE INDEX ix_fee_refund_order ON fee_refund_receipt (order_id, applied_version);
 
 CREATE TABLE merchant_notification_delivery
 (
     id                    VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id             VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at            TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted               BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -399,18 +386,17 @@ CREATE TABLE merchant_notification_delivery
     CHECK ((state = 'ACKED' AND acknowledged_at IS NOT NULL) OR (state <> 'ACKED' AND acknowledged_at IS NULL))
 );
 
-CREATE UNIQUE INDEX uk_notification_event_target ON merchant_notification_delivery (tenant_id, event_id, target_ref);
+CREATE UNIQUE INDEX uk_notification_event_target ON merchant_notification_delivery (event_id, target_ref);
 
-CREATE INDEX ix_notification_order ON merchant_notification_delivery (tenant_id, order_id, occurred_at, id);
+CREATE INDEX ix_notification_order ON merchant_notification_delivery (order_id, occurred_at, id);
 
-CREATE INDEX ix_notification_pending ON merchant_notification_delivery (tenant_id, state, next_attempt_at, id);
+CREATE INDEX ix_notification_pending ON merchant_notification_delivery (state, next_attempt_at, id);
 
-CREATE INDEX ix_notification_merchant ON merchant_notification_delivery (tenant_id, payee_merchant_id, occurred_at, id);
+CREATE INDEX ix_notification_merchant ON merchant_notification_delivery (payee_merchant_id, occurred_at, id);
 
 CREATE TABLE refund_notification_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -430,14 +416,13 @@ CREATE TABLE refund_notification_receipt
     CHECK (disposition IN ('ENQUEUED', 'DISABLED'))
 );
 
-CREATE UNIQUE INDEX uk_refund_notification_delivery ON refund_notification_receipt (tenant_id, delivery_id);
+CREATE UNIQUE INDEX uk_refund_notification_delivery ON refund_notification_receipt (delivery_id);
 
-CREATE INDEX ix_refund_notification_order ON refund_notification_receipt (tenant_id, order_id, accepted_at, id);
+CREATE INDEX ix_refund_notification_order ON refund_notification_receipt (order_id, accepted_at, id);
 
 CREATE TABLE merchant_notification_wake_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -461,14 +446,13 @@ CREATE TABLE merchant_notification_wake_receipt
            ('REGISTERED', 'RETRIED', 'RESCHEDULED', 'PENDING', 'RUNNING', 'WAITING', 'ACKED', 'EXHAUSTED', 'EXPIRED'))
 );
 
-CREATE UNIQUE INDEX uk_notification_wake_request ON merchant_notification_wake_receipt (tenant_id, caller_scope_hash, request_key);
+CREATE UNIQUE INDEX uk_notification_wake_request ON merchant_notification_wake_receipt (caller_scope_hash, request_key);
 
-CREATE INDEX ix_notification_wake_delivery ON merchant_notification_wake_receipt (tenant_id, delivery_id, accepted_at, id);
+CREATE INDEX ix_notification_wake_delivery ON merchant_notification_wake_receipt (delivery_id, accepted_at, id);
 
 CREATE TABLE checkout_session_revocation_receipt
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -489,14 +473,13 @@ CREATE TABLE checkout_session_revocation_receipt
         OR (newly_revoked = FALSE AND session_version = before_version))
 );
 
-CREATE UNIQUE INDEX uk_session_revocation_request ON checkout_session_revocation_receipt (tenant_id, caller_scope_hash, request_key);
+CREATE UNIQUE INDEX uk_session_revocation_request ON checkout_session_revocation_receipt (caller_scope_hash, request_key);
 
-CREATE INDEX ix_session_revocation_history ON checkout_session_revocation_receipt (tenant_id, session_id, accepted_at, id);
+CREATE INDEX ix_session_revocation_history ON checkout_session_revocation_receipt (session_id, accepted_at, id);
 
 CREATE TABLE allocation_recovery_cursor
 (
     id         VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id  VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted    BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -507,12 +490,11 @@ CREATE TABLE allocation_recovery_cursor
     CHECK (deleted = FALSE AND generation >= 0)
 );
 
-CREATE INDEX ix_allocation_recovery_order ON allocation_recovery_cursor (tenant_id, order_id);
+CREATE INDEX ix_allocation_recovery_order ON allocation_recovery_cursor (order_id);
 
 CREATE TABLE acquire_recovery_retry_receipt
 (
     id                       VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at               TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at               TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                  BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -536,6 +518,6 @@ CREATE TABLE acquire_recovery_retry_receipt
     CHECK (result IN ('RETRIED', 'NO_LONGER_NEEDED'))
 );
 
-CREATE UNIQUE INDEX uk_acquire_recovery_retry ON acquire_recovery_retry_receipt (tenant_id, caller_scope_hash, request_key);
+CREATE UNIQUE INDEX uk_acquire_recovery_retry ON acquire_recovery_retry_receipt (caller_scope_hash, request_key);
 
-CREATE INDEX ix_acquire_recovery_retry_order ON acquire_recovery_retry_receipt (tenant_id, order_id, accepted_at);
+CREATE INDEX ix_acquire_recovery_retry_order ON acquire_recovery_retry_receipt (order_id, accepted_at);

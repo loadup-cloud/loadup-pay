@@ -12,6 +12,14 @@
     <description>Public facades, commands, queries and DTOs for realtime.</description>
     <dependencies>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.github.loadup-cloud</groupId>
             <artifactId>realtime-domain</artifactId>
         </dependency>
@@ -64,6 +72,9 @@
     </dependencies>
     <build>
         <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
             <resource>
                 <directory>src/main/proto</directory>
             </resource>

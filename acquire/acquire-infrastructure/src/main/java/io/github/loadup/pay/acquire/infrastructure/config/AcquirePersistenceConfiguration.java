@@ -19,15 +19,28 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.config;
 
+import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
     CheckoutProperties.class,
-    PaymentTransportProperties.class,
-    AcquireRealtimeProperties.class,
     MerchantNotificationProperties.class,
     CashierProperties.class
 })
-public class AcquirePersistenceConfiguration {}
+public class AcquirePersistenceConfiguration {
+    @Bean
+    public PaymentTransportProperties paymentTransportProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.acquire.payment", "payment", PaymentTransportProperties.class);
+    }
+
+    @Bean
+    public AcquireRealtimeProperties acquireRealtimeProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.acquire.realtime", "realtime", AcquireRealtimeProperties.class);
+    }
+}

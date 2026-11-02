@@ -74,9 +74,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         return jdbc
                 .query(
                         """
-                        SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, order_id, request_digest,
+                        SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, order_id, request_digest,
                                caller_scope_hash, entry_mode, intent_payload, state, admission_id, materialize_before, result_code,
-                               row_version, initial_session_id FROM order_create_intent WHERE tenant_id = :tenant AND deleted = FALSE AND
+                               row_version, initial_session_id FROM order_create_intent WHERE deleted = FALSE AND
                         """ + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(OrderCreateIntentDO.class))
@@ -117,13 +117,13 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_create_intent (id, tenant_id, created_at, updated_at, deleted, payee_merchant_id, merchant_order_no,
+                INSERT INTO order_create_intent (id, created_at, updated_at, deleted, payee_merchant_id, merchant_order_no,
                     order_id, request_digest, caller_scope_hash, entry_mode, intent_payload, state, admission_id, materialize_before,
                     result_code, row_version, initial_session_id)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :merchantOrderNo, :orderId,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :merchantOrderNo, :orderId,
                     :requestDigest, :callerScopeHash, :entryMode, :intentPayload, :state, :admissionId, :materializeBefore,
                     :resultCode, :rowVersion, :initialSessionId)
-                ON CONFLICT (tenant_id, payee_merchant_id, merchant_order_no) DO NOTHING
+                ON CONFLICT (payee_merchant_id, merchant_order_no) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Order creation request already exists");
@@ -150,7 +150,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                 UPDATE order_create_intent SET state = :state, admission_id = COALESCE(:admission, admission_id),
                     materialize_before = COALESCE(:deadline, materialize_before), result_code = COALESCE(:result, result_code),
                     row_version = :version, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
+                WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
                 """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
@@ -175,9 +175,9 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
             var snapshot =
                     jdbc
                             .query("""
-                    SELECT id, tenant_id, created_at, updated_at, order_id, contract_id, contract_revision, contract_generation,
+                    SELECT id, created_at, updated_at, order_id, contract_id, contract_revision, contract_generation,
                            snapshot_hash, compiled_terms_hash, schema_version, configuration, payload_hash, admission_digest
-                    FROM order_contract_snapshot WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND deleted = FALSE
+                    FROM order_contract_snapshot WHERE id = :id AND order_id = :order AND deleted = FALSE
                     """, snapshotArgs, BeanPropertyRowMapper.newInstance(OrderContractSnapshotDO.class))
                             .stream()
                             .findFirst()
@@ -266,10 +266,10 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         snapshot.setCreatedAt(now);
         snapshot.setUpdatedAt(now);
         int snapshotCount = jdbc.update("""
-                INSERT INTO order_contract_snapshot (id, tenant_id, created_at, updated_at, deleted, order_id, contract_id,
+                INSERT INTO order_contract_snapshot (id, created_at, updated_at, deleted, order_id, contract_id,
                     contract_revision, contract_generation, snapshot_hash, compiled_terms_hash, schema_version, configuration,
                     payload_hash, admission_digest)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :contractId, :contractRevision,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :contractId, :contractRevision,
                     :contractGeneration, :snapshotHash, :compiledTermsHash, :schemaVersion, :configuration, :payloadHash, :admissionDigest)
                 """, new BeanPropertySqlParameterSource(snapshot));
         if (snapshotCount != 1) {
@@ -279,11 +279,11 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO acquire_order (id, tenant_id, created_at, updated_at, deleted, payee_merchant_id, merchant_order_no,
+                INSERT INTO acquire_order (id, created_at, updated_at, deleted, payee_merchant_id, merchant_order_no,
                     admission_id, contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
                     successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version, close_epoch,
                     paid_at, closed_at, row_version)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :merchantOrderNo, :admissionId,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :payeeMerchantId, :merchantOrderNo, :admissionId,
                     :contractSnapshotId, :subject, :currency, :amountMinor, :paidAmountMinor, :paymentReservedMinor,
                     :successfulPaymentCount, :reservedPaymentCount, :state, :admittedAt, :orderDueAt, :deadlineVersion, :closeEpoch,
                     :paidAt, :closedAt, :rowVersion)
@@ -295,10 +295,10 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         feeRow.setCreatedAt(now);
         feeRow.setUpdatedAt(now);
         int feeCount = jdbc.update("""
-                INSERT INTO order_fee (id, tenant_id, created_at, updated_at, deleted, order_id, fee_type, currency,
+                INSERT INTO order_fee (id, created_at, updated_at, deleted, order_id, fee_type, currency,
                     base_amount_minor, fee_amount_minor, fee_rule_snapshot, refund_basis_version, refund_basis_minor,
                     adjusted_amount_minor, state, confirmed_at, row_version)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :feeType, :currency, :baseAmountMinor,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :feeType, :currency, :baseAmountMinor,
                     :feeAmountMinor, :feeRuleSnapshot, :refundBasisVersion, :refundBasisMinor, :adjustedAmountMinor,
                     :state, :confirmedAt, :rowVersion)
                 """, new BeanPropertySqlParameterSource(feeRow));
@@ -311,11 +311,11 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc
                 .query("""
-                        SELECT id, tenant_id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
+                        SELECT id, created_at, updated_at, payee_merchant_id, merchant_order_no, admission_id,
                                contract_snapshot_id, subject, currency, amount_minor, paid_amount_minor, payment_reserved_minor,
                                successful_payment_count, reserved_payment_count, state, admitted_at, order_due_at, deadline_version,
                                close_epoch, paid_at, closed_at, row_version FROM acquire_order
-                        WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE
+                        WHERE id = :id AND deleted = FALSE
                         """ + (lock ? " FOR UPDATE" : ""), args, BeanPropertyRowMapper.newInstance(AcquireOrderDO.class))
                 .stream()
                 .findFirst()

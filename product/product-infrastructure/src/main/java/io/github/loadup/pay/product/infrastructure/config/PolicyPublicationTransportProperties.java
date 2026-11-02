@@ -23,9 +23,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.nio.file.Path;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties("loadup.modules.product.publication")
 public record PolicyPublicationTransportProperties(
         String tenantId, @DiagnosticHidden Path tokenFile) {
     public PolicyPublicationTransportProperties {

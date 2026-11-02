@@ -109,3 +109,5 @@ Mapper/业务 SQL。复用 `LIMITCENTER_PAYMENT_TOKEN_FILE` 增加上述事实�
 
 已补原月/终生桶、held 不变、全额仅一次笔数、重复/乱序、原规则、Confirm 前重试、NO_ACTION、身份/权威金额拒绝、回执失败传播以及
 RPC/客户端测试源码。内存事务夹具只能检查调用边界，不能证明真实数据库回滚；未运行检查、构建、测试、DDL 或部署。
+
+本地启用 `local` profile 时，许可签名使用 `application-local.yml` 中固定的开发密钥（v1），可由 `LIMITCENTER_PERMIT_SECRET` 覆盖。覆盖值至少需要 32 个 UTF-8 字节；开发密钥仅用于本地，生产环境必须单独生成随机密钥。

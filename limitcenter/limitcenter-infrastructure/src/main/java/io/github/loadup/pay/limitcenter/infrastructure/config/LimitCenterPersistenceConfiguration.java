@@ -19,9 +19,18 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.config;
 
+import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({LimitPermitProperties.class, PaymentEvidenceProperties.class})
-public class LimitCenterPersistenceConfiguration {}
+@EnableConfigurationProperties(LimitPermitProperties.class)
+public class LimitCenterPersistenceConfiguration {
+    @Bean
+    public PaymentEvidenceProperties paymentEvidenceProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.limitcenter.payment-evidence", "payment", PaymentEvidenceProperties.class);
+    }
+}

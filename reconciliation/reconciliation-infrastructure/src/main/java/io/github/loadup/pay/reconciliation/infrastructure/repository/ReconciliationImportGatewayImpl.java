@@ -90,7 +90,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
         var rows = jdbc.query(
-                "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE "
+                "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE deleted = FALSE "
                         + "AND batch_id = :batch AND state = 'INIT' LIMIT 2",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class));
@@ -112,9 +112,9 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO reconciliation_import (id, tenant_id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :fileId, :storageId, :fileSize, :sourceSha256, :sourceKind, :taskId, :state, :artifactId, :rejectionCode, :rowVersion)
-                ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
+                INSERT INTO reconciliation_import (id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :fileId, :storageId, :fileSize, :sourceSha256, :sourceKind, :taskId, :state, :artifactId, :rejectionCode, :rowVersion)
+                ON CONFLICT (caller_service_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new ReconciliationWriteConflictException("reconciliation_import business key already exists");
@@ -154,7 +154,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
         args.addValue("rowVersion", row.getRowVersion());
         if (jdbc.update("""
                 UPDATE reconciliation_import SET state = :state, artifact_id = :artifactId, rejection_code = :rejectionCode, row_version = :rowVersion, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
+                WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
                 """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -171,7 +171,7 @@ public class ReconciliationImportGatewayImpl implements ReconciliationImportGate
     private ReconciliationImportDO row(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, file_id, storage_id, file_size, source_sha256, source_kind, task_id, state, artifact_id, rejection_code, row_version FROM reconciliation_import WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationImportDO.class))

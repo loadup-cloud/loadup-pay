@@ -94,7 +94,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                 .addValue("input", artifactId)
                 .addValue("limit", maxRecords + 1);
         var rows = jdbc.query(
-                "SELECT id, tenant_id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE tenant_id = :tenant AND input_id = :input "
+                "SELECT id, created_at, updated_at, input_id, record_number, match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state FROM reconciliation_entry WHERE input_id = :input "
                         + "AND deleted = FALSE ORDER BY record_number ASC LIMIT :limit",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationEntryDO.class));
@@ -140,10 +140,10 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         input.setCreatedAt(inputNow);
         input.setUpdatedAt(inputNow);
         int inputCount = jdbc.update("""
-                INSERT INTO reconciliation_input (id, tenant_id, created_at, updated_at, deleted, side, channel, account_scope_hash,
+                INSERT INTO reconciliation_input (id, created_at, updated_at, deleted, side, channel, account_scope_hash,
                     bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision,
                     state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :side, :channel, :accountScopeHash, :billDate,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :side, :channel, :accountScopeHash, :billDate,
                     :statementProfile, :fileId, :artifactSha256, :normalizedSha256, :sourceCaptureId, :parserRevision,
                     :state, :paymentCount, :paymentAmountMinor, :refundCount, :refundAmountMinor, :rejectionCode, :rowVersion)
                 ON CONFLICT (id) DO NOTHING
@@ -167,9 +167,9 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
                     })
                     .toArray(BeanPropertySqlParameterSource[]::new);
             int[] counts = jdbc.batchUpdate("""
-                    INSERT INTO reconciliation_entry (id, tenant_id, created_at, updated_at, deleted, input_id, record_number,
+                    INSERT INTO reconciliation_entry (id, created_at, updated_at, deleted, input_id, record_number,
                         match_key_hash, kind, channel_transaction_no, channel_refund_no, merchant_payment_no, amount_minor, currency, state)
-                    VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :inputId, :recordNumber, :matchKeyHash, :kind,
+                    VALUES (:id, :createdAt, :updatedAt, FALSE, :inputId, :recordNumber, :matchKeyHash, :kind,
                         :channelTransactionNo, :channelRefundNo, :merchantPaymentNo, :amountMinor, :currency, :state)
                     """, rows);
             if (counts.length != rows.length) {
@@ -210,7 +210,7 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc
                 .query(
-                        "SELECT id, tenant_id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE"
+                        "SELECT id, created_at, updated_at, side, channel, account_scope_hash, bill_date, statement_profile, file_id, artifact_sha256, normalized_sha256, source_capture_id, parser_revision, state, payment_count, payment_amount_minor, refund_count, refund_amount_minor, rejection_code, row_version FROM reconciliation_input WHERE id = :id AND deleted = FALSE"
                                 + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationInputDO.class))

@@ -322,9 +322,8 @@ class FinancialPersistenceIT {
             assertEquals(
                     1L,
                     jdbc.queryForObject(
-                            "SELECT COUNT(*) FROM payment_attempt WHERE tenant_id = ? AND payment_id = ?",
+                            "SELECT COUNT(*) FROM payment_attempt WHERE payment_id = ?",
                             Long.class,
-                            fixture.tenant(),
                             fixture.command().paymentId()));
             return true;
         });
@@ -429,7 +428,6 @@ class FinancialPersistenceIT {
             return true;
         });
         scenario.assertDb("payment_refund_capacity")
-                .where("tenant_id", fixture.tenant())
                 .where("payment_id", fixture.command().paymentId())
                 .exists();
     }
@@ -501,12 +499,11 @@ class FinancialPersistenceIT {
                     1,
                     jdbc.update(
                             """
-                            INSERT INTO payment_refund_capacity (id, tenant_id, created_at, updated_at, deleted, payment_id,
+                            INSERT INTO payment_refund_capacity (id, created_at, updated_at, deleted, payment_id,
                                 order_id, payee_merchant_id, succeeded_at, succeeded_minor, currency, refunded_minor, reserved_minor, row_version)
-                            VALUES (?, ?, ?, ?, FALSE, ?, ?, ?, ?, ?, 'CNY', 0, 0, 0)
+                            VALUES (?, ?, ?, FALSE, ?, ?, ?, ?, ?, 'CNY', 0, 0, 0)
                             """,
                             id("capacity"),
-                            fixture.tenant(),
                             AT,
                             AT,
                             capacity.paymentId(),
@@ -581,13 +578,12 @@ class FinancialPersistenceIT {
     private PaymentRefundCapacity capacity(FinancialPersistenceFixtures.Fixture fixture) {
         var row = jdbc.queryForObject(
                 """
-                        SELECT id, tenant_id, payment_id, order_id, payee_merchant_id, succeeded_at, succeeded_minor,
+                        SELECT id, payment_id, order_id, payee_merchant_id, succeeded_at, succeeded_minor,
                                currency, refunded_minor, reserved_minor, row_version FROM payment_refund_capacity
-                        WHERE tenant_id = ? AND payment_id = ? AND deleted = FALSE
+                        WHERE payment_id = ? AND deleted = FALSE
                         """,
                 org.springframework.jdbc.core.BeanPropertyRowMapper.newInstance(
                         io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO.class),
-                fixture.tenant(),
                 fixture.command().paymentId());
         return capacityConverter.toCapacity(row);
     }
@@ -596,23 +592,20 @@ class FinancialPersistenceIT {
         assertEquals(
                 expected,
                 jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM refund_request WHERE tenant_id = ? AND order_id = ?",
+                        "SELECT COUNT(*) FROM refund_request WHERE order_id = ?",
                         Long.class,
-                        fixture.tenant(),
                         fixture.command().orderId()));
         assertEquals(
                 expected,
                 jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM refund_order WHERE tenant_id = ? AND payment_id = ? AND deleted = FALSE",
+                        "SELECT COUNT(*) FROM refund_order WHERE payment_id = ? AND deleted = FALSE",
                         Long.class,
-                        fixture.tenant(),
                         fixture.command().paymentId()));
         assertEquals(
                 expected,
                 jdbc.queryForObject(
-                        "SELECT COUNT(*) FROM refund_allocation_plan WHERE tenant_id = ? AND payment_id = ?",
+                        "SELECT COUNT(*) FROM refund_allocation_plan WHERE payment_id = ?",
                         Long.class,
-                        fixture.tenant(),
                         fixture.command().paymentId()));
     }
 

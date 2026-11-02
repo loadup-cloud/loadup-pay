@@ -202,9 +202,8 @@ class ReconciliationComparisonRetryPersistenceIT {
 
     private long differenceCount(String tenant, String batchId) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM reconciliation_difference WHERE tenant_id = ? AND batch_id = ?",
+                "SELECT COUNT(*) FROM reconciliation_difference WHERE batch_id = ?",
                 Long.class,
-                tenant,
                 batchId);
     }
 

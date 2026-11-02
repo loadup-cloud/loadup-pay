@@ -205,11 +205,9 @@ class ReconciliationVerificationPersistenceIT {
 
     @AfterEach
     void cleanQueue() {
-        // Test-owned tenants only; no worker is started by this context.
-        for (String tenant : tenants) {
-            jdbc.update("DELETE FROM loadup_outbox_replay WHERE tenant_id = ?", tenant);
-            jdbc.update("DELETE FROM loadup_outbox_event WHERE tenant_id = ?", tenant);
-        }
+        // No worker is started by this test context.
+        jdbc.update("DELETE FROM loadup_outbox_replay");
+        jdbc.update("DELETE FROM loadup_outbox_event");
     }
 
     @Test
@@ -252,9 +250,8 @@ class ReconciliationVerificationPersistenceIT {
         assertEquals(
                 "ops",
                 jdbc.queryForObject(
-                        "SELECT operator_id FROM loadup_outbox_replay WHERE tenant_id = ? AND event_id = ?",
+                        "SELECT operator_id FROM loadup_outbox_replay WHERE event_id = ?",
                         String.class,
-                        fixture.tenant(),
                         initial.deliveryId()));
         assertEquals(1, dispatcher.dispatchBatch());
         var recorded = detail(fixture, initial.requestId());
@@ -338,8 +335,7 @@ class ReconciliationVerificationPersistenceIT {
                 assertEquals(
                         1,
                         jdbc.update(
-                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE tenant_id = ? AND id = ? AND status = 'PROCESSING'",
-                                fixture.tenant(),
+                                "UPDATE loadup_outbox_event SET lease_until = (clock_timestamp() + INTERVAL '-1 seconds') WHERE id = ? AND status = 'PROCESSING'",
                                 initial.deliveryId()));
                 assertEquals(1, secondWorker.dispatchBatch());
                 var winner = detail(fixture, initial.requestId());
@@ -471,9 +467,8 @@ class ReconciliationVerificationPersistenceIT {
             return true;
         });
         String differenceId = jdbc.queryForObject(
-                "SELECT id FROM reconciliation_difference WHERE tenant_id = ? AND batch_id = ?",
+                "SELECT id FROM reconciliation_difference WHERE batch_id = ?",
                 String.class,
-                tenant,
                 batchId);
         var proposed = actors.call(
                 tenant,
@@ -549,7 +544,7 @@ class ReconciliationVerificationPersistenceIT {
                 .contains(table)) {
             throw new AssertionError("Unexpected table");
         }
-        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ?", Long.class, tenant);
+        return jdbc.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
     }
 
     record Fixture(

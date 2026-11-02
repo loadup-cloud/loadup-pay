@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/loadup_acquire
+    username: admin
+    password: "123456"
+
+server:
+  port: 8082
+
+dubbo:
+  protocol:
+    port: 50052

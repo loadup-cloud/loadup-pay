@@ -60,8 +60,8 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
         scope(tenant);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("delivery", id);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at
-                FROM refund_notification_receipt WHERE tenant_id = :tenant AND deleted = FALSE AND delivery_id = :delivery
+                SELECT id, created_at, updated_at, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at
+                FROM refund_notification_receipt WHERE deleted = FALSE AND delivery_id = :delivery
                 """, args, BeanPropertyRowMapper.newInstance(RefundNotificationReceiptDO.class)).stream()
                 .findFirst()
                 .orElse(null);
@@ -89,9 +89,9 @@ public class RefundNotificationReceiptGatewayImpl implements RefundNotificationR
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO refund_notification_receipt (id, tenant_id, created_at, updated_at, deleted, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :aggregateId, :sourceVersion, :orderId, :payeeMerchantId, :requestDigest, :callerServiceId, :merchantEventId, :disposition, :acceptedAt)
-                ON CONFLICT (tenant_id, delivery_id) DO NOTHING
+                INSERT INTO refund_notification_receipt (id, created_at, updated_at, deleted, delivery_id, business_event_id, aggregate_id, source_version, order_id, payee_merchant_id, request_digest, caller_service_id, merchant_event_id, disposition, accepted_at)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :deliveryId, :businessEventId, :aggregateId, :sourceVersion, :orderId, :payeeMerchantId, :requestDigest, :callerServiceId, :merchantEventId, :disposition, :acceptedAt)
+                ON CONFLICT (delivery_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("refund_notification_receipt business key already exists");

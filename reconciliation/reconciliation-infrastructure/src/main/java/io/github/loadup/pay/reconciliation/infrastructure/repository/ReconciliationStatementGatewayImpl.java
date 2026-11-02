@@ -90,7 +90,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         DomainChecks.id(batchId);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("batch", batchId);
         var rows = jdbc.query(
-                "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE "
+                "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE deleted = FALSE "
                         + "AND batch_id = :batch AND state = 'INIT' LIMIT 2",
                 args,
                 BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class));
@@ -112,9 +112,9 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO reconciliation_statement_request (id, tenant_id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :bindingRevisionId, :maxBytes, :taskId, :state, :rowVersion, :format, :requestSha256, :officialHashType, :officialHash, :receivedEpochMicros, :downloadedEpochMicros, :fileId, :storageId, :fileSize, :sourceSha256, :proofFileId, :proofStorageId, :proofFileSize, :proofSha256)
-                ON CONFLICT (tenant_id, caller_service_id, request_key) DO NOTHING
+                INSERT INTO reconciliation_statement_request (id, created_at, updated_at, deleted, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256)
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :batchId, :callerServiceId, :requestKey, :requestDigest, :channel, :accountScopeHash, :billDate, :statementProfile, :statementMerchantId, :statementSubMerchantId, :bindingRevisionId, :maxBytes, :taskId, :state, :rowVersion, :format, :requestSha256, :officialHashType, :officialHash, :receivedEpochMicros, :downloadedEpochMicros, :fileId, :storageId, :fileSize, :sourceSha256, :proofFileId, :proofStorageId, :proofFileSize, :proofSha256)
+                ON CONFLICT (caller_service_id, request_key) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new ReconciliationWriteConflictException(
@@ -167,7 +167,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
         args.addValue("proofSha256", row.getProofSha256());
         if (jdbc.update("""
                 UPDATE reconciliation_statement_request SET state = :state, row_version = :rowVersion, format = :format, request_sha256 = :requestSha256, official_hash_type = :officialHashType, official_hash = :officialHash, received_epoch_micros = :receivedEpochMicros, downloaded_epoch_micros = :downloadedEpochMicros, file_id = :fileId, storage_id = :storageId, file_size = :fileSize, source_sha256 = :sourceSha256, proof_file_id = :proofFileId, proof_storage_id = :proofStorageId, proof_file_size = :proofFileSize, proof_sha256 = :proofSha256, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
+                WHERE id = :id AND row_version = :expected AND state = 'INIT' AND deleted = FALSE
                 """, args) != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
         }
@@ -184,7 +184,7 @@ public class ReconciliationStatementGatewayImpl implements ReconciliationStateme
     private ReconciliationStatementDO row(String predicate, MapSqlParameterSource args, boolean lock) {
         return jdbc
                 .query(
-                        "SELECT id, tenant_id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE tenant_id = :tenant AND deleted = FALSE AND "
+                        "SELECT id, created_at, updated_at, batch_id, caller_service_id, request_key, request_digest, channel, account_scope_hash, bill_date, statement_profile, statement_merchant_id, statement_sub_merchant_id, binding_revision_id, max_bytes, task_id, state, row_version, format, request_sha256, official_hash_type, official_hash, received_epoch_micros, downloaded_epoch_micros, file_id, storage_id, file_size, source_sha256, proof_file_id, proof_storage_id, proof_file_size, proof_sha256 FROM reconciliation_statement_request WHERE deleted = FALSE AND "
                                 + predicate + (lock ? " FOR UPDATE" : ""),
                         args,
                         BeanPropertyRowMapper.newInstance(ReconciliationStatementDO.class))

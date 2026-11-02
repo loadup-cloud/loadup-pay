@@ -201,7 +201,7 @@ loadup-modules-{mod}/
 | 10 | 无必要的业务模块横向依赖                                | 保持清晰依赖方向，跨模块能力优先通过公开接口集成                                                                                                                              |
 | 11 | Java 文件中写中文注释或 Javadoc                         | 注释/Javadoc 统一使用英文；中文只允许出现在 `*.md` 文档文件中                                                                                                                 |
 | 12 | `BOOLEAN`/`BOOL` 类型                                   | 统一使用 `SMALLINT`（0/1），并加 CHECK                                                                                                                                        |
-| 13 | DO 中重复定义 id/createdAt/updatedAt/tenantId/deleted   | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
+| 13 | DO 中重复定义 id/createdAt/updatedAt/deleted   | 这些字段在 `BaseDO` 中已定义                                                                                                                                                  |
 | 14 | Mapper 中写额外 SQL 方法                                | 用 `QueryWrapper` 在 GatewayImpl 中操作                                                                                                                                       |
 | 15 | 新增三方依赖不在 BOM 中声明                             | 版本管理集中在 `loadup-dependencies/pom.xml`                                                                                                                                  |
 | 16 | 使用 Lombok（`@Data`/`@Getter`/`@Slf4j`/`@Builder` 等） | 写显式 Java 代码；DTO/Command/Query 优先使用 Java `record`；日志打印使用 `LogUtil.info/warn/error(Source.class, ...)`；仅第三方日志适配需要 Logger 时使用 `LogUtil.getLogger` |
@@ -217,7 +217,6 @@ loadup-modules-{mod}/
 
 ```sql
 id         VARCHAR(64)  NOT NULL PRIMARY KEY,
-tenant_id  VARCHAR(64),
 created_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
 updated_at TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
 deleted    SMALLINT NOT NULL DEFAULT 0 CHECK (deleted IN (0, 1))
@@ -423,11 +422,11 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   from public Facades.
 - Persistence stays in infrastructure. Use Spring Data JDBC for suitable simple aggregates and parameterized Spring
   JDBC for conditional writes, locking and complex queries. Keep MapStruct converters separate and Spring-managed.
-- Repository reads resolve the trusted tenant through `TenantContext.tenantId()` and expose tenant-free methods; never
-  accept a tenant identifier as a repository/query argument. Explicit SQL binds the same context value.
-- Explicit SQL maintains ID, tenant, audit and soft-delete fields; use the shared `IdGenerator` and injected `Clock`
-  where applicable. Tenant-scoped reads and writes include a trusted tenant predicate. Check affected rows for state
-  and version updates.
+- Tenant isolation uses a dedicated PostgreSQL schema per tenant. Resolve the trusted tenant before acquiring a
+  connection and route every transaction to its schema. Business tables, data objects, SQL predicates and indexes do
+  not contain `tenant_id`; apply the same rule to new migrations and repository changes.
+- Explicit SQL maintains ID, audit and soft-delete fields; use the shared `IdGenerator` and injected `Clock` where
+  applicable. Check affected rows for state and version updates.
 - Business writes and reliability records use the same Spring-managed data source and JDBC transaction manager. Sort
   SQL uses fixed, whitelisted columns; schema changes target PostgreSQL and preserve business constraints.
 

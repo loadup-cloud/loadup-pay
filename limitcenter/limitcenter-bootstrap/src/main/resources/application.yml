@@ -61,11 +61,6 @@ loadup:
   modules:
     limitcenter:
       payment-service-id: ${LIMITCENTER_PAYMENT_SERVICE_ID:payment}
-      payment-evidence:
-        tenant-id: ${LIMITCENTER_PAYMENT_TENANT_ID}
-        service-id: ${LIMITCENTER_SERVICE_ID:limitcenter}
-        audience: ${PAYMENT_JWT_AUDIENCE}
-        token-file: ${LIMITCENTER_PAYMENT_TOKEN_FILE}
       reserve-seconds: ${LIMITCENTER_RESERVE_SECONDS:120}
       permit:
         active-key-id: ${LIMITCENTER_PERMIT_ACTIVE_KEY_ID:v1}
@@ -86,5 +81,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${LIMITCENTER_JWT_ISSUER_URI}
-      audience: ${LIMITCENTER_JWT_AUDIENCE}
+      audience: ${LIMITCENTER_JWT_AUDIENCE:${loadup.rpc.client.audience:limitcenter}}
       jwk-set-uri: ${LIMITCENTER_JWT_JWK_SET_URI}

@@ -76,9 +76,9 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         scope(tenant);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         var row = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, order_id, payee_merchant_id, caller_scope_hash, request_key,
+                SELECT id, created_at, updated_at, order_id, payee_merchant_id, caller_scope_hash, request_key,
                        request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version
-                FROM order_close_intent WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                FROM order_close_intent WHERE order_id = :order AND deleted = FALSE
                 """, args, BeanPropertyRowMapper.newInstance(OrderCloseIntentDO.class)).stream()
                 .findFirst()
                 .orElse(null);
@@ -113,7 +113,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE acquire_order SET state = :state, close_epoch = :epoch, row_version = :version, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'INIT' AND row_version = :expected
+                WHERE id = :id AND deleted = FALSE AND state = 'INIT' AND row_version = :expected
                     AND order_due_at = :due AND close_epoch = :oldEpoch
                 """, args);
         if (changed != 1) {
@@ -144,7 +144,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE acquire_order SET state = :state, close_epoch = :epoch, row_version = :version, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND row_version = :expected AND state IN ('INIT', 'PENDING')
+                WHERE id = :id AND deleted = FALSE AND row_version = :expected AND state IN ('INIT', 'PENDING')
                 """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
@@ -154,11 +154,11 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         int count = jdbc.update("""
-                INSERT INTO order_close_intent (id, tenant_id, created_at, updated_at, deleted, order_id, payee_merchant_id,
+                INSERT INTO order_close_intent (id, created_at, updated_at, deleted, order_id, payee_merchant_id,
                     caller_scope_hash, request_key, request_digest, reason_code, close_epoch, requested_at, cursor_payment_id, row_version)
-                VALUES (:id, :tenantId, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :callerScopeHash, :requestKey,
+                VALUES (:id, :createdAt, :updatedAt, FALSE, :orderId, :payeeMerchantId, :callerScopeHash, :requestKey,
                     :requestDigest, :reasonCode, :closeEpoch, :requestedAt, :cursorPaymentId, :rowVersion)
-                ON CONFLICT (tenant_id, order_id) DO NOTHING
+                ON CONFLICT (order_id) DO NOTHING
                 """, new BeanPropertySqlParameterSource(row));
         if (count == 0) {
             throw new AcquireWriteConflictException("Order close intent already exists");
@@ -179,10 +179,10 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 .addValue("after", afterPaymentId)
                 .addValue("limit", limit);
         var rows = jdbc.query("""
-                SELECT id, tenant_id, created_at, updated_at, order_id, payment_id, actor_scope, action_key,
+                SELECT id, created_at, updated_at, order_id, payment_id, actor_scope, action_key,
                        request_digest, caller_scope_hash, amount_minor, currency, state, payment_source_version,
                        intent_payload, payload_hash, row_version
-                FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                FROM order_payment_allocation WHERE order_id = :order AND deleted = FALSE
                     AND state = 'HELD' AND (:after = '' OR payment_id > :after)
                 ORDER BY payment_id ASC LIMIT :limit
                 """, args, BeanPropertyRowMapper.newInstance(OrderPaymentAllocationDO.class));
@@ -216,7 +216,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE order_close_intent SET cursor_payment_id = :cursor, row_version = :version, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND order_id = :order AND row_version = :expected AND deleted = FALSE
+                WHERE id = :id AND order_id = :order AND row_version = :expected AND deleted = FALSE
                 """, args);
         if (changed != 1) {
             throw new CommonException(CONCURRENT_UPDATE);
@@ -229,17 +229,17 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         requireTransaction();
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("order", orderId);
         long pending = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order
+                SELECT COUNT(*) FROM order_payment_allocation WHERE order_id = :order
                     AND deleted = FALSE AND state IN ('INIT', 'HELD')
                 """, args, Long.class);
         if (pending != 0) {
             return false;
         }
         long count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM order_payment_allocation WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                SELECT COUNT(*) FROM order_payment_allocation WHERE order_id = :order AND deleted = FALSE
                 """, args, Long.class);
         long proofs = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM order_payment_outcome WHERE tenant_id = :tenant AND order_id = :order AND deleted = FALSE
+                SELECT COUNT(*) FROM order_payment_outcome WHERE order_id = :order AND deleted = FALSE
                 """, args, Long.class);
         return count == proofs;
     }
@@ -265,7 +265,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
                 .addValue("updated", LocalDateTime.now(clock));
         int changed = jdbc.update("""
                 UPDATE acquire_order SET state = :state, row_version = :version, closed_at = :closedAt, updated_at = :updated
-                WHERE tenant_id = :tenant AND id = :id AND deleted = FALSE AND state = 'CLOSING' AND close_epoch = :epoch
+                WHERE id = :id AND deleted = FALSE AND state = 'CLOSING' AND close_epoch = :epoch
                     AND row_version = :expected AND payment_reserved_minor = 0 AND reserved_payment_count = 0
                 """, args);
         if (changed != 1) {

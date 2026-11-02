@@ -346,7 +346,6 @@ class PaymentResultPersistenceIT {
         assertTargetCounts(fixture);
         transactions.readSnapshot(fixture.tenant(), () -> {
             scenario.assertDb("payment_result_anomaly")
-                    .where("tenant_id", fixture.tenant())
                     .where("receipt_id", applied.receiptId())
                     .exists()
                     .has("reason_code", "RECEIPT_FACTS_CONFLICT");
@@ -380,7 +379,6 @@ class PaymentResultPersistenceIT {
         assertCounts(other, 0L, 0L, 1L, 1L, 0L);
         transactions.readSnapshot(other.tenant(), () -> {
             scenario.assertDb("payment_result_anomaly")
-                    .where("tenant_id", other.tenant())
                     .where("receipt_id", rejected.receiptId())
                     .exists()
                     .has("reason_code", "CHANNEL_TRANSACTION_ALREADY_CLAIMED");
@@ -424,7 +422,6 @@ class PaymentResultPersistenceIT {
             assertEquals(APPLIED, receipt.disposition());
             assertEquals(payment.terminalEvidenceId(), receipt.id());
             scenario.assertDb("payment_gate")
-                    .where("tenant_id", fixture.tenant())
                     .where("payment_id", fixture.command().paymentId())
                     .exists()
                     .has("state", "FENCED");
@@ -651,9 +648,8 @@ class PaymentResultPersistenceIT {
         assertUnsettled(fixture);
         assertCounts(fixture, 0L, 0L, 0L, 0L, 0L);
         assertNull(jdbc.queryForObject(
-                "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                "SELECT first_unknown_at FROM payment_order WHERE id=?",
                 LocalDateTime.class,
-                fixture.tenant(),
                 fixture.command().paymentId()));
 
         var first = resultService.record(fixture.tenant(), unknown);
@@ -701,9 +697,8 @@ class PaymentResultPersistenceIT {
         assertThrows(IllegalStateException.class, () -> resultService.record(first.tenant(), firstUnknown));
         assertUnsettled(first);
         assertNull(jdbc.queryForObject(
-                "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                "SELECT first_unknown_at FROM payment_order WHERE id=?",
                 LocalDateTime.class,
-                first.tenant(),
                 first.command().paymentId()));
         clock.advance(Duration.ofMinutes(2));
         var firstUnknownAt = now();
@@ -764,9 +759,8 @@ class PaymentResultPersistenceIT {
         assertEquals(
                 firstUnknownAt,
                 jdbc.queryForObject(
-                        "SELECT first_unknown_at FROM payment_order WHERE tenant_id=? AND id=?",
+                        "SELECT first_unknown_at FROM payment_order WHERE id=?",
                         LocalDateTime.class,
-                        first.tenant(),
                         first.command().paymentId()));
         transactions.readSnapshot(first.tenant(), () -> {
             assertEquals(
@@ -1036,7 +1030,6 @@ class PaymentResultPersistenceIT {
             assertEquals(0L, capacity.reservedMinor());
             assertEquals(0L, capacity.version());
             scenario.assertDb("payment_order")
-                    .where("tenant_id", fixture.tenant())
                     .where("id", fixture.command().paymentId())
                     .exists()
                     .has("state", "SUCCEEDED")
@@ -1055,9 +1048,8 @@ class PaymentResultPersistenceIT {
             assertEquals(
                     outbox,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM loadup_outbox_event WHERE tenant_id = ? AND business_id = ?",
+                                    "SELECT COUNT(*) FROM loadup_outbox_event WHERE business_id = ?",
                                     Long.class,
-                                    fixture.tenant(),
                                     fixture.command().paymentId())
                             .longValue());
             return true;
@@ -1066,9 +1058,8 @@ class PaymentResultPersistenceIT {
 
     private long count(String table, Fixture fixture) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM " + table + " WHERE tenant_id = ? AND payment_id = ?",
+                "SELECT COUNT(*) FROM " + table + " WHERE payment_id = ?",
                 Long.class,
-                fixture.tenant(),
                 fixture.command().paymentId());
     }
 
@@ -1084,9 +1075,8 @@ class PaymentResultPersistenceIT {
                         type.equals(PaymentEvents.REALTIME) ? realtimeSnapshots : 1L,
                         jdbc.queryForObject(
                                         "SELECT COUNT(*) FROM loadup_outbox_event"
-                                                + " WHERE tenant_id = ? AND business_id = ? AND event_type = ?",
+                                                + " WHERE business_id = ? AND event_type = ?",
                                         Long.class,
-                                        fixture.tenant(),
                                         fixture.command().paymentId(),
                                         type)
                                 .longValue());
@@ -1136,9 +1126,8 @@ class PaymentResultPersistenceIT {
             assertEquals(
                     expected,
                     jdbc.queryForObject(
-                                    "SELECT COUNT(*) FROM delayed_task WHERE tenant_id = ? AND task_type = ?",
+                                    "SELECT COUNT(*) FROM delayed_task WHERE task_type = ?",
                                     Long.class,
-                                    fixture.tenant(),
                                     PaymentRecoveryService.TYPE)
                             .longValue());
             return true;

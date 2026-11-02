@@ -3,7 +3,6 @@
 CREATE TABLE reconciliation_batch
 (
     id                   VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id            VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at           TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at           TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted              BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -37,16 +36,15 @@ CREATE TABLE reconciliation_batch
             matched_count >= 0 AND difference_count > 0 AND result_hash IS NOT NULL))
 );
 
-CREATE UNIQUE INDEX uk_recon_batch_run ON reconciliation_batch (tenant_id, run_id);
+CREATE UNIQUE INDEX uk_recon_batch_run ON reconciliation_batch (run_id);
 
-CREATE UNIQUE INDEX uk_recon_batch_request ON reconciliation_batch (tenant_id, caller_service_id, request_key);
+CREATE UNIQUE INDEX uk_recon_batch_request ON reconciliation_batch (caller_service_id, request_key);
 
-CREATE INDEX ix_recon_batch_scope ON reconciliation_batch (tenant_id, channel, account_scope_hash, bill_date, state, id);
+CREATE INDEX ix_recon_batch_scope ON reconciliation_batch (channel, account_scope_hash, bill_date, state, id);
 
 CREATE TABLE reconciliation_input
 (
     id                   VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id            VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at           TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at           TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted              BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -77,14 +75,13 @@ CREATE TABLE reconciliation_input
         OR (state = 'REJECTED' AND rejection_code IS NOT NULL))
 );
 
-CREATE UNIQUE INDEX uk_recon_input_capture ON reconciliation_input (tenant_id, side, source_capture_id, parser_revision);
+CREATE UNIQUE INDEX uk_recon_input_capture ON reconciliation_input (side, source_capture_id, parser_revision);
 
-CREATE INDEX ix_recon_input_scope ON reconciliation_input (tenant_id, channel, account_scope_hash, bill_date);
+CREATE INDEX ix_recon_input_scope ON reconciliation_input (channel, account_scope_hash, bill_date);
 
 CREATE TABLE reconciliation_entry
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -103,14 +100,13 @@ CREATE TABLE reconciliation_entry
     CHECK (state IN ('PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'))
 );
 
-CREATE UNIQUE INDEX uk_recon_entry_key ON reconciliation_entry (tenant_id, input_id, match_key_hash);
+CREATE UNIQUE INDEX uk_recon_entry_key ON reconciliation_entry (input_id, match_key_hash);
 
-CREATE UNIQUE INDEX uk_recon_entry_ordinal ON reconciliation_entry (tenant_id, input_id, record_number);
+CREATE UNIQUE INDEX uk_recon_entry_ordinal ON reconciliation_entry (input_id, record_number);
 
 CREATE TABLE reconciliation_difference
 (
     id                     VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id              VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at             TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -138,14 +134,13 @@ CREATE TABLE reconciliation_difference
             AND (amount_mismatch = TRUE OR request_mismatch = TRUE OR state_mismatch = TRUE)))
 );
 
-CREATE UNIQUE INDEX uk_recon_difference_key ON reconciliation_difference (tenant_id, batch_id, match_key_hash);
+CREATE UNIQUE INDEX uk_recon_difference_key ON reconciliation_difference (batch_id, match_key_hash);
 
-CREATE INDEX ix_recon_difference_page ON reconciliation_difference (tenant_id, batch_id, kind, id);
+CREATE INDEX ix_recon_difference_page ON reconciliation_difference (batch_id, kind, id);
 
 CREATE TABLE reconciliation_import
 (
     id                        VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                 VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                   BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -177,16 +172,15 @@ CREATE TABLE reconciliation_import
         OR (state = 'REJECTED' AND artifact_id IS NULL AND rejection_code IS NOT NULL))
 );
 
-CREATE UNIQUE INDEX uk_recon_import_request ON reconciliation_import (tenant_id, caller_service_id, request_key);
+CREATE UNIQUE INDEX uk_recon_import_request ON reconciliation_import (caller_service_id, request_key);
 
-CREATE UNIQUE INDEX uk_recon_import_task ON reconciliation_import (tenant_id, task_id);
+CREATE UNIQUE INDEX uk_recon_import_task ON reconciliation_import (task_id);
 
-CREATE INDEX ix_recon_import_active ON reconciliation_import (tenant_id, batch_id, state);
+CREATE INDEX ix_recon_import_active ON reconciliation_import (batch_id, state);
 
 CREATE TABLE reconciliation_statement_request
 (
     id                        VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                 VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                   BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -241,16 +235,15 @@ CREATE TABLE reconciliation_statement_request
             downloaded_epoch_micros >= received_epoch_micros))
 );
 
-CREATE UNIQUE INDEX uk_recon_statement_request ON reconciliation_statement_request (tenant_id, caller_service_id, request_key);
+CREATE UNIQUE INDEX uk_recon_statement_request ON reconciliation_statement_request (caller_service_id, request_key);
 
-CREATE UNIQUE INDEX uk_recon_statement_task ON reconciliation_statement_request (tenant_id, task_id);
+CREATE UNIQUE INDEX uk_recon_statement_task ON reconciliation_statement_request (task_id);
 
-CREATE INDEX ix_recon_statement_active ON reconciliation_statement_request (tenant_id, batch_id, state);
+CREATE INDEX ix_recon_statement_active ON reconciliation_statement_request (batch_id, state);
 
 CREATE TABLE reconciliation_review
 (
     id             VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id      VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at     TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at     TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted        BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -267,12 +260,11 @@ CREATE TABLE reconciliation_review
            (state IN ('APPROVED', 'REJECTED') AND row_version >= 2 AND MOD(row_version, 2) = 0))
 );
 
-CREATE UNIQUE INDEX uk_recon_review_last_event ON reconciliation_review (tenant_id, last_event_id);
+CREATE UNIQUE INDEX uk_recon_review_last_event ON reconciliation_review (last_event_id);
 
 CREATE TABLE reconciliation_review_proposal
 (
     id                  VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id           VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at          TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted             BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -298,12 +290,11 @@ CREATE TABLE reconciliation_review_proposal
             evidence_size > 0 AND evidence_sha256 IS NOT NULL))
 );
 
-CREATE INDEX ix_recon_review_proposal ON reconciliation_review_proposal (tenant_id, difference_id, id);
+CREATE INDEX ix_recon_review_proposal ON reconciliation_review_proposal (difference_id, id);
 
 CREATE TABLE reconciliation_review_event
 (
     id                VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id         VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at        TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted           BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -328,14 +319,13 @@ CREATE TABLE reconciliation_review_event
                               source_version >= 2 AND MOD(source_version, 2) = 0 AND note IS NOT NULL))
 );
 
-CREATE UNIQUE INDEX uk_recon_review_command ON reconciliation_review_event (tenant_id, caller_service_id, request_key);
+CREATE UNIQUE INDEX uk_recon_review_command ON reconciliation_review_event (caller_service_id, request_key);
 
-CREATE UNIQUE INDEX uk_recon_review_sequence ON reconciliation_review_event (tenant_id, difference_id, source_version);
+CREATE UNIQUE INDEX uk_recon_review_sequence ON reconciliation_review_event (difference_id, source_version);
 
 CREATE TABLE reconciliation_verification_request
 (
     id                              VARCHAR(64) COLLATE "C"        NOT NULL PRIMARY KEY,
-    tenant_id                       VARCHAR(64) COLLATE "C"        NOT NULL,
     created_at                      TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     updated_at                      TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL,
     deleted                         BOOLEAN                        NOT NULL DEFAULT FALSE,
@@ -416,8 +406,8 @@ CREATE TABLE reconciliation_verification_request
                                                                             succeeded_epoch_micros)))
 );
 
-CREATE UNIQUE INDEX uk_recon_verify_request ON reconciliation_verification_request (tenant_id, caller_service_id, request_key);
+CREATE UNIQUE INDEX uk_recon_verify_request ON reconciliation_verification_request (caller_service_id, request_key);
 
-CREATE UNIQUE INDEX uk_recon_verify_delivery ON reconciliation_verification_request (tenant_id, delivery_id);
+CREATE UNIQUE INDEX uk_recon_verify_delivery ON reconciliation_verification_request (delivery_id);
 
-CREATE INDEX ix_recon_verify_difference ON reconciliation_verification_request (tenant_id, difference_id, id);
+CREATE INDEX ix_recon_verify_difference ON reconciliation_verification_request (difference_id, id);

@@ -19,12 +19,21 @@
  */
 package io.github.loadup.pay.product.infrastructure.config;
 
+import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
+import io.github.loadup.modules.contract.app.service.ContractPersistenceService;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import io.github.loadup.modules.contract.infrastructure.repository.MerchantContractGatewayImpl;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(PolicyPublicationTransportProperties.class)
-@Import(ContractCodec.class)
-public class ProductPersistenceConfiguration {}
+@Import({ContractCodec.class, ContractPersistenceService.class, MerchantContractGatewayImpl.class})
+public class ProductPersistenceConfiguration {
+    @Bean
+    public PolicyPublicationTransportProperties policyPublicationTransportProperties(Environment environment) {
+        return RpcClientDefaults.bind(
+                environment, "loadup.modules.product.publication", "limitcenter", PolicyPublicationTransportProperties.class);
+    }
+}
