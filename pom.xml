@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
     <groupId>io.github.loadup-cloud</groupId>
@@ -51,7 +51,7 @@
         <license.trimHeaderLine>true</license.trimHeaderLine>
         <license.licenseName>apache_v2</license.licenseName>
         <jacoco-plugin.version>0.8.15</jacoco-plugin.version>
-        <versions-plugin.version>2.22.0</versions-plugin.version>
+        <versions-plugin.version>2.23.0</versions-plugin.version>
         <license-plugin.version>2.7.1</license-plugin.version>
         <spotless-plugin.version>3.10.4</spotless-plugin.version>
         <spotbugs-plugin.version>4.10.5.0</spotbugs-plugin.version>
