@@ -156,3 +156,10 @@ APPROVED/NEEDS_SOURCE_VERIFICATION 提案及精确审批事件/版本。请求�
 重放不再覆盖回执/重复查询。收款/退款金额、结果与批次/复核均无写入口。复用框架 Outbox、60s 的独立 payment-verification 引用超时
 与原 SERVICE Token（需新增 payment 读取权限）。两侧 Client
 API/持久化/投递/Facade/索引迁移和测试源码已补，均未运行。见 [查证设计](../ARCHITECTURE.md)。
+
+## Payment HTTP 客户端迁移
+
+付款快照、账单来源下载和只读查证已改为标准 HTTP Service Clients，共用 PAYMENT_BASE_URL（默认 http://payment:8080）。
+普通组读取 3s；payment-statements 组保留 60s、32 MiB 响应上限及独立 8/4 连接限额，兼顾 Base64 膨胀与普通查证可用连接。
+原 SERVICE token 每次重读，事务外联网、错误白名单与原来源校验保留；分页错序、非封存统计、字节/哈希异常不能当作权威输入。
+本服务自己的六个 Triple 提供操作仍待迁移；源码进度与未运行的验收见 [迁移清单](../HTTP_MIGRATION.md)。

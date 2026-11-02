@@ -7,11 +7,11 @@ spring:
 server:
   port: 8084
 
-dubbo:
-  protocol:
-    port: 50054
-
 loadup:
+  http:
+    clients:
+      payment:
+        base-url: ${PAYMENT_BASE_URL:http://localhost:8081}
   modules:
     limitcenter:
       permit:

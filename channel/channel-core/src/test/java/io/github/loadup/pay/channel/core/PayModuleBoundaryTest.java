@@ -106,13 +106,18 @@ class PayModuleBoundaryTest {
     private static final Pattern TECHNICAL_IMPLEMENTATION =
             Pattern.compile("\\b(?:org\\.springframework|com\\.mybatisflex|org\\.apache\\.ibatis|jakarta\\.persistence"
                     + "|io\\.grpc|com\\.google\\.protobuf|io\\.github\\.loadup\\.components)\\.");
+    private static final Pattern HTTP_CONTRACT_TYPE = Pattern.compile(
+            "\\borg\\.springframework\\.(?:http\\.(?:HttpHeaders|HttpMethod|HttpStatusCode|MediaType|ResponseEntity)"
+                    + "|web\\.bind\\.annotation\\.(?:RequestBody|RequestHeader|PathVariable|RequestParam)"
+                    + "|web\\.service\\.annotation\\.(?:HttpExchange|GetExchange|PostExchange|PutExchange|PatchExchange|DeleteExchange))\\b");
 
     private static List<String> sourceViolations(Module module, String path, String source) {
         var errors = new ArrayList<String>();
-        boolean transportContract =
-                module.layer().equals("client") && path.replace('\\', '/').contains("/rpc/");
-        if ((module.layer().equals("domain") || module.layer().equals("client") && !transportContract)
-                && TECHNICAL_IMPLEMENTATION.matcher(source).find()) {
+        String normalizedPath = "/" + path.replace('\\', '/');
+        boolean httpContract = module.layer().equals("client") && normalizedPath.contains("/client/http/");
+        String technicalSource = httpContract ? HTTP_CONTRACT_TYPE.matcher(source).replaceAll("") : source;
+        if ((module.layer().equals("domain") || module.layer().equals("client"))
+                && TECHNICAL_IMPLEMENTATION.matcher(technicalSource).find()) {
             errors.add(
                     "TECHNICAL_IMPLEMENTATION: client/domain cannot name Spring, ORM, RPC or component implementation types");
         }
@@ -122,20 +127,25 @@ class PayModuleBoundaryTest {
         var references = PAY_REFERENCE.matcher(source);
         while (references.find()) {
             String owner = references.group(1), layer = references.group(2), role = references.group(3);
+            if (layer.equals("rpc")) {
+                errors.add("LEGACY_TRANSPORT: Pay uses HTTP contracts; optional Dubbo belongs in the framework");
+            }
             boolean publicEnum = layer.equals("domain")
                     && "model".equals(role)
                     && PUBLIC_DOMAIN_ENUMS.contains(owner + "." + references.group(4));
+            if (layer.equals("client") && "http".equals(role)
+                    && Set.of("domain", "app").contains(module.layer())) {
+                errors.add("TRANSPORT_IN_BUSINESS: HTTP contracts belong in adapters/ports");
+            }
             if (!owner.equals(module.service())) {
                 if (!publicEnum && !Set.of("client", "rpc").contains(layer)) {
                     errors.add("CROSS_SERVICE: " + owner + "." + layer);
                 } else if (layer.equals("rpc")
-                        && Set.of("client", "domain", "app").contains(module.layer())
-                        && !transportContract) {
-                    errors.add("TRANSPORT_IN_BUSINESS: gRPC belongs in adapters/ports");
+                        && Set.of("client", "domain", "app").contains(module.layer())) {
+                    errors.add("TRANSPORT_IN_BUSINESS: protocol clients belong in adapters/ports");
                 }
             } else {
                 if (!publicEnum
-                        && !(transportContract && layer.equals("rpc"))
                         && !allowedOwnLayer(module.layer(), layer)) {
                     errors.add("OWN_LAYER: " + module.layer() + " -> " + layer);
                 }
@@ -168,6 +178,11 @@ class PayModuleBoundaryTest {
             return List.of();
         }
         var errors = new ArrayList<String>();
+        if (dependency.group().startsWith("org.apache.dubbo")
+                || dependency.group().equals("com.google.protobuf")
+                || dependency.artifact().startsWith("loadup-components-rpc-")) {
+            errors.add("LEGACY_TRANSPORT: " + dependency.artifact());
+        }
         if (module.layer().equals("domain")
                 && (dependency.group().startsWith("org.springframework")
                         || dependency.group().startsWith("org.mybatis")
@@ -217,6 +232,24 @@ class PayModuleBoundaryTest {
 
     private static void assertAllowed(String owner, String layer, String path, String source) {
         assertEquals(List.of(), sourceViolations(module(owner, layer), path, source));
+    }
+
+    @Test
+    void declarativeHttpContractsRemainAtTheTransportBoundary() {
+        assertAllowed("payment", "client", "client/http/PaymentHttpService.java",
+                "org.springframework.web.service.annotation.PostExchange method; org.springframework.http.HttpHeaders headers;");
+        assertRejected("payment", "client", "client/dto/Payment.java",
+                "org.springframework.web.service.annotation.PostExchange method;", "TECHNICAL_IMPLEMENTATION");
+        assertRejected("payment", "client", "client/http/PaymentHttpService.java",
+                "org.springframework.web.client.RestClient client;", "TECHNICAL_IMPLEMENTATION");
+        assertRejected("payment", "client", "client/http/PaymentHttpService.java",
+                "org.springframework.stereotype.Component bean;", "TECHNICAL_IMPLEMENTATION");
+        assertRejected("acquire", "app", "service/Payment.java",
+                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;", "TRANSPORT_IN_BUSINESS");
+        assertRejected("payment", "domain", "model/Payment.java",
+                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;", "TRANSPORT_IN_BUSINESS");
+        assertAllowed("acquire", "infrastructure", "client/PaymentHttpClient.java",
+                "io.github.loadup.pay.payment.client.http.PaymentHttpService client;");
     }
 
     private static Module module(String owner, String layer) {
@@ -369,11 +402,12 @@ class PayModuleBoundaryTest {
                 "app",
                 "service/Order.java",
                 "io.github.loadup.pay.payment.client.facade.PaymentFacade value;");
-        assertAllowed(
+        assertRejected(
                 "payment",
                 "infrastructure",
                 "client/Remote.java",
-                "io.github.loadup.pay.acquire.rpc.AcquireRpc value;");
+                "io.github.loadup.pay.acquire.rpc.AcquireRpc value;",
+                "LEGACY_TRANSPORT");
         assertAllowed(
                 "payment",
                 "domain",

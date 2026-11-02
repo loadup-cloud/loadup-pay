@@ -29,6 +29,8 @@ import java.time.OffsetDateTime;
 @Schema(description = "One immutable line from a source-owned capture; gross payments and refunds stay separate")
 public record PaymentLedgerLineDTO(
         @Schema(description = "Immutable one-based contiguous source ordinal")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long ordinal,
 
         @Schema(description = "PAYMENT or REFUND") PaymentLedgerKind kind,
@@ -44,6 +46,8 @@ public record PaymentLedgerLineDTO(
         String merchantPaymentNo,
 
         @Schema(description = "Positive gross amount in CNY minor units")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long amountMinor,
 
         @Schema(description = "Currency, CNY") String currency,
@@ -61,6 +65,8 @@ public record PaymentLedgerLineDTO(
         String evidenceId,
 
         @Schema(description = "Financial row version observed in the source RR snapshot")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long sourceVersion) {
     @Override
     public String toString() {

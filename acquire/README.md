@@ -2,7 +2,7 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-应用间传输使用 Dubbo Triple；HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+product 准入与 payment 调用已改为 HTTP；acquire 事件提供端和 realtime 消费暂保留 Triple。HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
 
 已实现普通创单/原调用主体查询、原单会话签发/能力认证/收银台只读摘要，并补齐商户付款发起、金额占用及权威结果刷新落账的 COLA
 源码。复用框架 Money、JSON、BaseDO、ID、数据库/事务、生成 Mapper、Spring MapStruct、HTTP 和 JWT 资源服务器。业务默认币种为
@@ -70,3 +70,8 @@ deploy/pay.yml 未包含业务 DB/JWT 配置，业务上线需覆盖层显式注
 ## 验证边界
 
 本次只核对文档与当前配置/源码，未运行构建或测试。当前 PostgreSQL 基线的迁移、并发、回滚及真实服务调用需单独验收，历史数据库测试记录不代表当前版本已通过。
+
+## HTTP 迁移进度
+
+acquire → product 准入调用已迁移为标准 HTTP Service Client，按目标服务配置基础地址，逐次传递原凭证；
+原事务、幂等和错误语义保留。其他未迁移链路继续使用 Triple，源码与运行验收状态见 [迁移清单](../HTTP_MIGRATION.md)。

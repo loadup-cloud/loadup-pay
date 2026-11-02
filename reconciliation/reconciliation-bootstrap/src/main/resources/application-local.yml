@@ -7,6 +7,10 @@ spring:
 server:
   port: 8087
 
-dubbo:
-  protocol:
-    port: 50057
+loadup:
+  http:
+    clients:
+      payment:
+        base-url: ${PAYMENT_BASE_URL:http://localhost:8081}
+      payment-statements:
+        base-url: ${PAYMENT_BASE_URL:http://localhost:8081}

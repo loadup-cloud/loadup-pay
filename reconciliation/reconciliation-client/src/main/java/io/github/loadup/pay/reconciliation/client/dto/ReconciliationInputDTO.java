@@ -20,6 +20,9 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.text;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.hash;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -42,16 +45,42 @@ public record ReconciliationInputDTO(
         String parserRevision,
 
         @Schema(description = "Normalized payment record count")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long paymentCount,
 
         @Schema(description = "Gross payment total in CNY minor units; not net of refunds")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long paymentAmountMinor,
 
         @Schema(description = "Normalized refund record count")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long refundCount,
 
         @Schema(description = "Gross refund request total in CNY minor units; does not assert returned funds")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long refundAmountMinor) {
+    public ReconciliationInputDTO {
+        require(side != null);
+        text(artifactId, 64);
+        text(sourceCaptureId, 64);
+        text(parserRevision, 64);
+        hash(artifactSha256);
+        hash(normalizedSha256);
+        require(paymentCount >= 0 && refundCount >= 0
+                && paymentAmountMinor >= paymentCount && refundAmountMinor >= refundCount
+                && (paymentCount == 0) == (paymentAmountMinor == 0)
+                && (refundCount == 0) == (refundAmountMinor == 0));
+        try {
+            Math.addExact(paymentCount, refundCount);
+        } catch (ArithmeticException invalid) {
+            require(false);
+        }
+    }
+
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

@@ -79,6 +79,8 @@ public record PaymentCaptureDTO(
         String blockerSubjectId,
 
         @Schema(description = "Logical capture version, INIT=0 and terminal=1")
+        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
         long version,
 
         @Schema(description = "Original native task identity")

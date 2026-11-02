@@ -7,6 +7,10 @@ spring:
 server:
   port: 8085
 
-dubbo:
-  protocol:
-    port: 50055
+loadup:
+  http:
+    clients:
+      customer:
+        base-url: ${CUSTOMER_BASE_URL:http://localhost:8083}
+      limitcenter:
+        base-url: ${LIMITCENTER_BASE_URL:http://localhost:8084}

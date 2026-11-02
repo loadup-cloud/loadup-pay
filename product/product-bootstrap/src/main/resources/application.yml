@@ -8,22 +8,6 @@ spring:
 server:
   port: 8080
   shutdown: graceful
-dubbo:
-  application:
-    name: product
-    qos-enable: false
-  scan:
-    base-packages: io.github.loadup.pay.product
-  protocol:
-    name: tri
-    port: 50051
-    triple:
-      max-body-size: 33554432
-      max-response-body-size: 33554432
-  consumer:
-    check: false
-    timeout: 3000
-    retries: 0
 management:
   endpoints:
     web:
@@ -56,12 +40,34 @@ management:
         http.server.requests: true
 
 loadup:
+  http:
+    clients:
+      limitcenter:
+        base-url: ${LIMITCENTER_BASE_URL:http://limitcenter:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 1048576
+        max-response-bytes: 1048576
+      customer:
+        base-url: ${CUSTOMER_BASE_URL:http://customer:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 65536
+        max-response-bytes: 65536
   modules:
     contract:
       enabled: false
     product:
       materialize-seconds: ${PRODUCT_MATERIALIZE_SECONDS:300}
-      customer-audience: ${CUSTOMER_JWT_AUDIENCE:${loadup.rpc.client.audience:customer}}
+      customer-audience: ${CUSTOMER_JWT_AUDIENCE:customer}
   database:
     multi-tenant:
       enabled: true
@@ -85,19 +91,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${PRODUCT_JWT_ISSUER_URI}
-      audience: ${PRODUCT_JWT_AUDIENCE:${loadup.rpc.client.audience:product}}
+      audience: ${PRODUCT_JWT_AUDIENCE:product}
       jwk-set-uri: ${PRODUCT_JWT_JWK_SET_URI}
-
----
-spring:
-  config:
-    activate:
-      on-profile: "!nacos"
-dubbo:
-  registry:
-    address: N/A
-  reference:
-    "io.github.loadup.pay.customer.rpc.proto.CustomerRpc":
-      url: tri://customer-headless:50051
-    "io.github.loadup.pay.limitcenter.rpc.proto.LimitCenterRpc":
-      url: tri://limitcenter-headless:50051

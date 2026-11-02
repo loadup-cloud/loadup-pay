@@ -20,6 +20,9 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.text;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.hash;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -58,13 +61,43 @@ public record ReconciliationBatchDTO(
         @Schema(description = "Deterministic result SHA-256; null before completion")
         String resultHash,
 
-        @Schema(description = "Batch aggregate version") long version,
+        @Schema(description = "Batch aggregate version") @com.fasterxml.jackson.annotation.JsonProperty(required = true)
+        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        long version,
 
         @Schema(description = "Native task id; populated in detail after start")
         String taskId,
 
         @Schema(description = "Native task status; populated in detail after start")
         String nativeStatus) {
+    public ReconciliationBatchDTO {
+        text(batchId, 64);
+        text(statementProfile, 64);
+        hash(accountScopeHash);
+        require((channel == Channel.WECHAT || channel == Channel.ALIPAY) && billDate != null
+                && billDate.getYear() >= 1970 && billDate.getYear() <= 9998 && state != null && version >= 0);
+        require((taskId != null) == (nativeStatus != null) && (taskId == null || runId != null));
+        if (taskId != null) {
+            text(taskId, 64);
+            require(java.util.Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED").contains(nativeStatus));
+        }
+        boolean complete = state == ReconciliationState.MATCHED || state == ReconciliationState.DIFFERENCES;
+        boolean started = complete || state == ReconciliationState.RUNNING;
+        require(started == (runId != null) && complete == (matchedCount != null)
+                && complete == (differenceCount != null) && complete == (resultHash != null)
+                && (state == ReconciliationState.INIT) != (channelInput != null && ledgerInput != null));
+        if (started) { text(runId, 64); }
+        if (complete) {
+            hash(resultHash);
+            require(matchedCount >= 0 && differenceCount >= 0
+                    && (state == ReconciliationState.MATCHED) == (differenceCount == 0));
+        }
+        if (channelInput != null && ledgerInput != null) {
+            require(!channelInput.artifactId().equals(ledgerInput.artifactId())
+                    && !channelInput.sourceCaptureId().equals(ledgerInput.sourceCaptureId()));
+        }
+    }
+
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

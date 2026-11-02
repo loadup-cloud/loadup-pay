@@ -530,30 +530,18 @@ multipart，下载可以返回流式二进制。`loadup-components-webmvc` 对 A
   the business transaction on the same DataSource. Expired-lease recovery is at-least-once: handlers must be idempotent;
   token fencing protects task acknowledgements, not external side effects. XXL-JOB/JobRunr binders are not implemented.
 
-## 应用间 Dubbo Triple 与系统时区
+## 应用间调用与系统时区
 
-- LoadUp Pay 的应用间调用统一使用 Dubbo Triple；不新增内部 HTTP 客户端、内部 REST 入口或 HTTP 回退，也不保留
-  gRPC 契约；Protobuf 仅用于 IDL。商户/运营 API、收银台、渠道通知与外部系统沿用各自协议。
-- 每个提供方在自己的 `<service>-client` 模块维护 Java Facade、Command/Query/DTO、结果码，以及 Protobuf
-  `.proto`、生成存根和 Wire↔DTO mapper；IDL 代码固定在 `rpc` 子包。`*-adapter` 用 `@DubboService` 实现生成的
-  `ImplBase`，`*-infrastructure` 用 `@DubboReference` 引用生成的接口。domain 不依赖 client，app 不直接引用 rpc
-  类型，跨服务只复用源服务的 Wire 类型。
-- 通用数据契约放现有 `loadup-commons`，通用 RPC 支持放现有 `loadup-components-rpc-binder-dubbo`
-  （`RpcTokenContext`、`RpcExceptionCodes`、provider filter）与 `loadup-components-rpc-proto`（Wire 标量转换）；commons 不反向依赖
-  components，不另建
-  pay-common/pay-rpc。
-- 跨进程只传 Protobuf 消息，使用 Dubbo Triple 的 IDL 分支，不产生 Wrapper 信封。`*-client` 用 `dubbo-maven-plugin`
-  生成消息与存根；MapStruct mapper 负责 Wire↔record DTO，`RpcScalarMapper` 处理 `Timestamp`/`Instant`/`BigDecimal`。
-  字段号不可复用，删除字段必须 `reserved`，字段改名/删除都是破坏性变更。不需要 `serialization`、
-  `serialize-check-status` 或 `check-serializable` 配置。
-- 目标地址/超时/重试/TLS 通过 `dubbo.*` 配置绑定。K8s 命名固定 `<service>-headless:50051`，同 Namespace 使用
-  `tri://<service>-headless:50051`，不把环境地址写进 Java；`registry.address: N/A`，写调用
-  保持 `retries: 0`，RPC 端口只对同 Namespace 开放。
-- 消费方用 `RpcTokenContext.call(token, ...)` 逐次传播令牌，调用结束即移除；提供方 filter 重建
-  `Jwt`/`SecurityContext` 并恢复。入口负责签名、issuer、audience 和 token_use，内部跳转只校验 `exp`；租户来自
-  已验证身份。SERVICE token 逐次读取，商户委托遵循受众约束。业务拒绝编码为 `loadup-result-code=<CODE>`，消费方
-  只按本地白名单映射；未知远端错误映射为依赖失败，不输出凭证/载荷。网络调用不跨本地事务，写操作保留幂等键。
-- 业务时间采用 `ZoneId.systemDefault()`、`Clock.systemDefaultZone()` 或已注入 Clock 的 zone；不在代码、JVM 参数、
-  JDBC 初始化 SQL 或 K8s 清单强制指定时区。JWT epoch、`Instant` 等协议边界保持绝对时间语义。
-- 修改 RPC 契约、认证或部署时，读取 [RPC 规范](ARCHITECTURE.md)；源码编译、测试执行与真实 RPC 验收分别报告，遵守
-  现有窄范围 clean 构建约定。
+- 按 [Roadmap](ROADMAP.md) 和 [迁移清单](HTTP_MIGRATION.md) 逐批改为 Spring HTTP Service Clients + RestClient。
+  customer、product、limitcenter、payment 提供端及对应消费者已切换 HTTP；其余链路按迁移清单继续维护。
+  product/payment 的共享 Wire 消息暂留给 acquire/realtime 的协议生成链，随对应批次清理；limitcenter 已无 Triple。新内部接口使用 HTTP，不新增长期双栈或自动协议回退。
+- 契约由提供方 `*-client` 持有，复用 Command/Query/DTO 与错误码；HTTP 接口放 `client.http`，Controller 在 adapter，
+  消费端在 infrastructure，app/domain 保持业务语义。每批同步两端、测试、依赖、部署与文档，确认无调用后删除对应 IDL/mapper/配置。
+- 内部 HTTP 使用 `/api/internal/v1/`，接入现有 Resource Server 完整 JWT 校验；身份和租户来自验证后的 token。
+  每次显式传播符合目标 audience 的令牌，服务令牌按次读取；业务码只按本地白名单处理，未知响应按依赖失败处理。
+- 使用现有 HTTP 组件的命名客户端共享资源，按提供方配置基础地址、超时、池容量与 TLS。K8s 默认普通 Service DNS，
+  支持环境地址覆盖；写调用无自动重试/重定向，保留幂等键、事务外联网与未知结果恢复。Nacos 按需启用。
+- Gateway API 默认使用 Envoy Gateway，配置版本随 ConfigMap/Secret 与镜像滚动发布；虚拟线程经压测后启用。
+  阶段完成以运行验收为准，未执行构建、测试或真实调用时明确记录。
+- 剩余 Triple 协议、信任边界与端口规则见 [总体架构](ARCHITECTURE.md)；不将其 exp-only 内部解析方式用于 HTTP。
+- 业务时间采用系统默认 zone 或业务 Clock 的 zone；JWT epoch、Instant 保持绝对时间。不强制 JVM/JDBC/K8s 固定时区。

@@ -49,9 +49,9 @@ SKIP_BUILD=1 IMAGE_TAG=release-002 ./scripts/deploy.sh all
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经kubectl本地dry-run输出的JSON：全量选择22个资源（namespace及七组Deployment/HTTP Service/Dubbo Triple Headless
-Service），单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为
-50051；渲染器拒绝缺失、重复或不符合约定的 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+经kubectl本地dry-run输出的JSON：全量选择18个资源（namespace、七组 Deployment/HTTP Service、三个剩余 Triple Headless Service），
+customer/product/limitcenter/payment 单应用选择3个资源，其余单应用选择4个资源。Headless 名称固定为 `<app>-headless`，selector 与 Pod 的 app 标签一致，端口为
+50051；渲染器要求已迁移的四个 HTTP 提供端不再暴露 Headless，只对剩余三个 Triple 提供方校验必需 Headless 资源。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
@@ -104,13 +104,13 @@ V20261022110000 未执行；提交器和自动调度尚未接通，业务镜像�
 
 ## 应用间 Dubbo Triple 发布
 
-七应用 `application.yml` 固定 HTTP 8080、Triple 50051、`shutdown: graceful`，Pod 终止窗口 45 秒。默认通过配置使用 `tri://<peer>-headless:50051` 直连，字段类型是生成的 Protobuf IDL 接口；
+customer/product/limitcenter 提供端已改为 HTTP；其余四应用 `application.yml` 保留 HTTP 8080、Triple 50051。七应用均 `shutdown: graceful`，Pod 终止窗口 45 秒。默认通过配置使用 `tri://<peer>-headless:50051` 直连，字段类型是生成的 Protobuf IDL 接口；
 `dubbo.registry.address: N/A`，
 `consumer.check: false`、`timeout: 3000`、`retries: 0`。Java 代码中不写环境地址，也没有应用间 HTTP 地址或降级路径。
 
 各应用默认装配业务 adapter；部署需准备各自数据库、JWT、挂载 SERVICE token 和生产 TLS 配置。
 
-`pay.yml` 保留 HTTP ClusterIP Service 供外部 API/Actuator 使用，应用间只走 Dubbo Triple Headless Service。`verify.sh`
+`pay.yml` 保留 HTTP ClusterIP Service；product → customer 的资格调用使用 `http://customer:8080`，acquire → product 与 product/payment → limitcenter 也改为普通 Service HTTP；其余未迁移链路继续使用 Triple Headless Service。`verify.sh`
 目前仅检查
 Deployment 与 HTTP ready EndpointSlice。业务发布还需从调用方以真实 JWT/TLS 发起 Triple
 调用，验证原请求幂等重放、错误映射、至少两个副本上的请求分布及滚动期间行为；不可把 DNS/HTTP 健康当作 RPC 验收。
@@ -156,3 +156,22 @@ Reconciliation 手工文件导入已接 File/Transfer/S3 的业务装配源码�
 默认（未启用 nacos profile）继续使用 Kubernetes Headless 地址；不可同时启用会注入直连 URL 的其他配置。
 配置中心 Nacos binder 与 Dubbo 服务注册发现是独立功能。切换需要重启或滚动发布，切换前后应验证
 注册信息、真实 RPC、多副本分布和回滚；旧直连镜像在非 Kubernetes 环境无法依靠 Nacos 自动发现。
+
+## HTTP 迁移首批发布边界
+
+customer 已移除 Triple 提供方、协议生成及 Nacos profile，product 的 customer 消费端已迁移为 HTTP。
+同时发布这两个应用，覆盖 CUSTOMER_BASE_URL 与匹配的 JWT 受众/签发方配置；失败时恢复两端匹配镜像与配置，不能只回退单端。
+已有集群中的 customer-headless Service 不会因重新 apply 而自动删除；切换完成并确认无旧消费者后，由发布方明确清理该遗留资源。
+本次仅修改本地清单，未执行发布或删除集群资源。
+
+Controller/JWT、客户端及业务错误回归源码见 [迁移清单](../HTTP_MIGRATION.md)，构建与真实调用仍待运行。
+剩余 Triple 说明和可选 Nacos profile 只适用于尚存 Triple 消费或提供路径的应用；product/customer 已无该 profile。Envoy Gateway、配置版本化及虚拟线程仍按后续 roadmap 阶段实施。
+
+第二批增加 product/limitcenter 提供端及 acquire/product/payment 消费端迁移。部署源清单已删除三个 HTTP 提供方的 Triple 端口和 Headless Service；
+已有集群资源需在旧调用清退后显式清理。本批需统一匹配 acquire、product、customer、limitcenter、payment 镜像与配置，回退同理。
+product 的共享 Wire 消息仍供尚未迁移的 payment 协议使用；limitcenter 仍以出站 Triple 查证 payment，不能将当前状态误记为 Pay 全部迁出 Dubbo。
+
+第三批 payment 的 19 个提供操作及全部消费端已切换 HTTP；limitcenter 已无入站或出站 Triple，删除其可选 Nacos profile。
+payment 暂留 acquire/realtime 的出站调用。pay.yml 不再含 payment-headless/Triple 容器端口；新清单不会自动删除集群中的旧 Service。
+第三批发布或回退需统一匹配 acquire/payment/limitcenter/reconciliation 镜像和配置，保留 PAYMENT_BASE_URL、JWT audience 和服务凭证的一致性。
+旧生成类与已删除的 RPC 提供端可能残留在增量输出中，按构建规范 clean 后再验证。未在本次执行构建或部署。

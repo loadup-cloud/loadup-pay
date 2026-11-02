@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: loadup-pay
 ---
-# Payment Service - Headless for Dubbo Triple discovery
+# Payment Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,7 +28,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: payment-config
@@ -73,19 +72,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Payment Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: payment-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: payment }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Acquire Service - Headless for Dubbo Triple discovery
+# Acquire Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -110,7 +97,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: acquire-config
@@ -155,19 +141,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Acquire Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: acquire-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: acquire }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Customer Service - Headless for Dubbo Triple discovery
+# Customer Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -192,7 +166,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: customer-config
@@ -237,19 +210,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Customer Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: customer-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: customer }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# LimitCenter Service - Headless for Dubbo Triple discovery
+# LimitCenter Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -274,7 +235,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: limitcenter-config
@@ -319,19 +279,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Limitcenter Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: limitcenter-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: limitcenter }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Product Service - Headless for Dubbo Triple discovery
+# Product Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -356,7 +304,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: product-config
@@ -401,19 +348,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Product Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: product-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: product }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Realtime Service - Headless for Dubbo Triple discovery
+# Realtime Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -438,7 +373,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: realtime-config
@@ -483,19 +417,7 @@ spec:
   ports:
     - { name: http, port: 8080, targetPort: http }
 ---
-# Realtime Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: realtime-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: realtime }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Reconciliation Service - Headless for Dubbo Triple discovery
+# Reconciliation Service - JWT-authenticated HTTP
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -520,7 +442,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - { name: http, containerPort: 8080 }
-            - { name: dubbo, containerPort: 50051 }
           envFrom:
             - configMapRef:
                 name: reconciliation-config
@@ -564,43 +485,3 @@ spec:
   selector: { app: reconciliation }
   ports:
     - { name: http, port: 8080, targetPort: http }
----
-# Reconciliation Headless Service - Dubbo Triple discovery
-apiVersion: v1
-kind: Service
-metadata:
-  name: reconciliation-headless
-  namespace: loadup-pay
-spec:
-  clusterIP: None
-  selector: { app: reconciliation }
-  ports:
-    - { name: dubbo, port: 50051, targetPort: dubbo }
----
-# Requires a CNI that enforces NetworkPolicy. Other policies must not grant
-# broader ingress to TCP 50051, since NetworkPolicy rules are additive.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: restrict-internal-rpc
-  namespace: loadup-pay
-spec:
-  podSelector:
-    matchExpressions:
-      - key: app
-        operator: In
-        values: [payment, acquire, customer, limitcenter, product, realtime, reconciliation]
-  policyTypes: [Ingress]
-  ingress:
-    # A podSelector without a namespaceSelector matches this namespace only.
-    - from:
-        - podSelector: {}
-      ports:
-        - protocol: TCP
-          port: 50051
-    # Preserve access to other ports and protocols.
-    - ports:
-        - { protocol: TCP, port: 1, endPort: 50050 }
-        - { protocol: TCP, port: 50052, endPort: 65535 }
-        - { protocol: UDP, port: 1, endPort: 65535 }
-        - { protocol: SCTP, port: 1, endPort: 65535 }

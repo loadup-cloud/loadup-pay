@@ -1,0 +1,257 @@
+package io.github.loadup.pay.payment.infrastructure.client;
+
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.pay.limitcenter.client.command.LimitConfirmCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitRefundRestoreCommand;
+import io.github.loadup.pay.limitcenter.client.command.LimitReleaseCommand;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
+import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
+import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
+import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
+import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
+import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
+import io.github.loadup.commons.result.SuccessResponse;
+import io.github.loadup.commons.result.Result;
+import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.json.JsonMapper;
+
+class PaymentLimitHttpClientTest {
+    final Clock clock = Clock.fixed(Instant.parse("2026-10-23T04:00:00Z"), ZoneId.systemDefault());
+    final JsonMapper mapper = JsonUtil.customize(JsonMapper.builder()).build();
+    final LimitCenterHttpService limitCenterHttp = mock(LimitCenterHttpService.class);
+    final List<String> attachments = new ArrayList<>();
+    final LimitConfirmCommand confirm = new LimitConfirmCommand(
+            "operation", "payment", 2, "evidence", "evidence", 1000, "CNY", OffsetDateTime.now(clock));
+    final LimitReleaseCommand release =
+            new LimitReleaseCommand("operation", "payment", 2, "evidence", "evidence", "PAYMENT_FAILED");
+    final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand(
+            "operation", "payment", "refund", 3, "refund-event", 1000, 1500, "CNY", "refund-evidence");
+
+    @TempDir
+    Path directory;
+
+    PaymentLimitHttpClient client;
+    Path tokenFile;
+
+    Map<String, Object> claims() {
+        return new HashMap<>(Map.of(
+                "tenant_id",
+                "tenant",
+                "principal_type",
+                "SERVICE",
+                "sub",
+                "payment",
+                "service_id",
+                "payment",
+                "aud",
+                List.of("limitcenter"),
+                "exp",
+                clock.instant().getEpochSecond() + 300));
+    }
+
+    String token(Map<String, Object> claims) throws Exception {
+        var encoder = Base64.getUrlEncoder().withoutPadding();
+        var token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
+        Files.writeString(tokenFile, token);
+        return token;
+    }
+
+    LimitReservationDTO confirmed() {
+        return new LimitReservationDTO(
+                "reservation",
+                "operation",
+                "payment",
+                LimitReservationState.CONFIRMED,
+                "policy",
+                1,
+                OffsetDateTime.now(clock),
+                2);
+    }
+
+    @BeforeEach
+    void setup() throws Exception {
+        tokenFile = directory.resolve("limitcenter.jwt");
+        token(claims());
+        client = new PaymentLimitHttpClient(
+                limitCenterHttp,
+                mapper,
+                new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile),
+                clock);
+        doAnswer(invocation -> {
+                    attachments.add(invocation.getArgument(0, String.class));
+                    return SuccessResponse.of(confirmed());
+                })
+                .when(limitCenterHttp)
+                .confirm(anyString(), any());
+        doAnswer(invocation -> {
+                    attachments.add(invocation.getArgument(0, String.class));
+                    return SuccessResponse.of(
+                            new LimitReleaseDTO("operation", "payment", true, null, 2, "evidence"));
+                })
+                .when(limitCenterHttp)
+                .release(anyString(), any());
+    }
+
+    @Test
+    void confirmUsesTheConfiguredOperationAndOriginalTypedCommand() {
+        assertEquals(
+                LimitReservationState.CONFIRMED,
+                client.confirm("tenant", confirm).state());
+        verify(limitCenterHttp).confirm(anyString(), eq(confirm));
+        assertEquals(1, attachments.size());
+        assertTrue(attachments.getFirst().startsWith("Bearer "));
+    }
+
+    @Test
+    void releaseDecodesAFencedReceiptWithoutFabricatingAReservation() {
+        var ack = client.release("tenant", release);
+        assertTrue(ack.fenced());
+        assertNull(ack.reservation());
+        assertEquals(2, ack.paymentVersion());
+        verify(limitCenterHttp).release(anyString(), eq(release));
+    }
+
+    @Test
+    void refundRestoreUsesItsNamedOperationAndOriginalTypedCommandWithMountedCredential() throws Exception {
+        var ack = new LimitRestoreDTO(
+                "operation",
+                "payment",
+                "refund",
+                3,
+                "refund-event",
+                "refund-evidence",
+                1500,
+                1500,
+                4,
+                LimitRestoreResult.RESTORED,
+                1000,
+                true);
+        doAnswer(invocation -> {
+                    assertEquals(
+                            "Bearer " + Files.readString(tokenFile),
+                            invocation.getArgument(0, String.class));
+                    return SuccessResponse.of(ack);
+                })
+                .when(limitCenterHttp)
+                .restoreRefund(anyString(), any());
+        assertEquals(ack, client.restoreRefund("tenant", refundRestore));
+        verify(limitCenterHttp).restoreRefund(anyString(), eq(refundRestore));
+    }
+
+    @Test
+    void mountedServiceTokenIsRereadBetweenRetriesAndOperations() throws Exception {
+        var first = token(claims());
+        client.confirm("tenant", confirm);
+        var rotated = claims();
+        rotated.put("exp", clock.instant().getEpochSecond() + 600);
+        var second = token(rotated);
+        client.release("tenant", release);
+        assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
+    }
+
+    @Test
+    void anotherTenantOrWrongAudienceDoesNotReachTheNetwork() throws Exception {
+        assertSame(
+                ACTION_FORBIDDEN,
+                assertThrows(CommonException.class, () -> client.confirm("other-tenant", confirm))
+                        .getResultCode());
+        var wrong = claims();
+        wrong.put("aud", "acquire");
+        token(wrong);
+        assertSame(
+                DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.release("tenant", release))
+                        .getResultCode());
+        verifyNoInteractions(limitCenterHttp);
+    }
+
+    @Test
+    void limitRejectionCannotBeInterpretedAsSuccessfulSettlement() {
+        doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.EXCEEDED), null)).when(limitCenterHttp).confirm(anyString(), any());
+        assertSame(
+                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
+                        .getResultCode());
+    }
+
+    @Test
+    void onlyTheExistingLimitFailureWhitelistIsMappedToLocalBusinessCodes() {
+        var mappings = Map.of(
+                LimitCenterResultCodeEnum.EXCEEDED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                LimitCenterResultCodeEnum.RESERVATION_EXPIRED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED,
+                LimitCenterResultCodeEnum.EXECUTION_FENCED, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
+                LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                LimitCenterResultCodeEnum.ACTION_FORBIDDEN, DEPENDENCY_UNAVAILABLE);
+        mappings.forEach((remote, local) -> {
+            doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(remote), null))
+                    .when(limitCenterHttp).confirm(anyString(), any());
+            assertSame(local, assertThrows(CommonException.class, () -> client.confirm("tenant", confirm)).getResultCode());
+        });
+        doAnswer(invocation -> { throw new IllegalStateException("loadup-result-code=LIMIT_EXCEEDED"); })
+                .when(limitCenterHttp).confirm(anyString(), any());
+        assertSame(DEPENDENCY_UNAVAILABLE,
+                assertThrows(CommonException.class, () -> client.confirm("tenant", confirm)).getResultCode());
+    }
+
+    @Test
+    void localTransactionCannotRemainOpenAcrossTheSettlementCall() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> client.release("tenant", release))
+                            .getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+        verifyNoInteractions(limitCenterHttp);
+    }
+
+    @Test
+    void refundRestoreCannotRunInsideAnOuterTransaction() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertSame(
+                    INVALID_STATE,
+                    assertThrows(CommonException.class, () -> client.restoreRefund("tenant", refundRestore))
+                            .getResultCode());
+        } finally {
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+        verifyNoInteractions(limitCenterHttp);
+    }
+}

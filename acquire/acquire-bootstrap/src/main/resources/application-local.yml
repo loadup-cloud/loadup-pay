@@ -7,6 +7,12 @@ spring:
 server:
   port: 8082
 
-dubbo:
-  protocol:
-    port: 50052
+loadup:
+  http:
+    clients:
+      realtime:
+        base-url: ${REALTIME_BASE_URL:http://localhost:8086}
+      product:
+        base-url: ${PRODUCT_BASE_URL:http://localhost:8085}
+      payment:
+        base-url: ${PAYMENT_BASE_URL:http://localhost:8081}

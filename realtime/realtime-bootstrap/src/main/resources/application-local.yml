@@ -6,7 +6,3 @@ spring:
 
 server:
   port: 8086
-
-dubbo:
-  protocol:
-    port: 50056

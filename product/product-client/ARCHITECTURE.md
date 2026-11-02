@@ -1,14 +1,13 @@
-# RPC contracts
+# Product HTTP contracts
 
-本 client 由 product 服务维护，包含 Java Facade、Command/Query/DTO、结果码，以及 Protobuf IDL
-（`.proto`、生成存根和 Wire↔DTO mapper）。IDL 代码位于 `rpc` 子包，与业务契约隔离；domain/app 不直接引用
-rpc 类型。
+client 持有业务 Facade、Command/Query/DTO、错误码及标准 `ProductHttpService`，提供 POST
+`/api/internal/v1/product/admissions/authorize` 与 `/detail`。成功为 SuccessResponse<OrderAdmissionDTO>，失败为现有 FailureResponse，均使用 HTTP 200。
 
-- 内部业务契约：`OrderAdmissionFacade.authorize/detail`；`LimitPolicyPublicationFacade` 只用于运营 HTTP 接口。
-- 跨进程 IDL：`product-client/src/main/proto/product.proto`，service `ProductRpc.Authorize/Detail`，由
-  `dubbo-maven-plugin` 生成消息和 `DubboProductRpcTriple` 存根。
+product-adapter 的 OrderAdmissionController 调用现有 OrderAdmissionFacade，继续验证原调用主体和权限、幂等创建意图、请求摘要、合约与已激活额度。
+acquire-infrastructure 注册标准 HTTP 代理，逐请求传递含 product audience 的商户委托，基地址来自 PRODUCT_BASE_URL。
+完整签名/issuer/audience/有效期/token_use 校验由 product Resource Server 执行，不使用 Triple 的 exp-only 内部解析。
 
-提供方在 `product-adapter` 实现生成的 `ImplBase` 并标注 `@DubboService(interfaceClass = ProductRpc.class)`；
-消费方在 `*-infrastructure` 用 `@DubboReference(url = "tri://product-headless:50051")` 引用生成的 `ProductRpc`。
-Wire↔DTO 转换由 `product-client` 的 `ProductRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../ARCHITECTURE.md)。
+过渡期 product.proto 仅保留 payment.proto 所需的共享 Wire 消息，ProductRpc service 已删除；ProductRpcMapper、消息生成及其自动装配
+随 payment 的条款迁移一起移除。product 运行装配已移除 Dubbo binder 与 Nacos profile，不能在共享消息仍存在时宣称 client 的 Protobuf 清理完成。
+
+迁移状态、序列化与发布验收见 [HTTP 迁移清单](../../HTTP_MIGRATION.md)。

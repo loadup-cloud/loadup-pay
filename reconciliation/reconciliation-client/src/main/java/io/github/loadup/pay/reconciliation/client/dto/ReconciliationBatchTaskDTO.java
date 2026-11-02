@@ -20,12 +20,17 @@
 package io.github.loadup.pay.reconciliation.client.dto;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 public record ReconciliationBatchTaskDTO(
         @Schema(description = "Original run id") String runId,
         @Schema(description = "Native task id") String taskId,
         @Schema(description = "Native task status") String nativeStatus) {
+    public ReconciliationBatchTaskDTO {
+        require(runId != null && taskId != null && nativeStatus != null);
+    }
+
     @Override
     public String toString() {
         return ToStringAsJson.reflectionToString(this);

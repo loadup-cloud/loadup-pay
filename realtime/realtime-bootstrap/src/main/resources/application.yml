@@ -8,22 +8,6 @@ spring:
 server:
   port: 8080
   shutdown: graceful
-dubbo:
-  application:
-    name: realtime
-    qos-enable: false
-  scan:
-    base-packages: io.github.loadup.pay.realtime
-  protocol:
-    name: tri
-    port: 50051
-    triple:
-      max-body-size: 33554432
-      max-response-body-size: 33554432
-  consumer:
-    check: false
-    timeout: 3000
-    retries: 0
 management:
   endpoints:
     web:
@@ -74,14 +58,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${REALTIME_JWT_ISSUER_URI}
-      audience: ${REALTIME_JWT_AUDIENCE:${loadup.rpc.client.audience:realtime}}
+      audience: ${REALTIME_JWT_AUDIENCE:realtime}
       jwk-set-uri: ${REALTIME_JWT_JWK_SET_URI}
-
----
-spring:
-  config:
-    activate:
-      on-profile: "!nacos"
-dubbo:
-  registry:
-    address: N/A

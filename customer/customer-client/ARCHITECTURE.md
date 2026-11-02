@@ -1,14 +1,11 @@
-# RPC contracts
+# Customer HTTP contracts
 
-本 client 由 customer 服务维护，包含 Java Facade、Command/Query/DTO、结果码，以及 Protobuf IDL
-（`.proto`、生成存根和 Wire↔DTO mapper）。IDL 代码位于 `rpc` 子包，与业务契约隔离；domain/app 不直接引用
-rpc 类型。
+client 持有 Facade、Command/Query/DTO、结果码和标准声明式接口 `client.http.CustomerHttpService`，不包含 Protobuf、Dubbo 存根或 Wire mapper。
 
-- 内部业务契约：`MerchantEligibilityFacade.authorize`；`MerchantAuthorizationFacade` 只用于 HTTP 管理接口。
-- 跨进程 IDL：`customer-client/src/main/proto/customer.proto`，service `CustomerRpc.Authorize`，由
-  `dubbo-maven-plugin` 生成消息和 `DubboCustomerRpcTriple` 存根。
+`POST /api/internal/v1/customer/eligibility/authorize` 接收 MerchantActionAuthorizeCommand，成功返回
+SuccessResponse<MerchantEligibilityDTO>，失败返回现有 FailureResponse（HTTP 200）。消费端必须核对 result，不能将认证错误解释为无资格。
 
-提供方在 `customer-adapter` 实现生成的 `ImplBase` 并标注 `@DubboService(interfaceClass = CustomerRpc.class)`；
-消费方在 `*-infrastructure` 用 `@DubboReference(url = "tri://customer-headless:50051")` 引用生成的 `CustomerRpc`。
-Wire↔DTO 转换由 `customer-client` 的 `CustomerRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../ARCHITECTURE.md)。
+customer-adapter 的 MerchantEligibilityController 调用 MerchantEligibilityFacade；身份和租户来自 Resource Server 校验后的 JWT。
+product-infrastructure 用现有 HttpTemplate.serviceClient 注册标准接口，按服务配置 base-url，逐次传入符合 customer audience 的 bearer。
+
+所有资格事实校验、事务边界与授权语义保留，见 [业务架构](../ARCHITECTURE.md) 和 [迁移清单](../../HTTP_MIGRATION.md)。

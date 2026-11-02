@@ -19,7 +19,7 @@
  */
 package io.github.loadup.pay.reconciliation.infrastructure.config;
 
-import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
+import io.github.loadup.components.http.HttpClientDefaults;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -28,7 +28,7 @@ import org.springframework.core.env.Environment;
 public class ReconciliationPaymentConfiguration {
     @Bean
     public ReconciliationPaymentProperties reconciliationPaymentProperties(Environment environment) {
-        return RpcClientDefaults.bind(
+        return HttpClientDefaults.bind(
                 environment, "loadup.modules.reconciliation.payment", "payment", ReconciliationPaymentProperties.class);
     }
 }

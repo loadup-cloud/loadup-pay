@@ -19,7 +19,7 @@
  */
 package io.github.loadup.pay.product.infrastructure.config;
 
-import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
+import io.github.loadup.components.http.HttpClientDefaults;
 import io.github.loadup.modules.contract.app.service.ContractPersistenceService;
 import io.github.loadup.modules.contract.app.support.ContractCodec;
 import io.github.loadup.modules.contract.infrastructure.repository.MerchantContractGatewayImpl;
@@ -33,7 +33,7 @@ import org.springframework.core.env.Environment;
 public class ProductPersistenceConfiguration {
     @Bean
     public PolicyPublicationTransportProperties policyPublicationTransportProperties(Environment environment) {
-        return RpcClientDefaults.bind(
+        return HttpClientDefaults.bind(
                 environment,
                 "loadup.modules.product.publication",
                 "limitcenter",

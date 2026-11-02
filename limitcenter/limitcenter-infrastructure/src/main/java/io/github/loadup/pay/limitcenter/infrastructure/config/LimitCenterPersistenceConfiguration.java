@@ -19,7 +19,7 @@
  */
 package io.github.loadup.pay.limitcenter.infrastructure.config;
 
-import io.github.loadup.components.rpc.dubbo.RpcClientDefaults;
+import io.github.loadup.components.http.HttpClientDefaults;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +30,7 @@ import org.springframework.core.env.Environment;
 public class LimitCenterPersistenceConfiguration {
     @Bean
     public PaymentEvidenceProperties paymentEvidenceProperties(Environment environment) {
-        return RpcClientDefaults.bind(
+        return HttpClientDefaults.bind(
                 environment, "loadup.modules.limitcenter.payment-evidence", "payment", PaymentEvidenceProperties.class);
     }
 }

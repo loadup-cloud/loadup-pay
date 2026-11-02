@@ -2,10 +2,10 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-应用间传输使用 Dubbo Triple；HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+额度提供端与 payment 证据查证均使用 HTTP；服务仅暴露 8080，已移除 Dubbo binder 与 Nacos profile。见[迁移清单](../HTTP_MIGRATION.md)。
 
 本批补齐 COLA 的 app、infrastructure、adapter，以及“规则激活 → 全部桶预占 → 执行许可/校验 → 未执行预占过期”的持久化源码。复用
-LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。通过 Dubbo Triple 暴露额度契约，与 payment 的付款执行生命周期联动。
+LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT resource-server 和 HTTP 响应。通过标准 HTTP 接口暴露额度契约，与 payment 的付款执行生命周期联动。
 
 
 实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
@@ -14,17 +14,19 @@ LoadUp Money、BaseDO、数据库/ID、生成 Mapper、MapStruct、JSON、JWT re
 
 所有接口为 POST JSON，成功使用 SuccessResponse，业务失败使用 FailureResponse。认证失败由资源服务器安全链处理。
 
-| `/api/limitcenter` 路径 | Java Facade                          | 权限                 |
-|-------------------------|--------------------------------------|----------------------|
-| `/policies/activate`    | LimitPolicyFacade.activate           | `pay:limit:activate` |
-| `/reservations/reserve` | LimitReservationFacade.reserve       | `pay:limit:reserve`  |
-| `/reservations/detail`  | LimitReservationFacade.detail        | `pay:limit:read`     |
-| `/executions/begin`     | LimitExecutionFacade.beginExecution  | `pay:limit:execute`  |
-| `/executions/verify`    | LimitExecutionFacade.verifyExecution | `pay:limit:verify`   |
-| `/reservations/expire`  | LimitExecutionFacade.expire          | `pay:limit:expire`   |
+| `/api/internal/v1/limitcenter/operations` 路径 | Java Facade | 权限 |
+| --- | --- | --- |
+| `/activate` | LimitPolicyFacade.activate | `pay:limit:activate` |
+| `/reserve` | LimitReservationFacade.reserve | `pay:limit:reserve` |
+| `/detail` | LimitReservationFacade.detail | `pay:limit:read` |
+| `/begin` | LimitExecutionFacade.beginExecution | `pay:limit:execute` |
+| `/verify` | LimitExecutionFacade.verifyExecution | `pay:limit:verify` |
+| `/expire` | LimitExecutionFacade.expire | `pay:limit:expire` |
+| `/confirm` | LimitSettlementFacade.confirm | `pay:limit:confirm` |
+| `/release` | LimitSettlementFacade.release | `pay:limit:release` |
+| `/restore-refund` | LimitRefundFacade.restoreRefund | `pay:limit:refund:restore` |
 
-LimitReservationFacade 实现预占/查询，LimitExecutionFacade 实现执行许可/校验/显式过期；原 MerchantLimitFacade 继承二者并保留
-confirm、release、restoreRefund 目标契约。当前不注册完整 MerchantLimitFacade 实现，不暴露尚未实现的方法或伪造付款结果。详情以
+现有业务 Facade 分别实现九个操作；MerchantLimitFacade 保留进程内组合视图。详情以
 operationId 查询，限定原调用 service_id；令牌轮换不改变 service_id。
 
 ## 身份与策略来源

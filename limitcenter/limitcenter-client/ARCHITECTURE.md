@@ -1,16 +1,14 @@
-# LimitCenter RPC
+# LimitCenter HTTP contracts
 
-本 client 由 limitcenter 服务维护，包含 Java Facade、Command/Query/DTO、结果码，以及 Protobuf IDL
-（`.proto`、生成存根和 Wire↔DTO mapper）。IDL 代码位于 `rpc` 子包，与业务契约隔离；domain/app 不直接引用
-rpc 类型。
+client 持有 Facade、Command/Query/DTO、结果码与标准 `LimitCenterHttpService`，不包含 Dubbo/Protobuf 或 Wire mapper。
+九个 POST JSON 操作统一位于 `/api/internal/v1/limitcenter/operations/`：activate、reserve、detail、begin、verify、expire、confirm、release、restore-refund。
 
-- 内部业务契约：`LimitPolicyFacade`、`LimitReservationFacade`、`LimitExecutionFacade`、`LimitSettlementFacade`、
-  `LimitRefundFacade`（`MerchantLimitFacade` 是进程内组合视图）。
-- 跨进程 IDL：`limitcenter-client/src/main/proto/limitcenter.proto`，service
-  `LimitCenterRpc.Activate/Reserve/Detail/Begin/Verify/Expire/Confirm/Release/RestoreRefund`。
+Controller 调用现有 LimitPolicy/LimitReservation/LimitExecution/LimitSettlement/LimitRefund Facade；身份由 Resource Server 完整 JWT 验证，
+SERVICE 的 service_id、sub、租户和权限仍由既有 ActorProvider/业务层检查。客户端不会把认证失败当作已结算或限额拒绝。
 
-提供方在 `limitcenter-adapter` 实现生成的 `ImplBase` 并标注
-`@DubboService(interfaceClass = LimitCenterRpc.class)`；消费方在 `*-infrastructure` 用
-`@DubboReference(url = "tri://limitcenter-headless:50051")` 引用生成的 `LimitCenterRpc`。
-Wire↔DTO 转换由 `limitcenter-client` 的 `LimitCenterRpcMapper` 负责。通用 channel/JWT 支持见
-[RPC 规范](../../ARCHITECTURE.md)。
+product 使用 activate；payment 使用 reserve/begin/verify/confirm/release/restoreRefund；其余操作保留为明确的完整业务契约。
+令牌逐次读取，按提供方配置 LIMITCENTER_BASE_URL，共享现有 HTTP 管理资源，写调用不自动重试。
+release 先于 reserve 的空 reservation、执行 epoch/permit、退款身份与来源版本、ACK 的 policy/version/hash 语义不变。
+
+limitcenter 应用的 payment 证据查证也已迁移 HTTP，出站 Dubbo 装配和 Nacos profile 已删除。
+运行与发布验收见 [HTTP 迁移清单](../../HTTP_MIGRATION.md)。

@@ -12,8 +12,9 @@
     <description>Authenticated HTTP entry points for merchant authorization and eligibility.</description>
     <dependencies>
         <dependency>
-            <groupId>io.github.loadup-cloud</groupId>
-            <artifactId>loadup-components-rpc-binder-dubbo</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.github.loadup-cloud</groupId>

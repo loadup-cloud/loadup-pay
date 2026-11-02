@@ -8,22 +8,6 @@ spring:
 server:
   port: 8080
   shutdown: graceful
-dubbo:
-  application:
-    name: acquire
-    qos-enable: false
-  scan:
-    base-packages: io.github.loadup.pay.acquire
-  protocol:
-    name: tri
-    port: 50051
-    triple:
-      max-body-size: 33554432
-      max-response-body-size: 33554432
-  consumer:
-    check: false
-    timeout: 3000
-    retries: 0
 management:
   endpoints:
     web:
@@ -54,6 +38,34 @@ management:
         http.server.requests: true
 
 loadup:
+  http:
+    clients:
+      realtime:
+        base-url: ${REALTIME_BASE_URL:http://realtime:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-request-bytes: 33554432
+        max-response-bytes: 33554432
+      payment:
+        base-url: ${PAYMENT_BASE_URL:http://payment:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-request-bytes: 33554432
+        max-response-bytes: 33554432
+      product:
+        base-url: ${PRODUCT_BASE_URL:http://product:8080}
+        allow-private-addresses: true
+        connect-timeout: 1s
+        acquire-timeout: 1s
+        read-timeout: 3s
+        max-connections: 50
+        max-connections-per-route: 20
+        max-request-bytes: 1048576
+        max-response-bytes: 1048576
   delayedtask:
     enabled: true
     batch-size: ${ACQUIRE_TASK_BATCH_SIZE:100}
@@ -73,7 +85,7 @@ loadup:
       payment-service-id: ${ACQUIRE_PAYMENT_SERVICE_ID:payment}
       recovery-operations-service-id: ${ACQUIRE_RECOVERY_OPERATIONS_SERVICE_ID:pay-ops}
       notification-operations-service-id: ${ACQUIRE_NOTIFICATION_OPERATIONS_SERVICE_ID:pay-ops}
-      product-audience: ${PRODUCT_JWT_AUDIENCE:${loadup.rpc.client.audience:product}}
+      product-audience: ${PRODUCT_JWT_AUDIENCE:product}
       checkout:
         page-url: ${ACQUIRE_CHECKOUT_PAGE_URL:https://example.com/checkout }
         key-ref: acquire-checkout
@@ -96,21 +108,5 @@ loadup:
     resource-server:
       enabled: true
       issuer-uri: ${ACQUIRE_JWT_ISSUER_URI}
-      audience: ${ACQUIRE_JWT_AUDIENCE:${loadup.rpc.client.audience:acquire}}
+      audience: ${ACQUIRE_JWT_AUDIENCE:acquire}
       jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI}
-
----
-spring:
-  config:
-    activate:
-      on-profile: "!nacos"
-dubbo:
-  registry:
-    address: N/A
-  reference:
-    "io.github.loadup.pay.payment.rpc.proto.PaymentRpc":
-      url: tri://payment-headless:50051
-    "io.github.loadup.pay.product.rpc.proto.ProductRpc":
-      url: tri://product-headless:50051
-    "io.github.loadup.pay.realtime.rpc.proto.RealtimeRpc":
-      url: tri://realtime-headless:50051

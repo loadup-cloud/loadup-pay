@@ -2,10 +2,10 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-应用间传输使用 Dubbo Triple；HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+customer 已迁移为 HTTP 服务，默认端口 8080，不再暴露 Triple 或依赖 Nacos。见[迁移清单](../HTTP_MIGRATION.md)。
 
 商户逐项授权的 COLA 业务链路为：HTTP adapter → app Facade → domain → Spring JDBC Gateway。完整商户主档复用框架
-merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 通过 Dubbo Triple 使用商户授权契约。
+merchant 模块，不建立消费者、钱包账户或独立商户主档副本。product 通过 Spring HTTP Service Client 使用商户资格契约。
 
 
 实现边界与内部流程见 [ARCHITECTURE](ARCHITECTURE.md)。
@@ -21,9 +21,12 @@ merchant 模块，不建立消费者、钱包账户或独立商户主档副本�
 | `/relationships/revoke`  | `revokeRelationship` | expectedVersion 校验，撤销不允许重新激活                          |
 | `/grants/create`         | `grant`              | 对一个主体、一个收款商户、一个动作显式授权，校验可选关系          |
 | `/grants/revoke`         | `revokeGrant`        | 版本校验和独立撤销，支持商户停用后的权限回收                      |
-| `/eligibility/authorize` | `authorize`          | 检查商户当前状态、可信主体、显式动作和有效时间，以及关系的有效性  |
 
-前四项需要认证权限 `pay:customer:manage`。持有普通角色或父子商户关系不会获得管理权限，也不会自动获得 CREATE_ORDER、REFUND
+
+资格入口为 POST `/api/internal/v1/customer/eligibility/authorize`，复用 MerchantActionAuthorizeCommand，返回 MerchantEligibilityDTO。
+内部入口与管理 API 均执行完整 JWT 验证。
+
+上述四项管理操作需要认证权限 `pay:customer:manage`。持有普通角色或父子商户关系不会获得管理权限，也不会自动获得 CREATE_ORDER、REFUND
 等权限。未授权结果不返回商户档案或授权事实；已授权结果只返回框架 `MerchantProfileDTO` 安全摘要。
 
 本批没有新增商户主档维护 HTTP 入口。主档由复用的框架 `MerchantFacade` 管理；业务启用前需通过受控管理集成创建同租户主档。不要直接修改交易表来代替正式业务接口。

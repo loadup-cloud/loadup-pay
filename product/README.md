@@ -2,7 +2,7 @@
 
 > 当前数据库基线为 PostgreSQL；运行验收状态不能由历史 MySQL 记录推断。
 
-应用间传输使用 Dubbo Triple；HTTP 默认 8080，Triple 默认 50051。见[RPC 约束](../ARCHITECTURE.md)。
+product 提供端及 customer/limitcenter 消费端均使用 HTTP Service Clients；服务仅暴露 HTTP 8080。见[迁移清单](../HTTP_MIGRATION.md)。
 
 本批补齐 COLA 的 product-app、product-infrastructure、product-adapter，落地 OrderAdmissionFacade 的持久化准入/原决定查询，以及
 LimitPolicyPublicationFacade 的初始额度可靠发布、ACK与失败重放。复用框架合约主档、不可变
@@ -32,8 +32,8 @@ limitcenter
 
 | POST JSON 路径                      | Command/Query                  | 权限              |
 |-------------------------------------|--------------------------------|-------------------|
-| `/api/product/admissions/authorize` | OrderAdmissionAuthorizeCommand | pay:product:admit |
-| `/api/product/admissions/detail`    | IdQuery，id为admissionId       | pay:product:read  |
+| `/api/internal/v1/product/admissions/authorize` | OrderAdmissionAuthorizeCommand | pay:product:admit |
+| `/api/internal/v1/product/admissions/detail`    | IdQuery，id为admissionId       | pay:product:read  |
 
 Controller 返回 SuccessResponse，业务失败由框架 FailureResponse 处理，HTTP业务报文使用200。DENIED 是成功获取到的持久业务决定，其
 terms、contract/revision/generation、时间窗口均为空；依赖异常使用固定 PRODUCT_DEPENDENCY_UNAVAILABLE 错误，未完成的意图可恢复。
@@ -78,7 +78,7 @@ java \
 | PRODUCT_LIMITCENTER_TOKEN_FILE                                          | 绝对路径，挂载独立服务access JWT的文件，不是token原文                   |
 
 配置复用 loadup-components-http
-的固定命名客户/操作，连接、池等待和读取超时分别为2/1/3秒，customer响应限制64KiB、limitcenter响应16KiB，无HTTP自动重试或重定向（额度重试由Outbox统一负责）。显式允许可信集群私网地址，目标origin来自配置，不来自业务请求；响应的生产信任还需部署配置提供受控TLS/网络保障。没有配置出站credential-ref，避免覆盖原主体Bearer凭证。
+的命名客户端及标准声明式接口，连接、池等待和读取超时分别为1/1/3秒，customer响应限制64KiB、limitcenter请求/响应限制1MiB，无HTTP自动重试或重定向（额度重试由Outbox统一负责）。显式允许可信集群私网地址，目标origin来自配置，不来自业务请求；响应的生产信任还需部署配置提供受控TLS/网络保障。没有配置出站credential-ref，避免覆盖原主体Bearer凭证。
 
 为只装配需要的框架存储/codec，业务配置关闭
 loadup.modules.contract.enabled，并显式导入相应bean与Mapper。产品目录、签约和状态管理继续通过受控的框架管理集成维护同一数据库；本批未开放通用产品/签约管理HTTP入口。
@@ -93,3 +93,16 @@ Secret/代理轮换；令牌过期/缺失仅导致投递失败，绝不默认放
 ## 验证边界
 
 本次只核对文档与当前配置/源码，未运行构建或测试。当前 PostgreSQL 基线的迁移、并发、回滚及真实服务调用需单独验收，历史数据库测试记录不代表当前版本已通过。
+
+## Customer HTTP 客户端
+
+`CUSTOMER_BASE_URL` 默认 `http://customer:8080`，本地可覆盖为对应服务地址；每个提供方一个基础地址，不再维护 customer RPC URL。
+ProductActorProvider 只在当前 JWT 含 customer 受众时提供委托 token；逐请求传 Authorization，customer 再完整校验。
+配置使用 `loadup.http.clients.customer`；读取超时 3s，池等待/连接各 1s，响应与请求各 64 KiB。无自动重试或 Triple 回退。
+customer NOT_FOUND 保留原业务拒绝，其余未知码/认证/传输异常按 PRODUCT_DEPENDENCY_UNAVAILABLE 处理；可信事实、商户 ID、授权版本及事务外联网检查保留。
+
+## LimitCenter HTTP 激活
+
+`LIMITCENTER_BASE_URL` 默认 `http://limitcenter:8080`；使用按次读取的挂载 SERVICE token 发起 activate，
+保留冻结意图与原版本/hash 的 Outbox 重投和 ACK 校验。product 不再需要 Nacos profile 或 Dubbo binder。
+部分共享 Wire 消息仍供 payment 迁移前使用，见 client 架构；未运行本批构建或测试。

@@ -5,8 +5,9 @@
 决策日期：2026-11-02。状态：目标已确认，实施及运行验收待完成。
 
 本路线图是后续完整迁移的目标，取代此前“默认统一依赖 Spring Cloud Alibaba/Nacos”的方案。
-此前试接入的 Alibaba 默认装配已撤回；当前源码仍使用 Dubbo Triple，默认直连、Nacos profile 可选。
-记录目标不代表已完成 HTTP 迁移。
+此前试接入的 Alibaba 默认装配已撤回。已有 31/44 个旧操作完成 HTTP 源码迁移：customer、product、limitcenter、payment 提供端及对应消费端；
+customer/product/limitcenter 已无 Dubbo 运行装配，剩余 acquire/realtime/reconciliation 提供端及相关出站调用继续迁移。
+逐操作与验收状态见 [HTTP 迁移清单](HTTP_MIGRATION.md)。尚未完成全量迁移与运行验收。
 Spring Boot 保持 4.1.x，Java 保持 25。Framework 的配套工作见
 [Framework Roadmap](../loadup-framework/ROADMAP.md)。
 
@@ -30,17 +31,17 @@ Service 端口为准。普通服务器和本地开发通过基础地址覆盖配
 
 ### 阶段 1：迁移清单与契约冻结
 
-- [ ] 盘点七个应用的全部内部调用、HTTP/Triple 提供方、Protobuf/mapper、身份传播、错误码和调用超时，建立逐接口迁移清单。
+- [x] 盘点七个应用的内部调用、HTTP/Triple 提供方、Protobuf/mapper、身份传播、错误码和调用超时，建立 [逐接口迁移清单](HTTP_MIGRATION.md)（剩余 HTTP 契约按批冻结）。
 - [ ] 为每个操作定义 HTTP 方法、路径、DTO、状态码、业务错误码及版本策略，明确金额精度、时间、枚举及可空字段的序列化。
 - [ ] 保留现有租户来源、权限与受众约束、SERVICE token 轮换、幂等键、事务边界和未知结果处理；HTTP 内部入口不得信任调用方自报身份。
-- [ ] 更新 AGENTS、ARCHITECTURE 和模块文档中的 Dubbo-only、Nacos 默认依赖等约束，使后续实现与本路线图一致；区分现状与目标。
+- [x] 更新 AGENTS、ARCHITECTURE 与首批模块文档中的 Dubbo-only 约束；区分迁移现状与目标，其余模块随批次更新。
 
 验收：每个旧内部操作都有明确的 HTTP 替代契约及行为验收项；不以移除注解或编译通过代替业务等价证明。
 
 ### 阶段 2：Framework HTTP 客户端基础能力
 
-- [ ] 基于现有 HTTP、Web MVC、Resource Server、上下文和可观测组件接入 HTTP Service Clients，复用已有客户端资源管理，避免重复建设连接池。
-- [ ] 按目标服务分组注册接口代理，统一基础地址、连接/读取超时、连接池、TLS、令牌和追踪传播、错误映射及敏感信息保护。
+- [x] 在现有 HTTP 组件接入标准 HttpServiceProxyFactory + RestClientAdapter，共享命名连接池、生命周期与 Boot 观测；首批沿用 MVC/Resource Server 与业务租户上下文（运行待验收）。
+- [ ] 按目标服务分组注册接口代理，统一地址、超时、连接池、TLS、令牌、追踪、错误映射与敏感信息保护；补齐内部 MVC JSON 入站大小限制及验收。
 - [ ] 明确重试由哪一层负责：支付、退款等写请求默认不自动重试，网关与客户端不得叠加隐式重试。
 - [ ] 通过一个有代表性的跨服务调用验证鉴权、租户隔离、超时、错误映射和幂等；完成后将同一方式应用于全部调用。
 
@@ -48,7 +49,7 @@ Service 端口为准。普通服务器和本地开发通过基础地址覆盖配
 
 ### 阶段 3：七个应用完整迁移与默认依赖收敛
 
-- [ ] 按调用依赖成组迁移 customer、product、limitcenter、payment、acquire、realtime、reconciliation 的消费端与提供端，逐项关闭阶段 1 的清单。
+- [ ] 按调用依赖成组迁移七应用，逐项关闭阶段 1 清单。当前已迁移 customer、product、limitcenter、payment 提供端及对应消费者（31/44 操作）；其余待实施与运行验收。
 - [ ] 每批同步更新调用方、提供方、测试与文档，保持业务语义；若需要混合版本窗口，先明确其兼容与回退方案，不默认引入长期双栈或自动 HTTP/RPC 回退。
 - [ ] 移除 Pay 对 Dubbo、内部 Protobuf 生成、专用 Wire mapper、Triple 过滤器及 RPC 发现配置的默认依赖，确认无剩余调用后清理对应启动和构建配置。
 - [ ] 移除七个应用对 Alibaba/Nacos 的默认装配及启动强依赖；Nacos 只在明确选用的集成方案中出现。
