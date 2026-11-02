@@ -17,6 +17,8 @@
 
 架构、RPC 与数据库约束见 [ARCHITECTURE](ARCHITECTURE.md)，脚本用法见 [scripts](scripts/README.md)，监控部署见 [deploy](deploy/README.md)。
 
+后续完整迁移按 [Roadmap](ROADMAP.md) 执行：K8s Service DNS、HTTP Service Clients、版本化配置及 Gateway API / Envoy Gateway 为目标默认；当前实现与迁移验收状态分别记录。
+
 ## 本地准备
 
 1. 准备 Java 25、Maven Daemon，以及 LoadUp Framework 对应版本的制品。

@@ -105,7 +105,7 @@ public class CustomerRpcService extends DubboCustomerRpcTriple.CustomerRpcImplBa
 `*-infrastructure` 的适配器在字段上标注 `@DubboReference`，字段类型是生成的 `<Service>Rpc`：
 
 ```java
-@DubboReference(url = "tri://customer-headless:50051")
+@DubboReference
 private CustomerRpc customerRpc;
 
 public MerchantEligibilityDTO authorizeNewOrder(String tenant, String payee) {
@@ -120,8 +120,8 @@ Dubbo 不支持构造器参数注入。消费适配器保留租户路由、事�
 ## 发现、端口与超时
 
 - Triple 端口统一 `50051`；HTTP/Actuator 端口保持 `8080`。
-- 每个服务由 `<service>-headless` Headless Service 暴露；`dubbo.registry.address: N/A`，不使用 Nacos/ZK。
-- 调用方固定 `tri://<service>-headless:50051`，依赖 K8s DNS 直接解析。
+- 当前默认通过 `dubbo.reference.<接口全名>.url` 配置 `tri://<service>-headless:50051` 直连，`dubbo.registry.address: N/A`。
+- `nacos` profile 仍作为可选发现配置；后续 K8s DNS + HTTP Service Clients 的完整迁移以 [Roadmap](ROADMAP.md) 为准。
 - 全局 `dubbo.consumer.check: false`、`timeout: 3000`、`retries: 0`。写调用不自动重试；账单下载在
   `@DubboReference` 上单独设置 60 秒超时。
 - RPC 端口只对同 Namespace 开放；跨命名空间或外部访问必须经过入口网关。
