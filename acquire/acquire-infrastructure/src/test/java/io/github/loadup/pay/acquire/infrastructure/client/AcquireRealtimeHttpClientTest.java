@@ -21,8 +21,6 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.infrastructure.config.AcquireRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.client.http.RealtimeHttpService;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -32,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -63,11 +60,8 @@ class AcquireRealtimeHttpClientTest {
                     OffsetDateTime.now(clock),
                     2));
 
-    @TempDir
-    Path directory;
-
     AcquireRealtimeHttpClient client;
-    Path file;
+    String credential;
 
     String credential(String tenant, String service, String audience, long expires, String revision) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -88,16 +82,17 @@ class AcquireRealtimeHttpClientTest {
                 revision);
         String token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
-        Files.writeString(file, token);
+        credential = token;
         return token;
     }
 
     @BeforeEach
     void setup() throws Exception {
-        file = directory.resolve("realtime.jwt");
         credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
         client = new AcquireRealtimeHttpClient(
-                realtimeHttp, mapper, new AcquireRealtimeProperties("tenant", "acquire", "realtime", file), clock);
+                realtimeHttp,
+                (tenant, service, audience) -> credential,
+                new AcquireRealtimeProperties("tenant", "acquire", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(
@@ -108,7 +103,7 @@ class AcquireRealtimeHttpClientTest {
     }
 
     @Test
-    void usesTheOrderProjectionOperationAndReloadsRotatedMountedCredentials() throws Exception {
+    void usesTheOrderProjectionOperationWithTheCurrentServiceToken() throws Exception {
         String first =
                 credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
         assertTrue(client.apply("tenant", event).accepted());
@@ -116,25 +111,6 @@ class AcquireRealtimeHttpClientTest {
                 credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v2");
         assertTrue(client.apply("tenant", event).accepted());
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
-    }
-
-    @Test
-    void credentialsForAnotherServiceTenantOrAudienceNeverReachTheNetwork() throws Exception {
-        credential("tenant", "payment", "realtime", clock.instant().getEpochSecond() + 300, "v1");
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
-        credential("other", "acquire", "realtime", clock.instant().getEpochSecond() + 300, "v1");
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
-        credential("tenant", "acquire", "payment", clock.instant().getEpochSecond() + 300, "v1");
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
-        verifyNoInteractions(realtimeHttp);
-    }
-
-    @Test
-    void expiredCredentialAndUnconfiguredTenantCannotSend() throws Exception {
-        credential("tenant", "acquire", "realtime", clock.instant().getEpochSecond(), "v1");
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
-        assertThrows(CommonException.class, () -> client.apply("other", event));
-        verifyNoInteractions(realtimeHttp);
     }
 
     @Test

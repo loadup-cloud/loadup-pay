@@ -51,6 +51,8 @@ loadup:
       path-prefix: /api/internal/
       max-size: 32MB
   http:
+    client:
+      tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
     clients:
       realtime:
         base-url: ${REALTIME_BASE_URL:http://realtime:8080}
@@ -123,3 +125,20 @@ loadup:
       audience: ${ACQUIRE_JWT_AUDIENCE:acquire}
       jwk-set-uri: ${ACQUIRE_JWT_JWK_SET_URI:${JWT_JWK_SET_URI:}}
       public-key-location: ${ACQUIRE_JWT_PUBLIC_KEY_LOCATION:${JWT_PUBLIC_KEY_LOCATION:}}
+
+pay:
+  service-auth:
+    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
+    allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
+    client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
+    registrations:
+      payment:
+        client-id: ${ACQUIRE_PAYMENT_OAUTH_CLIENT_ID:acquire.default.payment}
+        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+        service-id: acquire
+        audience: payment
+      realtime:
+        client-id: ${ACQUIRE_REALTIME_OAUTH_CLIENT_ID:acquire.default.realtime}
+        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+        service-id: acquire
+        audience: realtime

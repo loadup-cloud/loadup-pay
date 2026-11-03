@@ -46,10 +46,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -68,10 +64,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: payment-service-tokens
 ---
 # Payment ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -126,10 +118,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -148,10 +136,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: acquire-service-tokens
 ---
 # Acquire ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -206,10 +190,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -228,10 +208,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: customer-service-tokens
 ---
 # Customer ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -286,10 +262,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -308,10 +280,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: limitcenter-service-tokens
 ---
 # LimitCenter ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -366,10 +334,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -388,10 +352,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: product-service-tokens
 ---
 # Product ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -446,10 +406,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -468,10 +424,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: realtime-service-tokens
 ---
 # Realtime ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -526,10 +478,6 @@ spec:
               value: "true"
             - name: OTLP_TRACING_ENDPOINT
               value: "http://cluster.local/v1/traces"
-          volumeMounts:
-            - name: service-secrets
-              mountPath: /var/run/loadup/secrets
-              readOnly: true
           lifecycle:
             preStop:
               exec:
@@ -548,10 +496,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ ALL ] }
-      volumes:
-        - name: service-secrets
-          secret:
-            secretName: reconciliation-service-tokens
 ---
 # Reconciliation ClusterIP - HTTP only for client routing
 apiVersion: v1
@@ -761,3 +705,98 @@ spec:
             matchLabels: { kubernetes.io/metadata.name: observability }
           podSelector:
             matchLabels: { loadup.io/metrics-scraper: "true" }
+---
+# AuthServer - internal OAuth2 client credentials / public JWKS
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authserver
+  namespace: loadup-pay
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: authserver }
+  template:
+    metadata:
+      labels: { app: authserver }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 100
+      containers:
+        - name: authserver
+          image: loadup-pay/authserver:bootstrap
+          imagePullPolicy: Never
+          ports:
+            - { name: http, containerPort: 8080 }
+          envFrom:
+            - configMapRef:
+                name: authserver-config
+            - secretRef:
+                name: authserver-secret
+          volumeMounts:
+            - name: signing-keys
+              mountPath: /var/run/loadup/secrets
+              readOnly: true
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            failureThreshold: 180
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ ALL ] }
+      volumes:
+        - name: signing-keys
+          secret:
+            secretName: authserver-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authserver
+  namespace: loadup-pay
+spec:
+  selector: { app: authserver }
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authserver-http-ingress
+  namespace: loadup-pay
+spec:
+  podSelector:
+    matchLabels: { app: authserver }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: loadup-pay }
+          podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [customer, product, limitcenter, payment, acquire, realtime, reconciliation]
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: observability }
+          podSelector:
+            matchLabels: { loadup.io/metrics-scraper: "true" }
+      ports:
+        - { protocol: TCP, port: 8080 }

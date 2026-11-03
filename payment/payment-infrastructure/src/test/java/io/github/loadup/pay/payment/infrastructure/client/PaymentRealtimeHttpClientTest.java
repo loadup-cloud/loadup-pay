@@ -27,8 +27,6 @@ import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.client.http.RealtimeHttpService;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -38,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -69,11 +66,8 @@ class PaymentRealtimeHttpClientTest {
                     OffsetDateTime.now(clock),
                     2));
 
-    @TempDir
-    Path directory;
-
     PaymentRealtimeHttpClient client;
-    Path file;
+    String credential;
 
     void credential(String audience) throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -90,18 +84,17 @@ class PaymentRealtimeHttpClientTest {
                 audience,
                 "exp",
                 clock.instant().getEpochSecond() + 300);
-        Files.writeString(
-                file,
-                encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                        + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj");
+        credential = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
     }
 
     @BeforeEach
     void setup() throws Exception {
-        file = directory.resolve("realtime.jwt");
         credential("realtime");
         client = new PaymentRealtimeHttpClient(
-                realtimeHttp, mapper, new PaymentRealtimeProperties("tenant", "payment", "realtime", file), clock);
+                realtimeHttp,
+                (tenant, service, audience) -> credential,
+                new PaymentRealtimeProperties("tenant", "payment", "realtime"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(
@@ -165,13 +158,6 @@ class PaymentRealtimeHttpClientTest {
         assertEquals(summaryAck, client.applyRefundSummary("tenant", summary));
         verify(realtimeHttp).refund(anyString(), any());
         verify(realtimeHttp).refundSummary(anyString(), any());
-    }
-
-    @Test
-    void anotherAudienceCannotUseTheMountedCredential() throws Exception {
-        credential("acquire");
-        assertThrows(CommonException.class, () -> client.apply("tenant", event));
-        verifyNoInteractions(realtimeHttp);
     }
 
     @Test

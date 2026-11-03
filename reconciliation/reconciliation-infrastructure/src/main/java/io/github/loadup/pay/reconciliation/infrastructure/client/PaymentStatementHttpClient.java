@@ -15,25 +15,23 @@ import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
 import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentStatements;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentStatementHttpClient implements ReconciliationPaymentStatements {
     private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final PaymentStatementHttpService paymentStatementHttp;
 
     public PaymentStatementHttpClient(
             PaymentStatementHttpService paymentStatementHttp,
             ReconciliationPaymentProperties properties,
-            JsonMapper mapper,
-            Clock clock) {
+            ServiceAccessTokens tokens) {
         this.paymentStatementHttp = paymentStatementHttp;
         this.properties = properties;
-        this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -46,10 +44,7 @@ public class PaymentStatementHttpClient implements ReconciliationPaymentStatemen
         }
         try {
             var value = HttpServiceResponses.requiredData(paymentStatementHttp.download(
-                    "Bearer "
-                            + tokens.read(
-                                    tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
-                    query));
+                    "Bearer " + tokens.token(tenant, properties.serviceId(), properties.audience()), query));
             return PaymentEvidenceContracts.statement(value);
         } catch (RuntimeException failure) {
             throw new CommonException(

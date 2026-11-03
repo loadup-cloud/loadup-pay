@@ -17,23 +17,22 @@ import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentAcquireHttpClient implements PaymentAcquireClient {
     private final PaymentAcquireProperties properties;
-    private final PaymentServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final AcquireHttpService acquireHttp;
 
     public PaymentAcquireHttpClient(
-            AcquireHttpService acquireHttp, JsonMapper mapper, PaymentAcquireProperties properties, Clock clock) {
+            AcquireHttpService acquireHttp, ServiceAccessTokens tokens, PaymentAcquireProperties properties) {
         this.acquireHttp = acquireHttp;
         this.properties = properties;
-        this.tokens = new PaymentServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -65,7 +64,7 @@ public class PaymentAcquireHttpClient implements PaymentAcquireClient {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
+            var token = tokens.token(tenant, properties.serviceId(), properties.audience());
             return HttpServiceResponses.requiredData(call.apply("Bearer " + token));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

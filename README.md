@@ -85,7 +85,6 @@ Checkstyle 和 SpotBugs 使用仓库内 `config/quality/` 下与 Framework 同�
 | tenant-id | `__default__` |
 | service-id | 当前 `spring.application.name` |
 | audience | 目标服务名，例如 `limitcenter` |
-| token-file | `/var/run/loadup/secrets/<目标服务名>.jwt` |
 
 需要统一覆盖时仅配置一次：
 
@@ -95,12 +94,11 @@ loadup:
     client:
       tenant-id: tenant_a
       audience: internal
-      token-file: /var/run/loadup/secrets/service.jwt
 ```
 
-单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。入站 HTTP audience 仍由各服务 `<SERVICE>_JWT_AUDIENCE` 配置，出站目标 audience 可通过模块配置分别覆盖。服务令牌仍需由发行方提供，并与实际租户、调用方、audience 匹配；默认配置不生成或跳过令牌校验。
+单个调用有例外时，在原有应用配置路径覆盖对应字段即可，例如 `loadup.modules.payment.limitcenter.audience`；未覆盖的字段继续继承公共默认值。优先级为：调用专用配置 > `loadup.http.client` > 框架约定。入站 HTTP audience 仍由各服务 `<SERVICE>_JWT_AUDIENCE` 配置，出站目标 audience 可通过模块配置分别覆盖。服务令牌由独立 AuthServer 按租户、调用方、目标服务及权限签发；共享 OAuth 客户端负责缓存和续取，资源端继续验签与授权。见 [AuthServer](authserver/README.md)。
 
-K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，服务文件凭证独立投射。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
+K8s 发布显式绑定 CONFIG_VERSION/SECRET_VERSION，仅 AuthServer 挂载其签名 KeyStore。资源准备、预览、排空和回退见 [配置与发布](deploy/CONFIGURATION.md)。
 
 平台入口配置见 [Gateway API / Envoy Gateway](deploy/gateway/README.md)，HTTP 入站选择器见 [网络策略](deploy/NETWORK_POLICY.md)。
 

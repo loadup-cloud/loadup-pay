@@ -44,9 +44,7 @@ elif "get" in args and "--raw=/readyz" in args:
     print("ok")
 elif "get" in args:
     reference = args[args.index("get") + 1]
-    if reference.endswith("-service-tokens"):
-        print("true" if mode == "immutable-tokens" else "false")
-    elif mode == "missing-secret" and reference.startswith("secret/"):
+    if mode == "missing-secret" and reference.startswith("secret/"):
         sys.exit(1)
     else:
         print("false" if mode == "mutable-config" else "true")
@@ -75,8 +73,8 @@ else:
         self.assertTrue((self.root / "applied").exists())
         self.assertNotIn('"data"', record.read_text())
 
-    def test_mutable_snapshots_immutable_tokens_and_missing_references_never_apply_resources(self):
-        for mode in ("mutable-config", "immutable-tokens", "missing-secret", "old-client"):
+    def test_mutable_snapshots_and_missing_references_never_apply_resources(self):
+        for mode in ("mutable-config", "missing-secret", "old-client"):
             with self.subTest(mode=mode):
                 self.environment["FAKE_MODE"] = mode
                 result = self.deploy()

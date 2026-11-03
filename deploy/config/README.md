@@ -1,95 +1,37 @@
 # 按环境维护配置
 
-直接编辑 dev、test、prod 中的文件，不使用模板生成或 init。APP_ENV 选择配置目录，默认 dev。
-普通配置可入库，密码、业务密钥、JWT 和签名私钥不得入库。运行脚本不会自动生成或覆盖这套配置。
+直接维护 dev、test、prod；APP_ENV 默认 dev。不使用模板生成或 init。
 
 ```text
-deploy/config/
-  dev/                         # 当前 OrbStack 开发配置
-    common.env                 # 七应用共享的普通参数
-    jwt-public.pem             # 固定 RSA 验签公钥，可入库
-    service-token-policy.json  # 开发离线签发的调用方/受众/权限清单
-    customer/config.env
-    customer/secret.env        # 本地填写，Git 忽略
-    customer/service-tokens/   # JWT 文件 Git 忽略
-    ...                        # product/limitcenter/payment/acquire/realtime/reconciliation
-  test/                        # 独立配置，环境值待填写
-  prod/                        # 独立配置，环境值待填写
+deploy/config/dev/
+  common.env                    # issuer、JWKS、token endpoint 等普通配置
+  service-authorizations.json   # AuthServer 审查过的应用授权，含逻辑租户，不含密码
+  authserver/config.env
+  authserver/secret.env          # 数据库密码、KeyStore 密码、各调用方 Secret，忽略提交
+  authserver/authserver.p12      # 持久化签名密钥，仅挂载 AuthServer，忽略提交
+  acquire/config.env
+  acquire/secret.env             # 业务密钥、数据库密码、本应用 SERVICE_AUTH_CLIENT_SECRET
+  ...                           # 其他六个业务应用
 ```
 
-common.env 与应用 config.env 合并，同名值以应用配置为准。secret.env 与合并后的普通参数不得重名。
-环境文件使用字面 KEY=value，不加 shell 引号，不做变量展开，也不执行其中的命令。
-共享 JWT_ISSUER_URI、JWT_PUBLIC_KEY_LOCATION 或 JWT_JWK_SET_URI 向七应用提供信任配置；应用级 <APP>_JWT_* 可覆盖。
-每个应用继续使用自己的 <APP>_JWT_AUDIENCE，默认是应用名。
+环境文件使用字面 KEY=value，不加 shell 引号、不展开变量、不执行命令。应用 config.env 覆盖 common.env；普通参数和 secret.env 不得重名。
 
-## 各应用必需值
+每个应用配置 `<APP>_JDBC_URL`、`<APP>_JDBC_USERNAME`、`<APP>_JDBC_PASSWORD`。共用 JWT_ISSUER_URI、JWT_JWK_SET_URI，资源 audience 仍各自独立。新部署不再使用离线 JWT 文件或静态公钥目录。
 
-每个应用 config.env 填写 <APP>_JDBC_URL、<APP>_JDBC_USERNAME，secret.env 填写 <APP>_JDBC_PASSWORD；APP 为大写应用名。
-test/prod 已列出配置键，但尚未填写真实数据库或发行方地址；本机创建了待填写的忽略文件 secret.env。
-新检出时手动创建各应用 secret.env，不从模板生成。其余必需项如下：
+product、limitcenter、payment、acquire、reconciliation 配置 SERVICE_AUTH_CLIENT_SECRET，并在 AuthServer 的 secret.env 中配置对应 `<APP>_OAUTH2_CLIENT_SECRET`，值必须相同。共用 SERVICE_AUTH_TOKEN_URI；test/prod 使用 HTTPS，dev 显式允许本地 HTTP。SERVICE_AUTH_TENANT_ID 默认 __default__，与授权清单的逻辑租户一致。
 
-| 应用 | 额外普通配置 | 额外敏感配置 | 必需的出站令牌文件 |
-| --- | --- | --- | --- |
-| customer | 无 | 无 | 无 |
-| product | 无 | 无 | limitcenter.jwt |
-| limitcenter | 无 | LIMITCENTER_PERMIT_SECRET | payment.jwt |
-| payment | 无 | PAYMENT_INPUT_FINGERPRINT_KEY | acquire.jwt、limitcenter.jwt、realtime.jwt |
-| acquire | 无 | 无 | payment.jwt、realtime.jwt |
-| realtime | 无 | 无 | 无 |
-| reconciliation | RECONCILIATION_S3_BUCKET | 可选 RECONCILIATION_S3_ACCESS_KEY/RECONCILIATION_S3_SECRET_KEY，须成对 | payment.jwt |
+LIMITCENTER_PERMIT_SECRET、PAYMENT_INPUT_FINGERPRINT_KEY 继续保留原值，至少 32 个 UTF-8 字节。reconciliation 仍需要私有 S3 bucket、可选成对 S3 凭证和经过授权的账户目录。这些业务配置不因 AuthServer 接入而重置。
 
-两项业务密钥至少 32 个 UTF-8 字节，涉及已有金融状态时必须保持原值。S3 凭证留空时使用默认凭证链。
-dev 已迁移现有 PostgreSQL、RustFS 配置、业务密钥和 8 份有效令牌；旧 local-config/ 与发布记录保留，未触碰集群。
-dev 的对账账户目录仍需按真实主/子商户配置；默认空目录不授权账户。
-
-## 固定公钥与离线 JWT
-
-应用使用 jwt-public.pem 离线验签，不需要 JWT/JWKS 服务。公钥会加入各应用原有的可变投射 Secret，路径为 /var/run/loadup/secrets/jwt-public.pem。
-公钥在启动时加载，签名、issuer、audience、有效期及 token_use 校验不关闭。
-dev common.env 保留现有 JWT 的 issuer 字符串，仅用于声明比较，不需要对应 URL 可以访问。
-
-所有应用共享该环境的验签公钥，但令牌仍按调用方和目标服务分开；一个固定 JWT 无法同时保留各应用身份和最小权限。
-令牌文件在有效期内可反复使用，部署时不重新签发；到期前离线续期即可。
+本地执行 `./scripts/authserver.sh prepare-dev` 可以生成缺失的 OAuth 应用凭证和 PKCS12，不覆盖已有值，不创建数据库或集群资源。其他环境手动准备独立材料。详见 [AuthServer](../../authserver/README.md)。
 
 ```bash
-# 默认使用已有私钥 deploy/local-config/local-development-pki/issuer-private.pem。
-# 也可通过 JWT_PRIVATE_KEY 指定受控文件。默认保留已有 JWT，显式 RENEW=1 才替换。
-./scripts/dev-jwt.sh
-RENEW=1 JWT_TTL_DAYS=30 ./scripts/dev-jwt.sh
-./scripts/configmap.sh tokens all
-```
-
-签发脚本只允许 dev，权限由 service-token-policy.json 限定，私钥不会上传，不包含通用管理员或任意租户授权。
-本机没有私钥时，先明确生成一对开发 RSA 密钥，再更新同环境公钥；不要替换已有生产签名材料：
-
-```bash
-umask 077
-mkdir -p deploy/local-config/local-development-pki
-# 仅全新开发环境、目标文件不存在时执行；已有密钥不覆盖。
-if test ! -e deploy/local-config/local-development-pki/issuer-private.pem; then
-  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-    -out deploy/local-config/local-development-pki/issuer-private.pem &&
-  openssl pkey -in deploy/local-config/local-development-pki/issuer-private.pem \
-    -pubout -out deploy/config/dev/jwt-public.pem
-fi
-./scripts/dev-jwt.sh
-```
-
-test/prod 应使用各自发行方和密钥，不能复用 dev 私钥或开发令牌；可配置独立 JWKS，或明确投递本环境公钥和受控签发的令牌。
-需要多公钥平滑轮换时选 JWKS；静态换钥必须协调令牌发布与应用滚动。
-
-## 发布
-
-```bash
+./scripts/authserver.sh prepare-dev
+# 先准备独立 loadup_authserver 数据库，并完成 framework 的本地构建安装。
 APP_ENV=dev ./scripts/configmap.sh check all
-APP_ENV=dev IMAGE_TAG=release-002 ./scripts/up.sh all
+APP_ENV=dev IMAGE_TAG=auth-001 ./scripts/up.sh authserver
+APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
 ```
 
-脚本根据内容计算快照版本，普通配置变化后重新执行 up 即可滚动。版本只用于集群快照与回退归档，本地目录保持 dev/test/prod。
-test/prod 集群操作还需显式 KUBE_CONTEXT；当前部署 namespace 固定 loadup-pay，本地镜像发布流程不会自动推送远程镜像。
-首次从旧 JWKS 方案迁移，先执行 tokens 加入公钥，再构建/发布包含本次框架变更的新镜像；旧 release-001 不能直接使用新配置。
-Pay 构建仅包含本仓库模块，不会自动构建相邻 framework；须先将更新的 resource-server 及其依赖安装到本地 Maven 仓库，再执行 up。
-按既有构建约定，可在 loadup-framework 目录由本地构建者执行 `mvnd clean install -pl loadup-components/security/loadup-components-resource-server -am -Dmaven.test.skip=true`。
-确认所有消费者迁移并完成验收后，再退役旧 JWKS 资源；当前源码删除了旧本地服务清单，实际运行服务尚未删除。
+配置工具按内容计算 immutable 快照版本；配置换版通过滚动重启生效，ConfigMap 不自动刷新 Bean。test/prod 集群操作还需显式指定 KUBE_CONTEXT；namespace 固定 loadup-pay，当前镜像流程仍面向 OrbStack 本地镜像，不自动推送远程镜像。
 
-配置管理、删除保护、回退和发布范围见 [脚本说明](../../scripts/README.md) 与 [发布约定](../CONFIGURATION.md)。
+业务 schema 动态路由还未实现；业务表不加回 tenant_id，令牌和执行上下文继续保留逻辑租户身份。旧 ignored JWT 文件和已运行旧资源没有自动删除，须在完成迁移验收后退役。

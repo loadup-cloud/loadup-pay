@@ -39,8 +39,6 @@ import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -52,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -63,10 +60,7 @@ class PaymentAcceptanceHttpClientTest {
     final PaymentHttpService paymentHttp = mock(PaymentHttpService.class);
     final List<String> attachments = new ArrayList<>();
 
-    @TempDir
-    Path directory;
-
-    Path tokenFile;
+    String credential;
     PaymentAcceptanceHttpClient client;
 
     private static RuntimeException remoteFailure(String code) {
@@ -81,9 +75,10 @@ class PaymentAcceptanceHttpClientTest {
 
     @BeforeEach
     void setup() throws Exception {
-        tokenFile = directory.resolve("payment.jwt");
         client = new PaymentAcceptanceHttpClient(
-                paymentHttp, mapper, new PaymentTransportProperties("tenant", "acquire", "payment", tokenFile), clock);
+                paymentHttp,
+                (tenant, service, audience) -> credential,
+                new PaymentTransportProperties("tenant", "acquire", "payment"));
         writeToken(claims());
         var result = new PaymentExecutionDTO(
                 "payment",
@@ -120,13 +115,13 @@ class PaymentAcceptanceHttpClientTest {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         String value = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
-        Files.writeString(tokenFile, value + "\n");
+        credential = value;
         return value;
     }
 
     @Test
-    void usesTheMountedServiceCredentialAndRereadsItAfterRotation() throws Exception {
-        String first = Files.readString(tokenFile).strip();
+    void fetchesTheCurrentServiceTokenForEachAttempt() throws Exception {
+        String first = credential;
         assertEquals("payment", client.accept("tenant", command).paymentId());
         var next = claims();
         next.put("exp", clock.instant().getEpochSecond() + 600);
@@ -182,53 +177,6 @@ class PaymentAcceptanceHttpClientTest {
         var facts = client.facts("tenant", "payment");
         assertEquals("operation", facts.limitOperationId());
         assertEquals("merchant", facts.payeeMerchantId());
-    }
-
-    @Test
-    void mismatchedTenantSubjectServiceTypeOrAudienceNeverReachesTheNetwork() throws Exception {
-        for (var field : List.of("tenant_id", "sub", "service_id", "principal_type", "aud")) {
-            var value = claims();
-            value.put(field, "another");
-            writeToken(value);
-            assertSame(
-                    DEPENDENCY_UNAVAILABLE,
-                    assertThrows(CommonException.class, () -> client.accept("tenant", command))
-                            .getResultCode());
-        }
-        verifyNoInteractions(paymentHttp);
-    }
-
-    @Test
-    void expiredNotYetValidAndFractionalExpiriesAreRejected() throws Exception {
-        for (Object expiry :
-                List.of(clock.instant().getEpochSecond(), clock.instant().getEpochSecond() - 1, 1.5, "later")) {
-            var value = claims();
-            value.put("exp", expiry);
-            writeToken(value);
-            assertSame(
-                    DEPENDENCY_UNAVAILABLE,
-                    assertThrows(CommonException.class, () -> client.accept("tenant", command))
-                            .getResultCode());
-        }
-        var value = claims();
-        value.put("nbf", clock.instant().getEpochSecond() + 1);
-        writeToken(value);
-        assertThrows(CommonException.class, () -> client.accept("tenant", command));
-        verifyNoInteractions(paymentHttp);
-    }
-
-    @Test
-    void missingOrOversizedTokenFailsWithoutExposingTheCredential() throws Exception {
-        Files.writeString(tokenFile, "synthetic-secret".repeat(2000));
-        var failure = assertThrows(CommonException.class, () -> client.accept("tenant", command));
-        assertFalse(failure.toString().contains("synthetic-secret"));
-        assertNull(failure.getCause());
-        Files.delete(tokenFile);
-        assertSame(
-                DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.accept("tenant", command))
-                        .getResultCode());
-        verifyNoInteractions(paymentHttp);
     }
 
     @Test

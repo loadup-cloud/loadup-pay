@@ -11,21 +11,23 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.product.app.port.PolicyActivationClient;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
+    private final ServiceAccessTokens tokens;
     private final PolicyPublicationTransportProperties properties;
     private final LimitCenterHttpService limitCenterHttp;
 
     public LimitPolicyActivationHttpClient(
-            LimitCenterHttpService limitCenterHttp, PolicyPublicationTransportProperties properties) {
+            LimitCenterHttpService limitCenterHttp,
+            PolicyPublicationTransportProperties properties,
+            ServiceAccessTokens tokens) {
         this.limitCenterHttp = limitCenterHttp;
         this.properties = properties;
+        this.tokens = tokens;
     }
 
     @Override
@@ -49,20 +51,6 @@ public class LimitPolicyActivationHttpClient implements PolicyActivationClient {
     }
 
     private String credential() {
-        // Reopen the mounted file for every attempt, allowing an external issuer/agent to rotate short-lived
-        // credentials.
-        try (var input = Files.newInputStream(properties.tokenFile())) {
-            byte[] bytes = input.readNBytes(16385);
-            if (bytes.length > 16384) {
-                throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            }
-            String token = new String(bytes, StandardCharsets.US_ASCII).strip();
-            if (!token.matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+")) {
-                throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            }
-            return token;
-        } catch (IOException failure) {
-            throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        }
+        return tokens.token(properties.tenantId(), properties.serviceId(), properties.audience());
     }
 }

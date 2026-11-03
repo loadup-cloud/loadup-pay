@@ -1,10 +1,11 @@
 # HTTP 入站网络策略
 
-七个 `<app>-http-ingress` NetworkPolicy 随应用清单渲染，限定目标 Pod 的 TCP 8080；不配置 Egress，保留 DNS、数据库、KMS、渠道及通知等出站路径。
+八个 `<app>-http-ingress` NetworkPolicy 随应用清单渲染，限定目标 Pod 的 TCP 8080；不配置 Egress，保留 DNS、数据库、KMS、渠道及通知等出站路径。
 策略按现有调用关系允许入站，不给业务服务增加发现 RBAC：
 
 | 提供方 | 允许的 loadup-pay 调用方 |
 | --- | --- |
+| authserver | customer、product、limitcenter、payment、acquire、realtime、reconciliation |
 | customer | product |
 | product | acquire |
 | limitcenter | product、payment |
@@ -14,7 +15,7 @@
 | reconciliation | 无直接内部调用方；受控外部集成经过网关 |
 
 每个 peer 的 namespaceSelector 与 podSelector 放在同一项，二者同时满足；没有 `{}` 全放行项。
-除 limitcenter 外，另允许 envoy-gateway-system 中 app.kubernetes.io/name=envoy 且归属 loadup-pay/loadup-pay Gateway 的代理 Pod。
+除 limitcenter、authserver 外，另允许 envoy-gateway-system 中 app.kubernetes.io/name=envoy 且归属 loadup-pay/loadup-pay Gateway 的代理 Pod。
 网关控制器本身和其他 Gateway 的代理不在该选择器中。使用 Gateway Namespace Mode 或 mergeGateways 时，必须先调整并验证选择器。
 
 监控允许 observability 中带 loadup.io/metrics-scraper=true 的 Pod。prometheus-values.yaml 已为 server 配置此 Pod label；已有监控实例需要同步更新。
@@ -26,7 +27,7 @@
 规则是叠加的，其他已有 allow-all 策略可能扩大允许范围；旧集群策略不会被 apply 自动删除。
 见 [Kubernetes NetworkPolicy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)。
 
-全量发布包含 Namespace、七组 NetworkPolicy/Deployment/Service，共 22 资源，单应用为 4 资源。
+全量发布包含 Namespace、八组 NetworkPolicy/Deployment/Service，共 25 资源，单应用为 4 资源。
 渲染器在输出前检查选定应用的完整策略，将策略排序在 Deployment 前，拒绝缺失、重复或扩大 peer 的配置。
 不存在对 Kubernetes 全部资源的事务性 apply；任一发布失败都需检查实际已应用对象，再使用匹配的归档清单恢复。
 

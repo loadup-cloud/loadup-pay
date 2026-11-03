@@ -1,6 +1,5 @@
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,8 +26,6 @@ import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentAcquireProperties;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -40,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -71,10 +67,7 @@ class PaymentAcquireHttpClientTest {
                     "proof",
                     false));
 
-    @TempDir
-    Path directory;
-
-    Path tokenFile;
+    String credential;
     PaymentAcquireHttpClient client;
 
     Map<String, Object> claims() {
@@ -97,16 +90,17 @@ class PaymentAcquireHttpClientTest {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         var value = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
-        Files.writeString(tokenFile, value);
+        credential = value;
         return value;
     }
 
     @BeforeEach
     void setup() throws Exception {
-        tokenFile = directory.resolve("acquire.jwt");
         token(claims());
         client = new PaymentAcquireHttpClient(
-                acquireHttp, mapper, new PaymentAcquireProperties("tenant", "payment", "acquire", tokenFile), clock);
+                acquireHttp,
+                (tenant, service, audience) -> credential,
+                new PaymentAcquireProperties("tenant", "payment", "acquire"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(
@@ -143,41 +137,14 @@ class PaymentAcquireHttpClientTest {
     }
 
     @Test
-    void mountedCredentialRotationIsObservedOnTheNextDelivery() throws Exception {
-        var first = Files.readString(tokenFile);
+    void newServiceTokenIsUsedOnTheNextDelivery() throws Exception {
+        var first = credential;
         client.accept("tenant", event);
         var next = claims();
         next.put("exp", clock.instant().getEpochSecond() + 600);
         var second = token(next);
         client.accept("tenant", event);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
-    }
-
-    @Test
-    void wrongTenantOrAudienceNeverReachesAcquire() throws Exception {
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> client.accept("other-tenant", event))
-                        .getResultCode());
-        var wrong = claims();
-        wrong.put("aud", "limitcenter");
-        token(wrong);
-        assertSame(
-                DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.accept("tenant", event))
-                        .getResultCode());
-        verifyNoInteractions(acquireHttp);
-    }
-
-    @Test
-    void expiredOrMalformedMountedTokensAreNotSent() throws Exception {
-        var expired = claims();
-        expired.put("exp", clock.instant().getEpochSecond());
-        token(expired);
-        assertThrows(CommonException.class, () -> client.accept("tenant", event));
-        Files.writeString(tokenFile, "not-a-jwt");
-        assertThrows(CommonException.class, () -> client.accept("tenant", event));
-        verifyNoInteractions(acquireHttp);
     }
 
     @Test

@@ -53,6 +53,8 @@ loadup:
       path-prefix: /api/internal/
       max-size: 32MB
   http:
+    client:
+      tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
     clients:
       acquire:
         base-url: ${ACQUIRE_BASE_URL:http://acquire:8080}
@@ -159,3 +161,25 @@ resilience4j:
       pay-channel-recovery-unionpay:
         max-concurrent-calls: ${PAYMENT_UNIONPAY_RECOVERY_MAX_CONCURRENT:16}
         max-wait-duration: 0ms
+
+pay:
+  service-auth:
+    token-uri: ${SERVICE_AUTH_TOKEN_URI:http://authserver:8080/oauth2/token}
+    allow-insecure-http: ${SERVICE_AUTH_ALLOW_INSECURE_HTTP:false}
+    client-secret: ${SERVICE_AUTH_CLIENT_SECRET}
+    registrations:
+      acquire:
+        client-id: ${PAYMENT_ACQUIRE_OAUTH_CLIENT_ID:payment.default.acquire}
+        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+        service-id: payment
+        audience: acquire
+      limitcenter:
+        client-id: ${PAYMENT_LIMITCENTER_OAUTH_CLIENT_ID:payment.default.limitcenter}
+        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+        service-id: payment
+        audience: limitcenter
+      realtime:
+        client-id: ${PAYMENT_REALTIME_OAUTH_CLIENT_ID:payment.default.realtime}
+        tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
+        service-id: payment
+        audience: realtime

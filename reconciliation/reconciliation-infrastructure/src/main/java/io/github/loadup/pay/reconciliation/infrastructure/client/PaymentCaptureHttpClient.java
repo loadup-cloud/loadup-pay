@@ -21,26 +21,24 @@ import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 import io.github.loadup.pay.payment.client.support.PaymentCaptureContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentCaptures;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final PaymentCaptureHttpService paymentCaptureHttp;
 
     public PaymentCaptureHttpClient(
             PaymentCaptureHttpService paymentCaptureHttp,
             ReconciliationPaymentProperties properties,
-            JsonMapper mapper,
-            Clock clock) {
+            ServiceAccessTokens tokens) {
         this.paymentCaptureHttp = paymentCaptureHttp;
         this.properties = properties;
-        this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -88,8 +86,7 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         try {
-            var result = request.apply("Bearer "
-                    + tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile()));
+            var result = request.apply("Bearer " + tokens.token(tenant, properties.serviceId(), properties.audience()));
             if (result == null) {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }

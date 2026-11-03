@@ -1,0 +1,119 @@
+{
+  "clients": [
+    {
+      "clientId": "acquire.default.payment",
+      "tenantId": "__default__",
+      "serviceId": "acquire",
+      "audience": "payment",
+      "permissions": [
+        "pay:payment:input:prepare",
+        "pay:payment:input:read",
+        "pay:payment:input:expire",
+        "pay:payment:accept",
+        "pay:payment:read",
+        "pay:payment:fence",
+        "pay:payment:fence:read",
+        "pay:payment:close",
+        "pay:payment:attempt:start",
+        "pay:payment:acquire-facts",
+        "pay:payment:refund-summary:read"
+      ],
+      "secretEnv": "ACQUIRE_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "acquire.default.realtime",
+      "tenantId": "__default__",
+      "serviceId": "acquire",
+      "audience": "realtime",
+      "permissions": [
+        "pay:realtime:projection:order"
+      ],
+      "secretEnv": "ACQUIRE_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "limitcenter.default.payment",
+      "tenantId": "__default__",
+      "serviceId": "limitcenter",
+      "audience": "payment",
+      "permissions": [
+        "pay:payment:read",
+        "pay:payment:limit-facts",
+        "pay:payment:refund-facts"
+      ],
+      "secretEnv": "LIMITCENTER_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "payment.default.acquire",
+      "tenantId": "__default__",
+      "serviceId": "payment",
+      "audience": "acquire",
+      "permissions": [
+        "pay:acquire:payment:outcome",
+        "pay:acquire:fee:refund",
+        "pay:acquire:refund:notification"
+      ],
+      "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "payment.default.limitcenter",
+      "tenantId": "__default__",
+      "serviceId": "payment",
+      "audience": "limitcenter",
+      "permissions": [
+        "pay:limit:reserve",
+        "pay:limit:read",
+        "pay:limit:execute",
+        "pay:limit:verify",
+        "pay:limit:expire",
+        "pay:limit:confirm",
+        "pay:limit:release",
+        "pay:limit:refund:restore"
+      ],
+      "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "payment.default.realtime",
+      "tenantId": "__default__",
+      "serviceId": "payment",
+      "audience": "realtime",
+      "permissions": [
+        "pay:realtime:projection:payment",
+        "pay:realtime:projection:refund",
+        "pay:realtime:projection:refund-summary"
+      ],
+      "secretEnv": "PAYMENT_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "product.default.limitcenter",
+      "tenantId": "__default__",
+      "serviceId": "product",
+      "audience": "limitcenter",
+      "permissions": [
+        "pay:limit:activate"
+      ],
+      "secretEnv": "PRODUCT_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    },
+    {
+      "clientId": "reconciliation.default.payment",
+      "tenantId": "__default__",
+      "serviceId": "reconciliation",
+      "audience": "payment",
+      "permissions": [
+        "pay:payment:reconciliation:capture:create",
+        "pay:payment:reconciliation:capture:retry",
+        "pay:payment:reconciliation:capture:read",
+        "pay:payment:reconciliation:statement:read",
+        "pay:payment:reconciliation:verify"
+      ],
+      "secretEnv": "RECONCILIATION_OAUTH2_CLIENT_SECRET",
+      "enabled": true
+    }
+  ]
+}

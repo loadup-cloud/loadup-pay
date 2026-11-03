@@ -8,7 +8,7 @@ import unittest
 
 
 class RenderDeployTest(unittest.TestCase):
-    apps = ("customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation")
+    apps = ("authserver", "customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation")
 
     def resources(self):
         values = [{"kind": "Namespace", "metadata": {"name": "loadup-pay"}}]
@@ -18,20 +18,21 @@ class RenderDeployTest(unittest.TestCase):
                  "spec": {"template": {"spec": {"containers": [{"name": app, "image": "old",
                      "ports": [{"name": "http", "containerPort": 8080}],
                      "envFrom": [{"configMapRef": {"name": app + "-config"}}, {"secretRef": {"name": app + "-secret"}}],
-                     "volumeMounts": [{"name": "service-secrets", "mountPath": "/var/run/loadup/secrets", "readOnly": True}]}],
-                     "volumes": [{"name": "service-secrets", "secret": {"secretName": app + "-service-tokens"}}]}}}},
+                     **({"volumeMounts": [{"name": "signing-keys", "mountPath": "/var/run/loadup/secrets", "readOnly": True}]} if app == "authserver" else {})}],
+                     **({"volumes": [{"name": "signing-keys", "secret": {"secretName": "authserver-files"}}]} if app == "authserver" else {})}}}},
                 {"kind": "Service", "metadata": {"name": app, "namespace": "loadup-pay"},
                  "spec": {"selector": {"app": app}, "ports": [{"name": "http", "port": 8080, "targetPort": "http"}]}},
             ])
         callers = {"customer": ["product"], "product": ["acquire"], "limitcenter": ["product", "payment"],
                    "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
-                   "realtime": ["acquire", "payment"], "reconciliation": []}
+                   "realtime": ["acquire", "payment"], "reconciliation": [],
+                   "authserver": ["customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"]}
         for app in self.apps:
             peers = []
             if callers[app]:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}},
                               "podSelector": {"matchExpressions": [{"key": "app", "operator": "In", "values": callers[app]}]}})
-            if app != "limitcenter":
+            if app not in {"limitcenter", "authserver"}:
                 peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
                               "podSelector": {"matchLabels": {"app.kubernetes.io/name": "envoy",
                                   "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
@@ -53,7 +54,7 @@ class RenderDeployTest(unittest.TestCase):
         original = copy.deepcopy(source)
         all_apps = self.render(source)
         self.assertEqual(all_apps.returncode, 0, all_apps.stderr)
-        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 22)
+        self.assertEqual(len(json.loads(all_apps.stdout)["items"]), 25)
         single = self.render(source, "payment")
         self.assertEqual(single.returncode, 0, single.stderr)
         items = json.loads(single.stdout)["items"]
@@ -63,7 +64,7 @@ class RenderDeployTest(unittest.TestCase):
                          "registry.example/pay/payment:test-v1")
         self.assertEqual(source, original)
 
-    def test_configuration_versions_roll_the_template_but_never_change_the_projected_token_identity(self):
+    def test_configuration_versions_roll_the_template_without_business_token_volumes(self):
         first = next(item for item in json.loads(self.render(self.resources(), "payment").stdout)["items"] if item["kind"] == "Deployment")
         changed = next(item for item in json.loads(self.render(self.resources(), "payment", "cfg-002", "sec-003").stdout)["items"] if item["kind"] == "Deployment")
         template = changed["spec"]["template"]
@@ -73,7 +74,7 @@ class RenderDeployTest(unittest.TestCase):
         self.assertEqual(template["metadata"]["annotations"], {"loadup.io/image-tag": "test-v1",
                          "loadup.io/config-version": "cfg-002", "loadup.io/secret-version": "sec-003"})
         self.assertNotEqual(first["spec"]["template"], template)
-        self.assertEqual(first["spec"]["template"]["spec"]["volumes"], template["spec"]["volumes"])
+        self.assertEqual(first["spec"]["template"]["spec"].get("volumes", []), template["spec"].get("volumes", []))
 
     def test_invalid_versions_are_rejected_before_output(self):
         for version in ("", "UPPER", "with.dots", "../escape", "a" * 33, "trailing-"):
@@ -87,16 +88,17 @@ class RenderDeployTest(unittest.TestCase):
             if resource["kind"] != "Deployment":
                 continue
             pod = resource["spec"]["template"]["spec"]
-            pod["volumes"][0]["secret"].update(defaultMode=420, optional=False)
+            if "volumes" in pod:
+                pod["volumes"][0]["secret"].update(defaultMode=420, optional=False)
             pod["containers"][0]["envFrom"][0]["configMapRef"]["optional"] = False
             pod["containers"][0]["envFrom"][1]["secretRef"]["optional"] = False
         result = self.render(source)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_unexpected_config_and_token_bindings_are_rejected_before_output(self):
+    def test_unexpected_config_and_signing_key_bindings_are_rejected_before_output(self):
         for change in (lambda pod: pod["containers"][0]["envFrom"].append({"secretRef": {"name": "unversioned"}}),
                        lambda pod: pod["volumes"][0]["secret"].update(secretName="customer-secret"),
-                       lambda pod: pod["containers"][0]["volumeMounts"][0].update(subPath="payment.jwt")):
+                       lambda pod: pod["containers"][0]["volumeMounts"][0].update(subPath="authserver.p12")):
             source = self.resources()
             change(source[1]["spec"]["template"]["spec"])
             result = self.render(source)
@@ -136,14 +138,27 @@ class RenderDeployTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
 
-    def test_policies_are_applied_before_deployments_and_limitcenter_has_no_gateway_peer(self):
+    def test_policies_are_applied_before_deployments_and_internal_services_have_no_gateway_peer(self):
         resources = json.loads(self.render(self.resources()).stdout)["items"]
         kinds = [value["kind"] for value in resources]
         self.assertLess(max(index for index, kind in enumerate(kinds) if kind == "NetworkPolicy"), kinds.index("Deployment"))
-        limit = next(value for value in resources if value["kind"] == "NetworkPolicy" and value["metadata"]["name"] == "limitcenter-http-ingress")
-        peers = limit["spec"]["ingress"][0]["from"]
-        self.assertEqual({peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in peers},
-                         {"loadup-pay", "observability"})
+        for name in ("limitcenter", "authserver"):
+            policy = next(value for value in resources if value["kind"] == "NetworkPolicy" and value["metadata"]["name"] == name + "-http-ingress")
+            peers = policy["spec"]["ingress"][0]["from"]
+            self.assertEqual({peer["namespaceSelector"]["matchLabels"]["kubernetes.io/metadata.name"] for peer in peers},
+                             {"loadup-pay", "observability"})
+
+    def test_signing_keystore_is_only_mounted_by_authserver_and_versioned_with_its_secret(self):
+        resources = json.loads(self.render(self.resources(), "all", "cfg-002", "sec-002").stdout)["items"]
+        for resource in resources:
+            if resource["kind"] != "Deployment":
+                continue
+            pod = resource["spec"]["template"]["spec"]
+            if resource["metadata"]["name"] == "authserver":
+                self.assertEqual(pod["volumes"][0]["secret"]["secretName"], "authserver-files-sec-002")
+            else:
+                self.assertFalse(pod.get("volumes"))
+
 
 
 if __name__ == "__main__":

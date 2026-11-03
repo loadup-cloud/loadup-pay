@@ -39,28 +39,27 @@ class ManageConfigTest(unittest.TestCase):
         (self.path / "common.env").write_text("JWT_ISSUER_URI=https://issuer.test\nJWT_JWK_SET_URI=https://issuer.test/jwks\nMETRICS_ENABLED=false\n")
         (app / "config.env").write_text("CUSTOMER_JDBC_URL=jdbc:postgresql://db/customer\nCUSTOMER_JDBC_USERNAME=customer\nMETRICS_ENABLED=true\n")
         (app / "secret.env").write_text("CUSTOMER_JDBC_PASSWORD=keep-existing\n")
-        with patch.object(config, "token_data", return_value={}):
-            values = config.local_resources("customer", app)
+        values = config.local_resources("customer", app)
         self.assertEqual(values[0]["JWT_ISSUER_URI"], "https://issuer.test")
         self.assertEqual(values[0]["METRICS_ENABLED"], "true")
 
-    def test_content_versions_change_for_public_key_and_secret_independently(self):
+    def test_content_versions_change_for_catalog_and_signing_files_independently(self):
         def versions(values):
             os.environ.pop("CONFIG_VERSION", None)
             os.environ.pop("SECRET_VERSION", None)
             with patch.object(config, "local_resources", return_value=values):
                 return config.resolve_versions(["customer"], self.path)
-        initial = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"jwt-public.pem": "key1"}))
-        changed_key = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"jwt-public.pem": "key2"}))
-        changed_secret = versions(({"KEY": "value"}, {"PASSWORD": "new"}, {"jwt-public.pem": "key1"}))
-        self.assertNotEqual(initial[0], changed_key[0])
-        self.assertEqual(initial[1], changed_key[1])
-        self.assertEqual(initial[0], changed_secret[0])
-        self.assertNotEqual(initial[1], changed_secret[1])
+        initial = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"authserver.p12": "key1"}))
+        changed_key = versions(({"KEY": "value"}, {"PASSWORD": "old"}, {"authserver.p12": "key2"}))
+        changed_secret = versions(({"KEY": "updated-catalog"}, {"PASSWORD": "old"}, {"authserver.p12": "key1"}))
+        self.assertEqual(initial[0], changed_key[0])
+        self.assertNotEqual(initial[1], changed_key[1])
+        self.assertNotEqual(initial[0], changed_secret[0])
+        self.assertEqual(initial[1], changed_secret[1])
 
     def test_conflict_in_later_resource_prevents_all_mutations(self):
         existing = config.resource("Secret", "customer-secret-sec-old", {"KEY": "different"}, True)
-        with patch.object(config, "local_resources", return_value=({"KEY": "new"}, {}, {})), \
+        with patch.object(config, "local_resources", return_value=({"KEY": "new"}, {})), \
                 patch.object(config, "get", side_effect=[None, existing]), \
                 patch.object(config, "kube", return_value={"kind": "Namespace"}) as kube, \
                 patch("sys.argv", ["manage-config.py", "create", "config", "customer"]):

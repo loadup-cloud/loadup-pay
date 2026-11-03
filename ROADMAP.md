@@ -66,16 +66,24 @@ Framework 的可选 binder 不因 Pay 迁移而无条件删除。
 - [x] 配置源按 dev/test/prod 直接维护，删除模板生成流程；一键入口按内容计算不可变快照版本，敏感文件不入库。
 - [x] 增加固定 RSA 公钥离线验签与开发令牌离线签发源码；同环境共享验签公钥，服务身份/受众/权限继续隔离。
 - [x] AuthServer SAS 组件通过 kms-api 委托 RS256 签名，local binder 只读加载持久化 KeyStore；配置明确密钥版本与保留公钥，移除自行加载私钥和临时生成路径。静态检查完成，构建/测试尚未执行。
-- [ ] 装配独立 AuthServer 应用，持久化应用注册与授权，补齐服务身份/受众/权限签发及调用端 OAuth2 令牌缓存续取；组件 KMS 接入不代表该应用已部署。
-- [ ] 构建并发布包含离线公钥支持的新 framework/业务镜像，验证后退役旧本地 JWKS 服务；源码完成不代表已迁移运行环境。
+- [x] 独立 AuthServer 应用源码已装配：SAS + kms-local、PostgreSQL 标准注册/授权存储、服务身份/逻辑租户/目标 audience/permissions 签发；五个调用方接共享标准 OAuth2 客户端缓存续取，移除挂载 JWT 文件路径。配置与八应用发布清单已同步，构建/测试/部署尚未执行。
+- [ ] 构建并发布 AuthServer 与新版调用方镜像，验证真实 PostgreSQL、KMS/JWKS、权限拒绝、续取、密钥与凭证轮换；通过后退役旧离线 JWT/JWKS 资源，当前运行环境尚未迁移。
 - [x] 普通配置与 Secret 分离；说明环境变量注入、挂载文件及 Spring Bean 的生效时机，默认通过重启生效，不承诺自动热刷新。
 - [ ] 发布清单、资源渲染、readiness、优雅停机和 NetworkPolicy 同步迁移到 HTTP；清理已不再需要的 Triple 端口、Headless Service、发现 RBAC 和 Pod annotation 写权限。
 - [ ] 验证多副本调用、连接复用下的流量分布、扩缩容、滚动更新期间的请求排空，以及版本化配置回退。
 
-源码进度：显式 CONFIG_VERSION/SECRET_VERSION 绑定不可变环境快照，可变服务凭证独立挂载；发布前元数据预检并归档镜像/配置引用。
+源码进度：显式 CONFIG_VERSION/SECRET_VERSION 绑定不可变环境快照，AuthServer 签名 KeyStore 使用独立不可变文件 Secret，业务应用自动取服务令牌；发布前元数据预检并归档镜像/配置引用。
 HTTP readiness、滚动策略与排空预算已补；HTTP NetworkPolicy 与网关资源已补，真实隔离、滚动/轮换/回退仍待验收。见 [配置与发布](deploy/CONFIGURATION.md)。
 
 验收：服务发现由 K8s 托管，配置生效方式可预测、可追溯、可回退；HTTP 健康检查不代替真实业务调用验证。
+
+### 租户与 schema 隔离补齐
+
+- [ ] 复用 commons-context 的 ScopedValue ContextHolder，建立可信租户注册与 tenantId → 当前应用 schema 映射，避免直接使用租户 ID 作为物理 schema。
+- [ ] 将默认租户绑定升级为验签后的可信租户解析；请求头仅可提供待授权的选择提示，不能直接决定 schema。缺失、未知、停用或无权租户拒绝访问。
+- [ ] 在事务开始/连接获取前完成路由；事务内禁止租户切换，连接归还恢复状态，缺表不回退到其他租户/public 的业务表。
+- [ ] 补齐后台任务、Outbox、异步线程和跨服务的租户传播与验证，以及缓存、锁和幂等键的租户隔离；业务表继续不含 tenant_id，JWT/执行上下文保留逻辑租户。
+- [ ] 动态多租户运行验收通过后再开放多租户授权；当前 AuthServer 默认仅注册 __default__，不代表 schema 路由已实现。
 
 ### 阶段 5：Gateway API + Envoy Gateway
 

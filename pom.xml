@@ -32,6 +32,8 @@
     </developers>
 
     <modules>
+        <module>service-auth</module>
+        <module>authserver</module>
         <module>customer</module>
         <module>limitcenter</module>
         <module>product</module>
@@ -65,6 +67,11 @@
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.github.loadup-cloud</groupId>
+                <artifactId>pay-service-auth</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.github.loadup-cloud</groupId>
                 <artifactId>reconciliation-app</artifactId>

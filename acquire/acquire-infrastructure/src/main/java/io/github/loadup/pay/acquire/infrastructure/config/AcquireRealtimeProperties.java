@@ -19,23 +19,18 @@
  */
 package io.github.loadup.pay.acquire.infrastructure.config;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import java.nio.file.Path;
 
 public record AcquireRealtimeProperties(
         @NotBlank String tenantId,
         @NotBlank String serviceId,
-        @NotBlank String audience,
-        @NotNull @DiagnosticHidden Path tokenFile) {
+        @NotBlank String audience) {
     public AcquireRealtimeProperties {
         DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         DomainChecks.text(audience, 128);
-        java.util.Objects.requireNonNull(tokenFile);
     }
 
     @Override

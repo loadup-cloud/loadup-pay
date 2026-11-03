@@ -10,3 +10,8 @@ deploy/config/*/*/service-tokens/*.jwt
 deploy/config/*/*/service-tokens/*.pending
 deploy/config/**/*.key
 deploy/config/**/*private*.pem
+
+deploy/config/**/*.p12
+deploy/config/*/*/secret.env.pending
+
+__pycache__/

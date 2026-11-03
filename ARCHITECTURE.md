@@ -68,7 +68,7 @@ Pay 已删除内部 proto、Wire mapper、Dubbo 生成/自动装配、运行 bin
 
 内部入口统一 POST /api/internal/v1/，Resource Server 校验 JWT 签名、issuer、audience、有效期与 token_use。
 租户和主体来自验证后的 claims，producer、请求体和普通 Header 不是可信身份。商户委托保留原主体和受众，不能替换成更高权限 SERVICE token。
-SERVICE 凭证每次从挂载文件重新读取，经原 tenant/service/subject/audience/expiry 预检后显式传入 Authorization。
+SERVICE 凭证通过 pay-service-auth 的标准 OAuth2 客户端获取，按 tenant/service/audience 隔离缓存与续取，再显式传入 Authorization；资源端经 JWKS 本地验签及授权。
 不采用原内部 Triple 的 exp-only 解析方式。网络调用位于本地事务外，未知受理结果、幂等身份和 Outbox 工作流保持原语义。
 
 普通成功/业务失败使用 HTTP 200 的 SuccessResponse/FailureResponse，capture 明细为平面 PageResponse。
@@ -82,10 +82,10 @@ HttpServiceResponses 同时核对 code/status/data；仅本地白名单恢复业
 无需 K8s API 权限或独立注册中心。连接/池等待各 1s，普通读取 3s；对账下载独立 60s 有界连接池。
 客户端不自动重试、不跟随重定向；业务可靠重投由原 Outbox/任务负责，未来网关也不得叠加隐式重试。
 
-共享配置默认由 HttpClientDefaults 绑定 loadup.http.client；模块显式配置优先。调用方 service-id 与目标 audience/token-file 分别取值，
+共享配置默认由 HttpClientDefaults 绑定 loadup.http.client；模块显式配置优先。调用方 service-id 与目标 audience 分别取值，
 helper 不负责认证，也不缓存 token。旧 loadup.rpc.client 配置不再读取。
 
-源清单只保留七组 HTTP Deployment/Service。版本化 ConfigMap/环境 Secret 与独立可变 token 投射已接入发布渲染；
+源清单包含七个业务应用和独立 AuthServer 的 HTTP Deployment/Service。版本化 ConfigMap/环境 Secret 与 AuthServer KeyStore 文件 Secret 已接入发布渲染；
 显式版本写入 Pod template，预检只读取 immutable 元数据，归档镜像/引用组合。滚动与排空源码已补，运行待验收；
 HTTP NetworkPolicy 与 Envoy Gateway 配置已补，CNI/控制器/流量验收与虚拟线程仍需后续完成。详见 [配置与发布](deploy/CONFIGURATION.md)。
 不承诺 ConfigMap 更新自动刷新 Bean。七服务同步匹配镜像与配置；回退旧协议也需匹配整组镜像/配置/Service，不能混用新旧协议。
@@ -163,3 +163,9 @@ Gateway API + Envoy Gateway v1.9.3 是默认入口参考，见 [网关配置](de
 两种模型均使用原生任务上下文传播与现有 LoadUpContextTaskDecorator；不替换全部执行器，不把数据库事务带到其他线程。
 同步 HTTP 池、超时、渠道恢复 Bulkhead 与金融围栏保留。Local fixed-delay 扫描不因开关而自动并行。
 实际模型/上下文/调度回归源码与容量门槛见 [最终验收](deploy/ACCEPTANCE.md)，未运行；没有新增生产诊断接口。
+
+## AuthServer 与逻辑租户
+
+独立 AuthServer 使用 SAS + KMS-local、标准 PostgreSQL 客户端注册/授权存储，按审查过的环境授权同步；客户端按逻辑租户、调用方、目标 audience 取令牌。商户/用户委托不改成服务身份。实现及运行边界见 [AuthServer](authserver/README.md)。
+
+当前 TenantFilter 仍绑定默认租户，DatabaseTenant 尚把租户 ID 直接解释成 schema，缺少动态连接路由。已有 ContextHolder/ExecutionContext 基于 ScopedValue，可继续承载逻辑租户；后续应增加受控租户注册和按应用解析的 schema 映射，在验签后、事务前建立上下文。无效/缺失租户拒绝访问；跨线程显式传播，事务内不能切换，连接归还不能残留 schema，缓存/任务身份仍须包含租户。业务表不恢复 tenant_id；JWT 与控制面授权保留逻辑租户，不传播物理 schema。此项尚未实施，不能将当前源码当成动态多租户隔离已完成。

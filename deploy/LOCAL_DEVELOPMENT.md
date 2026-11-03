@@ -1,3 +1,5 @@
+> 下述为旧版本运行记录。本次源码已转向独立 AuthServer 自动取令牌，但尚未构建或部署；旧 JWT/Secret/JWKS 未自动退役。当前操作见 [AuthServer](../authserver/README.md)。
+
 # 本地开发环境
 
 本说明对应 2026-11-03 的 orbstack 环境。业务镜像使用 release-001，单元测试按用户要求跳过；平台就绪不代表金融链路验收通过。

@@ -19,19 +19,14 @@
  */
 package io.github.loadup.pay.product.infrastructure.config;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
-import java.nio.file.Path;
 
-public record PolicyPublicationTransportProperties(
-        String tenantId, @DiagnosticHidden Path tokenFile) {
+public record PolicyPublicationTransportProperties(String tenantId, String serviceId, String audience) {
     public PolicyPublicationTransportProperties {
         DomainChecks.id(tenantId);
-        if (!tenantId.equals(tenantId.trim()) || tokenFile == null || !tokenFile.isAbsolute()) {
-            throw new IllegalStateException(
-                    "Publication requires one trusted tenant and an absolute mounted service token file");
-        }
+        DomainChecks.id(serviceId);
+        DomainChecks.text(audience, 128);
     }
 
     @Override

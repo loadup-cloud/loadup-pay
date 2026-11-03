@@ -33,17 +33,15 @@ for app in "${SELECTED_APPS[@]}"; do
     if ! immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "$reference" -o 'jsonpath={.immutable}'); then
       echo "Release configuration is missing or unreadable: $reference ($KUBE_CONTEXT/loadup-pay)." >&2
       echo 'CONFIG_VERSION/SECRET_VERSION select existing snapshots; they do not create configuration.' >&2
-      echo 'Prepare ConfigMaps, environment Secrets and service-token Secrets for every selected application; see deploy/CONFIGURATION.md.' >&2
+      echo 'Prepare ConfigMaps, environment Secrets and AuthServer signing-key Secret for every selected application; see deploy/CONFIGURATION.md.' >&2
       exit 1
     fi
     [[ "$immutable" == true ]] || { echo "Release configuration must be immutable: $reference" >&2; exit 1; }
   done
-  if ! tokens_immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "secret/$app-service-tokens" -o 'jsonpath={.immutable}'); then
-    echo "Service-token Secret is missing or unreadable: secret/$app-service-tokens ($KUBE_CONTEXT/loadup-pay)." >&2
-    echo 'Prepare the projected credential files before deploying; see deploy/CONFIGURATION.md.' >&2
-    exit 1
+  if [[ "$app" == authserver ]]; then
+    immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "secret/authserver-files-$SECRET_VERSION" -o 'jsonpath={.immutable}')
+    [[ "$immutable" == true ]] || { echo 'AuthServer signing files must be an immutable versioned Secret.' >&2; exit 1; }
   fi
-  [[ "$tokens_immutable" != true ]] || { echo "Projected service tokens must remain rotatable: $app-service-tokens" >&2; exit 1; }
 done
 if [[ "${SKIP_BUILD:-0}" != 1 ]]; then
   "$PAY_ROOT/scripts/build.sh" "$scope"
@@ -59,5 +57,25 @@ mkdir -p "$release_dir"
 cmp -s "$release_temp/manifest.json" "$release_file" || { echo 'An existing release record has different content.' >&2; exit 1; }
 echo "Deploying $scope to $KUBE_CONTEXT/loadup-pay with IMAGE_TAG=$IMAGE_TAG CONFIG_VERSION=$CONFIG_VERSION SECRET_VERSION=$SECRET_VERSION"
 echo "Release manifest: $release_file (not proof of successful rollout)"
-kubectl --context "$KUBE_CONTEXT" apply -f "$release_file"
+if [[ "$scope" == all ]]; then
+  # The archived manifest stays complete; start the issuer before its consumers.
+  python3 - "$release_file" "$release_temp" <<'PY_STAGE'
+import json
+from pathlib import Path
+import sys
+manifest = json.loads(Path(sys.argv[1]).read_text())
+first, remaining = [], []
+for item in manifest["items"]:
+    target = first if item["kind"] == "Namespace" or item["metadata"]["name"] in {
+        "authserver", "authserver-http-ingress"} else remaining
+    target.append(item)
+for name, items in (("authserver", first), ("business", remaining)):
+    Path(sys.argv[2], name + ".json").write_text(json.dumps({"apiVersion": "v1", "kind": "List", "items": items}))
+PY_STAGE
+  kubectl --context "$KUBE_CONTEXT" apply -f "$release_temp/authserver.json"
+  "$PAY_ROOT/scripts/verify.sh" authserver
+  kubectl --context "$KUBE_CONTEXT" apply -f "$release_temp/business.json"
+else
+  kubectl --context "$KUBE_CONTEXT" apply -f "$release_file"
+fi
 "$PAY_ROOT/scripts/verify.sh" "$scope"

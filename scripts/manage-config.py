@@ -14,9 +14,8 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 NAMESPACE = "loadup-pay"
 KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-TOKEN_TARGETS = {"customer": (), "product": ("limitcenter",), "limitcenter": ("payment",),
-                 "payment": ("acquire", "limitcenter", "realtime"), "acquire": ("payment", "realtime"),
-                 "realtime": (), "reconciliation": ("payment",)}
+SERVICE_CALLERS = {"product", "limitcenter", "payment", "acquire", "reconciliation"}
+
 
 
 def fail(message):
@@ -24,6 +23,9 @@ def fail(message):
 
 
 def kube(*args, body=None):
+    # Mutations otherwise return human-readable messages, which are not JSON.
+    if args[0] in {"create", "replace"}:
+        args = (*args, "-o", "json")
     result = subprocess.run(
         ["kubectl", "--context", os.environ.get("KUBE_CONTEXT", "orbstack"),
          "--namespace", NAMESPACE, "--request-timeout=30s", *args],
@@ -53,30 +55,44 @@ def env_file(path):
     return data
 
 
-def token_data(app, directory):
-    required = {f"{target}.jwt" for target in TOKEN_TARGETS[app]}
-    path = directory / "service-tokens"
-    if not path.is_dir():
-        fail(f"Missing token directory: {path}")
-    data = {}
-    for file in sorted(path.iterdir()):
-        if file.name == ".gitkeep":
-            continue
-        if file.is_symlink() or not file.is_file() or not re.fullmatch(r"[a-z0-9-]+\.jwt", file.name):
-            fail(f"Only regular <service>.jwt files are allowed: {path}")
-        value = file.read_bytes()
-        if not value.strip():
-            fail(f"Empty token file: {file}")
-        data[file.name] = base64.b64encode(value).decode("ascii")
-    if required - data.keys():
-        fail(f"Missing required token files for {app}: {', '.join(sorted(required - data.keys()))}")
-    public_key = directory.parent / "jwt-public.pem"
-    if public_key.is_file():
-        pem = public_key.read_bytes()
-        if not pem.startswith(b"-----BEGIN PUBLIC KEY-----") or b"PRIVATE" in pem:
-            fail("jwt-public.pem must contain an X.509 public key, never a private key.")
-        data["jwt-public.pem"] = base64.b64encode(pem).decode("ascii")
-    return data
+def file_data(app, directory):
+    if app != "authserver":
+        return None
+    key_store = directory / "authserver.p12"
+    if key_store.is_symlink() or not key_store.is_file() or not key_store.stat().st_size:
+        fail("AuthServer requires its local authserver.p12 KeyStore; run authserver.sh prepare-dev for dev.")
+    if key_store.stat().st_size > 1024 * 1024:
+        fail("AuthServer KeyStore exceeds the Kubernetes Secret size limit.")
+    return {"authserver.p12": base64.b64encode(key_store.read_bytes()).decode("ascii")}
+
+
+def catalog_data(directory, secret):
+    path = directory.parent / "service-authorizations.json"
+    catalog = json.loads(path.read_text())
+    clients = catalog.get("clients")
+    if not isinstance(clients, list) or not clients:
+        fail("service-authorizations.json must contain service clients.")
+    seen = set()
+    for client in clients:
+        client_id = client.get("clientId")
+        if not isinstance(client_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", client_id) or client_id in seen:
+            fail("Invalid or duplicate authorization client id.")
+        seen.add(client_id)
+        for field, limit in (("tenantId", 64), ("serviceId", 64), ("audience", 128)):
+            if not isinstance(client.get(field), str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1," + str(limit) + "}", client[field]):
+                fail("Invalid authorization identity; logical tenant ids are distinct from database schemas.")
+        permissions = client.get("permissions")
+        if not isinstance(permissions, list) or not permissions or any(
+                not isinstance(permission, str) or not re.fullmatch(r"pay:[a-z0-9:-]{1,120}", permission)
+                for permission in permissions):
+            fail("Invalid service permissions.")
+        variable = client.get("secretEnv")
+        if (not isinstance(variable, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", variable)
+                or not isinstance(client.get("enabled"), bool)):
+            fail("Each service client requires an explicit enabled flag and secretEnv name.")
+        if client["enabled"] and not re.fullmatch(r"[A-Za-z0-9_-]{32,72}", secret.get(variable, "")):
+            fail(f"Missing/invalid client secret in authserver/secret.env: {variable}")
+    return json.dumps(catalog, separators=(",", ":"), sort_keys=True)
 
 
 def resource(kind, name, data, immutable):
@@ -90,8 +106,8 @@ def resource(kind, name, data, immutable):
 
 def names(app):
     return [("ConfigMap", f"{app}-config-{os.environ['CONFIG_VERSION']}"),
-            ("Secret", f"{app}-secret-{os.environ['SECRET_VERSION']}"),
-            ("Secret", f"{app}-service-tokens")]
+            ("Secret", f"{app}-secret-{os.environ['SECRET_VERSION']}")] + (
+                [("Secret", f"authserver-files-{os.environ['SECRET_VERSION']}")] if app == "authserver" else [])
 
 
 def local_resources(app, directory):
@@ -104,13 +120,11 @@ def local_resources(app, directory):
                        ("JDBC_URL", "JDBC_USERNAME")]
     if not config.get(f"{prefix}_JWT_ISSUER_URI", config.get("JWT_ISSUER_URI", "")).strip():
         fail(f"Missing JWT_ISSUER_URI in common.env or {prefix}_JWT_ISSUER_URI for {app}.")
-    public_key = config.get(f"{prefix}_JWT_PUBLIC_KEY_LOCATION", config.get("JWT_PUBLIC_KEY_LOCATION", ""))
-    jwk_set = config.get(f"{prefix}_JWT_JWK_SET_URI", config.get("JWT_JWK_SET_URI", ""))
-    if bool(public_key) == bool(jwk_set):
-        fail(f"Configure exactly one JWT_PUBLIC_KEY_LOCATION or JWT_JWK_SET_URI for {app}.")
-    if public_key and (public_key != "file:/var/run/loadup/secrets/jwt-public.pem"
-                       or not (directory.parent / "jwt-public.pem").is_file()):
-        fail(f"Local JWT verification requires jwt-public.pem and the mounted file location for {app}.")
+    if app != "authserver":
+        public_key = config.get(f"{prefix}_JWT_PUBLIC_KEY_LOCATION", config.get("JWT_PUBLIC_KEY_LOCATION", ""))
+        jwk_set = config.get(f"{prefix}_JWT_JWK_SET_URI", config.get("JWT_JWK_SET_URI", ""))
+        if public_key or not jwk_set:
+            fail(f"AuthServer migration requires JWKS verification, without legacy public-key files: {app}.")
     required_secret = [f"{prefix}_JDBC_PASSWORD"]
     if app == "reconciliation":
         required_config.append("RECONCILIATION_S3_BUCKET")
@@ -120,6 +134,14 @@ def local_resources(app, directory):
         required_secret.append("LIMITCENTER_PERMIT_SECRET")
     if app == "payment":
         required_secret.append("PAYMENT_INPUT_FINGERPRINT_KEY")
+    if app in SERVICE_CALLERS:
+        required_config.append("SERVICE_AUTH_TOKEN_URI")
+        required_secret.append("SERVICE_AUTH_CLIENT_SECRET")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{32,72}", secret.get("SERVICE_AUTH_CLIENT_SECRET", "")):
+            fail(f"Missing/invalid SERVICE_AUTH_CLIENT_SECRET for {app} (32-72 URL-safe ASCII characters).")
+    if app == "authserver":
+        required_secret.append("KMS_KEYSTORE_PASSWORD")
+        config["AUTHSERVER_SERVICE_AUTHORIZATIONS"] = catalog_data(directory, secret)
     for data, required in ((config, required_config), (secret, required_secret)):
         for key in required:
             if not data.get(key, "").strip():
@@ -135,15 +157,15 @@ def local_resources(app, directory):
         if any(word in key for word in ("PASSWORD", "SECRET", "PRIVATE_KEY", "ACCESS_KEY", "FINGERPRINT_KEY")):
             fail(f"Sensitive environment key belongs in secret.env: {app}/{key}")
     encoded = {key: base64.b64encode(value.encode("utf-8")).decode("ascii") for key, value in secret.items()}
-    return config, encoded, token_data(app, directory)
+    files = file_data(app, directory)
+    return (config, encoded, files) if files is not None else (config, encoded)
 
 
 def resolve_versions(apps, directory):
     values = {app: local_resources(app, directory / app) for app in apps}
     versions = []
     for index, variable, prefix in ((0, "CONFIG_VERSION", "cfg"), (1, "SECRET_VERSION", "sec")):
-        content = json.dumps({app: ({"env": value[0], "publicKey": value[2].get("jwt-public.pem")}
-                                    if index == 0 else value[index])
+        content = json.dumps({app: (value[0] if index == 0 else value[1:])
                               for app, value in values.items()}, sort_keys=True).encode("utf-8")
         version = os.environ.get(variable) or f"{prefix}-{os.environ.get('APP_ENV', 'dev')}-{hashlib.sha256(content).hexdigest()[:12]}"
         if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?", version):
@@ -181,10 +203,10 @@ def references(node):
 
 
 def delete_resources(apps, selection):
-    indexes = {"config": (0,), "secret": (1,), "tokens": (2,), "all": (0, 1, 2)}
+    indexes = {"config": (0,), "secret": (1, 2), "all": (0, 1, 2)}
     if selection not in indexes:
-        fail("Delete resource must be config, secret, tokens or all.")
-    targets = [names(app)[index] for app in apps for index in indexes[selection]]
+        fail("Delete resource must be config, secret or all.")
+    targets = [name for app in apps for index, name in enumerate(names(app)) if index in indexes[selection]]
     objects = [(kind, name, get(kind, name)) for kind, name in targets]
     # Fail closed if any workload type cannot be listed. Zero-replica history still matters.
     workloads = kube("get", "pods,deployments,replicasets,statefulsets,daemonsets,jobs,cronjobs", "-o", "json")
@@ -229,14 +251,11 @@ def main():
         resolve_versions(apps, directory)
     # Validate every selected app before the first cluster mutation.
     for app in apps:
-        if action == "tokens":
-            desired.append(resource("Secret", f"{app}-service-tokens", token_data(app, directory / app), False))
-        else:
-            values = local_resources(app, directory / app)
-            if action != "check":
-                desired.extend(resource(kind, name, data, index != 2)
-                               for index, ((kind, name), data) in enumerate(zip(names(app), values)))
-        print(f"Validated {app} (values hidden; token claims/signatures require issuer verification).")
+        values = local_resources(app, directory / app)
+        if action != "check":
+            desired.extend(resource(kind, name, data, True)
+                           for (kind, name), data in zip(names(app), values))
+        print(f"Validated {app} (values hidden; runtime authorization must be verified separately).")
     if action == "check":
         return
     namespace = kube("get", "namespace", NAMESPACE, "--ignore-not-found", "-o", "json")
@@ -247,12 +266,7 @@ def main():
         if existing and existing["metadata"].get("deletionTimestamp"):
             fail(f"Resource is being deleted: {kind}/{name}; wait and investigate before retrying.")
         if existing and not same(existing, obj):
-            if action != "tokens" or existing.get("immutable", False) or existing.get("type", "Opaque") != "Opaque":
-                fail(f"Changed existing {kind}/{name}; use a new snapshot version or explicit tokens rotation.")
-            # Preserve labels/annotations/ownership and use resourceVersion for optimistic locking.
-            existing["data"] = obj["data"]
-            existing["immutable"] = False
-            pending.append(("replace", existing))
+            fail(f"Changed existing {kind}/{name}; use a new snapshot version.")
         elif existing:
             print(f"Reused {kind}/{name}")
         else:

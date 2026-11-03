@@ -24,3 +24,7 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_realtime')
 SELECT 'CREATE DATABASE loadup_reconciliation OWNER admin'
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_reconciliation')
 \gexec
+
+SELECT 'CREATE DATABASE loadup_authserver OWNER admin'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'loadup_authserver')
+\gexec

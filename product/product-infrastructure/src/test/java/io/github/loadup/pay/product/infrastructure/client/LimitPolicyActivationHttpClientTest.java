@@ -1,14 +1,8 @@
 package io.github.loadup.pay.product.infrastructure.client;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
@@ -17,73 +11,49 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.product.infrastructure.config.PolicyPublicationTransportProperties;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class LimitPolicyActivationHttpClientTest {
-    final LimitCenterHttpService limitCenterHttp = mock(LimitCenterHttpService.class);
-    final List<String> attachments = new ArrayList<>();
+    final LimitCenterHttpService remote = mock(LimitCenterHttpService.class);
+    final ServiceAccessTokens tokens = mock(ServiceAccessTokens.class);
+    final LimitPolicyActivationHttpClient client = new LimitPolicyActivationHttpClient(
+            remote, new PolicyPublicationTransportProperties("tenant", "product", "limitcenter"), tokens);
 
-    @TempDir
-    Path directory;
-
-    LimitPolicyActivationHttpClient client(Path file) {
-        var client = new LimitPolicyActivationHttpClient(
-                limitCenterHttp, new PolicyPublicationTransportProperties("tenant", file));
-        return client;
+    @Test
+    void eachAttemptUsesTheSharedCredentialSource() {
+        when(tokens.token("tenant", "product", "limitcenter")).thenReturn("first", "second");
+        var ack = new LimitPolicyActivationDTO("policy", 1, "a".repeat(64), OffsetDateTime.now());
+        when(remote.activate(anyString(), isNull())).thenReturn(SuccessResponse.of(ack));
+        assertEquals(ack, client.activate("tenant", null));
+        assertEquals(ack, client.activate("tenant", null));
+        verify(remote).activate("Bearer first", null);
+        verify(remote).activate("Bearer second", null);
     }
 
     @Test
-    void everyAttemptReadsTheRotatedServiceTokenWithoutPersistingIt() throws Exception {
-        var file = directory.resolve("token");
-        Files.writeString(file, "header.payload.signature-v1" + System.lineSeparator());
-        var ack = new LimitPolicyActivationDTO(
-                "policy", 1, "a".repeat(64), OffsetDateTime.parse("2026-10-21T10:00:00+08:00"));
-        doAnswer(invocation -> {
-                    attachments.add(invocation.getArgument(0, String.class));
-                    return SuccessResponse.of(ack);
-                })
-                .when(limitCenterHttp)
-                .activate(anyString(), isNull());
-        var client = client(file);
-        client.activate("tenant", null);
-        Files.writeString(file, "header.payload.signature-v2" + System.lineSeparator());
-        client.activate("tenant", null);
-        verify(limitCenterHttp, times(2)).activate(anyString(), isNull());
-        assertEquals(List.of("Bearer header.payload.signature-v1", "Bearer header.payload.signature-v2"), attachments);
+    void anotherTenantIsRejectedBeforeAuthorizationOrTransport() {
+        assertThrows(CommonException.class, () -> client.activate("other", null));
+        verifyNoInteractions(tokens, remote);
     }
 
     @Test
-    void anotherTenantCannotUseTheConfiguredPublisherCredential() {
-        assertThrows(
-                CommonException.class,
-                () -> client(directory.resolve("missing")).activate("other", null));
-        verifyNoInteractions(limitCenterHttp);
+    void authorizationFailureDoesNotReachTheBusinessProviderOrLeakCredentials() {
+        when(tokens.token(anyString(), anyString(), anyString()))
+                .thenThrow(new IllegalStateException("synthetic-secret"));
+        var failure = assertThrows(CommonException.class, () -> client.activate("tenant", null));
+        assertNull(failure.getCause());
+        assertFalse(failure.toString().contains("synthetic-secret"));
+        verifyNoInteractions(remote);
     }
 
     @Test
-    void missingOrOversizedCredentialsFailWithoutAnHttpCall() throws Exception {
-        var file = directory.resolve("token");
-        assertThrows(CommonException.class, () -> client(file).activate("tenant", null));
-        Files.writeString(file, "a".repeat(16385));
-        assertThrows(CommonException.class, () -> client(file).activate("tenant", null));
-        verifyNoInteractions(limitCenterHttp);
-    }
-
-    @Test
-    void aRemoteBusinessFailureIsNotAnActivationAck() throws Exception {
-        var file = directory.resolve("token");
-        Files.writeString(file, "header.payload.signature");
-        doAnswer(invocation ->
-                        new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null))
-                .when(limitCenterHttp)
-                .activate(anyString(), isNull());
-        assertThrows(CommonException.class, () -> client(file).activate("tenant", null));
-        verify(limitCenterHttp).activate(anyString(), isNull());
+    void remoteBusinessFailureIsNotAnActivationAck() {
+        when(tokens.token(anyString(), anyString(), anyString())).thenReturn("token");
+        when(remote.activate(anyString(), isNull()))
+                .thenReturn(
+                        new SuccessResponse<>(Result.buildFailure(LimitCenterResultCodeEnum.POLICY_CONFLICT), null));
+        assertThrows(CommonException.class, () -> client.activate("tenant", null));
     }
 }

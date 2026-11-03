@@ -3,7 +3,6 @@ package io.github.loadup.pay.acquire.infrastructure.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -18,12 +17,10 @@ class HttpPropertiesValidationTest {
                 .withUserConfiguration(MethodValidationConfiguration.class)
                 .withBean(
                         PaymentTransportProperties.class,
-                        () -> new PaymentTransportProperties(
-                                "__default__", "acquire", "payment", Path.of("/tmp/payment.jwt")))
+                        () -> new PaymentTransportProperties("__default__", "acquire", "payment"))
                 .withBean(
                         AcquireRealtimeProperties.class,
-                        () -> new AcquireRealtimeProperties(
-                                "__default__", "acquire", "realtime", Path.of("/tmp/realtime.jwt")))
+                        () -> new AcquireRealtimeProperties("__default__", "acquire", "realtime"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(AopUtils.isAopProxy(context.getBean(PaymentTransportProperties.class)))
@@ -35,7 +32,7 @@ class HttpPropertiesValidationTest {
 
     @Test
     void constructorStillRejectsInvalidSettings() {
-        assertThatThrownBy(() -> new PaymentTransportProperties("", "acquire", "payment", Path.of("/tmp/payment.jwt")))
+        assertThatThrownBy(() -> new PaymentTransportProperties("", "acquire", "payment"))
                 .isInstanceOf(io.github.loadup.commons.error.DomainViolation.class);
     }
 

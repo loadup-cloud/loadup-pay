@@ -1,6 +1,5 @@
 package io.github.loadup.pay.payment.infrastructure.client;
 
-import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE;
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,8 +30,6 @@ import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -44,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -60,11 +56,8 @@ class PaymentLimitHttpClientTest {
     final LimitRefundRestoreCommand refundRestore = new LimitRefundRestoreCommand(
             "operation", "payment", "refund", 3, "refund-event", 1000, 1500, "CNY", "refund-evidence");
 
-    @TempDir
-    Path directory;
-
     PaymentLimitHttpClient client;
-    Path tokenFile;
+    String credential;
 
     Map<String, Object> claims() {
         return new HashMap<>(Map.of(
@@ -86,7 +79,7 @@ class PaymentLimitHttpClientTest {
         var encoder = Base64.getUrlEncoder().withoutPadding();
         var token = encoder.encodeToString(mapper.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims)) + ".c3ludGhldGlj";
-        Files.writeString(tokenFile, token);
+        credential = token;
         return token;
     }
 
@@ -104,13 +97,11 @@ class PaymentLimitHttpClientTest {
 
     @BeforeEach
     void setup() throws Exception {
-        tokenFile = directory.resolve("limitcenter.jwt");
         token(claims());
         client = new PaymentLimitHttpClient(
                 limitCenterHttp,
-                mapper,
-                new PaymentLimitProperties("tenant", "payment", "limitcenter", tokenFile),
-                clock);
+                (tenant, service, audience) -> credential,
+                new PaymentLimitProperties("tenant", "payment", "limitcenter"));
         doAnswer(invocation -> {
                     attachments.add(invocation.getArgument(0, String.class));
                     return SuccessResponse.of(confirmed());
@@ -145,7 +136,7 @@ class PaymentLimitHttpClientTest {
     }
 
     @Test
-    void refundRestoreUsesItsNamedOperationAndOriginalTypedCommandWithMountedCredential() throws Exception {
+    void refundRestoreUsesItsNamedOperationAndOriginalTypedCommandWithServiceCredential() throws Exception {
         var ack = new LimitRestoreDTO(
                 "operation",
                 "payment",
@@ -160,7 +151,7 @@ class PaymentLimitHttpClientTest {
                 1000,
                 true);
         doAnswer(invocation -> {
-                    assertEquals("Bearer " + Files.readString(tokenFile), invocation.getArgument(0, String.class));
+                    assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
                     return SuccessResponse.of(ack);
                 })
                 .when(limitCenterHttp)
@@ -170,7 +161,7 @@ class PaymentLimitHttpClientTest {
     }
 
     @Test
-    void mountedServiceTokenIsRereadBetweenRetriesAndOperations() throws Exception {
+    void serviceTokenProviderIsConsultedBetweenRetriesAndOperations() throws Exception {
         var first = token(claims());
         client.confirm("tenant", confirm);
         var rotated = claims();
@@ -178,22 +169,6 @@ class PaymentLimitHttpClientTest {
         var second = token(rotated);
         client.release("tenant", release);
         assertEquals(List.of("Bearer " + first, "Bearer " + second), attachments);
-    }
-
-    @Test
-    void anotherTenantOrWrongAudienceDoesNotReachTheNetwork() throws Exception {
-        assertSame(
-                ACTION_FORBIDDEN,
-                assertThrows(CommonException.class, () -> client.confirm("other-tenant", confirm))
-                        .getResultCode());
-        var wrong = claims();
-        wrong.put("aud", "acquire");
-        token(wrong);
-        assertSame(
-                DEPENDENCY_UNAVAILABLE,
-                assertThrows(CommonException.class, () -> client.release("tenant", release))
-                        .getResultCode());
-        verifyNoInteractions(limitCenterHttp);
     }
 
     @Test

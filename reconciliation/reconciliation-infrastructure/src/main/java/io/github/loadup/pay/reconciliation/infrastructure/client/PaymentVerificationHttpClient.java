@@ -12,25 +12,23 @@ import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.payment.client.support.PaymentEvidenceContracts;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentVerification;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentVerificationHttpClient implements ReconciliationPaymentVerification {
     private final ReconciliationPaymentProperties properties;
-    private final ReconciliationServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final PaymentVerificationHttpService paymentVerificationHttp;
 
     public PaymentVerificationHttpClient(
             PaymentVerificationHttpService paymentVerificationHttp,
             ReconciliationPaymentProperties properties,
-            JsonMapper mapper,
-            Clock clock) {
+            ServiceAccessTokens tokens) {
         this.paymentVerificationHttp = paymentVerificationHttp;
         this.properties = properties;
-        this.tokens = new ReconciliationServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -43,10 +41,7 @@ public class PaymentVerificationHttpClient implements ReconciliationPaymentVerif
         }
         try {
             var value = HttpServiceResponses.requiredData(paymentVerificationHttp.verify(
-                    "Bearer "
-                            + tokens.read(
-                                    tenant, properties.serviceId(), properties.audience(), properties.tokenFile()),
-                    query));
+                    "Bearer " + tokens.token(tenant, properties.serviceId(), properties.audience()), query));
             return PaymentEvidenceContracts.verification(value);
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

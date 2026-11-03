@@ -3,7 +3,8 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 if [[ "${1:-}" == --help || "${1:-}" == -h || "${2:-}" == --help || "${2:-}" == -h ]]; then
   echo 'Usage: scripts/build.sh [all|application] [extra mvnd arguments]'
-  echo 'Builds clean executable JARs and local Docker images; test compilation/execution is skipped by default.'
+  echo 'Installs required sibling framework components, then builds clean JARs and local Docker images; tests are skipped.'
+  echo 'Set SKIP_FRAMEWORK_BUILD=1 only when the matching framework artifacts are already installed.'
   exit 0
 fi
 scope=${1:-all}
@@ -20,11 +21,14 @@ for app in "${SELECTED_APPS[@]}"; do
     exit 1
   fi
 done
+if [[ "${SKIP_FRAMEWORK_BUILD:-0}" != 1 ]]; then
+  "$PAY_ROOT/scripts/build-framework.sh"
+fi
 cd "$PAY_ROOT"
 projects=()
 for app in "${SELECTED_APPS[@]}"; do projects+=("$app/$app-bootstrap"); done
 project_list=$(IFS=,; echo "${projects[*]}")
-mvnd --batch-mode clean package -pl "$project_list" -am -Dmaven.test.skip=true "$@"
+mvnd --batch-mode clean package -pl "$project_list" -am -Dmaven.test.skip=true -Dskip.spotless=true -Dskip.spotbugs=true "$@"
 shopt -s nullglob
 for app in "${SELECTED_APPS[@]}"; do
   jars=("$app/$app-bootstrap/target/$app-bootstrap-"*.jar)

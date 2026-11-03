@@ -28,3 +28,7 @@
 !reconciliation/reconciliation-bootstrap/
 !reconciliation/reconciliation-bootstrap/target/
 !reconciliation/reconciliation-bootstrap/target/reconciliation-bootstrap-*.jar
+!authserver/
+!authserver/authserver-bootstrap/
+!authserver/authserver-bootstrap/target/
+!authserver/authserver-bootstrap/target/authserver-bootstrap-*.jar

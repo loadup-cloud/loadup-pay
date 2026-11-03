@@ -15,7 +15,7 @@ payment 拥有独立付款、attempt、退款、渠道绑定与路由事实。�
 入口为 `payment-bootstrap`；当前 PostgreSQL 连接使用 `PAYMENT_JDBC_URL/USERNAME/PASSWORD`，认证使用 `PAYMENT_JWT_ISSUER_URI/AUDIENCE/JWK_SET_URI`。
 
 - HTTP 默认 8080；消费者普通读取 3 秒、零自动重试，账单下载单独配置较长超时。
-- 向 acquire、realtime、limitcenter 调用分别配置可信租户、服务身份、目标 audience 和 token-file，详见 bootstrap 的 `application.yml`。
+- 向 acquire、realtime、limitcenter 调用分别配置可信租户、服务身份、目标 audience，并通过共享 OAuth2 客户端获取服务令牌，详见 bootstrap 的 `application.yml`。
 - 安全输入依赖 KMS：`PAYMENT_KMS_ENDPOINT`、`PAYMENT_KMS_TOKEN`，以及输入加密键、指纹键和版本；凭证不写入日志或公开 DTO。
 - Local Scheduler 默认每 30 秒扫描，DelayedTask 默认批量 100、最大 5 次、租约 5 分钟、失败重试间隔 1 分钟。业务正常轮询与 native 失败重试有不同语义。
 - 恢复 Bulkhead 按进程/渠道共享，默认并发 16、等待 0；首提不纳入恢复预算。

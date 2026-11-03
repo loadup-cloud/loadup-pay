@@ -15,23 +15,22 @@ import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentRealtimeProperties;
 import io.github.loadup.pay.realtime.client.dto.ProjectionAckDTO;
 import io.github.loadup.pay.realtime.client.http.RealtimeHttpService;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentRealtimeHttpClient implements PaymentRealtimeClient {
     private final PaymentRealtimeProperties properties;
-    private final PaymentServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final RealtimeHttpService realtimeHttp;
 
     public PaymentRealtimeHttpClient(
-            RealtimeHttpService realtimeHttp, JsonMapper mapper, PaymentRealtimeProperties properties, Clock clock) {
+            RealtimeHttpService realtimeHttp, ServiceAccessTokens tokens, PaymentRealtimeProperties properties) {
         this.realtimeHttp = realtimeHttp;
         this.properties = properties;
-        this.tokens = new PaymentServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -62,7 +61,7 @@ public class PaymentRealtimeHttpClient implements PaymentRealtimeClient {
             throw new CommonException(INVALID_STATE);
         }
         try {
-            var token = tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
+            var token = tokens.token(tenant, properties.serviceId(), properties.audience());
             return HttpServiceResponses.requiredData(call.apply("Bearer " + token));
         } catch (RuntimeException failure) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

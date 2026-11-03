@@ -13,34 +13,22 @@ import io.github.loadup.pay.limitcenter.infrastructure.config.PaymentEvidencePro
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.http.PaymentHttpService;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.time.Clock;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.Map;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
-    private final JsonMapper mapper;
+    private final ServiceAccessTokens tokens;
     private final PaymentEvidenceProperties properties;
-    private final Clock clock;
     private final PaymentHttpService paymentHttp;
 
     public PaymentEvidenceHttpClient(
-            PaymentHttpService paymentHttp, JsonMapper mapper, PaymentEvidenceProperties properties, Clock clock) {
+            PaymentHttpService paymentHttp, ServiceAccessTokens tokens, PaymentEvidenceProperties properties) {
         this.paymentHttp = paymentHttp;
-        this.mapper = mapper;
+        this.tokens = tokens;
         this.properties = properties;
-        this.clock = clock;
     }
 
     @Override
@@ -73,42 +61,6 @@ public class PaymentEvidenceHttpClient implements PaymentEvidenceClient {
     }
 
     private String credential(String tenant) {
-        // Preflight routing claims only. The receiving provider rebuilds identity from the same token.
-        try (var input = Files.newInputStream(properties.tokenFile())) {
-            byte[] bytes = input.readNBytes(16385);
-            if (bytes.length > 16384) {
-                throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            }
-            String token = new String(bytes, StandardCharsets.US_ASCII).strip();
-            String[] parts = token.split("[.]", -1);
-            if (parts.length != 3 || Arrays.stream(parts).anyMatch(part -> !part.matches("[A-Za-z0-9_-]+"))) {
-                throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            }
-            var claims = mapper.readValue(
-                    Base64.getUrlDecoder().decode(parts[1]), new TypeReference<Map<String, Object>>() {});
-            Object audience = claims.get("aud");
-            boolean expectedAudience = properties.audience().equals(audience)
-                    || audience instanceof Collection<?> values && values.contains(properties.audience());
-            long now = clock.instant().getEpochSecond();
-            if (!tenant.equals(claims.get("tenant_id"))
-                    || !"SERVICE".equals(claims.get("principal_type"))
-                    || !properties.serviceId().equals(claims.get("service_id"))
-                    || !properties.serviceId().equals(claims.get("sub"))
-                    || !expectedAudience
-                    || epoch(claims.get("exp")) <= now
-                    || claims.get("nbf") != null && epoch(claims.get("nbf")) > now) {
-                throw new CommonException(DEPENDENCY_UNAVAILABLE);
-            }
-            return token;
-        } catch (IOException failure) {
-            throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        }
-    }
-
-    private long epoch(Object value) {
-        if (!(value instanceof Number)) {
-            throw new CommonException(DEPENDENCY_UNAVAILABLE);
-        }
-        return new BigDecimal(value.toString()).longValueExact();
+        return tokens.token(tenant, properties.serviceId(), properties.audience());
     }
 }

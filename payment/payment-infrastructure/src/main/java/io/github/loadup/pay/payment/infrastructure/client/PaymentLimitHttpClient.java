@@ -25,23 +25,22 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitRestoreDTO;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
-import java.time.Clock;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class PaymentLimitHttpClient implements PaymentLimitClient {
     private final PaymentLimitProperties properties;
-    private final PaymentServiceTokenReader tokens;
+    private final ServiceAccessTokens tokens;
     private final LimitCenterHttpService limitCenterHttp;
 
     public PaymentLimitHttpClient(
-            LimitCenterHttpService limitCenterHttp, JsonMapper mapper, PaymentLimitProperties properties, Clock clock) {
+            LimitCenterHttpService limitCenterHttp, ServiceAccessTokens tokens, PaymentLimitProperties properties) {
         this.limitCenterHttp = limitCenterHttp;
         this.properties = properties;
-        this.tokens = new PaymentServiceTokenReader(mapper, clock);
+        this.tokens = tokens;
     }
 
     @Override
@@ -102,6 +101,6 @@ public class PaymentLimitHttpClient implements PaymentLimitClient {
     }
 
     private String credential(String tenant) {
-        return tokens.read(tenant, properties.serviceId(), properties.audience(), properties.tokenFile());
+        return tokens.token(tenant, properties.serviceId(), properties.audience());
     }
 }

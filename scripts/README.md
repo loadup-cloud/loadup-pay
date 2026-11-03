@@ -1,78 +1,51 @@
 # 构建与部署脚本
 
-用于七个应用的本地JAR、Docker镜像和OrbStack Kubernetes部署。每个应用目录提供`build.sh`与`deploy.sh`，入口委托本目录的公共实现。
+用于八个应用（七个业务应用和 AuthServer）的本地JAR、Docker镜像和OrbStack Kubernetes部署。每个应用目录提供`build.sh`与`deploy.sh`，入口委托本目录的公共实现。
 
 | 入口                                | 行为                                            |
 |-------------------------------------|-------------------------------------------------|
-| `./scripts/build.sh all`            | 一次Maven构建七应用及其依赖，然后构建七个镜像   |
-| `./scripts/deploy.sh all`           | 构建JAR/镜像、部署七应用、等待就绪端点          |
+| `./scripts/build.sh all`            | 一次Maven构建八应用及其依赖，然后构建八个镜像   |
+| `./scripts/deploy.sh all`           | 构建JAR/镜像、部署八应用、等待就绪端点          |
 | `./payment/build.sh`                | 仅构建payment及其必需依赖，生成payment镜像      |
-| `./payment/deploy.sh`               | 构建并部署payment，不修改其他六个应用           |
+| `./payment/deploy.sh`               | 构建并部署payment，不修改其他应用           |
 | `./scripts/verify.sh [all或应用名]` | 检查选定Deployment与Service ready EndpointSlice |
 | `./scripts/render.sh [all或应用名]` | 仅渲染镜像/配置版本引用清单供审查，不 apply |
 | `./scripts/up.sh [all或应用名]` | 校验并创建配置快照，再调用 deploy.sh 构建及部署 |
-| `./scripts/configmap.sh <动作> [all或应用名]` | 初始化、检查、创建、换版、查看、删除配置及轮换令牌 |
+| `./scripts/configmap.sh <动作> [all或应用名]` | 初始化、检查、创建、换版、查看、删除配置及管理授权配置 |
 
 ## 环境配置与一键部署
 
-直接维护 deploy/config/dev、test、prod，每个环境包含 common.env（共享普通参数）、各应用 config.env、secret.env 和 service-tokens/。
-不再使用模板、init 或自动复制配置。secret.env 和 *.jwt 被 Git 忽略；dev 已迁移现有本地值，test/prod 需按各自环境填写。
-完整字段和离线 JWT 操作见 [环境配置](../deploy/config/README.md)。
+直接维护 `deploy/config/dev|test|prod` 的 common.env、应用 config.env/secret.env 与 service-authorizations.json。AuthServer 另有忽略提交的 authserver.p12。配置含义见 [环境目录](../deploy/config/README.md) 与 [AuthServer](../authserver/README.md)。
 
 ```bash
-# 在 loadup-pay 根目录运行；APP_ENV 默认 dev。
+# 本地准备缺失的 RSA KeyStore 和匹配的应用凭证，不访问集群。
+./scripts/authserver.sh prepare-dev
+# 先准备独立 loadup_authserver 数据库。构建脚本会安装所需 framework 组件。
 APP_ENV=dev ./scripts/configmap.sh check all
-APP_ENV=dev ./scripts/configmap.sh versions all
-APP_ENV=dev ./scripts/configmap.sh create all
-
-# 配置准备、构建镜像、发布七应用；版本由实际内容自动计算。
-APP_ENV=dev IMAGE_TAG=release-002 ./scripts/up.sh all
-# 本次变更包含新的公钥验签代码，须先构建新镜像，不能复用旧 release-001。
-
-# 修改 dev/payment/config.env 后换版更新（单应用），不修改其他应用。
-APP_ENV=dev IMAGE_TAG=release-003 ./scripts/up.sh payment
-# 只创建新快照，不立即滚动：
+APP_ENV=dev IMAGE_TAG=auth-001 ./scripts/up.sh authserver
+APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
+# 仅创建快照，暂不发布：
 APP_ENV=dev ./scripts/configmap.sh update payment
-
-# 离线签发：默认保留已有文件；RENEW=1 才重签。
-./scripts/dev-jwt.sh
-RENEW=1 ./scripts/dev-jwt.sh
-APP_ENV=dev ./scripts/configmap.sh tokens all
-
-# 非 dev 环境必须显式指定目标 context；环境目录不自动切换集群。
+# 非 dev 必须指定 context，配置目录不会自动切换集群。
 APP_ENV=test KUBE_CONTEXT=my-test-cluster ./scripts/configmap.sh create all
-
-# 查看或删除明确版本；删除默认仅 ConfigMap，其他范围为 secret/tokens/all。
+# 查看或删除明确版本；删除范围为 config（默认）、secret、all。
 CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh status payment
 CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delete payment config
 ```
 
-up.sh 会先以选定应用的配置内容计算版本，再创建或复用 immutable 快照，最后调用原 deploy.sh。
-默认版本为 cfg-<环境>-<内容摘要> / sec-<环境>-<内容摘要>；相同内容重复执行可复用。公钥内容变化也进入 ConfigMap 摘要并触发滚动。
-单应用与 all 的计算范围不同，应保存实际发布版本用于回退；CONFIG_VERSION/SECRET_VERSION 可显式覆盖，旧快照内容不同仍拒绝覆盖。
-CONFIG_DIR 可覆盖环境目录（必须具有同样的 common.env/应用目录结构）；直接 deploy.sh/render.sh 继续要求显式版本。
+up.sh 按选定应用的内容计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，创建不可变快照并发布。授权 JSON 进入 ConfigMap 摘要，密码及 PKCS12 进入 Secret 摘要；相同对象复用，同名不同内容拒绝。CONFIG_DIR 可覆盖完整环境目录；单应用与 all 摘要范围不同，回退使用归档中的实际版本。
 
-check 校验必需值、环境格式、密钥长度与凭证文件存在性，不替代实际 JWT 签名/权限、数据库或业务验收。
-create/update 先检查整批选定应用；相同对象复用，同名不同内容拒绝覆盖。没有跨资源事务，部分创建失败时可以排障后重跑。
-服务令牌需显式 tokens 轮换，按本地文件完整替换 Secret 数据；未保留的额外旧文件会被移除。私钥不会上传到 Pod。
-公钥 jwt-public.pem 与服务令牌通过原有 Secret 目录挂载，公钥不是敏感信息。
-首次从旧配置迁移时，先执行 tokens 为现有 Secret 加入公钥，再以新镜像执行 up；旧有效令牌的内容和 issuer 均已保留。
-正常后续部署无需再次签发或轮换。
+业务应用自动获取和缓存短期 OAuth2 服务令牌，不再挂载 JWT 文件，也不需要每次部署签发令牌。私钥仅挂载 AuthServer，公钥经 JWKS 发布。旧离线签发脚本和 tokens 子命令已移除；旧 ignored 文件及运行资源没有自动删除。
 
-默认 context 为 orbstack，namespace 仍为 loadup-pay。test/prod 目录代表配置集合，须分别指定目标集群；本入口不实现同集群多 namespace 的隔离部署。
-发布清单继续按镜像/配置组合归档，删除检查工作负载（含零副本历史 ReplicaSet）和 RELEASE_DIR JSON 记录的引用。
-有引用或读取失败就拒绝删除，没有强制绕过参数；退出回退窗口后需先审查退役相应历史与记录。清理期间不要并发发布。
+版本变化通过滚动重启生效，不承诺 ConfigMap 自动刷新 Bean。test/prod 默认要求 HTTPS token endpoint。凭证与签名密钥轮换、回退限制见 [发布约定](../deploy/CONFIGURATION.md)。
 
-up.sh 只管理应用配置与发布，不安装数据库、RustFS、网关或 JWT 服务。JWT 可直接离线公钥验签，无需 JWKS 服务。
-默认构建行为与原脚本一致；已有**包含本次公钥支持**的镜像可使用 SKIP_BUILD=1 IMAGE_TAG=<tag>。
-
-可选应用名：`acquire`、`payment`、`customer`、`product`、`limitcenter`、`realtime`、`reconciliation`
-。所有入口均可从其他工作目录调用。client/domain 作为应用依赖参与构建，不单独生成部署镜像。
+可选应用：authserver、customer、product、limitcenter、payment、acquire、realtime、reconciliation。up.sh 管理应用配置及发布，不创建数据库、RustFS 或网关控制器；AuthServer 本身已纳入应用清单。dev 的 all/authserver 发布会补齐缺失的本地签名凭证，已有非空值与密钥保留。当前部署仍固定 loadup-pay namespace，使用 OrbStack 本地镜像，不自动发布远程镜像。
 
 ## 前提与默认行为
 
 - Java 25：优先使用项目`mise.toml`已安装的运行时；无mise时使用`JAVA_HOME`/PATH并校验主版本。不自动下载Java，也不回退到Java
   21。
+- 应用构建前自动对相邻 framework 的 HTTP、resource-server、SAS、kms-local 及必需依赖执行窄范围 `clean install`；可用 `FRAMEWORK_DIR` 指定仓库。已安装匹配制品时显式设置 `SKIP_FRAMEWORK_BUILD=1`。独立入口为 `scripts/build-framework.sh`。
 - 使用`mvnd clean package -pl <选定bootstrap列表> -am -Dmaven.test.skip=true`
   ；全量应用只执行一次Maven，不逐应用重复清理共享依赖。默认不编译或执行测试，构建通过不等于单测通过。
 - Docker和Kubernetes默认context均为`orbstack`，脚本通过显式context调用，不更改全局当前context。部署固定namespace为
@@ -102,15 +75,15 @@ CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 ```
 
 部署显式要求 CONFIG_VERSION 与 SECRET_VERSION（不可变快照版本），RELEASE_DIR 可覆盖引用清单归档位置。
-这两个版本参数不会自动创建配置；资源缺失时部署在构建前停止，并提示 [配置准备流程](../deploy/CONFIGURATION.md#从旧本地部署迁移)。
+这两个版本参数不会自动创建配置；资源缺失时部署在构建前停止，并提示 [配置准备流程](../deploy/CONFIGURATION.md#发布)。
 配置源直接维护在 [dev/test/prod 环境目录](../deploy/config/README.md)，可用 up.sh 一次完成配置准备和发布。
 支持环境变量`IMAGE_TAG`、`IMAGE_PREFIX`（默认`loadup-pay`）、`DOCKER_CONTEXT`与`KUBE_CONTEXT`。两端必须使用能访问同一批本地镜像的环境；
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
 `render-deploy.py`只处理`deploy/pay.yml`
-经 kubectl 本地 dry-run 输出的 JSON：全量选择 22 个资源（Namespace、七组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
-渲染器要求七应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
-单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+经 kubectl 本地 dry-run 输出的 JSON：全量选择 25 个资源（Namespace、八组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
+渲染器要求八应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
+全量发布先应用 AuthServer 并等待就绪，再发布七个业务应用；保留完整发布归档，AuthServer 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 
@@ -127,13 +100,13 @@ rollout与ready端点。Kubernetes中的startup/liveness/readiness调用Actuator
 当前开发阶段没有协议双栈或自动回退，七应用须使用匹配镜像、地址、JWT 与配置；旧协议回退也须恢复整套匹配配置和 Service。
 
 部署前准备版本化 <app>-config-<CONFIG_VERSION> ConfigMap 与 <app>-secret-<SECRET_VERSION> Secret，二者必须 immutable。
-独立可变 <app>-service-tokens Secret 只读目录挂载 /var/run/loadup/secrets，SERVICE token 每次调用重新打开，不用 subPath。
+仅 AuthServer 挂载版本化 authserver-files-<SECRET_VERSION> KeyStore Secret，业务应用不再挂载令牌文件。
 共享默认绑定前缀为 loadup.http.client，模块显式配置优先，旧 loadup.rpc.client 不再读取。
-渲染器将配置版本写入 Pod template 并绑定具体资源名，配置换版触发滚动。环境变量/Bean 默认重启生效，令牌文件投射轮换独立处理。
+渲染器将配置版本写入 Pod template 并绑定具体资源名，配置换版触发滚动。环境变量/Bean 默认重启生效，OAuth 客户端按有效期自动续取令牌。
 发布前只预检资源存在性及 immutable 元数据，归档可回退的镜像/引用组合；配置值与业务权限仍需应用和环境验证。
 完整创建、轮换、回退、排空与未执行验证见 [版本化配置与发布](../deploy/CONFIGURATION.md)。
 
-源清单不再包含 Triple 端口、Headless Service 或旧 RPC NetworkPolicy，改为七个每应用 HTTP 入站策略。apply 不会删除旧集群资源，发布方需确认旧调用退出后明确清理。
+源清单不再包含 Triple 端口、Headless Service 或旧 RPC NetworkPolicy，改为八个每应用 HTTP 入站策略。apply 不会删除旧集群资源，发布方需确认旧调用退出后明确清理。
 HTTP NetworkPolicy 和 Envoy Gateway 配置已补，运行仍待验收。网络策略随核心清单，网关 chart 独立由平台发布者安装，二者不自动安装控制器。verify.sh 仅检查 Deployment/HTTP ready EndpointSlice，
 不证明完整 JWT、业务幂等、PostgreSQL 事务、多副本连接分布、滚动排空或回退通过。
 

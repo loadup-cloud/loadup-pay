@@ -19,23 +19,18 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.nio.file.Path;
 
 public record PaymentLimitProperties(
         @NotBlank @Size(max = 64) String tenantId,
         @NotBlank @Size(max = 64) String serviceId,
-        @NotBlank @Size(max = 128) String audience,
-        @NotNull @DiagnosticHidden Path tokenFile) {
+        @NotBlank @Size(max = 128) String audience) {
     public PaymentLimitProperties {
         requireText("tenant-id", tenantId, 64);
         requireText("service-id", serviceId, 64);
         requireText("audience", audience, 128);
-        java.util.Objects.requireNonNull(tokenFile, "loadup.modules.payment.limitcenter.token-file is required");
     }
 
     private static void requireText(String field, String value, int maxLength) {

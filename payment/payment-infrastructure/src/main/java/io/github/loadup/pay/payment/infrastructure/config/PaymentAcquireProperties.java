@@ -19,24 +19,19 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
-import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.nio.file.Path;
 
 public record PaymentAcquireProperties(
         @NotBlank @Size(max = 64) String tenantId,
         @NotBlank @Size(max = 64) String serviceId,
-        @NotBlank @Size(max = 128) String audience,
-        @NotNull @DiagnosticHidden Path tokenFile) {
+        @NotBlank @Size(max = 128) String audience) {
     public PaymentAcquireProperties {
         DomainChecks.id(tenantId);
         DomainChecks.id(serviceId);
         DomainChecks.text(audience, 128);
-        java.util.Objects.requireNonNull(tokenFile);
     }
 
     @Override

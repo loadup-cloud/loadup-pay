@@ -24,18 +24,14 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
 import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationPaymentProperties;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import io.github.loadup.pay.security.ServiceAccessTokens;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -45,38 +41,15 @@ class PaymentEvidenceHttpClientTest {
     private final PaymentCaptureHttpService captures = mock(PaymentCaptureHttpService.class);
     private final PaymentStatementHttpService statements = mock(PaymentStatementHttpService.class);
 
-    @TempDir
-    Path directory;
-
     private PaymentCaptureHttpClient captureClient;
     private PaymentStatementHttpClient statementClient;
 
     @BeforeEach
     void start() throws Exception {
-        var tokenFile = directory.resolve("service.jwt");
-        var encoder = Base64.getUrlEncoder().withoutPadding();
-        var claims = Map.of(
-                "tenant_id",
-                "tenant",
-                "principal_type",
-                "SERVICE",
-                "sub",
-                "reconciliation",
-                "service_id",
-                "reconciliation",
-                "aud",
-                List.of("payment"),
-                "exp",
-                clock.instant().getEpochSecond() + 300,
-                "token_use",
-                "access");
-        Files.writeString(
-                tokenFile,
-                encoder.encodeToString(json.writeValueAsBytes(Map.of("alg", "RS256"))) + "."
-                        + encoder.encodeToString(json.writeValueAsBytes(claims)) + ".c3ludGhldGlj");
-        var properties = new ReconciliationPaymentProperties("tenant", "reconciliation", "payment", tokenFile);
-        captureClient = new PaymentCaptureHttpClient(captures, properties, json, clock);
-        statementClient = new PaymentStatementHttpClient(statements, properties, json, clock);
+        ServiceAccessTokens tokens = (tenant, service, audience) -> "header.payload.signature";
+        var properties = new ReconciliationPaymentProperties("tenant", "reconciliation", "payment");
+        captureClient = new PaymentCaptureHttpClient(captures, properties, tokens);
+        statementClient = new PaymentStatementHttpClient(statements, properties, tokens);
     }
 
     @Test

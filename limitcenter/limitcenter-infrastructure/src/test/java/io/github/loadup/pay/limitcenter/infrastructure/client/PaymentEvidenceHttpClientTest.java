@@ -22,8 +22,6 @@ import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import io.github.loadup.pay.payment.domain.model.RefundState;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -33,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -62,11 +59,8 @@ class PaymentEvidenceHttpClientTest {
             OffsetDateTime.parse("2026-10-23T12:00:00+08:00"),
             5);
 
-    @TempDir
-    Path directory;
-
     PaymentEvidenceHttpClient client;
-    Path tokenFile;
+    String credential;
 
     String token() throws Exception {
         var encoder = Base64.getUrlEncoder().withoutPadding();
@@ -85,21 +79,19 @@ class PaymentEvidenceHttpClientTest {
                 "exp",
                 clock.instant().getEpochSecond() + 300)));
         var value = header + "." + claims + ".c3ludGhldGlj";
-        Files.writeString(tokenFile, value);
+        credential = value;
         return value;
     }
 
     @BeforeEach
     void setup() throws Exception {
-        tokenFile = directory.resolve("payment-evidence.jwt");
         token();
         client = new PaymentEvidenceHttpClient(
                 paymentHttp,
-                mapper,
-                new PaymentEvidenceProperties("tenant", "limitcenter", "payment", tokenFile),
-                clock);
+                (tenant, service, audience) -> credential,
+                new PaymentEvidenceProperties("tenant", "limitcenter", "payment"));
         doAnswer(invocation -> {
-                    assertEquals("Bearer " + Files.readString(tokenFile), invocation.getArgument(0, String.class));
+                    assertEquals("Bearer " + credential, invocation.getArgument(0, String.class));
                     return SuccessResponse.of(facts);
                 })
                 .when(paymentHttp)
@@ -107,7 +99,7 @@ class PaymentEvidenceHttpClientTest {
     }
 
     @Test
-    void refundFactsUsesItsNamedOperationTypedQueryAndMountedCredential() {
+    void refundFactsUsesItsNamedOperationTypedQueryAndServiceCredential() {
         assertEquals(facts, client.refundFacts("tenant", "refund"));
         verify(paymentHttp).refundFacts(anyString(), eq(new IdQuery("refund")));
     }

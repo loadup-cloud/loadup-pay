@@ -16,7 +16,7 @@ scope, prefix, tag = args.scope, args.prefix, args.tag
 for version in (args.config_version, args.secret_version):
     if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?", version):
         raise SystemExit("Configuration versions must be DNS labels of at most 32 characters")
-apps = {"customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"}
+apps = {"authserver", "customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"}
 if scope != "all" and scope not in apps:
     raise SystemExit("Unknown application")
 if not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}", tag):
@@ -24,7 +24,8 @@ if not re.fullmatch(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}", tag):
 selected = apps if scope == "all" else {scope}
 callers = {"customer": ["product"], "product": ["acquire"], "limitcenter": ["product", "payment"],
            "payment": ["acquire", "limitcenter", "reconciliation"], "acquire": ["payment"],
-           "realtime": ["acquire", "payment"], "reconciliation": []}
+           "realtime": ["acquire", "payment"], "reconciliation": [],
+           "authserver": ["customer", "product", "limitcenter", "payment", "acquire", "realtime", "reconciliation"]}
 
 
 def http_ingress_spec(app):
@@ -32,7 +33,7 @@ def http_ingress_spec(app):
     if callers[app]:
         peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "loadup-pay"}},
                       "podSelector": {"matchExpressions": [{"key": "app", "operator": "In", "values": callers[app]}]}})
-    if app != "limitcenter":
+    if app not in {"limitcenter", "authserver"}:
         peers.append({"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "envoy-gateway-system"}},
                       "podSelector": {"matchLabels": {"app.kubernetes.io/name": "envoy",
                           "gateway.envoyproxy.io/owning-gateway-namespace": "loadup-pay",
@@ -92,14 +93,18 @@ for resource in resources:
                     or environment[0]["configMapRef"].get("optional", False)
                     or environment[1]["secretRef"].get("optional", False)):
                 raise SystemExit("Application must declare exactly the expected configuration references")
-            volumes = [volume for volume in pod.get("volumes", []) if volume.get("name") == "service-secrets"]
-            mounts = [mount for mount in container.get("volumeMounts", []) if mount.get("name") == "service-secrets"]
-            if (len(volumes) != 1 or len(mounts) != 1
-                    or volumes[0].get("secret", {}).get("secretName") != f"{name}-service-tokens"
-                    or volumes[0]["secret"].get("optional", False) or "items" in volumes[0]["secret"]
-                    or mounts[0].get("mountPath") != "/var/run/loadup/secrets" or mounts[0].get("readOnly") is not True
-                    or mounts[0].get("subPath") or mounts[0].get("subPathExpr")):
-                raise SystemExit("Service tokens require their own read-only projected Secret without subPath")
+            if name == "authserver":
+                volumes = pod.get("volumes", [])
+                mounts = container.get("volumeMounts", [])
+                if (len(volumes) != 1 or volumes[0].get("name") != "signing-keys"
+                        or volumes[0].get("secret", {}).get("secretName") != "authserver-files"
+                        or len(mounts) != 1 or mounts[0].get("name") != "signing-keys"
+                        or mounts[0].get("mountPath") != "/var/run/loadup/secrets"
+                        or mounts[0].get("readOnly") is not True or mounts[0].get("subPath")):
+                    raise SystemExit("AuthServer requires a dedicated read-only signing KeyStore Secret")
+                volumes[0]["secret"]["secretName"] = f"authserver-files-{args.secret_version}"
+            elif pod.get("volumes") or container.get("volumeMounts"):
+                raise SystemExit("Business applications must not mount private signing keys or legacy service JWT files")
             container["envFrom"][0]["configMapRef"]["name"] = f"{name}-config-{args.config_version}"
             container["envFrom"][1]["secretRef"]["name"] = f"{name}-secret-{args.secret_version}"
             annotations = template.setdefault("metadata", {}).setdefault("annotations", {})
