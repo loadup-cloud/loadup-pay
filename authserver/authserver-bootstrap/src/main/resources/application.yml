@@ -41,7 +41,7 @@ loadup:
       key-store-password-env: KMS_KEYSTORE_PASSWORD
   security:
     auth-server:
-      issuer: ${JWT_ISSUER_URI}
+      issuer: ${JWT_ISSUER_URI:http://authserver.loadup-pay.svc.cluster.local:8080}
       # Protocol is owned by the service-only application configuration (no OIDC/user login).
       protocol-endpoints-enabled: false
       signing:
