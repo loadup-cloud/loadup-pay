@@ -133,7 +133,7 @@ class ServiceAuthorizationFlowIT {
 
     @Test
     void clientCredentialsIssueKmsSignedTenantBoundTokensThatResourceServersVerifyLocally() throws Exception {
-        var jwt = decoder("payment").decode(issue(null));
+        var jwt = decoder("payment").decode(issue("pay:payment:read"));
         assertThat(jwt.getSubject()).isEqualTo("acquire");
         assertThat(jwt.getAudience()).containsExactly("payment");
         assertThat(jwt.getClaimAsString("tenant_id")).isEqualTo("tenant");
@@ -155,6 +155,13 @@ class ServiceAuthorizationFlowIT {
                 .getContentAsString();
         assertThat(JWKSet.parse(jwks).getKeys())
                 .allSatisfy(key -> assertThat(key.isPrivate()).isFalse());
+    }
+
+    @Test
+    void omittedScopesDoNotGrantTheRegisteredBusinessPermissions() throws Exception {
+        var jwt = decoder("payment").decode(issue(null));
+        assertThat(jwt.getClaimAsStringList("permissions")).isEmpty();
+        assertThat(new LoadUpJwtAuthenticationConverter().convert(jwt).getAuthorities()).isEmpty();
     }
 
     @Test

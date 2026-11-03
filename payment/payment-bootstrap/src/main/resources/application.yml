@@ -173,13 +173,30 @@ pay:
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: payment
         audience: acquire
+        scopes:
+          - pay:acquire:payment:outcome
+          - pay:acquire:fee:refund
+          - pay:acquire:refund:notification
       limitcenter:
         client-id: ${PAYMENT_LIMITCENTER_OAUTH_CLIENT_ID:payment.default.limitcenter}
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: payment
         audience: limitcenter
+        scopes:
+          - pay:limit:reserve
+          - pay:limit:read
+          - pay:limit:execute
+          - pay:limit:verify
+          - pay:limit:expire
+          - pay:limit:confirm
+          - pay:limit:release
+          - pay:limit:refund:restore
       realtime:
         client-id: ${PAYMENT_REALTIME_OAUTH_CLIENT_ID:payment.default.realtime}
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: payment
         audience: realtime
+        scopes:
+          - pay:realtime:projection:payment
+          - pay:realtime:projection:refund
+          - pay:realtime:projection:refund-summary

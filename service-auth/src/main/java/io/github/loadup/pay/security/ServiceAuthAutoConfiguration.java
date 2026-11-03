@@ -70,6 +70,7 @@ public class ServiceAuthAutoConfiguration {
                     .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .tokenUri(endpoint.toString())
+                    .scope(registration.scopes())
                     .build());
         });
         var registrations = new InMemoryClientRegistrationRepository(clients);

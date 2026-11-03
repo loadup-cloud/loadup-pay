@@ -3,6 +3,7 @@ package io.github.loadup.pay.security;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("pay.service-auth")
@@ -62,7 +63,15 @@ public class ServiceAuthProperties {
         registrations = value;
     }
 
-    public record Registration(String clientId, String tenantId, String serviceId, String audience) {}
+    public record Registration(String clientId, String tenantId, String serviceId, String audience, List<String> scopes) {
+        public Registration {
+            if (scopes == null || scopes.isEmpty() || scopes.stream().anyMatch(
+                    scope -> scope == null || !scope.matches("pay:[a-z0-9:-]{1,120}"))) {
+                throw new IllegalArgumentException("Service registrations require explicit business scopes");
+            }
+            scopes = List.copyOf(scopes);
+        }
+    }
 
     @Override
     public String toString() {

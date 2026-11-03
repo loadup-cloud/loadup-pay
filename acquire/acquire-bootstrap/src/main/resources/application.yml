@@ -137,8 +137,22 @@ pay:
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: acquire
         audience: payment
+        scopes:
+          - pay:payment:input:prepare
+          - pay:payment:input:read
+          - pay:payment:input:expire
+          - pay:payment:accept
+          - pay:payment:read
+          - pay:payment:fence
+          - pay:payment:fence:read
+          - pay:payment:close
+          - pay:payment:attempt:start
+          - pay:payment:acquire-facts
+          - pay:payment:refund-summary:read
       realtime:
         client-id: ${ACQUIRE_REALTIME_OAUTH_CLIENT_ID:acquire.default.realtime}
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: acquire
         audience: realtime
+        scopes:
+          - pay:realtime:projection:order

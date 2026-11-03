@@ -120,3 +120,5 @@ pay:
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: product
         audience: limitcenter
+        scopes:
+          - pay:limit:activate

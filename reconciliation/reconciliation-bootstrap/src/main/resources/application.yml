@@ -150,3 +150,9 @@ pay:
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: reconciliation
         audience: payment
+        scopes:
+          - pay:payment:reconciliation:capture:create
+          - pay:payment:reconciliation:capture:retry
+          - pay:payment:reconciliation:capture:read
+          - pay:payment:reconciliation:statement:read
+          - pay:payment:reconciliation:verify

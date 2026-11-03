@@ -52,10 +52,10 @@ class ServiceAccessTokensTest {
         settings.setRegistrations(Map.of(
                 "payment",
                         new ServiceAuthProperties.Registration(
-                                "acquire.tenant.payment", "tenant", "acquire", "payment"),
+                                "acquire.tenant.payment", "tenant", "acquire", "payment", List.of("pay:payment:read")),
                 "realtime",
                         new ServiceAuthProperties.Registration(
-                                "acquire.tenant.realtime", "tenant", "acquire", "realtime")));
+                                "acquire.tenant.realtime", "tenant", "acquire", "realtime", List.of("pay:realtime:projection:order"))));
     }
 
     @AfterEach
@@ -78,7 +78,8 @@ class ServiceAccessTokensTest {
                 + Base64.getEncoder()
                         .encodeToString("acquire.tenant.payment:synthetic-secret".getBytes(StandardCharsets.UTF_8));
         assertThat(basic.getFirst()).isEqualTo(expected);
-        assertThat(bodies).allSatisfy(body -> assertThat(body).isEqualTo("grant_type=client_credentials"));
+        assertThat(bodies).allSatisfy(body -> assertThat(body).contains("grant_type=client_credentials", "scope="));
+        assertThat(bodies.getFirst()).contains("scope=pay%3Apayment%3Aread");
     }
 
     @Test
@@ -104,6 +105,12 @@ class ServiceAccessTokensTest {
                 .hasNoCause();
         status.set(200);
         assertThat(tokens.token("tenant", "acquire", "payment")).isEqualTo("token-3");
+    }
+
+    @Test
+    void missingScopesCannotSilentlyAcquireAnUnprivilegedToken() {
+        assertThatThrownBy(() -> new ServiceAuthProperties.Registration(
+                "client", "tenant", "acquire", "payment", List.of())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

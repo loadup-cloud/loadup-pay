@@ -32,7 +32,7 @@
 
 应用启动在事务及数据库锁下同步授权到 Spring 标准注册表。相同密码保留哈希；移除的条目禁用并替换密码哈希；`enabled=false` 同样停止新令牌签发。配置是授权的唯一维护来源，直接改数据库可能被下次启动覆盖。多副本应使用同一版本配置，避免旧配置实例重启恢复旧授权。
 
-每条调用关系使用独立 client ID，同一调用方目前复用一份应用 Secret。请求方只能申请注册范围内的 scope；省略 scope 时使用已注册范围。权限写入 `permissions`，调用方不能通过请求中的 tenant_id、audience、service_id 改变身份。令牌包含 `sub=service_id`、`principal_type=SERVICE`、`tenant_id`、单一 `aud`、`token_use=access`。
+每条调用关系使用独立 client ID，同一调用方目前复用一份应用 Secret。请求方只能申请注册范围内的 scope；省略 scope 时不会授予业务权限，调用方必须明确申请所需范围。权限写入 `permissions`，调用方不能通过请求中的 tenant_id、audience、service_id 改变身份。令牌包含 `sub=service_id`、`principal_type=SERVICE`、`tenant_id`、单一 `aud`、`token_use=access`。
 
 停用客户端不会立即撤销已签发 JWT；旧 JWT 持续到过期及资源端时钟容差结束。需要立即封禁时须另行设计撤销检查。数据库授权记录不会使离线验签自动查询授权状态。
 

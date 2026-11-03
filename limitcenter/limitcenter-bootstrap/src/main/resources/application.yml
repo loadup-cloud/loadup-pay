@@ -102,3 +102,7 @@ pay:
         tenant-id: ${SERVICE_AUTH_TENANT_ID:__default__}
         service-id: limitcenter
         audience: payment
+        scopes:
+          - pay:payment:read
+          - pay:payment:limit-facts
+          - pay:payment:refund-facts
