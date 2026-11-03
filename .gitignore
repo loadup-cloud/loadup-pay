@@ -4,3 +4,4 @@ target/
 deploy/releases/
 deploy/gateway/rendered/
 deploy/acceptance-results/
+deploy/local-config/

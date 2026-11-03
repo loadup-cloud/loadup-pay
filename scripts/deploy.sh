@@ -28,10 +28,19 @@ bash "$PAY_ROOT/scripts/render.sh" "$scope" > "$release_temp/manifest.json"
 kubectl --context "$KUBE_CONTEXT" --request-timeout=10s get --raw=/readyz >/dev/null
 for app in "${SELECTED_APPS[@]}"; do
   for reference in "configmap/$app-config-$CONFIG_VERSION" "secret/$app-secret-$SECRET_VERSION"; do
-    immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "$reference" -o 'jsonpath={.immutable}')
+    if ! immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "$reference" -o 'jsonpath={.immutable}'); then
+      echo "Release configuration is missing or unreadable: $reference ($KUBE_CONTEXT/loadup-pay)." >&2
+      echo 'CONFIG_VERSION/SECRET_VERSION select existing snapshots; they do not create configuration.' >&2
+      echo 'Prepare ConfigMaps, environment Secrets and service-token Secrets for every selected application; see deploy/CONFIGURATION.md.' >&2
+      exit 1
+    fi
     [[ "$immutable" == true ]] || { echo "Release configuration must be immutable: $reference" >&2; exit 1; }
   done
-  tokens_immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "secret/$app-service-tokens" -o 'jsonpath={.immutable}')
+  if ! tokens_immutable=$(kubectl --context "$KUBE_CONTEXT" -n loadup-pay --request-timeout=10s get "secret/$app-service-tokens" -o 'jsonpath={.immutable}'); then
+    echo "Service-token Secret is missing or unreadable: secret/$app-service-tokens ($KUBE_CONTEXT/loadup-pay)." >&2
+    echo 'Prepare the projected credential files before deploying; see deploy/CONFIGURATION.md.' >&2
+    exit 1
+  fi
   [[ "$tokens_immutable" != true ]] || { echo "Projected service tokens must remain rotatable: $app-service-tokens" >&2; exit 1; }
 done
 if [[ "${SKIP_BUILD:-0}" != 1 ]]; then

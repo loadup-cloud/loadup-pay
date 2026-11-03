@@ -1,0 +1,7 @@
+# Local OrbStack deployment; TLS material is stored only in the Kubernetes Secret.
+hostname: pay.loadup.local
+tlsSecret:
+  name: loadup-pay-local-tls
+  namespace: ""
+proxy:
+  replicas: 2

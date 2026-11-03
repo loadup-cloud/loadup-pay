@@ -1,0 +1,5 @@
+# Generated manifests, downloaded platform charts, and local public certificates.
+rendered/
+.DS_Store
+.git/
+*.tgz

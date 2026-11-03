@@ -1,12 +1,5 @@
 package io.github.loadup.pay.acquire.infrastructure.client;
 
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
-import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
-
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.SuccessResponse;
@@ -18,11 +11,13 @@ import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProper
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
@@ -30,11 +25,19 @@ import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import io.github.loadup.pay.payment.client.http.PaymentHttpService;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
-import java.time.Clock;
-import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Clock;
+import java.util.function.Function;
+
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.ACTION_FORBIDDEN;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IDEMPOTENCY_CONFLICT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE;
+import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.PAYMENT_INPUT_EXPIRED;
 
 @Component
 public class PaymentAcceptanceHttpClient
@@ -66,8 +69,8 @@ public class PaymentAcceptanceHttpClient
     }
 
     @Override
-    public io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
-            String tenant, io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command) {
+    public PaymentInputExpiryDTO expireInput(
+            String tenant, PaymentInputExpireCommand command) {
         return exchange(tenant, authorization -> paymentHttp.inputExpire(authorization, command), true);
     }
 

@@ -1,23 +1,32 @@
 # HTTP 迁移与虚拟线程验收
 
 当前状态：44/44 内部操作、版本化发布、HTTP 入站策略及 Envoy Gateway 已有源码。
-2026-11-03 用户反馈本地编译无问题，测试验证暂缓；助手未重新执行构建或测试。测试、部署与业务验收保持未验证，
+2026-11-03 用户反馈本地编译无问题，测试验证暂缓；助手未重新执行构建或单元测试。
+随后用户授权部署 Gateway，控制器/代理/策略已部署并完成下述就绪及只读连通性检查；完整业务验收仍未完成，
 后续源码变更仍须按实际版本重新核对编译范围，不把这条反馈当作所有后续版本的通过记录。
 本文把源码检查与实际运行证据分开，不能用表中的测试名称或示例命令视为通过。Boot 4.1.x / Java 25 保持不变。
 
+同日用户继续授权七应用发布：已执行 clean package（跳过测试）并构建七个 release-001 镜像，
+以 cfg-20261103-r2 / sec-20261103 发布后七应用 1/1 就绪、Service 端点就绪；本地 JWT 信任源与 RustFS 已接入。
+首次冷启动探针超时的失败候选保留，第二轮发布及有限只读检查见 [本地部署结果](LOCAL_DEVELOPMENT.md#本次发布结果)。完整业务验收仍未完成。
+
 ## 当前环境只读快照
 
-2026-11-03 对 orbstack 的元数据查询结果如下；本轮没有执行安装、部署、测试或业务请求。
+2026-11-03 在用户授权 Gateway 部署后更新 orbstack 快照；仅核对平台就绪、TLS 与只读 GET，没有执行金融请求或完整业务测试。
 
 | 项目 | 当前证据 | 仍未证明 |
 | --- | --- | --- |
 | 客户端/服务端 | kubectl v1.37.2 / Kubernetes v1.36.5+orb1，先前版本差距已解决 | 后续发布与业务正确性 |
-| 应用 | acquire/customer/limitcenter/payment/product/realtime 各一个期望且就绪副本，均有 8080 ClusterIP Service；未列出 reconciliation | 七服务齐备、当前运行镜像与迁移版本匹配、内部调用、扩缩容与滚动 |
-| Gateway API | GatewayClass/Gateway/HTTPRoute 与 EnvoyProxy CRD 已存在 | CRD 与目标版本匹配、控制器和数据面可用 |
-| 网关实例 | GatewayClass 列表为空；loadup-pay 无 Gateway/HTTPRoute/BackendTrafficPolicy/ClientTrafficPolicy/EnvoyProxy；envoy-gateway-system 未列出 Deployment | Accepted/ResolvedRefs/Programmed、TLS 与真实路由 |
-| 网络策略 | loadup-pay 的 NetworkPolicy 列表为空 | 期望策略已部署、CNI 实际隔离及允许/拒绝验证 |
+| 应用 | 七应用 release-001 均 1/1 就绪，ConfigMap 为 cfg-20261103-r2，环境 Secret 为 sec-20261103；均有就绪 8080 Service 端点 | 真实内部调用、扩缩容、零停机滚动与业务恢复 |
+| Gateway API | 复用现有 Gateway API v1.6.1/Envoy CRD；部署 Envoy Gateway v1.9.3，控制器 1/1、代理 2/2 就绪 | 升级、回退与长期稳定性 |
+| 网关实例 | GatewayClass Accepted=True，Gateway Accepted/Programmed=True；8 个 BackendTrafficPolicy 与 1 个 ClientTrafficPolicy Accepted=True；9 个路由 Accepted/ResolvedRefs 均为 True | 业务调用、轮换、压力与故障验收 |
+| 本地 TLS/入口 | pay.loadup.local，LoadBalancer 192.168.139.2；自签名证书校验通过，HTTP 308；公有证书在忽略目录，2026-12-03 到期；本机 hosts 与系统信任未修改 | DNS/浏览器接入与生产证书 |
+| 只读转发 | 更新后 HTTPS /checkout、/checkout.js 均为 200；customer readiness 为 200；原 GET 内部 API/Actuator 检查为网关 404；抽查一个代理无配置更新 failure/rejected | 完整协议、授权矩阵与业务验证 |
+| RustFS | 复用现有 Docker RustFS，开发 bucket 已创建；从 reconciliation 容器使用已部署凭证执行签名 HEAD 为 200 | 真实文件上传/下载、权限与故障恢复 |
+| 网络策略 | 七个应用 NetworkPolicy 已部署 | CNI 实际隔离及完整允许/拒绝验证 |
 
-这份快照只记录查询当时的对象状态，不替代测试或授权发布；已有副本 ready 不代表本轮迁移业务验收通过。
+这份快照只记录当前对象状态和上述有限检查，不替代完整测试或后续发布授权；已有副本 ready 不代表本轮迁移业务验收通过。
+具体 release、证书与本机接入方式见 [网关部署结果](gateway/README.md#本地部署结果)。
 
 ## 线程配置
 

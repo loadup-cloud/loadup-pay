@@ -84,9 +84,14 @@ HTTP readiness、滚动策略与排空预算已补；HTTP NetworkPolicy 与网�
 源码进度：固定 Envoy Gateway v1.9.3 / Gateway API v1.6.1，提供原生 Helm 入口配置、TLS/窄范围 ReferenceGrant、显式公开路由和 Envoy 扩展策略。
 回调原文/验签头不重写，移除 Envoy 重试/超时控制头；每路由本地限流、请求缓存和日志范围已定义。见 [网关说明](deploy/gateway/README.md) 与 [HTTP 网络策略](deploy/NETWORK_POLICY.md)。
 2026-11-03 只读复核：orbstack 的 kubectl 已为 1.37.2，服务端为 1.36.5，先前版本差距已解决；Gateway API 与 EnvoyProxy CRD 已存在。
-但 loadup-pay 尚无 Gateway/HTTPRoute/策略对象，集群尚无 GatewayClass，默认 envoy-gateway-system namespace 未列出 Deployment；
-六应用各有一个就绪副本及 HTTP ClusterIP Service，未列出 reconciliation 和 NetworkPolicy。这不是七应用或网关验收通过记录。
-本轮助手未安装、部署或运行测试；当前环境快照见 [最终验收](deploy/ACCEPTANCE.md)。
+随后用户授权 Gateway 部署：Envoy Gateway v1.9.3 控制器 1/1、代理 2/2 就绪，Gateway 已 Programmed，全部 9 项策略 Accepted。
+9 条路由均 Accepted，其中 reconciliation 因缺少业务 Service 而 ResolvedRefs=False；其他路由引用已解析。TLS 自签名证书校验与 HTTP 308 已验证。
+acquire 旧镜像的 /checkout 经网关与直连均为 404；本次未更新业务镜像，六应用就绪不等于七应用迁移验收通过，NetworkPolicy 仍未部署。
+仅执行平台就绪与只读连通性检查，单测及金融业务验收继续暂缓；当前环境快照见 [最终验收](deploy/ACCEPTANCE.md)。
+
+后续用户授权的本地发布已完成：七应用 release-001 / cfg-20261103-r2 / sec-20261103 全部 1/1 就绪，
+全部网关路由引用已解析，/checkout 与 /checkout.js 为 200；RustFS 使用已部署凭证的容器内签名 HEAD 为 200，七个入站 NetworkPolicy 已部署。
+完整端到端、CNI 隔离、证书/凭证轮换、发布回退和容量验收仍待完成，详见 [本地发布结果](deploy/LOCAL_DEVELOPMENT.md#本次发布结果)。
 
 验收：Envoy Gateway 是默认可部署的 Gateway API 实现，关键入口通过真实调用验证；写请求没有新增自动重试。
 

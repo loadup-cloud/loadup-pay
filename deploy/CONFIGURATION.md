@@ -1,7 +1,10 @@
 # 版本化配置与发布
 
 七应用继续使用 Spring Boot 原生外部配置与 Kubernetes Service DNS，不增加配置监听器或注册中心。
-以下是发布源码和操作说明；本轮未构建、运行测试、访问集群或部署。
+以下是发布源码和操作说明。2026-11-03 已只读核对现有六个应用的环境配置并生成本地迁移草稿；
+未创建应用配置快照、构建、重启应用或执行金融请求。Gateway 的独立部署记录见 [网关说明](gateway/README.md)。
+
+随后已在用户授权下创建完整配置快照并发布七应用，当前镜像/配置组合和部署结果见 [本地开发环境](LOCAL_DEVELOPMENT.md)。
 
 ## 三类配置资源
 
@@ -11,7 +14,7 @@
 | Secret | `<app>-secret-<SECRET_VERSION>` | `immutable: true`；数据库密码等环境变量，随 Pod 创建读取 |
 | Secret | `<app>-service-tokens` | 可变；只读完整目录挂载 `/var/run/loadup/secrets`，保存逐次读取的服务凭证文件 |
 
-CONFIG_VERSION、SECRET_VERSION 必须显式提供，均为最多 32 字符的小写 DNS label，例如 cfg-20261103、sec-20261103。
+CONFIG_VERSION、SECRET_VERSION 必须显式提供，均为最多 32 字符的小写 DNS label，例如 cfg-default、sec-default。
 同一版本下每应用各有独立资源；单应用发布可以选择自己的配置版本。不得修改已有快照，或删除后重建并复用同一版本名。
 旧镜像、ConfigMap、环境 Secret 至少保留到对应发布版本退出回退窗口；脚本不自动清理它们。
 
@@ -25,18 +28,65 @@ CONFIG_VERSION、SECRET_VERSION 必须显式提供，均为最多 32 字符的�
 
 ## 准备快照
 
+CONFIG_VERSION/SECRET_VERSION 是资源名称中的版本引用，不会创建资源。
+出现 customer-config-cfg-default NotFound 时，应先准备整批配置，不是修改镜像标签或反复重跑构建。
+
+### 从旧本地部署迁移
+
+2026-11-03 核对 customer/product/limitcenter/payment/acquire/realtime：旧 Deployment 仅包含 JAVA_TOOL_OPTIONS、
+METRICS_ENABLED、OTLP_TRACING_ENDPOINT、TZ，没有 envFrom 或凭证卷；JVM 参数也没有数据库/JWT 配置。
+因此旧运行参数不能替代当前应用要求的 JDBC、JWT 与业务密钥。
+
+已在本地生成 deploy/local-config/cfg-default-sec-default/<app>/ 草稿，目录已被 Git 忽略：
+
+| 文件 | 用途 |
+| --- | --- |
+| config.env | 迁移的四个运行参数，以及留空待填写的 JDBC URL/用户名、JWT issuer/JWK Set URI |
+| secret.env | 留空待填写的 JDBC 密码；limitcenter 另需 PERMIT_SECRET，payment 另需 INPUT_FINGERPRINT_KEY |
+| required-token-files.txt | 当前默认出站调用需要的 JWT 文件名；它不包含凭证，也不是待挂载文件 |
+| service-tokens/ | 放置由实际发行方签发、权限/租户/受众匹配的有效 SERVICE JWT；customer/realtime 当前无出站文件要求 |
+
+这批草稿共缺 24 个普通配置值和 8 个敏感值，另缺出站 SERVICE JWT；没有创建缺值的不可变资源，避免占用版本名称。
+填写 env 文件时使用字面值，不加 shell 引号，不依赖 shell 展开。不要把密码、业务密钥或 JWT 移入 config.env。
+草稿目录权限为 0700、文件为 0600；其中的文件不进入 Git，且不得把 Secret 清单或内容输出到终端。
+
+补齐后，创建命令的 --from-env-file 使用对应草稿文件。以 customer 为例，先确认两个文件的必需值均已填写，再创建快照：
+
+```bash
+set -euo pipefail
+config_dir=deploy/local-config/cfg-default-sec-default/customer
+kubectl --context orbstack -n loadup-pay create configmap customer-config-cfg-default \
+  --from-env-file="$config_dir/config.env" --dry-run=client -o yaml |
+  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
+  kubectl --context orbstack -n loadup-pay create -f -
+kubectl --context orbstack -n loadup-pay create secret generic customer-secret-sec-default \
+  --from-env-file="$config_dir/secret.env" --dry-run=client -o yaml |
+  kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
+  kubectl --context orbstack -n loadup-pay create -f -
+# customer 当前没有出站文件要求，首次创建空的可变投射 Secret。
+kubectl --context orbstack -n loadup-pay create secret generic customer-service-tokens \
+  --from-file="$config_dir/service-tokens"
+```
+
+其他五个应用使用各自名称/文件；有出站要求的目录必须先放入 required-token-files.txt 中列出的有效文件。
+这里只是首次创建，不覆盖已存在快照或投射 Secret；已有资源的换版/凭证轮换按下文处理。
+随后已按用户要求补齐 [七应用默认模板](config-templates/README.md)，并为 reconciliation 新增本地待填写文件。
+对账不从六个旧 Deployment 迁移业务配置，其 JDBC/JWT、S3 与受控账户配置仍需手动准备；未补齐前不能发布 all。
+
+### 使用受控环境文件创建
+
 由发布者先准备 namespace、配置资源和服务令牌 Secret。下面仅以 payment 示意，文件内容来自受控配置管理；
 不是应用构建步骤，也不会由 deploy.sh 自动执行：
 
 ```bash
 # 普通环境变量文件只含非敏感配置。
-kubectl --context orbstack -n loadup-pay create configmap payment-config-cfg-20261103 \
+kubectl --context orbstack -n loadup-pay create configmap payment-config-cfg-default \
   --from-env-file=/secure/payment-config.env --dry-run=client -o yaml |
   kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
   kubectl --context orbstack -n loadup-pay create -f -
 
 # 敏感环境变量来自受限文件；命令参数不包含密码值。
-kubectl --context orbstack -n loadup-pay create secret generic payment-secret-sec-20261103 \
+kubectl --context orbstack -n loadup-pay create secret generic payment-secret-sec-default \
   --from-env-file=/secure/payment-secret.env --dry-run=client -o yaml |
   kubectl patch --local -f - --type=merge -p '{"immutable":true}' -o yaml |
   kubectl --context orbstack -n loadup-pay create -f -
@@ -50,15 +100,15 @@ kubectl --context orbstack -n loadup-pay create secret generic payment-secret-se
 
 ```bash
 # 仅渲染供审查的引用清单：不构建、不 apply、不读取配置/Secret 内容。
-IMAGE_TAG=release-001 CONFIG_VERSION=cfg-20261103 SECRET_VERSION=sec-20261103 \
-  ./scripts/render.sh all > /tmp/pay-release-001.json
+IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
+  ./scripts/render.sh all > /tmp/pay-release.json
 
 # 构建并发布。此命令由发布者显式执行。
-IMAGE_TAG=release-001 CONFIG_VERSION=cfg-20261103 SECRET_VERSION=sec-20261103 \
+IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
   ./scripts/deploy.sh all
 
 # 复用既有镜像；单应用使用 payment，其余资源不重新应用。
-SKIP_BUILD=1 IMAGE_TAG=release-001 CONFIG_VERSION=cfg-20261103 SECRET_VERSION=sec-20261103 \
+SKIP_BUILD=1 IMAGE_TAG=release CONFIG_VERSION=cfg-default SECRET_VERSION=sec-default \
   ./scripts/deploy.sh payment
 ```
 
@@ -94,6 +144,8 @@ readiness 检查 HTTP readinessState/db，liveness 保持基础存活检查；�
 Pod 不挂载 Kubernetes ServiceAccount token，应用无需发现 API/RBAC。
 
 preStop 在当前 Temurin 运行镜像中执行 10 秒等待，再由 JVM 接收终止信号。
+本地七 JVM 并行冷启动已观察到超过 120 秒；startupProbe 当前提供 360 秒启动预算，Deployment 进度期限为 600 秒，verify.sh 等待上限为 660 秒。
+首轮失败与后续版本记录见 [本地环境](LOCAL_DEVELOPMENT.md)，不修改健康检查的成功条件。
 Spring 生命周期每阶段等待上限显式设为 75 秒，Pod 终止宽限为 100 秒。
 该预算为端点传播、MVC 排空和普通 60 秒账单等待留出空间；读取超时不是总 deadline，多个生命周期阶段也不共用同一个 75 秒预算。
 实际请求分布、长下载、后台任务、超时中断和滚动回退仍需真实验收，不承诺任意长任务可在终止前完成。

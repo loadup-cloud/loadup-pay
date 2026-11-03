@@ -6,13 +6,14 @@
 
 2026-11-03 只读复核：本地 orbstack 服务端为 v1.36.5+orb1，客户端已升级为 v1.37.2；先前的客户端版本差距已解决。
 部署脚本现检查客户端与服务端相差不超过一个 minor，规则见 [Kubernetes 版本差距政策](https://kubernetes.io/releases/version-skew-policy/#kubectl)。
-本轮没有安装控制器、CRD 或证书，没有部署、执行测试或发送金融请求。
+2026-11-03 已按用户指令在 orbstack 部署控制器与 Pay 网关，复用现有兼容 CRD；本地入口为 pay.loadup.local，使用自签名证书。
+控制器、代理、策略与只读连通性检查结果见下方“本地部署结果”；未执行单元测试、金融请求或完整业务验收。
 
 ## 平台安装与权限
 
 控制器、CRD、GatewayClass 属于平台管理，不打包进 Java SDK。下列命令供有权限的发布者审查后执行。
-当前只读快照已查到 GatewayClass/Gateway/HTTPRoute 和 EnvoyProxy CRD，但尚无 GatewayClass、loadup-pay 网关/路由/策略对象，
-默认 envoy-gateway-system namespace 未列出 Deployment；仅存在 CRD 不能证明控制器或数据面可用。
+当前集群已有 Gateway API v1.6.1 与 Envoy 扩展 CRD，控制器 release 为 envoy-gateway-system/eg；
+Pay chart release 为 loadup-pay/loadup-pay-gateway。再次部署前先核对现有 release，不重新接管共享 CRD。
 已有集群共享 CRD 时先核对版本、channel、所有者和其他消费者，不自动接管它们。
 
 ```bash
@@ -31,11 +32,12 @@ helm template eg-crds oci://docker.io/envoyproxy/gateway-crds-helm \
 kubectl --context orbstack apply --server-side -f deploy/gateway/rendered/crds.yaml
 helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm \
   --version "$ENVOY_GATEWAY_VERSION" --namespace envoy-gateway-system \
-  --create-namespace --skip-crds --kube-context orbstack --wait --timeout 5m
+  --create-namespace --set crds.enabled=false --skip-crds --kube-context orbstack --wait --timeout 5m
 ```
 
 使用官方 chart 的 RBAC，不给业务 Pod 增加 Kubernetes API 权限。业务清单已关闭 ServiceAccount token 自动挂载。
 单独管理 CRD 与 chart-templated safe-upgrades policy 的规则见 [官方 Helm 安装说明](https://gateway.envoyproxy.io/v1.9/install/install-helm/)。
+本版本的 CRD 通过 chart dependency 管理，单独使用 --skip-crds 不足以禁用该 dependency；复用已有兼容 CRD 时显式设置 crds.enabled=false。
 云平台拥有兼容 CRD 时遵循该分支的 safeUpgradePolicy 设置；不要把 --skip-crds 当成禁用所有集群级 chart 资源。
 
 ## Pay 入口配置
@@ -61,6 +63,49 @@ Gateway/Route 位于 loadup-pay，代理采用默认 envoy-gateway-system namesp
 TLS Secret 默认同 namespace，无需 ReferenceGrant。指定 tlsSecret.namespace 时，仅跨 namespace 场景创建该 namespace 中的 ReferenceGrant，
 授权来自 loadup-pay 的 Gateway 读取指定 Secret 名称；目标 namespace 和证书由平台先准备。原生 Grant 不支持限定来源 Gateway 名称，因此写 Gateway 的权限必须受控。
 没有跨 namespace 后端 Service 引用，也没有宽泛的 Secret 授权。
+
+## 本地部署结果
+
+2026-11-03 部署到 orbstack，使用 [values-local.yaml](values-local.yaml)：
+
+- 控制器：Envoy Gateway v1.9.3，1/1 就绪；代理 Deployment 为 2/2 就绪。
+- GatewayClass Accepted=True，Gateway Accepted/Programmed=True；HTTP 与 HTTPS Listener 的 ResolvedRefs=True。
+- 8 个 BackendTrafficPolicy 与 1 个 ClientTrafficPolicy 均 Accepted=True。
+- 9 个 HTTPRoute 均 Accepted=True；其中 8 个 ResolvedRefs=True，reconciliation 为 BackendNotFound，等待该业务 Service 部署。
+- LoadBalancer 地址为 192.168.139.2，HTTP 80 / HTTPS 443；地址是当前本地集群快照，重建后需重新查询。
+- TLS Secret 为 loadup-pay/loadup-pay-local-tls。证书 SAN 为 pay.loadup.local，2026-12-03 到期；仅用于本地开发。
+
+复用部署配置：
+
+```bash
+helm upgrade --install loadup-pay-gateway ./deploy/gateway --namespace loadup-pay \
+  -f deploy/gateway/values-local.yaml --kube-context orbstack --wait --timeout 5m
+```
+
+公有证书保存在本地忽略目录 deploy/gateway/rendered/pay.loadup.local.crt；私钥由 Kubernetes Secret 保存。
+rendered/ 也通过 .helmignore 排除，避免下载的控制器 chart、生成清单及证书被打入 Pay chart 的 Helm release 记录。
+
+本机尚无 pay.loadup.local 的 DNS/hosts 记录，写入 /etc/hosts 需要管理员权限，尚未自动完成。使用浏览器前添加：
+
+```text
+192.168.139.2 pay.loadup.local
+```
+
+以下只读请求不依赖修改 hosts，并显式信任本次本地证书：
+
+```bash
+curl --noproxy '*' --resolve pay.loadup.local:443:192.168.139.2 \
+  --cacert deploy/gateway/rendered/pay.loadup.local.crt https://pay.loadup.local/checkout
+```
+
+实际检查：HTTP /checkout 返回 308 至 HTTPS；HTTPS 握手及证书校验成功。/checkout 与 /checkout.js 目前由 acquire 返回 404，
+绕过网关直连 acquire 的 /checkout 同样为 404；当前 acquire 镜像为 loadup-pay/acquire:20261022153640-24211，未在本次网关任务中更新业务镜像。
+GET /api/internal/v1/payment/operations/detail 与 GET /actuator/health 在网关返回 404。
+抽查一个代理的 connected_state=1，32 条配置更新 failure/rejected 计数均为 0；这不是双副本长期或业务压测结果。
+浏览器使用自签名证书仍需按本机策略信任公有证书；本次没有修改系统证书信任设置。
+
+随后用户授权发布七应用，现已全部更新为 release-001 并就绪，9 条 HTTPRoute 的 Accepted/ResolvedRefs 均为 True。
+HTTPS /checkout 和 /checkout.js 已返回 200，先前旧镜像的静态页面 404 已解除；当前发布组合及 RustFS 检查见 [本地环境结果](../LOCAL_DEVELOPMENT.md#本次发布结果)。
 
 ## 路由与治理
 
@@ -102,7 +147,7 @@ Payment 回调 Controller 显式使用 ProtocolResponse，避免通用 MVC 信�
 CRD 不由 helm rollback 自动回退，不能直接删除或降级共享 CRD。回退先确认旧控制器能读取当前 CRD，再由发布者回退相应 Helm revision 和匹配的 Pay 配置。
 证书换版由平台更新有效 Secret，需验证控制器观察及代理证书切换，不能以对象更新成功代替 TLS 握手验收。
 
-本轮仅渲染示例并对渲染 YAML 做 IDE 静态检查。IDE 未识别 Helm 原模板的 Go 语法，检查以 Helm 渲染后文件为准；
+部署前已渲染清单并通过 API Server dry-run；部署后检查结果见“本地部署结果”。IDE 未识别 Helm 原模板的 Go 语法，静态检查以 Helm 渲染后文件为准；
 集群已有 CRD 不代表 IDE 已加载其 schema；IDE 的 Unknown API/resource 提示不能证明集群缺少 CRD，也不等于完成控制器验证。
 scripts/tests/test_gateway_chart.py 已补语义回归源码，需 Helm 和 test-only PyYAML，未执行。
 按 scripts/tests/requirements.txt 在独立测试环境准备 PyYAML，不给部署脚本增加运行依赖。

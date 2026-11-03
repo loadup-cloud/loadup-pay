@@ -20,9 +20,11 @@
 package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputLookupDTO;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 
@@ -36,8 +38,7 @@ public interface PaymentAcceptanceClient {
 
     PaymentInputLookupDTO lookupInput(String tenant, PaymentInputLookupQuery query);
 
-    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
-            String tenant, io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+    PaymentInputExpiryDTO expireInput(String tenant, PaymentInputExpireCommand command);
 
     PaymentExecutionDTO accept(String tenant, PaymentExecuteCommand command);
 

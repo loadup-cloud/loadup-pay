@@ -1,0 +1,41 @@
+# Local development only. Public JWKS is generated separately; no private key is mounted.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadup-local-jwks
+  namespace: loadup-pay
+  labels: { loadup.io/purpose: local-development }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: loadup-local-jwks }
+  template:
+    metadata:
+      labels: { app: loadup-local-jwks, loadup.io/purpose: local-development }
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: nginx
+          image: nginx:stable-alpine
+          ports:
+            - { name: http, containerPort: 8080 }
+          volumeMounts:
+            - { name: public-config, mountPath: /etc/nginx/conf.d, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /.well-known/jwks.json, port: http }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }
+      volumes:
+        - name: public-config
+          configMap: { name: loadup-local-jwks }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loadup-local-jwks
+  namespace: loadup-pay
+spec:
+  selector: { app: loadup-local-jwks }
+  ports:
+    - { name: http, port: 8080, targetPort: http }

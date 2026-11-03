@@ -33,7 +33,7 @@
 
 ```bash
 # 一次完成所有构建与发布
-IMAGE_TAG=release-001 CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./scripts/deploy.sh all
+IMAGE_TAG=release CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./scripts/deploy.sh all
 
 # 分开构建、部署，第二步复用同一批本地镜像
 IMAGE_TAG=release-002 ./scripts/build.sh all
@@ -47,6 +47,8 @@ CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 ```
 
 部署显式要求 CONFIG_VERSION 与 SECRET_VERSION（不可变快照版本），RELEASE_DIR 可覆盖引用清单归档位置。
+这两个版本参数不会自动创建配置；资源缺失时部署在构建前停止，并提示 [配置准备流程](../deploy/CONFIGURATION.md#从旧本地部署迁移)。
+可先填写 [七应用默认配置模板的本地副本](../deploy/config-templates/README.md)，再创建对应版本快照。
 支持环境变量`IMAGE_TAG`、`IMAGE_PREFIX`（默认`loadup-pay`）、`DOCKER_CONTEXT`与`KUBE_CONTEXT`。两端必须使用能访问同一批本地镜像的环境；
 `SKIP_BUILD=1`必须指定已构建的IMAGE_TAG，脚本在应用资源前检查选定镜像存在。
 
