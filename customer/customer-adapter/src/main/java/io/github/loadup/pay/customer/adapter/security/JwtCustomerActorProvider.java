@@ -29,6 +29,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 @Component
 public class JwtCustomerActorProvider implements CustomerActorProvider {
     public static final String MANAGE_PERMISSION = "pay:customer:manage";
@@ -56,7 +58,7 @@ public class JwtCustomerActorProvider implements CustomerActorProvider {
             if (principalType != PrincipalType.OPERATOR && (merchant == null || merchant.isBlank())) {
                 throw denied();
             }
-            if (principalType == PrincipalType.MERCHANT && !jwt.getSubject().equals(merchant)) {
+            if (principalType == PrincipalType.MERCHANT && !Objects.equals(jwt.getSubject(), merchant)) {
                 throw denied();
             }
             boolean manage = authentication.getAuthorities().stream()
