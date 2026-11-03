@@ -21,6 +21,7 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class FeeRefundReceiptDO extends BaseDO {
     private String deliveryId;
@@ -30,7 +31,7 @@ public class FeeRefundReceiptDO extends BaseDO {
     private Long appliedVersion;
     private String requestDigest;
     private String callerServiceId;
-    private java.time.LocalDateTime acceptedAt;
+    private LocalDateTime acceptedAt;
 
     public String getDeliveryId() {
         return deliveryId;
@@ -88,11 +89,11 @@ public class FeeRefundReceiptDO extends BaseDO {
         callerServiceId = value;
     }
 
-    public java.time.LocalDateTime getAcceptedAt() {
+    public LocalDateTime getAcceptedAt() {
         return acceptedAt;
     }
 
-    public void setAcceptedAt(java.time.LocalDateTime value) {
+    public void setAcceptedAt(LocalDateTime value) {
         acceptedAt = value;
     }
 

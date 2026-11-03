@@ -32,6 +32,7 @@ import io.github.loadup.pay.product.infrastructure.mapper.OrderAdmissionMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -64,7 +65,7 @@ public class OrderAdmissionGatewayImpl extends ServiceImpl<OrderAdmissionMapper,
         return read(() -> Optional.ofNullable(getById(id)));
     }
 
-    private Optional<StoredOrderAdmission> read(java.util.function.Supplier<Optional<OrderAdmissionDO>> lookup) {
+    private Optional<StoredOrderAdmission> read(Supplier<Optional<OrderAdmissionDO>> lookup) {
         try {
             return lookup.get().map(converter::toStored);
         } catch (IllegalArgumentException | NullPointerException corrupted) {

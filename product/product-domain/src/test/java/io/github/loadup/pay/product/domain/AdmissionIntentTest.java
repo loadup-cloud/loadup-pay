@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.product.domain.model.AdmissionIntent;
+import io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +60,7 @@ class AdmissionIntentTest {
 
     @Test
     void requestedDeadlineMustBeFutureAndWithinTheOriginalMaximumWait() {
-        var policy = new io.github.loadup.pay.product.domain.policy.OrderAdmissionPolicy();
+        var policy = new OrderAdmissionPolicy();
         var now = LocalDateTime.of(2026, 10, 21, 10, 0);
         var future = new AdmissionIntent(
                 "order",

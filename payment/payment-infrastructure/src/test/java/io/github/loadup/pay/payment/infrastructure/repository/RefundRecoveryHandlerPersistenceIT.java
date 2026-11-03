@@ -81,9 +81,14 @@ import io.github.loadup.pay.payment.domain.gateway.RefundGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureRead;
+import io.github.loadup.pay.payment.domain.model.PaymentCaptureScope;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
@@ -100,14 +105,17 @@ import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.FifoRefundPolicy;
 import io.github.loadup.pay.payment.infrastructure.codec.RefundResultCodecImpl;
+import io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundResultStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.RefundStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.mapper.RefundTransactionClaimMapper;
 import io.github.loadup.pay.payment.infrastructure.task.RefundRecoveryTaskHandler;
 import io.github.loadup.testify.starter.scenario.TestScenario;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -126,6 +134,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -584,7 +593,7 @@ class RefundRecoveryHandlerPersistenceIT {
                     AT,
                     jdbc.queryForObject(
                                     "SELECT accepted_at FROM refund_acceptance_evidence WHERE id = ?",
-                                    java.sql.Timestamp.class,
+                                    Timestamp.class,
                                     fixture.refundId())
                             .toLocalDateTime());
             assertEquals(1L, count("refund_acceptance_evidence", fixture.tenant()));
@@ -645,9 +654,7 @@ class RefundRecoveryHandlerPersistenceIT {
         try {
             clock.advance(Duration.ofDays(2));
             var read = sourceCapture(fixture, AT);
-            assertEquals(
-                    io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker.REFUND_ACCEPTANCE_MISSING,
-                    read.blocker());
+            assertEquals(PaymentCaptureBlocker.REFUND_ACCEPTANCE_MISSING, read.blocker());
             assertEquals(fixture.refundId(), read.blockerSubjectId());
             assertTrue(read.lines().isEmpty());
             assertSubmitted(fixture);
@@ -675,7 +682,7 @@ class RefundRecoveryHandlerPersistenceIT {
             assertEquals(0L, refundDay.paymentCount());
             assertEquals(1L, refundDay.refundCount());
             var row = refundDay.lines().getFirst();
-            assertEquals(io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus.PROCESSING, row.status());
+            assertEquals(PaymentLedgerStatus.PROCESSING, row.status());
             assertEquals(acceptedAt, row.sourceAt());
             assertEquals(fixture.prepared().channelRefundNo(), row.channelRefundNo());
             assertEquals(original.originalChannelTransactionNo(), row.channelTransactionNo());
@@ -696,9 +703,9 @@ class RefundRecoveryHandlerPersistenceIT {
                     acceptedAt);
             resultService.record(fixture.tenant(), success);
             assertEquals(
-                    io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus.SUCCEEDED,
+                    PaymentLedgerStatus.SUCCEEDED,
                     sourceCapture(fixture, acceptedAt).lines().getFirst().status());
-            assertEquals(io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus.PROCESSING, row.status());
+            assertEquals(PaymentLedgerStatus.PROCESSING, row.status());
             resultService.record(
                     fixture.tenant(),
                     new RefundObservation(
@@ -715,25 +722,22 @@ class RefundRecoveryHandlerPersistenceIT {
                             "d".repeat(64),
                             acceptedAt.plusSeconds(1)));
             var conflict = sourceCapture(fixture, acceptedAt);
-            assertEquals(
-                    io.github.loadup.pay.payment.domain.model.PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT,
-                    conflict.blocker());
+            assertEquals(PaymentCaptureBlocker.REFUND_ACCEPTANCE_CONFLICT, conflict.blocker());
             assertTrue(conflict.lines().isEmpty());
         } finally {
             cancelRemainingTasks(fixture);
         }
     }
 
-    private io.github.loadup.pay.payment.domain.model.PaymentCaptureRead sourceCapture(
-            RefundFixture fixture, LocalDateTime sourceAt) {
+    private PaymentCaptureRead sourceCapture(RefundFixture fixture, LocalDateTime sourceAt) {
         var day = sourceAt.atZone(clock.getZone())
-                .withZoneSameInstant(java.time.ZoneOffset.ofHours(8))
+                .withZoneSameInstant(ZoneOffset.ofHours(8))
                 .toLocalDate();
-        var scope = new io.github.loadup.pay.payment.domain.model.PaymentCaptureScope(
+        var scope = new PaymentCaptureScope(
                 fixture.prepared().original().channel(),
                 fixture.prepared().original().accountScopeHash(),
                 day,
-                io.github.loadup.pay.payment.domain.model.PaymentCaptureScope.WECHAT_ALL,
+                PaymentCaptureScope.WECHAT_ALL,
                 clock.getZone().getId());
         return transactions.readSnapshot(fixture.tenant(), 10, () -> captureReader.read(fixture.tenant(), scope));
     }
@@ -1090,7 +1094,7 @@ class RefundRecoveryHandlerPersistenceIT {
         private final RefundFaults faults;
 
         FaultingRefundResults(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 RefundTransactionClaimMapper claims,
                 RefundResultStorageConverter converter,
                 RefundStorageConverter storage,
@@ -1147,18 +1151,15 @@ class RefundRecoveryHandlerPersistenceIT {
         final AtomicReference<String> failAfterWrite = new AtomicReference<>();
 
         FaultingRefundAcceptances(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter,
+                NamedParameterJdbcTemplate jdbc,
+                RefundAcceptanceStorageConverter converter,
                 RefundStorageConverter storage,
                 Clock databaseClock) {
             super(jdbc, converter, storage, databaseClock);
         }
 
         @Override
-        public boolean remember(
-                String tenant,
-                io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence value,
-                long expected) {
+        public boolean remember(String tenant, RefundAcceptanceEvidence value, long expected) {
             boolean result = super.remember(tenant, value, expected);
             String target = failAfterWrite.get();
             if (value.refundId().equals(target) && failAfterWrite.compareAndSet(target, null)) {
@@ -1209,8 +1210,8 @@ class RefundRecoveryHandlerPersistenceIT {
     static class Configuration {
         @Bean
         FaultingRefundAcceptances refundAcceptances(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                io.github.loadup.pay.payment.infrastructure.converter.RefundAcceptanceStorageConverter converter,
+                NamedParameterJdbcTemplate jdbc,
+                RefundAcceptanceStorageConverter converter,
                 RefundStorageConverter storage,
                 Clock databaseClock) {
             return new FaultingRefundAcceptances(jdbc, converter, storage, databaseClock);
@@ -1228,7 +1229,7 @@ class RefundRecoveryHandlerPersistenceIT {
 
         @Bean
         RefundResultGateway refundResults(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 RefundTransactionClaimMapper claims,
                 RefundResultStorageConverter converter,
                 RefundStorageConverter storage,

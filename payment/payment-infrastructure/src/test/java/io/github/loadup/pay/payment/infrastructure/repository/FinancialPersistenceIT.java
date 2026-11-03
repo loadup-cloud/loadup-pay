@@ -41,6 +41,8 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.pay.limitcenter.client.command.LimitBeginExecutionCommand;
@@ -50,15 +52,25 @@ import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
 import io.github.loadup.pay.payment.app.port.ChannelBindingCodec;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
+import io.github.loadup.pay.payment.app.security.PaymentActor;
+import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.app.service.PaymentAcceptanceTransactions;
 import io.github.loadup.pay.payment.app.service.PaymentEvents;
 import io.github.loadup.pay.payment.app.service.PaymentExecutionLocks;
 import io.github.loadup.pay.payment.app.service.PaymentInputAccess;
+import io.github.loadup.pay.payment.app.service.PaymentInputPublication;
+import io.github.loadup.pay.payment.app.service.PaymentInputService;
 import io.github.loadup.pay.payment.app.service.PaymentSubmissionPreparation;
+import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingManagementGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -85,6 +97,7 @@ import io.github.loadup.pay.payment.infrastructure.codec.ChannelBindingCodecImpl
 import io.github.loadup.pay.payment.infrastructure.codec.PaymentAcceptanceCodecImpl;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentRecoveryStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentResultStorageConverter;
+import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.testify.starter.scenario.TestScenario;
 import java.time.Clock;
 import java.time.Duration;
@@ -92,14 +105,17 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -110,6 +126,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -129,11 +147,11 @@ class FinancialPersistenceIT {
     private final ChannelBindingCodec bindingCodec;
     private final RefundGateway refunds;
     private final PaymentResultStorageConverter capacityConverter;
-    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final JdbcTemplate jdbc;
     private final JsonMapper json;
     private final TestScenario scenario;
     private final RemotePorts remote;
-    private final io.github.loadup.pay.payment.app.service.PaymentInputService inputService;
+    private final PaymentInputService inputService;
     private final PaymentInputGateway inputStore;
 
     @Autowired
@@ -148,11 +166,11 @@ class FinancialPersistenceIT {
             ChannelBindingCodec bindingCodec,
             RefundGateway refunds,
             PaymentResultStorageConverter capacityConverter,
-            org.springframework.jdbc.core.JdbcTemplate jdbc,
+            JdbcTemplate jdbc,
             JsonMapper json,
             TestScenario scenario,
             RemotePorts remote,
-            io.github.loadup.pay.payment.app.service.PaymentInputService inputService,
+            PaymentInputService inputService,
             PaymentInputGateway inputStore) {
         this.transactions = transactions;
         this.preparation = preparation;
@@ -193,9 +211,9 @@ class FinancialPersistenceIT {
     void aParentFenceCommittedDuringCipherIoRejectsTheLateInputWithNoChildOrCiphertextRow() throws Exception {
         String tenant = id("tenant");
         var command = inputCommand();
-        var entered = new java.util.concurrent.CountDownLatch(1);
-        var released = new java.util.concurrent.CountDownLatch(1);
-        remote.inputPause.set(new java.util.concurrent.CountDownLatch[] {entered, released});
+        var entered = new CountDownLatch(1);
+        var released = new CountDownLatch(1);
+        remote.inputPause.set(new CountDownLatch[] {entered, released});
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             var preparing = workers.submit(() -> prepareInput(tenant, command));
             try {
@@ -215,12 +233,10 @@ class FinancialPersistenceIT {
             } finally {
                 released.countDown();
             }
-            var failure = assertThrows(
-                    java.util.concurrent.ExecutionException.class, () -> preparing.get(20, TimeUnit.SECONDS));
-            assertTrue(failure.getCause() instanceof io.github.loadup.commons.error.CommonException);
+            var failure = assertThrows(ExecutionException.class, () -> preparing.get(20, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof CommonException);
             assertEquals(
-                    io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
-                    ((io.github.loadup.commons.error.CommonException) failure.getCause()).getResultCode());
+                    PaymentResultCodeEnum.EXECUTION_FENCED, ((CommonException) failure.getCause()).getResultCode());
         }
         transactions.writeLocal(tenant, () -> {
             assertTrue(inputStore.findByPayment(tenant, command.paymentId()).isEmpty());
@@ -241,7 +257,7 @@ class FinancialPersistenceIT {
         String tenant = id("tenant");
         var command = inputCommand();
         remote.inputBarrier.set(new CyclicBarrier(2));
-        io.github.loadup.pay.payment.client.dto.PaymentInputDTO first;
+        PaymentInputDTO first;
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
             var a = workers.submit(() -> prepareInput(tenant, command));
             var b = workers.submit(() -> prepareInput(tenant, command));
@@ -267,8 +283,8 @@ class FinancialPersistenceIT {
         verify(remote.channels, never()).submit(any());
     }
 
-    private io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand inputCommand() {
-        return new io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand(
+    private PaymentInputPrepareCommand inputCommand() {
+        return new PaymentInputPrepareCommand(
                 id("payment"),
                 id("order"),
                 id("allocation"),
@@ -276,16 +292,12 @@ class FinancialPersistenceIT {
                 100L,
                 "CNY",
                 "action",
-                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
-                        io.github.loadup.commons.payment.Channel.WECHAT,
-                        io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE),
-                new io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO("synthetic-only-code"));
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.PAYMENT_CODE),
+                new PaymentCodeInteractionDTO("synthetic-only-code"));
     }
 
-    private io.github.loadup.pay.payment.client.dto.PaymentInputDTO prepareInput(
-            String tenant, io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand command) {
-        remote.inputActor.set(new io.github.loadup.pay.payment.app.security.PaymentActor(
-                tenant, "acquire", java.util.Set.of("pay:payment:input:prepare")));
+    private PaymentInputDTO prepareInput(String tenant, PaymentInputPrepareCommand command) {
+        remote.inputActor.set(new PaymentActor(tenant, "acquire", Set.of("pay:payment:input:prepare")));
         try {
             return inputService.prepare(command);
         } finally {
@@ -387,7 +399,7 @@ class FinancialPersistenceIT {
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            java.util.function.Function<String, Callable<Boolean>> contender = request -> () -> {
+            Function<String, Callable<Boolean>> contender = request -> () -> {
                 ready.countDown();
                 await(start);
                 try {
@@ -516,8 +528,7 @@ class FinancialPersistenceIT {
         return fixture;
     }
 
-    private Optional<io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket> prepare(
-            FinancialPersistenceFixtures.Fixture fixture) {
+    private Optional<PaymentSubmissionTicket> prepare(FinancialPersistenceFixtures.Fixture fixture) {
         return preparation.prepare(
                 fixture.tenant(),
                 fixture.command().paymentId(),
@@ -582,8 +593,7 @@ class FinancialPersistenceIT {
                                currency, refunded_minor, reserved_minor, row_version FROM payment_refund_capacity
                         WHERE payment_id = ? AND deleted = FALSE
                         """,
-                org.springframework.jdbc.core.BeanPropertyRowMapper.newInstance(
-                        io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO.class),
+                BeanPropertyRowMapper.newInstance(PaymentRefundCapacityDO.class),
                 fixture.command().paymentId());
         return capacityConverter.toCapacity(row);
     }
@@ -617,8 +627,8 @@ class FinancialPersistenceIT {
         final RiskConsultGateway risk = mock(RiskConsultGateway.class);
         final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
         final PaymentInputCipher cipher = mock(PaymentInputCipher.class);
-        final ThreadLocal<io.github.loadup.pay.payment.app.security.PaymentActor> inputActor = new ThreadLocal<>();
-        final AtomicReference<java.util.concurrent.CountDownLatch[]> inputPause = new AtomicReference<>();
+        final ThreadLocal<PaymentActor> inputActor = new ThreadLocal<>();
+        final AtomicReference<CountDownLatch[]> inputPause = new AtomicReference<>();
         final AtomicReference<CyclicBarrier> inputBarrier = new AtomicReference<>();
         final PaymentEvents events = mock(PaymentEvents.class);
 
@@ -702,8 +712,8 @@ class FinancialPersistenceIT {
         ChannelBindingCodecImpl.class,
         PaymentExecutionLocks.class,
         PaymentInputAccess.class,
-        io.github.loadup.pay.payment.app.service.PaymentInputService.class,
-        io.github.loadup.pay.payment.app.service.PaymentInputPublication.class,
+        PaymentInputService.class,
+        PaymentInputPublication.class,
         PaymentSubmissionPreparation.class,
         PaymentAcceptanceTransactions.class
     })
@@ -739,7 +749,7 @@ class FinancialPersistenceIT {
         }
 
         @Bean
-        io.github.loadup.pay.payment.app.security.PaymentActorProvider inputActors(RemotePorts ports) {
+        PaymentActorProvider inputActors(RemotePorts ports) {
             return ports.inputActor::get;
         }
 

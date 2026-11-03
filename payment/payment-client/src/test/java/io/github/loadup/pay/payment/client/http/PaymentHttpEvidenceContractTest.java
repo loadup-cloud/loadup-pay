@@ -36,6 +36,7 @@ import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 class PaymentHttpEvidenceContractTest {
     private final JsonMapper json = JsonUtil.customize(JsonMapper.builder()).build();
@@ -95,10 +96,10 @@ class PaymentHttpEvidenceContractTest {
         assertThatThrownBy(() -> PaymentCaptureContracts.capture(capture(PaymentCaptureState.SEALED, null, null)))
                 .isInstanceOf(RuntimeException.class);
         var missingVersion = json.valueToTree(initial).deepCopy();
-        ((tools.jackson.databind.node.ObjectNode) missingVersion).remove("version");
+        ((ObjectNode) missingVersion).remove("version");
         assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class))
                 .isInstanceOf(RuntimeException.class);
-        ((tools.jackson.databind.node.ObjectNode) missingVersion).putNull("version");
+        ((ObjectNode) missingVersion).putNull("version");
         assertThatThrownBy(() -> json.treeToValue(missingVersion, PaymentCaptureDTO.class))
                 .isInstanceOf(RuntimeException.class);
     }
@@ -118,7 +119,7 @@ class PaymentHttpEvidenceContractTest {
                         PageDTO.of(List.of(line(1)), 2L, 2, 1), new PaymentCaptureLinesQuery("capture", 2, 1)))
                 .isInstanceOf(RuntimeException.class);
         var malformed = json.valueToTree(line(1)).deepCopy();
-        ((tools.jackson.databind.node.ObjectNode) malformed).remove("sourceVersion");
+        ((ObjectNode) malformed).remove("sourceVersion");
         assertThatThrownBy(() -> json.treeToValue(malformed, PaymentLedgerLineDTO.class))
                 .isInstanceOf(RuntimeException.class);
         var failure = json.readValue(
@@ -155,7 +156,7 @@ class PaymentHttpEvidenceContractTest {
         assertThat(decoded.evidence()).isEqualTo(evidence);
         assertThat(decoded.receivedAt().toInstant()).isEqualTo(time.toInstant());
         assertThat(decoded.toString()).doesNotContain("original-statement-bytes", "original-provider-evidence");
-        var tampered = (tools.jackson.databind.node.ObjectNode) json.valueToTree(dto);
+        var tampered = (ObjectNode) json.valueToTree(dto);
         tampered.put("contentSha256", "0".repeat(64));
         assertThatThrownBy(() -> json.treeToValue(tampered, PaymentStatementDTO.class))
                 .isInstanceOf(RuntimeException.class);
@@ -216,8 +217,8 @@ class PaymentHttpEvidenceContractTest {
         var decoded = json.readValue(json.writeValueAsBytes(command), PaymentInputPrepareCommand.class);
         assertThat(decoded.interaction()).isEqualTo(command.interaction());
         assertThat(decoded.toString()).doesNotContain("synthetic-short-lived-code");
-        var malformed = (tools.jackson.databind.node.ObjectNode) json.valueToTree(command);
-        ((tools.jackson.databind.node.ObjectNode) malformed.get("interaction")).put("type", "java.lang.Runtime");
+        var malformed = (ObjectNode) json.valueToTree(command);
+        ((ObjectNode) malformed.get("interaction")).put("type", "java.lang.Runtime");
         assertThatThrownBy(() -> json.treeToValue(malformed, PaymentInputPrepareCommand.class))
                 .isInstanceOf(RuntimeException.class);
     }

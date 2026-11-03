@@ -22,7 +22,9 @@ package io.github.loadup.pay.payment.domain.model;
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -79,7 +81,7 @@ public record RefundProgressChange(
                         case UNKNOWN -> ChannelRefundOutcome.Kind.UNKNOWN;
                         case SUCCEEDED -> ChannelRefundOutcome.Kind.SUCCEEDED;
                         case FAILED -> ChannelRefundOutcome.Kind.FAILED_WITH_NO_REFUND;
-                        case INIT -> throw new io.github.loadup.commons.error.DomainViolation(CONFLICT);
+                        case INIT -> throw new DomainViolation(CONFLICT);
                     };
             require(
                     current.recordOutcome(new ChannelRefundOutcome(
@@ -102,7 +104,7 @@ public record RefundProgressChange(
                         .capacity();
         require(capacity.equals(expected), CONFLICT);
         if (refund.state() == RefundState.SUCCEEDED) {
-            io.github.loadup.commons.validation.DomainChecks.text(channelRefundTransactionNo, 128);
+            DomainChecks.text(channelRefundTransactionNo, 128);
             Objects.requireNonNull(succeededAt);
             require(!succeededAt.isBefore(before.child().originalSucceededAt()), CONFLICT);
         } else {

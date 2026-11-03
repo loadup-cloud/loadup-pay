@@ -34,6 +34,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
@@ -58,8 +59,7 @@ class ReconciliationStatementParserAdapterTest {
                 assertThrows(
                                 CommonException.class,
                                 () -> parser.parse(
-                                        new ByteArrayInputStream(java.util.Arrays.copyOf(bytes, bytes.length - 1)),
-                                        request))
+                                        new ByteArrayInputStream(Arrays.copyOf(bytes, bytes.length - 1)), request))
                         .getResultCode());
         byte[] changed = bytes.clone();
         changed[0] = 'x';

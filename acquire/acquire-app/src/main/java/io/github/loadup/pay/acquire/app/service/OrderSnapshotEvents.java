@@ -34,6 +34,7 @@ import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
+import io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -72,7 +73,7 @@ public class OrderSnapshotEvents {
         if (header == null || !orderId.equals(header.orderId()) || header.sourceVersion() != expectedVersion) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        final io.github.loadup.pay.acquire.client.event.OrderSnapshotEventDTO data;
+        final OrderSnapshotEventDTO data;
         try {
             data = converter.toEvent(header);
         } catch (RuntimeException corrupt) {

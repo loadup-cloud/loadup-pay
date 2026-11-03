@@ -50,15 +50,21 @@ import io.github.loadup.components.signature.request.RequestSignature;
 import io.github.loadup.components.signature.request.RequestSignatureProperties;
 import io.github.loadup.components.signature.request.RequestSigner;
 import io.github.loadup.components.signature.request.RequestSigningIdentity;
+import io.github.loadup.pay.acquire.app.model.MerchantNotificationBody;
+import io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.infrastructure.config.MerchantNotificationProperties;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -91,7 +97,7 @@ class HttpMerchantNotificationTransportTest {
     private static String refundBody(
             String type, String aggregateType, String aggregate, String state, long succeeded, long failed) {
         boolean child = "RefundOrder".equals(aggregateType);
-        return JsonUtil.toJson(new io.github.loadup.pay.acquire.app.model.MerchantNotificationBody<>(
+        return JsonUtil.toJson(new MerchantNotificationBody<>(
                 EVENT,
                 type,
                 1,
@@ -100,7 +106,7 @@ class HttpMerchantNotificationTransportTest {
                 aggregate,
                 7,
                 BusinessTime.external(NOW),
-                new io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData(
+                new MerchantRefundNotificationData(
                         "order-a",
                         "request-a",
                         "R001",
@@ -152,8 +158,7 @@ class HttpMerchantNotificationTransportTest {
                 httpPropertiesProvider,
                 signerProvider,
                 JsonUtil.customize(JsonMapper.builder()).build());
-        var policy = new MerchantNotificationPolicy(
-                "target-a", "identity-a", 10000, 5, java.math.BigDecimal.ONE, 60, 5, 3600);
+        var policy = new MerchantNotificationPolicy("target-a", "identity-a", 10000, 5, BigDecimal.ONE, 60, 5, 3600);
         var initial = MerchantNotificationDelivery.init(
                 "delivery-a",
                 EVENT,
@@ -277,9 +282,8 @@ class HttpMerchantNotificationTransportTest {
 
     private static String digest(byte[] value) {
         try {
-            return java.util.HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value));
-        } catch (java.security.NoSuchAlgorithmException unavailable) {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (NoSuchAlgorithmException unavailable) {
             throw new IllegalStateException(unavailable);
         }
     }
@@ -340,8 +344,7 @@ class HttpMerchantNotificationTransportTest {
                 .thenAnswer(
                         call -> new KmsSignature("notify-key", 3, KmsSignatureAlgorithm.RSA_SHA256_PSS, new byte[256]));
         fixture.signers()
-                .set(new RequestSigner(
-                        kms, java.time.Clock.systemUTC(), new RequestSignatureProperties(null, null, null)));
+                .set(new RequestSigner(kms, Clock.systemUTC(), new RequestSignatureProperties(null, null, null)));
         var nonces = new ArrayList<String>();
         doAnswer(call -> {
                     HttpRequestSigner callback = call.getArgument(3);

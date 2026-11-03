@@ -47,7 +47,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.NoChannelInput;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionVerificationDTO;
@@ -59,6 +61,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
@@ -199,7 +202,7 @@ class PaymentSubmissionPreparationTest {
         calls.verify(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
         calls.verify(channels)
                 .validate(argThat(validation -> validation.input() instanceof NoChannelInput
-                        && validation.method() == io.github.loadup.commons.payment.PaymentMethod.H5
+                        && validation.method() == PaymentMethod.H5
                         && validation.subject().equals(PaymentFixtures.SUBJECT)
                         && validation.payableUntil().equals(PaymentFixtures.PAYABLE_UNTIL)));
         calls.verify(limits).reserve(eq("tenant"), any());
@@ -242,9 +245,7 @@ class PaymentSubmissionPreparationTest {
                 previous.gate().fence(1L),
                 previous.rowVersion() + 1L));
         var failure = assertThrows(CommonException.class, () -> service.prepare("tenant", "payment", "attempt"));
-        assertEquals(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
-                failure.getResultCode());
+        assertEquals(PaymentResultCodeEnum.EXECUTION_FENCED, failure.getResultCode());
         assertEquals(PaymentAttemptState.INIT, stored.get().attempt().state());
         assertEquals(0L, stored.get().attempt().executionEpoch());
         assertEquals(PaymentState.PROCESSING, accepted.get().payment().state());
@@ -284,8 +285,7 @@ class PaymentSubmissionPreparationTest {
 
     @Test
     void unsupportedChannelPreflightStopsBeforeReservationBeginAndY2() {
-        var unsupported = new CommonException(
-                io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY);
+        var unsupported = new CommonException(ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY);
         doThrow(unsupported).when(channels).validate(any());
 
         assertSame(
@@ -302,8 +302,7 @@ class PaymentSubmissionPreparationTest {
 
     @Test
     void invalidOrExpiredPreflightInputStopsBeforeChannelValidationAndY2() {
-        var invalid =
-                new CommonException(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT);
+        var invalid = new CommonException(ChannelResultCodeEnum.INVALID_ARGUMENT);
         doThrow(invalid).when(inputs).openForPreparation(eq("tenant"), any(), eq("attempt"));
         assertSame(
                 invalid.getResultCode(),

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.customer.domain.model.PrincipalType;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ class JwtCustomerActorProviderTest {
                 .setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         "verified-principal",
                         jwt,
-                        java.util.Arrays.stream(permissions)
+                        Arrays.stream(permissions)
                                 .map(SimpleGrantedAuthority::new)
                                 .toList()));
     }

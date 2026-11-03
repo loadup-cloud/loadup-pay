@@ -24,6 +24,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.payment.app.converter.PaymentAttemptConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
@@ -85,7 +86,7 @@ public class PaymentInitialAttemptService {
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
+        if (!tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (accepted.payment().activeAttemptId() != null || accepted.payment().state() != PaymentState.INIT) {

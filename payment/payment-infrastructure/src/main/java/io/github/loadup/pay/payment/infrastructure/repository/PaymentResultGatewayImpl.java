@@ -27,6 +27,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
@@ -171,10 +172,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
     private Optional<ChannelTransactionClaim> claim(ChannelTransactionClaimDO row) {
         return row == null
                 ? Optional.empty()
-                : Optional.of(read(() -> converter.toClaim(
-                        io.github.loadup.components.database.tenant.TenantContext.tenantId(),
-                        row,
-                        converter.toIdentity(row))));
+                : Optional.of(read(() -> converter.toClaim(TenantContext.tenantId(), row, converter.toIdentity(row))));
     }
 
     @Override
@@ -199,7 +197,7 @@ public class PaymentResultGatewayImpl implements PaymentResultGateway {
 
     @Override
     public void completeSuccess(
-            String tenant, StoredPaymentAcceptance payment, long expectedVersion, java.time.LocalDateTime succeededAt) {
+            String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt) {
         writable(tenant);
         if (payment.payment().state() != PaymentState.SUCCEEDED
                 || payment.terminalEvidenceId() == null

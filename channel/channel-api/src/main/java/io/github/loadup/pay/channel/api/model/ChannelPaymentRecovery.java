@@ -25,6 +25,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -45,9 +46,7 @@ public record ChannelPaymentRecovery(
         require(amount.getCent() > 0 && executionEpoch > 0, INVALID_ARGUMENT);
         Objects.requireNonNull(method);
         Objects.requireNonNull(payableUntil);
-        payableUntil = payableUntil
-                .atZoneSameInstant(io.github.loadup.commons.time.BusinessTime.zone())
-                .toOffsetDateTime();
+        payableUntil = payableUntil.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
     }
 
     @Override

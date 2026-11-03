@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class MerchantNotificationServiceTest {
@@ -118,7 +119,7 @@ class MerchantNotificationServiceTest {
                     return null;
                 })
                 .when(deliveries)
-                .update(eq(TENANT), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                .update(eq(TENANT), ArgumentMatchers.any(), ArgumentMatchers.any());
         when(tasks.find(eq(MerchantNotificationService.TYPE), anyString()))
                 .thenAnswer(call -> Optional.ofNullable(nativeTasks.get(call.getArgument(1))));
         doAnswer(call -> {
@@ -128,10 +129,9 @@ class MerchantNotificationServiceTest {
                     return null;
                 })
                 .when(tasks)
-                .register(eq(MerchantNotificationService.TYPE), anyString(), org.mockito.ArgumentMatchers.any());
-        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(ROUTE);
-        when(transport.send(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenReturn(false);
+                .register(eq(MerchantNotificationService.TYPE), anyString(), ArgumentMatchers.any());
+        when(transport.fingerprint(eq(TENANT), ArgumentMatchers.any())).thenReturn(ROUTE);
+        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenReturn(false);
     }
 
     @AfterEach
@@ -144,7 +144,7 @@ class MerchantNotificationServiceTest {
     void registersSuccessorBeforeSendingAndFalseAcknowledgementLeavesDeliveryPending() {
         var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
-        when(transport.send(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(MerchantNotificationState.PENDING, current.get().state());
             assertTrue(operations.stream().anyMatch(value -> value.startsWith("register:delivery:1")));
@@ -170,7 +170,7 @@ class MerchantNotificationServiceTest {
     void acknowledgesOnlyAfterTheTransportReturnsOutsideTheTransaction() {
         var task = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(task.bizId(), task);
-        when(transport.send(eq(TENANT), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+        when(transport.send(eq(TENANT), ArgumentMatchers.any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertEquals(MerchantNotificationState.PENDING, current.get().state());
             operations.add("send");
@@ -196,7 +196,7 @@ class MerchantNotificationServiceTest {
         invoke(duplicate, service(NOW.plusSeconds(1)));
 
         assertEquals(1, current.get().attemptCount());
-        verify(transport, times(1)).send(eq(TENANT), org.mockito.ArgumentMatchers.any());
+        verify(transport, times(1)).send(eq(TENANT), ArgumentMatchers.any());
     }
 
     @Test
@@ -216,7 +216,7 @@ class MerchantNotificationServiceTest {
                 assertThrows(CommonException.class, () -> invoke(expired, service(NOW)))
                         .getResultCode());
         verify(deliveries, never()).lock(eq(TENANT), eq("delivery"));
-        verify(transport, never()).send(eq(TENANT), org.mockito.ArgumentMatchers.any());
+        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
     }
 
     @Test
@@ -234,14 +234,14 @@ class MerchantNotificationServiceTest {
 
         invoke(atLimit, service(atLimit.executeAt()));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
-        verify(transport, never()).send(eq(TENANT), org.mockito.ArgumentMatchers.any());
+        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
 
         current.set(delivery(policy(5, 5, 1)));
         var expired = runningTask("delivery:0", NOW, NOW, "native-expired-window", 1, NOW.plusMinutes(1));
         nativeTasks.put(expired.bizId(), expired);
         invoke(expired, service(NOW.plusSeconds(1)));
         assertEquals(MerchantNotificationState.EXHAUSTED, current.get().state());
-        verify(transport, never()).send(eq(TENANT), org.mockito.ArgumentMatchers.any());
+        verify(transport, never()).send(eq(TENANT), ArgumentMatchers.any());
     }
 
     @Test
@@ -249,8 +249,7 @@ class MerchantNotificationServiceTest {
         var first = runningTask("delivery:0", NOW, NOW, "native-0", 1, NOW.plusMinutes(1));
         nativeTasks.put(first.bizId(), first);
         invoke(first, service(NOW));
-        when(transport.fingerprint(eq(TENANT), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(CHANGED_ROUTE);
+        when(transport.fingerprint(eq(TENANT), ArgumentMatchers.any())).thenReturn(CHANGED_ROUTE);
         var due = current.get().nextAttemptAt();
         var second = runningTask("delivery:1", due, due, "native-1", 1, NOW.plusMinutes(1));
         nativeTasks.put(second.bizId(), second);
@@ -262,7 +261,7 @@ class MerchantNotificationServiceTest {
         verify(transport, times(2))
                 .send(
                         eq(TENANT),
-                        org.mockito.ArgumentMatchers.argThat(value -> ((MerchantNotificationDelivery) value)
+                        ArgumentMatchers.argThat(value -> ((MerchantNotificationDelivery) value)
                                 .routeFingerprint()
                                 .equals(ROUTE)));
     }

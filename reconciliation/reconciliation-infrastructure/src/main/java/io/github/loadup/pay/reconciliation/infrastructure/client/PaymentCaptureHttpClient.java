@@ -14,6 +14,7 @@ import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.result.SuccessResponse;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.http.PaymentCaptureHttpService;
@@ -50,8 +51,7 @@ public class PaymentCaptureHttpClient implements ReconciliationPaymentCaptures {
     }
 
     @Override
-    public PaymentCaptureDTO retry(
-            String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) {
+    public PaymentCaptureDTO retry(String tenant, PaymentCaptureRetryCommand command) {
         return call(
                 tenant,
                 authorization -> PaymentCaptureContracts.capture(

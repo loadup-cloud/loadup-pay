@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class FeeAdjustmentDO extends BaseDO {
     private String orderId;
@@ -36,7 +37,7 @@ public class FeeAdjustmentDO extends BaseDO {
     @DiagnosticHidden
     private String ruleSnapshot;
 
-    private java.time.LocalDateTime appliedAt;
+    private LocalDateTime appliedAt;
 
     public String getOrderId() {
         return orderId;
@@ -110,11 +111,11 @@ public class FeeAdjustmentDO extends BaseDO {
         ruleSnapshot = value;
     }
 
-    public java.time.LocalDateTime getAppliedAt() {
+    public LocalDateTime getAppliedAt() {
         return appliedAt;
     }
 
-    public void setAppliedAt(java.time.LocalDateTime value) {
+    public void setAppliedAt(LocalDateTime value) {
         appliedAt = value;
     }
 

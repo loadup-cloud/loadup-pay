@@ -35,6 +35,7 @@ import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -85,8 +86,8 @@ public class OrderClosureRecoveryService implements DelayedTaskHandler {
             }
             var scope = new OrderPaymentScope(tenant, order.callerScopeHash());
             return operations.isCurrent(scope, order, intent, key.generation())
-                    ? java.util.Optional.of(intent)
-                    : java.util.Optional.<OrderCloseIntent>empty();
+                    ? Optional.of(intent)
+                    : Optional.<OrderCloseIntent>empty();
         });
         if (pending.isPresent()) {
             var intent = pending.get();

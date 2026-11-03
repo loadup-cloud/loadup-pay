@@ -24,6 +24,7 @@ import io.github.loadup.pay.acquire.app.model.MerchantNotificationData;
 import io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -42,5 +43,5 @@ public interface MerchantNotificationConverter {
     @Mapping(target = "orderState", source = "facts.state")
     MerchantNotificationData toData(OrderSnapshotFacts facts, String paymentId, long amountMinor);
 
-    MerchantRefundNotificationData toRefundData(io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO value);
+    MerchantRefundNotificationData toRefundData(RefundMerchantEventDTO value);
 }

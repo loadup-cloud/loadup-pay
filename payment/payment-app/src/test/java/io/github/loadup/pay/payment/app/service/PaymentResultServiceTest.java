@@ -46,12 +46,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
@@ -66,6 +68,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
 import io.github.loadup.pay.payment.app.port.PaymentResultCodec;
 import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
@@ -91,11 +94,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -136,11 +142,11 @@ class PaymentResultServiceTest {
             Clock.fixed(AttemptFixtures.NOW.atZone(BusinessTime.zone()).toInstant(), BusinessTime.zone()),
             actions);
 
-    PreparedChannelPayment jsapiPayment(io.github.loadup.commons.money.Money amount) {
+    PreparedChannelPayment jsapiPayment(Money amount) {
         return channelPayment(amount, PaymentMethod.JSAPI);
     }
 
-    PreparedChannelPayment channelPayment(io.github.loadup.commons.money.Money amount, PaymentMethod method) {
+    PreparedChannelPayment channelPayment(Money amount, PaymentMethod method) {
         var previous = attempt.get();
         var binding = new ChannelBindingRevision(
                 "binding-revision",
@@ -151,7 +157,7 @@ class PaymentResultServiceTest {
                 "credential",
                 "v1",
                 new AlipayAccountIdentity("app", "seller", null, null, null),
-                java.util.Set.of(method));
+                Set.of(method));
         var channelAttempt = new PaymentAttempt(
                 "attempt",
                 "payment",
@@ -358,8 +364,7 @@ class PaymentResultServiceTest {
         var url = "https://openapi.alipay.com/gateway.do?app_id=app&method=alipay.trade.wap.pay"
                 + "&format=json&charset=utf-8&sign_type=RSA2&sign=AQ%3D%3D&timestamp=2026-10-22+20%3A00%3A00"
                 + "&version=1.0&biz_content=%7B%22product_code%22%3A%22QUICK_WAP_WAY%22%7D";
-        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(
-                url, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
+        var action = new AlipayH5ChannelAction(url, OffsetDateTime.parse("2026-10-22T14:00:00Z"));
         var submission = new ChannelPaymentSubmission(original.identity(), original.amount(), null, action);
         var locked = PaymentExecutionBindings.locked(accepted.get(), AttemptFixtures.gate(true), gate.get());
         when(locks.lock("tenant", "payment", "acquire")).thenReturn(locked);
@@ -394,7 +399,7 @@ class PaymentResultServiceTest {
                 "allocation",
                 4000,
                 "CNY",
-                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING,
+                PaymentState.PROCESSING,
                 "attempt",
                 new PaymentActionDTO(
                         PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
@@ -420,9 +425,8 @@ class PaymentResultServiceTest {
         calls.verify(results)
                 .insertReceipt(
                         eq("tenant"),
-                        org.mockito.ArgumentMatchers.argThat(
-                                receipt -> receipt.id().equals(result.receiptId())
-                                        && receipt.identity().equals(original.identity())));
+                        ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
+                                && receipt.identity().equals(original.identity())));
         calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
         calls.verify(actions).present("tenant", locked);
         verifyNoInteractions(events);
@@ -440,7 +444,7 @@ class PaymentResultServiceTest {
                 "allocation",
                 4000,
                 "CNY",
-                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING,
+                PaymentState.PROCESSING,
                 "attempt",
                 new PaymentActionDTO(
                         PaymentActionType.INVOKE_JSAPI, OffsetDateTime.parse("2026-10-22T14:00:00Z"), null),
@@ -464,9 +468,8 @@ class PaymentResultServiceTest {
         calls.verify(results)
                 .insertReceipt(
                         eq("tenant"),
-                        org.mockito.ArgumentMatchers.argThat(
-                                receipt -> receipt.id().equals(result.receiptId())
-                                        && receipt.identity().equals(original.identity())));
+                        ArgumentMatchers.argThat(receipt -> receipt.id().equals(result.receiptId())
+                                && receipt.identity().equals(original.identity())));
         calls.verify(actions).record("tenant", locked, original, submission, result.receiptId());
         calls.verify(actions).present("tenant", locked);
     }
@@ -650,9 +653,7 @@ class PaymentResultServiceTest {
                 "correct-target-corrupt-binding",
                 o.sourceDigest());
         var rejected = assertThrows(CommonException.class, () -> service.record("tenant", correctTarget));
-        assertEquals(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
-                rejected.getResultCode());
+        assertEquals(PaymentResultCodeEnum.SNAPSHOT_INVALID, rejected.getResultCode());
         assertEquals(1, receipts.size());
         assertEquals(1, anomalies.size());
         assertNull(capacity.get());
@@ -682,7 +683,7 @@ class PaymentResultServiceTest {
         assertEquals(IGNORED, result.disposition());
         assertEquals(PaymentAttemptState.UNKNOWN, attempt.get().attempt().state());
         assertNull(capacity.get());
-        verify(events, org.mockito.Mockito.times(1)).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
+        verify(events, Mockito.times(1)).publishSnapshot(eq("tenant"), eq(accepted.get()), any());
         verify(events, never()).publish(anyString(), any(), anyBoolean(), any());
     }
 

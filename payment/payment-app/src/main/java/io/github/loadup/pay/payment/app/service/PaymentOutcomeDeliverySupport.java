@@ -38,6 +38,7 @@ import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -111,10 +112,7 @@ public class PaymentOutcomeDeliverySupport {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var data = envelope.data();
-        if (!Set.of(
-                        io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED,
-                        io.github.loadup.pay.payment.domain.model.PaymentState.FAILED,
-                        io.github.loadup.pay.payment.domain.model.PaymentState.CLOSED)
+        if (!Set.of(PaymentState.SUCCEEDED, PaymentState.FAILED, PaymentState.CLOSED)
                 .contains(data.state())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
@@ -144,7 +142,7 @@ public class PaymentOutcomeDeliverySupport {
                             accepted.choice().method(),
                             accepted.preparedInputRef());
                 }
-                java.time.LocalDateTime succeededAt = null;
+                LocalDateTime succeededAt = null;
                 if (succeeded) {
                     if (attempt == null || attempt.attempt().state() != PaymentAttemptState.SUCCEEDED) {
                         throw new CommonException(SNAPSHOT_INVALID);

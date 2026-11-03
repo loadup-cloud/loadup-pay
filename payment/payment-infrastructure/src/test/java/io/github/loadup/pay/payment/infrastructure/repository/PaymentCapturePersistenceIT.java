@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
@@ -329,7 +330,7 @@ class PaymentCapturePersistenceIT {
         });
     }
 
-    private io.github.loadup.commons.domain.PageResult<PaymentLedgerLine> page(String tenant, String id) {
+    private PageResult<PaymentLedgerLine> page(String tenant, String id) {
         return transactions.readSnapshot(
                 tenant, () -> captures.page(tenant, captures.find(tenant, id).orElseThrow(), 1, 100));
     }

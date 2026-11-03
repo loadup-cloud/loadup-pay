@@ -73,6 +73,7 @@ import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
@@ -137,7 +138,7 @@ class AllocationRecoveryServiceTest {
                 original.payloadHash());
     }
 
-    DelayedTask nativeTask(java.time.LocalDateTime leaseUntil) {
+    DelayedTask nativeTask(LocalDateTime leaseUntil) {
         return new DelayedTask(
                 "task",
                 AllocationRecoveryQueue.TYPE,

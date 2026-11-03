@@ -43,6 +43,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
@@ -110,8 +111,7 @@ class OrderDeadlineServiceTest {
                 .startLocked(
                         new OrderPaymentScope("tenant", OWNER),
                         order.get(),
-                        new io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand(
-                                "order", "order-deadline/1", "ORDER_EXPIRED"));
+                        new AcquireOrderCloseCommand("order", "order-deadline/1", "ORDER_EXPIRED"));
         verify(operations, never()).resume(any(), any());
         verify(closes, never()).keepPending(anyString(), any(), any());
         assertEquals(1, manager.commits);

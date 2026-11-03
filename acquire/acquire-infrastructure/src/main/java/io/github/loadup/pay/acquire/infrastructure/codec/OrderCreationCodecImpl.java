@@ -25,9 +25,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -168,19 +170,17 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String encodeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+    public String encodeDirectPay(DirectPayRecoverCommand command) {
         return mapper.writeValueAsString(command);
     }
 
     @Override
-    public io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(
-            OrderCreateIntent intent) {
+    public DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent) {
         try {
             if (!"DIRECT_PAY".equals(intent.entryMode())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            var value = mapper.readValue(
-                    intent.intentPayload(), io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand.class);
+            var value = mapper.readValue(intent.intentPayload(), DirectPayRecoverCommand.class);
             if (value == null
                     || !validator.validate(value).isEmpty()
                     || value.firstPaymentAmountMinor() > value.amountMinor()
@@ -196,8 +196,7 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
     }
 
     @Override
-    public String directPayDigest(
-            String tenant, String scope, io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+    public String directPayDigest(String tenant, String scope, DirectPayRecoverCommand command) {
         var canonical = new StringBuilder();
         for (String field : Arrays.asList(
                 "acquire.direct-pay-create.v1",
@@ -243,7 +242,7 @@ public class OrderCreationCodecImpl implements OrderCreationCodec {
                     || !validator.validate(value).isEmpty()
                     || value.terms() == null
                     || value.terms().schemaVersion() != 1
-                    || value.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED) {
+                    || value.decision() != AdmissionDecision.ADMITTED) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             return value;

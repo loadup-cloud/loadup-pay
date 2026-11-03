@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.channel.api.spi;
 
+import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelStatementRequest;
 import io.github.loadup.pay.channel.api.model.VerifiedChannelStatement;
@@ -27,7 +28,7 @@ import io.github.loadup.pay.channel.api.model.VerifiedChannelStatement;
  * Official statement retrieval is separate from payment and notification strategies.
  */
 public interface ChannelStatementProvider {
-    io.github.loadup.commons.payment.Channel channel();
+    Channel channel();
 
     VerifiedChannelStatement download(ChannelExecutionContext context, ChannelStatementRequest request);
 }

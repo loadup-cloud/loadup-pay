@@ -31,6 +31,7 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentChannelRece
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentOrderDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentRefundCapacityDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentResultAnomalyDO;
+import java.time.LocalDateTime;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -44,7 +45,7 @@ public interface PaymentResultStorageConverter {
     @Mapping(target = "terminalEvidenceId", source = "value.terminalEvidenceId")
     @Mapping(target = "rowVersion", source = "value.payment.version")
     @Mapping(target = "succeededAt", source = "succeededAt")
-    PaymentOrderDO toSuccessPatch(StoredPaymentAcceptance value, java.time.LocalDateTime succeededAt);
+    PaymentOrderDO toSuccessPatch(StoredPaymentAcceptance value, LocalDateTime succeededAt);
 
     ChannelPaymentIdentity toIdentity(PaymentChannelReceiptDO row);
 

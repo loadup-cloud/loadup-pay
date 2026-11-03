@@ -37,6 +37,7 @@ import io.github.loadup.pay.realtime.domain.model.TradeRefundProjection;
 import io.github.loadup.pay.realtime.domain.model.TradeRefundSummary;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -126,6 +127,6 @@ public interface TradeProjectionConverter {
     }
 
     default LocalDateTime local(OffsetDateTime value) {
-        return value == null ? null : BusinessTime.local(value).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        return value == null ? null : BusinessTime.local(value).truncatedTo(ChronoUnit.MICROS);
     }
 }

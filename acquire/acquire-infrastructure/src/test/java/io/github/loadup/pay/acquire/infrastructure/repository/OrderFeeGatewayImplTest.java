@@ -42,11 +42,16 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.transaction.TransactionDefinition;
@@ -60,9 +65,8 @@ class OrderFeeGatewayImplTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(OrderFeeStorageConverter.class.getPackageName());
     final NamedParameterJdbcTemplate adjustments = mock(NamedParameterJdbcTemplate.class);
-    final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate =
-            mock(org.springframework.jdbc.core.JdbcTemplate.class);
-    final javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
+    final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+    final DataSource dataSource = mock(DataSource.class);
     final JsonMapper json = JsonMapper.builder().build();
     final AtomicInteger ids = new AtomicInteger();
     final OrderFeeGatewayImpl gateway = new OrderFeeGatewayImpl(
@@ -101,16 +105,13 @@ class OrderFeeGatewayImplTest {
         when(order.state()).thenReturn(AcquireOrderState.PAID);
         when(order.paidAmountMinor()).thenReturn(10000L);
         when(adjustments.query(
-                        org.mockito.ArgumentMatchers.contains("FROM order_fee"),
+                        ArgumentMatchers.contains("FROM order_fee"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<OrderFeeDO>>any()))
-                .thenReturn(java.util.List.of(row));
-        when(adjustments.update(
-                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
-                        any(SqlParameterSource.class)))
+                        ArgumentMatchers.<RowMapper<OrderFeeDO>>any()))
+                .thenReturn(List.of(row));
+        when(adjustments.update(ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class)))
                 .thenReturn(1);
-        when(adjustments.update(
-                        org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class)))
+        when(adjustments.update(ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class)))
                 .thenAnswer(c -> {
                     SqlParameterSource patch = c.getArgument(1);
                     row.setState((String) patch.getValue("state"));
@@ -150,9 +151,7 @@ class OrderFeeGatewayImplTest {
         assertEquals(3000, row.getRefundBasisMinor().longValue());
         assertEquals(0, row.getAdjustedAmountMinor().longValue());
         verify(adjustments, never())
-                .update(
-                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
-                        any(SqlParameterSource.class));
+                .update(ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class));
         confirm();
         assertEquals(9, row.getAdjustedAmountMinor().longValue());
         assertEquals("CONFIRMED", row.getState());
@@ -170,11 +169,9 @@ class OrderFeeGatewayImplTest {
         basis(1, 3000);
         confirm();
         verify(adjustments, never())
-                .update(
-                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
-                        any(SqlParameterSource.class));
+                .update(ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class));
         verify(adjustments, never())
-                .update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
+                .update(ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
         assertEquals(15, row.getAdjustedAmountMinor().longValue());
     }
 
@@ -182,13 +179,11 @@ class OrderFeeGatewayImplTest {
     void adjustmentInsertFailureStopsFeeAcknowledgementAndRollsBackTheBoundary() {
         basis(1, 3000);
         clearInvocations(adjustments);
-        when(adjustments.update(
-                        org.mockito.ArgumentMatchers.contains("INSERT INTO fee_adjustment"),
-                        any(SqlParameterSource.class)))
+        when(adjustments.update(ArgumentMatchers.contains("INSERT INTO fee_adjustment"), any(SqlParameterSource.class)))
                 .thenReturn(0);
         assertThrows(CommonException.class, this::confirm);
         verify(adjustments, never())
-                .update(org.mockito.ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
+                .update(ArgumentMatchers.contains("UPDATE order_fee"), any(SqlParameterSource.class));
         assertEquals("INIT", row.getState());
         assertEquals(1, manager.rollbacks);
         // This manager checks propagation only. Real ledger/CAS rollback still needs PostgreSQL acceptance.

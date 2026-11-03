@@ -22,6 +22,7 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class PaymentCaptureLineDO extends BaseDO {
     private String captureId;
@@ -41,7 +42,7 @@ public class PaymentCaptureLineDO extends BaseDO {
     private Long amountMinor;
     private String currency;
     private String status;
-    private java.time.LocalDateTime sourceAt;
+    private LocalDateTime sourceAt;
     private String sourceId;
     private String evidenceId;
     private Long sourceVersion;
@@ -126,11 +127,11 @@ public class PaymentCaptureLineDO extends BaseDO {
         status = value;
     }
 
-    public java.time.LocalDateTime getSourceAt() {
+    public LocalDateTime getSourceAt() {
         return sourceAt;
     }
 
-    public void setSourceAt(java.time.LocalDateTime value) {
+    public void setSourceAt(LocalDateTime value) {
         sourceAt = value;
     }
 

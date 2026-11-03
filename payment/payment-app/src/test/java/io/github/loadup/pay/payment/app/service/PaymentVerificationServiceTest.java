@@ -57,6 +57,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentVerificationOutcome;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -75,7 +76,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class PaymentVerificationServiceTest {
     final AnnotationConfigApplicationContext spring =
             new AnnotationConfigApplicationContext(PaymentVerificationConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentVerificationTargetReader reader = mock(PaymentVerificationTargetReader.class);
     final PaymentChannelGateway channels = mock(PaymentChannelGateway.class);
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(

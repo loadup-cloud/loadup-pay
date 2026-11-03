@@ -43,7 +43,9 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
@@ -51,16 +53,20 @@ import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
+import io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties;
 import io.github.loadup.pay.channel.wechat.protocol.WechatMethod;
 import io.github.loadup.pay.channel.wechat.protocol.WechatProtocolClient;
 import io.github.loadup.pay.channel.wechat.protocol.WechatVerifiedResponse;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -75,11 +81,8 @@ class WechatRefundAdapterTest {
 
     private final WechatProtocolClient client = mock(WechatProtocolClient.class);
     private final JsonMapper json = JsonMapper.builder().build();
-    private final WechatRefundAdapter adapter = new WechatRefundAdapter(
-            client,
-            json,
-            CLOCK,
-            new io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties(Map.of(), Map.of()));
+    private final WechatRefundAdapter adapter =
+            new WechatRefundAdapter(client, json, CLOCK, new WechatNotificationProperties(Map.of(), Map.of()));
     private final ChannelExecutionContext direct =
             context("tenant", "revision-1", HASH, new WechatAccountIdentity("app", "merchant", null, null));
     private final PreparedChannelRefund refund = refund(REFUND_NO, identity("revision-1", HASH), TRANSACTION);
@@ -158,14 +161,13 @@ class WechatRefundAdapterTest {
 
     @Test
     void suppliesOnlyTheTrustedOriginalRevisionRefundUrl() throws Exception {
-        var properties = new io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties(
+        var properties = new WechatNotificationProperties(
                 Map.of(),
                 Map.of(
                         "tenant",
                         Map.of(
                                 "revision-1",
-                                java.net.URI.create(
-                                        "https://payments.example/api/payment/channel-callbacks/wx-v1/refund"))));
+                                URI.create("https://payments.example/api/payment/channel-callbacks/wx-v1/refund"))));
         var configured = new WechatRefundAdapter(client, json, CLOCK, properties);
         when(client.call(
                         eq("tenant"),
@@ -311,9 +313,8 @@ class WechatRefundAdapterTest {
                 HASH,
                 new WechatAccountIdentity("sp-app", "sp-merchant", "sub-app", "sub-merchant"));
         var partnerRefund = refund(REFUND_NO, identity("revision-sp", HASH), TRANSACTION);
-        var properties = new io.github.loadup.pay.channel.wechat.config.WechatNotificationProperties(
-                Map.of(),
-                Map.of("tenant", Map.of("revision-1", java.net.URI.create("https://trusted.example/refund"))));
+        var properties = new WechatNotificationProperties(
+                Map.of(), Map.of("tenant", Map.of("revision-1", URI.create("https://trusted.example/refund"))));
         var configured = new WechatRefundAdapter(client, json, CLOCK, properties);
         var query404 = verified(WechatMethod.REFUND_QUERY, 404, "{\"code\":\"RESOURCE_NOT_EXISTS\"}");
         var submit = verified(WechatMethod.REFUND, 200, submitPayload("PROCESSING"));
@@ -340,11 +341,11 @@ class WechatRefundAdapterTest {
         assertEquals(RefundObservation.Source.SUBMIT_RESPONSE, directResult.source());
         assertEquals(
                 "refund-recovery:"
-                        + io.github.loadup.commons.util.DigestUtils.sha256(
+                        + DigestUtils.sha256(
                                 "wechat-refund-recovery-v1|" + query404.sourceDigest() + "|" + submit.sourceDigest()),
                 directResult.receiptKey());
         assertEquals(
-                io.github.loadup.commons.util.DigestUtils.sha256(
+                DigestUtils.sha256(
                         "wechat-refund-recovery-v1|" + query404.sourceDigest() + "|" + submit.sourceDigest()),
                 directResult.sourceDigest());
         var body = json.readValue(capturedBody(WechatMethod.REFUND), Map.class);
@@ -523,8 +524,7 @@ class WechatRefundAdapterTest {
                         anyMap(),
                         anyMap(),
                         isNull()))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID));
+                .thenThrow(new CommonException(ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID));
         assertThrows(
                 CommonException.class,
                 () -> TenantUtil.callWithTenant("tenant", () -> adapter.recover(direct, refund)));
@@ -638,7 +638,7 @@ class WechatRefundAdapterTest {
         var accepted = TenantUtil.callWithTenant("tenant", () -> adapter.submit(direct, refund));
         assertEquals(ChannelRefundOutcome.Kind.ACCEPTED, accepted.kind());
         assertEquals("2026-10-22T23:59", accepted.acceptedAt().toString());
-        org.junit.jupiter.api.Assertions.assertNull(accepted.succeededAt());
+        Assertions.assertNull(accepted.succeededAt());
         assertInvalidQuery(queryPayload("SUCCESS").replace(",\"create_time\":\"2026-10-22T23:59:00+08:00\"", ""));
         assertInvalidQuery(queryPayload("SUCCESS").replace("2026-10-22T23:59:00+08:00", "2026-10-24T10:00:00+08:00"));
         assertInvalidQuery(queryPayload("SUCCESS").replace("2026-10-22T23:59:00+08:00", "not-a-time"));
@@ -658,7 +658,7 @@ class WechatRefundAdapterTest {
     }
 
     private String capturedBody(WechatMethod method) {
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var captor = ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), anyMap(), anyMap(), captor.capture());
         return captor.getValue();
     }

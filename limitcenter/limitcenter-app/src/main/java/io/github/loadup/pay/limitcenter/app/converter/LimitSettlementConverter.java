@@ -20,6 +20,7 @@
 package io.github.loadup.pay.limitcenter.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReleaseDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReleaseEvidence;
@@ -49,9 +50,5 @@ public interface LimitSettlementConverter {
             String noCollectionEvidenceId);
 
     LimitReleaseEvidence toReleaseEvidence(
-            String paymentId,
-            io.github.loadup.commons.money.Money amount,
-            long paymentVersion,
-            String evidenceId,
-            boolean executionFenced);
+            String paymentId, Money amount, long paymentVersion, String evidenceId, boolean executionFenced);
 }

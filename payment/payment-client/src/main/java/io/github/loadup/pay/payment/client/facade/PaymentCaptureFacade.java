@@ -22,6 +22,7 @@ package io.github.loadup.pay.payment.client.facade;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
@@ -29,7 +30,7 @@ import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 public interface PaymentCaptureFacade {
     PaymentCaptureDTO create(PaymentCaptureCreateCommand command);
 
-    PaymentCaptureDTO retry(io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command);
+    PaymentCaptureDTO retry(PaymentCaptureRetryCommand command);
 
     PaymentCaptureDTO detail(IdQuery query);
 

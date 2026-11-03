@@ -31,8 +31,11 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.DigestUtils;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
@@ -160,9 +163,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
         // Recheck the current local grant after source lookup, before the explicit remote retry.
         transactions.readSnapshot(actor.tenantId(), () -> owned(actor, command.batchId(), false));
         var result = source.retry(
-                actor.tenantId(),
-                new io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand(
-                        command.captureId(), command.expectedTaskId()));
+                actor.tenantId(), new PaymentCaptureRetryCommand(command.captureId(), command.expectedTaskId()));
         scope(batch.batch().scope(), result, command.captureId());
         if (!command.expectedTaskId().equals(result.nativeTaskId())) {
             throw new CommonException(SNAPSHOT_INVALID);
@@ -298,7 +299,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
                     FORMAT,
                     ReconciliationTotals.count(lines));
             return new ReconciliationDataset(manifest, lines);
-        } catch (io.github.loadup.commons.error.DomainViolation | ArithmeticException invalidSource) {
+        } catch (DomainViolation | ArithmeticException invalidSource) {
             throw new CommonException(INPUT_INVALID);
         }
     }
@@ -309,8 +310,7 @@ public class ReconciliationLedgerService implements ReconciliationLedgerFacade {
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         var actual = inputs.sealedManifest(
-                        io.github.loadup.commons.util.TenantUtil.getTenantId(),
-                        batch.batch().ledger().artifactId())
+                        TenantUtil.getTenantId(), batch.batch().ledger().artifactId())
                 .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         if (!actual.equals(batch.batch().ledger())) {
             throw new CommonException(SNAPSHOT_INVALID);

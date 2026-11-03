@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.domain.model;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -66,7 +67,7 @@ public record StoredCheckoutSession(
      * Security revocation is permanent and independent of the session's business terminal state.
      */
     public StoredCheckoutSession revoke(long expectedVersion, LocalDateTime at) {
-        require(expectedVersion == rowVersion, io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT);
+        require(expectedVersion == rowVersion, DomainViolation.Reason.CONFLICT);
         Objects.requireNonNull(at);
         if (revokedAt != null) {
             return this;

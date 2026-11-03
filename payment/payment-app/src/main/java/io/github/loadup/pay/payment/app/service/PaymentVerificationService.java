@@ -43,6 +43,7 @@ import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -148,7 +149,7 @@ public class PaymentVerificationService implements PaymentVerificationFacade {
         }
     }
 
-    private <T> T channel(java.util.function.Supplier<T> action) {
+    private <T> T channel(Supplier<T> action) {
         try {
             return action.get();
         } catch (RuntimeException failure) {

@@ -23,6 +23,7 @@ import io.github.loadup.pay.acquire.app.port.CheckoutPresentation;
 import io.github.loadup.pay.acquire.infrastructure.config.CheckoutProperties;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -40,8 +41,7 @@ public class CheckoutPresentationImpl implements CheckoutPresentation {
         boolean defaultPort = port == -1
                 || port == 443 && "https".equals(uri.getScheme())
                 || port == 80 && "http".equals(uri.getScheme());
-        return uri.getScheme() + "://" + uri.getHost().toLowerCase(java.util.Locale.ROOT)
-                + (defaultPort ? "" : ":" + port);
+        return uri.getScheme() + "://" + uri.getHost().toLowerCase(Locale.ROOT) + (defaultPort ? "" : ":" + port);
     }
 
     @Override

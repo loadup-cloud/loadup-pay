@@ -62,6 +62,7 @@ import io.github.loadup.pay.acquire.domain.model.PaymentRecoveryState;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -73,7 +74,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 class DirectPaymentRecoveryServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(DirectPaymentConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final OrderCreationGateway store = mock(OrderCreationGateway.class);
     final OrderCreationCodec codec = mock(OrderCreationCodec.class);
     final AcquireOrderCreationFacade orders = mock(AcquireOrderCreationFacade.class);

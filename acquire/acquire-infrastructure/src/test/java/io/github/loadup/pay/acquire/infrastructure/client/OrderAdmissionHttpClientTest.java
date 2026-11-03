@@ -15,6 +15,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import io.github.loadup.commons.enums.CommonResultCodeEnum;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
@@ -63,9 +64,7 @@ class OrderAdmissionHttpClientTest {
     @Test
     void authenticationFailureIsADependencyFailureRatherThanAPersistableContractDenial() {
         doAnswer(invocation -> {
-                    return new SuccessResponse<>(
-                            Result.buildFailure(io.github.loadup.commons.enums.CommonResultCodeEnum.UNAUTHENTICATED),
-                            null);
+                    return new SuccessResponse<>(Result.buildFailure(CommonResultCodeEnum.UNAUTHENTICATED), null);
                 })
                 .when(productHttp)
                 .authorize(anyString(), any());

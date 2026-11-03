@@ -27,6 +27,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
+import java.time.DateTimeException;
 import java.util.function.Supplier;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
@@ -87,13 +89,11 @@ public class ReconciliationTransactions {
         } catch (DomainViolation invalid) {
             throw new CommonException(
                     switch (invalid.reason()) {
-                        case CONFLICT ->
-                            io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum
-                                    .IDEMPOTENCY_CONFLICT;
+                        case CONFLICT -> ReconciliationResultCodeEnum.IDEMPOTENCY_CONFLICT;
                         case INVALID_STATE -> INVALID_STATE;
                         default -> INVALID_ARGUMENT;
                     });
-        } catch (java.time.DateTimeException | ArithmeticException invalid) {
+        } catch (DateTimeException | ArithmeticException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }

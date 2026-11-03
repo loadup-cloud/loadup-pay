@@ -35,6 +35,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  * Repository source/POM gate; bytecode and runtime wiring remain separate evidence.
@@ -320,7 +321,7 @@ class PayModuleBoundaryTest {
         var document =
                 factory.newDocumentBuilder().parse(module.resolve("pom.xml").toFile());
         var xpath = XPathFactory.newInstance().newXPath();
-        var nodes = (org.w3c.dom.NodeList) xpath.evaluate(
+        var nodes = (NodeList) xpath.evaluate(
                 "/project/dependencies/dependency | /project/profiles/profile/dependencies/dependency",
                 document,
                 XPathConstants.NODESET);

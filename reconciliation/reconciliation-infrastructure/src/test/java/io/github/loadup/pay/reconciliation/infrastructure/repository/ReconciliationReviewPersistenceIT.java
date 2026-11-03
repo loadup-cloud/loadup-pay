@@ -29,6 +29,7 @@ import io.github.loadup.components.dfs.DfsService;
 import io.github.loadup.components.testcontainers.annotation.ContainerType;
 import io.github.loadup.components.testcontainers.annotation.EnableTestContainers;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationReviewConverter;
+import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationSourceFiles;
 import io.github.loadup.pay.reconciliation.app.security.ReconciliationActor;
 import io.github.loadup.pay.reconciliation.app.security.ReconciliationActorProvider;
@@ -36,6 +37,8 @@ import io.github.loadup.pay.reconciliation.app.service.ReconciliationReviewServi
 import io.github.loadup.pay.reconciliation.app.service.ReconciliationTransactions;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationReviewDecideCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationReviewProposeCommand;
+import io.github.loadup.pay.reconciliation.client.dto.ReconciliationReviewEventDTO;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.client.query.ReconciliationReviewQuery;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
@@ -50,6 +53,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReview;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewEvent;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewProposal;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
@@ -84,6 +88,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 /**
  * Real PostgreSQL review/File metadata; actor identity and private object byte transport remain controlled test inputs.
@@ -207,7 +212,7 @@ class ReconciliationReviewPersistenceIT {
         var command = propose(fixture, "proposal", null);
         var ready = new CyclicBarrier(2);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            Callable<io.github.loadup.pay.reconciliation.client.dto.ReconciliationReviewEventDTO> action = () -> {
+            Callable<ReconciliationReviewEventDTO> action = () -> {
                 ready.await(10, TimeUnit.SECONDS);
                 return actors.call(fixture.tenant(), "maker", () -> service.propose(command));
             };
@@ -305,7 +310,7 @@ class ReconciliationReviewPersistenceIT {
                 fixture.differenceId(),
                 request,
                 0L,
-                io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion.TIMING_DIFFERENCE,
+                ReconciliationReviewConclusion.TIMING_DIFFERENCE,
                 "review rationale",
                 file);
     }
@@ -353,10 +358,7 @@ class ReconciliationReviewPersistenceIT {
     static class FaultingReviews extends ReconciliationReviewGatewayImpl {
         final AtomicReference<String> failRequest = new AtomicReference<>();
 
-        FaultingReviews(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                ReconciliationReviewStorageConverter converter,
-                Clock clock) {
+        FaultingReviews(NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, Clock clock) {
             super(jdbc, converter, clock);
         }
 
@@ -395,9 +397,7 @@ class ReconciliationReviewPersistenceIT {
 
         @Bean
         FaultingReviews reviews(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                ReconciliationReviewStorageConverter converter,
-                Clock clock) {
+                NamedParameterJdbcTemplate jdbc, ReconciliationReviewStorageConverter converter, Clock clock) {
             return new FaultingReviews(jdbc, converter, clock);
         }
 
@@ -407,8 +407,8 @@ class ReconciliationReviewPersistenceIT {
         }
 
         @Bean
-        io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory accounts() {
-            return new io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory() {
+        ReconciliationAccountDirectory accounts() {
+            return new ReconciliationAccountDirectory() {
                 @Override
                 public ReconciliationScope resolve(String tenant, String caller, String code, LocalDate date) {
                     return new ReconciliationScope(Channel.WECHAT, "a".repeat(64), date, "wechat-trade-all-20260116");
@@ -417,9 +417,7 @@ class ReconciliationReviewPersistenceIT {
                 @Override
                 public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
                     if (!Set.of("maker", "checker").contains(caller) || !"account".equals(code)) {
-                        throw new CommonException(
-                                io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum
-                                        .ACTION_FORBIDDEN);
+                        throw new CommonException(ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
                     }
                 }
 

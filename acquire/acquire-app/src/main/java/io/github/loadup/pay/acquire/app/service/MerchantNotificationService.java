@@ -36,6 +36,7 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -103,7 +104,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                             .lock(tenant, key.deliveryId())
                             .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
                     if (before.finished() || key.sequence() < before.attemptCount()) {
-                        return java.util.Optional.<MerchantNotificationDelivery>empty();
+                        return Optional.<MerchantNotificationDelivery>empty();
                     }
                     if (key.sequence() != before.attemptCount()
                             || !task.executeAt().equals(before.nextAttemptAt())) {
@@ -113,7 +114,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                     if (before.expired(startedAt)
                             || before.attemptCount() >= before.policy().retryMaxAttempts()) {
                         deliveries.update(tenant, before, before.exhaust());
-                        return java.util.Optional.<MerchantNotificationDelivery>empty();
+                        return Optional.<MerchantNotificationDelivery>empty();
                     }
                     String route = null;
                     try {
@@ -127,7 +128,7 @@ public class MerchantNotificationService implements DelayedTaskHandler {
                             TYPE,
                             new MerchantNotificationKey(next.id(), next.attemptCount()).bizId(),
                             next.nextAttemptAt());
-                    return java.util.Optional.of(next);
+                    return Optional.of(next);
                 })
                 .orElse(null);
         if (sending == null) {

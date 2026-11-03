@@ -24,6 +24,7 @@ import io.github.loadup.pay.channel.api.model.ChannelRefundOutcome;
 import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
+import io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence;
 import io.github.loadup.pay.payment.domain.model.RefundChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
@@ -75,6 +76,5 @@ public interface RefundExecutionConverter {
     @Mapping(target = "amount", source = "observation.amount")
     @Mapping(target = "acceptedAt", source = "observation.acceptedAt")
     @Mapping(target = "receiptId", source = "receiptId")
-    io.github.loadup.pay.payment.domain.model.RefundAcceptanceEvidence toAcceptance(
-            RefundObservation observation, String receiptId);
+    RefundAcceptanceEvidence toAcceptance(RefundObservation observation, String receiptId);
 }

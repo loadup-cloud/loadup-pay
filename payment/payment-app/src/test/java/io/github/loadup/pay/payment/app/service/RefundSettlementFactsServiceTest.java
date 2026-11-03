@@ -53,6 +53,7 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredRefundChild;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +67,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class RefundSettlementFactsServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(RefundSettlementConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final RefundExecutionLocks locks = mock(RefundExecutionLocks.class);
     final RefundResultGateway results = mock(RefundResultGateway.class);
     final PaymentAcceptanceGateway payments = mock(PaymentAcceptanceGateway.class);

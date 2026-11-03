@@ -23,6 +23,9 @@ import static io.github.loadup.pay.reconciliation.client.support.ReconciliationC
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.text;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,23 +49,23 @@ public record ReconciliationInputDTO(
         String parserRevision,
 
         @Schema(description = "Normalized payment record count")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long paymentCount,
 
         @Schema(description = "Gross payment total in CNY minor units; not net of refunds")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long paymentAmountMinor,
 
         @Schema(description = "Normalized refund record count")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long refundCount,
 
         @Schema(description = "Gross refund request total in CNY minor units; does not assert returned funds")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long refundAmountMinor) {
     public ReconciliationInputDTO {
         require(side != null);

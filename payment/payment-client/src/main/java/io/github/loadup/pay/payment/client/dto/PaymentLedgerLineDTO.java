@@ -19,6 +19,9 @@
  */
 package io.github.loadup.pay.payment.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
@@ -29,8 +32,8 @@ import java.time.OffsetDateTime;
 @Schema(description = "One immutable line from a source-owned capture; gross payments and refunds stay separate")
 public record PaymentLedgerLineDTO(
         @Schema(description = "Immutable one-based contiguous source ordinal")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long ordinal,
 
         @Schema(description = "PAYMENT or REFUND") PaymentLedgerKind kind,
@@ -46,8 +49,8 @@ public record PaymentLedgerLineDTO(
         String merchantPaymentNo,
 
         @Schema(description = "Positive gross amount in CNY minor units")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long amountMinor,
 
         @Schema(description = "Currency, CNY") String currency,
@@ -65,8 +68,8 @@ public record PaymentLedgerLineDTO(
         String evidenceId,
 
         @Schema(description = "Financial row version observed in the source RR snapshot")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @JsonProperty(required = true)
+        @JsonSetter(nulls = Nulls.FAIL)
         long sourceVersion) {
     @Override
     public String toString() {

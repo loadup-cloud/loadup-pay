@@ -42,6 +42,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -58,7 +59,7 @@ public class CheckoutSessionGatewayImpl implements CheckoutSessionGateway {
         this.clock = clock;
         this.converter = converter;
         this.json = json.rebuild()
-                .enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .build();

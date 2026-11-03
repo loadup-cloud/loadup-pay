@@ -28,6 +28,7 @@ import io.github.loadup.pay.acquire.app.converter.DirectPaymentConverter;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.DirectPayCommand;
 import io.github.loadup.pay.acquire.client.dto.DirectPayDTO;
+import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
 import io.github.loadup.pay.acquire.client.facade.DirectPaymentFacade;
 import io.github.loadup.pay.acquire.client.facade.PaymentInitiationFacade;
@@ -109,7 +110,7 @@ public class DirectPaymentService implements DirectPaymentFacade {
                 || resolved.state() == null
                 || !created.orderId().equals(resolved.orderId())
                 || !command.actionKey().equals(resolved.actionKey())) {
-            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+            throw new CommonException(AcquireResultCodeEnum.SNAPSHOT_INVALID);
         }
         if (resolved.state() != PaymentRecoveryState.RESOLVED) {
             // Only the explicit original request may prepare input/start A2. Recovery never creates either.
@@ -122,7 +123,7 @@ public class DirectPaymentService implements DirectPaymentFacade {
                 || resolved.progress().order() == null
                 || !created.orderId().equals(resolved.orderId())
                 || !command.actionKey().equals(resolved.actionKey())) {
-            throw new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID);
+            throw new CommonException(AcquireResultCodeEnum.SNAPSHOT_INVALID);
         }
         return converter.toDTO(resolved.progress().order(), resolved);
     }

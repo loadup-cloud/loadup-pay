@@ -19,16 +19,17 @@
  */
 package io.github.loadup.pay.limitcenter.domain.model;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.util.Objects;
 
 /**
  * Apply only delta to this item's original bucket in the same transaction as saving the item.
  */
 public record LimitItemRestore(LimitReservationItem item, long delta) {
     public LimitItemRestore {
-        java.util.Objects.requireNonNull(item);
-        io.github.loadup.commons.error.DomainViolation.require(
-                delta >= 0, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        Objects.requireNonNull(item);
+        DomainViolation.require(delta >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

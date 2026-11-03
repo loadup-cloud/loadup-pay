@@ -35,6 +35,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.test.web.servlet.MockMvc;
@@ -113,7 +114,7 @@ class ServiceAuthorizationFlowIT {
                 .asString();
     }
 
-    org.springframework.security.oauth2.jwt.JwtDecoder decoder(String audience) {
+    JwtDecoder decoder(String audience) {
         var properties = new ResourceServerProperties();
         properties.setIssuerUri("https://auth.test");
         properties.setAudience(audience);

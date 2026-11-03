@@ -39,6 +39,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -97,7 +98,7 @@ public final class AlipayRefundAdapter {
             return interpret(refund, queried);
         }
         String amount = responses.text(response, "refund_amount");
-        if (amount != null && !java.util.Set.of("0", "0.0", "0.00").contains(amount)) {
+        if (amount != null && !Set.of("0", "0.0", "0.00").contains(amount)) {
             responses.requireAmount(amount, refund.amount().getCent());
         }
         if (response.get("total_amount") != null) {

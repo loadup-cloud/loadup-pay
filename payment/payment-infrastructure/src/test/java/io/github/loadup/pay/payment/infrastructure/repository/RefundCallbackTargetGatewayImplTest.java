@@ -37,6 +37,7 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
@@ -52,7 +53,7 @@ class RefundCallbackTargetGatewayImplTest {
         when(capacities.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of());
         assertTrue(TenantUtil.callWithTenant(
                         "tenant", () -> gateway.find("tenant", "original-revision", "order", "refund"))
@@ -60,7 +61,7 @@ class RefundCallbackTargetGatewayImplTest {
         when(capacities.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(new RefundOrderDO(), new RefundOrderDO()));
         TenantUtil.runWithTenant(
                 "tenant",
@@ -70,7 +71,7 @@ class RefundCallbackTargetGatewayImplTest {
                 .query(
                         contains("FROM payment_refund_capacity"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
+                        ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
         verifyNoInteractions(converter);
     }
 
@@ -81,7 +82,7 @@ class RefundCallbackTargetGatewayImplTest {
         when(capacities.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(row));
         TenantUtil.runWithTenant(
                 "tenant",
@@ -91,7 +92,7 @@ class RefundCallbackTargetGatewayImplTest {
                 .query(
                         contains("FROM payment_refund_capacity"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
+                        ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any());
         verifyNoInteractions(converter);
     }
 
@@ -109,12 +110,12 @@ class RefundCallbackTargetGatewayImplTest {
         when(capacities.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(row));
         when(capacities.query(
                         contains("FROM payment_refund_capacity"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any()))
+                        ArgumentMatchers.<RowMapper<PaymentRefundCapacityDO>>any()))
                 .thenReturn(List.of(capacity));
         TenantUtil.runWithTenant(
                 "tenant",

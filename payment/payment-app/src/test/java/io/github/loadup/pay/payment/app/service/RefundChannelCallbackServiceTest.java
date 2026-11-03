@@ -36,6 +36,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
@@ -55,10 +57,12 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelNotificationGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundCallbackTargetGateway;
 import io.github.loadup.pay.payment.domain.model.RefundReceiptDisposition;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -81,9 +85,7 @@ class RefundChannelCallbackServiceTest {
     private final RefundChannelCallbackService service = new RefundChannelCallbackService(
             endpoints, targets, notifications, channels, results, facts, converter, transactions);
     private final ChannelNotificationInput input = new ChannelNotificationInput(
-            "application/json",
-            Map.of("wechatpay-signature", java.util.List.of("sig")),
-            "{\"refund\":true}".getBytes());
+            "application/json", Map.of("wechatpay-signature", List.of("sig")), "{\"refund\":true}".getBytes());
 
     private PreparedChannelRefund target() {
         var child = RefundResultFixtures.initial().allocations().getFirst();
@@ -92,7 +94,7 @@ class RefundChannelCallbackServiceTest {
                 child.refund().id(),
                 child.refund().channelRefundNo(),
                 child.refund().amount(),
-                io.github.loadup.commons.money.Money.ofMinor(1000, "CNY"),
+                Money.ofMinor(1000, "CNY"),
                 child.channelTransactionNo());
     }
 
@@ -172,12 +174,11 @@ class RefundChannelCallbackServiceTest {
         var ack = TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input));
 
         assertEquals(acknowledgement(true), ack);
-        var captured = org.mockito.ArgumentCaptor.forClass(RefundObservation.class);
+        var captured = ArgumentCaptor.forClass(RefundObservation.class);
         verify(results).record(eq(TENANT), captured.capture());
         assertEquals(RefundObservation.Source.CALLBACK, captured.getValue().source());
         assertEquals(
-                "refund-notification:"
-                        + io.github.loadup.commons.util.DigestUtils.sha256("14:notification-1" + FACTS_DIGEST),
+                "refund-notification:" + DigestUtils.sha256("14:notification-1" + FACTS_DIGEST),
                 captured.getValue().receiptKey());
         var calls = inOrder(notifications, channels, results);
         verify(endpoints).resolve(ENDPOINT_REF);
@@ -220,7 +221,7 @@ class RefundChannelCallbackServiceTest {
                         q.channelRefundNo(),
                         q.originalChannelTransactionNo(),
                         q.kind(),
-                        io.github.loadup.commons.money.Money.ofMinor(1, "CNY"),
+                        Money.ofMinor(1, "CNY"),
                         q.channelRefundTransactionNo(),
                         q.succeededAt(),
                         q.source(),
@@ -410,7 +411,7 @@ class RefundChannelCallbackServiceTest {
             service.receive(ENDPOINT_REF, input);
         });
 
-        var captured = org.mockito.ArgumentCaptor.forClass(RefundObservation.class);
+        var captured = ArgumentCaptor.forClass(RefundObservation.class);
         verify(results, times(2)).record(eq(TENANT), captured.capture());
         assertNotEquals(
                 captured.getAllValues().get(0).receiptKey(),

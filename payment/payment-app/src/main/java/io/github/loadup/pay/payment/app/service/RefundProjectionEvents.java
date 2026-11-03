@@ -36,23 +36,29 @@ import io.github.loadup.pay.payment.app.converter.RefundProjectionConverter;
 import io.github.loadup.pay.payment.app.converter.RefundSettlementConverter;
 import io.github.loadup.pay.payment.app.model.RefundSnapshotFacts;
 import io.github.loadup.pay.payment.app.port.RefundSnapshotReader;
+import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
+import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import java.time.LocalDateTime;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class RefundProjectionEvents {
     public static final String CHILD = "pay.payment.refund.realtime.v1";
-    public static final String SUMMARY =
-            io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.REALTIME_TYPE;
-    public static final String FEE = io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO.FEE_TYPE;
+    public static final String SUMMARY = OrderRefundSummaryEventDTO.REALTIME_TYPE;
+    public static final String FEE = OrderRefundSummaryEventDTO.FEE_TYPE;
     public static final String LIMIT = "pay.payment.refund.limit.v1";
-    public static final String MERCHANT = io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE;
+    public static final String MERCHANT = RefundMerchantEventDTO.TYPE;
     private final RefundSummaryGateway summaries;
     private final RefundSnapshotReader reader;
     private final RefundProjectionConverter converter;
@@ -120,7 +126,7 @@ public class RefundProjectionEvents {
                 || !facts.paymentId().equals(change.refund().paymentId())
                 || !facts.state().equals(change.refund().state().name())
                 || !facts.amount().equals(change.refund().amount())
-                || !java.util.Objects.equals(facts.succeededAt(), change.succeededAt())) {
+                || !Objects.equals(facts.succeededAt(), change.succeededAt())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         var before = summaries
@@ -142,8 +148,7 @@ public class RefundProjectionEvents {
                 change.refund().version(),
                 facts.sourceUpdatedAt(),
                 converter.toMerchantEvent(facts, change.request().merchantRefundNo()));
-        if (change.request().children().stream()
-                .allMatch(io.github.loadup.pay.payment.domain.model.RefundOrder::terminal)) {
+        if (change.request().children().stream().allMatch(RefundOrder::terminal)) {
             send(
                     MERCHANT,
                     change.request().id(),
@@ -155,7 +160,7 @@ public class RefundProjectionEvents {
             var original = payments.find(tenant, change.refund().paymentId())
                     .orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
             var payment = original.payment();
-            if (payment.state() != io.github.loadup.pay.payment.domain.model.PaymentState.SUCCEEDED
+            if (payment.state() != PaymentState.SUCCEEDED
                     || original.terminalEvidenceId() == null
                     || !payment.orderId().equals(change.request().orderId())
                     || !payment.payeeMerchantId().equals(change.request().payeeMerchantId())
@@ -181,7 +186,7 @@ public class RefundProjectionEvents {
                 || facts.sourceVersion() != version) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
-        final io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO data;
+        final RefundSnapshotEventDTO data;
         try {
             data = converter.toEvent(facts);
         } catch (RuntimeException corrupt) {
@@ -205,7 +210,7 @@ public class RefundProjectionEvents {
         send(FEE, expected.orderId(), expected.version(), facts.sourceUpdatedAt(), converter.toEvent(facts.summary()));
     }
 
-    private <T> void send(String type, String id, long version, java.time.LocalDateTime at, T data) {
+    private <T> void send(String type, String id, long version, LocalDateTime at, T data) {
         var envelope = new EventEnvelope<>(
                 ids.generate(), ids.generate(), "payment", type, 1, id, version, BusinessTime.external(at), data);
         outbox.publish(new OutboxMessage(type, 1, id, JsonUtil.toJson(envelope)));

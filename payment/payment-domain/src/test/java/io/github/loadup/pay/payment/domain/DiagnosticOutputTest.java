@@ -28,6 +28,7 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
@@ -46,7 +47,7 @@ class DiagnosticOutputTest {
                 "a".repeat(64),
                 "credential-reference-must-stay-hidden",
                 "v1",
-                new io.github.loadup.pay.channel.api.model.AlipayAccountIdentity("app", "seller", null, null, null),
+                new AlipayAccountIdentity("app", "seller", null, null, null),
                 Set.of(PaymentMethod.H5));
     }
 

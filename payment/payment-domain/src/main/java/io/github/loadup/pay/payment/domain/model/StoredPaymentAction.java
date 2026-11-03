@@ -26,6 +26,7 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import java.time.LocalDateTime;
@@ -51,15 +52,12 @@ public record StoredPaymentAction(
         require(amount.getCent() > 0 && executionEpoch > 0 && action.channel() == identity.channel(), INVALID_ARGUMENT);
         Objects.requireNonNull(source);
         require(
-                (source == PaymentActionSource.LOCAL_SIGNED)
-                        == (action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction),
+                (source == PaymentActionSource.LOCAL_SIGNED) == (action instanceof AlipayH5ChannelAction),
                 INVALID_ARGUMENT);
         if (source == PaymentActionSource.CHANNEL_RECEIPT) {
             DomainChecks.id(receiptId);
         } else {
-            require(
-                    receiptId == null && action instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction,
-                    INVALID_ARGUMENT);
+            require(receiptId == null && action instanceof AlipayH5ChannelAction, INVALID_ARGUMENT);
         }
         require(sourceDigest != null && sourceDigest.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
         Objects.requireNonNull(issuedAt);

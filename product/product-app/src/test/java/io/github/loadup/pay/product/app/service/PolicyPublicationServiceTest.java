@@ -49,6 +49,7 @@ import io.github.loadup.modules.contract.domain.model.ContractStatus;
 import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.ResolvedContractItem;
 import io.github.loadup.modules.contract.domain.model.ValueOrigin;
+import io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand;
 import io.github.loadup.pay.limitcenter.client.dto.LimitPolicyActivationDTO;
 import io.github.loadup.pay.product.app.converter.PolicyPublicationConverter;
 import io.github.loadup.pay.product.app.converter.PolicyPublicationConverterImpl;
@@ -59,6 +60,7 @@ import io.github.loadup.pay.product.app.port.PolicyPublicationCodec;
 import io.github.loadup.pay.product.app.security.PublicationActor;
 import io.github.loadup.pay.product.client.command.LimitPolicyPublishCommand;
 import io.github.loadup.pay.product.client.command.LimitPolicyReplayCommand;
+import io.github.loadup.pay.product.client.error.ProductResultCodeEnum;
 import io.github.loadup.pay.product.domain.gateway.PolicyPublicationGateway;
 import io.github.loadup.pay.product.domain.model.PolicyPublication;
 import jakarta.validation.Validation;
@@ -107,7 +109,7 @@ class PolicyPublicationServiceTest {
             (IdGenerator) () -> "publication",
             clock);
     final MerchantContractRevision snapshot;
-    final io.github.loadup.pay.limitcenter.client.command.LimitPolicyActivateCommand activation;
+    final LimitPolicyActivateCommand activation;
 
     PolicyPublicationServiceTest() {
         var item = new ResolvedContractItem(
@@ -222,9 +224,7 @@ class PolicyPublicationServiceTest {
 
     @Test
     void queueInsertFailureRollsBackThePublicationIntent() {
-        when(outbox.publish(any()))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.product.client.error.ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE));
+        when(outbox.publish(any())).thenThrow(new CommonException(ProductResultCodeEnum.DEPENDENCY_UNAVAILABLE));
         assertThrows(CommonException.class, () -> service.publish(command()));
         assertEquals(1, manager.rollbacks);
         assertEquals(0, manager.commits);
@@ -261,8 +261,7 @@ class PolicyPublicationServiceTest {
         when(publications.findById("tenant", "publication")).thenReturn(Optional.of(pending()));
         when(publications.lockById("tenant", "publication")).thenReturn(Optional.of(pending()));
         when(client.activate(anyString(), any())).thenReturn(ack());
-        doThrow(new CommonException(
-                        io.github.loadup.pay.product.client.error.ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT))
+        doThrow(new CommonException(ProductResultCodeEnum.POLICY_PUBLICATION_CONFLICT))
                 .doNothing()
                 .when(publications)
                 .update(eq("tenant"), any(), eq(1L));

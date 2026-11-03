@@ -31,6 +31,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.kms.KmsSignatureAlgorithm;
 import io.github.loadup.components.kms.KmsTemplate;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.Signature;
 import java.security.interfaces.RSAPublicKey;
@@ -116,7 +117,7 @@ public class AlipayProtocolCodec {
                             || entry.getValue().isBlank()) {
                         throw new CommonException(INVALID_ARGUMENT);
                     }
-                    var uri = java.net.URI.create(entry.getValue());
+                    var uri = URI.create(entry.getValue());
                     if (!"https".equals(uri.getScheme())
                             || uri.getHost() == null
                             || uri.getRawUserInfo() != null

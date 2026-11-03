@@ -26,6 +26,7 @@ import static io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCod
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
@@ -231,7 +232,7 @@ public class LimitPolicyGatewayImpl extends ServiceImpl<LimitPolicyRevisionMappe
         }
     }
 
-    private void fill(io.github.loadup.commons.dataobject.BaseDO row) {
+    private void fill(BaseDO row) {
         LocalDateTime now = LocalDateTime.now(clock);
         row.setId(ids.generate());
         row.setCreatedAt(now);

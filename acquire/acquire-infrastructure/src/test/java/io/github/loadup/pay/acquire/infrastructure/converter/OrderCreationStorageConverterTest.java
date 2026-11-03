@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -60,7 +61,7 @@ class OrderCreationStorageConverterTest {
     void checkoutRoundTripPreservesItsEntryAndOriginalSessionThroughCompletion() {
         var initial = intent("CHECKOUT", "initial-session");
         var completed = initial.finish("COMPLETED", "admission", LocalDateTime.of(2026, 10, 22, 12, 0), "SUCCESS");
-        for (var value : java.util.List.of(initial, completed)) {
+        for (var value : List.of(initial, completed)) {
             var row = converter.toIntentDO("tenant", value);
             assertEquals("CHECKOUT", row.getEntryMode());
             assertEquals("initial-session", row.getInitialSessionId());

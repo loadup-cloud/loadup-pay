@@ -25,6 +25,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import java.util.Objects;
 
 /**
  * The held amount and owner-local immutable payment intent snapshot are committed together.
@@ -36,7 +37,7 @@ public record StoredPaymentAllocation(
         String payloadHash,
         long rowVersion) {
     public StoredPaymentAllocation {
-        java.util.Objects.requireNonNull(allocation);
+        Objects.requireNonNull(allocation);
         DomainChecks.text(intentPayload, 262144);
         require(
                 callerScopeHash != null

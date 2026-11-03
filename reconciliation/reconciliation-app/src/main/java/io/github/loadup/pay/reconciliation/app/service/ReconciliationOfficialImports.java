@@ -22,6 +22,7 @@ package io.github.loadup.pay.reconciliation.app.service;
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationSourceFiles;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationStatementGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationImportRequest;
@@ -48,7 +49,7 @@ public class ReconciliationOfficialImports {
         var source = sources.find(tenant, request.id()).orElseThrow(() -> new CommonException(SNAPSHOT_INVALID));
         try {
             source.verifyImport(request);
-        } catch (io.github.loadup.commons.error.DomainViolation invalid) {
+        } catch (DomainViolation invalid) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         files.verify(tenant, request.callerServiceId(), source.receipt().content(), source.id());

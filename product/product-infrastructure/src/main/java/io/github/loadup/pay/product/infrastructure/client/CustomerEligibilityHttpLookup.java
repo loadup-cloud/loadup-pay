@@ -32,6 +32,7 @@ import io.github.loadup.pay.customer.client.http.CustomerHttpService;
 import io.github.loadup.pay.customer.domain.model.MerchantAction;
 import io.github.loadup.pay.product.app.port.CustomerEligibilityLookup;
 import io.github.loadup.pay.product.app.security.ProductActorProvider;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -74,7 +75,7 @@ public class CustomerEligibilityHttpLookup implements CustomerEligibilityLookup 
                         || !"ALLOWED".equals(data.reasonCode())) {
                     throw new CommonException(DEPENDENCY_UNAVAILABLE);
                 }
-                if (java.util.stream.Stream.of(
+                if (Stream.of(
                                 data.merchant().merchantCode(),
                                 data.merchant().type(),
                                 data.merchant().industry(),

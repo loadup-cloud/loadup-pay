@@ -31,6 +31,7 @@ import io.github.loadup.components.outbox.OutboxMessage;
 import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.event.PaymentSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
@@ -185,10 +186,10 @@ public class PaymentEvents {
     private void writable(String tenant) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
-            throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.INVALID_STATE);
+            throw new CommonException(PaymentResultCodeEnum.INVALID_STATE);
         }
         if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
-            throw new CommonException(io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN);
+            throw new CommonException(PaymentResultCodeEnum.ACTION_FORBIDDEN);
         }
     }
 }

@@ -21,6 +21,7 @@ package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
@@ -34,8 +35,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentAcceptanceConverter {
     @Mapping(target = "action", source = "action")
-    PaymentExecutionDTO withAction(
-            PaymentExecutionDTO value, io.github.loadup.pay.payment.client.dto.PaymentActionDTO action);
+    PaymentExecutionDTO withAction(PaymentExecutionDTO value, PaymentActionDTO action);
 
     @Mapping(target = "payment", source = "payment")
     @Mapping(target = "limitOperationId", source = "value.payment.limitOperationId")

@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.reconciliation.app.converter;
 
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.components.outbox.OutboxRecord;
 import io.github.loadup.pay.payment.client.dto.PaymentVerificationDTO;
@@ -26,6 +27,7 @@ import io.github.loadup.pay.payment.client.query.PaymentVerificationQuery;
 import io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationReceiptDTO;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationReceipt;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
 import java.time.Clock;
@@ -103,8 +105,7 @@ public interface ReconciliationVerificationConverter {
             return null;
         }
         if (value.getNano() % 1000 != 0) {
-            throw new io.github.loadup.commons.error.CommonException(
-                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INPUT_INVALID);
+            throw new CommonException(ReconciliationResultCodeEnum.INPUT_INVALID);
         }
         return Math.addExact(Math.multiplyExact(value.toEpochSecond(), 1000000L), value.getNano() / 1000L);
     }

@@ -42,8 +42,10 @@ import io.github.loadup.pay.payment.infrastructure.converter.PaymentCaptureStora
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureDO;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentCaptureLineDO;
 import io.github.loadup.pay.payment.infrastructure.mapper.PaymentCaptureMapper;
+import java.sql.Statement;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Optional;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
@@ -180,7 +182,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                     throw new CommonException(CONCURRENT_UPDATE);
                 }
                 for (int count : counts) {
-                    if (count != 1 && count != java.sql.Statement.SUCCESS_NO_INFO) {
+                    if (count != 1 && count != Statement.SUCCESS_NO_INFO) {
                         throw new CommonException(CONCURRENT_UPDATE);
                     }
                 }
@@ -239,7 +241,7 @@ public class PaymentCaptureGatewayImpl extends ServiceImpl<PaymentCaptureMapper,
                 FROM payment_reconciliation_line WHERE capture_id = :capture AND deleted = FALSE
                 ORDER BY ordinal ASC LIMIT :size OFFSET :offset
                 """, args, BeanPropertyRowMapper.newInstance(PaymentCaptureLineDO.class));
-        var result = new java.util.ArrayList<PaymentLedgerLine>();
+        var result = new ArrayList<PaymentLedgerLine>();
         try {
             for (var row : rows) {
                 if (row.getOrdinal() == null || row.getSourceVersion() == null || row.getAmountMinor() == null) {

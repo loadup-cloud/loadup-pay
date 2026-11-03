@@ -48,6 +48,7 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.result.PageDTO;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
@@ -74,9 +75,12 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.io.InputStream;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -93,7 +97,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationLedgerServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
     final ReconciliationInputGateway inputs = mock(ReconciliationInputGateway.class);
     final ReconciliationAccountDirectory accounts = mock(ReconciliationAccountDirectory.class);
@@ -174,9 +178,8 @@ class ReconciliationLedgerServiceTest {
                     assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
                     byte[] bytes = ((InputStream) call.getArgument(5)).readAllBytes();
                     assertArrayEquals(PaymentCaptureContentHash.archive(capture, List.of(row), 16777216), bytes);
-                    String hash = java.util.HexFormat.of()
-                            .formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                                    .digest(bytes));
+                    String hash = HexFormat.of()
+                            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
                     assertEquals(capture.contentHash(), hash);
                     return new ReconciliationFileSnapshot("file", "private-object", bytes.length, hash);
                 });
@@ -281,7 +284,7 @@ class ReconciliationLedgerServiceTest {
     void prepareUsesOnlyOriginalBatchScopeAndRetryRequiresTheExactOriginalTask() {
         when(source.create(eq("tenant"), any())).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-            io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand command = call.getArgument(1);
+            PaymentCaptureCreateCommand command = call.getArgument(1);
             assertEquals(scope.channel(), command.channel());
             assertEquals(scope.accountScopeHash(), command.accountScopeHash());
             assertEquals(scope.billDate(), command.billDate());

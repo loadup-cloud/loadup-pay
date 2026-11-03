@@ -3,6 +3,7 @@ package io.github.loadup.pay.acquire.infrastructure.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.loadup.commons.error.DomainViolation;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -33,7 +34,7 @@ class HttpPropertiesValidationTest {
     @Test
     void constructorStillRejectsInvalidSettings() {
         assertThatThrownBy(() -> new PaymentTransportProperties("", "acquire", "payment"))
-                .isInstanceOf(io.github.loadup.commons.error.DomainViolation.class);
+                .isInstanceOf(DomainViolation.class);
     }
 
     @Configuration(proxyBeanMethods = false)

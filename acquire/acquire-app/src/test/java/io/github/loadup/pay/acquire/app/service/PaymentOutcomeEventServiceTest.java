@@ -63,12 +63,15 @@ import io.github.loadup.pay.acquire.app.port.PaymentEventCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentInitiationCodec;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.pay.acquire.app.security.AcquireServiceActor;
+import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentEventReceiptGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
+import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.AllocationState;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.OrderPaymentChange;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
 import io.github.loadup.pay.acquire.domain.model.PaymentIntent;
@@ -78,6 +81,7 @@ import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
@@ -93,6 +97,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -201,7 +206,7 @@ class PaymentOutcomeEventServiceTest {
         prepare(4000, PaymentState.SUCCEEDED);
         var stored = allocation.get();
         var original = stored.allocation();
-        var scoped = new io.github.loadup.pay.acquire.domain.model.OrderPaymentAllocation(
+        var scoped = new OrderPaymentAllocation(
                 original.id(),
                 original.orderId(),
                 original.paymentId(),
@@ -323,7 +328,7 @@ class PaymentOutcomeEventServiceTest {
         prepare(4000, PaymentState.INIT);
         var previous = order.get();
         var original = previous.order();
-        var partial = new io.github.loadup.pay.acquire.domain.model.AcquireOrder(
+        var partial = new AcquireOrder(
                 original.id(),
                 original.payeeMerchantId(),
                 original.amount(),
@@ -339,10 +344,9 @@ class PaymentOutcomeEventServiceTest {
                 original.version());
         order.set(context.getBean(PaymentProgressConverter.class).withOrder(previous, partial));
         var scope = new OrderPaymentScope("tenant", OWNER);
-        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(
-                "payment", "order", 1L, true, null, "input-expiry-proof");
+        var proof = new PaymentCloseDTO("payment", "order", 1L, true, null, "input-expiry-proof");
         var result = operations.applyInputExpiry(scope, "order", "payment", proof);
-        org.junit.jupiter.api.Assertions.assertNull(result.payment());
+        Assertions.assertNull(result.payment());
         assertEquals(2000L, order.get().order().paidAmountMinor());
         assertEquals(1000L, order.get().order().paymentReservedMinor());
         assertEquals(1, order.get().order().reservedPaymentCount());
@@ -358,8 +362,7 @@ class PaymentOutcomeEventServiceTest {
     @Test
     void expiryWithoutAnExactFencedProofCannotReleaseMoney() {
         var held = order.get();
-        var proof = new io.github.loadup.pay.payment.client.dto.PaymentCloseDTO(
-                "payment", "order", 1L, false, null, "untrusted-proof");
+        var proof = new PaymentCloseDTO("payment", "order", 1L, false, null, "untrusted-proof");
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(
@@ -414,8 +417,7 @@ class PaymentOutcomeEventServiceTest {
     @Test
     void eventAfterMerchantRefreshReusesTheAlreadyCommittedOutcomeReceipt() {
         operations.refresh(
-                new OrderPaymentScope("tenant", OWNER),
-                new io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand("order", "payment"));
+                new OrderPaymentScope("tenant", OWNER), new PaymentProgressRefreshCommand("order", "payment"));
         service.accept(event("delivery"));
         verify(allocations, times(1)).apply(eq("tenant"), any(), any(), any(), anyLong());
         verify(fees, times(1)).confirmPaid(eq("tenant"), any(), any(), any());

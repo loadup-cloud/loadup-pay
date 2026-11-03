@@ -21,6 +21,7 @@ package io.github.loadup.pay.acquire.client.facade;
 
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 
 /**
@@ -29,12 +30,12 @@ import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 public interface AcquireOrderCreationFacade {
     AcquireOrderDTO create(AcquireOrderCreateCommand command);
 
-    AcquireOrderDTO createDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    AcquireOrderDTO createDirectPay(DirectPayRecoverCommand command);
 
     /**
      * Resume an existing DIRECT_PAY A0 intent; absence must never allocate another order identity.
      */
-    AcquireOrderDTO resumeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    AcquireOrderDTO resumeDirectPay(DirectPayRecoverCommand command);
 
     AcquireOrderDTO detail(IdQuery query);
 }

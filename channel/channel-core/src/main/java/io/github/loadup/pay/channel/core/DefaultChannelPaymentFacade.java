@@ -42,6 +42,7 @@ import io.github.loadup.pay.channel.api.model.PreparedChannelRefund;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 import java.util.Collection;
+import java.util.Objects;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -53,7 +54,7 @@ public final class DefaultChannelPaymentFacade implements ChannelPaymentFacade {
 
     public DefaultChannelPaymentFacade(Collection<ChannelProvider> candidates, ChannelRecoveryConcurrency recovery) {
         providers = new ChannelStrategyRegistry<>(candidates, ChannelProvider::channel);
-        this.recovery = java.util.Objects.requireNonNull(recovery);
+        this.recovery = Objects.requireNonNull(recovery);
     }
 
     @Override

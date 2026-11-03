@@ -43,6 +43,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -150,7 +151,7 @@ class RecoveryPersistenceIT {
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            java.util.concurrent.Callable<Boolean> advance = () -> {
+            Callable<Boolean> advance = () -> {
                 ready.countDown();
                 await(start);
                 return transactions.writeLocal(tenant, () -> {

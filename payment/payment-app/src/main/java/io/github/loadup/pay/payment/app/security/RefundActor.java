@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.payment.app.security;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.util.Set;
@@ -30,9 +31,8 @@ public record RefundActor(String tenantId, String merchantId, String subjectHash
     public RefundActor {
         DomainChecks.id(tenantId);
         DomainChecks.id(merchantId);
-        io.github.loadup.commons.error.DomainViolation.require(
-                subjectHash != null && subjectHash.matches("[0-9a-f]{64}"),
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
+                subjectHash != null && subjectHash.matches("[0-9a-f]{64}"), DomainViolation.Reason.INVALID_ARGUMENT);
         permissions = Set.copyOf(permissions);
     }
 

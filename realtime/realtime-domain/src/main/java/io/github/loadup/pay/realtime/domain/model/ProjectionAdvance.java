@@ -21,11 +21,12 @@ package io.github.loadup.pay.realtime.domain.model;
 
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.util.Set;
 
 public record ProjectionAdvance(String disposition, long projectedVersion) {
     public ProjectionAdvance {
         DomainViolation.require(
-                java.util.Set.of("APPLIED", "DUPLICATE", "STALE").contains(disposition) && projectedVersion >= 0,
+                Set.of("APPLIED", "DUPLICATE", "STALE").contains(disposition) && projectedVersion >= 0,
                 DomainViolation.Reason.INVALID_ARGUMENT);
     }
 

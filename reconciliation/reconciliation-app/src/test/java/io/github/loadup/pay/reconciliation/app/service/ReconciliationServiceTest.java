@@ -75,6 +75,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -96,7 +97,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationServiceTest {
     private static final LocalDateTime AT = LocalDateTime.of(2026, 10, 27, 12, 0);
     private final Clock clock = Clock.fixed(AT.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
-    private final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    private final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     private final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
     private final ReconciliationConverter converter = context.getBean(ReconciliationConverter.class);
@@ -384,9 +385,7 @@ class ReconciliationServiceTest {
                 return dataset;
             });
             service.attach(new ReconciliationInputAttachCommand(
-                    stored.get().batch().id(),
-                    io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide.valueOf(side.name()),
-                    manifest.artifactId()));
+                    stored.get().batch().id(), ReconciliationSide.valueOf(side.name()), manifest.artifactId()));
         }
     }
 

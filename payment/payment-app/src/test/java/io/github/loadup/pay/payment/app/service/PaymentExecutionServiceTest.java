@@ -54,6 +54,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.model.PaymentResultApplication;
 import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
@@ -368,9 +369,9 @@ class PaymentExecutionServiceTest {
      * Keeps the deadline fixture local so the test does not alter shared payment fixtures.
      */
     private static final class PaymentFixturesCommandWithExpiredDeadline {
-        io.github.loadup.pay.payment.client.command.PaymentExecuteCommand command() {
+        PaymentExecuteCommand command() {
             var original = AttemptFixtures.command();
-            return new io.github.loadup.pay.payment.client.command.PaymentExecuteCommand(
+            return new PaymentExecuteCommand(
                     original.paymentId(),
                     original.orderId(),
                     original.allocationId(),

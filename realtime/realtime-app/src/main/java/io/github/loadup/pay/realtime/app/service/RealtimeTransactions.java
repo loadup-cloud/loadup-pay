@@ -27,6 +27,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
+import java.time.DateTimeException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
@@ -92,7 +93,7 @@ public class RealtimeTransactions {
             return TenantUtil.callWithTenant(tenant, work::get);
         } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
-        } catch (java.time.DateTimeException | ArithmeticException invalid) {
+        } catch (DateTimeException | ArithmeticException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }

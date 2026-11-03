@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.payment.infrastructure.config;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.app.model.ChannelCallbackEndpoint;
 import java.util.Map;
@@ -31,9 +32,8 @@ public record PaymentChannelCallbackProperties(Map<String, ChannelCallbackEndpoi
             endpoints = Map.of();
         } else {
             endpoints.forEach((endpointRef, endpoint) -> {
-                io.github.loadup.commons.error.DomainViolation.require(
-                        validEndpointRef(endpointRef) && endpoint != null,
-                        io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+                DomainViolation.require(
+                        validEndpointRef(endpointRef) && endpoint != null, DomainViolation.Reason.INVALID_ARGUMENT);
             });
             endpoints = Map.copyOf(endpoints);
         }

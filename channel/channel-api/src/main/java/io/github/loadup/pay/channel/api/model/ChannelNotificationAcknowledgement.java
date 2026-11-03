@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.channel.api.model;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
@@ -27,14 +28,11 @@ import io.github.loadup.commons.validation.DomainChecks;
  */
 public record ChannelNotificationAcknowledgement(int httpStatus, String contentType, String body) {
     public ChannelNotificationAcknowledgement {
-        io.github.loadup.commons.error.DomainViolation.require(
-                httpStatus >= 200 && httpStatus <= 599,
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(httpStatus >= 200 && httpStatus <= 599, DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.text(contentType, 128);
         DomainChecks.text(body, 4096);
-        io.github.loadup.commons.error.DomainViolation.require(
-                contentType.chars().noneMatch(Character::isISOControl),
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
+                contentType.chars().noneMatch(Character::isISOControl), DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

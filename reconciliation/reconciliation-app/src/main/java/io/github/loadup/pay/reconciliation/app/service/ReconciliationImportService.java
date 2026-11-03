@@ -47,6 +47,7 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationChannelI
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationImportRetryCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationImportDTO;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationSourceFileDTO;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.client.facade.ReconciliationImportFacade;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationImportGateway;
@@ -57,6 +58,7 @@ import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatc
 import jakarta.validation.Validator;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
@@ -313,7 +315,7 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
 
     private String digest(ReconciliationActor actor, ReconciliationChannelImportCommand command) {
         var framed = new StringBuilder();
-        for (var part : java.util.List.of(
+        for (var part : List.of(
                 "reconciliation-manual-import-v1",
                 actor.tenantId(),
                 actor.serviceId(),
@@ -332,8 +334,7 @@ public class ReconciliationImportService implements ReconciliationImportFacade {
         try {
             return action.get();
         } catch (CommonException failure) {
-            if (failure.getResultCode()
-                    instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) {
+            if (failure.getResultCode() instanceof ReconciliationResultCodeEnum) {
                 throw failure;
             }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

@@ -29,11 +29,14 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationConverter;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationReviewConverter;
+import io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview;
 import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationDifferenceReader;
@@ -273,7 +276,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
     /**
      * Internal approved-scope read for the verification use case; caller already owns its local transaction and permission.
      */
-    public io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview approvedForVerification(
+    public ApprovedReconciliationReview approvedForVerification(
             ReconciliationActor actor,
             String batchId,
             String differenceId,
@@ -296,7 +299,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
         var line = source.difference().difference().ledger() != null
                 ? source.difference().difference().ledger()
                 : source.difference().difference().channel();
-        return new io.github.loadup.pay.reconciliation.app.model.ApprovedReconciliationReview(
+        return new ApprovedReconciliationReview(
                 source.reference(),
                 source.scope(),
                 source.difference().difference().key(),
@@ -337,7 +340,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             var event = event(tenant, reference, value.lastEventId());
             try {
                 event.verifyHead(value);
-            } catch (io.github.loadup.commons.error.DomainViolation corrupt) {
+            } catch (DomainViolation corrupt) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
         }
@@ -459,7 +462,7 @@ public class ReconciliationReviewService implements ReconciliationReviewFacade {
             ReconciliationScope scope) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }

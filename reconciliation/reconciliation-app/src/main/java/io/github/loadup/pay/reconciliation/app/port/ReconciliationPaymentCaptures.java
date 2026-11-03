@@ -21,6 +21,7 @@ package io.github.loadup.pay.reconciliation.app.port;
 
 import io.github.loadup.commons.result.PageDTO;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
@@ -31,8 +32,7 @@ import io.github.loadup.pay.payment.client.query.PaymentCaptureLinesQuery;
 public interface ReconciliationPaymentCaptures {
     PaymentCaptureDTO create(String tenant, PaymentCaptureCreateCommand command);
 
-    PaymentCaptureDTO retry(
-            String tenant, io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command);
+    PaymentCaptureDTO retry(String tenant, PaymentCaptureRetryCommand command);
 
     PaymentCaptureDTO detail(String tenant, String captureId);
 

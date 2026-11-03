@@ -22,6 +22,7 @@ package io.github.loadup.pay.customer.infrastructure.repository;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.customer.client.error.CustomerResultCodeEnum;
 import io.github.loadup.pay.customer.domain.gateway.MerchantAuthorizationGateway;
 import io.github.loadup.pay.customer.domain.model.GrantState;
@@ -40,7 +41,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * All callers acquire the payee merchant row before modifying authorization records.
@@ -117,7 +120,7 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
     }
 
     private static void tenant(String tenant) {
-        if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(CustomerResultCodeEnum.ACTION_FORBIDDEN);
         }
     }
@@ -317,14 +320,12 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
 
     private void writable(String tenant) {
         tenant(tenant);
-        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
-                || org.springframework.transaction.support.TransactionSynchronizationManager
-                        .isCurrentTransactionReadOnly()) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         }
         var source = jdbc.getDataSource();
-        if (source == null
-                || !org.springframework.transaction.support.TransactionSynchronizationManager.hasResource(source)) {
+        if (source == null || !TransactionSynchronizationManager.hasResource(source)) {
             throw new CommonException(CustomerResultCodeEnum.INVALID_STATE);
         }
     }
@@ -333,8 +334,7 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
         return jdbc
                 .query(
                         sql,
-                        (org.springframework.jdbc.core.RowMapper<MerchantRelationship>)
-                                MerchantAuthorizationGatewayImpl::mapRelationship,
+                        (RowMapper<MerchantRelationship>) MerchantAuthorizationGatewayImpl::mapRelationship,
                         parameters)
                 .stream()
                 .findFirst();
@@ -342,11 +342,7 @@ public class MerchantAuthorizationGatewayImpl extends ServiceImpl<MerchantRelati
 
     private Optional<MerchantActionGrant> grant(String sql, Object... parameters) {
         return jdbc
-                .query(
-                        sql,
-                        (org.springframework.jdbc.core.RowMapper<MerchantActionGrant>)
-                                MerchantAuthorizationGatewayImpl::mapGrant,
-                        parameters)
+                .query(sql, (RowMapper<MerchantActionGrant>) MerchantAuthorizationGatewayImpl::mapGrant, parameters)
                 .stream()
                 .findFirst();
     }

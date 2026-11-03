@@ -42,6 +42,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentInputCipher;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
@@ -138,8 +139,7 @@ class PaymentInputAccessTest {
                 .bind(eq(TENANT), any(PaymentInput.class), eq(0L));
         when(payments.find(TENANT, command.paymentId())).thenReturn(Optional.of(accepted));
         when(inputs.find(TENANT, INPUT_REF)).thenAnswer(call -> Optional.ofNullable(boundInput.get()));
-        var interaction =
-                new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.WAP);
+        var interaction = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP);
         when(cipher.decrypt(TENANT, initInput.bind(ATTEMPT, NOW))).thenAnswer(call -> {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             return interaction;

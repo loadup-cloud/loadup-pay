@@ -62,6 +62,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerStatus;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -82,7 +83,7 @@ class PaymentCaptureServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentCaptureConverter.class.getPackageName());
     final PaymentCaptureConverter converter = context.getBean(PaymentCaptureConverter.class);
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentCaptureGateway captures = mock(PaymentCaptureGateway.class);
     final PaymentCaptureReader reader = mock(PaymentCaptureReader.class);
     final DelayedTaskTemplate tasks = mock(DelayedTaskTemplate.class);

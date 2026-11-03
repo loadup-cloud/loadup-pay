@@ -58,10 +58,12 @@ import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -352,7 +354,7 @@ class AlipayPaymentAdapterTest {
 
     @Test
     void recoveryRestoresJsapiActionFromTheOriginalWaitingQueryWithoutResubmitting() throws Exception {
-        var payableUntil = java.time.OffsetDateTime.parse("2026-10-23T19:00:00.987+08:00");
+        var payableUntil = OffsetDateTime.parse("2026-10-23T19:00:00.987+08:00");
         var recovery = recovery(PaymentMethod.JSAPI, payableUntil);
         stubQuery(query("WAIT_BUYER_PAY"));
 
@@ -379,11 +381,10 @@ class AlipayPaymentAdapterTest {
 
     @Test
     void recoveryOnlyRestoresAnUnexpiredJsapiWaitingAction() {
-        var deadline = java.time.OffsetDateTime.parse("2026-10-23T19:00:00+08:00");
+        var deadline = OffsetDateTime.parse("2026-10-23T19:00:00+08:00");
         assertNoRecoveryAction(recovery(PaymentMethod.PAYMENT_CODE, deadline), query("WAIT_BUYER_PAY"));
         assertNoRecoveryAction(
-                recovery(PaymentMethod.JSAPI, java.time.OffsetDateTime.parse("2026-10-23T09:00:00Z")),
-                query("WAIT_BUYER_PAY"));
+                recovery(PaymentMethod.JSAPI, OffsetDateTime.parse("2026-10-23T09:00:00Z")), query("WAIT_BUYER_PAY"));
         assertNoRecoveryAction(
                 recovery(PaymentMethod.JSAPI, deadline), paid("TRADE_SUCCESS", "2026-10-23 18:11:12", "CNY"));
         assertNoRecoveryAction(
@@ -396,11 +397,7 @@ class AlipayPaymentAdapterTest {
         var invalidIdentity =
                 new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, "wrong-revision", HASH, ORDER_NO);
         var invalid = new ChannelPaymentRecovery(
-                invalidIdentity,
-                AMOUNT,
-                PaymentMethod.JSAPI,
-                1,
-                java.time.OffsetDateTime.parse("2026-10-23T19:00:00+08:00"));
+                invalidIdentity, AMOUNT, PaymentMethod.JSAPI, 1, OffsetDateTime.parse("2026-10-23T19:00:00+08:00"));
 
         assertThrows(
                 CommonException.class,
@@ -409,7 +406,7 @@ class AlipayPaymentAdapterTest {
 
         clearInvocations(client);
         var validIdentityWrongAmount = new ChannelPaymentRecovery(
-                identity, AMOUNT, PaymentMethod.JSAPI, 1, java.time.OffsetDateTime.parse("2026-10-23T19:00:00+08:00"));
+                identity, AMOUNT, PaymentMethod.JSAPI, 1, OffsetDateTime.parse("2026-10-23T19:00:00+08:00"));
         stubQuery(query("WAIT_BUYER_PAY").replace("1250.00", "1249.99"));
         assertThrows(
                 CommonException.class,
@@ -438,7 +435,7 @@ class AlipayPaymentAdapterTest {
                 .call(eq("tenant"), eq(direct.binding()), eq(AlipayMethod.PAY), anyString(), eq(Map.of()));
     }
 
-    private ChannelPaymentRecovery recovery(PaymentMethod method, java.time.OffsetDateTime payableUntil) {
+    private ChannelPaymentRecovery recovery(PaymentMethod method, OffsetDateTime payableUntil) {
         return new ChannelPaymentRecovery(identity, AMOUNT, method, 1, payableUntil);
     }
 
@@ -463,7 +460,7 @@ class AlipayPaymentAdapterTest {
     }
 
     private String capturedRequest(AlipayMethod method) throws Exception {
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var captor = ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
     }

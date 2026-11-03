@@ -60,6 +60,7 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationReviewPr
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationVerificationSubmitCommand;
 import io.github.loadup.pay.reconciliation.client.dto.ReconciliationVerificationDTO;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationResultGateway;
@@ -118,6 +119,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -146,7 +149,7 @@ class ReconciliationVerificationPersistenceIT {
     final OutboxDispatcher dispatcher;
     final Handler handler;
     final DataSource dataSource;
-    final org.springframework.transaction.PlatformTransactionManager transactionManager;
+    final PlatformTransactionManager transactionManager;
     final Set<String> tenants = new HashSet<>();
 
     @Autowired
@@ -166,7 +169,7 @@ class ReconciliationVerificationPersistenceIT {
             OutboxDispatcher dispatcher,
             Handler handler,
             DataSource dataSource,
-            org.springframework.transaction.PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager) {
         this.service = service;
         this.reviews = reviews;
         this.batches = batches;
@@ -625,9 +628,7 @@ class ReconciliationVerificationPersistenceIT {
         final AtomicReference<String> failure = new AtomicReference<>();
 
         FaultingVerifications(
-                ReconciliationVerificationStorageConverter converter,
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                Clock clock) {
+                ReconciliationVerificationStorageConverter converter, NamedParameterJdbcTemplate jdbc, Clock clock) {
             super(converter, jdbc, clock);
         }
 
@@ -703,9 +704,7 @@ class ReconciliationVerificationPersistenceIT {
 
         @Bean
         FaultingVerifications verifications(
-                ReconciliationVerificationStorageConverter converter,
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                Clock clock) {
+                ReconciliationVerificationStorageConverter converter, NamedParameterJdbcTemplate jdbc, Clock clock) {
             return new FaultingVerifications(converter, jdbc, clock);
         }
 
@@ -725,9 +724,7 @@ class ReconciliationVerificationPersistenceIT {
                 @Override
                 public void authorize(String tenant, String caller, String code, ReconciliationScope scope) {
                     if (!Set.of("maker", "checker", "ops").contains(caller) || !"account".equals(code)) {
-                        throw new CommonException(
-                                io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum
-                                        .ACTION_FORBIDDEN);
+                        throw new CommonException(ReconciliationResultCodeEnum.ACTION_FORBIDDEN);
                     }
                 }
 

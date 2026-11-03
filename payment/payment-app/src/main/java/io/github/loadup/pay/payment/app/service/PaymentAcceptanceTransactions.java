@@ -28,6 +28,7 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
+import java.time.DateTimeException;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.springframework.dao.TransientDataAccessException;
@@ -107,7 +108,7 @@ public class PaymentAcceptanceTransactions {
         } catch (DomainViolation invalid) {
             throw new CommonException(
                     invalid.reason() == DomainViolation.Reason.CONFLICT ? IDEMPOTENCY_CONFLICT : INVALID_ARGUMENT);
-        } catch (java.time.DateTimeException | ArithmeticException invalid) {
+        } catch (DateTimeException | ArithmeticException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }

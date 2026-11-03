@@ -36,6 +36,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class ReconciliationStatementParserAdapter implements ReconciliationStatementParser {
@@ -57,7 +58,7 @@ public class ReconciliationStatementParserAdapter implements ReconciliationState
         if (!supports(request.scope())) {
             throw new CommonException(INPUT_INVALID);
         }
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
         if (request.file().size() > 67108864L) {

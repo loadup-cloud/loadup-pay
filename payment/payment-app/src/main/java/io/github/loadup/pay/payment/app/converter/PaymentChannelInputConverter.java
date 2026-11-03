@@ -43,6 +43,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.RedirectActionDTO;
 import io.github.loadup.pay.payment.client.dto.WechatJsapiActionDTO;
+import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -77,9 +78,7 @@ public interface PaymentChannelInputConverter {
     @Mapping(target = "payableUntil", source = "command.payableUntil")
     @Mapping(target = "input", source = "input")
     ChannelPaymentValidation toValidation(
-            io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt stored,
-            PaymentExecuteCommand command,
-            ChannelPaymentInput input);
+            StoredPaymentAttempt stored, PaymentExecuteCommand command, ChannelPaymentInput input);
 
     default PaymentActionDTO toAction(ChannelPaymentAction value) {
         if (value == null) {

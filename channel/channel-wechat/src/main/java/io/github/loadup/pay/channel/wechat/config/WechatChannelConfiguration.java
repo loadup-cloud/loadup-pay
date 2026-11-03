@@ -26,7 +26,9 @@ import io.github.loadup.pay.channel.wechat.WechatCodepayAdapter;
 import io.github.loadup.pay.channel.wechat.WechatNotificationProvider;
 import io.github.loadup.pay.channel.wechat.WechatPaymentAdapter;
 import io.github.loadup.pay.channel.wechat.WechatRefundAdapter;
+import io.github.loadup.pay.channel.wechat.WechatStatementProvider;
 import io.github.loadup.pay.channel.wechat.WechatSubmitAdapter;
+import io.github.loadup.pay.channel.wechat.converter.WechatStatementConverter;
 import io.github.loadup.pay.channel.wechat.protocol.WechatCredentialReader;
 import io.github.loadup.pay.channel.wechat.protocol.WechatJsapiSigner;
 import io.github.loadup.pay.channel.wechat.protocol.WechatNotificationCodec;
@@ -39,13 +41,13 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Conditional V2 payer-code and V3 strategy assembly, with no dependency on the payment application.
  */
-@org.springframework.context.annotation.ComponentScan(
-        basePackageClasses = io.github.loadup.pay.channel.wechat.converter.WechatStatementConverter.class)
+@ComponentScan(basePackageClasses = WechatStatementConverter.class)
 @AutoConfiguration(afterName = "io.github.loadup.pay.channel.core.config.ChannelAutoConfiguration")
 @ConditionalOnProperty(prefix = "loadup.pay.channel.wechat", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties({
@@ -55,15 +57,14 @@ import tools.jackson.databind.json.JsonMapper;
 })
 public class WechatChannelConfiguration {
     @Bean
-    io.github.loadup.pay.channel.wechat.WechatStatementProvider wechatStatementProvider(
+    WechatStatementProvider wechatStatementProvider(
             HttpTemplate http,
             WechatCredentialReader credentials,
             WechatProtocolCodec signatures,
             JsonMapper json,
-            io.github.loadup.pay.channel.wechat.converter.WechatStatementConverter converter,
+            WechatStatementConverter converter,
             Clock clock) {
-        return new io.github.loadup.pay.channel.wechat.WechatStatementProvider(
-                http, credentials, signatures, json, converter, clock);
+        return new WechatStatementProvider(http, credentials, signatures, json, converter, clock);
     }
 
     @Bean

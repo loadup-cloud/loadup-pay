@@ -40,6 +40,7 @@ import io.github.loadup.components.kms.KmsTemplate;
 import io.github.loadup.pay.channel.alipay.config.AlipayProperties;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPairGenerator;
@@ -81,7 +82,7 @@ class AlipayCredentialReaderTest {
                 Map.of("credential-ref", Map.of("3", credentialPath)),
                 Map.of("auth-ref", Map.of("5", authorizationPath)));
         var kms = mock(KmsTemplate.class);
-        byte[] plaintext = "provider-token".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] plaintext = "provider-token".getBytes(StandardCharsets.UTF_8);
         when(kms.decrypt(any(), any())).thenReturn(plaintext);
         var reader = new AlipayCredentialReader(props, JsonMapper.builder().build(), kms);
 

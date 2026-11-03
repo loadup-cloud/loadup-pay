@@ -38,6 +38,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class WechatTradeStatementParserTest {
@@ -65,11 +67,11 @@ class WechatTradeStatementParserTest {
                         .amount()
                         .getCent());
         assertEquals(
-                java.util.Set.of(ReconciliationEntryStatus.PROCESSING, ReconciliationEntryStatus.UNKNOWN),
+                Set.of(ReconciliationEntryStatus.PROCESSING, ReconciliationEntryStatus.UNKNOWN),
                 data.records().stream()
                         .filter(value -> value.key().kind() == ReconciliationRecordKind.REFUND)
                         .map(ReconciliationLine::status)
-                        .collect(java.util.stream.Collectors.toSet()));
+                        .collect(Collectors.toSet()));
         assertEquals(
                 data,
                 parse(statement(
@@ -230,7 +232,7 @@ class WechatTradeStatementParserTest {
     }
 
     private String encoded(String[] values) {
-        return Arrays.stream(values).map(value -> "`" + value).collect(java.util.stream.Collectors.joining(","));
+        return Arrays.stream(values).map(value -> "`" + value).collect(Collectors.joining(","));
     }
 
     private ReconciliationDataset parse(String value) {

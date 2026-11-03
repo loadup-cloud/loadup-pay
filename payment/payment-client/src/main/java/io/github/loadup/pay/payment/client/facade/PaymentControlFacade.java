@@ -21,13 +21,14 @@ package io.github.loadup.pay.payment.client.facade;
 
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 
 public interface PaymentControlFacade {
-    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO expireInput(
-            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+    PaymentInputExpiryDTO expireInput(PaymentInputExpireCommand command);
 
     PaymentCloseDTO close(PaymentCloseCommand command);
 

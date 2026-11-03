@@ -22,6 +22,8 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Table("payment_reconciliation_capture")
 public class PaymentCaptureDO extends BaseDO {
@@ -30,12 +32,12 @@ public class PaymentCaptureDO extends BaseDO {
     private String requestDigest;
     private String channel;
     private String accountScopeHash;
-    private java.time.LocalDate billDate;
+    private LocalDate billDate;
     private String statementProfile;
     private String systemZone;
     private String state;
-    private java.time.LocalDateTime startedAt;
-    private java.time.LocalDateTime finishedAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime finishedAt;
     private Long paymentCount;
     private Long paymentAmountMinor;
     private Long refundCount;
@@ -85,11 +87,11 @@ public class PaymentCaptureDO extends BaseDO {
         accountScopeHash = value;
     }
 
-    public java.time.LocalDate getBillDate() {
+    public LocalDate getBillDate() {
         return billDate;
     }
 
-    public void setBillDate(java.time.LocalDate value) {
+    public void setBillDate(LocalDate value) {
         billDate = value;
     }
 
@@ -117,19 +119,19 @@ public class PaymentCaptureDO extends BaseDO {
         state = value;
     }
 
-    public java.time.LocalDateTime getStartedAt() {
+    public LocalDateTime getStartedAt() {
         return startedAt;
     }
 
-    public void setStartedAt(java.time.LocalDateTime value) {
+    public void setStartedAt(LocalDateTime value) {
         startedAt = value;
     }
 
-    public java.time.LocalDateTime getFinishedAt() {
+    public LocalDateTime getFinishedAt() {
         return finishedAt;
     }
 
-    public void setFinishedAt(java.time.LocalDateTime value) {
+    public void setFinishedAt(LocalDateTime value) {
         finishedAt = value;
     }
 

@@ -30,6 +30,7 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
@@ -51,6 +52,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -220,10 +222,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     private Optional<RefundTransactionClaim> claim(RefundTransactionClaimDO row) {
         return row == null
                 ? Optional.empty()
-                : Optional.of(read(() -> converter.toClaim(
-                        io.github.loadup.components.database.tenant.TenantContext.tenantId(),
-                        row,
-                        converter.toIdentity(row))));
+                : Optional.of(read(() -> converter.toClaim(TenantContext.tenantId(), row, converter.toIdentity(row))));
     }
 
     @Override
@@ -377,7 +376,7 @@ public class RefundResultGatewayImpl extends ServiceImpl<RefundTransactionClaimM
     private <T> T read(Supplier<T> action) {
         try {
             return action.get();
-        } catch (CommonException | org.springframework.dao.DataAccessException failure) {
+        } catch (CommonException | DataAccessException failure) {
             throw failure;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

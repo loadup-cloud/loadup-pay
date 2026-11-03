@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -356,7 +357,7 @@ public class RefundGatewayImpl extends ServiceImpl<RefundRequestMapper, RefundRe
     private <T> T read(Supplier<T> action) {
         try {
             return action.get();
-        } catch (CommonException | org.springframework.dao.DataAccessException failure) {
+        } catch (CommonException | DataAccessException failure) {
             throw failure;
         } catch (RuntimeException corrupt) {
             throw new CommonException(SNAPSHOT_INVALID);

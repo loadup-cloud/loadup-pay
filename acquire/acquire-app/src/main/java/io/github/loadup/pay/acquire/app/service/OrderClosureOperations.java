@@ -25,6 +25,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.IN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
@@ -117,7 +118,7 @@ public class OrderClosureOperations {
                 || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (!actor.tenantId().equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
+        if (!actor.tenantId().equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (command == null || !validator.validate(command).isEmpty()) {

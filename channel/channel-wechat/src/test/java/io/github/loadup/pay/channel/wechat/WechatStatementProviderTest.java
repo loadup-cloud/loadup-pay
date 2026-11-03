@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -385,7 +386,7 @@ class WechatStatementProviderTest {
                 .map(entry -> entry.getKey() + "="
                         + URLEncoder.encode(entry.getValue().getFirst(), StandardCharsets.UTF_8)
                                 .replace("+", "%20"))
-                .collect(java.util.stream.Collectors.joining("&"));
+                .collect(Collectors.joining("&"));
         return URI.create("https://" + host + path + "?" + query);
     }
 

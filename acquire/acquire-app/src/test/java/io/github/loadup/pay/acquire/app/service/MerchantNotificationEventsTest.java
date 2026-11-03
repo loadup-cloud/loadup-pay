@@ -41,7 +41,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -59,10 +61,12 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
+import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -326,7 +330,7 @@ class MerchantNotificationEventsTest {
         verifyNoInteractions(orders, admissions, factsReader, deliveries, tasks, ids);
     }
 
-    private void prepare(AcquireOrderState state, long paid, java.time.LocalDateTime updatedAt, long version) {
+    private void prepare(AcquireOrderState state, long paid, LocalDateTime updatedAt, long version) {
         var fixture = CheckoutFixtures.order(state, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
         var order = new AcquireOrder(
                 ORDER_ID,
@@ -386,8 +390,7 @@ class MerchantNotificationEventsTest {
         assertEquals(1000, ((Number) data.get("succeededMinor")).longValue());
         assertEquals(
                 source.occurredAt().toInstant(),
-                io.github.loadup.commons.time.BusinessTime.external(delivery.occurredAt())
-                        .toInstant());
+                BusinessTime.external(delivery.occurredAt()).toInstant());
         assertEquals(original, storedOrder.get());
         verify(deliveries, times(1)).insert(eq(TENANT), any());
         verify(tasks, times(1)).register(anyString(), anyString(), any());
@@ -416,11 +419,10 @@ class MerchantNotificationEventsTest {
         verifyNoInteractions(deliveries, tasks, ids);
     }
 
-    private io.github.loadup.commons.event.EventEnvelope<
-                    io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO>
-            refundEvent(String aggregateType, String state, long amount, long succeeded, long failed) {
+    private EventEnvelope<RefundMerchantEventDTO> refundEvent(
+            String aggregateType, String state, long amount, long succeeded, long failed) {
         boolean child = "RefundOrder".equals(aggregateType);
-        var data = new io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO(
+        var data = new RefundMerchantEventDTO(
                 aggregateType,
                 child ? "refund" : null,
                 "request",
@@ -434,18 +436,16 @@ class MerchantNotificationEventsTest {
                 succeeded,
                 failed,
                 3,
-                child && "SUCCEEDED".equals(state)
-                        ? io.github.loadup.commons.time.BusinessTime.external(NOW.minusSeconds(1))
-                        : null);
-        return new io.github.loadup.commons.event.EventEnvelope<>(
+                child && "SUCCEEDED".equals(state) ? BusinessTime.external(NOW.minusSeconds(1)) : null);
+        return new EventEnvelope<>(
                 "internal-delivery",
                 "internal-business",
                 "payment",
-                io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO.TYPE,
+                RefundMerchantEventDTO.TYPE,
                 1,
                 data.aggregateId(),
                 3,
-                io.github.loadup.commons.time.BusinessTime.external(NOW),
+                BusinessTime.external(NOW),
                 data);
     }
 

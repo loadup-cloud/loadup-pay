@@ -29,7 +29,9 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.VERSION_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -137,7 +139,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
         identifier(command.subjectId());
         try {
             DomainChecks.id(command.expectedTaskId());
-        } catch (io.github.loadup.commons.error.DomainViolation invalid) {
+        } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var expectedAt = BusinessTime.local(command.expectedNextExecuteAt());
@@ -373,7 +375,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
     private void identifier(String subject) {
         try {
             DomainChecks.id(subject);
-        } catch (io.github.loadup.commons.error.DomainViolation invalid) {
+        } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }
@@ -382,7 +384,7 @@ public class PaymentRecoveryOperationsService implements PaymentRecoveryOperatio
             String orderId, long generation, LocalDateTime dueAt, boolean completed, boolean terminal) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }

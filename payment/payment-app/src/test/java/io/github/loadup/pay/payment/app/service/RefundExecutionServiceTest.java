@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -197,7 +198,7 @@ class RefundExecutionServiceTest {
     @Test
     void recoveryRejectsCallbackAndTerminalSubmitResponsesWithoutRecordingThem() {
         service.progress("tenant", "request");
-        org.mockito.Mockito.clearInvocations(results);
+        Mockito.clearInvocations(results);
         when(channel.recoverRefund(any()))
                 .thenReturn(RefundResultFixtures.observation(
                         ChannelRefundOutcome.Kind.ACCEPTED, "refund-request", RefundObservation.Source.CALLBACK));

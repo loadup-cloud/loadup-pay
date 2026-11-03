@@ -26,6 +26,7 @@ import io.github.loadup.pay.payment.app.model.PaymentDeliverySnapshot;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
@@ -70,8 +71,7 @@ final class OutcomeDeliveryFixtures {
                 payment.payeeMerchantId(),
                 payment.amount().getCent(),
                 payment.amount().getCurrencyValue(),
-                io.github.loadup.pay.payment.domain.model.PaymentState.valueOf(
-                        payment.state().name()),
+                PaymentState.valueOf(payment.state().name()),
                 payment.version(),
                 "evidence",
                 !succeeded);

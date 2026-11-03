@@ -23,6 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGU
 import static io.github.loadup.commons.error.DomainViolation.require;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.validation.DomainChecks;
 import java.net.URI;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,9 +47,9 @@ public record WechatNotificationProperties(
                         .collect(
                                 Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> Map.copyOf(entry.getValue())));
         for (var tenant : urls.entrySet()) {
-            io.github.loadup.commons.validation.DomainChecks.id(tenant.getKey());
+            DomainChecks.id(tenant.getKey());
             for (var binding : tenant.getValue().entrySet()) {
-                io.github.loadup.commons.validation.DomainChecks.id(binding.getKey());
+                DomainChecks.id(binding.getKey());
                 var uri = binding.getValue();
                 require(
                         uri != null

@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.channel.api.model;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.AccessMode;
@@ -46,18 +47,16 @@ public record ChannelBindingRevision(
         DomainChecks.id(payeeMerchantId);
         Objects.requireNonNull(channel);
         Objects.requireNonNull(accessMode);
-        io.github.loadup.commons.error.DomainViolation.require(
+        DomainViolation.require(
                 accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"),
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+                DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.text(credentialReference, 128);
         DomainChecks.id(credentialVersion);
         Objects.requireNonNull(identity);
         boolean valid = channel == identity.channel() && accessMode == identity.accessMode();
-        io.github.loadup.commons.error.DomainViolation.require(
-                valid, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(valid, DomainViolation.Reason.INVALID_ARGUMENT);
         capabilities = Set.copyOf(capabilities);
-        io.github.loadup.commons.error.DomainViolation.require(
-                !capabilities.isEmpty(), io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(!capabilities.isEmpty(), DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

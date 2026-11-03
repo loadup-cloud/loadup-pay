@@ -29,6 +29,7 @@ import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Frozen activation intent; only a matching authenticated activation ACK can make it ACTIVE.
@@ -64,7 +65,7 @@ public record PolicyPublication(
         DomainChecks.text(activationPayload, 65536);
         Objects.requireNonNull(requestedAt);
         require(requestedAt.getNano() % 1000 == 0, INVALID_ARGUMENT);
-        require(java.util.Set.of("INIT", "PUBLISHING", "ACTIVE").contains(state), INVALID_STATE);
+        require(Set.of("INIT", "PUBLISHING", "ACTIVE").contains(state), INVALID_STATE);
         if ("INIT".equals(state)) {
             require(outboxEventId == null && activatedAt == null, INVALID_STATE);
         } else {

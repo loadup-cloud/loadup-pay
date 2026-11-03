@@ -28,6 +28,8 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
+import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
+import java.time.DateTimeException;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.springframework.dao.TransientDataAccessException;
@@ -93,11 +95,10 @@ public class OrderCreationTransactions {
             throw new CommonException(
                     switch (invalid.reason()) {
                         case CONFLICT -> IDEMPOTENCY_CONFLICT;
-                        case AMOUNT_EXCEEDED ->
-                            io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.AMOUNT_EXCEEDED;
+                        case AMOUNT_EXCEEDED -> AcquireResultCodeEnum.AMOUNT_EXCEEDED;
                         default -> INVALID_ARGUMENT;
                     });
-        } catch (java.time.DateTimeException | ArithmeticException invalid) {
+        } catch (DateTimeException | ArithmeticException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
     }

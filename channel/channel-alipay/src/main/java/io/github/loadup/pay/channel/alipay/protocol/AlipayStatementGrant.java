@@ -24,9 +24,11 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANN
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.util.DigestUtils;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Set;
 
 /**
  * Ephemeral API grant only. This type neither authorizes an arbitrary fetch nor proves an empty/successful statement.
@@ -57,7 +59,7 @@ public record AlipayStatementGrant(
                 || !expiresAt.isAfter(receivedAt)
                 || downloadUri == null
                 || downloadUri.getScheme() == null
-                || !java.util.Set.of("http", "https").contains(downloadUri.getScheme())
+                || !Set.of("http", "https").contains(downloadUri.getScheme())
                 || downloadUri.getHost() == null
                 || downloadUri.getRawUserInfo() != null
                 || downloadUri.getRawFragment() != null
@@ -71,7 +73,7 @@ public record AlipayStatementGrant(
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
         evidence = evidence.clone();
-        if (!evidenceSha256.equals(io.github.loadup.commons.util.DigestUtils.sha256(evidence))) {
+        if (!evidenceSha256.equals(DigestUtils.sha256(evidence))) {
             throw new CommonException(CHANNEL_RESPONSE_INVALID);
         }
     }

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
@@ -38,6 +39,7 @@ import io.github.loadup.pay.channel.api.model.WechatH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.WechatJsapiChannelAction;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -118,7 +120,7 @@ class DefaultChannelActionCodecTest {
         assertEquals(expected, codec.decode("ALIPAY_H5", payload, codec.checksum(payload)));
         assertFalse(expected.toString().contains("a%2Bb%3D"));
         assertRejected("WECHAT_H5", payload);
-        for (String invalid : java.util.List.of(
+        for (String invalid : List.of(
                 url + "&app_auth_token=secret",
                 url + "&%61pp_auth_token=secret",
                 url + "&sign=duplicate",
@@ -127,9 +129,7 @@ class DefaultChannelActionCodecTest {
                 url.replace("openapi.alipay.com", "openapi.alipay.com.attacker.test"),
                 url.replace("/gateway.do?", "/gateway.do/extra?"),
                 url + "#fragment")) {
-            assertThrows(
-                    io.github.loadup.commons.error.DomainViolation.class,
-                    () -> new AlipayH5ChannelAction(invalid, action().expiresAt()));
+            assertThrows(DomainViolation.class, () -> new AlipayH5ChannelAction(invalid, action().expiresAt()));
         }
         assertRejected("ALIPAY_H5", payload + " {}");
         assertRejected("ALIPAY_H5", payload.substring(0, payload.length() - 1) + ",\"unknown\":1}");
@@ -139,7 +139,7 @@ class DefaultChannelActionCodecTest {
     void h5InputAcceptsIpLiteralsWithoutDnsAndRejectsForwardingChainsAndSpecialAddresses() {
         assertEquals("203.0.113.10", new ChannelH5Input("203.0.113.10", H5SceneType.WAP).payerClientIp());
         assertEquals("2001:db8::1", new ChannelH5Input("2001:db8::1", H5SceneType.IOS).payerClientIp());
-        for (String invalid : java.util.List.of(
+        for (String invalid : List.of(
                 "merchant.example",
                 "127.0.0.1",
                 "0.0.0.0",
@@ -150,9 +150,7 @@ class DefaultChannelActionCodecTest {
                 "[2001:db8::1]",
                 "203.0.113.10, 198.51.100.1",
                 "203.0.113.10:443")) {
-            assertThrows(
-                    io.github.loadup.commons.error.DomainViolation.class,
-                    () -> new ChannelH5Input(invalid, H5SceneType.WAP));
+            assertThrows(DomainViolation.class, () -> new ChannelH5Input(invalid, H5SceneType.WAP));
         }
         assertFalse(
                 new ChannelH5Input("203.0.113.10", H5SceneType.WAP).toString().contains("203.0.113.10"));

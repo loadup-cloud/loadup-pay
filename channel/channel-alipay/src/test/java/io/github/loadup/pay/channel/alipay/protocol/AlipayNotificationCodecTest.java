@@ -41,6 +41,7 @@ import io.github.loadup.pay.channel.api.model.ChannelNotificationHint;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -49,7 +50,9 @@ import java.security.Signature;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class AlipayNotificationCodecTest {
@@ -65,7 +68,7 @@ class AlipayNotificationCodecTest {
             "credential-ref",
             "3",
             new AlipayAccountIdentity("app", "seller", null, null, null),
-            java.util.Set.of(PaymentMethod.PAYMENT_CODE));
+            Set.of(PaymentMethod.PAYMENT_CODE));
     private static final ChannelExecutionContext CONTEXT = new ChannelExecutionContext("tenant", BINDING);
     private static final ChannelPaymentIdentity IDENTITY =
             new ChannelPaymentIdentity("payment-1", "attempt-1", Channel.ALIPAY, "revision-1", HASH, ORDER_NO);
@@ -109,7 +112,7 @@ class AlipayNotificationCodecTest {
         signedFields.put("sign", Base64.getEncoder().encodeToString(signer.sign()));
         return signedFields.entrySet().stream()
                 .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
-                .collect(java.util.stream.Collectors.joining("&"));
+                .collect(Collectors.joining("&"));
     }
 
     private static String encode(String value) {
@@ -119,7 +122,7 @@ class AlipayNotificationCodecTest {
     private static String signatureFrom(String form) {
         for (var entry : form.split("&")) {
             if (entry.startsWith("sign=")) {
-                return java.net.URLDecoder.decode(entry.substring(5), StandardCharsets.UTF_8);
+                return URLDecoder.decode(entry.substring(5), StandardCharsets.UTF_8);
             }
         }
         return "";
@@ -130,7 +133,7 @@ class AlipayNotificationCodecTest {
     }
 
     private static ChannelNotificationInput input(String body, String contentType) {
-        return new ChannelNotificationInput(contentType, java.util.Map.of(), body.getBytes(StandardCharsets.US_ASCII));
+        return new ChannelNotificationInput(contentType, Map.of(), body.getBytes(StandardCharsets.US_ASCII));
     }
 
     private static KeyPair rsaKeyPair() throws Exception {
@@ -204,7 +207,7 @@ class AlipayNotificationCodecTest {
                 "credential-ref",
                 "3",
                 BINDING.identity(),
-                java.util.Set.of(PaymentMethod.PAYMENT_CODE));
+                Set.of(PaymentMethod.PAYMENT_CODE));
         var wrongContext = new ChannelExecutionContext("tenant", wrongContextBinding);
         assertThrows(
                 CommonException.class,

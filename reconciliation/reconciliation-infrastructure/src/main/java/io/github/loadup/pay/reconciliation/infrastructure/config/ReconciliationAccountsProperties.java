@@ -27,6 +27,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -63,7 +64,7 @@ public record ReconciliationAccountsProperties(Map<String, Map<String, Account>>
             require(channel == Channel.ALIPAY || channel == Channel.WECHAT, INVALID_ARGUMENT);
             require(accountScopeHash != null && accountScopeHash.matches("[0-9a-f]{64}"), INVALID_ARGUMENT);
             DomainChecks.text(statementProfile, 64);
-            java.util.Objects.requireNonNull(statementAccount);
+            Objects.requireNonNull(statementAccount);
             if (statementBindingRevisionId != null) {
                 DomainChecks.id(statementBindingRevisionId);
             }

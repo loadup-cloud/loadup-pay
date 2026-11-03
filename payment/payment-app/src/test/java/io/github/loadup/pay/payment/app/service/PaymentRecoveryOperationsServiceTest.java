@@ -73,6 +73,7 @@ import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -80,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -90,7 +92,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class PaymentRecoveryOperationsServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentRecoveryOperationsConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
             new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:read", "pay:payment:recovery:retry")));
     final PaymentRecoveryRetryGateway receipts = mock(PaymentRecoveryRetryGateway.class);
@@ -108,7 +110,7 @@ class PaymentRecoveryOperationsServiceTest {
     final AtomicReference<StoredRefundRequest> refund = new AtomicReference<>(RefundResultFixtures.initial());
     final AtomicReference<RefundRecoveryCursor> refundCursor = new AtomicReference<>(
             RefundRecoveryCursor.init("request", refund.get().plannedAt()));
-    final java.util.concurrent.atomic.AtomicInteger receiptIds = new java.util.concurrent.atomic.AtomicInteger();
+    final AtomicInteger receiptIds = new AtomicInteger();
     final Map<String, PaymentRecoveryRetryReceipt> ledger = new HashMap<>();
     final Map<String, DelayedTask> nativeTasks = new HashMap<>();
     final PaymentRecoveryOperationsService service = new PaymentRecoveryOperationsService(

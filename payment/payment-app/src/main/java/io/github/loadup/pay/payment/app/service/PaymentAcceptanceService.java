@@ -39,18 +39,21 @@ import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.facade.PaymentAcceptanceFacade;
 import io.github.loadup.pay.payment.client.facade.PaymentOutcomeFacade;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -157,8 +160,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
                     throw new CommonException(IDEMPOTENCY_CONFLICT);
                 }
                 if (!clock.instant().isBefore(command.payableUntil().toInstant())) {
-                    throw new CommonException(
-                            io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.PAYMENT_EXPIRED);
+                    throw new CommonException(PaymentResultCodeEnum.PAYMENT_EXPIRED);
                 }
                 inputs.requireNewAcceptance(actor.tenantId(), actor.serviceId(), command, now());
                 var payment = PaymentOrder.init(
@@ -236,8 +238,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
             throw new CommonException(IDEMPOTENCY_CONFLICT);
         }
         var state = prior.payment().state();
-        if ((state != io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING
-                        && state != io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN)
+        if ((state != PaymentState.PROCESSING && state != PaymentState.UNKNOWN)
                 || prior.payment().activeAttemptId() == null) {
             return converter.toDTO(prior);
         }
@@ -248,7 +249,7 @@ public class PaymentAcceptanceService implements PaymentAcceptanceFacade, Paymen
     private void checkGate(
             PaymentActor actor, PaymentExecuteCommand command, StoredPaymentGate stored, String paymentId) {
         if (!stored.gate().orderId().equals(command.orderId())
-                || !java.util.Objects.equals(stored.gate().paymentId(), paymentId)
+                || !Objects.equals(stored.gate().paymentId(), paymentId)
                 || !stored.payeeMerchantId().equals(command.payeeMerchantId())
                 || !stored.callerServiceId().equals(actor.serviceId())) {
             throw new CommonException(IDEMPOTENCY_CONFLICT);

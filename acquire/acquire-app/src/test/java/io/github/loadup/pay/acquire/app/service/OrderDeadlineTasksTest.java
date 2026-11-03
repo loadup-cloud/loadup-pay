@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -67,8 +68,7 @@ class OrderDeadlineTasksTest {
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> io.github.loadup.commons.util.TenantUtil.runWithTenant(
-                                        "tenant", () -> tasks.register("tenant", order, 1L)))
+                                () -> TenantUtil.runWithTenant("tenant", () -> tasks.register("tenant", order, 1L)))
                         .getResultCode());
         assertSame(
                 INVALID_STATE,

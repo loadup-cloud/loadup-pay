@@ -37,6 +37,7 @@ import io.github.loadup.pay.payment.app.converter.RefundPlanningConverter;
 import io.github.loadup.pay.payment.app.model.LockedRefund;
 import io.github.loadup.pay.payment.app.model.RefundResultApplication;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
+import io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
@@ -66,7 +67,7 @@ public class RefundResultService {
     private final IdGenerator ids;
     private final Clock clock;
     private final RefundProjectionEvents projections;
-    private final io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances;
+    private final RefundAcceptanceGateway acceptances;
 
     public RefundResultService(
             RefundResultGateway results,
@@ -78,7 +79,7 @@ public class RefundResultService {
             IdGenerator ids,
             Clock clock,
             RefundProjectionEvents projections,
-            io.github.loadup.pay.payment.domain.gateway.RefundAcceptanceGateway acceptances) {
+            RefundAcceptanceGateway acceptances) {
         this.results = results;
         this.locks = locks;
         this.transactions = transactions;

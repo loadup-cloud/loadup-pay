@@ -21,7 +21,9 @@ package io.github.loadup.pay.acquire.app.port;
 
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 
 public interface OrderCreationCodec {
@@ -37,14 +39,11 @@ public interface OrderCreationCodec {
 
     String checkoutDigest(String tenant, String scopeHash, CheckoutCreateCommand command);
 
-    String encodeDirectPay(io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    String encodeDirectPay(DirectPayRecoverCommand command);
 
-    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent);
+    DirectPayRecoverCommand decodeDirectPay(OrderCreateIntent intent);
 
-    String directPayDigest(
-            String tenant,
-            String scopeHash,
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    String directPayDigest(String tenant, String scopeHash, DirectPayRecoverCommand command);
 
     String encodeAdmission(OrderAdmissionDTO admission);
 
@@ -52,5 +51,5 @@ public interface OrderCreationCodec {
 
     String checksum(String payload);
 
-    String encodeFee(io.github.loadup.pay.acquire.domain.model.OrderFeePolicy policy);
+    String encodeFee(OrderFeePolicy policy);
 }

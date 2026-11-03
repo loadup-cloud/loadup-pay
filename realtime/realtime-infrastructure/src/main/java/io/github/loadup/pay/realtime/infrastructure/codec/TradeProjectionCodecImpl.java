@@ -38,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
@@ -134,7 +135,7 @@ public class TradeProjectionCodecImpl implements TradeProjectionCodec {
     @Override
     public String hash(String payload) {
         try {
-            return java.util.HexFormat.of()
+            return HexFormat.of()
                     .formatHex(MessageDigest.getInstance("SHA-256").digest(payload.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException impossible) {
             throw new ExceptionInInitializerError(impossible);

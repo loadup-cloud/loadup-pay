@@ -30,6 +30,7 @@ import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.acquire.app.converter.AcquireOrderConverter;
 import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFee;
@@ -186,7 +187,7 @@ public class OrderCreationGatewayImpl implements OrderCreationGateway {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var intent = converter.toIntent(intentRow);
-            final io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand command;
+            final AcquireOrderCreateCommand command;
             final String digest;
             switch (intent.entryMode()) {
                 case "ORDER" -> {

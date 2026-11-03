@@ -83,6 +83,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -92,6 +93,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -278,7 +280,7 @@ class ReconciliationImportPersistenceIT {
         row[24] = "10.00";
         row[25] = "0.00";
         return WechatTradeStatementParser.HEADER + "\n"
-                + Arrays.stream(row).map(value -> "`" + value).collect(java.util.stream.Collectors.joining(",")) + "\n"
+                + Arrays.stream(row).map(value -> "`" + value).collect(Collectors.joining(",")) + "\n"
                 + WechatTradeStatementParser.TOTAL_HEADER + "\n`1,`9.00,`0.00,`0.00,`0.02,`10.00,`0.00\n";
     }
 
@@ -322,10 +324,7 @@ class ReconciliationImportPersistenceIT {
         final AtomicReference<String> failInsertBatch = new AtomicReference<>(),
                 failSealBatch = new AtomicReference<>();
 
-        FaultingImports(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                ReconciliationImportStorageConverter converter,
-                Clock clock) {
+        FaultingImports(NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
             super(jdbc, converter, clock);
         }
 
@@ -384,9 +383,7 @@ class ReconciliationImportPersistenceIT {
 
         @Bean
         FaultingImports imports(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
-                ReconciliationImportStorageConverter converter,
-                Clock clock) {
+                NamedParameterJdbcTemplate jdbc, ReconciliationImportStorageConverter converter, Clock clock) {
             return new FaultingImports(jdbc, converter, clock);
         }
 

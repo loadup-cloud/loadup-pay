@@ -50,6 +50,7 @@ import io.github.loadup.pay.channel.wechat.protocol.WechatResponseReader;
 import io.github.loadup.pay.channel.wechat.protocol.WechatStatementCodec;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -190,8 +191,7 @@ public final class WechatStatementProvider implements ChannelStatementProvider {
             }
             var proof = new ChannelStatementReceipt(
                     WechatStatementCodec.FORMAT,
-                    WechatStatementCodec.digest(
-                            "SHA-256", target.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    WechatStatementCodec.digest("SHA-256", target.get().getBytes(StandardCharsets.UTF_8)),
                     WechatStatementCodec.digest("SHA-256", evidence),
                     "SHA1",
                     grant.sha1(),

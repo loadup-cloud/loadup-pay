@@ -31,8 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -70,11 +73,11 @@ class RealtimeTransactionsTest {
 
     @Test
     void readFailureIsNotRetriedAndNullResultRetainsTheExistingRealtimeContract() {
-        var original = new org.springframework.dao.DuplicateKeyException("Synthetic snapshot failure");
+        var original = new DuplicateKeyException("Synthetic snapshot failure");
         assertSame(
                 original,
                 assertThrows(
-                        org.springframework.dao.DuplicateKeyException.class,
+                        DuplicateKeyException.class,
                         () -> transactions.readSnapshot("tenant", () -> {
                             throw original;
                         })));
@@ -96,7 +99,7 @@ class RealtimeTransactionsTest {
             int attempt = calls.incrementAndGet();
             assertEquals(attempt - 1, manager.rollbacks);
             if (attempt < 3) {
-                throw new org.springframework.dao.ConcurrencyFailureException("Synthetic local contention");
+                throw new ConcurrencyFailureException("Synthetic local contention");
             }
             return "committed";
         }));
@@ -121,8 +124,7 @@ class RealtimeTransactionsTest {
         var exhausted = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal("tenant", () -> {
-                    throw new io.github.loadup.pay.realtime.domain.gateway.ProjectionWriteRaceException(
-                            "Synthetic repeated local race");
+                    throw new ProjectionWriteRaceException("Synthetic repeated local race");
                 }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
         assertEquals(3, manager.begins);
@@ -134,12 +136,12 @@ class RealtimeTransactionsTest {
 
     @Test
     void unexpectedUniqueConstraintFailureIsNotRetried() {
-        var original = new org.springframework.dao.DuplicateKeyException("unexpected unique constraint");
+        var original = new DuplicateKeyException("unexpected unique constraint");
         var calls = new AtomicInteger();
         assertSame(
                 original,
                 assertThrows(
-                        org.springframework.dao.DuplicateKeyException.class,
+                        DuplicateKeyException.class,
                         () -> transactions.writeLocal("tenant", () -> {
                             calls.incrementAndGet();
                             throw original;

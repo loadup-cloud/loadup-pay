@@ -26,6 +26,7 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
 class PaymentEventCodecImplTest {
@@ -81,6 +82,6 @@ class PaymentEventCodecImplTest {
                 codec.digest(
                         "tenant",
                         "payment",
-                        event("delivery", "operation", 1000, at.withOffsetSameInstant(java.time.ZoneOffset.UTC))));
+                        event("delivery", "operation", 1000, at.withOffsetSameInstant(ZoneOffset.UTC))));
     }
 }

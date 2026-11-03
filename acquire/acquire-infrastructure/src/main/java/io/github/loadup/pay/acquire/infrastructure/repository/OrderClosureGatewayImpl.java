@@ -35,6 +35,7 @@ import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderCloseIntent;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
+import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.acquire.infrastructure.converter.OrderClosureStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.converter.PaymentInitiationStorageConverter;
 import io.github.loadup.pay.acquire.infrastructure.dataobject.OrderCloseIntentDO;
@@ -97,7 +98,7 @@ public class OrderClosureGatewayImpl implements OrderClosureGateway {
         scope(tenant);
         requireTransaction();
         if (before.state() != AcquireOrderState.INIT
-                || before.unpaidAction() != io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction.KEEP_PENDING
+                || before.unpaidAction() != UnpaidOrderAction.KEEP_PENDING
                 || !after.equals(before.checkDue(before.orderDueAt()))) {
             throw new CommonException(SNAPSHOT_INVALID);
         }

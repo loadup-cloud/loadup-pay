@@ -48,6 +48,7 @@ import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolTime;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -190,7 +192,7 @@ class AlipayRefundAdapterTest {
         assertEquals(TRADE_NO, request.get("trade_no"));
         assertEquals(OUT_TRADE_NO, request.get("out_trade_no"));
         assertEquals(REFUND_NO, request.get("out_request_no"));
-        assertEquals(java.util.List.of("gmt_refund_pay"), request.get("query_options"));
+        assertEquals(List.of("gmt_refund_pay"), request.get("query_options"));
     }
 
     @Test
@@ -395,8 +397,7 @@ class AlipayRefundAdapterTest {
 
         reset(client);
         when(client.call(eq("tenant"), eq(direct.binding()), eq(AlipayMethod.REFUND_QUERY), anyString(), eq(Map.of())))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID));
+                .thenThrow(new CommonException(ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID));
         assertThrows(
                 CommonException.class,
                 () -> TenantUtil.callWithTenant("tenant", () -> adapter.recover(direct, refund)));
@@ -534,7 +535,7 @@ class AlipayRefundAdapterTest {
     }
 
     private String capturedRequest(AlipayMethod method) throws Exception {
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var captor = ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
     }

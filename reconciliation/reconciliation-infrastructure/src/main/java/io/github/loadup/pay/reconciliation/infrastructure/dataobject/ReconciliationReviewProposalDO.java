@@ -22,6 +22,7 @@ package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class ReconciliationReviewProposalDO extends BaseDO {
     private String differenceId;
@@ -42,7 +43,7 @@ public class ReconciliationReviewProposalDO extends BaseDO {
 
     private Long evidenceSize;
     private String evidenceSha256;
-    private java.time.LocalDateTime proposedAt;
+    private LocalDateTime proposedAt;
 
     public String getDifferenceId() {
         return differenceId;
@@ -140,11 +141,11 @@ public class ReconciliationReviewProposalDO extends BaseDO {
         evidenceSha256 = value;
     }
 
-    public java.time.LocalDateTime getProposedAt() {
+    public LocalDateTime getProposedAt() {
         return proposedAt;
     }
 
-    public void setProposedAt(java.time.LocalDateTime value) {
+    public void setProposedAt(LocalDateTime value) {
         proposedAt = value;
     }
 

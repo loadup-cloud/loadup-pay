@@ -28,6 +28,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.function.BiFunction;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -73,8 +77,7 @@ public class PaymentChannelCallbackController {
     private ResponseEntity<String> receive(
             String endpointRef,
             HttpServletRequest request,
-            java.util.function.BiFunction<String, ChannelNotificationInput, ChannelNotificationAcknowledgement>
-                    receiver)
+            BiFunction<String, ChannelNotificationInput, ChannelNotificationAcknowledgement> receiver)
             throws IOException {
         byte[] body = request.getInputStream().readNBytes(ChannelNotificationInput.MAX_BODY_BYTES + 1);
         if (body.length > ChannelNotificationInput.MAX_BODY_BYTES) {
@@ -84,7 +87,7 @@ public class PaymentChannelCallbackController {
             return ResponseEntity.badRequest().build();
         }
         try {
-            var headers = new java.util.HashMap<String, java.util.List<String>>();
+            var headers = new HashMap<String, List<String>>();
             var names = request.getHeaderNames();
             while (names != null && names.hasMoreElements()) {
                 if (headers.size() >= ChannelNotificationInput.MAX_HEADER_NAMES) {
@@ -95,7 +98,7 @@ public class PaymentChannelCallbackController {
                 if (values == null || !values.hasMoreElements()) {
                     return ResponseEntity.badRequest().build();
                 }
-                var captured = new java.util.ArrayList<String>();
+                var captured = new ArrayList<String>();
                 while (values.hasMoreElements() && captured.size() <= ChannelNotificationInput.MAX_HEADER_VALUES) {
                     captured.add(values.nextElement());
                 }

@@ -28,13 +28,16 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
 import io.github.loadup.pay.payment.app.model.RecoveryHandlingOutcome;
+import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -47,7 +50,7 @@ public class PaymentRecoveryService {
     private final PaymentRecoveryGateway cursors;
     private final DelayedTaskTemplate tasks;
     private final PaymentExecutionLocks locks;
-    private final io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway payments;
+    private final PaymentAcceptanceGateway payments;
     private final PaymentExecutionService execution;
     private final PaymentAcceptanceTransactions transactions;
     private final Clock clock;
@@ -58,7 +61,7 @@ public class PaymentRecoveryService {
             DelayedTaskTemplate tasks,
             PaymentExecutionLocks locks,
             PaymentExecutionService execution,
-            io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway payments,
+            PaymentAcceptanceGateway payments,
             PaymentAcceptanceTransactions transactions,
             Clock clock,
             RecoveryPollingPolicy polling) {
@@ -69,7 +72,7 @@ public class PaymentRecoveryService {
         this.payments = payments;
         this.transactions = transactions;
         this.clock = clock;
-        this.polling = java.util.Objects.requireNonNull(polling);
+        this.polling = Objects.requireNonNull(polling);
     }
 
     /**
@@ -77,7 +80,7 @@ public class PaymentRecoveryService {
      */
     public void register(String tenant, StoredPaymentAcceptance stored) {
         writable(tenant);
-        if (stored.payment().state() != io.github.loadup.pay.payment.domain.model.PaymentState.INIT
+        if (stored.payment().state() != PaymentState.INIT
                 || stored.payment().version() != 0
                 || stored.payment().activeAttemptId() != null) {
             throw new CommonException(INVALID_STATE);

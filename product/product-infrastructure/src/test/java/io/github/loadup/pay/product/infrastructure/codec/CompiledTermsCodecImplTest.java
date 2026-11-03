@@ -43,6 +43,7 @@ import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import io.github.loadup.pay.product.domain.model.AdmissionIntent;
 import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
 import io.github.loadup.pay.product.domain.model.OrderAdmission;
@@ -121,7 +122,7 @@ class CompiledTermsCodecImplTest {
                 "order",
                 "merchant",
                 "a".repeat(64),
-                io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED,
+                AdmissionDecision.ADMITTED,
                 "ALLOW",
                 new ContractReference(contract, 1, 1, "original-snapshot", encoded.hash()),
                 at,

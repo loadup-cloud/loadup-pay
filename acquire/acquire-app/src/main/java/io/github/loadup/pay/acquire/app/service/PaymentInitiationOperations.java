@@ -28,6 +28,8 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.pay.acquire.app.converter.PaymentInitiationConverter;
@@ -51,6 +53,8 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputDTO;
+import io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy;
+import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
@@ -58,6 +62,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -261,7 +266,7 @@ public class PaymentInitiationOperations {
                 actor.authorize(order, false);
                 var prior = allocations.findAction(actor.tenantId(), orderId, actor.actionScope(), actionKey);
                 if (prior.isEmpty()) {
-                    return java.util.Optional.<PaymentRecoveryPlan>empty();
+                    return Optional.<PaymentRecoveryPlan>empty();
                 }
                 var stored = prior.get();
                 var allocation = stored.allocation();
@@ -292,7 +297,7 @@ public class PaymentInitiationOperations {
                 }
                 // The v1 digest already commits the interaction kind. Only an exact NONE digest proves input was
                 // intentionally absent.
-                boolean inputless = choice.method() == io.github.loadup.commons.payment.PaymentMethod.H5
+                boolean inputless = choice.method() == PaymentMethod.H5
                         && allocation
                                 .requestDigest()
                                 .equals(digest(
@@ -303,7 +308,7 @@ public class PaymentInitiationOperations {
                 if (inputless && execute.preparedInputRef() != null) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                return java.util.Optional.of(new PaymentRecoveryPlan(stored, !inputless));
+                return Optional.of(new PaymentRecoveryPlan(stored, !inputless));
             });
             if (known.isEmpty()) {
                 return new PaymentIntentRecovery(PaymentIntentRecovery.State.NOT_OBSERVED, null, null);
@@ -346,15 +351,12 @@ public class PaymentInitiationOperations {
                             || !execute.orderId().equals(resolution.orderId())) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
-                    if (resolution.disposition()
-                            == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
+                    if (resolution.disposition() == PaymentInputExpiryDisposition.EXPIRED_CLOSED) {
                         var proof = resolution.closed();
                         if (proof == null
                                 || !validator.validate(proof).isEmpty()
                                 || !proof.fenced()
-                                || proof.fenceEpoch()
-                                        < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy
-                                                .FENCE_EPOCH
+                                || proof.fenceEpoch() < PaymentInputExpiryPolicy.FENCE_EPOCH
                                 || proof.payment() != null
                                 || proof.noCollectionEvidenceId() == null
                                 || proof.noCollectionEvidenceId().isBlank()
@@ -368,8 +370,7 @@ public class PaymentInitiationOperations {
                     if (resolution.closed() != null) {
                         throw new CommonException(SNAPSHOT_INVALID);
                     }
-                    if (resolution.disposition()
-                            == io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition.PAYMENT_EXISTS) {
+                    if (resolution.disposition() == PaymentInputExpiryDisposition.PAYMENT_EXISTS) {
                         return new PaymentIntentRecovery(
                                 PaymentIntentRecovery.State.RESOLVED, execute.paymentId(), null);
                     }
@@ -396,8 +397,7 @@ public class PaymentInitiationOperations {
                 || !response.fenced()
                 || !execute.paymentId().equals(response.paymentId())
                 || !execute.orderId().equals(response.orderId())
-                || response.fenceEpoch()
-                        < io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.FENCE_EPOCH) {
+                || response.fenceEpoch() < PaymentInputExpiryPolicy.FENCE_EPOCH) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
         if (response.payment() != null) {
@@ -534,7 +534,7 @@ public class PaymentInitiationOperations {
     private record PaymentRecoveryPlan(StoredPaymentAllocation allocation, boolean inputRequired) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }

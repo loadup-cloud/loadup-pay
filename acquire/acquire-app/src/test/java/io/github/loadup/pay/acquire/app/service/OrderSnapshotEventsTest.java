@@ -46,6 +46,7 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.model.OrderSnapshotFacts;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -127,12 +128,10 @@ class OrderSnapshotEventsTest {
         assertEquals("M001", data.get("merchantOrderNo"));
         assertEquals(
                 BusinessTime.external(header.orderCreatedAt()).toInstant(),
-                java.time.OffsetDateTime.parse((String) data.get("orderCreatedAt"))
-                        .toInstant());
+                OffsetDateTime.parse((String) data.get("orderCreatedAt")).toInstant());
         assertEquals(
                 BusinessTime.external(header.sourceUpdatedAt()).toInstant(),
-                java.time.OffsetDateTime.parse((String) data.get("sourceUpdatedAt"))
-                        .toInstant());
+                OffsetDateTime.parse((String) data.get("sourceUpdatedAt")).toInstant());
     }
 
     @Test

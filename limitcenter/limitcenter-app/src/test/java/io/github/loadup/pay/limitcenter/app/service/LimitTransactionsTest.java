@@ -36,10 +36,13 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.limitcenter.app.security.LimitActor;
 import io.github.loadup.pay.limitcenter.domain.gateway.LimitWriteRaceException;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -47,7 +50,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 class LimitTransactionsTest {
     final Manager manager = new Manager();
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final LimitActor actor = new LimitActor("tenant", "payment", Set.of("pay:limit:reserve"));
     final LimitTransactions transactions = new LimitTransactions(() -> actor, validation.getValidator(), manager);
 
@@ -96,8 +99,7 @@ class LimitTransactionsTest {
         var exhausted = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
-                    throw new org.springframework.dao.ConcurrencyFailureException(
-                            "Synthetic repeated reservation contention");
+                    throw new ConcurrencyFailureException("Synthetic repeated reservation contention");
                 }));
         assertEquals(CONCURRENT_UPDATE, exhausted.getResultCode());
         assertEquals(6, manager.begins);
@@ -138,12 +140,12 @@ class LimitTransactionsTest {
 
     @Test
     void unexpectedUniqueConstraintFailureIsNotRetried() {
-        var failure = new org.springframework.dao.DuplicateKeyException("unexpected constraint");
+        var failure = new DuplicateKeyException("unexpected constraint");
         var calls = new AtomicInteger();
         assertSame(
                 failure,
                 assertThrows(
-                        org.springframework.dao.DuplicateKeyException.class,
+                        DuplicateKeyException.class,
                         () -> transactions.writeLocal(actor, IDEMPOTENCY_CONFLICT, () -> {
                             calls.incrementAndGet();
                             throw failure;

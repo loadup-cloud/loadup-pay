@@ -55,6 +55,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,7 +151,7 @@ class WechatNotificationCodecTest {
 
     private static Map<String, List<String>> withHeader(
             Map<String, List<String>> headers, String name, List<String> values) {
-        var copy = new java.util.HashMap<String, List<String>>();
+        var copy = new HashMap<String, List<String>>();
         headers.forEach((key, value) -> {
             if (!key.equalsIgnoreCase(name)) {
                 copy.put(key, value);

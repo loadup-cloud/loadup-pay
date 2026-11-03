@@ -46,6 +46,7 @@ import io.github.loadup.pay.payment.domain.model.RiskDecisionType;
 import io.github.loadup.pay.payment.domain.model.RiskOutcome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -128,7 +129,7 @@ class PaymentRiskOutcomeDeliveryTest {
         source(true, true);
         delivery.deliver(event);
         delivery.deliver(event);
-        var capture = org.mockito.ArgumentCaptor.forClass(RiskOutcome.class);
+        var capture = ArgumentCaptor.forClass(RiskOutcome.class);
         verify(risk, times(2)).confirm(capture.capture());
         assertEquals(capture.getAllValues().getFirst(), capture.getAllValues().getLast());
     }

@@ -26,6 +26,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -62,7 +63,7 @@ public record OrderExtensionReceipt(
                         && requestedDueAt.isAfter(previousDueAt)
                         && requestedDueAt.isAfter(appliedAt),
                 INVALID_ARGUMENT);
-        for (var time : java.util.List.of(originalDueAt, previousDueAt, requestedDueAt, appliedAt)) {
+        for (var time : List.of(originalDueAt, previousDueAt, requestedDueAt, appliedAt)) {
             require(time.getYear() >= 1970 && time.getYear() <= 9998 && time.getNano() % 1000 == 0, INVALID_ARGUMENT);
         }
     }

@@ -24,12 +24,14 @@ import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.OrderAdmissionProof;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderFeePolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
+import io.github.loadup.pay.acquire.domain.model.PaymentProgress;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
@@ -43,8 +45,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface AcquireOrderConverter {
-    AcquireOrderCreateCommand toOrderCreate(
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command);
+    AcquireOrderCreateCommand toOrderCreate(DirectPayRecoverCommand command);
 
     AcquireOrderCreateCommand toOrderCreate(CheckoutCreateCommand command);
 
@@ -92,12 +93,10 @@ public interface AcquireOrderConverter {
     @Mapping(target = "version", source = "value.order.version")
     AcquireOrderDTO toDTO(StoredAcquireOrder value, LocalDateTime now);
 
-    default io.github.loadup.pay.acquire.domain.model.PaymentProgress progress(AcquireOrder order) {
+    default PaymentProgress progress(AcquireOrder order) {
         return order.paidAmountMinor() == 0
-                ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.UNPAID
-                : order.paidAmountMinor() == order.amount().getCent()
-                        ? io.github.loadup.pay.acquire.domain.model.PaymentProgress.FULL
-                        : io.github.loadup.pay.acquire.domain.model.PaymentProgress.PARTIAL;
+                ? PaymentProgress.UNPAID
+                : order.paidAmountMinor() == order.amount().getCent() ? PaymentProgress.FULL : PaymentProgress.PARTIAL;
     }
 
     default OffsetDateTime external(LocalDateTime value) {

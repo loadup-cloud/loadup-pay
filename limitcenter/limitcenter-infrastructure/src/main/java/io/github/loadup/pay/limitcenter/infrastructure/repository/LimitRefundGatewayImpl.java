@@ -37,6 +37,7 @@ import io.github.loadup.pay.limitcenter.infrastructure.mapper.LimitRefundReceipt
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -67,7 +68,7 @@ public class LimitRefundGatewayImpl extends ServiceImpl<LimitRefundReceiptMapper
             return Optional.ofNullable(getOne(QueryWrapper.create().eq("refund_id", refundId)))
                     .map(converter::toDomain);
         } catch (RuntimeException corrupt) {
-            if (corrupt instanceof org.springframework.dao.DataAccessException) {
+            if (corrupt instanceof DataAccessException) {
                 throw corrupt;
             }
             throw new CommonException(SNAPSHOT_INVALID);

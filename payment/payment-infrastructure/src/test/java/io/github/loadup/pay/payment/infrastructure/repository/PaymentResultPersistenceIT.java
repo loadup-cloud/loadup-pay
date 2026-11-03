@@ -61,6 +61,7 @@ import io.github.loadup.components.testcontainers.annotation.EnableTestContainer
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentTarget;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.payment.app.config.RecoveryPollingConfiguration;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
@@ -117,6 +118,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -136,6 +138,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -284,7 +287,7 @@ class PaymentResultPersistenceIT {
         var fact = remote.observations.get(fixture.attempt().attempt().id());
         var ready = new CyclicBarrier(2);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            java.util.concurrent.Callable<PaymentResultApplication> record = () -> {
+            Callable<PaymentResultApplication> record = () -> {
                 ready.await(10, TimeUnit.SECONDS);
                 return resultService.record(fixture.tenant(), fact);
             };
@@ -747,12 +750,12 @@ class PaymentResultPersistenceIT {
         });
         assertEquals(
                 INVALID_STATE,
-                assertThrows(io.github.loadup.commons.error.CommonException.class, () -> inventory.read(first.tenant()))
+                assertThrows(CommonException.class, () -> inventory.read(first.tenant()))
                         .getResultCode());
         assertEquals(
                 INVALID_STATE,
                 assertThrows(
-                                io.github.loadup.commons.error.CommonException.class,
+                                CommonException.class,
                                 () -> transactions.writeLocal(first.tenant(), () -> inventory.read(first.tenant())))
                         .getResultCode());
         resultService.record(first.tenant(), original);
@@ -1224,7 +1227,7 @@ class PaymentResultPersistenceIT {
         private final Faults faults;
 
         FaultingResults(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 PaymentResultStorageConverter converter,
                 Clock databaseClock,
                 Faults faults) {
@@ -1317,7 +1320,7 @@ class PaymentResultPersistenceIT {
             });
             when(channels.close(any())).thenAnswer(call -> {
                 assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
-                io.github.loadup.pay.channel.api.model.ChannelPaymentTarget target = call.getArgument(0);
+                ChannelPaymentTarget target = call.getArgument(0);
                 var original = originals.get(target.identity().attemptId());
                 assertEquals(original.attempt().attempt().identity(), target.identity());
                 assertEquals(original.attempt().attempt().amount(), target.amount());
@@ -1389,7 +1392,7 @@ class PaymentResultPersistenceIT {
 
         @Bean
         FaultingResults results(
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 PaymentResultStorageConverter converter,
                 Clock databaseClock,
                 Faults faults) {

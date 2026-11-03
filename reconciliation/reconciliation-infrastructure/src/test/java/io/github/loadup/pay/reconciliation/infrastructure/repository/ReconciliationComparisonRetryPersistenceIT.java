@@ -41,6 +41,7 @@ import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchCre
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchRetryCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationBatchStartCommand;
 import io.github.loadup.pay.reconciliation.client.command.ReconciliationInputAttachCommand;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationEntryStatus;
@@ -73,6 +74,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * PostgreSQL proof of rollback, exhausted-task recovery and concurrent retry fencing.
@@ -93,7 +97,7 @@ class ReconciliationComparisonRetryPersistenceIT {
     private final DelayedTaskProperties properties;
     private final FaultingResults results;
     private final JdbcTemplate jdbc;
-    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
+    private final PlatformTransactionManager transactionManager;
 
     @Autowired
     ReconciliationComparisonRetryPersistenceIT(
@@ -105,7 +109,7 @@ class ReconciliationComparisonRetryPersistenceIT {
             DelayedTaskProperties properties,
             FaultingResults results,
             JdbcTemplate jdbc,
-            org.springframework.transaction.PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager) {
         this.batches = batches;
         this.actors = actors;
         this.inputs = inputs;
@@ -119,7 +123,7 @@ class ReconciliationComparisonRetryPersistenceIT {
 
     @Test
     void exhaustedOriginalRunCanBeRetriedOnceAndCommitsOneResult() throws Exception {
-        assertInstanceOf(org.springframework.jdbc.datasource.DataSourceTransactionManager.class, transactionManager);
+        assertInstanceOf(DataSourceTransactionManager.class, transactionManager);
         int previousMaxAttempts = properties.getMaxAttempts();
         properties.setMaxAttempts(1);
         try {
@@ -193,9 +197,7 @@ class ReconciliationComparisonRetryPersistenceIT {
             actors.call(tenant, () -> batches.retry(command));
             return true;
         } catch (CommonException rejected) {
-            assertEquals(
-                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE,
-                    rejected.getResultCode());
+            assertEquals(ReconciliationResultCodeEnum.INVALID_STATE, rejected.getResultCode());
             return false;
         }
     }
@@ -231,7 +233,7 @@ class ReconciliationComparisonRetryPersistenceIT {
 
         FaultingResults(
                 IdGenerator ids,
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 ReconciliationStorageConverter values,
                 ReconciliationDifferenceStorageConverter converter,
                 Clock clock) {
@@ -259,7 +261,7 @@ class ReconciliationComparisonRetryPersistenceIT {
         @Primary
         FaultingResults faultingResults(
                 IdGenerator ids,
-                org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbc,
+                NamedParameterJdbcTemplate jdbc,
                 ReconciliationStorageConverter values,
                 ReconciliationDifferenceStorageConverter converter,
                 Clock clock) {

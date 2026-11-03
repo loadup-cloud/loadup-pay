@@ -75,6 +75,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationMatcher;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationRecordKind;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReview;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewEvent;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewProposal;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
@@ -82,6 +83,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationSide;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -109,7 +111,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationReviewServiceTest {
     final AnnotationConfigApplicationContext spring =
             new AnnotationConfigApplicationContext(ReconciliationReviewConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
     final ReconciliationAccountDirectory accounts = mock(ReconciliationAccountDirectory.class);
     final ReconciliationDifferenceReader differences = mock(ReconciliationDifferenceReader.class);
@@ -321,8 +323,7 @@ class ReconciliationReviewServiceTest {
                 "difference",
                 "needs-verification",
                 0L,
-                io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion
-                        .NEEDS_SOURCE_VERIFICATION,
+                ReconciliationReviewConclusion.NEEDS_SOURCE_VERIFICATION,
                 "consult original owner",
                 null);
         var pending = service.propose(command);
@@ -373,7 +374,7 @@ class ReconciliationReviewServiceTest {
                 "difference",
                 key,
                 version,
-                io.github.loadup.pay.reconciliation.domain.model.ReconciliationReviewConclusion.TIMING_DIFFERENCE,
+                ReconciliationReviewConclusion.TIMING_DIFFERENCE,
                 "private rationale",
                 file);
     }

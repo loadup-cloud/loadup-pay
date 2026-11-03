@@ -23,8 +23,10 @@ import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 public record AlipayJsapiChannelAction(@DiagnosticHidden String tradeNo, OffsetDateTime expiresAt)
@@ -33,9 +35,9 @@ public record AlipayJsapiChannelAction(@DiagnosticHidden String tradeNo, OffsetD
         DomainChecks.text(tradeNo, 64);
         Objects.requireNonNull(expiresAt);
         expiresAt = expiresAt
-                .atZoneSameInstant(io.github.loadup.commons.time.BusinessTime.zone())
+                .atZoneSameInstant(BusinessTime.zone())
                 .toOffsetDateTime()
-                .truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+                .truncatedTo(ChronoUnit.MICROS);
     }
 
     @Override

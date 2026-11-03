@@ -21,6 +21,7 @@ package io.github.loadup.pay.payment.client.command;
 
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.product.client.dto.AdmittedOrderTermsDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,6 +31,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.time.OffsetDateTime;
 
 public record PaymentExecuteCommand(
         @Schema(description = "Payment id") @NotBlank @Size(max = 64)
@@ -67,12 +69,10 @@ public record PaymentExecuteCommand(
         String subject,
 
         @Schema(description = "Frozen order payment deadline") @NotNull
-        java.time.OffsetDateTime payableUntil) {
+        OffsetDateTime payableUntil) {
     public PaymentExecuteCommand {
         if (payableUntil != null) {
-            payableUntil = payableUntil
-                    .atZoneSameInstant(io.github.loadup.commons.time.BusinessTime.zone())
-                    .toOffsetDateTime();
+            payableUntil = payableUntil.atZoneSameInstant(BusinessTime.zone()).toOffsetDateTime();
         }
     }
 

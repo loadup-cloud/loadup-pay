@@ -19,8 +19,10 @@
  */
 package io.github.loadup.pay.payment.domain.model;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import java.util.Objects;
 
 /**
  * Both gate kinds bind the original order, collecting merchant and trusted service.
@@ -28,12 +30,11 @@ import io.github.loadup.commons.validation.DomainChecks;
 public record StoredPaymentGate(
         String id, String payeeMerchantId, String callerServiceId, PaymentExecutionGate gate, long rowVersion) {
     public StoredPaymentGate {
-        io.github.loadup.commons.error.DomainViolation.require(
-                rowVersion >= 0, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(rowVersion >= 0, DomainViolation.Reason.INVALID_ARGUMENT);
         DomainChecks.id(id);
         DomainChecks.id(payeeMerchantId);
         DomainChecks.id(callerServiceId);
-        java.util.Objects.requireNonNull(gate);
+        Objects.requireNonNull(gate);
     }
 
     @Override

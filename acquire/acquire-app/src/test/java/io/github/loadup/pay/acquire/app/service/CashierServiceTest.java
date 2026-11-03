@@ -54,6 +54,7 @@ import io.github.loadup.pay.acquire.app.port.CashierInteractionProvider;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentRecoverCommand;
 import io.github.loadup.pay.acquire.client.command.CashierPaymentStartCommand;
+import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentProgressDTO;
 import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
@@ -72,17 +73,20 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class CashierServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(CashierPaymentConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final CashierActor actor = new CashierActor("tenant", "session", "order", NOW.plusMinutes(5));
     final CashierAccess access = mock(CashierAccess.class);
     final CashierChoices choices = mock(CashierChoices.class);
@@ -121,7 +125,7 @@ class CashierServiceTest {
             100000,
             true,
             null,
-            io.github.loadup.pay.acquire.domain.model.AcquireOrderState.PENDING,
+            AcquireOrderState.PENDING,
             null,
             Set.of(choice),
             null);
@@ -166,9 +170,8 @@ class CashierServiceTest {
         assertEquals("payment", result.paymentId());
         assertTrue(result.accepted());
         assertEquals(summary, result.order());
-        var principal = org.mockito.ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
-        var command = org.mockito.ArgumentCaptor.forClass(
-                io.github.loadup.pay.acquire.client.command.PaymentStartCommand.class);
+        var principal = ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
+        var command = ArgumentCaptor.forClass(PaymentStartCommand.class);
         verify(initiation).start(principal.capture(), command.capture());
         assertEquals("checkout/session", principal.getValue().actionScope());
         assertEquals(OWNER, principal.getValue().scopeHash());
@@ -219,7 +222,7 @@ class CashierServiceTest {
         assertEquals("action", result.actionKey());
         assertEquals("payment", result.payment().paymentId());
         assertFalse(result.payment().accepted());
-        var principal = org.mockito.ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
+        var principal = ArgumentCaptor.forClass(PaymentInitiationPrincipal.class);
         verify(initiation).recover(principal.capture(), eq("order"), eq("action"), eq(1000L), eq(choice));
         assertEquals("checkout/session", principal.getValue().actionScope());
         assertEquals(OWNER, principal.getValue().scopeHash());
@@ -246,8 +249,8 @@ class CashierServiceTest {
 
     @Test
     void unresolvedRecoveryCannotInventAPaymentOrCallTheResultService() {
-        for (var state : java.util.List.of(
-                PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
+        for (var state :
+                List.of(PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
             when(initiation.recover(any(), anyString(), anyString(), anyLong(), any()))
                     .thenReturn(new PaymentIntentRecovery(state, null, null));
             var result = service.recoverPayment(new CashierPaymentRecoverCommand("order", "action", 1000L, choice));

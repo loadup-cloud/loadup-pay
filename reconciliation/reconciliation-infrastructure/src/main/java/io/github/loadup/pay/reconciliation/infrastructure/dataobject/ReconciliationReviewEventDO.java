@@ -22,6 +22,7 @@ package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class ReconciliationReviewEventDO extends BaseDO {
     private String differenceId;
@@ -40,7 +41,7 @@ public class ReconciliationReviewEventDO extends BaseDO {
     @DiagnosticHidden
     private String note;
 
-    private java.time.LocalDateTime occurredAt;
+    private LocalDateTime occurredAt;
 
     public String getDifferenceId() {
         return differenceId;
@@ -146,11 +147,11 @@ public class ReconciliationReviewEventDO extends BaseDO {
         note = value;
     }
 
-    public java.time.LocalDateTime getOccurredAt() {
+    public LocalDateTime getOccurredAt() {
         return occurredAt;
     }
 
-    public void setOccurredAt(java.time.LocalDateTime value) {
+    public void setOccurredAt(LocalDateTime value) {
         occurredAt = value;
     }
 

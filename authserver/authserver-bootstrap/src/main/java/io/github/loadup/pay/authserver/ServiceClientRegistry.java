@@ -2,6 +2,7 @@ package io.github.loadup.pay.authserver;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
@@ -30,7 +31,7 @@ final class ServiceClientRegistry {
         var repository = new JdbcRegisteredClientRepository(jdbc);
         var encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
         // Resolve/validate all credential sources before the first write, never log the values.
-        Map<String, String> secrets = new java.util.HashMap<>();
+        Map<String, String> secrets = new HashMap<>();
         for (var client : catalog.clients()) {
             if (client.enabled()) {
                 String secret = environment.getProperty(client.secretEnv());

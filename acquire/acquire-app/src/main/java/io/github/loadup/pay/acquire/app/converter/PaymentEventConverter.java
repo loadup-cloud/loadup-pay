@@ -23,6 +23,8 @@ import io.github.loadup.commons.event.EventEnvelope;
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
 import io.github.loadup.pay.acquire.client.dto.PaymentOutcomeAckDTO;
 import io.github.loadup.pay.acquire.domain.model.PaymentEventReceipt;
+import io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.PaymentOutcomeEventDTO;
 import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
@@ -30,8 +32,7 @@ import org.mapstruct.Mapping;
 
 @Mapper(config = LoadUpMapStructConfig.class)
 public interface PaymentEventConverter {
-    io.github.loadup.pay.payment.client.dto.PaymentOutcomeDTO toObserved(
-            io.github.loadup.pay.payment.client.dto.PaymentSettlementFactsDTO facts);
+    PaymentOutcomeDTO toObserved(PaymentSettlementFactsDTO facts);
 
     @Mapping(target = "accepted", constant = "true")
     PaymentOutcomeAckDTO toAck(PaymentEventReceipt receipt);

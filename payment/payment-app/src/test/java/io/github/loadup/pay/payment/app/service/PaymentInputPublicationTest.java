@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentInputPrepareCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
@@ -132,8 +133,7 @@ class PaymentInputPublicationTest {
                 INVALID_STATE,
                 assertThrows(
                                 CommonException.class,
-                                () -> io.github.loadup.commons.util.TenantUtil.callWithTenant(
-                                        "tenant", () -> publication.lockParent(actor, command)))
+                                () -> TenantUtil.callWithTenant("tenant", () -> publication.lockParent(actor, command)))
                         .getResultCode());
         var other = new StoredPaymentGate(
                 "parent",

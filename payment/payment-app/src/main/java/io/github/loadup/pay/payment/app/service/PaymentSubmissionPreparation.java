@@ -35,9 +35,11 @@ import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.limitcenter.client.dto.LimitExecutionPermitDTO;
 import io.github.loadup.pay.limitcenter.client.dto.LimitReservationDTO;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
+import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
 import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
@@ -45,6 +47,7 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentLimitClient;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentControlGateway;
 import io.github.loadup.pay.payment.domain.gateway.RiskConsultGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
@@ -82,8 +85,8 @@ public class PaymentSubmissionPreparation {
     private final IdGenerator ids;
     private final Clock clock;
     private final PaymentEvents events;
-    private final io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels;
-    private final io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs;
+    private final PaymentChannelGateway channels;
+    private final PaymentChannelInputConverter channelInputs;
 
     public PaymentSubmissionPreparation(
             PaymentAcceptanceGateway payments,
@@ -100,8 +103,8 @@ public class PaymentSubmissionPreparation {
             IdGenerator ids,
             Clock clock,
             PaymentEvents events,
-            io.github.loadup.pay.payment.domain.gateway.PaymentChannelGateway channels,
-            io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter channelInputs) {
+            PaymentChannelGateway channels,
+            PaymentChannelInputConverter channelInputs) {
         this.payments = payments;
         this.changes = changes;
         this.attempts = attempts;
@@ -160,11 +163,9 @@ public class PaymentSubmissionPreparation {
             } catch (CommonException rejected) {
                 var code = rejected.getResultCode();
                 if (code == INPUT_EXPIRED
-                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
-                        || code == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
-                        || code
-                                == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum
-                                        .CHANNEL_BINDING_MISMATCH) {
+                        || code == ChannelResultCodeEnum.INVALID_ARGUMENT
+                        || code == ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
+                        || code == ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
                     rejectUnsubmitted(tenant, accepted, attemptId, decision);
                 }
                 throw rejected;

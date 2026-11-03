@@ -26,11 +26,15 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVAL
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_STATE;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.http.HttpCall;
 import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
+import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -55,19 +59,18 @@ public class WechatV2Client {
         if (method == null || fields == null) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        if (tenant == null || !tenant.equals(io.github.loadup.commons.util.TenantUtil.getTenantId())) {
+        if (tenant == null || !tenant.equals(TenantUtil.getTenantId())) {
             throw new CommonException(ACTION_FORBIDDEN);
         }
         if (binding == null
-                || binding.channel() != io.github.loadup.commons.payment.Channel.WECHAT
-                || !(binding.identity()
-                        instanceof io.github.loadup.pay.channel.api.model.WechatAccountIdentity account)) {
+                || binding.channel() != Channel.WECHAT
+                || !(binding.identity() instanceof WechatAccountIdentity account)) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
         if (!account.appId().equals(fields.get("appid"))
                 || !account.merchantId().equals(fields.get("mch_id"))
-                || !java.util.Objects.equals(account.subMerchantId(), fields.get("sub_mch_id"))
-                || !java.util.Objects.equals(account.subAppId(), fields.get("sub_appid"))) {
+                || !Objects.equals(account.subMerchantId(), fields.get("sub_mch_id"))
+                || !Objects.equals(account.subAppId(), fields.get("sub_appid"))) {
             throw new CommonException(CHANNEL_BINDING_MISMATCH);
         }
         byte[] key = credentials.apiV2Key(tenant, binding);

@@ -35,7 +35,9 @@ import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentInput;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
 import io.github.loadup.pay.channel.api.model.NoChannelInput;
@@ -191,7 +193,7 @@ class PaymentChannelRequestFactoryTest {
         var identity = validPrepared.identity();
         var changedPreparedFacts = new PreparedChannelPayment[] {
             new PreparedChannelPayment(
-                    new io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity(
+                    new ChannelPaymentIdentity(
                             identity.paymentId(),
                             identity.attemptId(),
                             identity.channel(),
@@ -211,7 +213,7 @@ class PaymentChannelRequestFactoryTest {
             new PreparedChannelPayment(
                     identity,
                     validPrepared.amount(),
-                    io.github.loadup.commons.payment.PaymentMethod.JSAPI,
+                    PaymentMethod.JSAPI,
                     validPrepared.executionEpoch(),
                     validPrepared.preparedInputRef()),
             new PreparedChannelPayment(

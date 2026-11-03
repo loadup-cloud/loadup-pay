@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.domain.model;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 
 /**
@@ -45,6 +46,6 @@ public record MerchantNotificationKey(String deliveryId, int sequence) {
 
     @Override
     public String toString() {
-        return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+        return ToStringAsJson.reflectionToString(this);
     }
 }

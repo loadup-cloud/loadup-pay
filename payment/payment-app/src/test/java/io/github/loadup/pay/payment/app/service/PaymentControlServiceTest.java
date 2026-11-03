@@ -62,6 +62,7 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.ParentPaymentFenceCommand;
 import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
@@ -389,7 +390,7 @@ class PaymentControlServiceTest {
     void inputExpiryLeavesEveryAlreadyAcceptedPaymentUnchanged() {
         actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:expire")));
         var source = PaymentFixtures.command();
-        var frozen = new io.github.loadup.pay.payment.client.command.PaymentExecuteCommand(
+        var frozen = new PaymentExecuteCommand(
                 source.paymentId(),
                 source.orderId(),
                 source.allocationId(),

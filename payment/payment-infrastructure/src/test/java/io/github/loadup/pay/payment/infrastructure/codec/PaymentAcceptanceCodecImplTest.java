@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.AccessMode;
@@ -45,7 +46,13 @@ import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -54,8 +61,11 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 class PaymentAcceptanceCodecImplTest {
@@ -69,18 +79,10 @@ class PaymentAcceptanceCodecImplTest {
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new OrderTermsDTO(600, 3600, UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
-                new FeeTermsDTO(
-                        new BigDecimal("0.003"),
-                        0,
-                        RoundingMode.HALF_UP,
-                        0,
-                        null,
-                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
-                new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
+                new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN),
+                new RefundTermsDTO(true, true, 86400, RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO(
                         "policy",
@@ -88,8 +90,8 @@ class PaymentAcceptanceCodecImplTest {
                         "e".repeat(64),
                         false,
                         null,
-                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
+                        RefundAmountRestorePolicy.NO_RESTORE,
+                        RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
@@ -190,19 +192,18 @@ class PaymentAcceptanceCodecImplTest {
     void storageFormatDoesNotFollowPublicDtoJsonNamesOrTheApiNamingStrategy() {
         var value = command();
         var apiMapper = mapper.rebuild()
-                .propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE)
+                .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
                 .addMixIn(PaymentExecuteCommand.class, RenamedCommand.class)
                 .addMixIn(AdmittedOrderTermsDTO.class, RenamedAdmission.class)
                 .build();
         var apiPayload = apiMapper.writeValueAsString(value);
-        org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
-        org.junit.jupiter.api.Assertions.assertTrue(apiPayload.contains("apiContractId"));
+        Assertions.assertTrue(apiPayload.contains("apiPaymentId"));
+        Assertions.assertTrue(apiPayload.contains("apiContractId"));
         var independent = new PaymentAcceptanceCodecImpl(validation.getValidator(), snapshots);
         var payload = independent.encode(value);
-        org.junit.jupiter.api.Assertions.assertTrue(
-                payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
-        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
-        org.junit.jupiter.api.Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
+        Assertions.assertTrue(payload.contains("\"format\":\"" + PaymentIntentSnapshot.FORMAT + "\""));
+        Assertions.assertTrue(payload.contains("\"paymentId\":\"payment\""));
+        Assertions.assertTrue(payload.contains("\"contractId\":\"contract\""));
         assertFalse(payload.contains("apiPaymentId"));
         assertFalse(payload.contains("apiContractId"));
         assertFalse(payload.contains("payment_id"));
@@ -215,17 +216,17 @@ class PaymentAcceptanceCodecImplTest {
     void restorationUsesFrozenStorageValidationInsteadOfCurrentPublicCommandBeanValidation() {
         var value = command();
         var payload = codec.encode(value);
-        var currentPublicValidation = org.mockito.Mockito.mock(jakarta.validation.Validator.class);
+        var currentPublicValidation = Mockito.mock(Validator.class);
         var reader = new PaymentAcceptanceCodecImpl(currentPublicValidation, snapshots);
         assertEquals(value, reader.decode(stored(value, payload, codec.checksum(payload))));
-        org.mockito.Mockito.verifyNoInteractions(currentPublicValidation);
+        Mockito.verifyNoInteractions(currentPublicValidation);
     }
 
     @Test
     void validChecksumsCannotMakeUnsupportedBareCrossOwnerOrLossySnapshotsReadable() {
         var value = command();
         var payload = codec.encode(value);
-        var variants = java.util.List.of(
+        var variants = List.of(
                 mapper.writeValueAsString(value),
                 payload.replace(PaymentIntentSnapshot.FORMAT, "unsupported.intent.v99"),
                 payload.replace(PaymentIntentSnapshot.FORMAT, "pay.acquire.payment-intent.v1"),
@@ -257,7 +258,7 @@ class PaymentAcceptanceCodecImplTest {
                 snapshot.admittedTerms().terms().limits().policyHash());
         assertEquals(
                 original.payableUntil().toInstant(),
-                java.time.OffsetDateTime.parse(snapshot.payableUntil()).toInstant());
+                OffsetDateTime.parse(snapshot.payableUntil()).toInstant());
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> snapshot.admittedTerms().terms().capabilities().clear());
@@ -272,12 +273,12 @@ class PaymentAcceptanceCodecImplTest {
     }
 
     abstract static class RenamedCommand {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiPaymentId")
+        @JsonProperty("apiPaymentId")
         public abstract String paymentId();
     }
 
     abstract static class RenamedAdmission {
-        @com.fasterxml.jackson.annotation.JsonProperty("apiContractId")
+        @JsonProperty("apiContractId")
         public abstract String contractId();
     }
 }

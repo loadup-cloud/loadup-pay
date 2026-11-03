@@ -47,19 +47,25 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.model.GateState;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
 import jakarta.validation.Validation;
@@ -74,6 +80,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -191,7 +198,7 @@ class PaymentAcceptanceServiceTest {
         accept(command);
         var original = stored.get();
         var root = original.payment();
-        var order = new io.github.loadup.pay.payment.domain.model.PaymentOrder(
+        var order = new PaymentOrder(
                 root.id(),
                 root.orderId(),
                 root.allocationId(),
@@ -199,7 +206,7 @@ class PaymentAcceptanceServiceTest {
                 root.amount(),
                 root.limitOperationId(),
                 root.initiatedAt(),
-                io.github.loadup.pay.payment.domain.model.PaymentState.UNKNOWN,
+                PaymentState.UNKNOWN,
                 "attempt",
                 null,
                 2L);
@@ -225,8 +232,7 @@ class PaymentAcceptanceServiceTest {
 
     @Test
     void initialSnapshotFailureRollsBackTheAcceptanceUnitInsteadOfReturningACommittedPayment() {
-        org.mockito.Mockito.doThrow(new CommonException(
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
+        Mockito.doThrow(new CommonException(PaymentResultCodeEnum.DEPENDENCY_UNAVAILABLE))
                 .when(events)
                 .publishSnapshot(eq("tenant"), any(), any());
         assertThrows(CommonException.class, () -> accept(command));
@@ -316,7 +322,7 @@ class PaymentAcceptanceServiceTest {
                                 "order",
                                 "allocation",
                                 "merchant",
-                                io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
+                                DomainChecks.cnyAmount(4000, "CNY"),
                                 "operation",
                                 LocalDateTime.now(clock)),
                         "admission",
@@ -396,7 +402,7 @@ class PaymentAcceptanceServiceTest {
                                     "order",
                                     "allocation",
                                     "merchant",
-                                    io.github.loadup.commons.validation.DomainChecks.cnyAmount(4000, "CNY"),
+                                    DomainChecks.cnyAmount(4000, "CNY"),
                                     "winning-operation",
                                     LocalDateTime.now(clock)),
                             "admission",
@@ -451,9 +457,7 @@ class PaymentAcceptanceServiceTest {
                 command.amountMinor(),
                 command.currency(),
                 command.requestDigest(),
-                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(
-                        io.github.loadup.commons.payment.Channel.ALIPAY,
-                        io.github.loadup.commons.payment.PaymentMethod.H5),
+                new PaymentChoiceDTO(Channel.ALIPAY, PaymentMethod.H5),
                 null,
                 command.admittedTerms(),
                 command.subject(),

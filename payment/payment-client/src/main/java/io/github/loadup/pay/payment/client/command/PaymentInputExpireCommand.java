@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.payment.client.command;
 
+import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,10 +34,7 @@ import jakarta.validation.constraints.Size;
  * Conditionally fence an expired, never-accepted original payment; accepted payments continue unchanged.
  */
 public record PaymentInputExpireCommand(
-        @Schema(description = "Original opaque input reference")
-        @NotBlank
-        @Size(max = 64)
-        @io.github.loadup.commons.json.DiagnosticHidden
+        @Schema(description = "Original opaque input reference") @NotBlank @Size(max = 64) @DiagnosticHidden
         String inputRef,
 
         @Schema(description = "Fixed payment id") @NotBlank @Size(max = 64)

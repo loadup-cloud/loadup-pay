@@ -47,6 +47,7 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.resilience4j.ResilienceRegistries;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelAccountIdentity;
@@ -70,6 +71,7 @@ import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
 import io.github.resilience4j.bulkhead.BulkheadConfig;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
@@ -231,8 +233,7 @@ class DefaultChannelPaymentFacadeTest {
     void aSelectedProviderFailureDoesNotSubmitToAnotherChannel() {
         var context = context(Channel.WECHAT, "wx-binding", HASH);
         var request = request(payment(Channel.WECHAT, "wx-binding", HASH));
-        var failure = new CommonException(
-                io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID);
+        var failure = new CommonException(ChannelResultCodeEnum.CHANNEL_RESPONSE_INVALID);
         when(wechat.submit(context, request)).thenThrow(failure);
         clearInvocations(alipay, wechat);
 
@@ -641,7 +642,7 @@ class DefaultChannelPaymentFacadeTest {
                 ChannelRefundOutcome.Kind.SUCCEEDED,
                 refund.amount(),
                 "vendor-refund",
-                java.time.LocalDateTime.of(2026, 10, 24, 12, 0),
+                LocalDateTime.of(2026, 10, 24, 12, 0),
                 RefundObservation.Source.SUBMIT_RESPONSE,
                 "submit",
                 "e".repeat(64),

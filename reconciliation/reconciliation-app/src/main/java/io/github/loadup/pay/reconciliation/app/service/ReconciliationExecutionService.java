@@ -23,6 +23,7 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
@@ -39,6 +40,7 @@ import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatc
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -119,7 +121,7 @@ public class ReconciliationExecutionService {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             if (terminal(stored.batch())) {
-                return java.util.Optional.<Work>empty();
+                return Optional.<Work>empty();
             }
             if (stored.batch().state() != ReconciliationState.RUNNING) {
                 throw new CommonException(INVALID_STATE);
@@ -130,7 +132,7 @@ public class ReconciliationExecutionService {
                     || !stored.batch().ledger().equals(ledger.manifest())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
-            return java.util.Optional.of(new Work(stored, channel, ledger));
+            return Optional.of(new Work(stored, channel, ledger));
         });
         if (work.isEmpty()) {
             return;
@@ -158,7 +160,7 @@ public class ReconciliationExecutionService {
     private record Work(StoredReconciliationBatch stored, ReconciliationDataset channel, ReconciliationDataset ledger) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }

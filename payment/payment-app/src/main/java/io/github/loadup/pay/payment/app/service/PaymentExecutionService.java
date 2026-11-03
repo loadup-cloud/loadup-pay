@@ -33,9 +33,14 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UNSUPPORTED_CAPABILITY;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
+import io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter;
+import io.github.loadup.pay.payment.app.model.PaymentResultApplication;
+import io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
@@ -49,6 +54,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -74,7 +80,7 @@ public class PaymentExecutionService {
     private final PaymentAcceptanceTransactions transactions;
     private final IdGenerator ids;
     private final Clock clock;
-    private final io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions;
+    private final PaymentSubmissionConverter conversions;
 
     public PaymentExecutionService(
             PaymentAcceptanceGateway payments,
@@ -92,7 +98,7 @@ public class PaymentExecutionService {
             PaymentAcceptanceTransactions transactions,
             IdGenerator ids,
             Clock clock,
-            io.github.loadup.pay.payment.app.converter.PaymentSubmissionConverter conversions) {
+            PaymentSubmissionConverter conversions) {
         this.payments = payments;
         this.attempts = attempts;
         this.changes = changes;
@@ -137,7 +143,7 @@ public class PaymentExecutionService {
             }
             var work = pending.get();
             if (work.attempt().attempt().state() == PaymentAttemptState.INIT) {
-                final Optional<io.github.loadup.pay.payment.app.model.PaymentSubmissionTicket> ticket;
+                final Optional<PaymentSubmissionTicket> ticket;
                 try {
                     ticket = submission.prepare(
                             tenant, paymentId, work.attempt().attempt().id());
@@ -146,14 +152,9 @@ public class PaymentExecutionService {
                             || rejected.getResultCode() == LIMIT_EXCEEDED
                             || rejected.getResultCode() == LIMIT_RESERVATION_EXPIRED
                             || rejected.getResultCode() == EXECUTION_FENCED
-                            || rejected.getResultCode()
-                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT
-                            || rejected.getResultCode()
-                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum
-                                            .UNSUPPORTED_CAPABILITY
-                            || rejected.getResultCode()
-                                    == io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum
-                                            .CHANNEL_BINDING_MISMATCH) {
+                            || rejected.getResultCode() == ChannelResultCodeEnum.INVALID_ARGUMENT
+                            || rejected.getResultCode() == ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
+                            || rejected.getResultCode() == ChannelResultCodeEnum.CHANNEL_BINDING_MISMATCH) {
                         snapshot(tenant, paymentId, true);
                         return true;
                     }
@@ -175,7 +176,7 @@ public class PaymentExecutionService {
                         && attempt.state() != PaymentAttemptState.UNKNOWN) {
                     throw new CommonException(SNAPSHOT_INVALID);
                 }
-                final io.github.loadup.pay.payment.app.model.PaymentResultApplication applied;
+                final PaymentResultApplication applied;
                 if (work.closing()) {
                     applied = closing.close(tenant, work.attempt());
                 } else {
@@ -290,10 +291,10 @@ public class PaymentExecutionService {
         return LocalDateTime.ofInstant(clock.instant().truncatedTo(ChronoUnit.MICROS), clock.getZone());
     }
 
-    private record Work(StoredPaymentAttempt attempt, boolean closing, java.time.OffsetDateTime payableUntil) {
+    private record Work(StoredPaymentAttempt attempt, boolean closing, OffsetDateTime payableUntil) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }

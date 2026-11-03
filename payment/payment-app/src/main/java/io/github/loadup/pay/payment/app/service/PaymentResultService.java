@@ -30,8 +30,13 @@ import static io.github.loadup.pay.payment.domain.model.PaymentReceiptDispositio
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentExecution;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
+import io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
+import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
 import io.github.loadup.pay.payment.app.converter.PaymentAcceptanceConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
@@ -129,16 +134,12 @@ public class PaymentResultService {
     }
 
     public PaymentResultApplication recordSubmission(
-            String tenant,
-            io.github.loadup.pay.channel.api.model.PreparedChannelPayment original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+            String tenant, PreparedChannelPayment original, ChannelPaymentSubmission submission) {
         return recordWithAction(tenant, original, submission);
     }
 
     public PaymentResultApplication recordRecovery(
-            String tenant,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+            String tenant, ChannelPaymentRecovery original, ChannelPaymentSubmission submission) {
         if (submission == null
                 || submission.observation() == null
                 || submission.observation().source() != PaymentObservation.Source.QUERY_RESPONSE) {
@@ -148,9 +149,7 @@ public class PaymentResultService {
     }
 
     private PaymentResultApplication recordWithAction(
-            String tenant,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentExecution original,
-            io.github.loadup.pay.channel.api.model.ChannelPaymentSubmission submission) {
+            String tenant, ChannelPaymentExecution original, ChannelPaymentSubmission submission) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
@@ -161,8 +160,8 @@ public class PaymentResultService {
             throw new CommonException(INVALID_ARGUMENT);
         }
         if (submission.observation() == null) {
-            if (!(original instanceof io.github.loadup.pay.channel.api.model.PreparedChannelPayment)
-                    || !(submission.action() instanceof io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction)) {
+            if (!(original instanceof PreparedChannelPayment)
+                    || !(submission.action() instanceof AlipayH5ChannelAction)) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
             return transactions.withTenantContext(tenant, () -> {

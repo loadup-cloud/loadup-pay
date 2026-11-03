@@ -45,6 +45,7 @@ import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.facade.ChannelStatementFacade;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
@@ -58,6 +59,7 @@ import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
 import io.github.loadup.pay.payment.domain.gateway.ChannelBindingGateway;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -77,7 +79,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class PaymentStatementServiceTest {
     final AnnotationConfigApplicationContext spring =
             new AnnotationConfigApplicationContext(PaymentStatementConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final ChannelBindingGateway bindings = mock(ChannelBindingGateway.class);
     final ChannelStatementFacade channels = mock(ChannelStatementFacade.class);
     final AtomicReference<PaymentActor> actor = new AtomicReference<>(
@@ -196,23 +198,18 @@ class PaymentStatementServiceTest {
     @Test
     void signedAbsenceIsExplicitAndOtherChannelFailuresRemainDependencyFailures() {
         when(bindings.findRevision("tenant", "revision")).thenReturn(Optional.of(binding));
-        when(channels.download(any(), any()))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND));
+        when(channels.download(any(), any())).thenThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_FOUND));
         assertEquals(
                 STATEMENT_NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
-        when(channels.download(any(), any()))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY));
+        when(channels.download(any(), any())).thenThrow(new CommonException(ChannelResultCodeEnum.STATEMENT_NOT_READY));
         assertEquals(
                 STATEMENT_NOT_READY,
                 assertThrows(CommonException.class, () -> service.download(query))
                         .getResultCode());
         when(channels.download(any(), any()))
-                .thenThrow(new CommonException(
-                        io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID));
+                .thenThrow(new CommonException(ChannelResultCodeEnum.CHANNEL_SIGNATURE_INVALID));
         assertEquals(
                 DEPENDENCY_UNAVAILABLE,
                 assertThrows(CommonException.class, () -> service.download(query))

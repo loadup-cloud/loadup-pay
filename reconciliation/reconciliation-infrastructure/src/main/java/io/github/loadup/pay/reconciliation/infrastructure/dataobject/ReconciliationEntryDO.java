@@ -20,6 +20,7 @@
 package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
+import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 
 public class ReconciliationEntryDO extends BaseDO {
@@ -28,13 +29,13 @@ public class ReconciliationEntryDO extends BaseDO {
     private String matchKeyHash;
     private String kind;
 
-    @io.github.loadup.commons.json.DiagnosticHidden
+    @DiagnosticHidden
     private String channelTransactionNo;
 
-    @io.github.loadup.commons.json.DiagnosticHidden
+    @DiagnosticHidden
     private String channelRefundNo;
 
-    @io.github.loadup.commons.json.DiagnosticHidden
+    @DiagnosticHidden
     private String merchantPaymentNo;
 
     private Long amountMinor;

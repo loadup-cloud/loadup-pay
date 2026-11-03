@@ -82,6 +82,7 @@ import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredPaymentAllocation;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -98,7 +99,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class AcquireRecoveryOperationsServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(AcquireRecoveryConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AtomicReference<AcquireServiceActor> actor = new AtomicReference<>(new AcquireServiceActor(
             "tenant", "pay-ops", Set.of("pay:acquire:recovery:read", "pay:acquire:recovery:retry")));
     final AcquireRecoveryRetryGateway receipts = mock(AcquireRecoveryRetryGateway.class);

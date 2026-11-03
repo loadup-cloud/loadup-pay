@@ -24,6 +24,7 @@ import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentIdentity;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentActionDO;
+import java.time.LocalDateTime;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -71,5 +72,5 @@ public interface PaymentActionStorageConverter {
             String kind,
             String payload,
             String payloadHash,
-            java.time.LocalDateTime expiresAt);
+            LocalDateTime expiresAt);
 }

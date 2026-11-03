@@ -27,9 +27,11 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationInputGateway;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationDataset;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationManifest;
@@ -117,15 +119,14 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     @Override
     public void insertSealed(String tenant, String fileId, ReconciliationDataset dataset) {
         ReconciliationStoreContext.writable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(fileId);
+        DomainChecks.id(fileId);
         if (dataset == null || dataset.records().size() > maxRecords) {
             throw new CommonException(INPUT_INVALID);
         }
         if (jdbc.getJdbcTemplate().getDataSource() == null
                 || !TransactionSynchronizationManager.hasResource(
                         jdbc.getJdbcTemplate().getDataSource())) {
-            throw new CommonException(
-                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
+            throw new CommonException(ReconciliationResultCodeEnum.INVALID_STATE);
         }
         var original = input(tenant, dataset.manifest().artifactId(), true);
         if (original != null) {
@@ -199,13 +200,12 @@ public class ReconciliationInputGatewayImpl implements ReconciliationInputGatewa
     }
 
     private ReconciliationInputDO input(String tenant, String id, boolean lock) {
-        io.github.loadup.commons.validation.DomainChecks.id(id);
+        DomainChecks.id(id);
         if (lock
                 && (jdbc.getJdbcTemplate().getDataSource() == null
                         || !TransactionSynchronizationManager.hasResource(
                                 jdbc.getJdbcTemplate().getDataSource()))) {
-            throw new CommonException(
-                    io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.INVALID_STATE);
+            throw new CommonException(ReconciliationResultCodeEnum.INVALID_STATE);
         }
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId()).addValue("id", id);
         return jdbc

@@ -42,6 +42,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
@@ -60,6 +61,8 @@ import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -71,7 +74,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class PaymentRecoveryServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(PaymentRecoveryConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final PaymentInitiationOperations initiation = mock(PaymentInitiationOperations.class);
     final PaymentOutcomeOperations outcomes = mock(PaymentOutcomeOperations.class);
     final AtomicReference<AcquireActor> actor =
@@ -143,8 +146,8 @@ class PaymentRecoveryServiceTest {
 
     @Test
     void unresolvedActionsNeverReportAcceptedFalseOrCallFinancialConvergence() {
-        for (var state : java.util.List.of(
-                PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
+        for (var state :
+                List.of(PaymentIntentRecovery.State.NOT_OBSERVED, PaymentIntentRecovery.State.INPUT_REQUIRED)) {
             when(initiation.recover(any(), anyString(), anyString(), anyLong(), any()))
                     .thenReturn(new PaymentIntentRecovery(state, null, null));
             var result = service.recover(command);
@@ -152,7 +155,7 @@ class PaymentRecoveryServiceTest {
             assertNull(result.paymentId());
             assertNull(result.accepted());
             assertNull(result.progress());
-            assertTrue(io.github.loadup.commons.json.JsonUtil.toJson(result).contains("\"accepted\":null"));
+            assertTrue(JsonUtil.toJson(result).contains("\"accepted\":null"));
         }
         verifyNoInteractions(outcomes);
     }
@@ -166,7 +169,7 @@ class PaymentRecoveryServiceTest {
         when(outcomes.applyInputExpiry(any(), anyString(), anyString(), any())).thenReturn(absent);
         var result = service.recover(command);
         assertEquals(Boolean.FALSE, result.accepted());
-        assertTrue(io.github.loadup.commons.json.JsonUtil.toJson(result).contains("\"accepted\":false"));
+        assertTrue(JsonUtil.toJson(result).contains("\"accepted\":false"));
         assertSame(absent, result.progress());
         verify(outcomes).applyInputExpiry(new OrderPaymentScope("tenant", OWNER), "order", "payment", proof);
         verify(outcomes, never()).refresh(any(), any());

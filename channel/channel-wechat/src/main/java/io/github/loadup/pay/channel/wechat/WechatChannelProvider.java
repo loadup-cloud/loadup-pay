@@ -20,6 +20,7 @@
 package io.github.loadup.pay.channel.wechat;
 
 import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRecovery;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentRequest;
@@ -58,7 +59,7 @@ public final class WechatChannelProvider implements ChannelProvider {
 
     @Override
     public void validate(ChannelExecutionContext context, ChannelPaymentValidation request) {
-        if (request != null && request.method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE) {
+        if (request != null && request.method() == PaymentMethod.PAYMENT_CODE) {
             codepay.validate(context, request);
         } else {
             submissions.validate(context, request);
@@ -67,8 +68,7 @@ public final class WechatChannelProvider implements ChannelProvider {
 
     @Override
     public ChannelPaymentSubmission submit(ChannelExecutionContext context, ChannelPaymentRequest request) {
-        return request != null
-                        && request.payment().method() == io.github.loadup.commons.payment.PaymentMethod.PAYMENT_CODE
+        return request != null && request.payment().method() == PaymentMethod.PAYMENT_CODE
                 ? codepay.submit(context, request)
                 : submissions.submit(context, request);
     }

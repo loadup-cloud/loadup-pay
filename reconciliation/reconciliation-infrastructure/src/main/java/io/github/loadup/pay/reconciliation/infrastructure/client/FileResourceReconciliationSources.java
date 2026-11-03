@@ -30,6 +30,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.modules.file.client.dto.FileResourceDTO;
 import io.github.loadup.modules.file.client.facade.FileResourceFacade;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationSourceFiles;
+import io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationFileSnapshot;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -212,8 +213,7 @@ public class FileResourceReconciliationSources implements ReconciliationSourceFi
         try {
             return TenantUtil.callWithTenant(tenant, action::get);
         } catch (CommonException failure) {
-            if (failure.getResultCode()
-                    instanceof io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum) {
+            if (failure.getResultCode() instanceof ReconciliationResultCodeEnum) {
                 throw failure;
             }
             throw new CommonException(DEPENDENCY_UNAVAILABLE);

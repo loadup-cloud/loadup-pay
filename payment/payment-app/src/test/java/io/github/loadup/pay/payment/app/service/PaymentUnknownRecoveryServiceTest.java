@@ -53,6 +53,7 @@ import io.github.loadup.pay.payment.client.query.PaymentUnknownRecoveryQuery;
 import io.github.loadup.pay.payment.domain.model.PaymentRecoveryKind;
 import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,7 +69,7 @@ class PaymentUnknownRecoveryServiceTest {
     final LocalDateTime at = LocalDateTime.of(2026, 10, 27, 12, 0);
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(UnknownRecoveryOperationsConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final UnknownRecoveryReader reader = mock(UnknownRecoveryReader.class);
     final AtomicReference<PaymentActor> actor =
             new AtomicReference<>(new PaymentActor("tenant", "pay-ops", Set.of("pay:payment:recovery:read")));

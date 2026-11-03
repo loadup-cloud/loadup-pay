@@ -46,6 +46,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
+import io.github.loadup.pay.channel.api.model.H5SceneType;
 import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.pay.payment.app.converter.PaymentChannelInputConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentInputConverter;
@@ -59,6 +60,7 @@ import io.github.loadup.pay.payment.client.dto.NoInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCodeInteractionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInteractionDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.query.PaymentInputLookupQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentInputGateway;
 import io.github.loadup.pay.payment.domain.model.EncryptedPaymentInput;
@@ -70,12 +72,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -147,12 +152,11 @@ class PaymentInputServiceTest {
 
     @Test
     void aCloseCommittedWhileKmsWasInFlightPreventsPublishingTheLateCiphertext() {
-        org.mockito.Mockito.doThrow(new CommonException(
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED))
+        Mockito.doThrow(new CommonException(PaymentResultCodeEnum.EXECUTION_FENCED))
                 .when(publication)
                 .requireNew(any(), any(), any());
         assertEquals(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
+                PaymentResultCodeEnum.EXECUTION_FENCED,
                 assertThrows(CommonException.class, () -> service.prepare(command))
                         .getResultCode());
         assertNull(persisted.get());
@@ -164,8 +168,7 @@ class PaymentInputServiceTest {
     void anExistingExactInputReplaysEvenAfterPublicationHasBeenFenced() {
         var first = service.prepare(command);
         clearInvocations(publication, cipher);
-        org.mockito.Mockito.doThrow(new CommonException(
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED))
+        Mockito.doThrow(new CommonException(PaymentResultCodeEnum.EXECUTION_FENCED))
                 .when(publication)
                 .requireNew(any(), any(), any());
         assertEquals(first, service.prepare(command));
@@ -262,9 +265,7 @@ class PaymentInputServiceTest {
 
     @Test
     void preparesH5SceneInputThroughTheSameEncryptedLifecycle() {
-        var h5 = command(
-                PaymentMethod.H5,
-                new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+        var h5 = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
 
         var result = service.prepare(h5);
 
@@ -277,23 +278,17 @@ class PaymentInputServiceTest {
 
     @Test
     void changedH5SceneOrIpConflictsForTheSamePayment() {
-        var original = command(
-                PaymentMethod.H5,
-                new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+        var original = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP));
         service.prepare(original);
 
-        var changedIp = command(
-                PaymentMethod.H5,
-                new H5SceneInteractionDTO("203.0.113.11", io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+        var changedIp = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.11", H5SceneType.WAP));
         when(cipher.fingerprint("tenant", "acquire", changedIp, "v1")).thenReturn("b".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.prepare(changedIp))
                         .getResultCode());
 
-        var changedScene = command(
-                PaymentMethod.H5,
-                new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.ANDROID));
+        var changedScene = command(PaymentMethod.H5, new H5SceneInteractionDTO("203.0.113.10", H5SceneType.ANDROID));
         when(cipher.fingerprint("tenant", "acquire", changedScene, "v1")).thenReturn("c".repeat(64));
         assertSame(
                 IDEMPOTENCY_CONFLICT,
@@ -313,9 +308,7 @@ class PaymentInputServiceTest {
             "127.0.0.1",
             "224.0.0.1"
         }) {
-            var invalid = command(
-                    PaymentMethod.H5,
-                    new H5SceneInteractionDTO(invalidIp, io.github.loadup.pay.channel.api.model.H5SceneType.WAP));
+            var invalid = command(PaymentMethod.H5, new H5SceneInteractionDTO(invalidIp, H5SceneType.WAP));
             assertSame(
                     INVALID_ARGUMENT,
                     assertThrows(CommonException.class, () -> service.prepare(invalid))
@@ -333,7 +326,7 @@ class PaymentInputServiceTest {
                                 CommonException.class,
                                 () -> service.prepare(command(PaymentMethod.H5, new NoInteractionDTO())))
                         .getResultCode());
-        var scene = new H5SceneInteractionDTO("203.0.113.10", io.github.loadup.pay.channel.api.model.H5SceneType.WAP);
+        var scene = new H5SceneInteractionDTO("203.0.113.10", H5SceneType.WAP);
         assertSame(
                 INVALID_ARGUMENT,
                 assertThrows(CommonException.class, () -> service.prepare(command(PaymentMethod.JSAPI, scene)))
@@ -398,7 +391,7 @@ class PaymentInputServiceTest {
         assertFalse(result.toString().contains("opaque-reference"));
         verifyNoInteractions(cipher);
         verify(store, never()).insert(anyString(), any());
-        verify(store, never()).bind(anyString(), any(), org.mockito.ArgumentMatchers.anyLong());
+        verify(store, never()).bind(anyString(), any(), ArgumentMatchers.anyLong());
         assertEquals(1, manager.commits);
     }
 
@@ -427,7 +420,7 @@ class PaymentInputServiceTest {
         assertSame(original, persisted.get());
         verifyNoInteractions(cipher);
         verify(store, never()).insert(anyString(), any());
-        verify(store, never()).bind(anyString(), any(), org.mockito.ArgumentMatchers.anyLong());
+        verify(store, never()).bind(anyString(), any(), ArgumentMatchers.anyLong());
     }
 
     @Test
@@ -435,7 +428,7 @@ class PaymentInputServiceTest {
         service.prepare(command);
         actor.set(new PaymentActor("tenant", "acquire", Set.of("pay:payment:input:read")));
         var q = lookupQuery();
-        for (var changed : java.util.List.of(
+        for (var changed : List.of(
                 new PaymentInputLookupQuery(
                         q.paymentId(),
                         "other-order",

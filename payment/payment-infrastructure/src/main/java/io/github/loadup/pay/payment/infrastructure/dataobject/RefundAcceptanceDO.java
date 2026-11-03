@@ -22,6 +22,7 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class RefundAcceptanceDO extends BaseDO {
     private String paymentId;
@@ -39,7 +40,7 @@ public class RefundAcceptanceDO extends BaseDO {
 
     private Long amountMinor;
     private String currency;
-    private java.time.LocalDateTime acceptedAt;
+    private LocalDateTime acceptedAt;
     private String receiptId;
 
     public String getPaymentId() {
@@ -122,11 +123,11 @@ public class RefundAcceptanceDO extends BaseDO {
         currency = value;
     }
 
-    public java.time.LocalDateTime getAcceptedAt() {
+    public LocalDateTime getAcceptedAt() {
         return acceptedAt;
     }
 
-    public void setAcceptedAt(java.time.LocalDateTime value) {
+    public void setAcceptedAt(LocalDateTime value) {
         acceptedAt = value;
     }
 

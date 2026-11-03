@@ -66,6 +66,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -77,7 +78,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 class DirectPaymentServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(DirectPaymentConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AcquireOrderCreationFacade orders = mock(AcquireOrderCreationFacade.class);
     final PaymentInitiationFacade payments = mock(PaymentInitiationFacade.class);
     final PaymentRecoveryFacade recovery = mock(PaymentRecoveryFacade.class);

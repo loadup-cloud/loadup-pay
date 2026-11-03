@@ -35,6 +35,7 @@ import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
+import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.DirectPayRecoveryDTO;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
 import io.github.loadup.pay.acquire.client.facade.DirectPaymentRecoveryFacade;
@@ -43,6 +44,7 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
 import io.github.loadup.pay.acquire.domain.model.OrderCreationRecoveryState;
 import jakarta.validation.Validator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -110,7 +112,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
             if (terminalCreation(intent)) {
                 return terminal(command, intent);
             }
-            io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO created;
+            AcquireOrderDTO created;
             try {
                 created = orders.resumeDirectPay(command);
             } catch (CommonException failure) {
@@ -176,7 +178,7 @@ public class DirectPaymentRecoveryService implements DirectPaymentRecoveryFacade
                     null);
         }
         if ("REJECTED".equals(intent.state())) {
-            for (var reason : java.util.List.of(CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE)) {
+            for (var reason : List.of(CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE)) {
                 if (reason.getCode().equals(intent.resultCode())) {
                     return converter.toRecoveryDTO(
                             command,

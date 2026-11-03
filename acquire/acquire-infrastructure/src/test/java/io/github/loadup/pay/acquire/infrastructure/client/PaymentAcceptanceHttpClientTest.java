@@ -21,6 +21,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.payment.Channel;
+import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.request.query.IdQuery;
 import io.github.loadup.commons.result.Result;
 import io.github.loadup.commons.result.SuccessResponse;
@@ -28,6 +30,7 @@ import io.github.loadup.components.http.HttpCallException;
 import io.github.loadup.components.http.HttpServiceResponses;
 import io.github.loadup.pay.acquire.infrastructure.config.PaymentTransportProperties;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
@@ -44,6 +47,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +68,7 @@ class PaymentAcceptanceHttpClientTest {
     PaymentAcceptanceHttpClient client;
 
     private static RuntimeException remoteFailure(String code) {
-        var result = java.util.Arrays.stream(PaymentResultCodeEnum.values())
+        var result = Arrays.stream(PaymentResultCodeEnum.values())
                 .filter(value -> value.getCode().equals(code))
                 .findFirst()
                 .orElse(PaymentResultCodeEnum.ACTION_FORBIDDEN);
@@ -227,9 +231,7 @@ class PaymentAcceptanceHttpClientTest {
                 100L,
                 "CNY",
                 "action",
-                new PaymentChoiceDTO(
-                        io.github.loadup.commons.payment.Channel.WECHAT,
-                        io.github.loadup.commons.payment.PaymentMethod.H5));
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5));
         var absent = new PaymentInputLookupDTO(false, null);
         doReturn(SuccessResponse.of(absent)).when(paymentHttp).inputLookup(anyString(), any());
         assertEquals(absent, client.lookupInput("tenant", query));
@@ -247,7 +249,7 @@ class PaymentAcceptanceHttpClientTest {
 
     @Test
     void inputExpiryUsesItsTypedOperationAndFailureNeverFabricatesAClosure() {
-        var expire = mock(io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand.class);
+        var expire = mock(PaymentInputExpireCommand.class);
         var active = new PaymentInputExpiryDTO("payment", "order", PaymentInputExpiryDisposition.INPUT_ACTIVE, null);
         doReturn(SuccessResponse.of(active)).when(paymentHttp).inputExpire(anyString(), any());
         assertEquals(active, client.expireInput("tenant", expire));

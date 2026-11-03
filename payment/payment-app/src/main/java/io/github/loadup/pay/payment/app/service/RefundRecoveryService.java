@@ -32,10 +32,12 @@ import io.github.loadup.pay.payment.domain.gateway.RefundRecoveryGateway;
 import io.github.loadup.pay.payment.domain.model.RefundOrder;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryCursor;
 import io.github.loadup.pay.payment.domain.model.RefundRecoveryKey;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
 import io.github.loadup.pay.payment.domain.policy.RecoveryPollingPolicy;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -67,7 +69,7 @@ public class RefundRecoveryService {
         this.execution = execution;
         this.transactions = transactions;
         this.clock = clock;
-        this.polling = java.util.Objects.requireNonNull(polling);
+        this.polling = Objects.requireNonNull(polling);
     }
 
     /**
@@ -76,8 +78,7 @@ public class RefundRecoveryService {
     public void register(String tenant, StoredRefundRequest stored) {
         writable(tenant);
         if (stored.request().version() != 0
-                || stored.request().children().stream()
-                        .anyMatch(c -> c.state() != io.github.loadup.pay.payment.domain.model.RefundState.INIT)) {
+                || stored.request().children().stream().anyMatch(c -> c.state() != RefundState.INIT)) {
             throw new CommonException(INVALID_STATE);
         }
         var cursor = RefundRecoveryCursor.init(stored.request().id(), stored.plannedAt());

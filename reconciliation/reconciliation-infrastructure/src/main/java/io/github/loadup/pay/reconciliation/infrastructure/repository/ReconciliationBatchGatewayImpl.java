@@ -25,6 +25,7 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 import static io.github.loadup.pay.reconciliation.client.error.ReconciliationResultCodeEnum.SNAPSHOT_INVALID;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationWriteConflictException;
 import io.github.loadup.pay.reconciliation.domain.gateway.ReconciliationBatchGateway;
@@ -65,8 +66,8 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
     @Override
     public Optional<StoredReconciliationBatch> findRequest(String tenant, String caller, String requestKey) {
         ReconciliationStoreContext.readable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(caller);
-        io.github.loadup.commons.validation.DomainChecks.text(requestKey, 128);
+        DomainChecks.id(caller);
+        DomainChecks.text(requestKey, 128);
         var args = new MapSqlParameterSource("tenant", TenantContext.tenantId())
                 .addValue("caller", caller)
                 .addValue("key", requestKey);
@@ -76,7 +77,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
     @Override
     public Optional<StoredReconciliationBatch> find(String tenant, String id) {
         ReconciliationStoreContext.readable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(id);
+        DomainChecks.id(id);
         return optional(
                 tenant,
                 row(
@@ -88,7 +89,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
     @Override
     public Optional<StoredReconciliationBatch> findRun(String tenant, String runId) {
         ReconciliationStoreContext.readable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(runId);
+        DomainChecks.id(runId);
         return optional(
                 tenant,
                 row(
@@ -100,7 +101,7 @@ public class ReconciliationBatchGatewayImpl implements ReconciliationBatchGatewa
     @Override
     public Optional<StoredReconciliationBatch> lock(String tenant, String id) {
         ReconciliationStoreContext.writable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(id);
+        DomainChecks.id(id);
         return optional(
                 tenant,
                 row(

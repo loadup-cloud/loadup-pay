@@ -58,6 +58,7 @@ import io.github.loadup.modules.transfer.client.enums.TransferKind;
 import io.github.loadup.modules.transfer.client.enums.TransferStatus;
 import io.github.loadup.modules.transfer.client.facade.TransferTaskFacade;
 import io.github.loadup.pay.payment.client.dto.PaymentStatementDTO;
+import io.github.loadup.pay.payment.client.query.PaymentStatementQuery;
 import io.github.loadup.pay.reconciliation.app.converter.ReconciliationStatementConverter;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationAccountDirectory;
 import io.github.loadup.pay.reconciliation.app.port.ReconciliationPaymentStatements;
@@ -80,8 +81,10 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementR
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementState;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -107,7 +110,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationStatementServiceTest {
     final AnnotationConfigApplicationContext spring =
             new AnnotationConfigApplicationContext(ReconciliationStatementConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final ReconciliationStatementConverter converter = spring.getBean(ReconciliationStatementConverter.class);
     final ReconciliationAccountDirectory accounts = mock(ReconciliationAccountDirectory.class);
     final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
@@ -164,7 +167,7 @@ class ReconciliationStatementServiceTest {
     static String hash(String algorithm, byte[] bytes) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(bytes));
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new AssertionError(e);
         }
     }
@@ -229,10 +232,7 @@ class ReconciliationStatementServiceTest {
             assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
             assertNotNull(stored.get());
             assertEquals(ReconciliationStatementState.INIT, stored.get().state());
-            assertEquals(
-                    "revision",
-                    ((io.github.loadup.pay.payment.client.query.PaymentStatementQuery) call.getArgument(1))
-                            .bindingRevisionId());
+            assertEquals("revision", ((PaymentStatementQuery) call.getArgument(1)).bindingRevisionId());
             return downloaded("revision");
         });
         when(files.upload(anyString(), anyString(), anyString(), anyString(), anyLong(), any()))

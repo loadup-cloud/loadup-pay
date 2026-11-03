@@ -30,6 +30,7 @@ import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
 import io.github.loadup.pay.payment.client.event.RefundSnapshotEventDTO;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.StreamReadFeature;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -40,7 +41,7 @@ public class RefundProjectionEnvelopeCodecImpl implements RefundProjectionEnvelo
 
     public RefundProjectionEnvelopeCodecImpl(JsonMapper json) {
         this.json = json.rebuild()
-                .enable(tools.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .build();

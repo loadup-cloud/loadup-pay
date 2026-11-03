@@ -203,8 +203,7 @@ public class MerchantNotificationGatewayImpl implements MerchantNotificationGate
                 .orElse(null);
     }
 
-    private MerchantNotificationDelivery decode(
-            io.github.loadup.pay.acquire.infrastructure.dataobject.MerchantNotificationDeliveryDO row) {
+    private MerchantNotificationDelivery decode(MerchantNotificationDeliveryDO row) {
         try {
             var value = converter.toDomain(row);
             if (row.getId() == null

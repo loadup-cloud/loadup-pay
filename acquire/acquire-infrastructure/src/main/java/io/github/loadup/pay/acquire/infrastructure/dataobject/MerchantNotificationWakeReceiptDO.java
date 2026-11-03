@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class MerchantNotificationWakeReceiptDO extends BaseDO {
     private String deliveryId;
@@ -39,7 +40,7 @@ public class MerchantNotificationWakeReceiptDO extends BaseDO {
     private Integer attemptCount;
     private Long deliveryVersion;
     private String nativeTaskId;
-    private java.time.LocalDateTime acceptedAt;
+    private LocalDateTime acceptedAt;
 
     public String getDeliveryId() {
         return deliveryId;
@@ -137,11 +138,11 @@ public class MerchantNotificationWakeReceiptDO extends BaseDO {
         nativeTaskId = value;
     }
 
-    public java.time.LocalDateTime getAcceptedAt() {
+    public LocalDateTime getAcceptedAt() {
         return acceptedAt;
     }
 
-    public void setAcceptedAt(java.time.LocalDateTime value) {
+    public void setAcceptedAt(LocalDateTime value) {
         acceptedAt = value;
     }
 

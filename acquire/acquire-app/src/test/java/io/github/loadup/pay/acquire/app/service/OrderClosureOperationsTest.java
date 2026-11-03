@@ -45,6 +45,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
@@ -63,6 +64,7 @@ import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,7 +78,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class OrderClosureOperationsTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(AcquireOrderConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
     final OrderClosureGateway store = mock(OrderClosureGateway.class);
     final PaymentClosureClient payment = mock(PaymentClosureClient.class);
@@ -183,7 +185,7 @@ class OrderClosureOperationsTest {
     void c0AndEveryCursorAdvanceRegisterANativeContinuationInTheirTransaction() {
         var first = operations.close(scope, command);
         var second = operations.close(scope, command);
-        assertEquals(io.github.loadup.pay.acquire.domain.model.AcquireOrderState.CLOSING, first.state());
+        assertEquals(AcquireOrderState.CLOSING, first.state());
         assertEquals(first.orderId(), second.orderId());
         assertEquals(1, ids.get());
         assertEquals(2L, intent.get().rowVersion());
@@ -218,7 +220,7 @@ class OrderClosureOperationsTest {
         when(payment.parentFenceStatus(eq("tenant"), any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));
         when(store.allAllocationsSettled("tenant", "order")).thenReturn(true);
         var result = operations.close(scope, command);
-        assertEquals(io.github.loadup.pay.acquire.domain.model.AcquireOrderState.CLOSED, result.state());
+        assertEquals(AcquireOrderState.CLOSED, result.state());
         assertEquals(AcquireOrderState.CLOSED, order.get().order().state());
         TenantUtil.runWithTenant(
                 "tenant",
@@ -271,7 +273,7 @@ class OrderClosureOperationsTest {
                                 "merchant/" + OWNER,
                                 "action",
                                 "e".repeat(64),
-                                io.github.loadup.commons.money.Money.ofMinor(1000L, "CNY")),
+                                Money.ofMinor(1000L, "CNY")),
                         NOW);
         order.set(withOrder(original, change.order()));
         when(payment.parentFenceStatus(eq("tenant"), any())).thenReturn(new ParentFenceDTO("order", 1L, true, true, 0));

@@ -39,18 +39,22 @@ import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.app.converter.PaymentControlConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentRealtimeConverter;
 import io.github.loadup.pay.payment.app.converter.PaymentResultConverter;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
 import io.github.loadup.pay.payment.domain.model.ChannelTransactionClaim;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -79,7 +83,7 @@ class PaymentEventsTest {
         return context.getBean(PaymentControlConverter.class).withPayment(original, order, "evidence");
     }
 
-    private void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, java.time.LocalDateTime at) {
+    private void publish(String tenant, StoredPaymentAcceptance payment, boolean fenced, LocalDateTime at) {
         TenantUtil.runWithTenant(tenant, () -> events.publish(tenant, payment, fenced, at));
     }
 
@@ -166,7 +170,7 @@ class PaymentEventsTest {
         });
         var messages = ArgumentCaptor.forClass(OutboxMessage.class);
         verify(outbox, times(4)).publish(messages.capture());
-        var expectedStates = java.util.List.of("INIT", "PROCESSING", "UNKNOWN", "CLOSING");
+        var expectedStates = List.of("INIT", "PROCESSING", "UNKNOWN", "CLOSING");
         var seenEvents = new HashSet<String>();
         var mapper = JsonMapper.builder().build();
         for (int index = 0; index < messages.getAllValues().size(); index++) {
@@ -180,10 +184,10 @@ class PaymentEventsTest {
             assertEquals(4000L, ((Number) data.get("amountMinor")).longValue());
             assertEquals("CNY", data.get("currency"));
             assertNotNull(data.get("initiatedAt"));
-            org.junit.jupiter.api.Assertions.assertNull(data.get("succeededAt"));
+            Assertions.assertNull(data.get("succeededAt"));
             assertFalse(data.containsKey("executionFenced"));
             if (index == 0) {
-                org.junit.jupiter.api.Assertions.assertNull(data.get("channel"));
+                Assertions.assertNull(data.get("channel"));
             } else {
                 assertEquals("WECHAT", data.get("channel"));
             }
@@ -199,7 +203,7 @@ class PaymentEventsTest {
         var processing = AttemptFixtures.accepted(true);
         TransactionSynchronizationManager.setActualTransactionActive(true);
         assertSame(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.ACTION_FORBIDDEN,
+                PaymentResultCodeEnum.ACTION_FORBIDDEN,
                 assertThrows(
                                 CommonException.class,
                                 () -> TenantUtil.runWithTenant(
@@ -218,7 +222,7 @@ class PaymentEventsTest {
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(false);
         when(attempts.find("tenant", "attempt")).thenReturn(Optional.empty());
         assertSame(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
+                PaymentResultCodeEnum.SNAPSHOT_INVALID,
                 assertThrows(
                                 CommonException.class,
                                 () -> TenantUtil.runWithTenant(
@@ -226,7 +230,7 @@ class PaymentEventsTest {
                                         () -> events.publishSnapshot("tenant", processing, AttemptFixtures.NOW)))
                         .getResultCode());
         assertSame(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SNAPSHOT_INVALID,
+                PaymentResultCodeEnum.SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, () -> publish("tenant", processing, false, AttemptFixtures.NOW))
                         .getResultCode());
         verifyNoInteractions(outbox);

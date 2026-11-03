@@ -26,6 +26,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.json.JsonUtil;
+import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -39,12 +40,18 @@ import io.github.loadup.pay.acquire.app.model.MerchantNotificationData;
 import io.github.loadup.pay.acquire.app.model.MerchantRefundNotificationData;
 import io.github.loadup.pay.acquire.app.port.MerchantNotificationTransport;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationDelivery;
+import io.github.loadup.pay.acquire.domain.model.MerchantNotificationState;
 import io.github.loadup.pay.acquire.infrastructure.config.MerchantNotificationProperties;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
@@ -109,8 +116,7 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new CommonException(INVALID_STATE);
         }
-        if (delivery.state() != io.github.loadup.pay.acquire.domain.model.MerchantNotificationState.PENDING
-                || delivery.attemptCount() <= 0) {
+        if (delivery.state() != MerchantNotificationState.PENDING || delivery.attemptCount() <= 0) {
             throw new CommonException(INVALID_STATE);
         }
         long started = System.nanoTime();
@@ -163,20 +169,20 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                     && data.size() == 2
                     && delivery.eventId().equals(data.get("eventId"))
                     && "SUCCESS".equals(data.get("result"));
-        } catch (java.nio.charset.CharacterCodingException | RuntimeException invalid) {
+        } catch (CharacterCodingException | RuntimeException invalid) {
             return false;
         }
     }
 
     private void validateBody(MerchantNotificationDelivery delivery, byte[] body) {
         try {
-            if (java.util.Set.of("RefundSucceeded", "RefundFailed", "RefundRequestCompleted")
+            if (Set.of("RefundSucceeded", "RefundFailed", "RefundRequestCompleted")
                     .contains(delivery.eventType())) {
                 var frozen = json.readValue(
                         body, new TypeReference<MerchantNotificationBody<MerchantRefundNotificationData>>() {});
                 metadata(delivery, frozen, "payment");
                 refundData(delivery, frozen);
-            } else if (java.util.Set.of("PaymentSucceeded", "OrderFullyPaid", "OrderClosed")
+            } else if (Set.of("PaymentSucceeded", "OrderFullyPaid", "OrderClosed")
                     .contains(delivery.eventType())) {
                 var frozen = json.readValue(
                         body, new TypeReference<MerchantNotificationBody<MerchantNotificationData>>() {});
@@ -202,8 +208,7 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                 || frozen.occurredAt() == null
                 || !frozen.occurredAt()
                         .toInstant()
-                        .equals(io.github.loadup.commons.time.BusinessTime.external(delivery.occurredAt())
-                                .toInstant())) {
+                        .equals(BusinessTime.external(delivery.occurredAt()).toInstant())) {
             throw new CommonException(SNAPSHOT_INVALID);
         }
     }
@@ -257,8 +262,7 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
                     || data.paymentId() != null
                     || data.succeededAt() != null
                     || data.state() == null
-                    || !java.util.Set.of("SUCCEEDED", "FAILED", "PARTIAL_SUCCEEDED")
-                            .contains(data.state())) {
+                    || !Set.of("SUCCEEDED", "FAILED", "PARTIAL_SUCCEEDED").contains(data.state())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
         } else {
@@ -303,10 +307,8 @@ public class HttpMerchantNotificationTransport implements MerchantNotificationTr
 
     private String checksum(byte[] bytes) {
         try {
-            return java.util.HexFormat.of()
-                    .formatHex(
-                            java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (java.security.NoSuchAlgorithmException unavailable) {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (NoSuchAlgorithmException unavailable) {
             throw new IllegalStateException("SHA-256 unavailable", unavailable);
         }
     }

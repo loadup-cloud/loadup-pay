@@ -35,6 +35,7 @@ import io.github.loadup.pay.payment.domain.gateway.RefundResultGateway;
 import io.github.loadup.pay.payment.domain.model.RefundRequest;
 import io.github.loadup.pay.payment.domain.model.RefundRequestReference;
 import io.github.loadup.pay.payment.domain.model.StoredRefundRequest;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,9 +55,9 @@ class RefundExecutionLocksTest {
     @BeforeEach
     void setup() {
         when(refunds.reference("tenant", "request"))
-                .thenReturn(java.util.Optional.of(
+                .thenReturn(Optional.of(
                         new RefundRequestReference("request", "order", "merchant", request.requestDigest())));
-        when(payments.lockParent("tenant", "order")).thenReturn(java.util.Optional.of(AttemptFixtures.gate(true)));
+        when(payments.lockParent("tenant", "order")).thenReturn(Optional.of(AttemptFixtures.gate(true)));
         when(refunds.lock("tenant", "request")).thenReturn(request);
     }
 
@@ -76,14 +77,13 @@ class RefundExecutionLocksTest {
     @Test
     void aReferenceCannotSelectAnotherRequestOrOriginalDigest() {
         when(refunds.reference("tenant", "request"))
-                .thenReturn(java.util.Optional.of(
+                .thenReturn(Optional.of(
                         new RefundRequestReference("another-request", "order", "merchant", request.requestDigest())));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::lock).getResultCode());
         when(refunds.reference("tenant", "request"))
-                .thenReturn(java.util.Optional.of(
-                        new RefundRequestReference("request", "order", "merchant", "a".repeat(64))));
+                .thenReturn(Optional.of(new RefundRequestReference("request", "order", "merchant", "a".repeat(64))));
         assertSame(
                 SNAPSHOT_INVALID,
                 assertThrows(CommonException.class, this::lock).getResultCode());

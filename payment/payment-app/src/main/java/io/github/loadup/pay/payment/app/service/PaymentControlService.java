@@ -38,6 +38,7 @@ import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.client.facade.PaymentControlFacade;
 import io.github.loadup.pay.payment.client.query.ParentFenceStatusQuery;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
@@ -353,8 +354,7 @@ public class PaymentControlService implements PaymentControlFacade {
                     checkBinding(value, actor, command.orderId(), command.payeeMerchantId(), command.paymentId()));
             var accepted = store.lockPayment(actor.tenantId(), command.paymentId());
             var input = inputs.lock(actor.tenantId(), command.inputRef())
-                    .orElseThrow(() -> new CommonException(
-                            io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.NOT_FOUND));
+                    .orElseThrow(() -> new CommonException(PaymentResultCodeEnum.NOT_FOUND));
             if (!input.callerServiceId().equals(actor.serviceId())) {
                 throw new CommonException(ACTION_FORBIDDEN);
             }

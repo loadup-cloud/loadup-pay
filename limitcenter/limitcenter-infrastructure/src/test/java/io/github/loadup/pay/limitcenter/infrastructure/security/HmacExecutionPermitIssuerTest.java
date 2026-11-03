@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservation;
 import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.infrastructure.config.LimitPermitProperties;
@@ -95,8 +96,7 @@ class HmacExecutionPermitIssuerTest {
     void diagnosticStringsHideSecretsAndIncomingPermit() {
         var properties = new LimitPermitProperties("old", Map.of("old", oldSecret));
         assertFalse(properties.toString().contains(oldSecret));
-        var input = new io.github.loadup.pay.limitcenter.client.command.LimitExecutionVerifyCommand(
-                "operation", "payment", "attempt", 1, 40, "CNY", "d".repeat(64));
+        var input = new LimitExecutionVerifyCommand("operation", "payment", "attempt", 1, 40, "CNY", "d".repeat(64));
         assertFalse(input.toString().contains("d".repeat(64)));
     }
 

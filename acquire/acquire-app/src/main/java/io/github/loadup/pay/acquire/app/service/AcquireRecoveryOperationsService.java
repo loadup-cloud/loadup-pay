@@ -29,6 +29,7 @@ import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.SN
 import static io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.VERSION_CONFLICT;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.JsonUtil;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.DigestUtils;
@@ -145,7 +146,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
         key(command.kind(), command.subjectId(), command.generation());
         try {
             DomainChecks.id(command.expectedTaskId());
-        } catch (io.github.loadup.commons.error.DomainViolation invalid) {
+        } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         var expectedAt = BusinessTime.local(command.expectedNextExecuteAt());
@@ -391,7 +392,7 @@ public class AcquireRecoveryOperationsService implements AcquireRecoveryOperatio
     private void key(AcquireRecoveryKind kind, String subject, long generation) {
         try {
             DomainChecks.id(subject);
-        } catch (io.github.loadup.commons.error.DomainViolation invalid) {
+        } catch (DomainViolation invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         if (kind == AcquireRecoveryKind.ORDER_DEADLINE && generation < 1) {

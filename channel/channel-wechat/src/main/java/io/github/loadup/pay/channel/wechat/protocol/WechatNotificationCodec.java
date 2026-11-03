@@ -48,6 +48,7 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -173,8 +174,7 @@ public final class WechatNotificationCodec {
         var envelope = parse(body);
         String event = responses.text(envelope, "event_type", 32);
         if (refund) {
-            if (!java.util.Set.of("REFUND.SUCCESS", "REFUND.CLOSED", "REFUND.ABNORMAL")
-                    .contains(event)) {
+            if (!Set.of("REFUND.SUCCESS", "REFUND.CLOSED", "REFUND.ABNORMAL").contains(event)) {
                 throw new CommonException(CHANNEL_RESPONSE_INVALID);
             }
         } else {

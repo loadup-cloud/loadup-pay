@@ -49,6 +49,7 @@ import io.github.loadup.pay.acquire.app.converter.OrderSnapshotConverter;
 import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.port.OrderSnapshotReader;
 import io.github.loadup.pay.acquire.app.port.PaymentAcceptanceClient;
+import io.github.loadup.pay.acquire.app.port.PaymentClosureClient;
 import io.github.loadup.pay.acquire.app.port.PaymentOutcomeClient;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
@@ -62,6 +63,7 @@ import io.github.loadup.pay.acquire.app.service.PaymentOutcomeOperations;
 import io.github.loadup.pay.acquire.app.service.PaymentProgressService;
 import io.github.loadup.pay.acquire.client.command.PaymentProgressRefreshCommand;
 import io.github.loadup.pay.acquire.client.command.PaymentStartCommand;
+import io.github.loadup.pay.acquire.client.dto.PaymentStartDTO;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.PaymentOutcomeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
@@ -181,7 +183,7 @@ class AcquiringFinancialPersistenceIT {
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
-            Callable<io.github.loadup.pay.acquire.client.dto.PaymentStartDTO> call = () -> {
+            Callable<PaymentStartDTO> call = () -> {
                 ready.countDown();
                 await(start);
                 return starts.startPayment(command);
@@ -419,8 +421,7 @@ class AcquiringFinancialPersistenceIT {
         final Set<String> successful = ConcurrentHashMap.newKeySet();
         final Set<String> conflictingEvidence = ConcurrentHashMap.newKeySet();
         final PaymentAcceptanceClient acceptance = mock(PaymentAcceptanceClient.class);
-        final io.github.loadup.pay.acquire.app.port.PaymentClosureClient closure =
-                mock(io.github.loadup.pay.acquire.app.port.PaymentClosureClient.class);
+        final PaymentClosureClient closure = mock(PaymentClosureClient.class);
         final PaymentOutcomeClient outcomes = mock(PaymentOutcomeClient.class);
 
         RemotePayment() {
@@ -532,7 +533,7 @@ class AcquiringFinancialPersistenceIT {
         }
 
         @Bean
-        io.github.loadup.pay.acquire.app.port.PaymentClosureClient closure(RemotePayment remote) {
+        PaymentClosureClient closure(RemotePayment remote) {
             return remote.closure;
         }
 

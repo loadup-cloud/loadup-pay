@@ -26,6 +26,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentChannelReceipt;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentResultAnomaly;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface PaymentResultGateway {
@@ -52,7 +53,7 @@ public interface PaymentResultGateway {
      * State, evidence and authoritative channel success time are one payment-row CAS.
      */
     void completeSuccess(
-            String tenant, StoredPaymentAcceptance payment, long expectedVersion, java.time.LocalDateTime succeededAt);
+            String tenant, StoredPaymentAcceptance payment, long expectedVersion, LocalDateTime succeededAt);
 
     Optional<PaymentRefundCapacity> capacity(String tenant, String paymentId);
 

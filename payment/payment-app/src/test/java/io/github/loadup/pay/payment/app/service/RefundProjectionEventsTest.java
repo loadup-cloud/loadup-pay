@@ -58,12 +58,14 @@ import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.RefundSummaryGateway;
 import io.github.loadup.pay.payment.domain.model.OrderRefundSummary;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
+import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.PaymentState;
 import io.github.loadup.pay.payment.domain.model.RefundExecutionFacts;
 import io.github.loadup.pay.payment.domain.model.RefundProgressChange;
 import io.github.loadup.pay.payment.domain.model.RefundState;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -256,8 +258,7 @@ class RefundProjectionEventsTest {
         assertEquals("INIT", childData.get("state"));
         assertEquals(
                 BusinessTime.external(createdAt).toInstant(),
-                java.time.OffsetDateTime.parse((String) childData.get("refundCreatedAt"))
-                        .toInstant());
+                OffsetDateTime.parse((String) childData.get("refundCreatedAt")).toInstant());
     }
 
     @Test
@@ -286,8 +287,7 @@ class RefundProjectionEventsTest {
         assertEquals(1000, ((Number) data.get("cumulativePaymentRefundedMinor")).longValue());
         assertEquals(
                 BusinessTime.external(RefundResultFixtures.NOW).toInstant(),
-                java.time.OffsetDateTime.parse((String) limitEnvelope.get("occurredAt"))
-                        .toInstant());
+                OffsetDateTime.parse((String) limitEnvelope.get("occurredAt")).toInstant());
         verify(payments).find("tenant", "payment");
         var merchant = capture.getAllValues().stream()
                 .filter(m -> m.type().equals(RefundProjectionEvents.MERCHANT))
@@ -325,7 +325,7 @@ class RefundProjectionEventsTest {
         var second = RefundResultFixtures.initial().allocations().get(1);
         var started = second.refund().beginSubmission();
         var request = first.request().apply(started);
-        var capacity = new io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity(
+        var capacity = new PaymentRefundCapacity(
                 "payment2",
                 "order",
                 "merchant",

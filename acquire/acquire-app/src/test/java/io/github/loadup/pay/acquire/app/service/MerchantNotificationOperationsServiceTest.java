@@ -63,6 +63,7 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationKey;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationWakeReceipt;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -81,7 +82,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class MerchantNotificationOperationsServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(MerchantNotificationQueryConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AtomicReference<MerchantNotificationActor> actor = new AtomicReference<>(operator("operator-a"));
     final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
     final MerchantNotificationWakeGateway receipts = mock(MerchantNotificationWakeGateway.class);

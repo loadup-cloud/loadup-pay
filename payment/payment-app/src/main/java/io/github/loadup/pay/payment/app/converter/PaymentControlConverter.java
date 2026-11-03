@@ -20,10 +20,14 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.pay.payment.client.command.PaymentCloseCommand;
+import io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand;
 import io.github.loadup.pay.payment.client.dto.ParentFenceDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentExecutionGate;
+import io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentGate;
@@ -36,10 +40,8 @@ public interface PaymentControlConverter {
     @Mapping(target = "orderId", source = "command.orderId")
     @Mapping(target = "disposition", source = "disposition")
     @Mapping(target = "closed", source = "closed")
-    io.github.loadup.pay.payment.client.dto.PaymentInputExpiryDTO toInputExpiry(
-            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command,
-            io.github.loadup.pay.payment.domain.model.PaymentInputExpiryDisposition disposition,
-            PaymentCloseDTO closed);
+    PaymentInputExpiryDTO toInputExpiry(
+            PaymentInputExpireCommand command, PaymentInputExpiryDisposition disposition, PaymentCloseDTO closed);
 
     @Mapping(
             target = "requestKey",
@@ -51,8 +53,7 @@ public interface PaymentControlConverter {
     @Mapping(
             target = "reasonCode",
             expression = "java(io.github.loadup.pay.payment.client.facade.PaymentInputExpiryPolicy.REASON)")
-    io.github.loadup.pay.payment.client.command.PaymentCloseCommand toInputExpiryClose(
-            io.github.loadup.pay.payment.client.command.PaymentInputExpireCommand command);
+    PaymentCloseCommand toInputExpiryClose(PaymentInputExpireCommand command);
 
     @Mapping(target = "gate", source = "gate")
     @Mapping(target = "rowVersion", expression = "java(Math.incrementExact(current.rowVersion()))")

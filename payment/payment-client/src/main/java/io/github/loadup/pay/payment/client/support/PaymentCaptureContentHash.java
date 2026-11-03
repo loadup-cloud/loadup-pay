@@ -27,6 +27,7 @@ import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentCaptureState;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerKind;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -73,7 +74,7 @@ public final class PaymentCaptureContentHash {
         if (maxBytes < 1 || !matches(capture, lines)) {
             throw new CommonException(INVALID_ARGUMENT);
         }
-        var bytes = new java.io.ByteArrayOutputStream();
+        var bytes = new ByteArrayOutputStream();
         var hash = frame(
                 capture.captureId(),
                 capture.channel(),
@@ -201,14 +202,14 @@ public final class PaymentCaptureContentHash {
 
     private static final class Frame {
         final MessageDigest digest;
-        final java.io.ByteArrayOutputStream archive;
+        final ByteArrayOutputStream archive;
         final int maxBytes;
 
         Frame(String format) {
             this(format, null, 0);
         }
 
-        Frame(String format, java.io.ByteArrayOutputStream archive, int maxBytes) {
+        Frame(String format, ByteArrayOutputStream archive, int maxBytes) {
             this.archive = archive;
             this.maxBytes = maxBytes;
             try {

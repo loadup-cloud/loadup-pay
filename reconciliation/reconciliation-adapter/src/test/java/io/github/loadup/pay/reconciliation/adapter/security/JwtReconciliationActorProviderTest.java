@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.loadup.commons.error.CommonException;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -46,7 +47,7 @@ class JwtReconciliationActorProviderTest {
         var actor = provider.current();
         assertEquals("tenant", actor.tenantId());
         assertEquals("ops", actor.serviceId());
-        assertEquals(java.util.Set.of("pay:reconciliation:batch:read"), actor.permissions());
+        assertEquals(Set.of("pay:reconciliation:batch:read"), actor.permissions());
     }
 
     @Test

@@ -26,9 +26,12 @@ import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionScope;
+import io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.Set;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -63,8 +66,8 @@ public interface CheckoutConverter {
             AcquireOrderDTO order,
             String subject,
             LocalDateTime sessionExpiresAt,
-            java.util.Set<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO> choices,
-            io.github.loadup.pay.acquire.domain.model.OrderPaymentPolicy policy,
+            Set<PaymentChoiceDTO> choices,
+            OrderPaymentPolicy policy,
             long occupiedCount);
 
     default OffsetDateTime external(LocalDateTime value) {

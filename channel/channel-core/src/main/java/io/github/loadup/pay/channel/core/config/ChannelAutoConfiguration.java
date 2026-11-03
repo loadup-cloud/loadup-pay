@@ -23,11 +23,14 @@ import io.github.loadup.components.resilience4j.ResilienceRegistries;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.pay.channel.api.facade.ChannelNotificationFacade;
 import io.github.loadup.pay.channel.api.facade.ChannelPaymentFacade;
+import io.github.loadup.pay.channel.api.facade.ChannelStatementFacade;
 import io.github.loadup.pay.channel.api.spi.ChannelNotificationProvider;
 import io.github.loadup.pay.channel.api.spi.ChannelProvider;
+import io.github.loadup.pay.channel.api.spi.ChannelStatementProvider;
 import io.github.loadup.pay.channel.core.ChannelRecoveryConcurrency;
 import io.github.loadup.pay.channel.core.DefaultChannelNotificationFacade;
 import io.github.loadup.pay.channel.core.DefaultChannelPaymentFacade;
+import io.github.loadup.pay.channel.core.DefaultChannelStatementFacade;
 import io.github.loadup.pay.channel.core.codec.DefaultChannelActionCodec;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -45,11 +48,9 @@ public class ChannelAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(io.github.loadup.pay.channel.api.facade.ChannelStatementFacade.class)
-    io.github.loadup.pay.channel.api.facade.ChannelStatementFacade channelStatementFacade(
-            ObjectProvider<io.github.loadup.pay.channel.api.spi.ChannelStatementProvider> providers) {
-        return new io.github.loadup.pay.channel.core.DefaultChannelStatementFacade(
-                providers.orderedStream().toList());
+    @ConditionalOnMissingBean(ChannelStatementFacade.class)
+    ChannelStatementFacade channelStatementFacade(ObjectProvider<ChannelStatementProvider> providers) {
+        return new DefaultChannelStatementFacade(providers.orderedStream().toList());
     }
 
     @Bean

@@ -41,6 +41,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -132,7 +133,7 @@ class MerchantAuthorizationGatewayImplTest {
                 JdbcTemplate.class, invocation -> switch (invocation.getMethod().getName()) {
                     case "getDataSource" -> source;
                     case "update" -> 1;
-                    default -> org.mockito.Answers.RETURNS_DEFAULTS.answer(invocation);
+                    default -> Answers.RETURNS_DEFAULTS.answer(invocation);
                 });
         var gateway = new MerchantAuthorizationGatewayImpl(jdbc, relationships, grants, Clock.systemUTC());
         var from = LocalDateTime.of(2026, 1, 1, 0, 0);

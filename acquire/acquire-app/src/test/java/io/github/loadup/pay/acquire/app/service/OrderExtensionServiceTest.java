@@ -67,7 +67,9 @@ import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderAdmissionDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -81,7 +83,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class OrderExtensionServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(AcquireOrderConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final OrderCreationGateway orders = mock(OrderCreationGateway.class);
     final OrderExtensionGateway store = mock(OrderExtensionGateway.class);
     final OrderCreationCodec codec = mock(OrderCreationCodec.class);
@@ -168,7 +170,7 @@ class OrderExtensionServiceTest {
                         "admission",
                         "order",
                         "merchant",
-                        io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED,
+                        AdmissionDecision.ADMITTED,
                         "ALLOW",
                         "c".repeat(64),
                         "contract",

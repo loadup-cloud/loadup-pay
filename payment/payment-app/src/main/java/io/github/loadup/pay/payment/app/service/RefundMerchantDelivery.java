@@ -33,6 +33,7 @@ import io.github.loadup.components.outbox.OutboxTemplate;
 import io.github.loadup.pay.payment.app.port.PaymentAcquireClient;
 import io.github.loadup.pay.payment.app.port.RefundProjectionEnvelopeCodec;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -93,7 +94,7 @@ public class RefundMerchantDelivery {
                 || !envelope.aggregateId().equals(ack.aggregateId())
                 || envelope.aggregateVersion() != ack.sourceVersion()
                 || !expectedEventId.equals(ack.merchantEventId())
-                || !java.util.Set.of("ENQUEUED", "DISABLED").contains(ack.disposition())) {
+                || !Set.of("ENQUEUED", "DISABLED").contains(ack.disposition())) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
     }

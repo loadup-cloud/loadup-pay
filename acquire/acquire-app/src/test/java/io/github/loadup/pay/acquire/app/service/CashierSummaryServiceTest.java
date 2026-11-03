@@ -43,13 +43,16 @@ import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
 import io.github.loadup.pay.acquire.app.security.CashierActor;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class CashierSummaryServiceTest {
@@ -60,13 +63,9 @@ class CashierSummaryServiceTest {
     final CashierAccess access = mock(CashierAccess.class);
     final CashierChoices choices = mock(CashierChoices.class);
 
-    CashierSummaryService service(java.time.LocalDateTime expires) {
-        when(access.read(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.eq("ORDER_SUMMARY")))
-                .thenReturn(CheckoutFixtures.session(
-                        io.github.loadup.pay.acquire.domain.model.CheckoutSessionState.ACTIVE, expires));
+    CashierSummaryService service(LocalDateTime expires) {
+        when(access.read(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.eq("ORDER_SUMMARY")))
+                .thenReturn(CheckoutFixtures.session(CheckoutSessionState.ACTIVE, expires));
         return new CashierSummaryService(
                 () -> new CashierActor("tenant", "session", "order", expires),
                 orders,

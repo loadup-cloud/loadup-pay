@@ -41,6 +41,8 @@ import io.github.loadup.pay.channel.api.model.ChannelStatementScope;
 import io.github.loadup.pay.channel.api.model.VerifiedChannelStatement;
 import io.github.loadup.pay.channel.api.model.WechatAccountIdentity;
 import io.github.loadup.pay.channel.api.spi.ChannelStatementProvider;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
@@ -65,8 +67,8 @@ class DefaultChannelStatementFacadeTest {
                     Set.of(PaymentMethod.H5)));
     final ChannelStatementScope scope = new ChannelStatementScope(
             Channel.WECHAT, "a".repeat(64), LocalDate.of(2026, 10, 27), "wechat-trade-all-20260116");
-    final byte[] bytes = "complete-source".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    final byte[] evidence = "private-evidence".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    final byte[] bytes = "complete-source".getBytes(StandardCharsets.UTF_8);
+    final byte[] evidence = "private-evidence".getBytes(StandardCharsets.UTF_8);
 
     @Test
     void routesOnlyTheSelectedIndependentProviderAndRejectsChangedScopeOrSourceBytes() throws Exception {
@@ -141,7 +143,6 @@ class DefaultChannelStatementFacadeTest {
     }
 
     private String digest(byte[] content) throws Exception {
-        return HexFormat.of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content));
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
     }
 }

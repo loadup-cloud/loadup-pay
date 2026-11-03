@@ -47,18 +47,20 @@ import io.github.loadup.pay.acquire.client.query.MerchantNotificationPageQuery;
 import io.github.loadup.pay.acquire.domain.gateway.MerchantNotificationGateway;
 import io.github.loadup.pay.acquire.domain.model.MerchantNotificationFilter;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class MerchantNotificationQueryServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(MerchantNotificationQueryConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final AtomicReference<MerchantNotificationActor> actor = new AtomicReference<>(new MerchantNotificationActor(
             "tenant", "MERCHANT_APP", "app", "merchant", Set.of("pay:acquire:notification:read")));
     final MerchantNotificationGateway deliveries = mock(MerchantNotificationGateway.class);
@@ -118,7 +120,7 @@ class MerchantNotificationQueryServiceTest {
         var first = page.getData().iterator().next();
         assertEquals(1, page.getData().size());
         assertEquals(original.id(), first.id());
-        var filter = org.mockito.ArgumentCaptor.forClass(MerchantNotificationFilter.class);
+        var filter = ArgumentCaptor.forClass(MerchantNotificationFilter.class);
         verify(deliveries).page(eq("tenant"), filter.capture());
         assertEquals("merchant", filter.getValue().payeeMerchantId());
         assertEquals("order", filter.getValue().orderId());

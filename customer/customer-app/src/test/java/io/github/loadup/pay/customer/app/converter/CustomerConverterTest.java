@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import io.github.loadup.pay.customer.domain.model.GrantState;
 import io.github.loadup.pay.customer.domain.model.MerchantRelationship;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class CustomerConverterTest {
             var model = MerchantRelationship.init("relation", "parent", "child", from, null)
                     .activate();
             var dto = converter.toDTO(model);
-            assertEquals(io.github.loadup.pay.customer.domain.model.GrantState.ACTIVE, dto.state());
+            assertEquals(GrantState.ACTIVE, dto.state());
             assertEquals(1, dto.version());
             assertEquals(8 * 3600, dto.validFrom().getOffset().getTotalSeconds());
             assertEquals(from, dto.validFrom().toLocalDateTime());

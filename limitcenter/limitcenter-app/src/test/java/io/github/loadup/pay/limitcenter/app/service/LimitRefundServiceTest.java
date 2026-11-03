@@ -73,7 +73,9 @@ import io.github.loadup.pay.limitcenter.domain.model.StoredLimitReservation;
 import io.github.loadup.pay.limitcenter.domain.policy.LimitWindowPolicy;
 import io.github.loadup.pay.payment.client.dto.RefundSettlementFactsDTO;
 import io.github.loadup.pay.payment.client.event.RefundOutcomeEventDTO;
+import io.github.loadup.pay.payment.domain.model.RefundState;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -94,7 +96,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class LimitRefundServiceTest {
     final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(LimitRefundConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final MerchantLimitGateway reservations = mock(MerchantLimitGateway.class);
     final LimitPolicyGateway policies = mock(LimitPolicyGateway.class);
     final LimitSettlementGateway settlements = mock(LimitSettlementGateway.class);
@@ -247,7 +249,7 @@ class LimitRefundServiceTest {
                     "merchant",
                     1000,
                     "CNY",
-                    io.github.loadup.pay.payment.domain.model.RefundState.SUCCEEDED,
+                    RefundState.SUCCEEDED,
                     2,
                     cumulative.get(),
                     "proof-" + refund);

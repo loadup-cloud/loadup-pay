@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
@@ -66,6 +67,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -191,7 +194,7 @@ class PaymentChannelCallbackServiceTest {
         var ack = TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input));
 
         assertEquals(acknowledgement(true), ack);
-        var captured = org.mockito.ArgumentCaptor.forClass(PaymentObservation.class);
+        var captured = ArgumentCaptor.forClass(PaymentObservation.class);
         verify(results).record(eq(TENANT), captured.capture());
         var callback = captured.getValue();
         assertEquals(ChannelPaymentOutcome.Kind.SUCCEEDED, callback.kind());
@@ -235,8 +238,8 @@ class PaymentChannelCallbackServiceTest {
             service.receive(ENDPOINT_REF, input);
         });
 
-        var captured = org.mockito.ArgumentCaptor.forClass(PaymentObservation.class);
-        verify(results, org.mockito.Mockito.times(2)).record(eq(TENANT), captured.capture());
+        var captured = ArgumentCaptor.forClass(PaymentObservation.class);
+        verify(results, Mockito.times(2)).record(eq(TENANT), captured.capture());
         assertEquals(
                 captured.getAllValues().get(0).receiptKey(),
                 captured.getAllValues().get(1).receiptKey());
@@ -244,8 +247,7 @@ class PaymentChannelCallbackServiceTest {
                 .get(0)
                 .sourceDigest()
                 .equals(captured.getAllValues().get(1).sourceDigest()));
-        verify(notifications, org.mockito.Mockito.times(2))
-                .acknowledgement(endpoint.get().channel(), true);
+        verify(notifications, Mockito.times(2)).acknowledgement(endpoint.get().channel(), true);
     }
 
     @Test
@@ -309,7 +311,7 @@ class PaymentChannelCallbackServiceTest {
         when(notifications.verify(any(), eq(input)))
                 .thenReturn(new VerifiedChannelNotification(
                         identity(),
-                        io.github.loadup.commons.money.Money.ofMinor(1, "CNY"),
+                        Money.ofMinor(1, "CNY"),
                         "notification-1",
                         "channel-transaction",
                         "PAID",
@@ -339,8 +341,7 @@ class PaymentChannelCallbackServiceTest {
         when(results.record(anyString(), any())).thenThrow(new IllegalStateException("unavailable"));
         assertEquals(
                 acknowledgement(false), TenantUtil.callWithTenant(TENANT, () -> service.receive(ENDPOINT_REF, input)));
-        verify(notifications, org.mockito.Mockito.times(2))
-                .acknowledgement(endpoint.get().channel(), false);
+        verify(notifications, Mockito.times(2)).acknowledgement(endpoint.get().channel(), false);
     }
 
     private void assertNoFinancialQueryAndNegativeAck() {

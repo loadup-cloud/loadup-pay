@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundPolicy;
 import io.github.loadup.pay.acquire.domain.model.OrderFee;
@@ -39,9 +40,9 @@ class OrderFeeTest {
                 .recordRefundBasis(2, 5000);
         assertEquals(fee, fee.recordRefundBasis(2, 5000));
         assertEquals(fee, fee.recordRefundBasis(1, 3000));
-        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(2, 4000));
-        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(1, 6000));
-        assertThrows(io.github.loadup.commons.error.DomainViolation.class, () -> fee.recordRefundBasis(3, 4000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(2, 4000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(1, 6000));
+        assertThrows(DomainViolation.class, () -> fee.recordRefundBasis(3, 4000));
     }
 
     @Test

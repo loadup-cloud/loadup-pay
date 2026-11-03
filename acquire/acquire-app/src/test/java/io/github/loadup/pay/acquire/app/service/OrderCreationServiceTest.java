@@ -68,14 +68,19 @@ import io.github.loadup.pay.acquire.app.port.OrderCreationCodec;
 import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
+import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
 import io.github.loadup.pay.acquire.domain.gateway.CheckoutSessionGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSession;
 import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
 import io.github.loadup.pay.acquire.domain.model.FeeState;
 import io.github.loadup.pay.acquire.domain.model.OrderCreateIntent;
+import io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.StoredCheckoutSession;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
+import io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand;
 import io.github.loadup.pay.product.client.dto.AcquiringTermsDTO;
 import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.client.dto.FeeTermsDTO;
@@ -86,6 +91,11 @@ import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
 import io.github.loadup.pay.product.domain.model.AdmissionDecision;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import java.math.BigDecimal;
@@ -100,6 +110,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -156,8 +167,8 @@ class OrderCreationServiceTest {
     final CheckoutCreateCommand checkout =
             new CheckoutCreateCommand("merchant", "M001", "scope", 10000, "CNY", "test order", null, null);
 
-    io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand direct() {
-        return new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand(
+    DirectPayRecoverCommand direct() {
+        return new DirectPayRecoverCommand(
                 "merchant",
                 "M001",
                 "scope",
@@ -167,15 +178,14 @@ class OrderCreationServiceTest {
                 null,
                 "first-action",
                 4000L,
-                new io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
-                io.github.loadup.pay.acquire.domain.model.PaymentInteractionKind.H5_SCENE);
+                new PaymentChoiceDTO(Channel.WECHAT, PaymentMethod.H5),
+                PaymentInteractionKind.H5_SCENE);
     }
 
     @Test
     void deadlineTaskFailureRollsBackMaterializationWithoutPublishingTheOrder() {
-        var failure = new CommonException(
-                io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE);
-        org.mockito.Mockito.doThrow(failure).when(deadlineTasks).register(eq("tenant"), any(), anyLong());
+        var failure = new CommonException(AcquireResultCodeEnum.DEPENDENCY_UNAVAILABLE);
+        Mockito.doThrow(failure).when(deadlineTasks).register(eq("tenant"), any(), anyLong());
         assertSame(failure, assertThrows(CommonException.class, () -> service.create(command)));
         assertTrue(manager.rollbacks > 0);
         verifyNoInteractions(snapshots);
@@ -277,7 +287,7 @@ class OrderCreationServiceTest {
                 IDEMPOTENCY_CONFLICT,
                 assertThrows(CommonException.class, () -> service.create(command))
                         .getResultCode());
-        var changed = new io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand(
+        var changed = new DirectPayRecoverCommand(
                 "merchant",
                 "M001",
                 "scope",
@@ -301,7 +311,7 @@ class OrderCreationServiceTest {
     @Test
     void directPayResumeWithoutA0NeverAllocatesAnOrderOrCallsAdmission() {
         assertSame(
-                io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.NOT_FOUND,
+                AcquireResultCodeEnum.NOT_FOUND,
                 assertThrows(CommonException.class, () -> service.resumeDirectPay(direct()))
                         .getResultCode());
         assertEquals(0, sequence.get());
@@ -332,7 +342,7 @@ class OrderCreationServiceTest {
         validation.close();
     }
 
-    OrderAdmissionDTO admitted(io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand cmd) {
+    OrderAdmissionDTO admitted(OrderAdmissionAuthorizeCommand cmd) {
         return new OrderAdmissionDTO(
                 "admission",
                 cmd.orderId(),
@@ -353,18 +363,10 @@ class OrderCreationServiceTest {
     AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new OrderTermsDTO(600, 3600, UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
-                new FeeTermsDTO(
-                        new BigDecimal("0.003"),
-                        0,
-                        RoundingMode.HALF_UP,
-                        0,
-                        null,
-                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
-                new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
+                new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN),
+                new RefundTermsDTO(true, true, 86400, RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO(
                         "policy",
@@ -372,8 +374,8 @@ class OrderCreationServiceTest {
                         "e".repeat(64),
                         false,
                         null,
-                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
+                        RefundAmountRestorePolicy.NO_RESTORE,
+                        RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");
@@ -535,7 +537,7 @@ class OrderCreationServiceTest {
 
     @Test
     void aMismatchedAdmissionCannotMaterializeTheOrder() {
-        doAnswer(call -> admitted(new io.github.loadup.pay.product.client.command.OrderAdmissionAuthorizeCommand(
+        doAnswer(call -> admitted(new OrderAdmissionAuthorizeCommand(
                         "wrong-order", "merchant", "scope", "a".repeat(64), 10000, "CNY", null)))
                 .when(product)
                 .authorize(any());

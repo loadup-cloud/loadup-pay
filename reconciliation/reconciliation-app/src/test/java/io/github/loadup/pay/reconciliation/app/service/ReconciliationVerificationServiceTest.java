@@ -71,6 +71,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificati
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationRequest;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationVerificationState;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -91,7 +92,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationVerificationServiceTest {
     final AnnotationConfigApplicationContext spring =
             new AnnotationConfigApplicationContext(ReconciliationVerificationConverter.class.getPackageName());
-    final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     final ReconciliationVerificationConverter converter = spring.getBean(ReconciliationVerificationConverter.class);
     final ReconciliationReviewService reviews = mock(ReconciliationReviewService.class);
     final ReconciliationVerificationGateway requests = mock(ReconciliationVerificationGateway.class);

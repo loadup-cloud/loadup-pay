@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
@@ -50,7 +52,7 @@ class WechatV2CodecTest {
                 "ibuaiVcKdpRxkhJA");
         assertEquals(
                 "6A9AE1657590FD6257D693A078E1C3E4BB6BA4DC30B23E0EE2496E54170DACD6",
-                java.util.HexFormat.of().withUpperCase().formatHex(codec.mac(fields, key)));
+                HexFormat.of().withUpperCase().formatHex(codec.mac(fields, key)));
     }
 
     @Test
@@ -106,7 +108,7 @@ class WechatV2CodecTest {
     void responseMayOmitSignTypeButMustStillCarryTheSelectedHmacAndSignedExtensions() {
         var fields = Map.of(
                 "return_code", "SUCCESS", "result_code", "FAIL", "err_code", "USERPAYING", "FutureField", "extension");
-        var signature = java.util.HexFormat.of().withUpperCase().formatHex(codec.mac(fields, key));
+        var signature = HexFormat.of().withUpperCase().formatHex(codec.mac(fields, key));
         String xml =
                 "<xml><return_code>SUCCESS</return_code><result_code>FAIL</result_code><err_code>USERPAYING</err_code>"
                         + "<FutureField>extension</FutureField><sign>" + signature + "</sign></xml>";
@@ -125,7 +127,7 @@ class WechatV2CodecTest {
 
     @Test
     void untrustedXmlCannotReadEntitiesChangeEncodingNestDuplicateOrAppendAnotherRoot() {
-        for (String invalid : java.util.List.of(
+        for (String invalid : List.of(
                 "<!DOCTYPE xml [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><xml><body>&x;</body></xml>",
                 "<xml><value><nested>1</nested></value></xml>",
                 "<xml><value>1</value><value>2</value></xml>",

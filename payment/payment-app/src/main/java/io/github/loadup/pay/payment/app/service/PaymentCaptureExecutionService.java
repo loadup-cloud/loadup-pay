@@ -26,6 +26,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
@@ -72,7 +73,7 @@ public class PaymentCaptureExecutionService {
         this.tasks = tasks;
         this.clock = clock;
         this.timeoutSeconds = timeoutSeconds;
-        this.reconciliationService = io.github.loadup.commons.validation.DomainChecks.id(reconciliationService);
+        this.reconciliationService = DomainChecks.id(reconciliationService);
     }
 
     public void handle(DelayedTask task) {

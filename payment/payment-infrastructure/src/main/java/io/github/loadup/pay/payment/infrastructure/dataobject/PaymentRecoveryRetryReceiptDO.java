@@ -22,6 +22,7 @@ package io.github.loadup.pay.payment.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class PaymentRecoveryRetryReceiptDO extends BaseDO {
     private String requestKey;
@@ -34,13 +35,13 @@ public class PaymentRecoveryRetryReceiptDO extends BaseDO {
     private String orderId;
     private String nativeTaskId;
     private Integer expectedAttempts;
-    private java.time.LocalDateTime expectedNextExecuteAt;
+    private LocalDateTime expectedNextExecuteAt;
 
     @DiagnosticHidden
     private String reason;
 
     private String result;
-    private java.time.LocalDateTime acceptedAt;
+    private LocalDateTime acceptedAt;
 
     public String getRequestKey() {
         return requestKey;
@@ -122,11 +123,11 @@ public class PaymentRecoveryRetryReceiptDO extends BaseDO {
         expectedAttempts = value;
     }
 
-    public java.time.LocalDateTime getExpectedNextExecuteAt() {
+    public LocalDateTime getExpectedNextExecuteAt() {
         return expectedNextExecuteAt;
     }
 
-    public void setExpectedNextExecuteAt(java.time.LocalDateTime value) {
+    public void setExpectedNextExecuteAt(LocalDateTime value) {
         expectedNextExecuteAt = value;
     }
 
@@ -146,11 +147,11 @@ public class PaymentRecoveryRetryReceiptDO extends BaseDO {
         result = value;
     }
 
-    public java.time.LocalDateTime getAcceptedAt() {
+    public LocalDateTime getAcceptedAt() {
         return acceptedAt;
     }
 
-    public void setAcceptedAt(java.time.LocalDateTime value) {
+    public void setAcceptedAt(LocalDateTime value) {
         acceptedAt = value;
     }
 

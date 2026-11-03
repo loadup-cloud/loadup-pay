@@ -27,6 +27,7 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUP
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.AccessMode;
+import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.http.HttpCall;
 import io.github.loadup.components.http.HttpTemplate;
 import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
@@ -115,8 +116,7 @@ public class AlipayProtocolClient {
                 throw new CommonException(DEPENDENCY_UNAVAILABLE);
             }
             var verified = codec.verify(method, credential, response.getBody());
-            return new AlipayVerifiedExchange(
-                    verified, io.github.loadup.commons.util.DigestUtils.sha256(body), response.getBody());
+            return new AlipayVerifiedExchange(verified, DigestUtils.sha256(body), response.getBody());
         } catch (CommonException failure) {
             throw failure;
         } catch (RuntimeException failure) {

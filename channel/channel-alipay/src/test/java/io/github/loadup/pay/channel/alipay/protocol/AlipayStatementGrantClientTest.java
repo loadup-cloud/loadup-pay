@@ -55,6 +55,7 @@ import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.components.kms.KmsSignature;
 import io.github.loadup.components.kms.KmsSignatureAlgorithm;
 import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
@@ -363,7 +364,7 @@ class AlipayStatementGrantClientTest {
         return TenantUtil.callWithTenant("tenant", () -> client.request(context, BILL_DATE));
     }
 
-    private void assertFailure(io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum code) {
+    private void assertFailure(ChannelResultCodeEnum code) {
         assertEquals(
                 code,
                 assertThrows(CommonException.class, () -> request(context(false)))

@@ -34,13 +34,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.time.BusinessTime;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
+import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
@@ -55,8 +58,11 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentActionDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentExecutionDTO;
+import io.github.loadup.pay.payment.client.dto.RedirectActionDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentActionGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentActionSource;
+import io.github.loadup.pay.payment.domain.model.PaymentActionType;
 import io.github.loadup.pay.payment.domain.model.PaymentAttempt;
 import io.github.loadup.pay.payment.domain.model.PaymentAttemptState;
 import io.github.loadup.pay.payment.domain.model.PaymentOrder;
@@ -71,8 +77,12 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 class PaymentActionServiceTest {
@@ -85,8 +95,7 @@ class PaymentActionServiceTest {
     private final PaymentAcceptanceCodec codec = mock(PaymentAcceptanceCodec.class);
     private final PaymentAcceptanceConverter views = mock(PaymentAcceptanceConverter.class);
     private final PaymentChannelInputConverter channelViews = mock(PaymentChannelInputConverter.class);
-    private final io.github.loadup.pay.channel.api.codec.ChannelActionCodec actionCodec =
-            mock(io.github.loadup.pay.channel.api.codec.ChannelActionCodec.class);
+    private final ChannelActionCodec actionCodec = mock(ChannelActionCodec.class);
     private final PaymentActionService service = new PaymentActionService(
             actions,
             attempts,
@@ -181,7 +190,7 @@ class PaymentActionServiceTest {
                 fixture.original().amount(),
                 fixture.original().executionEpoch(),
                 new AlipayJsapiChannelAction(tradeNo, expiry),
-                io.github.loadup.pay.payment.domain.model.PaymentActionSource.CHANNEL_RECEIPT,
+                PaymentActionSource.CHANNEL_RECEIPT,
                 "receipt-1",
                 "f".repeat(64),
                 AttemptFixtures.NOW);
@@ -296,7 +305,7 @@ class PaymentActionServiceTest {
                 "allocation",
                 4000,
                 "CNY",
-                io.github.loadup.pay.payment.domain.model.PaymentState.PROCESSING,
+                PaymentState.PROCESSING,
                 "attempt",
                 action,
                 null,
@@ -312,7 +321,7 @@ class PaymentActionServiceTest {
     @Test
     void localH5ActionIsStoredWithoutAReceiptAndHasItsOwnArtifactDigest() {
         var fixture = fixture(PaymentMethod.H5, 1, Money.ofMinor(4000, "CNY"));
-        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
+        var action = new AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
         var submission = new ChannelPaymentSubmission(
                 fixture.original().identity(), fixture.original().amount(), null, action);
         when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
@@ -323,16 +332,14 @@ class PaymentActionServiceTest {
 
         inTransaction(() -> service.record(TENANT, fixture.locked(), fixture.original(), submission, null));
 
-        var captured = org.mockito.ArgumentCaptor.forClass(StoredPaymentAction.class);
+        var captured = ArgumentCaptor.forClass(StoredPaymentAction.class);
         verify(actions).insert(eq(TENANT), captured.capture());
-        assertEquals(
-                io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED,
-                captured.getValue().source());
-        org.junit.jupiter.api.Assertions.assertNull(captured.getValue().receiptId());
+        assertEquals(PaymentActionSource.LOCAL_SIGNED, captured.getValue().source());
+        Assertions.assertNull(captured.getValue().receiptId());
         assertEquals(HASH, captured.getValue().sourceDigest());
         assertEquals(action, captured.getValue().action());
         var failure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() -> service.record(
                         TENANT, fixture.locked(), fixture.original(), submission, "fabricated-receipt")));
         assertEquals(INVALID_ARGUMENT, failure.getResultCode());
@@ -356,21 +363,19 @@ class PaymentActionServiceTest {
                 original.version() + 1);
         var unknown = acceptance(fixture.acceptance(), unknownOrder, null);
         var locked = locked(unknown, AttemptFixtures.gate(true), AttemptFixtures.gate(false));
-        var action = new io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
+        var action = new AlipayH5ChannelAction(wapUrl(), EXPIRES_AT);
         var stored = new StoredPaymentAction(
                 fixture.original().identity(),
                 fixture.original().amount(),
                 1,
                 action,
-                io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED,
+                PaymentActionSource.LOCAL_SIGNED,
                 null,
                 HASH,
                 AttemptFixtures.NOW);
         var base = dto(null);
         var actionDto = new PaymentActionDTO(
-                io.github.loadup.pay.payment.domain.model.PaymentActionType.REDIRECT,
-                EXPIRES_AT,
-                new io.github.loadup.pay.payment.client.dto.RedirectActionDTO(action.redirectUrl()));
+                PaymentActionType.REDIRECT, EXPIRES_AT, new RedirectActionDTO(action.redirectUrl()));
         var decorated = dto(actionDto);
         when(actions.find(TENANT, "attempt")).thenReturn(Optional.of(stored));
         when(attempts.find(TENANT, "attempt")).thenReturn(Optional.of(fixture.storedAttempt()));
@@ -407,7 +412,7 @@ class PaymentActionServiceTest {
                 TENANT, fixture.locked(), fixture.original(), submission(fixture, "trade-1", EXPIRES_AT), "receipt-2"));
 
         assertSame(first, saved.get());
-        verify(actions, org.mockito.Mockito.times(1)).insert(eq(TENANT), any());
+        verify(actions, Mockito.times(1)).insert(eq(TENANT), any());
     }
 
     @Test
@@ -418,14 +423,14 @@ class PaymentActionServiceTest {
 
         var changedTrade = submission(fixture, "trade-2", EXPIRES_AT);
         var tradeFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(
                         () -> service.record(TENANT, fixture.locked(), fixture.original(), changedTrade, "receipt-2")));
         assertEquals(OUTCOME_UNKNOWN, tradeFailure.getResultCode());
 
         var changedExpiry = submission(fixture, "trade-1", EXPIRES_AT.plusMinutes(1));
         var expiryFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() ->
                         service.record(TENANT, fixture.locked(), fixture.original(), changedExpiry, "receipt-3")));
         assertEquals(OUTCOME_UNKNOWN, expiryFailure.getResultCode());
@@ -439,7 +444,7 @@ class PaymentActionServiceTest {
 
         var wrongEpoch = fixture(PaymentMethod.JSAPI, 2, Money.ofMinor(4000, "CNY"));
         var epochFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() -> service.record(
                         TENANT,
                         wrongEpoch.locked(),
@@ -451,7 +456,7 @@ class PaymentActionServiceTest {
         var wrongAmount = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var largerOriginal = prepared(wrongAmount, Money.ofMinor(4001, "CNY"), PaymentMethod.JSAPI, 1);
         var amountFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() -> service.record(
                         TENANT,
                         wrongAmount.locked(),
@@ -462,7 +467,7 @@ class PaymentActionServiceTest {
 
         var wrongCaller = withAttemptCaller(fixture, "another-caller");
         var callerFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() -> service.record(
                         TENANT,
                         wrongCaller.locked(),
@@ -473,7 +478,7 @@ class PaymentActionServiceTest {
 
         var wrongMethod = fixture(PaymentMethod.PAYMENT_CODE, 1, Money.ofMinor(4000, "CNY"));
         var methodFailure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> inTransaction(() -> service.record(
                         TENANT,
                         wrongMethod.locked(),
@@ -536,8 +541,7 @@ class PaymentActionServiceTest {
     void presentReturnsTheCurrentUnexpiredActionAndHidesExpiredOrStaleActions() {
         var fixture = fixture(PaymentMethod.JSAPI, 1, Money.ofMinor(4000, "CNY"));
         var base = dto(null);
-        var actionDto = new PaymentActionDTO(
-                io.github.loadup.pay.payment.domain.model.PaymentActionType.INVOKE_JSAPI, EXPIRES_AT, null);
+        var actionDto = new PaymentActionDTO(PaymentActionType.INVOKE_JSAPI, EXPIRES_AT, null);
         var decorated = dto(actionDto);
         when(views.toDTO(fixture.acceptance())).thenReturn(base);
         when(channelViews.toAction(fixture.action())).thenReturn(actionDto);
@@ -567,7 +571,7 @@ class PaymentActionServiceTest {
         }
     }
 
-    private <T> T inTransaction(java.util.function.Supplier<T> work) {
+    private <T> T inTransaction(Supplier<T> work) {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             return TenantUtil.callWithTenant(TENANT, work::get);

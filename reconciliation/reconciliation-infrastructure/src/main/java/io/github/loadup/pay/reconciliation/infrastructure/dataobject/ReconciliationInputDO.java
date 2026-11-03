@@ -21,12 +21,13 @@ package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDate;
 
 public class ReconciliationInputDO extends BaseDO {
     private String side;
     private String channel;
     private String accountScopeHash;
-    private java.time.LocalDate billDate;
+    private LocalDate billDate;
     private String statementProfile;
     private String fileId;
     private String artifactSha256;
@@ -65,11 +66,11 @@ public class ReconciliationInputDO extends BaseDO {
         accountScopeHash = value;
     }
 
-    public java.time.LocalDate getBillDate() {
+    public LocalDate getBillDate() {
         return billDate;
     }
 
-    public void setBillDate(java.time.LocalDate value) {
+    public void setBillDate(LocalDate value) {
         billDate = value;
     }
 

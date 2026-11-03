@@ -32,6 +32,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.pay.channel.api.codec.ChannelActionCodec;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentAction;
 import io.github.loadup.pay.payment.domain.gateway.PaymentActionGateway;
+import io.github.loadup.pay.payment.domain.model.PaymentActionSource;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.infrastructure.converter.PaymentActionStorageConverter;
 import io.github.loadup.pay.payment.infrastructure.dataobject.PaymentActionDO;
@@ -88,7 +89,7 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
                 throw new CommonException(SNAPSHOT_INVALID);
             }
             var value = converter.toDomain(row, action);
-            if (value.source() == io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED
+            if (value.source() == PaymentActionSource.LOCAL_SIGNED
                     && !value.sourceDigest().equals(row.getPayloadHash())) {
                 throw new CommonException(SNAPSHOT_INVALID);
             }
@@ -119,7 +120,7 @@ public class PaymentActionGatewayImpl extends ServiceImpl<PaymentActionMapper, P
             if (payloadHash == null || !payloadHash.matches("[0-9a-f]{64}")) {
                 throw new CommonException(INVALID_ARGUMENT);
             }
-            if (value.source() == io.github.loadup.pay.payment.domain.model.PaymentActionSource.LOCAL_SIGNED
+            if (value.source() == PaymentActionSource.LOCAL_SIGNED
                     && !value.sourceDigest().equals(payloadHash)) {
                 throw new CommonException(INVALID_ARGUMENT);
             }

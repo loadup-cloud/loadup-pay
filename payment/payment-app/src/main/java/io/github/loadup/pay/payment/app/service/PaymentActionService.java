@@ -48,6 +48,7 @@ import io.github.loadup.pay.payment.domain.model.StoredPaymentAction;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -121,7 +122,7 @@ public class PaymentActionService {
             throw new CommonException(OUTCOME_UNKNOWN);
         }
         if (original instanceof PreparedChannelPayment prepared
-                && !java.util.Objects.equals(prepared.preparedInputRef(), attempt.preparedInputRef())) {
+                && !Objects.equals(prepared.preparedInputRef(), attempt.preparedInputRef())) {
             throw new CommonException(OUTCOME_UNKNOWN);
         }
         var command = codec.decode(locked.payment());

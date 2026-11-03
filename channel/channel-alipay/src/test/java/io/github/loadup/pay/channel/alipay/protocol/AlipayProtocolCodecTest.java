@@ -30,10 +30,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.components.kms.KmsKeyRef;
 import io.github.loadup.components.kms.KmsSignature;
 import io.github.loadup.components.kms.KmsSignatureAlgorithm;
 import io.github.loadup.components.kms.KmsTemplate;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -45,6 +48,8 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
 class AlipayProtocolCodecTest {
@@ -81,7 +86,7 @@ class AlipayProtocolCodecTest {
         var request = codec.sign(
                 AlipayMethod.PAY, credentials, business, Map.of("notify_url", "https://merchant.example/notify?a=b c"));
 
-        var bytes = org.mockito.ArgumentCaptor.forClass(byte[].class);
+        var bytes = ArgumentCaptor.forClass(byte[].class);
         verify(kms).sign(any(), eq(KmsSignatureAlgorithm.RSA_SHA256_PKCS1), bytes.capture());
         assertEquals(
                 "app_auth_token=secret-auth-token&app_id=app&biz_content=" + business
@@ -99,11 +104,9 @@ class AlipayProtocolCodecTest {
     @Test
     void wapSigningRefusesDelegatedTokensBeforeKmsRatherThanRemovingTheAuthorization() {
         var failure = assertThrows(
-                io.github.loadup.commons.error.CommonException.class,
+                CommonException.class,
                 () -> codec.sign(AlipayMethod.WAP_PAY, credentials, "{\"product_code\":\"QUICK_WAP_WAY\"}", Map.of()));
-        assertEquals(
-                io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY,
-                failure.getResultCode());
+        assertEquals(ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY, failure.getResultCode());
         verifyNoInteractions(kms);
     }
 
@@ -116,7 +119,7 @@ class AlipayProtocolCodecTest {
         var response = response(AlipayMethod.QUERY, raw, pair);
         var verified = codec.verify(AlipayMethod.QUERY, credentials, response.getBytes(StandardCharsets.UTF_8));
         assertEquals(raw, verified.payload());
-        assertEquals(io.github.loadup.commons.util.DigestUtils.sha256(raw), verified.sourceDigest());
+        assertEquals(DigestUtils.sha256(raw), verified.sourceDigest());
 
         assertThrows(
                 RuntimeException.class,
@@ -186,12 +189,12 @@ class AlipayProtocolCodecTest {
                 .thenReturn(signature("signer", 7, KmsSignatureAlgorithm.RSA_SHA256_PSS));
         assertThrows(RuntimeException.class, () -> codec.sign(AlipayMethod.PAY, credentials, "{\"x\":1}", Map.of()));
 
-        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertThrows(
                     RuntimeException.class, () -> codec.sign(AlipayMethod.PAY, credentials, "{\"x\":1}", Map.of()));
         } finally {
-            org.springframework.transaction.support.TransactionSynchronizationManager.clear();
+            TransactionSynchronizationManager.clear();
         }
     }
 }

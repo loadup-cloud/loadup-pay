@@ -29,9 +29,12 @@ import io.github.loadup.pay.acquire.app.converter.CheckoutConverter;
 import io.github.loadup.pay.acquire.app.security.CashierActorProvider;
 import io.github.loadup.pay.acquire.client.dto.CashierOrderDTO;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.model.CheckoutSessionState;
+import io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO;
 import jakarta.validation.Validator;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -83,10 +86,9 @@ public class CashierSummaryService {
                 throw new CommonException(SESSION_UNAUTHORIZED);
             }
             var session = access.read(actor, stored, "ORDER_SUMMARY");
-            var available =
-                    session.session().state() == io.github.loadup.pay.acquire.domain.model.CheckoutSessionState.ACTIVE
-                            ? choices.choices(stored, now)
-                            : java.util.Set.<io.github.loadup.pay.payment.client.dto.PaymentChoiceDTO>of();
+            var available = session.session().state() == CheckoutSessionState.ACTIVE
+                    ? choices.choices(stored, now)
+                    : Set.<PaymentChoiceDTO>of();
             return converter.toSummary(
                     orderConverter.toDTO(stored, now),
                     stored.subject(),

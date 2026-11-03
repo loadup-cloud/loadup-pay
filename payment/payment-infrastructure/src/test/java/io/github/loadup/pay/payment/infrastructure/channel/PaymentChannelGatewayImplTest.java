@@ -124,7 +124,7 @@ class PaymentChannelGatewayImplTest {
         var paymentRequest = new ChannelPaymentRequest(
                 payment,
                 "subject",
-                java.time.OffsetDateTime.parse("2026-10-23T12:00:00Z"),
+                OffsetDateTime.parse("2026-10-23T12:00:00Z"),
                 new ChannelPaymentCodeInput("123456"));
         var refund = new PreparedChannelRefund(
                 identity, "refund-1", "channel-refund-1", Money.ofMinor(500, "CNY"), AMOUNT, "channel-payment-1");

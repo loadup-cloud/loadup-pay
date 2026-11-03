@@ -33,6 +33,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.postgresql.util.PSQLException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -124,7 +125,7 @@ public class PolicyPublicationGatewayImpl
         return read(() -> Optional.ofNullable(getOne(QueryWrapper.create().eq("policy_id", policy))));
     }
 
-    private Optional<PolicyPublication> read(java.util.function.Supplier<Optional<ContractLimitPublicationDO>> lookup) {
+    private Optional<PolicyPublication> read(Supplier<Optional<ContractLimitPublicationDO>> lookup) {
         try {
             return lookup.get().map(this::map);
         } catch (IllegalArgumentException | NullPointerException invalid) {

@@ -46,6 +46,8 @@ import io.github.loadup.pay.acquire.domain.model.MerchantNotificationPolicy;
 import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.VerifiedPaymentOutcome;
 import io.github.loadup.pay.payment.client.event.RefundMerchantEventDTO;
+import io.github.loadup.pay.product.domain.model.AdmissionDecision;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -216,7 +218,7 @@ public class MerchantNotificationEvents {
     private Optional<MerchantNotificationPolicy> policy(StoredAcquireOrder stored) {
         var admitted = admissions.decodeAdmission(stored.admissionPayload(), stored.payloadHash());
         if (admitted == null
-                || admitted.decision() != io.github.loadup.pay.product.domain.model.AdmissionDecision.ADMITTED
+                || admitted.decision() != AdmissionDecision.ADMITTED
                 || !stored.admission().admissionId().equals(admitted.admissionId())
                 || !stored.order().id().equals(admitted.orderId())
                 || !stored.order().payeeMerchantId().equals(admitted.payeeMerchantId())
@@ -245,7 +247,7 @@ public class MerchantNotificationEvents {
             String eventId,
             String body,
             MerchantNotificationPolicy policy,
-            java.time.LocalDateTime occurredAt) {
+            LocalDateTime occurredAt) {
         String digest = DigestUtils.sha256(body);
         var prior = deliveries.findEvent(tenant, eventId, policy.targetRef());
         if (prior.isPresent()) {

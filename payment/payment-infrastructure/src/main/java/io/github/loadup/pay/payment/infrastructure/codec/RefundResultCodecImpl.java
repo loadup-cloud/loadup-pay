@@ -26,6 +26,7 @@ import io.github.loadup.pay.channel.api.model.RefundObservation;
 import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.port.RefundResultCodec;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,7 +53,7 @@ public class RefundResultCodecImpl implements RefundResultCodec {
     @Override
     public String factsDigest(RefundObservation o) {
         var value = new StringBuilder("refund-facts-v2/");
-        for (var field : java.util.List.of(
+        for (var field : List.of(
                 o.refundId(),
                 o.original().paymentId(),
                 o.original().attemptId(),

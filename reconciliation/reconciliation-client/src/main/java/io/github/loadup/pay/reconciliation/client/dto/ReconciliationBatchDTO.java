@@ -23,11 +23,15 @@ import static io.github.loadup.pay.reconciliation.client.support.ReconciliationC
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require;
 import static io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.text;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
+import java.util.Set;
 
 public record ReconciliationBatchDTO(
         @Schema(description = "Batch id") String batchId,
@@ -62,9 +66,7 @@ public record ReconciliationBatchDTO(
         @Schema(description = "Deterministic result SHA-256; null before completion")
         String resultHash,
 
-        @Schema(description = "Batch aggregate version")
-        @com.fasterxml.jackson.annotation.JsonProperty(required = true)
-        @com.fasterxml.jackson.annotation.JsonSetter(nulls = com.fasterxml.jackson.annotation.Nulls.FAIL)
+        @Schema(description = "Batch aggregate version") @JsonProperty(required = true) @JsonSetter(nulls = Nulls.FAIL)
         long version,
 
         @Schema(description = "Native task id; populated in detail after start")
@@ -85,7 +87,7 @@ public record ReconciliationBatchDTO(
         require((taskId != null) == (nativeStatus != null) && (taskId == null || runId != null));
         if (taskId != null) {
             text(taskId, 64);
-            require(java.util.Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
+            require(Set.of("PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED")
                     .contains(nativeStatus));
         }
         boolean complete = state == ReconciliationState.MATCHED || state == ReconciliationState.DIFFERENCES;

@@ -60,6 +60,7 @@ import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderFeeGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.FeeRefundReceipt;
+import io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder;
 import io.github.loadup.pay.acquire.domain.model.UnpaidOrderAction;
 import io.github.loadup.pay.payment.client.event.OrderRefundSummaryEventDTO;
 import java.nio.charset.StandardCharsets;
@@ -91,8 +92,7 @@ class FeeRefundOutcomeServiceTest {
     final UnitTransactions manager = new UnitTransactions();
     final AtomicInteger ids = new AtomicInteger();
     // Deliberately INIT: payment's refund fact may arrive before acquire has applied the payment outcome.
-    final io.github.loadup.pay.acquire.domain.model.StoredAcquireOrder stored =
-            order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
+    final StoredAcquireOrder stored = order(AcquireOrderState.INIT, UnpaidOrderAction.CLOSE, NOW.plusMinutes(10));
     final FeeRefundOutcomeService service = new FeeRefundOutcomeService(
             actor::get,
             payment,

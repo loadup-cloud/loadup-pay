@@ -29,8 +29,10 @@ import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.components.delayedtask.DelayedTaskHandler;
 import io.github.loadup.components.delayedtask.DelayedTaskStatus;
 import io.github.loadup.components.delayedtask.DelayedTaskTemplate;
+import io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand;
 import io.github.loadup.pay.acquire.domain.gateway.OrderClosureGateway;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
+import io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway;
 import io.github.loadup.pay.acquire.domain.model.AcquireOrderState;
 import io.github.loadup.pay.acquire.domain.model.OrderTaskKey;
 import java.time.Clock;
@@ -45,7 +47,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class OrderDeadlineService implements DelayedTaskHandler {
     private final DelayedTaskTemplate tasks;
     private final OrderCreationGateway orders;
-    private final io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions;
+    private final OrderExtensionGateway extensions;
     private final OrderClosureGateway closes;
     private final OrderClosureOperations operations;
     private final OrderCreationTransactions transactions;
@@ -55,7 +57,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
     public OrderDeadlineService(
             DelayedTaskTemplate tasks,
             OrderCreationGateway orders,
-            io.github.loadup.pay.acquire.domain.gateway.OrderExtensionGateway extensions,
+            OrderExtensionGateway extensions,
             OrderClosureGateway closes,
             OrderClosureOperations operations,
             OrderCreationTransactions transactions,
@@ -115,8 +117,7 @@ public class OrderDeadlineService implements DelayedTaskHandler {
                 operations.startLocked(
                         scope,
                         order,
-                        new io.github.loadup.pay.acquire.client.command.AcquireOrderCloseCommand(
-                                key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
+                        new AcquireOrderCloseCommand(key.orderId(), "order-deadline/" + version, "ORDER_EXPIRED"));
             } else if (!due.equals(order.order())) {
                 closes.keepPending(tenant, order.order(), due);
                 snapshots.publish(tenant, due.id(), due.version());

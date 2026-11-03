@@ -23,6 +23,7 @@ import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.validation.DomainChecks;
@@ -65,9 +66,7 @@ public record RefundOrder(
      * A durable one-way boundary: only the transaction winner may make the first network submission.
      */
     public RefundOrder beginSubmission() {
-        require(
-                state == RefundState.INIT && version == 0,
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_STATE);
+        require(state == RefundState.INIT && version == 0, DomainViolation.Reason.INVALID_STATE);
         return new RefundOrder(
                 id,
                 refundRequestId,

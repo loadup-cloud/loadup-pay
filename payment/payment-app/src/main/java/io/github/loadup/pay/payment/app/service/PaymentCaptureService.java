@@ -37,6 +37,7 @@ import io.github.loadup.pay.payment.app.converter.PaymentCaptureConverter;
 import io.github.loadup.pay.payment.app.security.PaymentActor;
 import io.github.loadup.pay.payment.app.security.PaymentActorProvider;
 import io.github.loadup.pay.payment.client.command.PaymentCaptureCreateCommand;
+import io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.client.facade.PaymentCaptureFacade;
@@ -52,6 +53,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -128,7 +130,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
     }
 
     @Override
-    public PaymentCaptureDTO retry(io.github.loadup.pay.payment.client.command.PaymentCaptureRetryCommand command) {
+    public PaymentCaptureDTO retry(PaymentCaptureRetryCommand command) {
         validate(command);
         var actor = actor("retry");
         return transactions.writeLocal(actor.tenantId(), () -> {
@@ -228,7 +230,7 @@ public class PaymentCaptureService implements PaymentCaptureFacade {
 
     private String digest(PaymentActor actor, PaymentCaptureCreateCommand command, String zone) {
         var framed = new StringBuilder();
-        for (var field : java.util.List.of(
+        for (var field : List.of(
                 "payment-capture-request-v1",
                 actor.tenantId(),
                 actor.serviceId(),

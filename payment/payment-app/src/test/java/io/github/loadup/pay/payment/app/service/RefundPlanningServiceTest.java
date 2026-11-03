@@ -55,6 +55,7 @@ import io.github.loadup.pay.payment.app.port.PaymentAcceptanceCodec;
 import io.github.loadup.pay.payment.app.security.RefundActor;
 import io.github.loadup.pay.payment.client.command.PaymentExecuteCommand;
 import io.github.loadup.pay.payment.client.command.RefundCreateCommand;
+import io.github.loadup.pay.payment.client.dto.RefundExplicitAllocationDTO;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAcceptanceGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentAttemptGateway;
 import io.github.loadup.pay.payment.domain.gateway.PaymentResultGateway;
@@ -65,6 +66,7 @@ import io.github.loadup.pay.payment.domain.model.PaymentOrder;
 import io.github.loadup.pay.payment.domain.model.PaymentRefundCapacity;
 import io.github.loadup.pay.payment.domain.model.RefundCapacityReservation;
 import io.github.loadup.pay.payment.domain.model.RefundRequestReference;
+import io.github.loadup.pay.payment.domain.model.RefundRequestState;
 import io.github.loadup.pay.payment.domain.model.RiskDecision;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAcceptance;
 import io.github.loadup.pay.payment.domain.model.StoredPaymentAttempt;
@@ -264,7 +266,7 @@ class RefundPlanningServiceTest {
     @Test
     void freezesFifoPlanOriginalIdentitiesAndAllReservationsInOneLocalTransaction() {
         var dto = service(AttemptFixtures.NOW).create(command(6000));
-        assertEquals(io.github.loadup.pay.payment.domain.model.RefundRequestState.INIT, dto.state());
+        assertEquals(RefundRequestState.INIT, dto.state());
         assertEquals(2, dto.allocations().size());
         assertEquals("z-old", dto.allocations().get(0).paymentId());
         assertEquals(3000, dto.allocations().get(0).amountMinor());
@@ -425,8 +427,7 @@ class RefundPlanningServiceTest {
                                 "R001",
                                 1,
                                 "CUSTOMER_REQUEST",
-                                List.of(new io.github.loadup.pay.payment.client.dto.RefundExplicitAllocationDTO(
-                                        "a-new", 1)))));
+                                List.of(new RefundExplicitAllocationDTO("a-new", 1)))));
         verifyNoInteractions(refunds);
     }
 }

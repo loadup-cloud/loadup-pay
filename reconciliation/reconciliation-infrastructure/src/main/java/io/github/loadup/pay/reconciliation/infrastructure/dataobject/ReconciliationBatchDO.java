@@ -21,6 +21,7 @@ package io.github.loadup.pay.reconciliation.infrastructure.dataobject;
 
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDate;
 
 public class ReconciliationBatchDO extends BaseDO {
     private String callerServiceId;
@@ -29,7 +30,7 @@ public class ReconciliationBatchDO extends BaseDO {
     private String channelAccountCode;
     private String channel;
     private String accountScopeHash;
-    private java.time.LocalDate billDate;
+    private LocalDate billDate;
     private String statementProfile;
     private String state;
     private String channelInputId;
@@ -88,11 +89,11 @@ public class ReconciliationBatchDO extends BaseDO {
         accountScopeHash = value;
     }
 
-    public java.time.LocalDate getBillDate() {
+    public LocalDate getBillDate() {
         return billDate;
     }
 
-    public void setBillDate(java.time.LocalDate value) {
+    public void setBillDate(LocalDate value) {
         billDate = value;
     }
 

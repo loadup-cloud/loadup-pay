@@ -34,6 +34,7 @@ import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.util.TenantUtil;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -80,8 +81,7 @@ class PublicationTransactionsTest {
         var exhausted = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal("tenant", () -> {
-                    throw new org.springframework.dao.ConcurrencyFailureException(
-                            "Synthetic repeated publication contention");
+                    throw new ConcurrencyFailureException("Synthetic repeated publication contention");
                 }));
         assertEquals(POLICY_PUBLICATION_CONFLICT, exhausted.getResultCode());
         assertEquals(6, manager.begins);

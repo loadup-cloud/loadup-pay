@@ -23,6 +23,7 @@ import com.mybatisflex.annotation.Table;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 @Table("payment_close_evidence")
 public class PaymentCloseEvidenceDO extends BaseDO {
@@ -41,7 +42,7 @@ public class PaymentCloseEvidenceDO extends BaseDO {
     private String receiptKey;
     private String sourceDigest;
     private Long executionEpoch;
-    private java.time.LocalDateTime recordedAt;
+    private LocalDateTime recordedAt;
 
     public String getPaymentId() {
         return paymentId;
@@ -139,11 +140,11 @@ public class PaymentCloseEvidenceDO extends BaseDO {
         executionEpoch = value;
     }
 
-    public java.time.LocalDateTime getRecordedAt() {
+    public LocalDateTime getRecordedAt() {
         return recordedAt;
     }
 
-    public void setRecordedAt(java.time.LocalDateTime value) {
+    public void setRecordedAt(LocalDateTime value) {
         recordedAt = value;
     }
 

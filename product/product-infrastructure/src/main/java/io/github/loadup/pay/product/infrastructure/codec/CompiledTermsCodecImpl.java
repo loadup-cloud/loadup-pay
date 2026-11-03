@@ -26,6 +26,7 @@ import io.github.loadup.modules.contract.app.support.ContractCodec;
 import io.github.loadup.pay.product.app.model.CompiledAcquiringTerms;
 import io.github.loadup.pay.product.app.model.EncodedAcquiringTerms;
 import io.github.loadup.pay.product.app.port.CompiledTermsCodec;
+import io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO;
 import io.github.loadup.pay.product.domain.model.StoredOrderAdmission;
 import jakarta.validation.Validator;
 import java.util.Comparator;
@@ -84,8 +85,8 @@ public class CompiledTermsCodecImpl implements CompiledTermsCodec {
         Map<String, Object> terms =
                 new TreeMap<>(mapper.convertValue(value.terms(), new TypeReference<Map<String, Object>>() {}));
         List<Map<String, Object>> capabilities = value.terms().capabilities().stream()
-                .sorted(Comparator.comparing((io.github.loadup.pay.product.client.dto.ChannelCapabilityDTO c) ->
-                                c.channel().name())
+                .sorted(Comparator.comparing(
+                                (ChannelCapabilityDTO c) -> c.channel().name())
                         .thenComparing(c -> c.accessMode().name()))
                 .map(c -> Map.<String, Object>of(
                         "channel",

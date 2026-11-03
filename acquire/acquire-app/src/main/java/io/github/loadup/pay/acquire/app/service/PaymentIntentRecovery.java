@@ -19,6 +19,7 @@
  */
 package io.github.loadup.pay.acquire.app.service;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.pay.payment.client.dto.PaymentCloseDTO;
 import java.util.Objects;
@@ -29,12 +30,11 @@ import java.util.Objects;
 public record PaymentIntentRecovery(State state, String paymentId, PaymentCloseDTO closed) {
     public PaymentIntentRecovery {
         Objects.requireNonNull(state);
-        io.github.loadup.commons.error.DomainViolation.require(
-                (state == State.RESOLVED) == (paymentId != null),
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
-        io.github.loadup.commons.error.DomainViolation.require(
+        DomainViolation.require(
+                (state == State.RESOLVED) == (paymentId != null), DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(
                 closed == null || state == State.RESOLVED && paymentId.equals(closed.paymentId()),
-                io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+                DomainViolation.Reason.INVALID_ARGUMENT);
     }
 
     @Override

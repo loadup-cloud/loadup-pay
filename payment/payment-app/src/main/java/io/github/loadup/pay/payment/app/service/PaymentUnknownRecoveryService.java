@@ -40,6 +40,7 @@ import io.github.loadup.pay.payment.domain.policy.RecoveryEscalationPolicy;
 import jakarta.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -103,7 +104,7 @@ public class PaymentUnknownRecoveryService implements PaymentUnknownRecoveryFaca
                     after,
                     query.afterRecordId(),
                     query.limit());
-        } catch (DomainViolation | java.time.DateTimeException invalid) {
+        } catch (DomainViolation | DateTimeException invalid) {
             throw new CommonException(INVALID_ARGUMENT);
         }
         return transactions.readSnapshot(actor.tenantId(), () -> {

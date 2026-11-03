@@ -43,6 +43,8 @@ import io.github.loadup.modules.contract.domain.model.ContractStatus;
 import io.github.loadup.modules.contract.domain.model.MerchantContract;
 import io.github.loadup.modules.contract.domain.model.MerchantContractRevision;
 import io.github.loadup.modules.contract.domain.model.TypedValue;
+import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
+import io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO;
 import io.github.loadup.pay.product.app.converter.OrderAdmissionConverter;
 import io.github.loadup.pay.product.app.model.ActivatedLimitPolicy;
 import io.github.loadup.pay.product.app.model.CompiledAcquiringTerms;
@@ -131,8 +133,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    private static Map<String, TypedValue> trustedFacts(
-            io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO merchant, AdmissionIntent intent) {
+    private static Map<String, TypedValue> trustedFacts(MerchantProfileDTO merchant, AdmissionIntent intent) {
         if (merchant == null) {
             throw new CommonException(DEPENDENCY_UNAVAILABLE);
         }
@@ -219,7 +220,7 @@ public class OrderAdmissionService implements OrderAdmissionFacade {
             String id,
             AdmissionIntent intent,
             ContractRecord header,
-            io.github.loadup.pay.customer.client.dto.MerchantEligibilityDTO eligibility,
+            MerchantEligibilityDTO eligibility,
             MerchantEligibilityFacts merchant,
             Instant at,
             LocalDateTime now) {

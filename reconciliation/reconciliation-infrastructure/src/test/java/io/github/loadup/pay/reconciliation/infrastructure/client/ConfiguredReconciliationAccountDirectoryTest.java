@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationScope;
+import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount;
 import io.github.loadup.pay.reconciliation.infrastructure.config.ReconciliationAccountsProperties;
 import java.time.LocalDate;
 import java.util.Map;
@@ -77,8 +78,7 @@ class ConfiguredReconciliationAccountDirectoryTest {
                                 Channel.WECHAT,
                                 "a".repeat(64),
                                 "profile",
-                                new io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount(
-                                        "1234567890", null),
+                                new ReconciliationStatementAccount("1234567890", null),
                                 null,
                                 Set.of("ops"))))));
         assertDoesNotThrow(() -> manualOnly.authorize("tenant", "ops", "account", scope));
@@ -95,8 +95,7 @@ class ConfiguredReconciliationAccountDirectoryTest {
                                 Channel.WECHAT,
                                 hash,
                                 profile,
-                                new io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementAccount(
-                                        "1234567890", null),
+                                new ReconciliationStatementAccount("1234567890", null),
                                 "revision",
                                 Set.of("ops"))))));
     }

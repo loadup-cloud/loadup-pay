@@ -20,10 +20,14 @@
 package io.github.loadup.pay.payment.app.converter;
 
 import io.github.loadup.commons.mapping.LoadUpMapStructConfig;
+import io.github.loadup.components.delayedtask.DelayedTask;
 import io.github.loadup.pay.payment.client.dto.PaymentCaptureDTO;
 import io.github.loadup.pay.payment.client.dto.PaymentLedgerLineDTO;
 import io.github.loadup.pay.payment.domain.model.PaymentCapture;
 import io.github.loadup.pay.payment.domain.model.PaymentLedgerLine;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -50,7 +54,7 @@ public interface PaymentCaptureConverter {
     @Mapping(target = "nativeStatus", source = "task.status")
     @Mapping(target = "attempts", source = "task.attempts")
     @Mapping(target = "maxAttempts", source = "task.maxAttempts")
-    PaymentCaptureDTO toDTO(PaymentCapture value, io.github.loadup.components.delayedtask.DelayedTask task);
+    PaymentCaptureDTO toDTO(PaymentCapture value, DelayedTask task);
 
     @Mapping(target = "ordinal", source = "value.ordinal")
     @Mapping(target = "kind", source = "value.kind")
@@ -66,7 +70,7 @@ public interface PaymentCaptureConverter {
     @Mapping(target = "sourceVersion", source = "value.sourceVersion")
     PaymentLedgerLineDTO toDTO(PaymentLedgerLine value, String zone);
 
-    default java.time.OffsetDateTime offset(java.time.LocalDateTime value, String zone) {
-        return value == null ? null : value.atZone(java.time.ZoneId.of(zone)).toOffsetDateTime();
+    default OffsetDateTime offset(LocalDateTime value, String zone) {
+        return value == null ? null : value.atZone(ZoneId.of(zone)).toOffsetDateTime();
     }
 }

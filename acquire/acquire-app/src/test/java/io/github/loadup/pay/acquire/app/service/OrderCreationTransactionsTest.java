@@ -28,7 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException;
+import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -86,7 +91,7 @@ class OrderCreationTransactionsTest {
 
     @Test
     void localWriteRetriesOnlyAfterRollbackAndRetainsTenantAcrossFreshReadCommittedAttempts() {
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var calls = new AtomicInteger();
         TenantUtil.callWithTenant("outer", () -> {
             assertEquals("committed", transactions.writeLocal("inner", () -> {
                 assertEquals("inner", TenantUtil.getTenantId());
@@ -96,8 +101,7 @@ class OrderCreationTransactionsTest {
                 int attempt = calls.incrementAndGet();
                 assertEquals(attempt - 1, manager.rollbacks);
                 if (attempt < 3) {
-                    throw new io.github.loadup.pay.acquire.app.port.AcquireWriteConflictException(
-                            "Synthetic local race");
+                    throw new AcquireWriteConflictException("Synthetic local race");
                 }
                 return "committed";
             }));
@@ -113,12 +117,12 @@ class OrderCreationTransactionsTest {
 
     @Test
     void unexpectedUniqueViolationIsNotRetried() {
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
-        var failure = new org.springframework.dao.DuplicateKeyException("Unexpected primary-key collision");
+        var calls = new AtomicInteger();
+        var failure = new DuplicateKeyException("Unexpected primary-key collision");
         assertSame(
                 failure,
                 assertThrows(
-                        org.springframework.dao.DuplicateKeyException.class,
+                        DuplicateKeyException.class,
                         () -> transactions.writeLocal("tenant", () -> {
                             calls.incrementAndGet();
                             throw failure;
@@ -129,21 +133,18 @@ class OrderCreationTransactionsTest {
 
     @Test
     void transientFailureIsBoundedAndBusinessFailureIsNotRetried() {
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var calls = new AtomicInteger();
         var exhausted = assertThrows(
                 CommonException.class,
                 () -> transactions.writeLocal("tenant", () -> {
                     calls.incrementAndGet();
-                    throw new org.springframework.dao.ConcurrencyFailureException("Synthetic local contention");
+                    throw new ConcurrencyFailureException("Synthetic local contention");
                 }));
-        assertEquals(
-                io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.CONCURRENT_UPDATE,
-                exhausted.getResultCode());
+        assertEquals(AcquireResultCodeEnum.CONCURRENT_UPDATE, exhausted.getResultCode());
         assertEquals(3, calls.get());
         assertEquals(3, manager.rollbacks);
         assertEquals(0, manager.commits);
-        var original =
-                new CommonException(io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_ARGUMENT);
+        var original = new CommonException(AcquireResultCodeEnum.INVALID_ARGUMENT);
         assertSame(
                 original,
                 assertThrows(
@@ -168,11 +169,11 @@ class OrderCreationTransactionsTest {
             }));
             assertEquals("tenant", TenantUtil.getTenantId());
             assertEquals(
-                    io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE,
+                    AcquireResultCodeEnum.INVALID_STATE,
                     assertThrows(CommonException.class, () -> transactions.writeLocal("tenant", () -> true))
                             .getResultCode());
             assertEquals(
-                    io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum.INVALID_STATE,
+                    AcquireResultCodeEnum.INVALID_STATE,
                     assertThrows(CommonException.class, () -> transactions.readSnapshot("tenant", () -> true))
                             .getResultCode());
             return true;

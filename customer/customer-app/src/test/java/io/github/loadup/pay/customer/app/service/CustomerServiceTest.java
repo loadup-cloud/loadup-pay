@@ -37,6 +37,7 @@ import io.github.loadup.commons.util.TenantUtil;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.globalunique.GlobalUniqueTemplate;
 import io.github.loadup.components.globalunique.model.GlobalUniqueClaim;
+import io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO;
 import io.github.loadup.modules.merchant.client.facade.MerchantQueryFacade;
 import io.github.loadup.pay.customer.app.converter.CustomerConverter;
 import io.github.loadup.pay.customer.app.security.CustomerActor;
@@ -92,8 +93,7 @@ class CustomerServiceTest {
     }
 
     private MerchantActionAuthorizeCommand query() {
-        return new MerchantActionAuthorizeCommand(
-                "child", io.github.loadup.pay.customer.domain.model.MerchantAction.CREATE_ORDER);
+        return new MerchantActionAuthorizeCommand("child", MerchantAction.CREATE_ORDER);
     }
 
     @Test
@@ -138,8 +138,7 @@ class CustomerServiceTest {
                         now.minusDays(1),
                         null)
                 .activate();
-        var profile = new io.github.loadup.modules.merchant.client.dto.MerchantProfileDTO(
-                "child", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true);
+        var profile = new MerchantProfileDTO("child", "M001", "ENTERPRISE", "RETAIL", "CN", null, null, true);
         when(authorization.findGrant("tenant", PrincipalType.MERCHANT_APP, "app", "child", MerchantAction.CREATE_ORDER))
                 .thenReturn(Optional.of(grant));
         when(facts.find("tenant", "parent")).thenReturn(Optional.of(new MerchantFacts("parent", true, 1)));

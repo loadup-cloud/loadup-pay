@@ -29,6 +29,7 @@ import io.github.loadup.commons.money.Money;
 import io.github.loadup.commons.payment.AccessMode;
 import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
+import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.ChannelBindingRevision;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
 import io.github.loadup.pay.payment.domain.model.NoCollectionEvidence;
@@ -58,8 +59,7 @@ class PaymentLifecycleTest {
                 "a".repeat(64),
                 "secret-reference",
                 "v1",
-                new io.github.loadup.pay.channel.api.model.AlipayAccountIdentity(
-                        "app", "seller", null, "auth-reference", "v1"),
+                new AlipayAccountIdentity("app", "seller", null, "auth-reference", "v1"),
                 Set.of(PaymentMethod.H5));
         return PaymentAttempt.init(
                 id, "payment", number, Money.ofMinor(1000, "CNY"), binding, PaymentMethod.H5, "req-" + id);

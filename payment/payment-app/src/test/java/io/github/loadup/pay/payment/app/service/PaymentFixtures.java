@@ -33,6 +33,11 @@ import io.github.loadup.pay.product.client.dto.NotificationTermsDTO;
 import io.github.loadup.pay.product.client.dto.OrderTermsDTO;
 import io.github.loadup.pay.product.client.dto.PaymentTermsDTO;
 import io.github.loadup.pay.product.client.dto.RefundTermsDTO;
+import io.github.loadup.pay.product.domain.model.FeeRefundPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAllocationPolicy;
+import io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy;
+import io.github.loadup.pay.product.domain.model.UnpaidOrderAction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
@@ -74,18 +79,10 @@ final class PaymentFixtures {
     static AcquiringTermsDTO terms() {
         return new AcquiringTermsDTO(
                 1,
-                new OrderTermsDTO(
-                        600, 3600, io.github.loadup.pay.product.domain.model.UnpaidOrderAction.CLOSE, false, 0, 300),
+                new OrderTermsDTO(600, 3600, UnpaidOrderAction.CLOSE, false, 0, 300),
                 new PaymentTermsDTO(1, 100000, null, true),
-                new FeeTermsDTO(
-                        new BigDecimal("0.003"),
-                        0,
-                        RoundingMode.HALF_UP,
-                        0,
-                        null,
-                        io.github.loadup.pay.product.domain.model.FeeRefundPolicy.NO_RETURN),
-                new RefundTermsDTO(
-                        true, true, 86400, io.github.loadup.pay.product.domain.model.RefundAllocationPolicy.FIFO),
+                new FeeTermsDTO(new BigDecimal("0.003"), 0, RoundingMode.HALF_UP, 0, null, FeeRefundPolicy.NO_RETURN),
+                new RefundTermsDTO(true, true, 86400, RefundAllocationPolicy.FIFO),
                 new NotificationTermsDTO(false, null, null, 1000, 1, BigDecimal.valueOf(2), 60, 5, 3600),
                 new LimitPolicyRefDTO(
                         "policy",
@@ -93,8 +90,8 @@ final class PaymentFixtures {
                         "e".repeat(64),
                         false,
                         null,
-                        io.github.loadup.pay.product.domain.model.RefundAmountRestorePolicy.NO_RESTORE,
-                        io.github.loadup.pay.product.domain.model.RefundCountRestorePolicy.NO_RESTORE),
+                        RefundAmountRestorePolicy.NO_RESTORE,
+                        RefundCountRestorePolicy.NO_RESTORE),
                 List.of(new ChannelCapabilityDTO(Channel.WECHAT, AccessMode.DIRECT, Set.of(PaymentMethod.H5))),
                 "routing-v1",
                 "return-v1");

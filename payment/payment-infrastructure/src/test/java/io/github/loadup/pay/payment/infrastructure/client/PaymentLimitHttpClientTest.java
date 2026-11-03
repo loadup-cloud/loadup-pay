@@ -29,6 +29,7 @@ import io.github.loadup.pay.limitcenter.client.error.LimitCenterResultCodeEnum;
 import io.github.loadup.pay.limitcenter.client.http.LimitCenterHttpService;
 import io.github.loadup.pay.limitcenter.domain.model.LimitReservationState;
 import io.github.loadup.pay.limitcenter.domain.model.LimitRestoreResult;
+import io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum;
 import io.github.loadup.pay.payment.infrastructure.config.PaymentLimitProperties;
 import java.time.Clock;
 import java.time.Instant;
@@ -177,7 +178,7 @@ class PaymentLimitHttpClientTest {
                 .when(limitCenterHttp)
                 .confirm(anyString(), any());
         assertSame(
-                io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                PaymentResultCodeEnum.LIMIT_EXCEEDED,
                 assertThrows(CommonException.class, () -> client.confirm("tenant", confirm))
                         .getResultCode());
     }
@@ -185,14 +186,10 @@ class PaymentLimitHttpClientTest {
     @Test
     void onlyTheExistingLimitFailureWhitelistIsMappedToLocalBusinessCodes() {
         var mappings = Map.of(
-                LimitCenterResultCodeEnum.EXCEEDED,
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_EXCEEDED,
-                LimitCenterResultCodeEnum.RESERVATION_EXPIRED,
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED,
-                LimitCenterResultCodeEnum.EXECUTION_FENCED,
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.EXECUTION_FENCED,
-                LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT,
-                        io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT,
+                LimitCenterResultCodeEnum.EXCEEDED, PaymentResultCodeEnum.LIMIT_EXCEEDED,
+                LimitCenterResultCodeEnum.RESERVATION_EXPIRED, PaymentResultCodeEnum.LIMIT_RESERVATION_EXPIRED,
+                LimitCenterResultCodeEnum.EXECUTION_FENCED, PaymentResultCodeEnum.EXECUTION_FENCED,
+                LimitCenterResultCodeEnum.IDEMPOTENCY_CONFLICT, PaymentResultCodeEnum.IDEMPOTENCY_CONFLICT,
                 LimitCenterResultCodeEnum.ACTION_FORBIDDEN, DEPENDENCY_UNAVAILABLE);
         mappings.forEach((remote, local) -> {
             doAnswer(invocation -> new SuccessResponse<>(Result.buildFailure(remote), null))

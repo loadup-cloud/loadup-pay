@@ -41,8 +41,10 @@ import io.github.loadup.pay.acquire.app.security.AcquireActor;
 import io.github.loadup.pay.acquire.app.security.AcquireActorProvider;
 import io.github.loadup.pay.acquire.client.command.AcquireOrderCreateCommand;
 import io.github.loadup.pay.acquire.client.command.CheckoutCreateCommand;
+import io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand;
 import io.github.loadup.pay.acquire.client.dto.AcquireOrderDTO;
 import io.github.loadup.pay.acquire.client.dto.CheckoutDTO;
+import io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum;
 import io.github.loadup.pay.acquire.client.facade.AcquireOrderCreationFacade;
 import io.github.loadup.pay.acquire.client.facade.CheckoutOrderFacade;
 import io.github.loadup.pay.acquire.domain.gateway.OrderCreationGateway;
@@ -132,19 +134,16 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
     }
 
     @Override
-    public AcquireOrderDTO createDirectPay(
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+    public AcquireOrderDTO createDirectPay(DirectPayRecoverCommand command) {
         return directPayOrder(command, true);
     }
 
     @Override
-    public AcquireOrderDTO resumeDirectPay(
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command) {
+    public AcquireOrderDTO resumeDirectPay(DirectPayRecoverCommand command) {
         return directPayOrder(command, false);
     }
 
-    private AcquireOrderDTO directPayOrder(
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand command, boolean allowCreate) {
+    private AcquireOrderDTO directPayOrder(DirectPayRecoverCommand command, boolean allowCreate) {
         validate(command);
         if (command.firstPaymentAmountMinor() > command.amountMinor()
                 || !command.interactionKind().supports(command.choice().method())) {
@@ -167,7 +166,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             AcquireActor actor,
             AcquireOrderCreateCommand command,
             CheckoutCreateCommand checkout,
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay,
+            DirectPayRecoverCommand directPay,
             boolean allowCreate) {
         DomainChecks.id(command.payeeMerchantId());
         DomainChecks.id(command.merchantOrderNo());
@@ -300,7 +299,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
             AcquireActor actor,
             AcquireOrderCreateCommand command,
             CheckoutCreateCommand checkout,
-            io.github.loadup.pay.acquire.client.command.DirectPayRecoverCommand directPay,
+            DirectPayRecoverCommand directPay,
             String digest) {
         if (!intent.callerScopeHash().equals(actor.scopeHash())) {
             throw new CommonException(ACTION_FORBIDDEN);
@@ -319,9 +318,7 @@ public class OrderCreationService implements AcquireOrderCreationFacade, Checkou
 
     private StoredAcquireOrder result(AcquireActor actor, OrderCreateIntent intent) {
         if ("REJECTED".equals(intent.state())) {
-            for (var code : new io.github.loadup.pay.acquire.client.error.AcquireResultCodeEnum[] {
-                CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE
-            }) {
+            for (var code : new AcquireResultCodeEnum[] {CONTRACT_NOT_ADMITTING, ACTION_FORBIDDEN, ORDER_NOT_PAYABLE}) {
                 if (code.getCode().equals(intent.resultCode())) {
                     throw new CommonException(code);
                 }

@@ -26,6 +26,7 @@ import static io.github.loadup.pay.reconciliation.client.error.ReconciliationRes
 
 import io.github.loadup.commons.domain.PageResult;
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.validation.DomainChecks;
 import io.github.loadup.components.database.id.IdGenerator;
 import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.reconciliation.app.model.StoredReconciliationDifference;
@@ -225,7 +226,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
     @Override
     public Optional<StoredReconciliationDifference> find(String tenant, String batchId, String differenceId) {
         ReconciliationStoreContext.readable(tenant);
-        io.github.loadup.commons.validation.DomainChecks.id(differenceId);
+        DomainChecks.id(differenceId);
         var batch = batch(tenant, batchId, false);
         if (!Set.of("MATCHED", "DIFFERENCES").contains(batch.getState())) {
             throw new CommonException(INVALID_STATE);
@@ -338,7 +339,7 @@ public class ReconciliationResultGatewayImpl implements ReconciliationResultGate
     }
 
     private ReconciliationBatchDO batch(String tenant, String id, boolean lock) {
-        io.github.loadup.commons.validation.DomainChecks.id(id);
+        DomainChecks.id(id);
         if (lock
                 && (jdbc.getJdbcTemplate().getDataSource() == null
                         || !TransactionSynchronizationManager.hasResource(

@@ -22,6 +22,7 @@ package io.github.loadup.pay.product.domain.policy;
 import static io.github.loadup.commons.error.DomainViolation.Reason.CONFLICT;
 import static io.github.loadup.commons.error.DomainViolation.require;
 
+import io.github.loadup.commons.error.DomainViolation;
 import io.github.loadup.pay.product.domain.model.AdmissionDecision;
 import io.github.loadup.pay.product.domain.model.AdmissionIntent;
 import io.github.loadup.pay.product.domain.model.MerchantContractFacts;
@@ -37,8 +38,7 @@ public final class OrderAdmissionPolicy {
     public boolean acceptsRequestedDeadline(AdmissionIntent intent, LocalDateTime now, long maximumWaitSeconds) {
         Objects.requireNonNull(intent);
         Objects.requireNonNull(now);
-        io.github.loadup.commons.error.DomainViolation.require(
-                maximumWaitSeconds > 0, io.github.loadup.commons.error.DomainViolation.Reason.INVALID_ARGUMENT);
+        DomainViolation.require(maximumWaitSeconds > 0, DomainViolation.Reason.INVALID_ARGUMENT);
         return intent.requestedDueAt() == null
                 || intent.requestedDueAt().isAfter(now)
                         && !intent.requestedDueAt().isAfter(now.plusSeconds(maximumWaitSeconds));

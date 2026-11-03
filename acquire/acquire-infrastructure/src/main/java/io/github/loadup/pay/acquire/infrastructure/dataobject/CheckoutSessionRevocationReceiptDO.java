@@ -22,6 +22,7 @@ package io.github.loadup.pay.acquire.infrastructure.dataobject;
 import io.github.loadup.commons.dataobject.BaseDO;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
+import java.time.LocalDateTime;
 
 public class CheckoutSessionRevocationReceiptDO extends BaseDO {
     private String sessionId;
@@ -36,8 +37,8 @@ public class CheckoutSessionRevocationReceiptDO extends BaseDO {
     private Boolean newlyRevoked;
     private Long beforeVersion;
     private Long sessionVersion;
-    private java.time.LocalDateTime revokedAt;
-    private java.time.LocalDateTime acceptedAt;
+    private LocalDateTime revokedAt;
+    private LocalDateTime acceptedAt;
 
     public String getSessionId() {
         return sessionId;
@@ -111,19 +112,19 @@ public class CheckoutSessionRevocationReceiptDO extends BaseDO {
         sessionVersion = value;
     }
 
-    public java.time.LocalDateTime getRevokedAt() {
+    public LocalDateTime getRevokedAt() {
         return revokedAt;
     }
 
-    public void setRevokedAt(java.time.LocalDateTime value) {
+    public void setRevokedAt(LocalDateTime value) {
         revokedAt = value;
     }
 
-    public java.time.LocalDateTime getAcceptedAt() {
+    public LocalDateTime getAcceptedAt() {
         return acceptedAt;
     }
 
-    public void setAcceptedAt(java.time.LocalDateTime value) {
+    public void setAcceptedAt(LocalDateTime value) {
         acceptedAt = value;
     }
 

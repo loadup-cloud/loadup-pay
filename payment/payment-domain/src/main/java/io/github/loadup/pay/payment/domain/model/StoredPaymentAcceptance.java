@@ -25,6 +25,7 @@ import static io.github.loadup.commons.error.DomainViolation.require;
 import io.github.loadup.commons.json.DiagnosticHidden;
 import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.validation.DomainChecks;
+import java.util.Objects;
 
 /**
  * Owner-local immutable payment intent snapshot, retained without raw channel input or credentials.
@@ -38,7 +39,7 @@ public record StoredPaymentAcceptance(
         String payloadHash,
         String terminalEvidenceId) {
     public StoredPaymentAcceptance {
-        java.util.Objects.requireNonNull(payment);
+        Objects.requireNonNull(payment);
         DomainChecks.id(admissionId);
         DomainChecks.id(callerServiceId);
         DomainChecks.text(intentPayload, 262144);

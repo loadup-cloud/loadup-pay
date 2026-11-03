@@ -31,6 +31,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.UN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.validation.DomainChecks;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.facade.ChannelStatementFacade;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelStatementRequest;
@@ -120,17 +121,17 @@ public class PaymentStatementService implements PaymentStatementFacade {
     }
 
     private CommonException translate(CommonException failure) {
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_READY
+        if (ChannelResultCodeEnum.STATEMENT_NOT_READY
                 .getCode()
                 .equals(failure.getResultCode().getCode())) {
             return new CommonException(STATEMENT_NOT_READY);
         }
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.STATEMENT_NOT_FOUND
+        if (ChannelResultCodeEnum.STATEMENT_NOT_FOUND
                 .getCode()
                 .equals(failure.getResultCode().getCode())) {
             return new CommonException(STATEMENT_NOT_FOUND);
         }
-        if (io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
+        if (ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY
                 .getCode()
                 .equals(failure.getResultCode().getCode())) {
             return new CommonException(UNSUPPORTED_CAPABILITY);

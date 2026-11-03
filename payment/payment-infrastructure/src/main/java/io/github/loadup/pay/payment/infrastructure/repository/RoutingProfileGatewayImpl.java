@@ -26,6 +26,7 @@ import static io.github.loadup.pay.payment.client.error.PaymentResultCodeEnum.SN
 
 import io.github.loadup.commons.error.CommonException;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.components.database.tenant.TenantContext;
 import io.github.loadup.pay.payment.app.port.PaymentWriteConflictException;
 import io.github.loadup.pay.payment.app.port.RoutingProfileCodec;
 import io.github.loadup.pay.payment.domain.gateway.RoutingProfileGateway;
@@ -108,7 +109,7 @@ public class RoutingProfileGatewayImpl implements RoutingProfileGateway {
             if (!spec.profileRef().equals(row.getProfileRef())
                     || !spec.payeeMerchantId().equals(row.getPayeeMerchantId())
                     || !codec.requestDigest(
-                                    io.github.loadup.components.database.tenant.TenantContext.tenantId(),
+                                    TenantContext.tenantId(),
                                     row.getCallerServiceId(),
                                     row.getRequestKey(),
                                     row.getContentHash())

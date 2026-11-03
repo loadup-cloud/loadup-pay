@@ -33,15 +33,20 @@ import static org.mockito.Mockito.when;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationAcknowledgement;
 import io.github.loadup.pay.channel.api.model.ChannelNotificationInput;
 import io.github.loadup.pay.payment.client.facade.PaymentChannelCallbackFacade;
+import io.github.loadup.pay.payment.client.facade.RefundChannelCallbackFacade;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -50,14 +55,13 @@ class PaymentChannelCallbackControllerTest {
     private static final String ENDPOINT_REF = "trusted-endpoint";
 
     private final PaymentChannelCallbackFacade callbacks = mock(PaymentChannelCallbackFacade.class);
-    private final io.github.loadup.pay.payment.client.facade.RefundChannelCallbackFacade refundCallbacks =
-            mock(io.github.loadup.pay.payment.client.facade.RefundChannelCallbackFacade.class);
+    private final RefundChannelCallbackFacade refundCallbacks = mock(RefundChannelCallbackFacade.class);
     private final PaymentChannelCallbackController controller =
             new PaymentChannelCallbackController(callbacks, refundCallbacks);
 
     @Test
     void refundEndpointDelegatesRawJsonAndSignatureHeadersOnlyToRefundFacade() throws IOException {
-        byte[] body = "{\"refund\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] body = "{\"refund\":true}".getBytes(StandardCharsets.UTF_8);
         var request = request(body, null);
         when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON_VALUE);
         when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of("Wechatpay-Signature")));
@@ -72,19 +76,19 @@ class PaymentChannelCallbackControllerTest {
         assertEquals("{\"code\":\"SUCCESS\"}", response.getBody());
         assertEquals(MediaType.APPLICATION_JSON, response.getHeaders().getContentType());
         assertEquals("no-store", response.getHeaders().getCacheControl());
-        var captured = org.mockito.ArgumentCaptor.forClass(ChannelNotificationInput.class);
+        var captured = ArgumentCaptor.forClass(ChannelNotificationInput.class);
         verify(refundCallbacks).receive(eq(ENDPOINT_REF), captured.capture());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, captured.getValue().contentType());
         assertArrayEquals(body, captured.getValue().body());
         assertEquals(
-                java.util.Map.of("wechatpay-signature", List.of("refund-signature")),
+                Map.of("wechatpay-signature", List.of("refund-signature")),
                 captured.getValue().headers());
         verify(callbacks, never()).receive(anyString(), any());
     }
 
     @Test
     void refundEndpointPropagatesNativeNegativeAcknowledgement() throws IOException {
-        var request = request("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+        var request = request("{}".getBytes(StandardCharsets.UTF_8), null);
         when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON_VALUE);
         when(refundCallbacks.receive(eq(ENDPOINT_REF), any(ChannelNotificationInput.class)))
                 .thenReturn(new ChannelNotificationAcknowledgement(500, "text/plain", "retry"));
@@ -99,7 +103,7 @@ class PaymentChannelCallbackControllerTest {
 
     @Test
     void validRequestReturnsOnlyTheFixedNativeAcknowledgementAndPassesRawBytes() throws IOException {
-        byte[] body = "notify=raw%2Bbody&sign=signature".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] body = "notify=raw%2Bbody&sign=signature".getBytes(StandardCharsets.UTF_8);
         var request = request(body, null);
         var acknowledgement = new ChannelNotificationAcknowledgement(200, "text/plain", "provider-native-ack");
         when(callbacks.receive(eq(ENDPOINT_REF), any(ChannelNotificationInput.class)))
@@ -111,19 +115,19 @@ class PaymentChannelCallbackControllerTest {
         assertEquals("provider-native-ack", response.getBody());
         assertEquals(MediaType.TEXT_PLAIN, response.getHeaders().getContentType());
         assertEquals("no-store", response.getHeaders().getCacheControl());
-        var captured = org.mockito.ArgumentCaptor.forClass(ChannelNotificationInput.class);
+        var captured = ArgumentCaptor.forClass(ChannelNotificationInput.class);
         verify(callbacks).receive(eq(ENDPOINT_REF), captured.capture());
         assertEquals(
                 MediaType.APPLICATION_FORM_URLENCODED_VALUE, captured.getValue().contentType());
         assertArrayEquals(body, captured.getValue().body());
-        assertEquals(java.util.Map.of(), captured.getValue().headers());
+        assertEquals(Map.of(), captured.getValue().headers());
         verify(request, never()).getHeader(anyString());
         verify(request, never()).getParameter(anyString());
     }
 
     @Test
     void propagatesNativeNegativeAcknowledgementStatus() throws IOException {
-        var request = request("notify=raw".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+        var request = request("notify=raw".getBytes(StandardCharsets.UTF_8), null);
         when(callbacks.receive(eq(ENDPOINT_REF), any(ChannelNotificationInput.class)))
                 .thenReturn(new ChannelNotificationAcknowledgement(503, "text/plain", "retry"));
 
@@ -136,7 +140,7 @@ class PaymentChannelCallbackControllerTest {
 
     @Test
     void capturesRawBytesAndVendorHeadersWithoutAChannelSpecificAllowlist() throws IOException {
-        byte[] body = "{\"event\":\"paid\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] body = "{\"event\":\"paid\"}".getBytes(StandardCharsets.UTF_8);
         var request = request(body, null);
         when(request.getContentType()).thenReturn(MediaType.APPLICATION_JSON_VALUE);
         when(request.getHeaderNames())
@@ -163,12 +167,12 @@ class PaymentChannelCallbackControllerTest {
 
         controller.receive(ENDPOINT_REF, request);
 
-        var captured = org.mockito.ArgumentCaptor.forClass(ChannelNotificationInput.class);
+        var captured = ArgumentCaptor.forClass(ChannelNotificationInput.class);
         verify(callbacks).receive(eq(ENDPOINT_REF), captured.capture());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, captured.getValue().contentType());
         assertArrayEquals(body, captured.getValue().body());
         assertEquals(
-                java.util.Map.of(
+                Map.of(
                         "wechatpay-serial", List.of("serial-1", "serial-2"),
                         "wechatpay-timestamp", List.of("timestamp"),
                         "wechatpay-nonce", List.of("nonce"),
@@ -182,8 +186,8 @@ class PaymentChannelCallbackControllerTest {
 
     @Test
     void tooManyHeaderNamesAreRejectedBeforeCallingTheFacade() throws IOException {
-        var request = request("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
-        var names = java.util.stream.IntStream.rangeClosed(0, ChannelNotificationInput.MAX_HEADER_NAMES)
+        var request = request("{}".getBytes(StandardCharsets.UTF_8), null);
+        var names = IntStream.rangeClosed(0, ChannelNotificationInput.MAX_HEADER_NAMES)
                 .mapToObj(index -> "X-Header-" + index)
                 .toList();
         when(request.getHeaderNames()).thenReturn(Collections.enumeration(names));
@@ -199,7 +203,7 @@ class PaymentChannelCallbackControllerTest {
 
     @Test
     void tooManyValuesAreRejectedInsteadOfDroppingDuplicateSignatureHeaders() throws IOException {
-        var request = request("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8), null);
+        var request = request("{}".getBytes(StandardCharsets.UTF_8), null);
         when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of("X-Provider-Signature")));
         when(request.getHeaders("X-Provider-Signature"))
                 .thenReturn(Collections.enumeration(
@@ -235,10 +239,7 @@ class PaymentChannelCallbackControllerTest {
     @Test
     void queryParametersCannotSupplyCallbackTenantOrOtherTrustedFields() throws IOException {
         var response = controller.receive(
-                ENDPOINT_REF,
-                request(
-                        "notify=raw".getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                        "tenant=attacker&channel=WECHAT"));
+                ENDPOINT_REF, request("notify=raw".getBytes(StandardCharsets.UTF_8), "tenant=attacker&channel=WECHAT"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         verify(callbacks, never()).receive(anyString(), any());

@@ -20,6 +20,7 @@
 package io.github.loadup.pay.reconciliation.client.command;
 
 import io.github.loadup.commons.json.ToStringAsJson;
+import io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -43,8 +44,7 @@ public record ReconciliationBatchCreateCommand(
         @Schema(description = "Channel statement date", example = "2026-10-26", format = "date") @NotNull
         LocalDate billDate) {
     public ReconciliationBatchCreateCommand {
-        io.github.loadup.pay.reconciliation.client.support.ReconciliationContracts.require(
-                billDate != null && billDate.getYear() >= 1970 && billDate.getYear() <= 9998);
+        ReconciliationContracts.require(billDate != null && billDate.getYear() >= 1970 && billDate.getYear() <= 9998);
     }
 
     @Override

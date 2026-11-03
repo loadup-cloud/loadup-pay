@@ -77,6 +77,7 @@ import io.github.loadup.pay.reconciliation.domain.model.ReconciliationStatementA
 import io.github.loadup.pay.reconciliation.domain.model.ReconciliationTotals;
 import io.github.loadup.pay.reconciliation.domain.model.StoredReconciliationBatch;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -98,7 +99,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 class ReconciliationImportServiceTest {
     private final AnnotationConfigApplicationContext context =
             new AnnotationConfigApplicationContext(ReconciliationConverter.class.getPackageName());
-    private final jakarta.validation.ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
+    private final ValidatorFactory validation = Validation.buildDefaultValidatorFactory();
     private final ReconciliationImportGateway imports = mock(ReconciliationImportGateway.class);
     private final ReconciliationBatchGateway batches = mock(ReconciliationBatchGateway.class);
     private final ReconciliationInputGateway inputs = mock(ReconciliationInputGateway.class);

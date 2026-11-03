@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -407,8 +408,8 @@ public class LimitSettlementService implements LimitSettlementFacade {
 
     private String digest(String kind, LimitActor actor, String... fields) {
         var canonical = new StringBuilder();
-        for (String value : java.util.stream.Stream.concat(
-                        java.util.stream.Stream.of("limit.settlement.v1", kind, actor.tenantId(), actor.serviceId()),
+        for (String value : Stream.concat(
+                        Stream.of("limit.settlement.v1", kind, actor.tenantId(), actor.serviceId()),
                         Arrays.stream(fields))
                 .toList()) {
             canonical

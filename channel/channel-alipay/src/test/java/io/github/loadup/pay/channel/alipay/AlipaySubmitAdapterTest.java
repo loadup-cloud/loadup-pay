@@ -45,10 +45,12 @@ import io.github.loadup.commons.payment.Channel;
 import io.github.loadup.commons.payment.PaymentMethod;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.commons.util.TenantUtil;
+import io.github.loadup.pay.channel.alipay.config.AlipayH5Properties;
 import io.github.loadup.pay.channel.alipay.config.AlipayNotificationProperties;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayMethod;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayProtocolClient;
 import io.github.loadup.pay.channel.alipay.protocol.AlipayVerifiedResponse;
+import io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum;
 import io.github.loadup.pay.channel.api.model.AlipayAccountIdentity;
 import io.github.loadup.pay.channel.api.model.AlipayH5ChannelAction;
 import io.github.loadup.pay.channel.api.model.AlipayJsapiChannelAction;
@@ -65,6 +67,7 @@ import io.github.loadup.pay.channel.api.model.NoChannelInput;
 import io.github.loadup.pay.channel.api.model.PayerIdentityType;
 import io.github.loadup.pay.channel.api.model.PaymentObservation;
 import io.github.loadup.pay.channel.api.model.PreparedChannelPayment;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -72,6 +75,7 @@ import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -89,12 +93,7 @@ class AlipaySubmitAdapterTest {
     private final AlipayPaymentAdapter queries = new AlipayPaymentAdapter(client, json, CLOCK);
     private final AlipayNotificationProperties notifications = new AlipayNotificationProperties(Map.of());
     private final AlipaySubmitAdapter adapter = new AlipaySubmitAdapter(
-            client,
-            queries,
-            json,
-            CLOCK,
-            notifications,
-            new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(null, Map.of()));
+            client, queries, json, CLOCK, notifications, new AlipayH5Properties(null, Map.of()));
     private final ChannelExecutionContext direct = context(
             "revision-1",
             HASH,
@@ -161,16 +160,16 @@ class AlipaySubmitAdapterTest {
 
     @Test
     void directH5PreparesOnlyAnOriginalSignedRedirectWithoutAChannelObservation() {
-        var callback = java.net.URI.create("https://callbacks.example.test/alipay");
-        var returnUrl = java.net.URI.create("https://checkout.example.test/return");
+        var callback = URI.create("https://callbacks.example.test/alipay");
+        var returnUrl = URI.create("https://checkout.example.test/return");
         var configured = new AlipaySubmitAdapter(
                 client,
                 queries,
                 json,
                 CLOCK,
                 new AlipayNotificationProperties(Map.of("tenant", Map.of("revision-1", callback))),
-                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(
-                        java.net.URI.create("https://openapi.alipay.com/gateway.do"),
+                new AlipayH5Properties(
+                        URI.create("https://openapi.alipay.com/gateway.do"),
                         Map.of("tenant", Map.of("revision-1", returnUrl))));
         var request = request(direct, PaymentMethod.H5, new NoChannelInput(), EXPIRY);
         String url = wapUrl();
@@ -185,12 +184,12 @@ class AlipaySubmitAdapterTest {
         var action = assertInstanceOf(AlipayH5ChannelAction.class, result.action());
         assertEquals(url, action.redirectUrl());
         assertEquals(EXPIRY.withNano(0), action.expiresAt());
-        var body = org.mockito.ArgumentCaptor.forClass(String.class);
+        var body = ArgumentCaptor.forClass(String.class);
         verify(client)
                 .directWapUrl(
                         eq("tenant"),
                         eq(direct.binding()),
-                        eq(java.net.URI.create("https://openapi.alipay.com/gateway.do")),
+                        eq(URI.create("https://openapi.alipay.com/gateway.do")),
                         body.capture(),
                         eq(Map.of("notify_url", callback.toASCIIString(), "return_url", returnUrl.toASCIIString())));
         var business = json.readValue(body.getValue(), Map.class);
@@ -214,17 +213,14 @@ class AlipaySubmitAdapterTest {
                 queries,
                 json,
                 CLOCK,
-                new AlipayNotificationProperties(Map.of(
-                        "tenant", Map.of("revision-1", java.net.URI.create("https://callbacks.example.test/alipay")))),
-                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(
-                        java.net.URI.create("https://openapi.alipay.com/gateway.do"), Map.of()));
+                new AlipayNotificationProperties(
+                        Map.of("tenant", Map.of("revision-1", URI.create("https://callbacks.example.test/alipay")))),
+                new AlipayH5Properties(URI.create("https://openapi.alipay.com/gateway.do"), Map.of()));
         var request = request(delegated, PaymentMethod.H5, new NoChannelInput(), EXPIRY);
         var failure = assertThrows(
                 CommonException.class,
                 () -> TenantUtil.runWithTenant("tenant", () -> configured.validate(delegated, validation(request))));
-        assertEquals(
-                io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY,
-                failure.getResultCode());
+        assertEquals(ChannelResultCodeEnum.UNSUPPORTED_CAPABILITY, failure.getResultCode());
         verifyNoInteractions(client);
     }
 
@@ -360,22 +356,12 @@ class AlipaySubmitAdapterTest {
 
     @Test
     void onlyJsapiCreateUsesTenantAndFrozenBindingNotificationUrl() throws Exception {
-        var callback = java.net.URI.create("https://callbacks.example/tenant/payment-notify");
+        var callback = URI.create("https://callbacks.example/tenant/payment-notify");
         var notifications = new AlipayNotificationProperties(Map.of(
-                "tenant",
-                        Map.of(
-                                "revision-1",
-                                callback,
-                                "other-revision",
-                                java.net.URI.create("https://other.example/path")),
-                "other-tenant", Map.of("revision-1", java.net.URI.create("https://other-tenant.example/path"))));
+                "tenant", Map.of("revision-1", callback, "other-revision", URI.create("https://other.example/path")),
+                "other-tenant", Map.of("revision-1", URI.create("https://other-tenant.example/path"))));
         var configured = new AlipaySubmitAdapter(
-                client,
-                queries,
-                json,
-                CLOCK,
-                notifications,
-                new io.github.loadup.pay.channel.alipay.config.AlipayH5Properties(null, Map.of()));
+                client, queries, json, CLOCK, notifications, new AlipayH5Properties(null, Map.of()));
         var expectedAdditional = Map.of("notify_url", callback.toASCIIString());
         var jsapiRequest = request(
                 direct,
@@ -396,7 +382,7 @@ class AlipaySubmitAdapterTest {
         var created = TenantUtil.callWithTenant("tenant", () -> configured.submit(direct, jsapiRequest));
 
         assertEquals(TRADE_NO, created.observation().channelTransactionNo());
-        var createCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var createCaptor = ArgumentCaptor.forClass(String.class);
         verify(client)
                 .call(
                         eq("tenant"),
@@ -577,7 +563,7 @@ class AlipaySubmitAdapterTest {
     }
 
     private String requestBody(AlipayMethod method) throws Exception {
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var captor = ArgumentCaptor.forClass(String.class);
         verify(client, atLeastOnce()).call(eq("tenant"), any(), eq(method), captor.capture(), eq(Map.of()));
         return captor.getValue();
     }

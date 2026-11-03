@@ -48,10 +48,13 @@ import io.github.loadup.pay.payment.infrastructure.dataobject.RefundOrderDO;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
@@ -65,9 +68,8 @@ class RefundAcceptanceGatewayImplTest {
             new AnnotationConfigApplicationContext(RefundStorageConverter.class.getPackageName());
     private final RefundAcceptanceStorageConverter converter = context.getBean(RefundAcceptanceStorageConverter.class);
     private final NamedParameterJdbcTemplate receipts = mock(NamedParameterJdbcTemplate.class);
-    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate =
-            mock(org.springframework.jdbc.core.JdbcTemplate.class);
-    private final javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
+    private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+    private final DataSource dataSource = mock(DataSource.class);
     private final RefundAcceptanceGatewayImpl gateway = new RefundAcceptanceGatewayImpl(
             receipts, converter, context.getBean(RefundStorageConverter.class), Clock.systemDefaultZone());
     private final LocalDateTime at = LocalDateTime.of(2026, 10, 26, 23, 59);
@@ -99,17 +101,17 @@ class RefundAcceptanceGatewayImplTest {
         when(receipts.query(
                         contains("FROM refund_order"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundOrderDO>>any()))
                 .thenReturn(List.of(child));
         when(receipts.query(
                         contains("FROM refund_channel_receipt"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<String>>any()))
+                        ArgumentMatchers.<RowMapper<String>>any()))
                 .thenReturn(List.of("APPLIED"));
         when(receipts.query(
                         contains("FROM refund_acceptance_evidence"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
                 .thenReturn(List.of());
         when(receipts.update(contains("INSERT INTO refund_acceptance_evidence"), any(SqlParameterSource.class)))
                 .thenReturn(1);
@@ -130,7 +132,7 @@ class RefundAcceptanceGatewayImplTest {
         when(receipts.query(
                         contains("FROM refund_acceptance_evidence"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
+                        ArgumentMatchers.<RowMapper<RefundAcceptanceDO>>any()))
                 .thenReturn(List.of(stored));
         assertTrue(TenantUtil.callWithTenant(
                 "tenant", () -> gateway.remember("tenant", evidence(at, "later-receipt"), 2L)));
@@ -161,7 +163,7 @@ class RefundAcceptanceGatewayImplTest {
         when(receipts.query(
                         contains("FROM refund_channel_receipt"),
                         any(SqlParameterSource.class),
-                        org.mockito.ArgumentMatchers.<RowMapper<String>>any()))
+                        ArgumentMatchers.<RowMapper<String>>any()))
                 .thenReturn(List.of());
         assertThrows(
                 CommonException.class,

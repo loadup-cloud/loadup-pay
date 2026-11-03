@@ -23,6 +23,7 @@ import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.CHANN
 import static io.github.loadup.pay.channel.api.error.ChannelResultCodeEnum.INVALID_ARGUMENT;
 
 import io.github.loadup.commons.error.CommonException;
+import io.github.loadup.commons.json.ToStringAsJson;
 import io.github.loadup.commons.util.DigestUtils;
 import io.github.loadup.pay.channel.api.model.ChannelExecutionContext;
 import io.github.loadup.pay.channel.api.model.ChannelPaymentOutcome;
@@ -39,6 +40,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -207,14 +209,14 @@ public final class WechatPaymentAdapter {
                 tradeNo,
                 succeededAt,
                 source,
-                source.name().toLowerCase(java.util.Locale.ROOT) + ":" + digest,
+                source.name().toLowerCase(Locale.ROOT) + ":" + digest,
                 digest);
     }
 
     private record Probe(PaymentObservation observation, String tradeType) {
         @Override
         public String toString() {
-            return io.github.loadup.commons.json.ToStringAsJson.reflectionToString(this);
+            return ToStringAsJson.reflectionToString(this);
         }
     }
 }
