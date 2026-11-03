@@ -77,6 +77,8 @@ HTTP readiness、滚动策略与排空预算已补；HTTP NetworkPolicy 与网�
 
 验收：服务发现由 K8s 托管，配置生效方式可预测、可追溯、可回退；HTTP 健康检查不代替真实业务调用验证。
 
+2026-11-03 实际发布：八应用已更新为 auth-20261103-verified 并就绪；PostgreSQL/KMS 签发、JWKS 公钥、本地验签、拒绝访问、客户端缓存及网关收银台基础检查通过。未执行单元/集成测试，未等待续取/密钥轮换窗口，未做金融写请求或动态 schema 验收。详见 [运行记录](deploy/LOCAL_DEVELOPMENT.md)。
+
 ### 租户与 schema 隔离补齐
 
 - [ ] 复用 commons-context 的 ScopedValue ContextHolder，建立可信租户注册与 tenantId → 当前应用 schema 映射，避免直接使用租户 ID 作为物理 schema。

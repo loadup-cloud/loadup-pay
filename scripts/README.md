@@ -83,7 +83,7 @@ CONFIG_VERSION=cfg-001 SECRET_VERSION=sec-001 ./acquire/deploy.sh
 `render-deploy.py`只处理`deploy/pay.yml`
 经 kubectl 本地 dry-run 输出的 JSON：全量选择 25 个资源（Namespace、八组 NetworkPolicy/Deployment/HTTP Service），单应用选择 4 个资源。
 渲染器要求八应用均为普通 ClusterIP HTTP 8080，只允许 http 容器端口，拒绝旧 Headless Service、缺失或错配 Service。
-全量发布先应用 AuthServer 并等待就绪，再发布七个业务应用；保留完整发布归档，AuthServer 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
+全量发布先应用 AuthServer 并等待就绪，再逐个发布七个业务应用；保留完整发布归档，AuthServer 失败时不会继续启动消费者。单应用发布不会重新应用其他应用的镜像或副本配置。全部资源校验完成后才输出，管道启用pipefail；构建或镜像缺失时不提交部署。
 
 ## 验收范围
 

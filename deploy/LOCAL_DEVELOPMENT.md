@@ -1,3 +1,14 @@
+## 2026-11-03 AuthServer 发布验证
+
+- 八个应用统一镜像标签 `auth-20261103-verified`，context `orbstack`、namespace `loadup-pay`，Deployment 与 Service EndpointSlice 均就绪。
+- 配置版本 `cfg-dev-75c1d739c3ec`，环境与 KeyStore Secret 版本 `sec-dev-5221047f7b4d`；完整引用清单已归档到 deploy/releases。
+- 框架必要组件及八个应用已执行 clean 构建，未执行单元或集成测试。
+- 实际验证：client_credentials 签发约 5 分钟令牌，JWKS 仅公开公钥；错误凭证/越权 scope 拒绝；支付应用验证令牌后，对不存在的 ID 返回 PAYMENT_NOT_FOUND；缺令牌/错误 audience/篡改签名拒绝。只做不存在记录的查询，没有付款或退款写请求。
+- 实际共享 OAuth 客户端成功申请配置 scope，同一注册重复获取复用缓存，未注册租户路由拒绝；未等待令牌过期，不把此检查当成续取或轮换验收。
+- 修复 Spring JwsHeader 算法对象转 Nimbus JSON 的错误；资源认证结果改用 JWT 专用类型，经过默认凭证清理仍保留已验证 JWT 与 LoadUpUser，相关测试源码已补。
+- 本地同时滚动曾触发 PostgreSQL 连接耗尽。dev 池上限 5、最小空闲 1；脚本改为 AuthServer 就绪后逐个更新消费者。最终观察每应用 2 个数据库连接，历史重启记录保留。
+- `https://pay.loadup.local/checkout` 通过当前自签名 CA 检查返回 HTTP 200。完整业务、长期续取、密钥轮换与动态租户 schema 路由仍待验收。
+
 > 下述为旧版本运行记录。本次源码已转向独立 AuthServer 自动取令牌，但尚未构建或部署；旧 JWT/Secret/JWKS 未自动退役。当前操作见 [AuthServer](../authserver/README.md)。
 
 # 本地开发环境

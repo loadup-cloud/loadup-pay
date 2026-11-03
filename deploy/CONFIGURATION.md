@@ -22,7 +22,7 @@ APP_ENV=dev IMAGE_TAG=auth-002 ./scripts/up.sh all
 APP_ENV=dev ./scripts/configmap.sh update payment
 ```
 
-up.sh 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
+up.sh 先为选定应用计算 cfg-<环境>-<摘要> / sec-<环境>-<摘要>，再创建或复用快照，最后构建和发布。构建会先安装所需 framework 组件；全量发布先等待 AuthServer 就绪，再逐个发布业务应用。普通配置和授权进入配置摘要；密码和 KeyStore 进入 Secret 摘要。相同内容可以复用，同名不同内容拒绝覆盖。单应用和 all 的计算范围不同，保存实际发布记录用于回退。
 
 直接 deploy.sh/render.sh 仍要求显式版本。发布前预检所有配置引用及 immutable 属性，再检查镜像并 apply。全量清单为 25 个资源：Namespace、八组 NetworkPolicy/Deployment/HTTP Service；单应用为 4 个。
 
@@ -51,3 +51,5 @@ CONFIG_VERSION=cfg-unused SECRET_VERSION=sec-unused ./scripts/configmap.sh delet
 NetworkPolicy 在工作负载前应用；AuthServer 只允许声明的内部应用和监控命名空间访问，没有公开网关入口。Gateway API + Envoy Gateway 仍单独发布，参见 [网关说明](gateway/README.md)。
 
 Java 授权链路、客户端缓存续取和脚本配置/渲染回归测试源码已更新，未执行。后续需验证真实 PostgreSQL、KMS、跨进程 JWKS、权限失败、凭证/密钥轮换、多副本、排空、发布回退和金融业务请求。Pod 就绪不代表这些验收通过。
+
+开发环境数据库池上限为 5、最小空闲为 1，为同一 PostgreSQL 上的八应用滚动更新预留连接；其他环境应按数据库容量单独规划。最近一次真实发布记录见 [本地环境](LOCAL_DEVELOPMENT.md)。
